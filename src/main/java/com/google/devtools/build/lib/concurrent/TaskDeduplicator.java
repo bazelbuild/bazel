@@ -40,7 +40,8 @@ import javax.annotation.Nullable;
  * see. Callers that all need the same thing pass a predicate that is always true.
  *
  * <p>At most one execution per key is joinable at a time, but an execution that has been taken over
- * keeps running for the callers that already joined it.
+ * keeps running for the callers that already joined it. In particular, full deduplication is not
+ * guaranteed and executions must support being run concurrently.
  *
  * <p>Any futures returned by this class can be individually canceled without affecting other
  * callers. The shared task is only canceled if all callers have canceled their futures and the task
@@ -74,7 +75,7 @@ public final class TaskDeduplicator<K, A, V> {
   @CheckReturnValue
   public ListenableFuture<V> execute(
       K key,
-      A attributes,
+      @Nullable A attributes,
       Predicate<? super A> canJoin,
       Supplier<ListenableFuture<V>> taskSupplier) {
     var isNewHolder = new boolean[1];
@@ -106,15 +107,16 @@ public final class TaskDeduplicator<K, A, V> {
    * A future adapter that is canceled only when {@link #cancel} has been called one more time than
    * {@link #retain}.
    */
+  @VisibleForTesting
   static final class RefcountedFuture<A, V> extends AbstractFuture<V> {
-    private final A attributes;
+    @Nullable private final A attributes;
     private final ListenableFuture<V> delegate;
     // Initialized to 1 in the constructor and incremented via retain(). Once it drops to 0, it
     // can never return to 1 or higher (0 is a sticky state).
     private final AtomicInteger refcount = new AtomicInteger(1);
     private volatile boolean mayInterruptIfRunning = true;
 
-    RefcountedFuture(A attributes, ListenableFuture<V> delegate) {
+    RefcountedFuture(@Nullable A attributes, ListenableFuture<V> delegate) {
       this.attributes = attributes;
       this.delegate = delegate;
       // Completes this future with the delegate's outcome and forwards a cancellation of this
@@ -123,6 +125,7 @@ public final class TaskDeduplicator<K, A, V> {
     }
 
     /** Returns the attributes this execution was started with. */
+    @Nullable
     A attributes() {
       return attributes;
     }
@@ -141,7 +144,6 @@ public final class TaskDeduplicator<K, A, V> {
       return false;
     }
 
-    @Nullable
     @Override
     protected String pendingToString() {
       return "delegate=[%s (%d active uses)]".formatted(delegate, refcount.get());
