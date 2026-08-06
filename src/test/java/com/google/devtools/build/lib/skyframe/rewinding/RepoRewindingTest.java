@@ -52,7 +52,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BooleanSupplier;
 import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -320,7 +319,7 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void unrelatedActionExecutingWhileRepoRefetches() throws Exception {
+  public void unrelatedActionReadingWhileRepoRefetches() throws Exception {
     writeRepoRule();
     write("repo/content_a.txt", "old");
     appendToModuleFile(
@@ -355,6 +354,8 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
         """);
 
     CountDownLatch readerStarted = new CountDownLatch(1);
+    CountDownLatch repoDeleted = new CountDownLatch(1);
+    CountDownLatch allowRepoRefetch = new CountDownLatch(1);
     AtomicReference<Artifact> lostInput = new AtomicReference<>();
     helper.addSpawnShim(
         "Executing genrule //test:consume_lost",
@@ -369,28 +370,29 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
           write("repo/content_a.txt", "new");
           Path markerFile = markerFileForRepoOf(input);
           checkState(markerFile.delete(), "marker file %s did not exist", markerFile);
+          // Pause the refetch after it has deleted the old repo but before it can recreate it, so
+          // that the reader below deterministically accesses its input during that window.
+          rewindableFs.pauseAfterNextRepoDeletion(
+              input.getPath().getParentDirectory().asFragment(), repoDeleted, allowRepoRefetch);
           return helper.createLostInputsExecException(context, ImmutableList.of(input));
         });
     helper.addSpawnShim(
         "Executing genrule //test:reader",
         (spawn, context) -> {
           readerStarted.countDown();
-          // Hold off the actual execution until the repo has been refetched (which rewrites the
-          // marker file deleted by the shim above) to ensure that an action that was already
-          // executing when the repo's contents were replaced still completes successfully.
           Artifact input = (Artifact) SpawnInputUtils.getInputWithName(spawn, "other.txt");
-          Path markerFile = markerFileForRepoOf(input);
-          Path srcFile = input.getPath().getParentDirectory().getChild("src.txt");
-          waitFor(
-              () -> {
-                try {
-                  return markerFile.exists()
-                      && new String(FileSystemUtils.readContentAsLatin1(srcFile)).equals("new\n");
-                } catch (IOException e) {
-                  return false;
-                }
-              },
-              "the repo to be refetched");
+          checkState(
+              Uninterruptibles.awaitUninterruptibly(repoDeleted, 60, SECONDS),
+              "timed out waiting for the repo to be deleted during refetch");
+          try {
+            // An unrelated action that was already executing must retain access to its inputs while
+            // another file from the same repo is recovered. The current in-place refetch deletes
+            // this file before recreating the repo, so this read reproduces the race.
+            assertThat(new String(FileSystemUtils.readContentAsLatin1(input.getPath())))
+                .isEqualTo("other");
+          } finally {
+            allowRepoRefetch.countDown();
+          }
           return ExecResult.delegate();
         });
 
@@ -647,14 +649,6 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
         .getRelative(RepositoryName.createUnvalidated(repoName).getMarkerFileName());
   }
 
-  private static void waitFor(BooleanSupplier condition, String what) throws InterruptedException {
-    long deadlineMillis = System.currentTimeMillis() + 60_000;
-    while (!condition.getAsBoolean()) {
-      checkState(System.currentTimeMillis() < deadlineMillis, "timed out waiting for %s", what);
-      Thread.sleep(50);
-    }
-  }
-
   /**
    * A {@link DelegateFileSystem} that simulates the {@link RewindableRepoFileSystem} capability of
    * the file system that serves repo contents from the remote repo contents cache.
@@ -670,6 +664,7 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
     // repo has been fetched again.
     private final Set<String> reposToLoseOnce = ConcurrentHashMap.newKeySet();
     private final Set<String> pathsToLoseOnce = ConcurrentHashMap.newKeySet();
+    private final AtomicReference<RepoDeletionPause> repoDeletionPause = new AtomicReference<>();
 
     RewindableRepoFileSystemForTesting(FileSystem delegateFs, String outputBaseName) {
       super(delegateFs);
@@ -678,6 +673,28 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
 
     void loseOnNextMaterialization(String repoName) {
       reposToLoseOnce.add(repoName);
+    }
+
+    void pauseAfterNextRepoDeletion(
+        PathFragment repoDir, CountDownLatch repoDeleted, CountDownLatch allowRepoRefetch) {
+      checkState(
+          repoDeletionPause.compareAndSet(
+              null, new RepoDeletionPause(repoDir, repoDeleted, allowRepoRefetch)),
+          "a repo deletion pause is already configured");
+    }
+
+    @Override
+    public void deleteTree(PathFragment path) throws IOException {
+      super.deleteTree(path);
+      RepoDeletionPause pause = repoDeletionPause.get();
+      if (pause != null
+          && path.equals(pause.repoDir())
+          && repoDeletionPause.compareAndSet(pause, null)) {
+        pause.repoDeleted().countDown();
+        checkState(
+            Uninterruptibles.awaitUninterruptibly(pause.allowRepoRefetch(), 60, SECONDS),
+            "timed out waiting to continue the repo refetch");
+      }
     }
 
     /**
@@ -775,5 +792,10 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
     void setExternalDir(PathFragment externalDir) {
       externalDirSupplier.set(externalDir);
     }
+
+    private record RepoDeletionPause(
+        PathFragment repoDir,
+        CountDownLatch repoDeleted,
+        CountDownLatch allowRepoRefetch) {}
   }
 }
