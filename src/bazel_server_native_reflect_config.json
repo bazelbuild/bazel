@@ -1,0 +1,298 @@
+[
+  {
+    "name": "com.google.devtools.build.lib.bazel.BazelStartupOptionsModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.profiler.CommandProfilerModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.starlarkprofiler.CpuProfilerModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.runtime.NoSpawnCacheModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.runtime.CommandLogModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.runtime.MemoryPressureModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.runtime.ThreadDumpModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.platform.SleepPreventionModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.platform.SystemSuspensionModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.bazel.BazelFileSystemModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.runtime.mobileinstall.MobileInstallModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.bazel.BazelDiffAwarenessModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.remote.RemoteModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.bazel.BazelRepositoryModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryDebugModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.bazel.debug.WorkspaceRuleModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.bazel.coverage.BazelCoverageReportModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.starlarkdebug.module.StarlarkDebuggerModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.bazel.CacheHitReportingModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.bazel.SpawnLogModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.outputfilter.OutputFilteringModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.worker.WorkerModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.runtime.CacheFileDigestsModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.standalone.StandaloneModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.sandbox.SandboxModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.runtime.BuildSummaryStatsModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.dynamic.DynamicExecutionModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.bazel.rules.BazelRulesModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.bazel.rules.BazelStrategyModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.network.NoOpConnectivityModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.profiler.memory.AllocationTrackerModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.packages.metrics.PackageMetricsModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.runtime.ExecutionGraphModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.bazel.BazelBuiltinCommandModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.includescanning.IncludeScanningModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.skyframe.SkymeldModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.skyframe.serialization.SerializationModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.runtime.BlockWaitingModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.buildeventservice.BazelBuildEventServiceModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder$PostGCMemoryUseRecorderModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder$GcAfterBuildModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.metrics.MetricsModule",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.vfs.bazel.Blake3MessageDigest",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.vfs.bazel.Blake3Provider",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.vfs.GitSha1MessageDigest",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.vfs.GitSha1Provider",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.common.collect.Interners$InternerImpl",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "java.util.ArrayList",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "java.util.LinkedHashMap",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "java.util.LinkedHashSet",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "java.util.TreeMap",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "jdk.internal.misc.Blocker",
+    "methods": [
+      {
+        "name": "begin",
+        "parameterTypes": []
+      },
+      {
+        "name": "end",
+        "parameterTypes": [
+          "boolean"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "com.google.devtools.build.lib.util.SimpleLogHandler",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.util.SimpleLogHandler$HandlerQuerier",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.util.SingleLineFormatter",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "java.time.Instant",
+    "allPublicMethods": true
+  },
+  {
+    "name": "io.netty.channel.epoll.EpollSocketChannel",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.netty.channel.epoll.EpollDomainSocketChannel",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.netty.channel.socket.nio.NioSocketChannel",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.netty.channel.epoll.EpollChannelOption",
+    "allPublicFields": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.authandtls.credentialhelper.GetCredentialsRequest$GsonTypeAdapter",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "com.google.devtools.build.lib.authandtls.credentialhelper.GetCredentialsResponse$GsonTypeAdapter",
+    "allDeclaredConstructors": true,
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  }
+]
