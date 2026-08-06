@@ -84,8 +84,7 @@ class UrlRewriterConfig {
   /**
    * Constructor for a single file. The {@code config} will be read to completion.
    *
-   * @throws UrlRewriterParseException If the file contents was invalid.
-   * @throws UncheckedIOException If any processing problems occur.
+   * @throws UrlRewriterParseException If the file contents was invalid, or could not be read.
    */
   public UrlRewriterConfig(String filePathForErrorReporting, Reader config)
       throws UrlRewriterParseException {
@@ -95,8 +94,7 @@ class UrlRewriterConfig {
   /**
    * Constructor for multiple files. The {@code configs} will be read to completion.
    *
-   * @throws UrlRewriterParseException If the file(s) contents was invalid.
-   * @throws UncheckedIOException If any processing problems occur.
+   * @throws UrlRewriterParseException If the file(s) contents was invalid, or could not be read.
    */
   public UrlRewriterConfig(List<String> filePathsForErrorReporting, List<Reader> configs)
       throws UrlRewriterParseException {
@@ -112,8 +110,19 @@ class UrlRewriterConfig {
     for (int i = 0; i < filePathsForErrorReporting.size(); i++) {
       String filePathForErrorReporting = filePathsForErrorReporting.get(i);
       Reader config = configs.get(i);
-      parseConfig(
-          config, filePathForErrorReporting, allowList, blockList, rewrites, allBlockedMessage);
+      try {
+        parseConfig(
+            config, filePathForErrorReporting, allowList, blockList, rewrites, allBlockedMessage);
+      } catch (RuntimeException e) {
+        // Defense in depth: parseConfig reports the malformed inputs it recognizes as a
+        // UrlRewriterParseException (a checked exception, not caught here). Anything else, such as
+        // an I/O error surfaced as an UncheckedIOException or a future parsing gap, must still be
+        // reported as a downloader-config error. Otherwise it escapes as an uncaught exception and
+        // terminates Bazel with an internal error (exit code 37) and no error message, the same
+        // silent failure mode as the invalid regex in issue #20832.
+        throw new UrlRewriterParseException(
+            "Failed to parse downloader config file `" + filePathForErrorReporting + "`", e);
+      }
     }
 
     this.allowList = allowList.build();
@@ -168,8 +177,11 @@ class UrlRewriterConfig {
                       + line,
                   location);
             }
+            String matchPattern = parts.get(1);
+            String rewritePattern = parts.get(2);
+            Pattern pattern;
             try {
-              rewrites.put(Pattern.compile(parts.get(1)), parts.get(2));
+              pattern = Pattern.compile(matchPattern);
             } catch (PatternSyntaxException e) {
               throw new UrlRewriterParseException(
                   "Invalid regex in `rewrite`: "
@@ -177,10 +189,31 @@ class UrlRewriterConfig {
                       + " at index "
                       + e.getIndex()
                       + " in `"
-                      + parts.get(1)
+                      + matchPattern
                       + "`",
                   location);
             }
+            // The replacement string is expanded lazily by java.util.regex.Matcher, only when a URL
+            // is actually rewritten during a download. Validate it eagerly here so that a malformed
+            // replacement (e.g. `$3` when the pattern has two groups, or a trailing `$`) surfaces
+            // as a config parse error, rather than silently aborting a later download with an
+            // uncaught exception and no error message. Wrapping the (already valid) pattern so that
+            // it always matches lets Matcher's replacement parser flag the exact same error and we
+            // surface it here at parse time.
+            try {
+              var unused =
+                  Pattern.compile("(?:" + matchPattern + ")|.*")
+                      .matcher("")
+                      .replaceFirst(rewritePattern);
+            } catch (IndexOutOfBoundsException | IllegalArgumentException e) {
+              throw new UrlRewriterParseException(
+                  "Invalid rewrite pattern `"
+                      + rewritePattern
+                      + "` in `rewrite`: "
+                      + e.getMessage(),
+                  location);
+            }
+            rewrites.put(pattern, rewritePattern);
           }
           case ALL_BLOCKED_MESSAGE_DIRECTIVE -> {
             if (parts.size() == 1) {
