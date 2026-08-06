@@ -28,6 +28,7 @@ import net.starlark.java.syntax.Argument;
 import net.starlark.java.syntax.AssignmentStatement;
 import net.starlark.java.syntax.BinaryOperatorExpression;
 import net.starlark.java.syntax.CallExpression;
+import net.starlark.java.syntax.CastExpression;
 import net.starlark.java.syntax.Comprehension;
 import net.starlark.java.syntax.ConditionalExpression;
 import net.starlark.java.syntax.DefStatement;
@@ -304,6 +305,10 @@ final class Eval {
         return TokenKind.PASS;
       case RETURN:
         return execReturn(fr, (ReturnStatement) st);
+      case TYPE_ALIAS:
+        return TokenKind.PASS;
+      case VAR:
+        return TokenKind.PASS;
     }
     throw new IllegalArgumentException("unexpected statement: " + st.kind());
   }
@@ -559,6 +564,11 @@ final class Eval {
         return evalDot(fr, (DotExpression) expr);
       case CALL:
         return evalCall(fr, (CallExpression) expr);
+      case CAST:
+        return eval(fr, ((CastExpression) expr).getValue());
+      case ISINSTANCE:
+        fr.setErrorLocation(expr.getStartLocation());
+        throw new EvalException("isinstance() is not yet supported");
       case IDENTIFIER:
         return evalIdentifier(fr, (Identifier) expr);
       case INDEX:
@@ -587,6 +597,10 @@ final class Eval {
         return ((StringLiteral) expr).getValue();
       case UNARY_OPERATOR:
         return evalUnaryOperator(fr, (UnaryOperatorExpression) expr);
+      case ELLIPSIS:
+      case TYPE_APPLICATION:
+        // fall through, these only appear in type expressions and should be unreachable from
+        // evaluated code.
     }
     throw new IllegalArgumentException("unexpected expression: " + expr.kind());
   }

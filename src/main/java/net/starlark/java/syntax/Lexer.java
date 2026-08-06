@@ -487,6 +487,9 @@ final class Lexer {
 
   private static final Map<String, TokenKind> keywordMap = new HashMap<>();
 
+  /** Additional keywords that are only recognized if --experimental_starlark_type_syntax is set. */
+  private static final Map<String, TokenKind> typeSyntaxExtraKeywordMap = new HashMap<>();
+
   static {
     keywordMap.put("and", TokenKind.AND);
     keywordMap.put("as", TokenKind.AS);
@@ -519,6 +522,9 @@ final class Lexer {
     keywordMap.put("while", TokenKind.WHILE);
     keywordMap.put("with", TokenKind.WITH);
     keywordMap.put("yield", TokenKind.YIELD);
+
+    typeSyntaxExtraKeywordMap.put("cast", TokenKind.CAST);
+    typeSyntaxExtraKeywordMap.put("isinstance", TokenKind.ISINSTANCE);
   }
 
   /**
@@ -531,10 +537,13 @@ final class Lexer {
     int oldPos = pos - 1;
     String id = identInterner.intern(scanIdentifier());
     TokenKind kind = keywordMap.get(id);
+    if (kind == null && options.allowTypeSyntax()) {
+      kind = typeSyntaxExtraKeywordMap.get(id);
+    }
     if (kind == null) {
       setToken(TokenKind.IDENTIFIER, oldPos, pos);
-      // setValue allocates a new String for the raw text, but it's not retained so we don't bother
-      // interning it.
+      // setValue allocates a new String for the raw text, but it's not retained so we don't
+      // bother interning it.
       setValue(id);
     } else {
       setToken(kind, oldPos, pos);
@@ -693,7 +702,12 @@ final class Lexer {
           setToken(TokenKind.PLUS, pos - 1, pos);
           break;
         case '-':
-          setToken(TokenKind.MINUS, pos - 1, pos);
+          if (peek(0) == '>') {
+            setToken(TokenKind.RARROW, pos - 1, pos + 1);
+            pos += 1;
+          } else {
+            setToken(TokenKind.MINUS, pos - 1, pos);
+          }
           break;
         case '|':
           setToken(TokenKind.PIPE, pos - 1, pos);
@@ -777,10 +791,10 @@ final class Lexer {
             }
           }
 
-          // int or float literal, or dot
+          // int or float literal, or dot, or ellipsis
           if (c == '.' || isdigit(c)) {
             pos--; // unconsume
-            scanNumberOrDot(c);
+            scanNumberOrDotOrEllipsis(c);
             break;
           }
 
@@ -808,22 +822,28 @@ final class Lexer {
     setToken(TokenKind.EOF, pos, pos);
   }
 
-  // Scans a number (INT or FLOAT) or DOT.
+  // Scans a number (INT or FLOAT) or DOT or ELLIPSIS.
   // Precondition: c == peek(0) (a dot or digit)
   //
   // TODO(adonovan): make this the precondition for all scan functions;
-  // currenly most assume their argument c has been consumed already.
-  private void scanNumberOrDot(int c) {
+  // currently most assume their argument c has been consumed already.
+  private void scanNumberOrDotOrEllipsis(int c) {
     int start = this.pos;
     boolean fraction = false;
     boolean exponent = false;
 
     if (c == '.') {
-      // dot or start of fraction
+      // dot or ellipsis or start of fraction
       if (!isdigit(peek(1))) {
-        pos++; // consume '.'
-        setToken(TokenKind.DOT, start, pos);
-        return;
+        if (peek(1) == '.' && peek(2) == '.') {
+          pos += 3; // consume '...'
+          setToken(TokenKind.ELLIPSIS, start, pos);
+          return;
+        } else {
+          pos++; // consume '.'
+          setToken(TokenKind.DOT, start, pos);
+          return;
+        }
       }
       fraction = true;
 

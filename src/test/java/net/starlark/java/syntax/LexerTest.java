@@ -339,6 +339,17 @@ public class LexerTest {
     check("foo.123", "IDENTIFIER(foo) FLOAT(0.123) NEWLINE EOF");
     check("foo.bcd", "IDENTIFIER(foo) DOT IDENTIFIER(bcd) NEWLINE EOF"); // 'b' are hex chars
     check("foo.xyz", "IDENTIFIER(foo) DOT IDENTIFIER(xyz) NEWLINE EOF");
+
+    check("..", "DOT DOT NEWLINE EOF");
+    check("...", "ELLIPSIS NEWLINE EOF");
+    check("....", "ELLIPSIS DOT NEWLINE EOF"); // ellipsis is consumed greedily before dot
+    check(".......", "ELLIPSIS ELLIPSIS DOT NEWLINE EOF");
+    check(". . . ", "DOT DOT DOT NEWLINE EOF");
+
+    check("1...", "FLOAT(1.0) DOT DOT NEWLINE EOF");
+    check("1...1", "FLOAT(1.0) DOT FLOAT(0.1) NEWLINE EOF");
+    check("1....1", "FLOAT(1.0) ELLIPSIS INT(1) NEWLINE EOF");
+    check("foo...bcd", "IDENTIFIER(foo) ELLIPSIS IDENTIFIER(bcd) NEWLINE EOF");
   }
 
   @Test

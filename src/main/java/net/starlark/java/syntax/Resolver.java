@@ -154,6 +154,7 @@ public final class Resolver extends NodeVisitor {
     private final String name;
     private final Location location;
     private final ImmutableList<Parameter> params;
+    @Nullable private final Expression returnType;
     private final ImmutableList<Statement> body;
     private final boolean hasVarargs;
     private final boolean hasKwargs;
@@ -169,6 +170,7 @@ public final class Resolver extends NodeVisitor {
         String name,
         Location loc,
         ImmutableList<Parameter> params,
+        @Nullable Expression returnType,
         ImmutableList<Statement> body,
         boolean hasVarargs,
         boolean hasKwargs,
@@ -179,6 +181,7 @@ public final class Resolver extends NodeVisitor {
       this.name = name;
       this.location = loc;
       this.params = params;
+      this.returnType = returnType;
       this.body = body;
       this.hasVarargs = hasVarargs;
       this.hasKwargs = hasKwargs;
@@ -281,6 +284,11 @@ public final class Resolver extends NodeVisitor {
      */
     public ImmutableList<Parameter> getParameters() {
       return params;
+    }
+
+    @Nullable
+    public Expression getReturnType() {
+      return returnType;
     }
 
     /**
@@ -456,7 +464,16 @@ public final class Resolver extends NodeVisitor {
   private void createBindings(Statement stmt) {
     switch (stmt.kind()) {
       case ASSIGNMENT:
-        createBindingsForLHS(((AssignmentStatement) stmt).getLHS());
+        AssignmentStatement assignStmt = (AssignmentStatement) stmt;
+        if (assignStmt.getType() != null) {
+          bind((Identifier) assignStmt.getLHS(), /* isLoad= */ false, /* hasType= */ true);
+        } else {
+          createBindingsForLHS(assignStmt.getLHS());
+        }
+        break;
+      case VAR:
+        VarStatement varStmt = (VarStatement) stmt;
+        bind(varStmt.getIdentifier(), /* isLoad= */ false, /* hasType= */ true);
         break;
       case IF:
         IfStatement ifStmt = (IfStatement) stmt;
@@ -472,7 +489,15 @@ public final class Resolver extends NodeVisitor {
         break;
       case DEF:
         DefStatement def = (DefStatement) stmt;
-        bind(def.getIdentifier(), /*isLoad=*/ false);
+        // Def statements are considered to supply a type annotation on the function identifier
+        // iff they have at least one piece of type syntax in their signature -- a type annotation
+        // on a parameter or return value, or a list of generic type variables.
+        // .
+        boolean hasType =
+            def.getParameters().stream().anyMatch(p -> p.getType() != null)
+                || def.getReturnType() != null
+                || !def.getTypeParameters().isEmpty();
+        bind(def.getIdentifier(), /* isLoad= */ false, /* hasType= */ hasType);
         break;
       case LOAD:
         LoadStatement load = (LoadStatement) stmt;
@@ -488,12 +513,14 @@ public final class Resolver extends NodeVisitor {
           // even if options.allowToplevelRebinding.
           Identifier local = b.getLocalName();
           if (names.add(local.getName())) {
-            bind(local, /*isLoad=*/ true);
+            bind(local, /* isLoad= */ true, /* hasType= */ false);
           } else {
             errorf(local, "load statement defines '%s' more than once", local.getName());
           }
         }
         break;
+      case TYPE_ALIAS:
+      // TODO(brandjon): create a type-valence binding for the alias
       case EXPRESSION:
       case FLOW:
       case RETURN:
@@ -501,9 +528,14 @@ public final class Resolver extends NodeVisitor {
     }
   }
 
+  /**
+   * Calls {@link #bind} for appropriate identifiers of the LHS of an assignment.
+   *
+   * <p>This is only appropriate when no type annotation applies.
+   */
   private void createBindingsForLHS(Expression lhs) {
     for (Identifier id : Identifier.boundIdentifiers(lhs)) {
-      bind(id, /*isLoad=*/ false);
+      bind(id, /* isLoad= */ false, /* hasType= */ false);
     }
   }
 
@@ -644,8 +676,7 @@ public final class Resolver extends NodeVisitor {
     pushLocalBlock(node, this.locals.frame, this.locals.freevars);
 
     for (Comprehension.Clause clause : clauses) {
-      if (clause instanceof Comprehension.For) {
-        Comprehension.For forClause = (Comprehension.For) clause;
+      if (clause instanceof Comprehension.For forClause) {
         createBindingsForLHS(forClause.getVars());
       }
     }
@@ -712,6 +743,29 @@ public final class Resolver extends NodeVisitor {
     }
 
     assign(node.getLHS());
+  }
+
+  @Override
+  public void visit(VarStatement node) {
+    assign(node.getIdentifier());
+  }
+
+  @Override
+  public void visit(IsInstanceExpression node) {
+    // TODO(b/350661266): restrict the types that can be used on the RHS of isinstance(); e.g.
+    // `list` or `list | tuple` (or aliases resolving to those!) are allowed, but `list[int]` isn't,
+    // since a list can subsequently be mutated to add a non-int element.
+    errorf(node, "isinstance() is not yet supported");
+  }
+
+  @Override
+  public void visit(TypeAliasStatement node) {
+    if (!(locals.syntax instanceof StarlarkFile)) {
+      errorf(node, "type alias statement not at top level");
+    }
+
+    // TODO(brandjon): resolve type alias
+    super.visit(node);
   }
 
   // Resolves a non-binding identifier to an existing binding, or null.
@@ -909,6 +963,7 @@ public final class Resolver extends NodeVisitor {
         name,
         loc,
         params.build(),
+        syntax instanceof DefStatement def ? def.getReturnType() : null,
         body,
         star != null && star.getIdentifier() != null,
         starStar != null,
@@ -919,7 +974,13 @@ public final class Resolver extends NodeVisitor {
   }
 
   private void bindParam(ImmutableList.Builder<Parameter> params, Parameter param) {
-    if (bind(param.getIdentifier(), /*isLoad=*/ false)) {
+    if (!bind(
+        param.getIdentifier(),
+        /* isLoad= */ false,
+        // We set hasType to false, even if there is a param annotation. This is to avoid
+        // complaining that an erroneous duplicated parameter has a type annotation, when we should
+        // really just be complaining about the fact the param was duplicated at all.
+        /* hasType= */ false)) {
       errorf(param, "duplicate parameter: %s", param.getName());
     }
     params.add(param);
@@ -927,9 +988,14 @@ public final class Resolver extends NodeVisitor {
 
   /**
    * Process a binding use of a name by adding a binding to the current block if not already bound,
-   * and associate the identifier with it. Reports whether the name was already bound in this block.
+   * and associate the identifier with it.
+   *
+   * @param hasType true if this binding use has a type annotation associated with it and is not a
+   *     function parameter; an error is reported when hasType is true but the binding already
+   *     exists in this block.
+   * @return true if the name was newly bound in this block, or false if it already existed
    */
-  private boolean bind(Identifier id, boolean isLoad) {
+  private boolean bind(Identifier id, boolean isLoad, boolean hasType) {
     String name = id.getName();
     boolean isNew = false;
     Binding bind;
@@ -990,8 +1056,23 @@ public final class Resolver extends NodeVisitor {
     }
 
     id.setBinding(bind);
-    return !isNew;
+
+    if (hasType && !isNew) {
+      if (bind.first != null) {
+        errorf(
+            id, "type annotation on '%s' may only appear at its first declaration", id.getName());
+        errorf(bind.first, "'%s' first declared here", id.getName());
+      } else {
+        // The binding already exists and yet had no definition in this syntax tree. This shouldn't
+        // really be possible -- any binding that we should be shadowing would've be introduced by
+        // `use()` in the `visit()` traversal, which hasn't run yet.
+        errorf(id, "symbol '%s' cannot be annotated with a type", id.getName());
+      }
+    }
+
+    return isNew;
   }
+
 
   // Report conflicting top-level bindings of same scope, unless options.allowToplevelRebinding.
   private void toplevelRebinding(Identifier id, Binding prev) {
@@ -1090,13 +1171,14 @@ public final class Resolver extends NodeVisitor {
         new Function(
             "<toplevel>",
             file.getStartLocation(),
-            /*params=*/ ImmutableList.of(),
-            /*body=*/ stmts,
-            /*hasVarargs=*/ false,
-            /*hasKwargs=*/ false,
-            /*numKeywordOnlyParams=*/ 0,
+            /* params= */ ImmutableList.of(),
+            /* returnType= */ null,
+            /* body= */ stmts,
+            /* hasVarargs= */ false,
+            /* hasKwargs= */ false,
+            /* numKeywordOnlyParams= */ 0,
             frame,
-            /*freevars=*/ ImmutableList.of(),
+            /* freevars= */ ImmutableList.of(),
             r.globals));
   }
 
@@ -1123,13 +1205,14 @@ public final class Resolver extends NodeVisitor {
     return new Function(
         "<expr>",
         expr.getStartLocation(),
-        /*params=*/ ImmutableList.of(),
+        /* params= */ ImmutableList.of(),
+        /* returnType= */ null,
         ImmutableList.of(ReturnStatement.make(expr)),
-        /*hasVarargs=*/ false,
-        /*hasKwargs=*/ false,
-        /*numKeywordOnlyParams=*/ 0,
+        /* hasVarargs= */ false,
+        /* hasKwargs= */ false,
+        /* numKeywordOnlyParams= */ 0,
         frame,
-        /*freevars=*/ ImmutableList.of(),
+        /* freevars= */ ImmutableList.of(),
         r.globals);
   }
 

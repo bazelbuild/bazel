@@ -30,7 +30,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-// TODO(b/173631499): We really should just delete this test entirely.
+// TODO(b/173631499): We really should just delete this test entirely. However, it does catch the
+// case of flipping a flag default but forgetting to update its string from "-foo" to "+foo", so
+// make sure we have coverage for that.
 
 /**
  * Tests for the flow of flags from {@link BuildLanguageOptions} to {@link StarlarkSemantics}, and

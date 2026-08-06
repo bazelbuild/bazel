@@ -13,6 +13,7 @@
 // limitations under the License.
 package net.starlark.java.syntax;
 
+import com.google.common.base.Preconditions;
 import javax.annotation.Nullable;
 
 /**
@@ -20,14 +21,19 @@ import javax.annotation.Nullable;
  *
  * <p>Parameters may be of four forms, as in {@code def f(a, b=c, *args, **kwargs)}. They are
  * represented by the subclasses Mandatory, Optional, Star, and StarStar.
+ *
+ * <p>Each parameter may have a type annotation. Star parameter without id/name, `(..., *, ...)`,
+ * cannot be annotated.
  */
 public abstract class Parameter extends Node {
 
   @Nullable private final Identifier id;
+  @Nullable private final Expression type;
 
-  private Parameter(FileLocations locs, @Nullable Identifier id) {
+  private Parameter(FileLocations locs, @Nullable Identifier id, @Nullable Expression type) {
     super(locs);
     this.id = id;
+    this.type = type;
   }
 
   @Nullable
@@ -45,13 +51,18 @@ public abstract class Parameter extends Node {
     return null;
   }
 
+  @Nullable
+  public Expression getType() {
+    return type;
+  }
+
   /**
    * Syntax node for a mandatory parameter, {@code f(id)}. It may be positional or keyword-only
    * depending on its position.
    */
   public static final class Mandatory extends Parameter {
-    Mandatory(FileLocations locs, Identifier id) {
-      super(locs, id);
+    Mandatory(FileLocations locs, Identifier id, @Nullable Expression type) {
+      super(locs, id, type);
     }
 
     @Override
@@ -61,7 +72,7 @@ public abstract class Parameter extends Node {
 
     @Override
     public int getEndOffset() {
-      return getIdentifier().getEndOffset();
+      return getType() != null ? getType().getEndOffset() : getIdentifier().getEndOffset();
     }
   }
 
@@ -73,8 +84,9 @@ public abstract class Parameter extends Node {
 
     public final Expression defaultValue;
 
-    Optional(FileLocations locs, Identifier id, @Nullable Expression defaultValue) {
-      super(locs, id);
+    Optional(
+        FileLocations locs, Identifier id, @Nullable Expression type, Expression defaultValue) {
+      super(locs, id, type);
       this.defaultValue = defaultValue;
     }
 
@@ -100,12 +112,14 @@ public abstract class Parameter extends Node {
     }
   }
 
-  /** Syntax node for a star parameter, {@code f(*id)} or or {@code f(..., *, ...)}. */
+  /** Syntax node for a star parameter, {@code f(*id)} or {@code f(..., *, ...)}. */
   public static final class Star extends Parameter {
     private final int starOffset;
 
-    Star(FileLocations locs, int starOffset, @Nullable Identifier id) {
-      super(locs, id);
+    Star(FileLocations locs, int starOffset, @Nullable Identifier id, @Nullable Expression type) {
+      super(locs, id, type);
+      Preconditions.checkArgument(
+          id != null || type == null, "Star parameter without id cannot have a type");
       this.starOffset = starOffset;
     }
 
@@ -116,7 +130,7 @@ public abstract class Parameter extends Node {
 
     @Override
     public int getEndOffset() {
-      return getIdentifier().getEndOffset();
+      return getType() != null ? getType().getEndOffset() : getIdentifier().getEndOffset();
     }
   }
 
@@ -124,8 +138,8 @@ public abstract class Parameter extends Node {
   public static final class StarStar extends Parameter {
     private final int starStarOffset;
 
-    StarStar(FileLocations locs, int starStarOffset, Identifier id) {
-      super(locs, id);
+    StarStar(FileLocations locs, int starStarOffset, Identifier id, @Nullable Expression type) {
+      super(locs, id, type);
       this.starStarOffset = starStarOffset;
     }
 
@@ -136,7 +150,7 @@ public abstract class Parameter extends Node {
 
     @Override
     public int getEndOffset() {
-      return getIdentifier().getEndOffset();
+      return getType() != null ? getType().getEndOffset() : getIdentifier().getEndOffset();
     }
   }
 

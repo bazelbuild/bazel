@@ -33,6 +33,7 @@ import net.starlark.java.syntax.SyntaxError;
 class EvaluationTestCase {
 
   private StarlarkSemantics semantics = StarlarkSemantics.DEFAULT;
+  private FileOptions fileOptions = FileOptions.DEFAULT;
   private StarlarkThread thread = null; // created lazily by getStarlarkThread
   private Module module = null; // created lazily by getModule
 
@@ -46,6 +47,14 @@ class EvaluationTestCase {
     // Re-initialize the thread and module with the new semantics when needed.
     this.thread = null;
     this.module = null;
+  }
+
+  public FileOptions getFileOptions() {
+    return fileOptions;
+  }
+
+  public void setFileOptions(FileOptions fileOptions) {
+    this.fileOptions = fileOptions;
   }
 
   // TODO(adonovan): don't let subclasses inherit vaguely specified "helpers".
@@ -69,14 +78,14 @@ class EvaluationTestCase {
   /** Joins the lines, parses them as an expression, and evaluates it. */
   final Object eval(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    return Starlark.eval(input, FileOptions.DEFAULT, getModule(), getStarlarkThread());
+    return Starlark.eval(input, fileOptions, getModule(), getStarlarkThread());
   }
 
   /** Joins the lines, parses them as a file, and executes it. */
   final void exec(String... lines)
       throws SyntaxError.Exception, EvalException, InterruptedException {
     ParserInput input = ParserInput.fromLines(lines);
-    Starlark.execFile(input, FileOptions.DEFAULT, getModule(), getStarlarkThread());
+    Starlark.execFile(input, fileOptions, getModule(), getStarlarkThread());
   }
 
   // A hook for subclasses to alter the created module.

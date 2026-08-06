@@ -119,6 +119,17 @@ java_test(
 )
 
 java_test(
+    name = "StarlarkTypesTest",
+    srcs = ["StarlarkTypesTest.java"],
+    shard_count = 2,
+    deps = [
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "StarlarkRuleClassFunctionsTest",
     srcs = ["StarlarkRuleClassFunctionsTest.java"],
     shard_count = 5,
