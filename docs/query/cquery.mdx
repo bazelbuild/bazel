@@ -15,7 +15,7 @@ Bazel's loading phase, before options are evaluated.
 For example:
 
 ```
-$ cat > tree/BUILD &lt;&lt;EOF
+$ cat > tree/BUILD <<EOF
 sh_library(
     name = "ash",
     deps = select({
@@ -209,7 +209,7 @@ genrule(
      name = "my_gen",
      srcs = ["x.in"],
      outs = ["x.cc"],
-     cmd = "$(locations :tool) $&lt; >$@",
+     cmd = "$(locations :tool) $< >$@",
      tools = [":tool"],
 )
 cc_binary(
@@ -546,7 +546,7 @@ that is, it configures its tools in the [exec configuration](https://bazel.build
 You can see the lingering effects of that transition below.
 
 ```
-$ cat > foo/BUILD &lt;&lt;&lt;EOF
+$ cat > foo/BUILD <<<EOF
 genrule(
     name = "my_gen",
     srcs = ["x.in"],
@@ -608,7 +608,7 @@ constituent packages with a pre-processing query:
 
 ```
 # Replace "//foo/..." with a subshell query call (not cquery!) outputting each package, piped into
-# a sed call converting "&lt;pkg&gt;" to "//&lt;pkg&gt;:*", piped into a "+"-delimited line merge.
+# a sed call converting "<pkg>" to "//<pkg>:*", piped into a "+"-delimited line merge.
 # Output looks like "//foo:*+//foo/bar:*+//foo/baz".
 #
 $  bazel cquery --universe_scope=//foo:app "somepath(//foo:app, $(bazel query //foo/...
