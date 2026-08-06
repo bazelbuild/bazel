@@ -351,3 +351,15 @@ assert_eq(((0x1010 << 100) | (0x1100 << 100)) >> 100, 0x1110)
 assert_eq(((0x1010 << 100) ^ (0x1100 << 100)) >> 100, 0x0110)
 assert_eq(((0x1010 << 100) & (0x1100 << 100)) >> 100, 0x1000)
 assert_eq(~((~(0x1010 << 100)) >> 100), 0x1010)
+
+# binary literals
+assert_eq(0b1010, 10)
+assert_eq(0B1101, 13)
+
+# PEP 515: underscores as digit-group separators in int literals
+assert_eq(1_000_000, 1000000)
+assert_eq(0xFF_FF, 65535)
+assert_eq(0x_FF, 255)
+assert_eq(0o7_7_7, 511)
+assert_eq(0b1010_1010, 170)
+assert_eq(1_000_000_000_000_000_000_000, 1000000000000000000000)

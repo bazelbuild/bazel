@@ -338,3 +338,9 @@ assert_fails(lambda: (1<<500<<500<<500) // 1.0, "int too large to convert to flo
 assert_fails(lambda: 1.0 // (1<<500<<500<<500), "int too large to convert to float")
 assert_fails(lambda: (1<<500<<500<<500) % 1.0, "int too large to convert to float")
 assert_fails(lambda: 1.0 % (1<<500<<500<<500), "int too large to convert to float")
+
+# PEP 515: underscores as digit-group separators in float literals
+assert_eq(1_000.5, 1000.5)
+assert_eq(1_0.0_1, 10.01)
+assert_eq(1_0e1_0, 1e11)
+assert_eq(3.14_15, 3.1415)

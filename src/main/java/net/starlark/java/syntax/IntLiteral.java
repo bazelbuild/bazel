@@ -73,12 +73,14 @@ public final class IntLiteral extends Expression {
   /**
    * Returns the value denoted by a non-negative integer literal with an optional base prefix (but
    * no +/- sign), using the narrowest type of Integer, Long, or BigInteger capable of exactly
-   * representing the value.
+   * representing the value. PEP 515 '_' separators are ignored and callers must ensure that they
+   * are valid if present (i.e., no leading/trailing/consecutive separators).
    *
    * @throws NumberFormatException if the string is not a valid literal.
    */
   public static Number scan(String str) {
     String orig = str;
+    str = str.replace("_", ""); // strip PEP 515 digit group separators
     int radix = 10;
     if (str.length() > 1 && str.charAt(0) == '0') {
       switch (str.charAt(1)) {
@@ -90,6 +92,11 @@ public final class IntLiteral extends Expression {
         case 'o':
         case 'O':
           radix = 8;
+          str = str.substring(2);
+          break;
+        case 'b':
+        case 'B':
+          radix = 2;
           str = str.substring(2);
           break;
         default:
