@@ -1009,6 +1009,48 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void stampTransitionOutput_depConfigSameRegardlessOfStampFlag() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _stamp_output_impl(settings, attr):
+            return {"//command_line_option:stamp": False}
+
+        stamp_output_transition = transition(
+            implementation = _stamp_output_impl,
+            inputs = [],
+            outputs = ["//command_line_option:stamp"],
+        )
+
+        example = rule(
+          implementation = lambda ctx: None,
+          attrs = {"dep": attr.label(cfg = stamp_output_transition)},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":defs.bzl", "example")
+        example(name = "depends_on_stamp_output", dep = ":dep")
+        filegroup(name = "dep", srcs = [])
+        """);
+
+    useConfiguration("--stamp=true");
+    var depWithStampTrue =
+        getDirectPrerequisite(
+            getConfiguredTarget("//test:depends_on_stamp_output"), "//test:dep");
+    var configWithStampTrue = getConfiguration(depWithStampTrue);
+
+    useConfiguration("--stamp=false");
+    var depWithStampFalse =
+        getDirectPrerequisite(
+            getConfiguredTarget("//test:depends_on_stamp_output"), "//test:dep");
+    var configWithStampFalse = getConfiguration(depWithStampFalse);
+
+    assertThat(configWithStampTrue).isEqualTo(configWithStampFalse);
+  }
+
+  @Test
   public void stampTransitionOutput_stampSettingMarkerAppliedIfStampFlag(
       @TestParameter boolean stampFlag) throws Exception {
     scratch.file(
