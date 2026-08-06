@@ -199,6 +199,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
           0L,
           /* archivedRepresentation= */ null,
           /* resolvedPath= */ null,
+          /* contentCopy= */ false,
           /* entirelyRemote= */ false);
 
   private final byte[] digest;
@@ -218,6 +219,13 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
    */
   @Nullable private final PathFragment resolvedPath;
 
+  /**
+   * Whether this tree must be materialized as <em>content</em> (hard link/copy) at its own exec
+   * path rather than as a followable symlink to {@link #resolvedPath}. See {@link
+   * FileArtifactValue#isContentCopy}. Only meaningful when {@link #resolvedPath} is non-null.
+   */
+  private final boolean contentCopy;
+
   private final boolean entirelyRemote;
 
   /** A FileArtifactValue used to stand in for a TreeArtifactValue. */
@@ -225,12 +233,17 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     private final byte[] digest;
     private final boolean isRemote;
     @Nullable private final PathFragment resolvedPath;
+    private final boolean contentCopy;
 
     TreeArtifactCompositeFileArtifactValue(
-        byte[] digest, boolean isRemote, @Nullable PathFragment resolvedPath) {
+        byte[] digest,
+        boolean isRemote,
+        @Nullable PathFragment resolvedPath,
+        boolean contentCopy) {
       this.digest = digest;
       this.isRemote = isRemote;
       this.resolvedPath = resolvedPath;
+      this.contentCopy = contentCopy;
     }
 
     @Override
@@ -241,12 +254,14 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       if (!(o instanceof TreeArtifactCompositeFileArtifactValue that)) {
         return false;
       }
-      return Arrays.equals(digest, that.digest) && Objects.equals(resolvedPath, that.resolvedPath);
+      return Arrays.equals(digest, that.digest)
+          && Objects.equals(resolvedPath, that.resolvedPath)
+          && contentCopy == that.contentCopy;
     }
 
     @Override
     public int hashCode() {
-      return HashCodes.hashObjects(Arrays.hashCode(digest), resolvedPath);
+      return HashCodes.hashObjects(Arrays.hashCode(digest), resolvedPath, contentCopy);
     }
 
     @Override
@@ -285,6 +300,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       return MoreObjects.toStringHelper(this)
           .add("digest", BaseEncoding.base16().lowerCase().encode(digest))
           .add("resolvedPath", resolvedPath)
+          .add("contentCopy", contentCopy)
           .toString();
     }
 
@@ -303,6 +319,11 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     public PathFragment getResolvedPath() {
       return resolvedPath;
     }
+
+    @Override
+    public boolean isContentCopy() {
+      return contentCopy;
+    }
   }
 
   @VisibleForSerialization
@@ -312,17 +333,20 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       long totalChildSize,
       @Nullable ArchivedRepresentation archivedRepresentation,
       @Nullable PathFragment resolvedPath,
+      boolean contentCopy,
       boolean entirelyRemote) {
     this.digest = digest;
     this.childData = childData;
     this.totalChildSize = totalChildSize;
     this.archivedRepresentation = archivedRepresentation;
     this.resolvedPath = resolvedPath;
+    this.contentCopy = contentCopy;
     this.entirelyRemote = entirelyRemote;
   }
 
   public FileArtifactValue getMetadata() {
-    return new TreeArtifactCompositeFileArtifactValue(digest, entirelyRemote, resolvedPath);
+    return new TreeArtifactCompositeFileArtifactValue(
+        digest, entirelyRemote, resolvedPath, contentCopy);
   }
 
   ImmutableSet<PathFragment> getChildPaths() {
@@ -356,6 +380,16 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
    */
   public Optional<PathFragment> getResolvedPath() {
     return Optional.ofNullable(resolvedPath);
+  }
+
+  /**
+   * Whether this tree must be materialized as content (hard link/copy) at its own exec path rather
+   * than as a followable symlink to {@link #getResolvedPath}.
+   *
+   * <p>See {@link FileArtifactValue#isContentCopy} for semantics.
+   */
+  public boolean isContentCopy() {
+    return contentCopy;
   }
 
   @Nullable
@@ -435,6 +469,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
         0L,
         /* archivedRepresentation= */ null,
         /* resolvedPath= */ null,
+        /* contentCopy= */ false,
         /* entirelyRemote= */ false) {
       @Override
       public ImmutableSortedSet<TreeFileArtifact> getChildren() {
@@ -620,6 +655,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
         childDataBuilder();
     private ArchivedRepresentation archivedRepresentation;
     private PathFragment resolvedPath;
+    private boolean contentCopy;
     private final SpecialArtifact parent;
 
     Builder(SpecialArtifact parent) {
@@ -682,11 +718,25 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       return this;
     }
 
+    /**
+     * Marks the tree to be materialized as content (hard link/copy) at its own exec path rather
+     * than as a followable symlink to the resolved path. See {@link
+     * FileArtifactValue#isContentCopy}.
+     */
+    @CanIgnoreReturnValue
+    public Builder setContentCopy(boolean contentCopy) {
+      this.contentCopy = contentCopy;
+      return this;
+    }
+
     /** Builds the final {@link TreeArtifactValue}. */
     public TreeArtifactValue build() {
       ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> finalChildData =
           childData.buildOrThrow();
-      if (finalChildData.isEmpty() && archivedRepresentation == null && resolvedPath == null) {
+      if (finalChildData.isEmpty()
+          && archivedRepresentation == null
+          && resolvedPath == null
+          && !contentCopy) {
         return EMPTY;
       }
 
@@ -719,6 +769,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
           totalChildSize,
           archivedRepresentation,
           resolvedPath,
+          contentCopy,
           entirelyRemote);
     }
   }

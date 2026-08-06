@@ -247,7 +247,8 @@ public interface ActionCache {
     public record SerializableTreeArtifactValue(
         ImmutableMap<String, FileArtifactValue> childValues,
         Optional<FileArtifactValue> archivedFileValue,
-        Optional<PathFragment> resolvedPath) {
+        Optional<PathFragment> resolvedPath,
+        boolean contentCopy) {
       public SerializableTreeArtifactValue {
         requireNonNull(childValues, "childValues");
         requireNonNull(archivedFileValue, "archivedFileValue");
@@ -276,7 +277,8 @@ public interface ActionCache {
 
         Optional<PathFragment> resolvedPath = treeMetadata.getResolvedPath();
 
-        return new SerializableTreeArtifactValue(childValues, archivedFileValue, resolvedPath);
+        return new SerializableTreeArtifactValue(
+            childValues, archivedFileValue, resolvedPath, treeMetadata.isContentCopy());
       }
     }
 

@@ -121,7 +121,7 @@ public class SandboxHelpersTest {
             ImmutableList.of("-a", "-b"),
             ParameterFileType.UNQUOTED);
 
-    SandboxInputs inputs = SandboxHelpers.processInputFiles(inputMap(paramFile), execRoot);
+    SandboxInputs inputs = SandboxHelpers.processInputFiles(inputMap(paramFile), null, execRoot);
 
     assertThat(inputs.getFiles())
         .containsExactly(PathFragment.create("paramFile"), execRoot.getChild("paramFile"));
@@ -139,7 +139,7 @@ public class SandboxHelpersTest {
             scratch.file("tool", "#!/bin/bash", "echo hello"),
             PathFragment.create("_bin/say_hello"));
 
-    SandboxInputs inputs = SandboxHelpers.processInputFiles(inputMap(tool), execRoot);
+    SandboxInputs inputs = SandboxHelpers.processInputFiles(inputMap(tool), null, execRoot);
 
     assertThat(inputs.getFiles())
         .containsExactly(
@@ -183,13 +183,13 @@ public class SandboxHelpersTest {
         executorToCleanup.submit(
             () -> {
               try {
-                SandboxHelpers.processInputFiles(inputMap(input), customExecRoot);
+                SandboxHelpers.processInputFiles(inputMap(input), null, customExecRoot);
                 finishProcessingSemaphore.release();
               } catch (IOException | InterruptedException e) {
                 throw new IllegalArgumentException(e);
               }
             });
-    SandboxHelpers.processInputFiles(inputMap(input), customExecRoot);
+    SandboxHelpers.processInputFiles(inputMap(input), null, customExecRoot);
     finishProcessingSemaphore.release();
     future.get();
 
