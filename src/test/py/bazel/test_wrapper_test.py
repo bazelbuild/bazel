@@ -203,8 +203,14 @@ class TestWrapperTest(test_base.TestBase):
             '  f.write("Hello b")',
             'with open(os.path.join(root, "c.part"), "wt") as f:',
             '  f.write("Hello c")',
+            'with open(os.path.join(root, "a.pb"), "wb") as f:',
+            '  f.write(b"\\x03\\x0a\\x01\\x00")',
+            'with open(os.path.join(root, "c.pb"), "wb") as f:',
+            '  f.write(b"\\x03\\x0a\\x01\\xff")',
             'with open(os.path.join(dir1, "d.part"), "wt") as f:',
             '  f.write("Hello d")',
+            'with open(os.path.join(dir1, "d.pb"), "wb") as f:',
+            '  f.write(b"\\x03\\x0a\\x01\\x7f")',
             'with open(os.path.join(dir2, "e.part"), "wt") as f:',
             '  f.write("Hello e")',
         ],
@@ -602,6 +608,11 @@ class TestWrapperTest(test_base.TestBase):
       annot_content = [line.strip() for line in f.readlines()]
 
     self.assertListEqual(annot_content, ['Hello aHello c'])
+
+    undecl_annot_pb = undecl_annot + '.pb'
+    self.assertTrue(os.path.exists(undecl_annot_pb))
+    with open(undecl_annot_pb, 'rb') as f:
+      self.assertEqual(f.read(), b'\x03\x0a\x01\x00\x03\x0a\x01\xff')
 
   def _AssertXmlGeneration(self, flags):
     _, bazel_testlogs, _ = self.RunBazel(['info', 'bazel-testlogs'])
