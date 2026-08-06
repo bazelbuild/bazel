@@ -46,6 +46,22 @@ sh_test(
 )
 
 sh_test(
+    name = "producer_keyed_rules_go_test",
+    size = "large",
+    timeout = "eternal",
+    srcs = ["producer_keyed_rules_go_test.sh"],
+    data = [
+        ":remote_utils",
+        "//src/test/shell/bazel:test-deps",
+        "//src/tools/remote:worker",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = [
+        "requires-network",  # Downloads rules_go 0.48.0 and the selected Go SDK.
+    ],
+)
+
+sh_test(
     name = "build_without_the_bytes_test",
     size = "large",
     timeout = "eternal",

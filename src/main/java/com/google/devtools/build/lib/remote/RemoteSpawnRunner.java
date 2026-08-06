@@ -708,6 +708,9 @@ public class RemoteSpawnRunner implements SpawnRunner {
         && result.exitCode() == 0) {
       remoteExecutionService.uploadOutputs(
           action, result, () -> {}, remoteOptions.getGuardAgainstConcurrentChanges());
+    } else if (action != null
+        && (!Status.SUCCESS.equals(result.status()) || result.exitCode() != 0)) {
+      remoteExecutionService.reportSyntheticTestActionShadowFailure(action, "local-fallback");
     }
     return result;
   }

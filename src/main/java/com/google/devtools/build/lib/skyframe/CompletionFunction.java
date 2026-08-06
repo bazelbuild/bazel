@@ -158,9 +158,16 @@ public final class CompletionFunction<
     }
     ValueT value = valueAndArtifactsToBuild.first;
     ArtifactsToBuild artifactsToBuild = valueAndArtifactsToBuild.second;
+    boolean producerKeyedEarlyTargetCompletion =
+        key instanceof TargetCompletionValue.TargetCompletionKey targetKey
+            && targetKey.willTest()
+            && skyframeActionExecutor.wasProducerKeyedEarlyCompletedTarget(
+                targetKey.actionLookupKey());
 
     ImmutableList<Artifact> allArtifacts = artifactsToBuild.getAllArtifacts().toList();
-    SkyframeLookupResult inputDeps = env.getValuesAndExceptions(Artifact.keys(allArtifacts));
+    Iterable<Artifact> artifactsToRequest =
+        producerKeyedEarlyTargetCompletion ? ImmutableList.of() : allArtifacts;
+    SkyframeLookupResult inputDeps = env.getValuesAndExceptions(Artifact.keys(artifactsToRequest));
 
     boolean allArtifactsAreImportant = artifactsToBuild.areAllOutputGroupsImportant();
 
@@ -172,7 +179,10 @@ public final class CompletionFunction<
     // heap high-watermark by multiple GB.
     ActionInputMap importantInputMap;
     ImmutableCollection<Artifact> importantArtifacts;
-    if (allArtifactsAreImportant) {
+    if (producerKeyedEarlyTargetCompletion) {
+      importantArtifacts = ImmutableList.of();
+      importantInputMap = inputMap;
+    } else if (allArtifactsAreImportant) {
       importantArtifacts = allArtifacts;
       importantInputMap = inputMap;
     } else {

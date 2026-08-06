@@ -99,6 +99,7 @@ import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.TargetConfiguredEvent;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
@@ -947,7 +948,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             topLevelArtifactsMetric,
             actionRewindStrategy,
             bugReporter));
-    map.put(SkyFunctions.TEST_COMPLETION, new TestCompletionFunction());
+    map.put(SkyFunctions.TEST_COMPLETION, new TestCompletionFunction(skyframeActionExecutor));
     map.put(
         Artifact.ARTIFACT,
         new ArtifactFunction(
@@ -2020,9 +2021,27 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     resourceManager.resetResourceUsage();
     try {
       setExecutionProgressReceiver(executionProgressReceiver);
+      Set<ConfiguredTarget> testsToRun = Sets.union(parallelTests, exclusiveTests);
+      RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
+      boolean producerKeyedCacheEnabled =
+          remoteOptions != null && remoteOptions.getProducerKeyedTestCacheEnabled();
+      Collection<ConfiguredTarget> targetsToComplete =
+          producerKeyedCacheEnabled
+              ? targetsToBuild.stream().filter(target -> !testsToRun.contains(target)).toList()
+              : targetsToBuild;
+      Set<Artifact> artifactsToRequest = artifactsToBuild;
+      if (producerKeyedCacheEnabled) {
+        ImmutableSet.Builder<Artifact> testTargetArtifacts = ImmutableSet.builder();
+        for (ConfiguredTarget test : testsToRun) {
+          testTargetArtifacts.addAll(
+              TopLevelArtifactHelper.getAllArtifactsToBuild(test, topLevelArtifactContext)
+                  .getAllArtifacts()
+                  .toList());
+        }
+        artifactsToRequest = Sets.difference(artifactsToBuild, testTargetArtifacts.build());
+      }
       Iterable<TargetCompletionValue.TargetCompletionKey> targetKeys =
-          TargetCompletionValue.keys(
-              targetsToBuild, topLevelArtifactContext, Sets.union(parallelTests, exclusiveTests));
+          TargetCompletionValue.keys(targetsToComplete, topLevelArtifactContext, testsToRun);
       Iterable<SkyKey> aspectKeys = AspectCompletionValue.keys(aspects, topLevelArtifactContext);
       Iterable<SkyKey> testKeys =
           TestCompletionValue.keys(
@@ -2035,7 +2054,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               .setExecutionPhase()
               .build();
       return memoizingEvaluator.evaluate(
-          Iterables.concat(Artifact.keys(artifactsToBuild), targetKeys, aspectKeys, testKeys),
+          Iterables.concat(Artifact.keys(artifactsToRequest), targetKeys, aspectKeys, testKeys),
           evaluationContext);
     } finally {
       // Also releases thread locks.

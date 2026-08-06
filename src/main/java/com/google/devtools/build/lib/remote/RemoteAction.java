@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import build.bazel.remote.execution.v2.Action;
+import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -21,11 +22,13 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.NetworkTime;
+import com.google.devtools.build.lib.remote.common.ProducerActionKeyContext.SyntheticTestActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.SortedMap;
+import javax.annotation.Nullable;
 
 /**
  * A value class representing an action which can be executed remotely.
@@ -34,6 +37,21 @@ import java.util.SortedMap;
  * equivalent to a Bazel "spawn" (a Bazel "action" being a higher-level concept).
  */
 public class RemoteAction {
+
+  enum ShadowLookupStatus {
+    NOT_ATTEMPTED,
+    HIT,
+    MISS,
+    UNAVAILABLE,
+    ERROR
+  }
+
+  record ShadowLookupResult(
+      ShadowLookupStatus status, @Nullable ActionResult actionResult, @Nullable String cacheName) {
+    static ShadowLookupResult notAttempted() {
+      return new ShadowLookupResult(ShadowLookupStatus.NOT_ATTEMPTED, null, null);
+    }
+  }
 
   private final Spawn spawn;
   private final SpawnExecutionContext spawnExecutionContext;
@@ -44,6 +62,9 @@ public class RemoteAction {
   private final Command command;
   private final Action action;
   private final ActionKey actionKey;
+  @Nullable private final SyntheticTestActionKey syntheticTestActionKey;
+  private final boolean producerKeyedDebugEnabled;
+  private final ShadowLookupResult shadowLookupResult;
 
   RemoteAction(
       Spawn spawn,
@@ -54,7 +75,10 @@ public class RemoteAction {
       Digest commandHash,
       Command command,
       Action action,
-      ActionKey actionKey) {
+      ActionKey actionKey,
+      @Nullable SyntheticTestActionKey syntheticTestActionKey,
+      boolean producerKeyedDebugEnabled,
+      ShadowLookupResult shadowLookupResult) {
     this.spawn = spawn;
     this.spawnExecutionContext = spawnExecutionContext;
     this.remoteActionExecutionContext = remoteActionExecutionContext;
@@ -64,6 +88,9 @@ public class RemoteAction {
     this.command = command;
     this.action = action;
     this.actionKey = actionKey;
+    this.syntheticTestActionKey = syntheticTestActionKey;
+    this.producerKeyedDebugEnabled = producerKeyedDebugEnabled;
+    this.shadowLookupResult = shadowLookupResult;
   }
 
   public RemoteActionExecutionContext getRemoteActionExecutionContext() {
@@ -99,6 +126,19 @@ public class RemoteAction {
   /** Returns the {@link ActionKey} of this action. */
   public ActionKey getActionKey() {
     return actionKey;
+  }
+
+  @Nullable
+  public SyntheticTestActionKey getSyntheticTestActionKey() {
+    return syntheticTestActionKey;
+  }
+
+  public boolean isProducerKeyedDebugEnabled() {
+    return producerKeyedDebugEnabled;
+  }
+
+  ShadowLookupResult getShadowLookupResult() {
+    return shadowLookupResult;
   }
 
   /** Returns underlying {@link Action} of this remote action. */

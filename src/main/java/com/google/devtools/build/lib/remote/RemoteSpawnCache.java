@@ -275,6 +275,9 @@ final class RemoteSpawnCache implements SpawnCache {
 
         @Override
         public void store(SpawnResult result) throws ExecException, InterruptedException {
+          if (!SpawnResult.Status.SUCCESS.equals(result.status()) || result.exitCode() != 0) {
+            remoteExecutionService.reportSyntheticTestActionShadowFailure(action, "local");
+          }
           if (!remoteExecutionService.commitResultAndDecideWhetherToUpload(
               result, thisExecutionFinal)) {
             return;
