@@ -1520,7 +1520,12 @@ considered to be failed.
 By default (when this option is not specified, or when it is set to
 default), only a single attempt is allowed for regular tests, and
 3 for test rules with the `flaky` attribute set. You can specify
-an integer value to override the maximum limit of test attempts. Bazel allows
+a single integer value to override the maximum limit of test attempts for
+all tests. Alternatively, you can specify two comma-separated integers
+(`<stable>,<flaky>`) to set different attempt limits for tests without
+the `flaky` attribute and tests with `flaky=1`, respectively. For example,
+`--flaky_test_attempts=1,3` retries only flaky-marked tests. Per-target
+overrides using `regex@attempts` accept a single integer only. Bazel allows
 a maximum of 10 test attempts in order to prevent abuse of the system.
 
 #### `--runs_per_test=<var>[regex@]number</var>` {#runs-per-test}
