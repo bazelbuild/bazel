@@ -194,7 +194,7 @@ public interface SpawnRunner {
             throw new EnvironmentalExecException(
                 bulkTransferException,
                 FailureDetail.newBuilder()
-                    .setMessage("Failed to fetch blobs because of a remote cache error.")
+                    .setMessage("Failed to fetch blobs because of a remote cache error")
                     .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.REMOTE_CACHE_EVICTED))
                     .build());
           }
