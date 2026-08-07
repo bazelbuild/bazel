@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.cache.CacheBuilder;
@@ -436,16 +435,6 @@ public class BuildConfigurationValue
   }
 
   /**
-   * @deprecated Always returns false; the sibling repository layout no longer exists.
-   */
-  @Deprecated
-  @Override
-  public boolean isSiblingRepositoryLayoutForStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
-    return false;
-  }
-
-  /**
    * Returns the testlogs directory for this build configuration.
    *
    * <p>Use {@code RuleContext#getTestLogsDirectory} instead whenever possible.
@@ -512,6 +501,16 @@ public class BuildConfigurationValue
 
   public ActionEnvironment getActionEnvironment() {
     return actionEnv;
+  }
+
+  /**
+   * @deprecated Always returns false; the sibling repository layout no longer exists.
+   */
+  @Deprecated
+  @Override
+  public boolean isSiblingRepositoryLayoutForStarlark(StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
+    return false;
   }
 
   /**
@@ -912,10 +911,7 @@ public class BuildConfigurationValue
 
   /** Applies {@code executionInfoModifiers} to the given {@code executionInfo}. */
   public void modifyExecutionInfo(Map<String, String> executionInfo, String mnemonic) {
-    ExecutionInfoModifier.apply(
-        options.getExecutionInfoModifier(),
-        mnemonic,
-        executionInfo);
+    ExecutionInfoModifier.apply(options.getExecutionInfoModifier(), mnemonic, executionInfo);
   }
 
   /** Returns the list of default features used for all packages. */
