@@ -14,8 +14,11 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.GlobalMethodDocs;
 import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
+import com.google.devtools.build.lib.cmdline.LabelValidator;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -63,6 +66,58 @@ public final class RepoFileGlobals {
   }
 
   @StarlarkMethod(
+      name = "traversal_ignore_directories",
+      doc =
+          "The list of directories in this repository to skip during recursive target pattern"
+              + " expansion. <p>This function takes a list of repository-relative directory paths"
+              + " such as <code>\"experimental\"</code>. Recursive target patterns rooted above"
+              + " such a directory, such as <code>//...</code>, skip it and everything beneath it."
+              + " Unlike <code>ignore_directories()</code>, however, the packages there remain"
+              + " ordinary, fully buildable packages; naming one explicitly, as in"
+              + " <code>//experimental/...</code> or <code>//experimental/foo:bar</code>, works as"
+              + " usual.",
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "dirs",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = String.class),
+            })
+      })
+  public void traversalIgnoreDirectories(Iterable<?> dirsUnchecked, StarlarkThread thread)
+      throws EvalException {
+    Sequence<String> dirs = Sequence.cast(dirsUnchecked, String.class, "dirs");
+    RepoThreadContext context = RepoThreadContext.fromOrFail(thread, "repo()");
+
+    if (context.isTraversalIgnoreDirectoriesSet()) {
+      throw new EvalException("'traversal_ignore_directories()' can only be called once");
+    }
+
+    ImmutableList.Builder<PathFragment> fragments =
+        ImmutableList.builderWithExpectedSize(dirs.size());
+    for (String dir : dirs) {
+      if (dir.isEmpty() || dir.equals(".")) {
+        // Ignoring the root directory would ignore the entire repository, which is surely a
+        // mistake.
+        throw Starlark.errorf(
+            "invalid traversal_ignore_directories entry '%s': ignores the entire workspace", dir);
+      }
+      if (!PathFragment.isNormalizedRelativePath(dir)) {
+        throw Starlark.errorf(
+            "invalid traversal_ignore_directories entry '%s': path must be normalized and"
+                + " relative to the workspace",
+            dir);
+      }
+      String error = LabelValidator.validatePackageName(dir);
+      if (error != null) {
+        throw Starlark.errorf("invalid traversal_ignore_directories entry '%s': %s", dir, error);
+      }
+      fragments.add(PathFragment.create(dir));
+    }
+    context.setTraversalIgnoreDirectories(fragments.build());
+  }
+
+  @StarlarkMethod(
       name = "repo",
       doc =
           "Declares metadata that applies to every rule in the repository. It must be called at "
@@ -82,7 +137,7 @@ public final class RepoFileGlobals {
       throw Starlark.errorf("'repo' can only be called once in the REPO.bazel file");
     }
 
-    if (context.isIgnoredDirectoriesSet()) {
+    if (context.isIgnoredDirectoriesSet() || context.isTraversalIgnoreDirectoriesSet()) {
       throw Starlark.errorf("if repo() is called, it must be called before any other functions");
     }
 

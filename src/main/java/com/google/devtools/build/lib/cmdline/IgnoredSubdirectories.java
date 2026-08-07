@@ -160,8 +160,12 @@ public final class IgnoredSubdirectories {
     ImmutableSet<PathFragment> filteredPrefixes =
         prefixes.stream().filter(p -> p.startsWith(directory)).collect(toImmutableSet());
 
+    // An exclusion equal to the directory being traversed is dropped rather than kept, so that
+    // naming an excluded directory explicitly, as in "//experimental/...", still traverses into it.
     ImmutableSet<PathFragment> filteredTraversalExclusions =
-        traversalExclusions.stream().filter(p -> p.startsWith(directory)).collect(toImmutableSet());
+        traversalExclusions.stream()
+            .filter(p -> p.startsWith(directory) && !p.equals(directory))
+            .collect(toImmutableSet());
 
     String[] splitDirectory = Iterables.toArray(directory.segments(), String.class);
     ImmutableList.Builder<String> filteredPatterns = ImmutableList.builder();
@@ -180,7 +184,7 @@ public final class IgnoredSubdirectories {
   }
 
   public boolean isEmpty() {
-    return this.prefixes.isEmpty() && this.patterns.isEmpty();
+    return this.prefixes.isEmpty() && this.patterns.isEmpty() && this.traversalExclusions.isEmpty();
   }
 
   /**
