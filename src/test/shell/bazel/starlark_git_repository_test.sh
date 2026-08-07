@@ -159,16 +159,21 @@ function test_git_repository_add_prefix() {
 }
 
 function test_git_repository_add_prefix_prevent_uproot() {
-      cat >> MODULE.bazel <<EOF
+  local victim_dir="$(bazel info output_base)/external/+git_repository+pluto-victim"
+  mkdir -p "$victim_dir"
+  touch "$victim_dir/sentinel"
+
+  cat >> MODULE.bazel <<EOF
 git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(
     name = "pluto",
     remote = "does-not-matter",
     tag = "1-build",
-    add_prefix = "../uplevel/attempt",
+    add_prefix = "../+git_repository+pluto-victim",
 )
 EOF
   bazel build @pluto >& $TEST_log && fail "Build succeeded"
+  assert_exists "$victim_dir/sentinel"
   expect_log "escaped the base directory"
 }
 
@@ -178,10 +183,56 @@ function test_git_repository_strip_prefix() {
   do_git_repository_test "dbf9236251a9ea01b7a2eb563ca8e911060fc97c" "pluto"
 }
 
+function test_git_repository_strip_prefix_root() {
+  do_git_repository_test "52f9a3f87a2dd17ae0e5847bbae9734f09354afd" "."
+}
+
 function test_git_repository_add_and_strip_prefix() {
   # Same as above, this commit has a 'pluto' subdirectory. The added prefix
   # 'subfolder' is added, and the 'pluto' prefix is stripped.
   do_git_repository_test "dbf9236251a9ea01b7a2eb563ca8e911060fc97c" "pluto" "" "subfolder"
+}
+
+function test_git_repository_strip_prefix_query() {
+  local repo_dir="$TEST_TMPDIR/repos/query-strip-prefix"
+  mkdir -p "$repo_dir/included/.bazel_git_strip_prefix_" "$repo_dir/discarded" \
+    "$repo_dir/.BAZEL_GIT_STRIP_PREFIX"
+  if ! is_windows; then
+    ln -s does-not-exist "$repo_dir/.BAZEL_GIT_STRIP_PREFIX__"
+  fi
+  cat > "$repo_dir/included/BUILD.bazel" <<'EOF'
+filegroup(name = "included")
+EOF
+  cat > "$repo_dir/discarded/BUILD.bazel" <<'EOF'
+filegroup(name = "discarded")
+EOF
+  cat > "$repo_dir/included/.bazel_git_strip_prefix_/BUILD.bazel" <<'EOF'
+filegroup(name = "included_collision_underscore")
+EOF
+  cat > "$repo_dir/.BAZEL_GIT_STRIP_PREFIX/BUILD.bazel" <<'EOF'
+filegroup(name = "discarded_tmp")
+EOF
+  git -C "$repo_dir" init -q
+  git -C "$repo_dir" add .
+  git -C "$repo_dir" -c user.name=bazel -c user.email=bazel@example.com \
+    commit -qm initial
+  local commit_hash
+  commit_hash="$(git -C "$repo_dir" rev-parse HEAD)"
+
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(
+    name = "foo",
+    remote = "$repo_dir",
+    commit = "$commit_hash",
+    strip_prefix = "included",
+)
+EOF
+
+  bazel query '@foo//...' >& "$TEST_log" || fail "Expected query to succeed"
+  expect_log "//:included"
+  expect_log ":included_collision_underscore$"
+  expect_not_log "discarded"
 }
 
 function test_git_repository_shallow_since() {
@@ -666,6 +717,64 @@ EOF
   bazel fetch //planets:planet-info >& $TEST_log \
     || echo "Expect run to fail."
   expect_log "strip_prefix at dir_does_not_exist does not exist in repo"
+}
+
+function assert_strip_prefix_error() {
+  local repo_name="$1"
+  local repo_dir="$2"
+  local commit_hash="$3"
+  local strip_prefix="$4"
+  local expected_error="$5"
+  cat >> MODULE.bazel <<EOF
+git_repository(
+    name = "$repo_name",
+    remote = "$repo_dir",
+    commit = "$commit_hash",
+    strip_prefix = "$strip_prefix",
+)
+EOF
+
+  bazel fetch "@$repo_name//..." >& "$TEST_log" && fail "Expected fetch to fail"
+  expect_log "$expected_error"
+  assert_not_exists "$(bazel info output_base)/external/+git_repository+$repo_name/config"
+}
+
+function test_strip_prefix_errors() {
+  local repo_dir="$TEST_TMPDIR/repos/invalid-strip-prefix"
+  mkdir -p "$repo_dir"
+  touch "$repo_dir/not-a-directory"
+  git -C "$repo_dir" init -q
+  if ! is_windows; then
+    ln -s ../.. "$repo_dir/escape"
+    ln -s .git "$repo_dir/metadata"
+  fi
+  git -C "$repo_dir" add .
+  git -C "$repo_dir" -c user.name=bazel -c user.email=bazel@example.com \
+    commit --allow-empty -qm initial
+  local commit_hash
+  commit_hash="$(git -C "$repo_dir" rev-parse HEAD)"
+
+  local metadata_prefix=".git/objects"
+  if is_darwin || is_windows; then
+    metadata_prefix=".GIT/OBJECTS"
+  fi
+
+  cat >> MODULE.bazel <<'EOF'
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+EOF
+
+  assert_strip_prefix_error strip_file "$repo_dir" "$commit_hash" \
+    not-a-directory "strip_prefix at not-a-directory is not a directory"
+  assert_strip_prefix_error strip_traversal "$repo_dir" "$commit_hash" \
+    ../.. "strip_prefix at ../.. escaped the checkout directory"
+  assert_strip_prefix_error strip_metadata "$repo_dir" "$commit_hash" \
+    "$metadata_prefix" "strip_prefix at $metadata_prefix refers to Git metadata"
+  if ! is_windows; then
+    assert_strip_prefix_error strip_escape "$repo_dir" "$commit_hash" \
+      escape "strip_prefix at escape escaped the checkout directory"
+    assert_strip_prefix_error strip_metadata_symlink "$repo_dir" "$commit_hash" \
+      metadata "strip_prefix at metadata refers to Git metadata"
+  fi
 }
 
 
