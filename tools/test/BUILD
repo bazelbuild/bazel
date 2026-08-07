@@ -1,6 +1,7 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//tools/res:win_res.bzl", "windows_resources")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -50,7 +51,16 @@ cc_binary(
     }),
     target_compatible_with = ["@platforms//os:windows"],
     visibility = ["//visibility:private"],
-    deps = [":tw_lib"],
+    deps = [
+        ":tw_lib",
+        ":tw_resources",
+    ],
+)
+
+windows_resources(
+    name = "tw_resources",
+    rc_files = ["windows/tw_resources.rc"],
+    resources = ["windows/tw_manifest.xml"],
 )
 
 cc_binary(
