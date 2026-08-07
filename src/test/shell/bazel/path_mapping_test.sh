@@ -1109,8 +1109,8 @@ EOF
   expect_log '2 \(linux\|darwin\|processwrapper\)-sandbox'
   expect_not_log '[0-9] deduplicated'
 
-  expect_log 'Action pkg/my_rule_file failed:'
-  expect_log 'Action pkg/my_rule_file \[for tool\] failed:'
+  expect_log 'Action pkg/my_rule_file (from target //pkg:my_rule) failed:'
+  expect_log 'Action pkg/my_rule_file \[for tool\] (from target //pkg:my_rule) failed:'
   # Remote cache warning.
   expect_log 'Expected output pkg/my_rule_file was not created locally.'
 
@@ -1190,8 +1190,8 @@ EOF
   # Failing actions are not deduplicated.
   expect_not_log '[0-9] deduplicated'
 
-  expect_log 'Action pkg/my_rule_file failed:'
-  expect_log 'Action pkg/my_rule_file \[for tool\] failed:'
+  expect_log 'Action pkg/my_rule_file (from target //pkg:my_rule) failed:'
+  expect_log 'Action pkg/my_rule_file \[for tool\] (from target //pkg:my_rule) failed:'
 
   # The first execution emits stdout/stderr, the second doesn't.
   # stdout/stderr are emitted as part of the failing action error, not as an

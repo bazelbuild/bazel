@@ -1871,7 +1871,13 @@ public final class SkyframeActionExecutor {
    */
   private boolean printError(
       String message, ActionAnalysisMetadata action, @Nullable FileOutErr actionOutput) {
-    message = action.describe() + " failed: " + message;
+    String describe = action.describe();
+    Label ownerLabel = action.getOwner().getLabel();
+    if (ownerLabel != null && !describe.contains(ownerLabel.toString())) {
+      message = describe + " (from target " + ownerLabel + ") failed: " + message;
+    } else {
+      message = describe + " failed: " + message;
+    }
     return dumpRecordedOutErr(
         reporter, Event.error(action.getOwner().getLocation(), message), actionOutput);
   }
