@@ -131,9 +131,19 @@ static int CreateTarget(const char* path, bool is_directory) {
   }
 
   struct stat sb;
-  // If the path already exists...
+  // Use lstat() instead of stat() to avoid following symlinks.
+  // If a parent component under sandbox_root is a pre-seeded symlink,
+  // stat() would follow it and subsequent mkdir()/link() calls would
+  // operate outside sandbox_root. Using lstat() detects and rejects
+  // symlinks, preventing writes to arbitrary host paths.
+  // See https://github.com/bazelbuild/bazel/issues/28515
 
-  if (stat(path, &sb) == 0) {
+  if (lstat(path, &sb) == 0) {
+    if (S_ISLNK(sb.st_mode)) {
+      // Reject symlinks: following them could escape the sandbox root.
+      errno = ELOOP;
+      return -1;
+    }
     if (is_directory && S_ISDIR(sb.st_mode)) {
       // and it's a directory and supposed to be a directory, we're done here.
       return 0;
@@ -146,7 +156,7 @@ static int CreateTarget(const char* path, bool is_directory) {
       return -1;
     }
   } else {
-    // If stat failed because of any error other than "the path does not exist",
+    // If lstat failed because of any error other than "the path does not exist",
     // this is an error.
     if (errno != ENOENT) {
       return -1;
