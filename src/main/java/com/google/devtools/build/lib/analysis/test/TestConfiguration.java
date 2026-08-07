@@ -119,8 +119,8 @@ public class TestConfiguration extends Fragment {
         effectTags = {OptionEffectTag.EXECUTION},
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
-            "Compute producer-keyed test cache identities before requesting test executables. "
-                + "This feasibility mode does not read or write cache entries.")
+            "Use producer-keyed remote cache aliases to check for cached tests before requesting "
+                + "their generated executables. Successful normal test results backfill aliases.")
     public abstract boolean getExperimentalProducerKeyedTestCache();
 
     @Option(
@@ -132,15 +132,6 @@ public class TestConfiguration extends Fragment {
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help = "Producer action mnemonics eligible for producer-keyed test cache computation.")
     public abstract ImmutableList<String> getExperimentalProducerKeyedTestCacheProducerMnemonics();
-
-    @Option(
-        name = "experimental_producer_keyed_test_cache_debug",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.EXECUTION},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help = "Report producer-keyed test cache eligibility and computed identities.")
-    public abstract boolean getExperimentalProducerKeyedTestCacheDebug();
 
     @Option(
         name = "test_timeout",
@@ -479,10 +470,6 @@ public class TestConfiguration extends Fragment {
 
   public ImmutableSet<String> experimentalProducerKeyedTestCacheProducerMnemonics() {
     return ImmutableSet.copyOf(options.getExperimentalProducerKeyedTestCacheProducerMnemonics());
-  }
-
-  public boolean experimentalProducerKeyedTestCacheDebug() {
-    return options.getExperimentalProducerKeyedTestCacheDebug();
   }
 
   public TriState cacheTestResults() {

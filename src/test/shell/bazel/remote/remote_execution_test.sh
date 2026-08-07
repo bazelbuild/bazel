@@ -2783,9 +2783,6 @@ EOF
 }
 
 function test_uncached_executable_producer_runs_before_cached_test() {
-  # Reproduces the producer-keyed test-cache problem without depending on rules_go. The test
-  # executable is produced by a SpawnAction with the same mnemonic and remote-cache policy used by
-  # the intended GoLink optimization.
   mkdir -p producer_keyed_test
   cat > producer_keyed_test/rule.bzl <<'EOF'
 def _producer_keyed_test_impl(ctx):
@@ -2829,209 +2826,56 @@ exit 0
 EOF
 
   bazel test \
-    --execution_log_json_file=producer_keyed_first.json \
+    --experimental_producer_keyed_test_cache \
+    --execution_log_json_file=producer_keyed_miss.json \
     --remote_cache=grpc://localhost:${worker_port} \
-    --spawn_strategy=local \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --spawn_strategy=remote,local \
     --test_strategy=standalone \
     //producer_keyed_test:test >& $TEST_log \
-    || fail "Failed to populate the synthetic test result"
-  grep -q '"mnemonic": "GoLink"' producer_keyed_first.json \
-    || fail "GoLink did not execute while populating the synthetic test result"
+    || fail "Producer-keyed cache miss failed"
+  grep -q '"mnemonic": "GoLink"' producer_keyed_miss.json \
+    || fail "Producer did not execute on a cache miss"
+  grep -q '"mnemonic": "TestRunner"' producer_keyed_miss.json \
+    || fail "Test did not execute on a cache miss"
 
   bazel clean
 
   bazel test \
-    --execution_log_json_file=producer_keyed_second.json \
+    --experimental_producer_keyed_test_cache \
+    --execution_log_json_file=producer_keyed_hit.json \
+    --build_event_json_file=producer_keyed_hit.bep.json \
     --remote_cache=grpc://localhost:${worker_port} \
-    --spawn_strategy=local \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --spawn_strategy=remote,local \
     --test_strategy=standalone \
     //producer_keyed_test:test >& $TEST_log \
-    || fail "Failed to restore the synthetic cached test result"
-
-  # This is the behavior the producer-keyed cache intends to remove: GoLink must complete before
-  # the ordinary test cache can report the hit.
-  grep -q '"mnemonic": "GoLink"' producer_keyed_second.json \
-    || fail "GoLink did not execute before restoring the synthetic cached test result"
+    || fail "Producer-keyed cache hit failed"
   expect_log "//producer_keyed_test:test.*\(cached\).*PASSED"
-
-  bazel clean
-
-  bazel test \
-    --execution_log_json_file=producer_keyed_enabled.json \
-    --experimental_producer_keyed_test_cache \
-    --experimental_producer_keyed_test_cache_debug \
-    --remote_cache=grpc://localhost:${worker_port} \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --spawn_strategy=remote,local \
-    --test_strategy=standalone \
-    //producer_keyed_test:test >& $TEST_log \
-    || fail "Failed to compute a producer-keyed test cache identity"
-
-  # The experimental path is compute-only: it reports both identities, then normal execution still
-  # runs GoLink and accepts the ordinary cached test result.
-  expect_log "producer-keyed test cache:.*producer_digest=.*early_key="
-  grep -q '"mnemonic": "GoLink"' producer_keyed_enabled.json \
-    || fail "GoLink did not execute after computing the producer-keyed identity"
-  expect_log "//producer_keyed_test:test.*\(cached\).*PASSED"
-
-  reported_producer_digest=$(
-    sed -n 's/.*producer_digest=\([0-9a-f]*\) early_key=.*/\1/p' "$TEST_log" | tail -1
-  )
-  executed_producer_digest=$(
-    python3 - producer_keyed_enabled.json <<'PY'
-import json
-import sys
-
-data = open(sys.argv[1], encoding="utf-8").read()
-decoder = json.JSONDecoder()
-offset = 0
-while offset < len(data):
-    while offset < len(data) and data[offset].isspace():
-        offset += 1
-    if offset == len(data):
-        break
-    entry, offset = decoder.raw_decode(data, offset)
-    if entry.get("mnemonic") == "GoLink":
-        print(entry.get("digest", {}).get("hash", ""))
-        break
-PY
-  )
-  assert_equals "$executed_producer_digest" "$reported_producer_digest"
-
-  reported_early_key=$(
-    sed -n 's/.* early_key=\([0-9a-f]*\).*/\1/p' "$TEST_log" | tail -1
-  )
-  [[ ! -f "$cas_path/ac/${reported_early_key:0:2}/$reported_early_key" ]] \
-    || fail "Compute-only mode unexpectedly wrote the producer-keyed alias"
-
-  bazel clean
-
-  bazel test \
-    --execution_log_json_file=producer_keyed_write_alias.json \
-    --experimental_producer_keyed_test_cache \
-    --experimental_producer_keyed_test_cache_write_aliases \
-    --experimental_producer_keyed_test_cache_debug \
-    --remote_cache=grpc://localhost:${worker_port} \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --spawn_strategy=remote,local \
-    --test_strategy=standalone \
-    //producer_keyed_test:test >& $TEST_log \
-    || fail "Failed to write the producer-keyed test cache alias"
-
-  expect_log "producer-keyed test cache: alias written early_key=$reported_early_key"
-  [[ -f "$cas_path/ac/${reported_early_key:0:2}/$reported_early_key" ]] \
-    || fail "Producer-keyed alias was not present in the remote action cache"
-  grep -q '"mnemonic": "GoLink"' producer_keyed_write_alias.json \
-    || fail "Write-only mode unexpectedly skipped GoLink"
-
-  bazel clean
-
-  bazel test \
-    --execution_log_json_file=producer_keyed_shadow_hit.json \
-    --experimental_producer_keyed_test_cache \
-    --experimental_producer_keyed_test_cache_shadow \
-    --experimental_producer_keyed_test_cache_debug \
-    --remote_cache=grpc://localhost:${worker_port} \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --spawn_strategy=remote,local \
-    --test_strategy=standalone \
-    //producer_keyed_test:test >& $TEST_log \
-    || fail "Failed producer-keyed shadow-hit invocation"
-
-  expect_log "producer-keyed test cache: shadow_lookup=hit early_key=$reported_early_key"
-  expect_log "producer-keyed test cache: shadow_compare=match early_key=$reported_early_key"
-  grep -q '"mnemonic": "GoLink"' producer_keyed_shadow_hit.json \
-    || fail "Shadow-hit mode unexpectedly skipped GoLink"
-
-  rm -f "$cas_path/ac/${reported_early_key:0:2}/$reported_early_key"
-  bazel clean
-
-  bazel test \
-    --execution_log_json_file=producer_keyed_shadow_miss.json \
-    --experimental_producer_keyed_test_cache \
-    --experimental_producer_keyed_test_cache_shadow \
-    --experimental_producer_keyed_test_cache_debug \
-    --remote_cache=grpc://localhost:${worker_port} \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --spawn_strategy=remote,local \
-    --test_strategy=standalone \
-    //producer_keyed_test:test >& $TEST_log \
-    || fail "Failed producer-keyed shadow-miss invocation"
-
-  expect_log "producer-keyed test cache: shadow_lookup=miss early_key=$reported_early_key"
-  expect_log "producer-keyed test cache: shadow_compare=early_miss_normal_cache_hit"
-  [[ -f "$cas_path/ac/${reported_early_key:0:2}/$reported_early_key" ]] \
-    || fail "Shadow mode did not backfill the missing producer-keyed alias"
-  grep -q '"mnemonic": "GoLink"' producer_keyed_shadow_miss.json \
-    || fail "Shadow-miss mode unexpectedly skipped GoLink"
-
-  normal_test_digest=$(python3 - producer_keyed_shadow_miss.json <<'PY'
-import json
-import sys
-
-data = open(sys.argv[1], encoding="utf-8").read()
-decoder = json.JSONDecoder()
-offset = 0
-while offset < len(data):
-    while offset < len(data) and data[offset].isspace():
-        offset += 1
-    if offset == len(data):
-        break
-    entry, offset = decoder.raw_decode(data, offset)
-    if entry.get("mnemonic") == "TestRunner":
-        print(entry.get("digest", {}).get("hash", ""))
-        break
-PY
-  )
-  [[ -n "$normal_test_digest" ]] || fail "Could not find the normal TestRunner digest"
-  cp "$cas_path/ac/${normal_test_digest:0:2}/$normal_test_digest" \
-    "$cas_path/ac/${reported_early_key:0:2}/$reported_early_key"
-  bazel clean
-
-  bazel test \
-    --execution_log_json_file=producer_keyed_failed_open.json \
-    --experimental_producer_keyed_test_cache \
-    --experimental_producer_keyed_test_cache_enabled \
-    --experimental_producer_keyed_test_cache_debug \
-    --remote_cache=grpc://localhost:${worker_port} \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --spawn_strategy=remote,local \
-    --test_strategy=standalone \
-    //producer_keyed_test:test >& $TEST_log \
-    || fail "Failed to fall back from an incomplete producer-keyed alias"
-
-  expect_log "producer-keyed test cache: early_restore=failed early_key=$reported_early_key"
-  grep -q '"mnemonic": "GoLink"' producer_keyed_failed_open.json \
-    || fail "Incomplete early alias did not fall back through GoLink"
-
-  bazel clean
-
-  bazel test \
-    --execution_log_json_file=producer_keyed_short_circuit.json \
-    --build_event_json_file=producer_keyed_short_circuit.bep.json \
-    --experimental_producer_keyed_test_cache \
-    --experimental_producer_keyed_test_cache_enabled \
-    --experimental_producer_keyed_test_cache_debug \
-    --remote_cache=grpc://localhost:${worker_port} \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --spawn_strategy=remote,local \
-    --test_strategy=standalone \
-    //producer_keyed_test:test >& $TEST_log \
-    || fail "Failed producer-keyed early short-circuit invocation"
-
-  expect_log "producer-keyed test cache: shadow_lookup=hit early_key=$reported_early_key"
-  expect_log "producer-keyed test cache: early_short_circuit=hit early_key=$reported_early_key"
-  expect_log "//producer_keyed_test:test.*\(cached\).*PASSED"
-  grep -q '"id":{"targetCompleted".*"completed"' producer_keyed_short_circuit.bep.json \
+  grep -q '"id":{"targetCompleted".*"completed"' producer_keyed_hit.bep.json \
     || fail "Early producer-keyed hit did not publish target completion"
-  grep -q '"testResult"' producer_keyed_short_circuit.bep.json \
+  grep -q '"testResult"' producer_keyed_hit.bep.json \
     || fail "Early producer-keyed hit did not publish a BEP test result"
-  if grep -q '"mnemonic": "GoLink"' producer_keyed_short_circuit.json; then
+  if grep -q '"mnemonic": "GoLink"' producer_keyed_hit.json; then
     fail "Early producer-keyed hit unexpectedly requested GoLink"
   fi
-  if grep -q '"mnemonic": "TestRunner"' producer_keyed_short_circuit.json; then
+  if grep -q '"mnemonic": "TestRunner"' producer_keyed_hit.json; then
     fail "Early producer-keyed hit unexpectedly executed TestRunner"
   fi
+
+  echo '# cache key mutation' >> producer_keyed_test/test.sh
+  bazel clean
+  bazel test \
+    --experimental_producer_keyed_test_cache \
+    --execution_log_json_file=producer_keyed_changed.json \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --spawn_strategy=remote,local \
+    --test_strategy=standalone \
+    //producer_keyed_test:test >& $TEST_log \
+    || fail "Producer-keyed cache invalidation failed"
+  grep -q '"mnemonic": "GoLink"' producer_keyed_changed.json \
+    || fail "Producer did not execute after its input changed"
 }
 
 # Bazel assumes that non-ASCII characters in file contents (and, in

@@ -120,6 +120,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataProducer;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
@@ -2022,9 +2023,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     try {
       setExecutionProgressReceiver(executionProgressReceiver);
       Set<ConfiguredTarget> testsToRun = Sets.union(parallelTests, exclusiveTests);
-      RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
+      TestOptions testOptions = options.getOptions(TestOptions.class);
       boolean producerKeyedCacheEnabled =
-          remoteOptions != null && remoteOptions.getProducerKeyedTestCacheEnabled();
+          testOptions != null && testOptions.getExperimentalProducerKeyedTestCache();
       Collection<ConfiguredTarget> targetsToComplete =
           producerKeyedCacheEnabled
               ? targetsToBuild.stream().filter(target -> !testsToRun.contains(target)).toList()

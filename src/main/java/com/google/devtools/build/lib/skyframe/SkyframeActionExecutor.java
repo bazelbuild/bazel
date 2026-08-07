@@ -86,6 +86,7 @@ import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -101,7 +102,6 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
@@ -453,8 +453,8 @@ public final class SkyframeActionExecutor {
   }
 
   boolean producerKeyedTestCacheEnabled() {
-    RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
-    return remoteOptions != null && remoteOptions.getProducerKeyedTestCacheEnabled();
+    TestOptions testOptions = options.getOptions(TestOptions.class);
+    return testOptions != null && testOptions.getExperimentalProducerKeyedTestCache();
   }
 
   boolean wasProducerKeyedEarlyCacheHit(Action action) {

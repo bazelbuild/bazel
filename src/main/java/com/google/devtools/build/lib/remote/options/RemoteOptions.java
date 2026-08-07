@@ -47,47 +47,6 @@ import javax.annotation.Nullable;
 public abstract class RemoteOptions extends CommonRemoteOptions {
 
   @Option(
-      name = "experimental_producer_keyed_test_cache_write_aliases",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "Write producer-keyed aliases after successful normal test results. Requires "
-              + "--experimental_producer_keyed_test_cache and never reads the aliases.")
-  public abstract boolean getProducerKeyedTestCacheWriteAliases();
-
-  public abstract void setProducerKeyedTestCacheWriteAliases(boolean value);
-
-  @Option(
-      name = "experimental_producer_keyed_test_cache_shadow",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "Read producer-keyed aliases before normal test input collection, but always continue "
-              + "normal execution and compare the results. Shadow mode also backfills aliases and "
-              + "requires --experimental_producer_keyed_test_cache.")
-  public abstract boolean getProducerKeyedTestCacheShadow();
-
-  public abstract void setProducerKeyedTestCacheShadow(boolean value);
-
-  @Option(
-      name = "experimental_producer_keyed_test_cache_enabled",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "Use valid producer-keyed test cache hits to complete tests before requesting their "
-              + "executables. Also enables alias backfill and requires "
-              + "--experimental_producer_keyed_test_cache.")
-  public abstract boolean getProducerKeyedTestCacheEnabled();
-
-  public abstract void setProducerKeyedTestCacheEnabled(boolean value);
-
-  @Option(
       name = "remote_proxy",
       oldName = "remote_cache_proxy",
       defaultValue = "null",

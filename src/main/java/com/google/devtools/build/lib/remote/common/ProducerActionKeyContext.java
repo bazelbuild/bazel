@@ -42,9 +42,7 @@ public interface ProducerActionKeyContext extends ActionContext {
       ByteString logicalIdentity, ActionKey producerActionKey);
 
   void registerSyntheticTestActionKey(
-      ActionExecutionMetadata action,
-      SyntheticTestActionKey syntheticActionKey,
-      boolean debugEnabled)
+      ActionExecutionMetadata action, SyntheticTestActionKey syntheticActionKey)
       throws InterruptedException;
 
   /** Returns whether a registered alias was fully restored to the action's output paths. */

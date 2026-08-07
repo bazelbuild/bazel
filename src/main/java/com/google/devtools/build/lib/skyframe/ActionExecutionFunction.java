@@ -80,7 +80,6 @@ import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -88,7 +87,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.ProducerActionKeyContext;
-import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -279,14 +277,10 @@ public class ActionExecutionFunction implements SkyFunction {
         state = env.getState(InputDiscoveryState::new);
         if (!state.producerKeyedIdentityComputed) {
           if (!testAction.shouldAcceptCachedResult()) {
-            reportProducerKeyedTestCacheEligibility(
-                env, testConfiguration, testAction, "CACHE_POLICY_DISALLOWS");
+            // Test policy disallows cached results.
           } else {
             Artifact executable = testAction.getExecutionSettings().getExecutable();
-            if (!(executable instanceof DerivedArtifact derivedExecutable)) {
-              reportProducerKeyedTestCacheEligibility(
-                  env, testConfiguration, testAction, "EXECUTABLE_NOT_DERIVED");
-            } else {
+            if (executable instanceof DerivedArtifact derivedExecutable) {
               Action producer =
                   ActionUtils.getActionForLookupData(
                       env,
@@ -300,14 +294,12 @@ public class ActionExecutionFunction implements SkyFunction {
                   producer,
                   testConfiguration.experimentalProducerKeyedTestCacheProducerMnemonics())) {
                 case Eligible eligible -> {
-                  if (!computeAndReportProducerActionKey(
-                      env, testConfiguration, testAction, eligible.producer(), clientEnv, state)) {
+                  if (!computeProducerActionKey(
+                      env, testAction, eligible.producer(), clientEnv, state)) {
                     return null;
                   }
                 }
-                case Ineligible ineligible ->
-                    reportProducerKeyedTestCacheEligibility(
-                        env, testConfiguration, testAction, ineligible.reason().name());
+                case Ineligible unused -> {}
               }
             }
           }
@@ -520,32 +512,18 @@ public class ActionExecutionFunction implements SkyFunction {
     return result;
   }
 
-  private static void reportProducerKeyedTestCacheEligibility(
-      Environment env, TestConfiguration configuration, TestRunnerAction action, String result) {
-    if (configuration.experimentalProducerKeyedTestCacheDebug()) {
-      env.getListener()
-          .handle(
-              Event.info(
-                  String.format(
-                      "producer-keyed test cache: %s: %s", action.getOwner().getLabel(), result)));
-    }
-  }
-
-  private boolean computeAndReportProducerActionKey(
+  private boolean computeProducerActionKey(
       Environment env,
-      TestConfiguration configuration,
       TestRunnerAction testAction,
       com.google.devtools.build.lib.analysis.actions.SpawnAction producer,
       ImmutableMap<String, String> clientEnv,
       InputDiscoveryState state)
       throws InterruptedException, ActionExecutionFunctionException, UndoneInputsException {
-    long producerDigestStartNanos = BlazeClock.nanoTime();
     ProducerActionKeyContext keyContext =
         skyframeActionExecutor
             .getActionContextRegistry()
             .getContext(ProducerActionKeyContext.class);
     if (keyContext == null) {
-      reportProducerKeyedTestCacheEligibility(env, configuration, testAction, "CACHE_UNCONFIGURED");
       return true;
     }
 
@@ -573,56 +551,32 @@ public class ActionExecutionFunction implements SkyFunction {
             /* actionFileSystem= */ null, skyframeActionExecutor.getExecRoot());
     InputMetadataProvider inputMetadataProvider =
         new ActionInputMetadataProvider(checkedInputs.actionInputMap);
-    long producerInputBytes = 0;
-    for (Artifact input : producerInputs.toList()) {
-      FileArtifactValue metadata = checkedInputs.actionInputMap.getInputMetadata(input);
-      if (metadata != null) {
-        producerInputBytes += metadata.getSize();
-      }
-    }
     try {
       var spawn = producer.getSpawnForActionKey(clientEnv, inputMetadataProvider);
       var actionKey =
           keyContext.computeActionKey(spawn, inputMetadataProvider, pathResolver);
-      return computeAndReportSyntheticTestKey(
+      return computeSyntheticTestKey(
           env,
-          configuration,
           testAction,
           clientEnv,
           keyContext,
           actionKey,
-          producer.getMnemonic(),
-          producerInputs.toList().size(),
-          producerInputBytes,
-          Duration.ofNanos(BlazeClock.nanoTime() - producerDigestStartNanos).toMillis(),
           state);
-    } catch (IOException
-        | ExecException
-        | CommandLineExpansionException e) {
-      reportProducerKeyedTestCacheEligibility(
-          env, configuration, testAction, "PRODUCER_DIGEST_UNAVAILABLE: " + e.getMessage());
+    } catch (IOException | ExecException | CommandLineExpansionException e) {
       return true;
     }
   }
 
-  private boolean computeAndReportSyntheticTestKey(
+  private boolean computeSyntheticTestKey(
       Environment env,
-      TestConfiguration configuration,
       TestRunnerAction testAction,
       ImmutableMap<String, String> clientEnv,
       ProducerActionKeyContext keyContext,
       com.google.devtools.build.lib.remote.common.ActionKey producerActionKey,
-      String producerMnemonic,
-      int producerInputCount,
-      long producerInputBytes,
-      long producerDigestComputeMillis,
       InputDiscoveryState state)
       throws InterruptedException, ActionExecutionFunctionException, UndoneInputsException {
-    long runfilesFingerprintStartNanos = BlazeClock.nanoTime();
     Artifact runfilesTreeArtifact = testAction.getRunfilesTree();
     if (!(runfilesTreeArtifact instanceof DerivedArtifact derivedRunfilesTree)) {
-      reportProducerKeyedTestCacheEligibility(
-          env, configuration, testAction, "UNSUPPORTED_RUNFILES_SHAPE");
       return true;
     }
     Action runfilesAction =
@@ -634,8 +588,6 @@ public class ActionExecutionFunction implements SkyFunction {
       return false;
     }
     if (!(runfilesAction instanceof RunfilesTreeAction runfilesTreeAction)) {
-      reportProducerKeyedTestCacheEligibility(
-          env, configuration, testAction, "UNSUPPORTED_RUNFILES_SHAPE");
       return true;
     }
 
@@ -650,8 +602,6 @@ public class ActionExecutionFunction implements SkyFunction {
     for (Artifact artifact : runfilesMapping.values()) {
       if (artifact != null && !artifact.equals(executable)) {
         if (artifact.isTreeArtifact()) {
-          reportProducerKeyedTestCacheEligibility(
-              env, configuration, testAction, "UNSUPPORTED_RUNFILES_SHAPE: tree artifact");
           return true;
         }
         logicalArtifacts.add(artifact);
@@ -664,8 +614,6 @@ public class ActionExecutionFunction implements SkyFunction {
         continue;
       }
       if (input.isTreeArtifact()) {
-        reportProducerKeyedTestCacheEligibility(
-            env, configuration, testAction, "UNSUPPORTED_RUNFILES_SHAPE: direct tree artifact");
         return true;
       }
       logicalArtifacts.add(input);
@@ -705,8 +653,6 @@ public class ActionExecutionFunction implements SkyFunction {
       } else {
         FileArtifactValue metadata = logicalInputResults.actionInputMap.getInputMetadata(artifact);
         if (metadata == null || metadata.getDigest() == null) {
-          reportProducerKeyedTestCacheEligibility(
-              env, configuration, testAction, "RUNFILES_FINGERPRINT_UNAVAILABLE");
           return true;
         }
         logicalInputs.add(
@@ -724,8 +670,6 @@ public class ActionExecutionFunction implements SkyFunction {
       }
       FileArtifactValue metadata = logicalInputResults.actionInputMap.getInputMetadata(input);
       if (metadata == null || metadata.getDigest() == null) {
-        reportProducerKeyedTestCacheEligibility(
-            env, configuration, testAction, "DIRECT_INPUT_FINGERPRINT_UNAVAILABLE");
         return true;
       }
       logicalInputs.add(
@@ -751,7 +695,6 @@ public class ActionExecutionFunction implements SkyFunction {
         testAction.getOwner().getExecutionPlatform() == null
             ? ""
             : testAction.getOwner().getExecutionPlatform().label().getCanonicalForm();
-    long syntheticKeyStartNanos = BlazeClock.nanoTime();
     var logicalIdentity =
         ProducerKeyedTestIdentity.compute(
             producerActionKey.digest().getHash(),
@@ -764,33 +707,8 @@ public class ActionExecutionFunction implements SkyFunction {
             declaredOutputs,
             logicalInputs.build());
     var syntheticKey = keyContext.computeSyntheticTestActionKey(logicalIdentity, producerActionKey);
-    keyContext.registerSyntheticTestActionKey(
-        testAction, syntheticKey, configuration.experimentalProducerKeyedTestCacheDebug());
+    keyContext.registerSyntheticTestActionKey(testAction, syntheticKey);
     state.producerKeyedEarlyHit = keyContext.restoreSyntheticTestActionAlias(testAction);
-    long syntheticKeyComputeMillis =
-        Duration.ofNanos(BlazeClock.nanoTime() - syntheticKeyStartNanos).toMillis();
-    long runfilesFingerprintMillis =
-        Duration.ofNanos(syntheticKeyStartNanos - runfilesFingerprintStartNanos).toMillis();
-    reportProducerKeyedTestCacheEligibility(
-        env,
-        configuration,
-        testAction,
-        "eligible producer="
-            + producerMnemonic
-            + " producer_digest="
-            + producerActionKey.digest().getHash()
-            + " early_key="
-            + syntheticKey.actionKey().digest().getHash()
-            + " producer_digest_compute_ms="
-            + producerDigestComputeMillis
-            + " runfiles_fingerprint_ms="
-            + runfilesFingerprintMillis
-            + " synthetic_key_compute_ms="
-            + syntheticKeyComputeMillis
-            + " producer_input_count="
-            + producerInputCount
-            + " producer_input_bytes="
-            + producerInputBytes);
     return true;
   }
 

@@ -53,7 +53,6 @@ import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -93,8 +92,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.CombinedCache.CachedActionResult;
-import com.google.devtools.build.lib.remote.RemoteAction.ShadowLookupResult;
-import com.google.devtools.build.lib.remote.RemoteAction.ShadowLookupStatus;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.DirectoryMetadata;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.FileMetadata;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.SymlinkMetadata;
@@ -202,30 +199,25 @@ public class RemoteExecutionService {
 
   private static final class RegisteredSyntheticTestActionKey {
     private final SyntheticTestActionKey key;
-    private final boolean debugEnabled;
-    private final ShadowLookupResult shadowLookupResult;
+    @Nullable private final CachedActionResult cachedAlias;
     @Nullable private ActionResult normalActionResult;
     @Nullable private RemoteActionExecutionContext normalContext;
     @Nullable private RemotePathResolver normalPathResolver;
     private boolean finalizationRequested;
 
     private RegisteredSyntheticTestActionKey(
-        SyntheticTestActionKey key, boolean debugEnabled, ShadowLookupResult shadowLookupResult) {
+        SyntheticTestActionKey key, @Nullable CachedActionResult cachedAlias) {
       this.key = key;
-      this.debugEnabled = debugEnabled;
-      this.shadowLookupResult = shadowLookupResult;
+      this.cachedAlias = cachedAlias;
     }
 
     private SyntheticTestActionKey key() {
       return key;
     }
 
-    private boolean debugEnabled() {
-      return debugEnabled;
-    }
-
-    private ShadowLookupResult shadowLookupResult() {
-      return shadowLookupResult;
+    @Nullable
+    private CachedActionResult cachedAlias() {
+      return cachedAlias;
     }
 
     private synchronized void recordNormalResult(RemoteAction action, ActionResult actionResult) {
@@ -643,12 +635,7 @@ public class RemoteExecutionService {
           command,
           action,
           actionKey,
-          registeredSyntheticTestActionKey == null ? null : registeredSyntheticTestActionKey.key(),
-          registeredSyntheticTestActionKey != null
-              && registeredSyntheticTestActionKey.debugEnabled(),
-          registeredSyntheticTestActionKey == null
-              ? ShadowLookupResult.notAttempted()
-              : registeredSyntheticTestActionKey.shadowLookupResult());
+          registeredSyntheticTestActionKey == null ? null : registeredSyntheticTestActionKey.key());
     } finally {
       maybeReleaseRemoteActionBuildingSemaphore();
     }
@@ -659,60 +646,34 @@ public class RemoteExecutionService {
   }
 
   void registerSyntheticTestActionKey(
-      ActionExecutionMetadata action,
-      SyntheticTestActionKey syntheticActionKey,
-      boolean debugEnabled)
+      ActionExecutionMetadata action, SyntheticTestActionKey syntheticActionKey)
       throws InterruptedException {
-    if (!remoteOptions.getProducerKeyedTestCacheWriteAliases()
-        && !remoteOptions.getProducerKeyedTestCacheShadow()
-        && !remoteOptions.getProducerKeyedTestCacheEnabled()) {
-      return;
-    }
-    ShadowLookupResult shadowLookupResult = ShadowLookupResult.notAttempted();
-    if (remoteOptions.getProducerKeyedTestCacheShadow()
-        || remoteOptions.getProducerKeyedTestCacheEnabled()) {
-      shadowLookupResult = lookupSyntheticTestActionAlias(action, syntheticActionKey, debugEnabled);
-    }
     syntheticTestActionKeys.put(
         action,
-        new RegisteredSyntheticTestActionKey(syntheticActionKey, debugEnabled, shadowLookupResult));
+        new RegisteredSyntheticTestActionKey(
+            syntheticActionKey, lookupSyntheticTestActionAlias(action, syntheticActionKey)));
   }
 
   boolean restoreSyntheticTestActionAlias(ActionExecutionMetadata action)
       throws InterruptedException {
-    if (!remoteOptions.getProducerKeyedTestCacheEnabled()
-        || !(action instanceof TestRunnerAction test)) {
+    if (!(action instanceof TestRunnerAction test)) {
       return false;
     }
     RegisteredSyntheticTestActionKey registered = syntheticTestActionKeys.get(action);
-    if (registered == null || registered.shadowLookupResult().status() != ShadowLookupStatus.HIT) {
+    if (registered == null || registered.cachedAlias() == null) {
       return false;
     }
 
-    ActionResult actionResult = checkNotNull(registered.shadowLookupResult().actionResult());
+    ActionResult actionResult = registered.cachedAlias().actionResult();
     if (actionResult.getExitCode() != 0) {
       return false;
     }
     try {
       restoreSyntheticTestActionOutputs(test, registered, actionResult);
-      if (registered.debugEnabled()) {
-        report(
-            Event.info(
-                "producer-keyed test cache: early_short_circuit=hit early_key="
-                    + registered.key().actionKey().digest().getHash()));
-      }
       return true;
     } catch (InterruptedException e) {
       throw e;
     } catch (Exception e) {
-      if (registered.debugEnabled()) {
-        report(
-            Event.warn(
-                "producer-keyed test cache: early_restore=failed early_key="
-                    + registered.key().actionKey().digest().getHash()
-                    + ": "
-                    + grpcAwareErrorMessage(e, verboseFailures)));
-      }
       return false;
     }
   }
@@ -757,7 +718,7 @@ public class RemoteExecutionService {
     }
 
     CachePolicy sourcePolicy =
-        Objects.equals(registered.shadowLookupResult().cacheName(), "disk")
+        Objects.equals(registered.cachedAlias().cacheName(), "disk")
             ? CachePolicy.DISK_CACHE_ONLY
             : CachePolicy.REMOTE_CACHE_ONLY;
     RequestMetadata metadata =
@@ -776,7 +737,7 @@ public class RemoteExecutionService {
             .withWriteCachePolicy(CachePolicy.NO_CACHE);
     RemoteActionResult result =
         new RemoteActionResult(
-            actionResult, /* executeResponse= */ null, registered.shadowLookupResult().cacheName());
+            actionResult, /* executeResponse= */ null, registered.cachedAlias().cacheName());
     ActionResultMetadata outputMetadata =
         result.getOrParseActionResultMetadata(
             checkNotNull(combinedCache), digestUtil, context, baseRemotePathResolver);
@@ -820,13 +781,10 @@ public class RemoteExecutionService {
     }
   }
 
-  private ShadowLookupResult lookupSyntheticTestActionAlias(
-      ActionExecutionMetadata action,
-      SyntheticTestActionKey syntheticActionKey,
-      boolean debugEnabled)
+  @Nullable
+  private CachedActionResult lookupSyntheticTestActionAlias(
+      ActionExecutionMetadata action, SyntheticTestActionKey syntheticActionKey)
       throws InterruptedException {
-    Stopwatch stopwatch = Stopwatch.createStarted();
-    ShadowLookupResult result;
     try {
       checkNotNull(combinedCache);
       boolean allowRemoteCache =
@@ -836,71 +794,39 @@ public class RemoteExecutionService {
       boolean allowDiskCache = useDiskCache() && Spawns.mayBeCached(action.getExecutionInfo());
       CachePolicy readPolicy = CachePolicy.create(allowRemoteCache, allowDiskCache);
       if (!readPolicy.allowAnyCache()) {
-        result = new ShadowLookupResult(ShadowLookupStatus.MISS, null, null);
-      } else {
-        RequestMetadata metadata =
-            TracingMetadataUtils.buildMetadata(
-                buildRequestId,
-                commandId,
-                syntheticActionKey.actionKey().digest().getHash(),
-                action.getMnemonic(),
-                action.getOwner().getLabel() == null
-                    ? null
-                    : action.getOwner().getLabel().getCanonicalForm(),
-                action.getOwner().getConfigurationChecksum());
-        RemoteActionExecutionContext context =
-            RemoteActionExecutionContext.create(metadata)
-                .withReadCachePolicy(readPolicy)
-                .withWriteCachePolicy(CachePolicy.NO_CACHE);
-        CachedActionResult cachedActionResult =
-            combinedCache.downloadActionResult(
-                context,
-                syntheticActionKey.actionKey(),
-                /* inlineOutErr= */ false,
-                ImmutableSet.of());
-        if (cachedActionResult == null) {
-          result = new ShadowLookupResult(ShadowLookupStatus.MISS, null, null);
-        } else if (hasMissingShadowOutputs(context, cachedActionResult)) {
-          result =
-              new ShadowLookupResult(
-                  ShadowLookupStatus.UNAVAILABLE, null, cachedActionResult.cacheName());
-        } else {
-          result =
-              new ShadowLookupResult(
-                  ShadowLookupStatus.HIT,
-                  cachedActionResult.actionResult(),
-                  cachedActionResult.cacheName());
-        }
+        return null;
       }
+      RequestMetadata metadata =
+          TracingMetadataUtils.buildMetadata(
+              buildRequestId,
+              commandId,
+              syntheticActionKey.actionKey().digest().getHash(),
+              action.getMnemonic(),
+              action.getOwner().getLabel() == null
+                  ? null
+                  : action.getOwner().getLabel().getCanonicalForm(),
+              action.getOwner().getConfigurationChecksum());
+      RemoteActionExecutionContext context =
+          RemoteActionExecutionContext.create(metadata)
+              .withReadCachePolicy(readPolicy)
+              .withWriteCachePolicy(CachePolicy.NO_CACHE);
+      CachedActionResult cachedActionResult =
+          combinedCache.downloadActionResult(
+              context,
+              syntheticActionKey.actionKey(),
+              /* inlineOutErr= */ false,
+              ImmutableSet.of());
+      return cachedActionResult == null || hasMissingAliasOutputs(context, cachedActionResult)
+          ? null
+          : cachedActionResult;
     } catch (InterruptedException e) {
       throw e;
     } catch (Exception e) {
-      result = new ShadowLookupResult(ShadowLookupStatus.ERROR, null, null);
-      if (debugEnabled) {
-        report(
-            Event.warn(
-                "producer-keyed test cache: shadow_lookup=error early_key="
-                    + syntheticActionKey.actionKey().digest().getHash()
-                    + ": "
-                    + grpcAwareErrorMessage(e, verboseFailures)));
-      }
+      return null;
     }
-    if (debugEnabled && result.status() != ShadowLookupStatus.ERROR) {
-      report(
-          Event.info(
-              "producer-keyed test cache: shadow_lookup="
-                  + result.status().name().toLowerCase()
-                  + " early_key="
-                  + syntheticActionKey.actionKey().digest().getHash()
-                  + " cache="
-                  + Objects.toString(result.cacheName(), "none")
-                  + " shadow_lookup_ms="
-                  + stopwatch.elapsed().toMillis()));
-    }
-    return result;
   }
 
-  private boolean hasMissingShadowOutputs(
+  private boolean hasMissingAliasOutputs(
       RemoteActionExecutionContext context, CachedActionResult cachedActionResult)
       throws IOException, InterruptedException {
     ImmutableSet.Builder<Digest> referencedDigests = ImmutableSet.builder();
@@ -1814,15 +1740,7 @@ public class RemoteExecutionService {
                 result.actionResult));
       }
 
-      compareSyntheticTestActionShadowResult(
-          action,
-          result.actionResult,
-          result.cacheHit(),
-          result.cacheHit() ? Objects.toString(result.cacheName(), "cache") : "remote");
       uploadSyntheticTestActionAlias(action, result.actionResult);
-    } else {
-      compareSyntheticTestActionShadowResult(
-          action, result.actionResult, result.cacheHit(), "failed-remote");
     }
 
     if (inMemoryOutput != null && inMemoryOutputData.get() != null) {
@@ -2199,8 +2117,6 @@ public class RemoteExecutionService {
       UploadManifest manifest = buildUploadManifest(action, spawnResult);
       ActionResult actionResult =
           manifest.upload(action.getRemoteActionExecutionContext(), combinedCache, reporter);
-      compareSyntheticTestActionShadowResult(
-          action, actionResult, /* normalCacheHit= */ false, "local");
       uploadSyntheticTestActionAlias(action, actionResult);
     } catch (IOException e) {
       reportUploadError(e);
@@ -2243,23 +2159,10 @@ public class RemoteExecutionService {
                   syntheticActionKey.inputRoot().toByteString())));
       getFromFuture(
           combinedCache.uploadActionResult(context, syntheticActionKey.actionKey(), actionResult));
-      if (action.isProducerKeyedDebugEnabled()) {
-        report(
-            Event.info(
-                "producer-keyed test cache: alias written early_key="
-                    + syntheticActionKey.actionKey().digest().getHash()));
-      }
     } catch (InterruptedException e) {
       throw e;
-    } catch (Exception e) {
-      if (action.isProducerKeyedDebugEnabled()) {
-        report(
-            Event.warn(
-                "producer-keyed test cache: alias upload failed early_key="
-                    + syntheticActionKey.actionKey().digest().getHash()
-                    + ": "
-                    + grpcAwareErrorMessage(e, verboseFailures)));
-      }
+    } catch (Exception ignored) {
+      // Producer-keyed caching is an optimization; normal test execution already succeeded.
     }
     if (registered != null && registered.finalizationRequested()) {
       finalizeSyntheticTestActionAlias(action.getSpawn().getResourceOwner());
@@ -2349,142 +2252,11 @@ public class RemoteExecutionService {
                   registered.key().inputRoot().toByteString())));
       getFromFuture(
           combinedCache.uploadActionResult(context, registered.key().actionKey(), finalizedResult));
-      if (registered.debugEnabled()) {
-        report(
-            Event.info(
-                "producer-keyed test cache: alias finalized early_key="
-                    + registered.key().actionKey().digest().getHash()));
-      }
     } catch (InterruptedException e) {
       throw e;
-    } catch (Exception e) {
-      if (registered.debugEnabled()) {
-        report(
-            Event.warn(
-                "producer-keyed test cache: alias finalization failed early_key="
-                    + registered.key().actionKey().digest().getHash()
-                    + ": "
-                    + grpcAwareErrorMessage(e, verboseFailures)));
-      }
+    } catch (Exception ignored) {
+      // Producer-keyed caching is an optimization; normal test execution already succeeded.
     }
-  }
-
-  @VisibleForTesting
-  void compareSyntheticTestActionShadowResult(
-      RemoteAction action,
-      ActionResult normalActionResult,
-      boolean normalCacheHit,
-      String normalSource) {
-    ShadowLookupResult shadowLookupResult = action.getShadowLookupResult();
-    String comparison = null;
-    boolean disagreement = false;
-    switch (shadowLookupResult.status()) {
-      case HIT -> {
-        ActionResult shadowActionResult = checkNotNull(shadowLookupResult.actionResult());
-        ImmutableSet<String> actionOutputPaths = ImmutableSet.of();
-        if (action.getSpawn().getResourceOwner() instanceof TestRunnerAction test) {
-          actionOutputPaths =
-              test.getOutputs().stream()
-                  .map(action.getRemotePathResolver()::localPathToOutputPath)
-                  .collect(ImmutableSet.toImmutableSet());
-        }
-        if (shadowActionResult.getExitCode() == 0 && normalActionResult.getExitCode() != 0) {
-          comparison = "early_pass_normal_fail";
-          disagreement = true;
-        } else if (canonicalizeShadowActionResult(shadowActionResult, actionOutputPaths)
-            .equals(canonicalizeShadowActionResult(normalActionResult, actionOutputPaths))) {
-          comparison = "match";
-        } else {
-          comparison = "result_mismatch";
-          disagreement = true;
-        }
-      }
-      case MISS -> {
-        if (normalCacheHit) {
-          comparison = "early_miss_normal_cache_hit";
-          disagreement = true;
-        }
-      }
-      case UNAVAILABLE -> {
-        comparison = "early_outputs_unavailable";
-        disagreement = true;
-      }
-      case NOT_ATTEMPTED, ERROR -> {
-        return;
-      }
-    }
-    if (comparison != null && action.isProducerKeyedDebugEnabled()) {
-      String message =
-          "producer-keyed test cache: shadow_compare="
-              + comparison
-              + " early_key="
-              + checkNotNull(action.getSyntheticTestActionKey()).actionKey().digest().getHash()
-              + " early_cache="
-              + Objects.toString(shadowLookupResult.cacheName(), "none")
-              + " normal_source="
-              + normalSource;
-      report(disagreement ? Event.warn(message) : Event.info(message));
-    }
-  }
-
-  void reportSyntheticTestActionShadowFailure(RemoteAction action, String normalSource) {
-    compareSyntheticTestActionShadowResult(
-        action,
-        ActionResult.newBuilder().setExitCode(1).build(),
-        /* normalCacheHit= */ false,
-        normalSource);
-  }
-
-  private ActionResult canonicalizeShadowActionResult(
-      ActionResult actionResult, ImmutableSet<String> ignoredOutputPaths) {
-    ActionResult.Builder builder = actionResult.toBuilder().clearExecutionMetadata();
-    ImmutableList<OutputFile> outputFiles =
-        actionResult.getOutputFilesList().stream()
-            .filter(outputFile -> !ignoredOutputPaths.contains(outputFile.getPath()))
-            .map(outputFile -> outputFile.toBuilder().clearContents().build())
-            .collect(ImmutableList.toImmutableList());
-    builder.clearOutputFiles().addAllOutputFiles(outputFiles);
-    builder
-        .clearOutputDirectories()
-        .addAllOutputDirectories(
-            actionResult.getOutputDirectoriesList().stream()
-                .filter(output -> !ignoredOutputPaths.contains(output.getPath()))
-                .toList());
-    builder
-        .clearOutputSymlinks()
-        .addAllOutputSymlinks(
-            actionResult.getOutputSymlinksList().stream()
-                .filter(output -> !ignoredOutputPaths.contains(output.getPath()))
-                .toList());
-    builder
-        .clearOutputFileSymlinks()
-        .addAllOutputFileSymlinks(
-            actionResult.getOutputFileSymlinksList().stream()
-                .filter(output -> !ignoredOutputPaths.contains(output.getPath()))
-                .toList());
-    builder
-        .clearOutputDirectorySymlinks()
-        .addAllOutputDirectorySymlinks(
-            actionResult.getOutputDirectorySymlinksList().stream()
-                .filter(output -> !ignoredOutputPaths.contains(output.getPath()))
-                .toList());
-    if (!actionResult.getStdoutRaw().isEmpty()) {
-      builder
-          .clearStdoutRaw()
-          .setStdoutDigest(digestUtil.compute(actionResult.getStdoutRaw().toByteArray()));
-    } else if (actionResult.hasStdoutDigest()
-        && actionResult.getStdoutDigest().getSizeBytes() == 0) {
-      builder.clearStdoutDigest();
-    }
-    if (!actionResult.getStderrRaw().isEmpty()) {
-      builder
-          .clearStderrRaw()
-          .setStderrDigest(digestUtil.compute(actionResult.getStderrRaw().toByteArray()));
-    } else if (actionResult.hasStderrDigest()
-        && actionResult.getStderrDigest().getSizeBytes() == 0) {
-      builder.clearStderrDigest();
-    }
-    return builder.build();
   }
 
   private void checkForConcurrentModifications(

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.remote;
 
 import build.bazel.remote.execution.v2.Action;
-import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -38,21 +37,6 @@ import javax.annotation.Nullable;
  */
 public class RemoteAction {
 
-  enum ShadowLookupStatus {
-    NOT_ATTEMPTED,
-    HIT,
-    MISS,
-    UNAVAILABLE,
-    ERROR
-  }
-
-  record ShadowLookupResult(
-      ShadowLookupStatus status, @Nullable ActionResult actionResult, @Nullable String cacheName) {
-    static ShadowLookupResult notAttempted() {
-      return new ShadowLookupResult(ShadowLookupStatus.NOT_ATTEMPTED, null, null);
-    }
-  }
-
   private final Spawn spawn;
   private final SpawnExecutionContext spawnExecutionContext;
   private final RemoteActionExecutionContext remoteActionExecutionContext;
@@ -63,8 +47,6 @@ public class RemoteAction {
   private final Action action;
   private final ActionKey actionKey;
   @Nullable private final SyntheticTestActionKey syntheticTestActionKey;
-  private final boolean producerKeyedDebugEnabled;
-  private final ShadowLookupResult shadowLookupResult;
 
   RemoteAction(
       Spawn spawn,
@@ -76,9 +58,7 @@ public class RemoteAction {
       Command command,
       Action action,
       ActionKey actionKey,
-      @Nullable SyntheticTestActionKey syntheticTestActionKey,
-      boolean producerKeyedDebugEnabled,
-      ShadowLookupResult shadowLookupResult) {
+      @Nullable SyntheticTestActionKey syntheticTestActionKey) {
     this.spawn = spawn;
     this.spawnExecutionContext = spawnExecutionContext;
     this.remoteActionExecutionContext = remoteActionExecutionContext;
@@ -89,8 +69,6 @@ public class RemoteAction {
     this.action = action;
     this.actionKey = actionKey;
     this.syntheticTestActionKey = syntheticTestActionKey;
-    this.producerKeyedDebugEnabled = producerKeyedDebugEnabled;
-    this.shadowLookupResult = shadowLookupResult;
   }
 
   public RemoteActionExecutionContext getRemoteActionExecutionContext() {
@@ -131,14 +109,6 @@ public class RemoteAction {
   @Nullable
   public SyntheticTestActionKey getSyntheticTestActionKey() {
     return syntheticTestActionKey;
-  }
-
-  public boolean isProducerKeyedDebugEnabled() {
-    return producerKeyedDebugEnabled;
-  }
-
-  ShadowLookupResult getShadowLookupResult() {
-    return shadowLookupResult;
   }
 
   /** Returns underlying {@link Action} of this remote action. */
