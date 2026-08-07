@@ -883,28 +883,9 @@ public abstract class CppOptions extends FragmentOptions {
   public abstract boolean getUseArgsParamsFile();
 
   @Option(
-      name = "experimental_unsupported_and_brittle_include_scanning",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.EXECUTION,
-        OptionEffectTag.CHANGES_INPUTS
-      },
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "Whether to narrow inputs to C/C++ compilation by parsing #include lines from input"
-              + " files. This can improve performance and incrementality by decreasing the size of"
-              + " compilation input trees. However, it can also break builds because the include"
-              + " scanner does not fully implement C preprocessor semantics. In particular, it does"
-              + " not understand dynamic #include directives and ignores preprocessor conditional"
-              + " logic. Use at your own risk. Any issues relating to this flag that are filed will"
-              + " be closed."
-              + " At Google without this flag your build will most likely fail.")
-  public abstract boolean getIncludeScanning();
-
-  @Option(
       name = "cc_include_scanning",
+      oldName = "experimental_unsupported_and_brittle_include_scanning",
+      oldNameWarning = false,
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {
@@ -922,7 +903,7 @@ public abstract class CppOptions extends FragmentOptions {
               + " logic. Use at your own risk. Any issues relating to this flag that are filed will"
               + " be closed."
               + " At Google without this flag your build will most likely fail.")
-  public abstract boolean getIncludeScanningInternal();
+  public abstract boolean getCcIncludeScanning();
 
   @Option(
       name = "cc_dotd_files",
