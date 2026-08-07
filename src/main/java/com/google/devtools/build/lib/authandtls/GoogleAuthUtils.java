@@ -226,7 +226,9 @@ public final class GoogleAuthUtils {
   private static NettyChannelBuilder newUnixNettyChannelBuilder(String target) throws IOException {
     DomainSocketAddress address = new DomainSocketAddress(target.replaceFirst("^unix:", ""));
     NettyChannelBuilder builder =
-        NettyChannelBuilder.forAddress(address).eventLoopGroup(getEventLoopGroup());
+        NettyChannelBuilder.forAddress(address)
+            .eventLoopGroup(getEventLoopGroup())
+            .overrideAuthority("localhost");
     if (KQueue.isAvailable()) {
       return builder.channelType(KQueueDomainSocketChannel.class);
     }
