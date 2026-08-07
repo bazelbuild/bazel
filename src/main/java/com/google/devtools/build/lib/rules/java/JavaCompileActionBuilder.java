@@ -137,6 +137,8 @@ public final class JavaCompileActionBuilder {
   private final String execGroup;
   private ImmutableSet<Artifact> additionalOutputs = ImmutableSet.of();
   private Artifact coverageArtifact;
+  private ImmutableList<String> coverageIncludes;
+  private ImmutableList<String> coverageExcludes;
   private ImmutableSet<Artifact> sourceFiles = ImmutableSet.of();
   private ImmutableList<Artifact> sourceJars = ImmutableList.of();
   private StrictDepsMode strictJavaDeps = StrictDepsMode.ERROR;
@@ -326,6 +328,8 @@ public final class JavaCompileActionBuilder {
     if (coverageArtifact != null) {
       result.add("--post_processor");
       result.addExecPath(JACOCO_INSTRUMENTATION_PROCESSOR, coverageArtifact);
+      result.addDynamicString(String.join(":", coverageIncludes));
+      result.addDynamicString(String.join(":", coverageExcludes));
     }
     return result.build();
   }
@@ -452,6 +456,18 @@ public final class JavaCompileActionBuilder {
   @CanIgnoreReturnValue
   public JavaCompileActionBuilder setCoverageArtifact(Artifact coverageArtifact) {
     this.coverageArtifact = coverageArtifact;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public JavaCompileActionBuilder setCoverageIncludes(ImmutableList<String> coverageIncludes) {
+    this.coverageIncludes = coverageIncludes;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public JavaCompileActionBuilder setCoverageExcludes(ImmutableList<String> coverageExcludes) {
+    this.coverageExcludes = coverageExcludes;
     return this;
   }
 
