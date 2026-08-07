@@ -257,18 +257,13 @@ public interface SpawnRunner {
     FileOutErr getFileOutErr();
 
     /**
-     * Returns a sorted map from input paths to action inputs.
+     * Returns a sorted map from execroot-relative input paths to action inputs.
      *
      * <p>Resolves cases where a single input of the {@link Spawn} gives rise to multiple files in
      * the input tree, for example, tree artifacts, runfiles trees and {@code Fileset} input
      * manifests.
-     *
-     * <p>{@code baseDirectory} is prepended to every path in the input key. This is useful if the
-     * mapping is used in a context where the directory relative to which the keys are interpreted
-     * is not the same as the execroot.
      */
-    SortedMap<PathFragment, ActionInput> getInputMapping(
-        PathFragment baseDirectory, boolean willAccessRepeatedly);
+    SortedMap<PathFragment, ActionInput> getInputMapping(boolean willAccessRepeatedly);
 
     /** Reports a progress update to the Spawn strategy. */
     void report(ProgressStatus progress);
@@ -313,9 +308,7 @@ public interface SpawnRunner {
             .prefetchFiles(
                 spawn.getResourceOwner(),
                 spawn,
-                () ->
-                    getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
-                        .values(),
+                () -> getInputMapping(/* willAccessRepeatedly= */ true).values(),
                 getInputMetadataProvider(),
                 Priority.MEDIUM,
                 Reason.INPUTS);
