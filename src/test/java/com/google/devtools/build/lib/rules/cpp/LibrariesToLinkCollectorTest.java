@@ -33,7 +33,7 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
   /* TODO: Add an integration test (maybe in cc_integration_test.sh) when a modular toolchain config
   is available.*/
   @Test
-  public void dynamicLink_siblingLayout_externalBinary_rpath() throws Exception {
+  public void dynamicLink_externalBinary_rpath() throws Exception {
     if (!analysisMock.isThisBazel()) {
       return;
     }
@@ -115,7 +115,6 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
     scratch.file("toolchain/librt.so");
     analysisMock.ccSupport().setupCcToolchainConfig(mockToolsConfig, CcToolchainConfig.builder());
 
-    setBuildLanguageOptions("--experimental_sibling_repository_layout");
     useConfiguration(
         "--extra_toolchains=//toolchain:toolchain",
         "--dynamic_mode=fully",
@@ -133,9 +132,7 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
 
     String workspace = getTarget("//toolchain:toolchain").getPackageMetadata().workspaceName();
     List<String> linkArgs = linkAction.getArguments();
-    assertThat(linkArgs)
-        .contains(
-            "--runtime_library=../../../../k8-fastbuild/bin/_solib__toolchain_Cc_Utoolchain/");
+    assertThat(linkArgs).contains("--runtime_library=../../../_solib__toolchain_Cc_Utoolchain/");
     assertThat(linkArgs)
         .contains(
             "--runtime_library=foo.runfiles/" + workspace + "/_solib__toolchain_Cc_Utoolchain/");
@@ -144,7 +141,7 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
   }
 
   @Test
-  public void dynamicLink_siblingLayout_externalToolchain_rpath() throws Exception {
+  public void dynamicLink_externalToolchain_rpath() throws Exception {
     if (!analysisMock.isThisBazel()) {
       return;
     }
@@ -228,7 +225,6 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
 
     invalidatePackages();
 
-    setBuildLanguageOptions("--experimental_sibling_repository_layout");
     useConfiguration(
         "--extra_toolchains=@@toolchain+//:toolchain",
         "--dynamic_mode=fully",
@@ -245,12 +241,9 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
     assertThat(linkAction).isNotNull();
 
     List<String> linkArgs = linkAction.getArguments();
+    assertThat(linkArgs).contains("--runtime_library=../../_solib__toolchain+_A_Cc_Utoolchain/");
     assertThat(linkArgs)
-        .contains(
-            "--runtime_library=../../../../toolchain+/k8-fastbuild/bin/_solib__toolchain+_A_Cc_Utoolchain/");
-    assertThat(linkArgs)
-        .contains("--runtime_library=foo.runfiles/toolchain+/_solib__toolchain+_A_Cc_Utoolchain/");
-    assertThat(linkArgs)
-        .contains("--runtime_library=../../../toolchain+/_solib__toolchain+_A_Cc_Utoolchain/");
+        .contains("--runtime_library=foo.runfiles/_main/_solib__toolchain+_A_Cc_Utoolchain/");
+    assertThat(linkArgs).contains("--runtime_library=_solib__toolchain+_A_Cc_Utoolchain/");
   }
 }

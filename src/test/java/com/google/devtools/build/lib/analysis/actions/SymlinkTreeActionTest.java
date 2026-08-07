@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -49,8 +48,7 @@ public final class SymlinkTreeActionTest extends BuildViewTestCase {
     Artifact filesetInputManifest =
         getTestAnalysisEnvironment()
             .getFilesetArtifact(
-                PathFragment.create("dir/manifest.in"),
-                targetConfig.getBinDirectory(RepositoryName.MAIN));
+                PathFragment.create("dir/manifest.in"), targetConfig.getBinDirectory());
     Artifact runfilesInputManifest = getBinArtifactWithNoOwner("dir/manifest.in");
     Artifact outputManifest = getBinArtifactWithNoOwner("dir/MANIFEST");
     Artifact runfile = getBinArtifactWithNoOwner("dir/runfile");

@@ -298,6 +298,7 @@ public final class MerkleTreeComputer {
         }
       }
     }
+    PathMapper pathMapper = spawn.getPathMapper();
     var spawnInputs = spawn.getInputFiles().flatten();
     // Add output directories to inputs so that they are created as empty directories by the
     // executor. The spec only requires the executor to create the parent directory of an output
@@ -312,9 +313,7 @@ public final class MerkleTreeComputer {
     // while iterating over the inputs, only the sorted order has to be retained.
     var allInputs =
         ImmutableList.sortedCopyOf(
-            comparing(
-                input -> getOutputPath(input, remotePathResolver, spawn.getPathMapper()),
-                HIERARCHICAL_COMPARATOR),
+            comparing(input -> pathMapper.map(input.getExecPath()), HIERARCHICAL_COMPARATOR),
             concat(spawnInputs, outputDirectories));
     ActionExecutionMetadata actionMetadata = spawn.getResourceOwner();
     var metadata =
@@ -334,22 +333,12 @@ public final class MerkleTreeComputer {
             metadata,
             CachePolicy.REMOTE_CACHE_ONLY,
             CachePolicy.NO_CACHE);
-    Predicate<PathFragment> isToolInput;
-    if (toolInputs.isEmpty() || remotePathResolver.getWorkingDirectory().isEmpty()) {
-      isToolInput = toolInputs::contains;
-    } else {
-      isToolInput =
-          path -> toolInputs.contains(path.relativeTo(remotePathResolver.getWorkingDirectory()));
-    }
     try {
       return getFromFuture(
           build(
               Lists.transform(
-                  allInputs,
-                  input ->
-                      entry(
-                          getOutputPath(input, remotePathResolver, spawn.getPathMapper()), input)),
-              isToolInput,
+                  allInputs, input -> entry(pathMapper.map(input.getExecPath()), input)),
+              toolInputs::contains,
               scrubber != null ? scrubber.forSpawn(spawn) : null,
               spawnExecutionContext.getInputMetadataProvider(),
               spawnExecutionContext.getPathResolver(),
@@ -361,13 +350,6 @@ public final class MerkleTreeComputer {
           .throwIfNotEmpty();
       throw e;
     }
-  }
-
-  private static PathFragment getOutputPath(
-      ActionInput input, RemotePathResolver remotePathResolver, PathMapper pathMapper) {
-    return remotePathResolver
-        .getWorkingDirectory()
-        .getRelative(pathMapper.map(input.getExecPath()));
   }
 
   /**

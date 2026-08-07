@@ -52,12 +52,9 @@ public final class SpawnInputExpander {
   }
 
   private static void addMapping(
-      Map<PathFragment, ActionInput> inputMap,
-      PathFragment targetLocation,
-      ActionInput input,
-      PathFragment baseDirectory) {
+      Map<PathFragment, ActionInput> inputMap, PathFragment targetLocation, ActionInput input) {
     Preconditions.checkArgument(!targetLocation.isAbsolute(), targetLocation);
-    inputMap.put(baseDirectory.getRelative(targetLocation), input);
+    inputMap.put(targetLocation, input);
   }
 
   @VisibleForTesting
@@ -65,15 +62,13 @@ public final class SpawnInputExpander {
       RunfilesTree runfilesTree,
       Map<PathFragment, ActionInput> inputMap,
       InputMetadataProvider inputMetadataProvider,
-      PathMapper pathMapper,
-      PathFragment baseDirectory) {
+      PathMapper pathMapper) {
     addSingleRunfilesTreeToInputs(
         inputMap,
         runfilesTree.getExecPath(),
         runfilesTree.getMapping(),
         inputMetadataProvider,
-        pathMapper,
-        baseDirectory);
+        pathMapper);
   }
 
   /**
@@ -87,18 +82,14 @@ public final class SpawnInputExpander {
       PathFragment root,
       Map<PathFragment, Artifact> mappings,
       InputMetadataProvider inputMetadataProvider,
-      PathMapper pathMapper,
-      PathFragment baseDirectory) {
+      PathMapper pathMapper) {
     Preconditions.checkArgument(!root.isAbsolute(), root);
     for (Map.Entry<PathFragment, Artifact> mapping : mappings.entrySet()) {
       PathFragment location = root.getRelative(mapping.getKey());
       Artifact artifact = mapping.getValue();
       if (artifact == null) {
         addMapping(
-            inputMap,
-            mapForRunfiles(pathMapper, root, location),
-            VirtualActionInput.EMPTY_MARKER,
-            baseDirectory);
+            inputMap, mapForRunfiles(pathMapper, root, location), VirtualActionInput.EMPTY_MARKER);
         continue;
       }
       Preconditions.checkArgument(!artifact.isRunfilesTree(), artifact);
@@ -107,41 +98,34 @@ public final class SpawnInputExpander {
         ArchivedTreeArtifact archivedTreeArtifact =
             expandArchivedTreeArtifacts ? null : treeArtifactValue.getArchivedArtifact();
         if (archivedTreeArtifact != null) {
-          addMapping(
-              inputMap,
-              mapForRunfiles(pathMapper, root, location),
-              archivedTreeArtifact,
-              baseDirectory);
+          addMapping(inputMap, mapForRunfiles(pathMapper, root, location), archivedTreeArtifact);
         } else if (treeArtifactValue.getChildren().isEmpty()) {
-          addMapping(inputMap, mapForRunfiles(pathMapper, root, location), artifact, baseDirectory);
+          addMapping(inputMap, mapForRunfiles(pathMapper, root, location), artifact);
         } else {
           for (TreeFileArtifact input : treeArtifactValue.getChildren()) {
             addMapping(
                 inputMap,
                 mapForRunfiles(pathMapper, root, location)
                     .getRelative(input.getParentRelativePath()),
-                input,
-                baseDirectory);
+                input);
           }
         }
       } else if (artifact.isFileset()) {
         // TODO(bazel-team): Add path mapping support for filesets.
         FilesetOutputTree filesetOutput = inputMetadataProvider.getFileset(artifact);
-        addFilesetManifest(location, artifact, filesetOutput, inputMap, baseDirectory);
+        addFilesetManifest(location, artifact, filesetOutput, inputMap);
       } else {
-        addMapping(inputMap, mapForRunfiles(pathMapper, root, location), artifact, baseDirectory);
+        addMapping(inputMap, mapForRunfiles(pathMapper, root, location), artifact);
       }
     }
   }
 
   @VisibleForTesting
   static void addFilesetManifests(
-      Map<Artifact, FilesetOutputTree> filesetMappings,
-      Map<PathFragment, ActionInput> inputMap,
-      PathFragment baseDirectory) {
+      Map<Artifact, FilesetOutputTree> filesetMappings, Map<PathFragment, ActionInput> inputMap) {
     for (Map.Entry<Artifact, FilesetOutputTree> entry : filesetMappings.entrySet()) {
       Artifact fileset = entry.getKey();
-      addFilesetManifest(fileset.getExecPath(), fileset, entry.getValue(), inputMap, baseDirectory);
+      addFilesetManifest(fileset.getExecPath(), fileset, entry.getValue(), inputMap);
     }
   }
 
@@ -149,11 +133,10 @@ public final class SpawnInputExpander {
       PathFragment location,
       Artifact filesetArtifact,
       FilesetOutputTree filesetOutput,
-      Map<PathFragment, ActionInput> inputMap,
-      PathFragment baseDirectory) {
+      Map<PathFragment, ActionInput> inputMap) {
     Preconditions.checkArgument(filesetArtifact.isFileset(), filesetArtifact);
     for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
-      addMapping(inputMap, location.getRelative(link.name()), link.target(), baseDirectory);
+      addMapping(inputMap, location.getRelative(link.name()), link.target());
     }
   }
 
@@ -161,8 +144,7 @@ public final class SpawnInputExpander {
       Map<PathFragment, ActionInput> inputMap,
       SpawnInputs inputFiles,
       InputMetadataProvider inputMetadataProvider,
-      PathMapper pathMapper,
-      PathFragment baseDirectory) {
+      PathMapper pathMapper) {
     // Actions that accept TreeArtifacts as inputs generally expect the directory corresponding
     // to the artifact to be created, even if it is empty. We explicitly keep empty TreeArtifacts
     // here to signal consumers that they should create the directory.
@@ -184,24 +166,21 @@ public final class SpawnInputExpander {
               parentPath.equals(parent.getExecPath())
                   ? child.getExecPath()
                   : parentPath.getRelative(child.getParentRelativePath()),
-              input,
-              baseDirectory);
+              input);
         }
         case Artifact runfilesTreeArtifact when runfilesTreeArtifact.isRunfilesTree() ->
             addSingleRunfilesTreeToInputs(
                 inputMetadataProvider.getRunfilesMetadata(runfilesTreeArtifact).getRunfilesTree(),
                 inputMap,
                 inputMetadataProvider,
-                pathMapper,
-                baseDirectory);
+                pathMapper);
         case Artifact fileset when fileset.isFileset() ->
             addFilesetManifest(
                 fileset.getExecPath(),
                 fileset,
                 inputMetadataProvider.getFileset(fileset),
-                inputMap,
-                baseDirectory);
-        default -> addMapping(inputMap, pathMapper.map(input.getExecPath()), input, baseDirectory);
+                inputMap);
+        default -> addMapping(inputMap, pathMapper.map(input.getExecPath()), input);
       }
     }
   }
@@ -218,14 +197,9 @@ public final class SpawnInputExpander {
    * <p>The returned map contains all runfiles, but not the {@code MANIFEST}.
    */
   public SortedMap<PathFragment, ActionInput> getInputMapping(
-      Spawn spawn, InputMetadataProvider inputMetadataProvider, PathFragment baseDirectory) {
+      Spawn spawn, InputMetadataProvider inputMetadataProvider) {
     TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
-    addInputs(
-        inputMap,
-        spawn.getInputFiles(),
-        inputMetadataProvider,
-        spawn.getPathMapper(),
-        baseDirectory);
+    addInputs(inputMap, spawn.getInputFiles(), inputMetadataProvider, spawn.getPathMapper());
     return inputMap;
   }
 

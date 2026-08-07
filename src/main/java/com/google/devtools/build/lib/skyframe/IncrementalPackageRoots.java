@@ -84,7 +84,6 @@ public class IncrementalPackageRoots implements PackageRoots {
   private final String prefix;
 
   private final IgnoredSubdirectories ignoredPaths;
-  private final boolean useSiblingRepositoryLayout;
 
   private final boolean allowExternalRepositories;
   @Nullable private EventBus eventBus;
@@ -98,7 +97,6 @@ public class IncrementalPackageRoots implements PackageRoots {
       EventBus eventBus,
       String prefix,
       IgnoredSubdirectories ignoredPaths,
-      boolean useSiblingRepositoryLayout,
       boolean allowExternalRepositories) {
     this.threadSafeExternalRepoPackageRootsMap = new ConcurrentHashMap<>();
     this.execroot = execroot;
@@ -106,7 +104,6 @@ public class IncrementalPackageRoots implements PackageRoots {
     this.prefix = prefix;
     this.ignoredPaths = ignoredPaths;
     this.eventBus = eventBus;
-    this.useSiblingRepositoryLayout = useSiblingRepositoryLayout;
     this.allowExternalRepositories = allowExternalRepositories;
     this.symlinkPlantingPool =
         MoreExecutors.listeningDecorator(
@@ -121,7 +118,6 @@ public class IncrementalPackageRoots implements PackageRoots {
       EventBus eventBus,
       String prefix,
       IgnoredSubdirectories ignoredSubdirectories,
-      boolean useSiblingRepositoryLayout,
       boolean allowExternalRepositories) {
     IncrementalPackageRoots incrementalPackageRoots =
         new IncrementalPackageRoots(
@@ -130,7 +126,6 @@ public class IncrementalPackageRoots implements PackageRoots {
             eventBus,
             prefix,
             ignoredSubdirectories,
-            useSiblingRepositoryLayout,
             allowExternalRepositories);
     eventBus.register(incrementalPackageRoots);
     return incrementalPackageRoots;
@@ -166,11 +161,7 @@ public class IncrementalPackageRoots implements PackageRoots {
     try {
       maybeConflictingBaseNamesLowercase =
           SymlinkForest.eagerlyPlantSymlinkForestSinglePackagePath(
-              execroot,
-              singleSourceRoot.asPath(),
-              prefix,
-              ignoredPaths,
-              useSiblingRepositoryLayout);
+              execroot, singleSourceRoot.asPath(), prefix, ignoredPaths);
     } catch (IOException e) {
       throwAbruptExitException(e);
     }
@@ -283,7 +274,6 @@ public class IncrementalPackageRoots implements PackageRoots {
             pkgId.getRepository(),
             pkg.sourceRoot().asPath(),
             execroot,
-            useSiblingRepositoryLayout,
             lazilyPlantedSymlinksRef);
       } else if (!maybeConflictingBaseNamesLowercase.isEmpty()) {
         String originalBaseName = pkgId.getTopLevelDir();
@@ -297,7 +287,7 @@ public class IncrementalPackageRoots implements PackageRoots {
         if (originalBaseName.isEmpty()
             || !maybeConflictingBaseNamesLowercase.contains(baseNameLowercase)
             || !SymlinkForest.symlinkShouldBePlanted(
-                prefix, ignoredPaths, useSiblingRepositoryLayout, originalBaseName, target)) {
+                prefix, ignoredPaths, originalBaseName, target)) {
           // We should have already eagerly planted a symlink for this, or there's nothing to do.
           return null;
         }

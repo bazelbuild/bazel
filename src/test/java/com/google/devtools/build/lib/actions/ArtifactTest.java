@@ -510,20 +510,10 @@ public final class ArtifactTest {
                     .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION)
                     .getRelative("foo")));
 
-    // --experimental_sibling_repository_layout not set
     assertThat(
             new Artifact.SourceArtifact(
                     externalRoot,
                     LabelConstants.EXTERNAL_PATH_PREFIX.getRelative("foo/bar/baz.cc"),
-                    ArtifactOwner.NULL_OWNER)
-                .getRepositoryRelativePath())
-        .isEqualTo(PathFragment.create("bar/baz.cc"));
-
-    // --experimental_sibling_repository_layout set
-    assertThat(
-            new Artifact.SourceArtifact(
-                    externalRoot,
-                    LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative("foo/bar/baz.cc"),
                     ArtifactOwner.NULL_OWNER)
                 .getRepositoryRelativePath())
         .isEqualTo(PathFragment.create("bar/baz.cc"));
