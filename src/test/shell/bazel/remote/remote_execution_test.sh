@@ -2782,6 +2782,102 @@ EOF
   expect_log "7 processes: 2 disk cache hit, 6 internal"
 }
 
+function test_uncached_executable_producer_runs_before_cached_test() {
+  mkdir -p producer_keyed_test
+  cat > producer_keyed_test/rule.bzl <<'EOF'
+def _producer_keyed_test_impl(ctx):
+    executable = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.run_shell(
+        inputs = [ctx.file.script],
+        outputs = [executable],
+        command = "cp %s %s && chmod +x %s" % (
+            ctx.file.script.path,
+            executable.path,
+            executable.path,
+        ),
+        mnemonic = "GoLink",
+        progress_message = "Linking synthetic test %{label}",
+        execution_requirements = {"no-remote-cache": "1"},
+    )
+    return [DefaultInfo(
+        executable = executable,
+        runfiles = ctx.runfiles(files = [executable]),
+    )]
+
+producer_keyed_test = rule(
+    implementation = _producer_keyed_test_impl,
+    test = True,
+    attrs = {
+        "script": attr.label(allow_single_file = True, mandatory = True),
+    },
+)
+EOF
+  cat > producer_keyed_test/BUILD <<'EOF'
+load(":rule.bzl", "producer_keyed_test")
+
+producer_keyed_test(
+    name = "test",
+    script = "test.sh",
+)
+EOF
+  cat > producer_keyed_test/test.sh <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+
+  bazel test \
+    --experimental_producer_keyed_test_cache \
+    --execution_log_json_file=producer_keyed_miss.json \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --spawn_strategy=remote,local \
+    --test_strategy=standalone \
+    //producer_keyed_test:test >& $TEST_log \
+    || fail "Producer-keyed cache miss failed"
+  grep -q '"mnemonic": "GoLink"' producer_keyed_miss.json \
+    || fail "Producer did not execute on a cache miss"
+  grep -q '"mnemonic": "TestRunner"' producer_keyed_miss.json \
+    || fail "Test did not execute on a cache miss"
+
+  bazel clean
+
+  bazel test \
+    --experimental_producer_keyed_test_cache \
+    --execution_log_json_file=producer_keyed_hit.json \
+    --build_event_json_file=producer_keyed_hit.bep.json \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --spawn_strategy=remote,local \
+    --test_strategy=standalone \
+    //producer_keyed_test:test >& $TEST_log \
+    || fail "Producer-keyed cache hit failed"
+  expect_log "//producer_keyed_test:test.*\(cached\).*PASSED"
+  grep -q '"id":{"targetCompleted".*"completed"' producer_keyed_hit.bep.json \
+    || fail "Early producer-keyed hit did not publish target completion"
+  grep -q '"testResult"' producer_keyed_hit.bep.json \
+    || fail "Early producer-keyed hit did not publish a BEP test result"
+  if grep -q '"mnemonic": "GoLink"' producer_keyed_hit.json; then
+    fail "Early producer-keyed hit unexpectedly requested GoLink"
+  fi
+  if grep -q '"mnemonic": "TestRunner"' producer_keyed_hit.json; then
+    fail "Early producer-keyed hit unexpectedly executed TestRunner"
+  fi
+
+  echo '# cache key mutation' >> producer_keyed_test/test.sh
+  bazel clean
+  bazel test \
+    --experimental_producer_keyed_test_cache \
+    --execution_log_json_file=producer_keyed_changed.json \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --spawn_strategy=remote,local \
+    --test_strategy=standalone \
+    //producer_keyed_test:test >& $TEST_log \
+    || fail "Producer-keyed cache invalidation failed"
+  grep -q '"mnemonic": "GoLink"' producer_keyed_changed.json \
+    || fail "Producer did not execute after its input changed"
+}
+
 # Bazel assumes that non-ASCII characters in file contents (and, in
 # non-Windows systems, file paths) are UTF-8, but stores them internally by
 # parsing the raw UTF-8 bytes as if they were ISO-8859-1 characters.

@@ -21,11 +21,13 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.NetworkTime;
+import com.google.devtools.build.lib.remote.common.ProducerActionKeyContext.SyntheticTestActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.SortedMap;
+import javax.annotation.Nullable;
 
 /**
  * A value class representing an action which can be executed remotely.
@@ -44,6 +46,7 @@ public class RemoteAction {
   private final Command command;
   private final Action action;
   private final ActionKey actionKey;
+  @Nullable private final SyntheticTestActionKey syntheticTestActionKey;
 
   RemoteAction(
       Spawn spawn,
@@ -54,7 +57,8 @@ public class RemoteAction {
       Digest commandHash,
       Command command,
       Action action,
-      ActionKey actionKey) {
+      ActionKey actionKey,
+      @Nullable SyntheticTestActionKey syntheticTestActionKey) {
     this.spawn = spawn;
     this.spawnExecutionContext = spawnExecutionContext;
     this.remoteActionExecutionContext = remoteActionExecutionContext;
@@ -64,6 +68,7 @@ public class RemoteAction {
     this.command = command;
     this.action = action;
     this.actionKey = actionKey;
+    this.syntheticTestActionKey = syntheticTestActionKey;
   }
 
   public RemoteActionExecutionContext getRemoteActionExecutionContext() {
@@ -99,6 +104,11 @@ public class RemoteAction {
   /** Returns the {@link ActionKey} of this action. */
   public ActionKey getActionKey() {
     return actionKey;
+  }
+
+  @Nullable
+  public SyntheticTestActionKey getSyntheticTestActionKey() {
+    return syntheticTestActionKey;
   }
 
   /** Returns underlying {@link Action} of this remote action. */
