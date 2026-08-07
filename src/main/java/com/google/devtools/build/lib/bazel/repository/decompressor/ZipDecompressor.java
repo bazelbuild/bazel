@@ -83,6 +83,7 @@ public class ZipDecompressor implements Decompressor {
     boolean foundPrefix = false;
     // Store link, target info of symlinks, we create them after regular files are extracted.
     Map<Path, PathFragment> symlinks = new HashMap<>();
+    HostPathCollisionChecker collisionChecker = HostPathCollisionChecker.create();
 
     try (ZipReader reader = new ZipReader(descriptor.archivePath().getPathFile())) {
       Collection<ZipFileEntry> entries = reader.entries();
@@ -102,7 +103,8 @@ public class ZipDecompressor implements Decompressor {
             entryPath.getPathFragment(),
             prefix,
             stripComponents,
-            symlinks);
+            symlinks,
+            collisionChecker);
       }
 
       if (!prefix.isEmpty() && !foundPrefix) {
@@ -131,7 +133,8 @@ public class ZipDecompressor implements Decompressor {
       PathFragment strippedRelativePath,
       String prefix,
       int stripComponents,
-      Map<Path, PathFragment> symlinks)
+      Map<Path, PathFragment> symlinks,
+      HostPathCollisionChecker collisionChecker)
       throws IOException, InterruptedException {
     if (strippedRelativePath.isAbsolute()) {
       throw new IOException(
@@ -151,45 +154,48 @@ public class ZipDecompressor implements Decompressor {
     boolean isSymlink = (permissions & S_IFLNK) == S_IFLNK;
     if (isDirectory) {
       outputPath.createDirectoryAndParents();
-    } else if (isSymlink) {
-      Preconditions.checkState(entry.getSize() < MAX_PATH_LENGTH);
-      byte[] buffer = new byte[(int) entry.getSize()];
-      // For symlinks, the "compressed data" is actually the target name.
-      int read = reader.getInputStream(entry).read(buffer);
-      Preconditions.checkState(read == buffer.length);
-
-      PathFragment target = StripPrefixedPath.createPathFragment(buffer);
-      Path targetPath = outputPath.getParentDirectory().getRelative(target);
-      if (!target.isAbsolute() && !targetPath.startsWith(destinationDirectory)) {
-        throw new IOException(
-            "Zip entries cannot refer to files outside of their directory: "
-                + reader.getFilename()
-                + " has a symlink "
-                + strippedRelativePath
-                + " pointing to "
-                + new String(buffer, UTF_8));
-      }
-
-      symlinks.put(
-          outputPath,
-          maybeDeprefixSymlink(
-              buffer,
-              prefix,
-              stripComponents,
-              destinationDirectory,
-              /* forceExtractRootRelative= */ false));
     } else {
-      try (InputStream input = reader.getInputStream(entry);
-          OutputStream output = outputPath.getOutputStream()) {
-        ByteStreams.copy(input, output);
-        if (Thread.interrupted()) {
-          throw new InterruptedException();
+      collisionChecker.checkAndRecord(strippedRelativePath);
+      if (isSymlink) {
+        Preconditions.checkState(entry.getSize() < MAX_PATH_LENGTH);
+        byte[] buffer = new byte[(int) entry.getSize()];
+        // For symlinks, the "compressed data" is actually the target name.
+        int read = reader.getInputStream(entry).read(buffer);
+        Preconditions.checkState(read == buffer.length);
+
+        PathFragment target = StripPrefixedPath.createPathFragment(buffer);
+        Path targetPath = outputPath.getParentDirectory().getRelative(target);
+        if (!target.isAbsolute() && !targetPath.startsWith(destinationDirectory)) {
+          throw new IOException(
+              "Zip entries cannot refer to files outside of their directory: "
+                  + reader.getFilename()
+                  + " has a symlink "
+                  + strippedRelativePath
+                  + " pointing to "
+                  + new String(buffer, UTF_8));
         }
+
+        symlinks.put(
+            outputPath,
+            maybeDeprefixSymlink(
+                buffer,
+                prefix,
+                stripComponents,
+                destinationDirectory,
+                /* forceExtractRootRelative= */ false));
+      } else {
+        try (InputStream input = reader.getInputStream(entry);
+            OutputStream output = outputPath.getOutputStream()) {
+          ByteStreams.copy(input, output);
+          if (Thread.interrupted()) {
+            throw new InterruptedException();
+          }
+        }
+        // Ensure that all files are at least user-readable. Some archives contain files that
+        // are not, but many other tools are working around this and thus mask these issues.
+        outputPath.chmod(permissions | 0400);
+        outputPath.setLastModifiedTime(entry.getTime());
       }
-      // Ensure that all files are at least user-readable. Some archives contain files that
-      // are not, but many other tools are working around this and thus mask these issues.
-      outputPath.chmod(permissions | 0400);
-      outputPath.setLastModifiedTime(entry.getTime());
     }
   }
 
