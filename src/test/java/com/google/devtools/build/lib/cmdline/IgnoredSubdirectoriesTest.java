@@ -107,4 +107,51 @@ public class IgnoredSubdirectoriesTest {
             IgnoredSubdirectories.of(
                 prefixes(), patterns(".hidden/**/sub", ".hi*/*/sub", "*/sub", "**/sub")));
   }
+
+  @Test
+  public void filterTraversalExclusions() throws Exception {
+    IgnoredSubdirectories original =
+        IgnoredSubdirectories.of(
+            prefixes(), patterns(), prefixes("foo", "bar", "barbaz", "bar/qux"));
+    IgnoredSubdirectories filtered = original.filterForDirectory(PathFragment.create("bar"));
+    // "bar" itself is dropped: naming an excluded directory explicitly must traverse into it.
+    assertThat(filtered)
+        .isEqualTo(IgnoredSubdirectories.of(prefixes(), patterns(), prefixes("bar/qux")));
+  }
+
+  @Test
+  public void filterTraversalExclusionsForDescendant() throws Exception {
+    IgnoredSubdirectories original =
+        IgnoredSubdirectories.of(prefixes(), patterns(), prefixes("bar"));
+    IgnoredSubdirectories filtered = original.filterForDirectory(PathFragment.create("bar/qux"));
+    assertThat(filtered).isEqualTo(IgnoredSubdirectories.EMPTY);
+  }
+
+  @Test
+  public void isEmptyConsidersEveryField() throws Exception {
+    assertThat(IgnoredSubdirectories.EMPTY.isEmpty()).isTrue();
+    assertThat(IgnoredSubdirectories.of(prefixes("foo")).isEmpty()).isFalse();
+    assertThat(IgnoredSubdirectories.of(prefixes(), patterns("foo/*")).isEmpty()).isFalse();
+    assertThat(IgnoredSubdirectories.of(prefixes(), patterns(), prefixes("foo")).isEmpty())
+        .isFalse();
+  }
+
+  @Test
+  public void traversalExclusionsOnlyMatchForTraversal() throws Exception {
+    IgnoredSubdirectories ignored =
+        IgnoredSubdirectories.of(prefixes("pre"), patterns("pat/*"), prefixes("foo"));
+
+    // Traversal exclusions are invisible to the ordinary check, which is what keeps the excluded
+    // packages loadable and globbable when they are named explicitly.
+    assertThat(ignored.matchingEntry(PathFragment.create("foo"))).isNull();
+    assertThat(ignored.matchingEntry(PathFragment.create("foo/bar"))).isNull();
+    assertThat(ignored.matchingEntry(PathFragment.create("pre/bar"))).isEqualTo("pre");
+    assertThat(ignored.matchingEntry(PathFragment.create("pat/bar"))).isEqualTo("pat/*");
+
+    assertThat(ignored.matchingEntryForTraversal(PathFragment.create("foo"))).isTrue();
+    assertThat(ignored.matchingEntryForTraversal(PathFragment.create("foo/bar"))).isTrue();
+    assertThat(ignored.matchingEntryForTraversal(PathFragment.create("foobar"))).isFalse();
+    assertThat(ignored.matchingEntryForTraversal(PathFragment.create("pre/bar"))).isTrue();
+    assertThat(ignored.matchingEntryForTraversal(PathFragment.create("other"))).isFalse();
+  }
 }
