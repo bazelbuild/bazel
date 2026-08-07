@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.server.CommandProtos.CancelRequest;
+import com.google.devtools.build.lib.server.CommandProtos.TerminalSizeRequest;
 import com.google.devtools.build.lib.util.ThreadUtils;
 import java.util.Collections;
 import java.util.HashMap;
@@ -108,6 +109,19 @@ class CommandManager {
         } else {
           logger.atInfo().log("Cannot find command %s to interrupt", request.getCommandId());
         }
+      }
+    }
+  }
+
+  void doUpdateTerminalSize(TerminalSizeRequest request) {
+    synchronized (runningCommandsMap) {
+      RunningCommand pendingCommand = runningCommandsMap.get(request.getCommandId());
+      if (pendingCommand != null) {
+        pendingCommand.terminalSizeMonitor.updateTerminalSize(
+            request.getColumns(), request.getRows());
+      } else {
+        logger.atInfo().log(
+            "Cannot find command %s to update terminal size", request.getCommandId());
       }
     }
   }
@@ -229,6 +243,7 @@ class CommandManager {
     private final Thread thread;
     private final String id;
     private final boolean preemptible;
+    private final TerminalSizeMonitor terminalSizeMonitor = new TerminalSizeMonitor();
     private Optional<ImmutableList<IdleTask>> idleTasks = Optional.empty();
 
     private RunningCommand(boolean preemptible) {
@@ -256,6 +271,10 @@ class CommandManager {
 
     boolean isPreemptible() {
       return preemptible;
+    }
+
+    TerminalSizeMonitor getTerminalSizeMonitor() {
+      return terminalSizeMonitor;
     }
 
     /**
