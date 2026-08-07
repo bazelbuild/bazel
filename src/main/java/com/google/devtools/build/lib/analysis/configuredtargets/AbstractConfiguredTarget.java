@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.ProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
@@ -31,6 +32,8 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.errorprone.annotations.ForOverride;
+import java.util.LinkedHashMap;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -57,6 +60,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   // Accessors for Starlark
   private static final String DATA_RUNFILES_FIELD = "data_runfiles";
   private static final String DEFAULT_RUNFILES_FIELD = "default_runfiles";
+  private static final String PROVIDERS_METHOD_NAME = "providers";
 
   /**
    * The name of the key for the 'actions' synthesized provider.
@@ -76,7 +80,8 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
           DATA_RUNFILES_FIELD,
           FilesToRunProvider.STARLARK_NAME,
           OutputGroupInfo.STARLARK_NAME,
-          ACTIONS_FIELD_NAME);
+          ACTIONS_FIELD_NAME,
+          PROVIDERS_METHOD_NAME);
 
   private static final ImmutableSet<String> DEFAULT_PROVIDER_FIELDS =
       ImmutableSet.of(
@@ -144,6 +149,8 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   @Override
   public Object getValue(String name) {
     return switch (name) {
+      // Return null so that Starlark falls through to the annotated Target.providers method.
+      case PROVIDERS_METHOD_NAME -> null;
       case LABEL_FIELD -> getLabel();
       case ACTIONS_FIELD_NAME -> {
         // Depending on subclass, the 'actions' field will either be unsupported or of type
@@ -202,6 +209,40 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
 
   private DefaultInfo getDefaultProvider() {
     return DefaultInfo.build(this);
+  }
+
+  @Override
+  public final ProviderMap providers() {
+    LinkedHashMap<Provider.Key, Info> providers = new LinkedHashMap<>();
+    providers.put(DefaultInfo.PROVIDER.getKey(), getDefaultProvider());
+    addDeclaredProviders(
+        info -> {
+          Provider.Key key = info.getProvider().getKey();
+          // DefaultInfo was already synthesized above. Duplicate keys keep the last emitted
+          // provider so that MergedConfiguredTarget's merged providers replace the base target's.
+          if (!key.equals(DefaultInfo.PROVIDER.getKey())) {
+            providers.put(key, info);
+          }
+        });
+    return ProviderMap.create(providers.values());
+  }
+
+  /**
+   * Emits this target's declared providers to {@code collector} for {@link
+   * #providers}. {@link DefaultInfo}, which is synthesized on demand rather than stored, is added
+   * by the caller.
+   */
+  @ForOverride
+  protected void addDeclaredProviders(Consumer<Info> collector) {}
+
+  /** Emits the declared providers (the {@link Provider.Key}-keyed values) in {@code providers}. */
+  protected static void addDeclaredProviders(
+      TransitiveInfoProviderMap providers, Consumer<Info> collector) {
+    for (int i = 0; i < providers.getProviderCount(); i++) {
+      if (providers.getProviderKeyAt(i) instanceof Provider.Key) {
+        collector.accept((Info) providers.getProviderInstanceAt(i));
+      }
+    }
   }
 
   /** Returns a declared provider provided by this target. Only meant to use from Starlark. */

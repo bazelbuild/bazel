@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.MaterializedDepsInfo;
+import com.google.devtools.build.lib.analysis.ProviderMap;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -48,6 +49,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -119,10 +121,12 @@ public final class StarlarkRuleConfiguredTargetUtil {
     // Wrong result type?
     if (!(providersRaw instanceof Info
         || providersRaw == Starlark.NONE
+        || providersRaw instanceof ProviderMap
         || providersRaw instanceof Iterable)) {
       ruleContext.ruleError(
           String.format(
-              "Rule should return a struct or a list, but got %s", Starlark.type(providersRaw)));
+              "Rule should return a struct, a list, or a ProviderMap, but got %s",
+              Starlark.type(providersRaw)));
       return null;
     }
 
@@ -130,6 +134,15 @@ public final class StarlarkRuleConfiguredTargetUtil {
     if (!expectFailure.isEmpty()) {
       ruleContext.ruleError("Expected failure not found: " + expectFailure);
       return null;
+    }
+
+    // Convert ProviderMap to an ordinary return value while it still belongs to this rule's
+    // Starlark thread. This keeps the rest of configured-target construction unaware of
+    // ProviderMap and prevents the mutable wrapper itself from escaping through the return value.
+    if (providersRaw instanceof ProviderMap providerMap) {
+      providersRaw =
+          StarlarkList.copyOf(
+              ruleContext.getStarlarkThread().mutability(), providerMap.getProviderInstances());
     }
 
     return providersRaw;
@@ -375,10 +388,13 @@ public final class StarlarkRuleConfiguredTargetUtil {
     Runfiles defaultRunfiles = defaultInfo == null ? null : defaultInfo.getDefaultRunfiles();
     Artifact executable = defaultInfo == null ? null : defaultInfo.getExecutable();
 
-    if (executable != null && !executable.getArtifactOwner().equals(context.getOwner())) {
+    if (executable != null
+        && !executable.getRoot().equals(context.getBinDirectory())
+        && !executable.getRoot().equals(context.getGenfilesDirectory())) {
       throw errorWithLoc(
           locForError,
-          "'executable' provided by an executable rule '%s' should be created by the same rule.",
+          "'executable' provided by an executable rule '%s' must be a generated file from the same"
+              + " configuration.",
           context.getRule().getRuleClass());
     }
 
