@@ -487,10 +487,9 @@ final class EvalUtils {
   /**
    * Updates an object as if by the Starlark statement {@code object[key] = value}.
    *
-   * @throws EvalException if the object does not support indexed assignment
+   * @throws EvalException if the object is not a list or dict.
    */
-  static void setIndex(
-      StarlarkSemantics semantics, Object object, Object key, Object value) throws EvalException {
+  static void setIndex(Object object, Object key, Object value) throws EvalException {
     if (object instanceof Dict) {
       @SuppressWarnings("unchecked")
       Dict<Object, Object> dict = (Dict<Object, Object>) object;
@@ -502,9 +501,6 @@ final class EvalUtils {
       int index = Starlark.toInt(key, "list index");
       index = EvalUtils.getSequenceIndex(index, list.size());
       list.setElementAt(index, value);
-
-    } else if (object instanceof StarlarkIndexable.Settable settable) {
-      settable.setIndex(semantics, key, value);
 
     } else {
       throw Starlark.errorf(

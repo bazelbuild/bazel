@@ -40,11 +40,6 @@ public final class ProviderMap implements ProviderMapApi, Mutability.Freezable {
     return new ProviderMap(providersByKey, Mutability.IMMUTABLE);
   }
 
-  /** Returns a new empty map. */
-  public static ProviderMap empty() {
-    return new ProviderMap(new LinkedHashMap<>(), Mutability.IMMUTABLE);
-  }
-
   private ProviderMap(LinkedHashMap<Provider.Key, Info> providers, Mutability mutability) {
     this.providers = providers;
     this.mutability = mutability;
@@ -76,6 +71,7 @@ public final class ProviderMap implements ProviderMapApi, Mutability.Freezable {
 
   @Override
   public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
+    checkUsable();
     Provider constructor = selectExportedProvider(key, "indexing");
     Info provider = providers.get(constructor.getKey());
     if (provider != null) {
@@ -87,44 +83,36 @@ public final class ProviderMap implements ProviderMapApi, Mutability.Freezable {
 
   @Override
   public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
+    checkUsable();
     return providers.containsKey(selectExportedProvider(key, "querying").getKey());
   }
 
   @Override
-  public void setIndex(StarlarkSemantics semantics, Object key, Object value) throws EvalException {
+  public void add(Object value) throws EvalException {
+    checkUsable();
     Starlark.checkMutable(this);
-    Provider constructor = selectExportedProvider(key, "assigning");
     if (!(value instanceof Info info)) {
       throw Starlark.errorf(
-          "ProviderMap values must be provider instances, got %s", Starlark.type(value));
+          "ProviderMap.add() requires a provider instance, got %s", Starlark.type(value));
     }
-    Provider valueConstructor = info.getProvider();
-    if (!valueConstructor.isExported()) {
+    Provider constructor = info.getProvider();
+    if (!constructor.isExported()) {
       throw Starlark.errorf(
           "ProviderMap only accepts instances of exported providers. Assign the provider a name "
               + "in a top-level assignment statement.");
-    }
-    if (!constructor.getKey().equals(valueConstructor.getKey())) {
-      throw Starlark.errorf(
-          "cannot assign an instance of provider '%s' to ProviderMap key '%s'",
-          valueConstructor.getPrintableName(), constructor.getPrintableName());
     }
     providers.put(constructor.getKey(), info);
   }
 
   @Override
-  public Object pop(Object key, Object defaultValue) throws EvalException {
+  public void remove(Object key) throws EvalException {
+    checkUsable();
     Starlark.checkMutable(this);
-    Provider constructor = selectExportedProvider(key, "popping");
-    Info provider = providers.remove(constructor.getKey());
-    if (provider != null) {
-      return provider;
+    Provider constructor = selectExportedProvider(key, "removing");
+    if (providers.remove(constructor.getKey()) == null) {
+      throw Starlark.errorf(
+          "ProviderMap doesn't contain declared provider '%s'", constructor.getPrintableName());
     }
-    if (defaultValue != Starlark.UNBOUND) {
-      return defaultValue;
-    }
-    throw Starlark.errorf(
-        "ProviderMap doesn't contain declared provider '%s'", constructor.getPrintableName());
   }
 
   @Override
@@ -132,11 +120,19 @@ public final class ProviderMap implements ProviderMapApi, Mutability.Freezable {
     printer.append("<provider map>");
   }
 
+  private void checkUsable() throws EvalException {
+    if (mutability.isFrozen()) {
+      throw Starlark.errorf(
+          "cannot access ProviderMap outside of its owning rule or aspect implementation"
+              + " function");
+    }
+  }
+
   private static Provider selectExportedProvider(Object key, String operation)
       throws EvalException {
     if (!(key instanceof Provider constructor)) {
       throw Starlark.errorf(
-          "Type ProviderMap only supports %s by object constructors, got %s instead",
+          "Type ProviderMap only supports %s by provider constructors, got %s instead",
           operation, Starlark.type(key));
     }
     if (!constructor.isExported()) {

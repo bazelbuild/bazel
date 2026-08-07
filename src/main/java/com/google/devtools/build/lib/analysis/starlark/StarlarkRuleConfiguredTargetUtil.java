@@ -49,6 +49,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -133,6 +134,15 @@ public final class StarlarkRuleConfiguredTargetUtil {
     if (!expectFailure.isEmpty()) {
       ruleContext.ruleError("Expected failure not found: " + expectFailure);
       return null;
+    }
+
+    // Convert ProviderMap to an ordinary return value while it still belongs to this rule's
+    // Starlark thread. This keeps the rest of configured-target construction unaware of
+    // ProviderMap and prevents the mutable wrapper itself from escaping through the return value.
+    if (providersRaw instanceof ProviderMap providerMap) {
+      providersRaw =
+          StarlarkList.copyOf(
+              ruleContext.getStarlarkThread().mutability(), providerMap.getProviderInstances());
     }
 
     return providersRaw;
@@ -262,12 +272,10 @@ public final class StarlarkRuleConfiguredTargetUtil {
       Provider.Key providerKey = getProviderKey(info, context);
       // Single declared provider
       declaredProviders.put(providerKey, info);
-    } else if (rawProviders instanceof ProviderMap || rawProviders instanceof Sequence) {
-      Iterable<Info> providers =
-          rawProviders instanceof ProviderMap providerMap
-              ? providerMap.getProviderInstances()
-              : Sequence.cast(rawProviders, Info.class, "result of rule implementation function");
-      for (Info provider : providers) {
+    } else if (rawProviders instanceof Sequence) {
+      // Sequence of declared providers
+      for (Info provider :
+          Sequence.cast(rawProviders, Info.class, "result of rule implementation function")) {
         if (provider instanceof StarlarkInfo starlarkInfo) {
           // Provider instances are optimised recursively, without optimising elements of the list.
           // Tradeoff is that some object may be duplicated if they are reachable by more than one
@@ -281,7 +289,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
       }
     } else if (rawProviders != Starlark.NONE) {
       throw Starlark.errorf(
-          "Expected a list or ProviderMap of providers, but got %s", Starlark.type(rawProviders));
+          "Expected a list of providers, but got %s", Starlark.type(rawProviders));
     }
 
     if (context.getRule().getRuleClassObject().isMaterializerRule()) {
@@ -380,10 +388,13 @@ public final class StarlarkRuleConfiguredTargetUtil {
     Runfiles defaultRunfiles = defaultInfo == null ? null : defaultInfo.getDefaultRunfiles();
     Artifact executable = defaultInfo == null ? null : defaultInfo.getExecutable();
 
-    if (executable != null && !executable.getArtifactOwner().equals(context.getOwner())) {
+    if (executable != null
+        && !executable.getRoot().equals(context.getBinDirectory())
+        && !executable.getRoot().equals(context.getGenfilesDirectory())) {
       throw errorWithLoc(
           locForError,
-          "'executable' provided by an executable rule '%s' should be created by the same rule.",
+          "'executable' provided by an executable rule '%s' must be a generated file from the same"
+              + " configuration.",
           context.getRule().getRuleClass());
     }
 

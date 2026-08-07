@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.errorprone.annotations.ForOverride;
 import java.util.LinkedHashMap;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -231,6 +232,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
    * #providers}. {@link DefaultInfo}, which is synthesized on demand rather than stored, is added
    * by the caller.
    */
+  @ForOverride
   protected void addDeclaredProviders(Consumer<Info> collector) {}
 
   /** Emits the declared providers (the {@link Provider.Key}-keyed values) in {@code providers}. */

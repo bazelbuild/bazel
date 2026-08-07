@@ -63,10 +63,10 @@ public interface TransitiveInfoCollection
         id -> this.get(id) != null);
   }
 
-  default ProviderMap providers() {
-    return ProviderMap.empty();
-  }
+  /** Returns all declared providers supplied by this collection. */
+  ProviderMap providers();
 
+  /** Starlark adapter for {@link #providers}; implementations should not override this method. */
   @Override
   default ProviderMap providersForStarlark(StarlarkThread thread) {
     return providers().mutableCopy(thread.mutability());

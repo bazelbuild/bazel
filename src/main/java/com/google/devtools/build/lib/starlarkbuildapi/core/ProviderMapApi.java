@@ -27,23 +27,21 @@ import net.starlark.java.eval.StarlarkValue;
     name = "ProviderMap",
     category = DocCategory.BUILTIN,
     doc =
-        "A non-iterable collection of providers. Providers can be accessed or assigned by type"
-            + " using index notation, and their presence can be checked using the <code>in</code>"
-            + " operator.")
-public interface ProviderMapApi extends StarlarkValue, StarlarkIndexable.Settable {
+        "A non-iterable collection of providers. Providers can be accessed by type using index"
+            + " notation, their presence can be checked using the <code>in</code> operator, and"
+            + " they can be replaced or removed using the <code>add</code> and <code>remove</code>"
+            + " methods.")
+public interface ProviderMapApi extends StarlarkValue, StarlarkIndexable {
 
   @StarlarkMethod(
-      name = "pop",
-      doc =
-          "Removes a provider and returns its instance. If the provider is absent, returns the"
-              + " specified <code>default</code> value, or fails if no default was specified.",
-      parameters = {
-        @Param(name = "provider", doc = "The provider constructor to remove."),
-        @Param(
-            name = "default",
-            defaultValue = "unbound",
-            named = true,
-            doc = "The value to return if the provider is absent.")
-      })
-  Object pop(Object key, Object defaultValue) throws EvalException;
+      name = "add",
+      doc = "Adds a provider instance, replacing any existing instance of the same provider.",
+      parameters = {@Param(name = "provider", doc = "The provider instance to add.")})
+  void add(Object provider) throws EvalException;
+
+  @StarlarkMethod(
+      name = "remove",
+      doc = "Removes a provider. Fails if the provider is not present.",
+      parameters = {@Param(name = "provider", doc = "The provider constructor to remove.")})
+  void remove(Object provider) throws EvalException;
 }
