@@ -530,14 +530,19 @@ public class RemoteExecutionService {
       }
 
       // Get the remote platform properties.
-      Platform platform;
+      ImmutableMap.Builder<String, String> additionalPropertiesBuilder = ImmutableMap.builder();
       if (toolSignature != null) {
-        platform =
-            PlatformUtils.getPlatformProto(
-                spawn, remoteOptions, ImmutableMap.of("persistentWorkerKey", toolSignature.key));
-      } else {
-        platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
+        additionalPropertiesBuilder.put(
+            PlatformProperties.PERSISTENT_WORKER_KEY, toolSignature.key);
       }
+      String workerProtocol =
+          spawn.getExecutionInfo().get(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL);
+      if (workerProtocol != null && !workerProtocol.equals("proto")) {
+        additionalPropertiesBuilder.put(
+            PlatformProperties.PERSISTENT_WORKER_PROTOCOL, workerProtocol);
+      }
+      Platform platform =
+          PlatformUtils.getPlatformProto(spawn, remoteOptions, additionalPropertiesBuilder.build());
 
       SpawnScrubber spawnScrubber = scrubber != null ? scrubber.forSpawn(spawn) : null;
       Command command =
