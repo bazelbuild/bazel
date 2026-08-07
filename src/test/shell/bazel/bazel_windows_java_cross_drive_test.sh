@@ -97,6 +97,11 @@ function delete_tmp_drive() {
 }
 
 function test_java_with_jar_under_different_drive() {
+  # TODO(tjgq): Re-enable once rules_java passes Java version in launcher info.
+  if [[ "$JAVA_VERSION" -ge "25" ]]; then
+    return
+  fi
+
   create_tmp_drive
 
   trap delete_tmp_drive EXIT
@@ -127,9 +132,8 @@ EOF
   bazel --output_user_root=${TMP_DRIVE}:/tmp build :hello &> "$TEST_log" \
       || fail "build failed"
 
-  # TODO(tjgq): Remove explicit `--java_version` once rules_java sets it.
-  assert_binary_run_from_subdir "bazel-bin/hello --classpath_limit=0 --java_version=$JAVA_VERSION" \
-    "Java $JAVA_VERSION"
+  assert_binary_run_from_subdir "bazel-bin/hello --classpath_limit=0" \
+      "Java $JAVA_VERSION"
 }
 
 run_suite "Tests that the Java Windows launcher works with cross-drive jars."
