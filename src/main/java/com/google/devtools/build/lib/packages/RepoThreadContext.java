@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.Map;
 import net.starlark.java.eval.EvalException;
@@ -30,6 +31,9 @@ public class RepoThreadContext extends StarlarkThreadContext {
 
   private ImmutableList<String> ignoredDirectories = ImmutableList.of();
   private boolean ignoredDirectoriesSet = false;
+
+  private ImmutableList<PathFragment> traversalIgnoreDirectories = ImmutableList.of();
+  private boolean traversalIgnoreDirectoriesSet = false;
 
   public static RepoThreadContext fromOrFail(StarlarkThread thread, String what)
       throws EvalException {
@@ -68,5 +72,18 @@ public class RepoThreadContext extends StarlarkThreadContext {
 
   public ImmutableList<String> getIgnoredDirectories() {
     return ignoredDirectories;
+  }
+
+  public void setTraversalIgnoreDirectories(Collection<PathFragment> traversalIgnoreDirectories) {
+    traversalIgnoreDirectoriesSet = true;
+    this.traversalIgnoreDirectories = ImmutableList.copyOf(traversalIgnoreDirectories);
+  }
+
+  public boolean isTraversalIgnoreDirectoriesSet() {
+    return traversalIgnoreDirectoriesSet;
+  }
+
+  public ImmutableList<PathFragment> getTraversalIgnoreDirectories() {
+    return traversalIgnoreDirectories;
   }
 }
