@@ -779,6 +779,7 @@ message Query {
     // deficiency in Blaze/Bazel and code should be changed to attach a detailed
     // exit code to this failure mode.
     NON_DETAILED_ERROR = 41 [(metadata) = { exit_code: 1 }];
+    EXTENSION_INPUTS_FUNCTION_REQUIRES_SKYQUERY = 42 [(metadata) = { exit_code: 7 }];
 
     reserved 7 to 12; // For internal use
   }
