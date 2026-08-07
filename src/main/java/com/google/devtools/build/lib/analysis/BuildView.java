@@ -281,7 +281,7 @@ public class BuildView {
               viewOptions.getMaxConfigChangesToShow(),
               viewOptions.getAllowAnalysisCacheDiscards(),
               additionalConfigurationChangeEvent);
-      skyframeExecutor.setBaselineConfiguration(targetOptions, eventHandler);
+      skyframeExecutor.setBaselineConfiguration(targetOptions, eventHandler, true);
       topLevelConfig = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
     }
 
