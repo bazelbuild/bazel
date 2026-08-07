@@ -323,4 +323,7 @@ public class CppRuleClasses {
 
   /** Name of the exec group that Cpp link actions run under */
   @VisibleForTesting public static final String CPP_LINK_EXEC_GROUP = "cpp_link";
+
+  /** Name of the exec group that Cpp compile actions run under */
+  @VisibleForTesting public static final String CPP_COMPILE_EXEC_GROUP = "cpp_compile";
 }
