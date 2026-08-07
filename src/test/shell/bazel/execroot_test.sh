@@ -143,6 +143,56 @@ EOF
 
 }
 
+function test_bazel_external_directory() {
+  mkdir -p external/foo other
+  cat > external/foo/BUILD <<'EOF'
+genrule(
+  name = "use-srcs",
+  srcs = ["BUILD"],
+  cmd = "cp $< $@",
+  outs = ["used-srcs"],
+)
+EOF
+  cat > other/MODULE.bazel <<'EOF'
+module(name = "other", version = "1.0")
+EOF
+  cat > other/BUILD <<'EOF'
+exports_files(["data.txt"])
+EOF
+  echo external-repository-data > other/data.txt
+  cat > MODULE.bazel <<'EOF'
+module(name = "main")
+bazel_dep(name = "other", version = "1.0")
+local_path_override(module_name = "other", path = "other")
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "copy-external",
+  srcs = ["@other//:data.txt"],
+  cmd = "cp $< $@",
+  outs = ["copied.txt"],
+)
+EOF
+
+  bazel build --incompatible_bazel_external_directory \
+      //external/foo:use-srcs //:copy-external \
+      || fail "build failed"
+
+  execroot="$(bazel info --incompatible_bazel_external_directory execution_root)"
+  test -e "$execroot/external/foo/BUILD"
+  test -e "$execroot/bazel-external/other+/data.txt"
+  test ! -e "$execroot/external/other+/data.txt"
+  test -L bazel-external
+  [[ "$(readlink bazel-external)" == "$execroot/bazel-external" ]] \
+      || fail "bazel-external convenience symlink has the wrong target"
+
+  bazel build --noincompatible_bazel_external_directory //:copy-external \
+      || fail "build after disabling flag failed"
+  test -e "$execroot/external/other+/data.txt"
+  test ! -e "$execroot/bazel-external"
+  test ! -L bazel-external
+}
+
 function test_external_directory_globs() {
   mkdir -p external/a external/c
   echo file_ab > external/a/b

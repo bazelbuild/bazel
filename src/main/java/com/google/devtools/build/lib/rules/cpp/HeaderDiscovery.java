@@ -77,6 +77,33 @@ final class HeaderDiscovery {
       boolean siblingRepositoryLayout,
       PathMapper pathMapper)
       throws ActionExecutionException {
+    return discoverInputsFromDependencies(
+        action,
+        sourceFile,
+        shouldValidateInclusions,
+        dependencies,
+        permittedSystemIncludePrefixes,
+        allowedDerivedInputs,
+        execRoot,
+        artifactResolver,
+        siblingRepositoryLayout,
+        /* bazelExternalDirectory= */ false,
+        pathMapper);
+  }
+
+  static NestedSet<Artifact> discoverInputsFromDependencies(
+      Action action,
+      Artifact sourceFile,
+      boolean shouldValidateInclusions,
+      Collection<Path> dependencies,
+      List<Path> permittedSystemIncludePrefixes,
+      NestedSet<Artifact> allowedDerivedInputs,
+      Path execRoot,
+      ArtifactResolver artifactResolver,
+      boolean siblingRepositoryLayout,
+      boolean bazelExternalDirectory,
+      PathMapper pathMapper)
+      throws ActionExecutionException {
     Map<PathFragment, Artifact> regularDerivedArtifacts = new HashMap<>();
     Map<PathFragment, SpecialArtifact> treeArtifacts = new HashMap<>();
     for (Artifact a : allowedDerivedInputs.toList()) {
@@ -112,6 +139,7 @@ final class HeaderDiscovery {
         execRoot,
         artifactResolver,
         siblingRepositoryLayout,
+        bazelExternalDirectory,
         pathMapper);
   }
 
@@ -126,6 +154,7 @@ final class HeaderDiscovery {
       Path execRoot,
       ArtifactResolver artifactResolver,
       boolean siblingRepositoryLayout,
+      boolean bazelExternalDirectory,
       PathMapper pathMapper)
       throws ActionExecutionException {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
@@ -198,7 +227,10 @@ final class HeaderDiscovery {
       if (derivedArtifact == null) {
         Optional<PackageIdentifier> pkgId =
             PackageIdentifier.discoverFromExecPath(
-                execPathFragment, false, siblingRepositoryLayout);
+                execPathFragment,
+                false,
+                siblingRepositoryLayout,
+                bazelExternalDirectory);
         if (pkgId.isPresent()) {
           if (possiblyCaseInsensitiveFileSystem) {
             resolvedArtifacts =

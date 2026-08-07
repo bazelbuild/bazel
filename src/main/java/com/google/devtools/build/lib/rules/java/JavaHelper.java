@@ -102,7 +102,9 @@ public abstract class JavaHelper {
         ruleContext
             .getLabel()
             .getRepository()
-            .getExecPath(siblingRepositoryLayout);
+            .getExecPath(
+                siblingRepositoryLayout,
+                ruleContext.getConfiguration().isBazelExternalDirectory());
     if (!repoExecPath.isEmpty() && resourcePath.startsWith(repoExecPath)) {
       resourcePath = resourcePath.relativeTo(repoExecPath);
     }

@@ -329,7 +329,10 @@ public final class ConfiguredTargetFactory {
               inputFile.getExecPath(
                   analysisEnvironment
                       .getStarlarkSemantics()
-                      .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT)),
+                      .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT),
+                  analysisEnvironment
+                      .getStarlarkSemantics()
+                      .getBool(BuildLanguageOptions.INCOMPATIBLE_BAZEL_EXTERNAL_DIRECTORY)),
               inputFile.getPackageMetadata().sourceRoot(),
               ConfiguredTargetKey.builder()
                   .setLabel(target.getLabel())
