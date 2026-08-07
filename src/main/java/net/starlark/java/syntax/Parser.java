@@ -469,17 +469,16 @@ final class Parser {
     }
 
     // IDENTIFIER  or  IDENTIFIER = test
-    int exprOffset = token.start;
+    // A parenthesized identifier parses to the same Identifier node as a bare one,
+    // because (e) is not materialized, so the name of a keyword argument has to be
+    // recognized before the expression is parsed rather than after.
+    boolean bareIdentifier = token.kind == TokenKind.IDENTIFIER;
     expr = parseTest();
     if (expr instanceof Identifier id) {
       // parse a named argument
       if (token.kind == TokenKind.EQUALS) {
-        // A parenthesized identifier parses to the same Identifier node as a bare
-        // one, because (e) is not materialized, so the offsets are what tells them
-        // apart: for (x) the expression starts at '(' and the identifier at 'x'.
-        if (id.getStartOffset() != exprOffset) {
-          syntaxError(
-              exprOffset, token.kind, token.value, "keyword argument must have form name=expr");
+        if (!bareIdentifier) {
+          syntaxError("keyword argument must have form name=expr");
         }
         nextToken();
         Expression arg = parseTest();
