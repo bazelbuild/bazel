@@ -85,7 +85,10 @@ java_library(
 
 java_library(
     name = "execution_options",
-    srcs = ["ExecutionOptions.java"],
+    srcs = [
+        "ExecutionOptions.java",
+        "FlakyTestAttempts.java",
+    ],
     deps = [
         ":regex_filter_assignment_converter",
         "//src/main/java/com/google/devtools/build/lib/actions",
