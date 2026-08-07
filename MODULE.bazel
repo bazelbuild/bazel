@@ -467,7 +467,7 @@ use_repo(
 # Other Bazel testing dependencies
 # =========================================
 
-bazel_dep(name = "bazel_ci_rules", version = "2.1.0")
+bazel_dep(name = "bazel_ci_rules", version = "2.0.0")
 bazel_dep(name = "rules_fuzzing", version = "0.6.0")
 bazel_dep(name = "wabt", version = "1.0.37")
 
