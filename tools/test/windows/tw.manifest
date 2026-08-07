@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly manifestVersion="1.0"
+          xmlns="urn:schemas-microsoft-com:asm.v1"
+          xmlns:asmv3="urn:schemas-microsoft-com:asm.v3">
+  <assemblyIdentity type="win32" name="tw" version="1.0.0.0"/>
+  <asmv3:application>
+    <asmv3:windowsSettings>
+      <!-- Enable long-path support so CreateProcessW() accepts paths up to
+           32767 characters via the \\?\ extended-length prefix. Required for
+           test targets whose runfiles trees exceed MAX_PATH (260 chars), e.g.
+           when using Python runfiles on Windows without zip-based delivery. -->
+      <longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>
+    </asmv3:windowsSettings>
+  </asmv3:application>
+</assembly>

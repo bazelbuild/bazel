@@ -1,6 +1,7 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//tools/res:win_res.bzl", "windows_resources")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -37,6 +38,16 @@ filegroup(
     srcs = ["collect_cc_coverage.sh"],
 )
 
+# Embeds a longPathAware manifest into tw.exe and xml.exe so that
+# CreateProcessW() accepts extended-length (\\?\\) paths when launching test
+# binaries whose runfiles trees exceed MAX_PATH (260 characters).
+windows_resources(
+    name = "tw_manifest",
+    rc_files = ["windows/tw.rc"],
+    resources = ["windows/tw.manifest"],
+    visibility = ["//visibility:private"],
+)
+
 # Test wrapper binary to run tests on Windows.
 # This target just wraps the actual code in "tw_lib" to make it into a binary.
 # See https://github.com/bazelbuild/bazel/issues/5508
@@ -50,7 +61,7 @@ cc_binary(
     }),
     target_compatible_with = ["@platforms//os:windows"],
     visibility = ["//visibility:private"],
-    deps = [":tw_lib"],
+    deps = [":tw_lib", ":tw_manifest"],
 )
 
 cc_binary(
@@ -63,7 +74,7 @@ cc_binary(
     }),
     target_compatible_with = ["@platforms//os:windows"],
     visibility = ["//visibility:private"],
-    deps = [":tw_lib"],
+    deps = [":tw_lib", ":tw_manifest"],
 )
 
 # Test wrapper binary to run tests on Windows.
