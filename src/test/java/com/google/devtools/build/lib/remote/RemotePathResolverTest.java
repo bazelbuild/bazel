@@ -14,21 +14,13 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
-import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
-import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import java.util.SortedMap;
-import java.util.TreeMap;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,46 +31,15 @@ import org.junit.runners.JUnit4;
 public class RemotePathResolverTest {
 
   private Path execRoot;
-  private SpawnExecutionContext spawnExecutionContext;
-  private ActionInput input;
 
   @Before
   public void setup() throws Exception {
     FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     execRoot = fs.getPath("/execroot/main");
-
-    input = ActionInputHelper.fromPath("foo");
-    spawnExecutionContext = mock(SpawnExecutionContext.class);
-    when(spawnExecutionContext.getInputMapping(anyBoolean()))
-        .thenAnswer(
-            invocationOnMock -> {
-              TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
-              inputMap.put(input.getExecPath(), input);
-              return inputMap;
-            });
   }
 
   @Test
-  public void getWorkingDirectory_isInputRoot() {
-    RemotePathResolver remotePathResolver = RemotePathResolver.createDefault(execRoot);
-
-    String workingDirectory = remotePathResolver.getWorkingDirectory().getPathString();
-
-    assertThat(workingDirectory).isEqualTo("");
-  }
-
-  @Test
-  public void getInputMapping_inputsRelativeToExecRoot() throws Exception {
-    RemotePathResolver remotePathResolver = RemotePathResolver.createDefault(execRoot);
-
-    SortedMap<PathFragment, ActionInput> inputs =
-        remotePathResolver.getInputMapping(spawnExecutionContext, false);
-
-    assertThat(inputs).containsExactly(PathFragment.create("foo"), input);
-  }
-
-  @Test
-  public void convertPaths_relativeToWorkingDirectory() {
+  public void convertPaths_relativeToExecRoot() {
     RemotePathResolver remotePathResolver = RemotePathResolver.createDefault(execRoot);
 
     String outputPath = remotePathResolver.localPathToOutputPath(PathFragment.create("bar"));

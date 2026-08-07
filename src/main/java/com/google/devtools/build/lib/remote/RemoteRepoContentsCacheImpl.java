@@ -627,23 +627,12 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     }
 
     @Override
-    public PathFragment getWorkingDirectory() {
-      throw new UnsupportedOperationException("Not used");
-    }
-
-    @Override
     public Path outputPathToLocalPath(String outputPath) {
       throw new UnsupportedOperationException("Not used");
     }
 
     @Override
     public PathFragment localPathToExecPath(PathFragment localPath) {
-      throw new UnsupportedOperationException("Not used");
-    }
-
-    @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(
-        SpawnRunner.SpawnExecutionContext context, boolean willAccessRepeatedly) {
       throw new UnsupportedOperationException("Not used");
     }
   }

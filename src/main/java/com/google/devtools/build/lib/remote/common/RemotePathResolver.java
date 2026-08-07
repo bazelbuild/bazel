@@ -18,10 +18,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.PathMapper;
-import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -29,21 +27,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * Bazel's internal path, or vice versa.
  */
 public interface RemotePathResolver {
-
-  /**
-   * Returns the {@code workingDirectory} for a remote action. Empty if working directory is the
-   * input root.
-   */
-  PathFragment getWorkingDirectory();
-
-  /**
-   * Returns a {@link SortedMap} which maps from input paths for remote action to {@link
-   * ActionInput}.
-   */
-  default SortedMap<PathFragment, ActionInput> getInputMapping(
-      SpawnExecutionContext context, boolean willAccessRepeatedly) {
-    return context.getInputMapping(willAccessRepeatedly);
-  }
 
   /** Resolves the output path relative to input root for the given {@link Path}. */
   String localPathToOutputPath(Path path);
@@ -75,21 +58,13 @@ public interface RemotePathResolver {
     return new DefaultRemotePathResolver(execRoot);
   }
 
-  /**
-   * The default {@link RemotePathResolver} which use {@code execRoot} as input root and do NOT set
-   * {@code workingDirectory} for remote actions.
-   */
+  /** The default {@link RemotePathResolver} which uses {@code execRoot} as the input root. */
   class DefaultRemotePathResolver implements RemotePathResolver {
 
     private final Path execRoot;
 
     public DefaultRemotePathResolver(Path execRoot) {
       this.execRoot = execRoot;
-    }
-
-    @Override
-    public PathFragment getWorkingDirectory() {
-      return PathFragment.EMPTY_FRAGMENT;
     }
 
     @Override
@@ -125,17 +100,6 @@ public interface RemotePathResolver {
     return new RemotePathResolver() {
       private final ConcurrentHashMap<PathFragment, PathFragment> inverse =
           new ConcurrentHashMap<>();
-
-      @Override
-      public PathFragment getWorkingDirectory() {
-        return base.getWorkingDirectory();
-      }
-
-      @Override
-      public SortedMap<PathFragment, ActionInput> getInputMapping(
-          SpawnExecutionContext context, boolean willAccessRepeatedly) {
-        return base.getInputMapping(context, willAccessRepeatedly);
-      }
 
       @Override
       public String localPathToOutputPath(Path path) {
