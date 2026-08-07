@@ -2219,8 +2219,7 @@ public abstract class SpawnLogContextTestBase {
               runfilesTree,
               builder,
               inputMetadataProvider,
-              PathMapper.NOOP,
-              PathFragment.EMPTY_FRAGMENT);
+              PathMapper.NOOP);
     }
 
     for (ActionInput actionInput : actionInputs) {

@@ -42,7 +42,7 @@ public interface RemotePathResolver {
    */
   default SortedMap<PathFragment, ActionInput> getInputMapping(
       SpawnExecutionContext context, boolean willAccessRepeatedly) {
-    return context.getInputMapping(getWorkingDirectory(), willAccessRepeatedly);
+    return context.getInputMapping(willAccessRepeatedly);
   }
 
   /** Resolves the output path relative to input root for the given {@link Path}. */

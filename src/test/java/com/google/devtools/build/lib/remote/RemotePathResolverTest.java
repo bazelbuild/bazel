@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -50,12 +49,11 @@ public class RemotePathResolverTest {
 
     input = ActionInputHelper.fromPath("foo");
     spawnExecutionContext = mock(SpawnExecutionContext.class);
-    when(spawnExecutionContext.getInputMapping(any(), anyBoolean()))
+    when(spawnExecutionContext.getInputMapping(anyBoolean()))
         .thenAnswer(
             invocationOnMock -> {
-              PathFragment baseDirectory = invocationOnMock.getArgument(0);
               TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
-              inputMap.put(baseDirectory.getRelative(input.getExecPath()), input);
+              inputMap.put(input.getExecPath(), input);
               return inputMap;
             });
   }
