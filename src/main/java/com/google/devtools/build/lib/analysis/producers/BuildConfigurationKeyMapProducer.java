@@ -54,16 +54,22 @@ public class BuildConfigurationKeyMapProducer
   private final ResultSink sink;
   private final StateMachine runAfter;
   private final Map<String, BuildOptions> options;
+  private final boolean forBaseline;
   private final Label label;
 
   // -------------------- Internal State --------------------
   private final Map<String, BuildConfigurationKey> results;
 
   public BuildConfigurationKeyMapProducer(
-      ResultSink sink, StateMachine runAfter, Map<String, BuildOptions> options, Label label) {
+      ResultSink sink,
+      StateMachine runAfter,
+      Map<String, BuildOptions> options,
+      boolean forBaseline,
+      Label label) {
     this.sink = sink;
     this.runAfter = runAfter;
     this.options = options;
+    this.forBaseline = forBaseline;
     this.results = Maps.newHashMapWithExpectedSize(options.size());
     this.label = label;
   }
@@ -78,6 +84,7 @@ public class BuildConfigurationKeyMapProducer
                     StateMachine.DONE,
                     context,
                     buildOptions,
+                    forBaseline,
                     label)));
     return this::combineResults;
   }

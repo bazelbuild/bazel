@@ -1394,7 +1394,10 @@ public final class SkyframeBuildView {
                 (BzlLoadValue)
                     analysisEnvironment
                         .getSkyframeEnv()
-                        .getValueOrThrow(bzlKey, BzlLoadFailedException.class));
+                        .getValueOrThrow(bzlKey, BzlLoadFailedException.class),
+            // Already resolved once per configuration by BuildConfigurationFunction; requesting it
+            // from Skyframe here would make every configured target a reverse dep of it.
+            unusedKey -> configuration.starlarkExecScopeDetails());
     if (starlarkExecTransition == null) {
       return null;
     }

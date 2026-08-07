@@ -416,7 +416,11 @@ final class AspectFunction implements SkyFunction {
                     ? null
                     : targetAndConfiguration.getConfiguration().getOptions(),
                 (bzlKey) ->
-                    (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class));
+                    (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class),
+                // Already resolved once per configuration by BuildConfigurationFunction; requesting
+                // it from Skyframe here would make every aspect a reverse dep of it.
+                unusedKey ->
+                    targetAndConfiguration.getConfiguration().starlarkExecScopeDetails());
         if (starlarkExecTransition == null) {
           return null; // Need Skyframe deps.
         }

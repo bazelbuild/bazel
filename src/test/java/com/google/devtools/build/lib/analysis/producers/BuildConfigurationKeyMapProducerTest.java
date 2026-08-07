@@ -346,7 +346,8 @@ public class BuildConfigurationKeyMapProducerTest extends ProducerTestCase {
           BuildOptionsScopeFunctionException {
     Sink sink = new Sink();
     BuildConfigurationKeyMapProducer producer =
-        new BuildConfigurationKeyMapProducer(sink, StateMachine.DONE, options, null);
+        new BuildConfigurationKeyMapProducer(
+            sink, StateMachine.DONE, options, /* forBaseline= */ false, null);
     // Ignore the return value: sink will either return a result or re-throw whatever exception it
     // received from the producer.
     var unused = executeProducer(producer);
