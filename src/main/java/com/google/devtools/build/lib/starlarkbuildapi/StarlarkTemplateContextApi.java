@@ -48,13 +48,30 @@ public interface StarlarkTemplateContextApi extends StarlarkValue {
         @Param(
             name = "directory",
             doc = "The directory in which the file should be created.",
-            allowedTypes = {
-              @ParamType(type = FileApi.class),
-            },
             named = true,
             positional = false)
       })
   FileApi declareFile(String filename, FileApi directory) throws EvalException;
+
+  @StarlarkMethod(
+      name = "declare_subdirectory",
+      doc =
+          "Declares that implementation creates a subdirectory with the given name within the"
+              + " specified directory.<p>Remember that in addition to declaring a subdirectory,"
+              + " you must separately create an action that emits the subdirectory. Creating that"
+              + " action will require passing the returned <code>File</code> object to the"
+              + " action's construction function.",
+      parameters = {
+        @Param(
+            name = "subdirectory",
+            doc = "The relative path of the subdirectory within the directory."),
+        @Param(
+            name = "directory",
+            doc = "The directory in which the subdirectory should be created.",
+            named = true,
+            positional = false)
+      })
+  FileApi declareSubdirectory(String subdirectory, FileApi directory) throws EvalException;
 
   @StarlarkMethod(
       name = "args",

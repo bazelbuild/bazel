@@ -24,6 +24,7 @@ import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -216,7 +217,24 @@ public final class ActionInputMap implements InputMetadataProvider {
     }
 
     if (input instanceof TreeFileArtifact treeFileArtifact) {
-      int treeIndex = getIndex(treeFileArtifact.getParent().getExecPathString());
+      SpecialArtifact parent = treeFileArtifact.getParent();
+      int treeIndex = getIndex(parent.getExecPathString());
+      // If the parent is a subtree artifact, and the subtree is not found, fallback to check the
+      // top-level tree artifact.
+      // This distinction is necessary to handle two scenarios:
+      // 1. When an action is passed a subtree artifact, the subtree and its TreeArtifactValue are
+      //    stored in the treeArtifactsRoot. In this case, when requesting the metadata for a
+      //    TreeFileArtifact under a subtree, we are able to resolve the correct tree artifact
+      //    directly.
+      // 2. When an action is passed a top-level tree artifact (that itself contains a subtree of
+      //    files), the top-level tree is stored with a flattened TreeArtifactValue containing all
+      //    children under the top-level tree. In this case, when requesting the metadata for a
+      //    TreeFileArtifact under a subtree, we need to need search for the top-level tree artifact
+      //    rather than the file's parent (subtree).
+      // tree artifact or a subdirectory (tree artifact) as its input.
+      if (treeIndex == -1 && parent.isSubTreeArtifact()) {
+        treeIndex = getIndex(parent.getParent().getExecPathString());
+      }
       if (treeIndex != -1) {
         checkArgument(
             values[treeIndex] instanceof TreeArtifactValue,

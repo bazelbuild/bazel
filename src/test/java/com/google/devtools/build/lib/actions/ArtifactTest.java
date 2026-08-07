@@ -269,6 +269,13 @@ public final class ArtifactTest {
             ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER);
     expansionOutput.setGeneratingActionKey(
         ActionLookupData.create(ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER, 0));
+    SpecialArtifact expansionSubdir =
+        SpecialArtifact.createSubTreeArtifact(
+            templateExpansionTree,
+            PathFragment.create("subdir"),
+            ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER);
+    expansionSubdir.setGeneratingActionKey(
+        ActionLookupData.create(ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER, 1));
 
     SerializationTester tester =
         new SerializationTester(
@@ -278,7 +285,8 @@ public final class ArtifactTest {
                 treeChild,
                 archivedTree,
                 customArchivedTree,
-                expansionOutput)
+                expansionOutput,
+                expansionSubdir)
             .addDependency(FileSystem.class, scratch.getFileSystem())
             .addDependency(
                 RootCodecDependencies.class, new RootCodecDependencies(anotherRoot.getRoot()))
