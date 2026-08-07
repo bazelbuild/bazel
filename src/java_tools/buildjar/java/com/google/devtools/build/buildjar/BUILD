@@ -79,7 +79,7 @@ alias(
 
 # Bazel's BuildJar
 java_library(
-    name = "buildjar",
+    name = "javabuilder_core",
     srcs = glob(
         [
             "*.java",
@@ -98,11 +98,10 @@ java_library(
         ":javac_options",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:dependency",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:errorprone",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:javabuilder_errorprone_api",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:processing",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",
         "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
-        "//third_party:error_prone",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -113,7 +112,10 @@ java_library(
 java_binary(
     name = "BazelJavaBuilder",
     main_class = "com.google.devtools.build.buildjar.BazelJavaBuilder",
-    runtime_deps = [":buildjar"],
+    runtime_deps = [
+        ":javabuilder_core",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:errorprone",
+    ],
 )
 
 java_library(
