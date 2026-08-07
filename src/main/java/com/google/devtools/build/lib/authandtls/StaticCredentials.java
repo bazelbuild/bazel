@@ -15,7 +15,9 @@
 package com.google.devtools.build.lib.authandtls;
 
 import com.google.auth.Credentials;
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import java.net.URI;
 import java.util.List;
@@ -42,7 +44,19 @@ public final class StaticCredentials extends Credentials {
   public Map<String, List<String>> getRequestMetadata(URI uri) {
     Preconditions.checkNotNull(uri);
 
-    return credentials.getOrDefault(uri, ImmutableMap.of());
+    Map<String, List<String>> metadata = credentials.get(uri);
+    if (metadata != null) {
+      return metadata;
+    }
+    // On a same-host, same-scheme redirect to a different path the request URI is not an exact key.
+    // Fall back to credentials registered for the same endpoint, mirroring the per-host behavior of
+    // `curl --netrc` and `wget`. Credentials are never reused across hosts, schemes or ports.
+    for (Map.Entry<URI, Map<String, List<String>>> entry : credentials.entrySet()) {
+      if (sameEndpoint(uri, entry.getKey())) {
+        return entry.getValue();
+      }
+    }
+    return ImmutableMap.of();
   }
 
   @Override
@@ -58,5 +72,16 @@ public final class StaticCredentials extends Credentials {
   @Override
   public void refresh() {
     // Can't refresh static credentials.
+  }
+
+  /**
+   * Returns whether {@code a} and {@code b} address the same endpoint, i.e. have an equal port and a
+   * case-insensitively equal scheme and host (per RFC 3986).
+   */
+  private static boolean sameEndpoint(URI a, URI b) {
+    return a.getPort() == b.getPort()
+        && Ascii.equalsIgnoreCase(
+            Strings.nullToEmpty(a.getScheme()), Strings.nullToEmpty(b.getScheme()))
+        && Ascii.equalsIgnoreCase(Strings.nullToEmpty(a.getHost()), Strings.nullToEmpty(b.getHost()));
   }
 }
