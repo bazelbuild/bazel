@@ -29,6 +29,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
@@ -175,6 +176,47 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
    */
   private PathMetadata readPathMetadata(Path path, LocalFile file) throws IOException {
     DigestUtil digestUtil = new DigestUtil(xattrProvider, path.getFileSystem().getDigestFunction());
+    DigestFunction.Value digestFunction = digestUtil.getDigestFunction();
+    boolean isBuildToolLog =
+        file.type == LocalFileType.LOG || file.type == LocalFileType.PERFORMANCE_LOG;
+    FileArtifactValue metadata = file.artifactMetadata;
+    if (metadata != null) {
+      switch (metadata.getType()) {
+        case DIRECTORY -> {
+          return new PathMetadata(
+              path,
+              /* digest= */ null,
+              /* directory= */ true,
+              /* symlink= */ false,
+              /* remote= */ false,
+              /* isBuildToolLog= */ false,
+              digestFunction);
+        }
+        case SYMLINK -> {
+          return new PathMetadata(
+              path,
+              /* digest= */ null,
+              /* directory= */ false,
+              /* symlink= */ true,
+              /* remote= */ false,
+              /* isBuildToolLog= */ false,
+              digestFunction);
+        }
+        case REGULAR_FILE -> {
+          if (metadata.getDigest() != null) {
+            return new PathMetadata(
+                path,
+                DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize()),
+                /* directory= */ false,
+                /* symlink= */ false,
+                /* remote= */ metadata.isRemote(),
+                isBuildToolLog,
+                digestFunction);
+          }
+        }
+        default -> {}
+      }
+    }
 
     if (file.type == LocalFileType.OUTPUT_DIRECTORY
         || ((file.type == LocalFileType.SUCCESSFUL_TEST_OUTPUT
@@ -187,7 +229,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
           /* symlink= */ false,
           /* remote= */ false,
           /* isBuildToolLog= */ false,
-          /* digestFunction= */ digestUtil.getDigestFunction());
+          digestFunction);
     }
     if (file.type == LocalFileType.OUTPUT_SYMLINK) {
       return new PathMetadata(
@@ -197,12 +239,10 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
           /* symlink= */ true,
           /* remote= */ false,
           /* isBuildToolLog= */ false,
-          /* digestFunction= */ digestUtil.getDigestFunction());
+          digestFunction);
     }
 
     Digest digest = digestUtil.compute(path);
-    boolean isBuildToolLog =
-        file.type == LocalFileType.LOG || file.type == LocalFileType.PERFORMANCE_LOG;
     return new PathMetadata(
         path,
         digest,
@@ -210,7 +250,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         /* symlink= */ false,
         isRemoteFile(path),
         isBuildToolLog,
-        digestUtil.getDigestFunction());
+        digestFunction);
   }
 
   private static void processQueryResult(

@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.bazel.BazelHashFunctions;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -503,6 +504,160 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     assertThat(pathConverter.apply(localFile)).contains(localDigest.getHash());
   }
 
+  @Test
+  public void fileWithMetadata_digestReusedAndFileNotRead() throws Exception {
+    // arrange
+    byte[] blob = "contents of a file that is not present locally".getBytes(StandardCharsets.UTF_8);
+    Digest digest = DIGEST_UTIL.compute(blob);
+    Path file = fs.getPath("/file");
+    FileArtifactValue metadata =
+        FileArtifactValue.createForVirtualActionInput(
+            HashCode.fromString(digest.getHash()).asBytes(), digest.getSizeBytes());
+
+    StaticMissingDigestsFinder digestQuerier =
+        Mockito.spy(new StaticMissingDigestsFinder(ImmutableSet.of(digest)));
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = spy(newCombinedCache(refCntChannel, retrier, digestQuerier));
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
+
+    // act
+    PathConverter pathConverter =
+        artifactUploader
+            .upload(ImmutableMap.of(file, new LocalFile(file, LocalFileType.OUTPUT_FILE, metadata)))
+            .get();
+
+    // assert
+    verify(digestQuerier).findMissingDigests(any(), any());
+    verify(combinedCache, times(0)).uploadFile(any(), any(), any());
+    assertThat(pathConverter.apply(file))
+        .isEqualTo(
+            "bytestream://localhost/instance/blobs/"
+                + digest.getHash()
+                + "/"
+                + digest.getSizeBytes());
+    assertThat(eventHandler.getEvents()).isEmpty();
+  }
+
+  @Test
+  public void fileWithRemoteMetadata_notQueriedOrUploaded() throws Exception {
+    // arrange
+    byte[] blob = "contents of a remote file".getBytes(StandardCharsets.UTF_8);
+    Digest digest = DIGEST_UTIL.compute(blob);
+    Path file = fs.getPath("/file");
+    FileArtifactValue metadata =
+        FileArtifactValue.createForRemoteFile(
+            HashCode.fromString(digest.getHash()).asBytes(),
+            digest.getSizeBytes(),
+            /* locationIndex= */ 1);
+
+    StaticMissingDigestsFinder digestQuerier =
+        Mockito.spy(new StaticMissingDigestsFinder(ImmutableSet.of()));
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = spy(newCombinedCache(refCntChannel, retrier, digestQuerier));
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
+
+    // act
+    PathConverter pathConverter =
+        artifactUploader
+            .upload(ImmutableMap.of(file, new LocalFile(file, LocalFileType.OUTPUT_FILE, metadata)))
+            .get();
+
+    // assert
+    verify(digestQuerier, times(0)).findMissingDigests(any(), any());
+    verify(combinedCache, times(0)).uploadFile(any(), any(), any());
+    assertThat(pathConverter.apply(file))
+        .isEqualTo(
+            "bytestream://localhost/instance/blobs/"
+                + digest.getHash()
+                + "/"
+                + digest.getSizeBytes());
+    assertThat(eventHandler.getEvents()).isEmpty();
+  }
+
+  @Test
+  public void fileWithMetadata_minimalMode_digestReusedAndFileNotRead() throws Exception {
+    // arrange
+    byte[] blob = "contents of a file that is not present locally".getBytes(StandardCharsets.UTF_8);
+    Digest digest = DIGEST_UTIL.compute(blob);
+    Path file = fs.getPath("/file");
+    FileArtifactValue metadata =
+        FileArtifactValue.createForVirtualActionInput(
+            HashCode.fromString(digest.getHash()).asBytes(), digest.getSizeBytes());
+
+    StaticMissingDigestsFinder digestQuerier =
+        Mockito.spy(new StaticMissingDigestsFinder(ImmutableSet.of()));
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = spy(newCombinedCache(refCntChannel, retrier, digestQuerier));
+    ByteStreamBuildEventArtifactUploader artifactUploader =
+        newArtifactUploader(combinedCache, RemoteBuildEventUploadMode.MINIMAL);
+
+    // act
+    PathConverter pathConverter =
+        artifactUploader
+            .upload(ImmutableMap.of(file, new LocalFile(file, LocalFileType.OUTPUT_FILE, metadata)))
+            .get();
+
+    // assert
+    verify(digestQuerier, times(0)).findMissingDigests(any(), any());
+    verify(combinedCache, times(0)).uploadFile(any(), any(), any());
+    assertThat(pathConverter.apply(file))
+        .isEqualTo(
+            "bytestream://localhost/instance/blobs/"
+                + digest.getHash()
+                + "/"
+                + digest.getSizeBytes());
+    assertThat(eventHandler.getEvents()).isEmpty();
+  }
+
+  @Test
+  public void fileWithDirectoryMetadata_notUploaded() throws Exception {
+    Path dir = fs.getPath("/dir");
+    FileArtifactValue metadata = FileArtifactValue.createForDirectoryWithMtime(0);
+    Map<Path, LocalFile> filesToUpload = new HashMap<>();
+    filesToUpload.put(dir, new LocalFile(dir, LocalFileType.SUCCESSFUL_TEST_OUTPUT, metadata));
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
+
+    PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
+    assertThat(pathConverter.apply(dir)).isNull();
+    assertThat(eventHandler.getEvents()).isEmpty();
+    artifactUploader.release();
+  }
+
+  @Test
+  public void fileWithSymlinkMetadata_notUploaded() throws Exception {
+    Path sym = fs.getPath("/sym");
+    sym.createSymbolicLink(PathFragment.create("target"));
+    FileArtifactValue metadata = FileArtifactValue.createForUnresolvedSymlink(sym);
+    sym.delete();
+    Map<Path, LocalFile> filesToUpload = new HashMap<>();
+    filesToUpload.put(sym, new LocalFile(sym, LocalFileType.OUTPUT_FILE, metadata));
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
+
+    PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
+    assertThat(pathConverter.apply(sym)).isNull();
+    assertThat(eventHandler.getEvents()).isEmpty();
+    artifactUploader.release();
+  }
+
   /** Returns a remote artifact and puts its metadata into the action input map. */
   private Artifact createRemoteArtifact(
       String pathFragment, String contents, ActionInputMap inputs) {
@@ -551,6 +706,11 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   }
 
   private ByteStreamBuildEventArtifactUploader newArtifactUploader(CombinedCache combinedCache) {
+    return newArtifactUploader(combinedCache, RemoteBuildEventUploadMode.ALL);
+  }
+
+  private ByteStreamBuildEventArtifactUploader newArtifactUploader(
+      CombinedCache combinedCache, RemoteBuildEventUploadMode remoteBuildEventUploadMode) {
 
     return new ByteStreamBuildEventArtifactUploader(
         MoreExecutors.directExecutor(),
@@ -562,7 +722,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         /* buildRequestId= */ "none",
         /* commandId= */ "none",
         SyscallCache.NO_CACHE,
-        RemoteBuildEventUploadMode.ALL);
+        remoteBuildEventUploadMode);
   }
 
   private static class StaticMissingDigestsFinder implements MissingDigestsFinder {
