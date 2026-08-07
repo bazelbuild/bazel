@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
+import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -154,7 +155,7 @@ public class RunfilesTreeUpdater {
     try (BufferedReader reader =
         new BufferedReader(new InputStreamReader(outputManifest.getInputStream(), ISO_8859_1))) {
       // If it is created at all, the manifest always contains at least one line.
-      relativeRunfilePath = reader.readLine().split(" ", -1)[0];
+      relativeRunfilePath = Splitter.on(' ').splitToList(reader.readLine()).get(0);
     } catch (IOException e) {
       // Instead of failing outright, just assume the runfiles directory is not populated.
       return false;
