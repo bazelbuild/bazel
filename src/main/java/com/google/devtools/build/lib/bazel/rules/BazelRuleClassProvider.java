@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoCommon;
-import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.test.TestingSupportRules;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextGuardedValue;
 import com.google.devtools.build.lib.util.EnvVar;
@@ -259,7 +258,6 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
-          builder.addConfigurationFragment(ProtoConfiguration.class);
           builder.addBzlToplevel("proto_common_do_not_use", BazelProtoCommon.INSTANCE);
         }
 

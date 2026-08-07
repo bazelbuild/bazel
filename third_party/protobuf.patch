@@ -15,8 +15,8 @@ index a490e51b27..d5b3e174b7 100644
      versions = ["1.85.0"],
  )
  
--crate = use_extension("@rules_rust//crate_universe:extension.bzl", "crate")
-+crate = use_extension("@rules_rust//crate_universe:extension.bzl", "crate", dev_dependency = True)
+-crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
++crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate", dev_dependency = True)
  crate.spec(
      package = "googletest",
      version = ">0.0.0",

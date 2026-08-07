@@ -621,6 +621,11 @@ function add_protobuf() {
 bazel_dep(name = "protobuf", version = "$protobuf_version", repo_name = "com_google_protobuf")
 # Fixes compilation errors with old C++ compiler versions.
 bazel_dep(name = "abseil-cpp", version = "$abseil_version", repo_name = None)
+archive_override(
+    module_name = "protobuf",
+    urls = ["https://github.com/protocolbuffers/protobuf/archive/da996c74e84949c85c272bd9365bf732ee108f60.zip"],
+    strip_prefix = "protobuf-da996c74e84949c85c272bd9365bf732ee108f60",
+)
 EOF
 }
 

@@ -117,12 +117,13 @@ single_version_override(
 # required fields early. This reduces the memory usage of Bazel and avoids
 # spread in memory usage between Bazel and Blaze.
 # https://github.com/protocolbuffers/protobuf/blob/adf9e8b80fd10398b82e16c4ea72f2d2cffb0e9b/src/google/protobuf/compiler/java/full/message.cc#L884C1-L899C6
-single_version_override(
+archive_override(
     module_name = "protobuf",
+    urls = ["https://github.com/protocolbuffers/protobuf/archive/da996c74e84949c85c272bd9365bf732ee108f60.zip"],
+    strip_prefix = "protobuf-da996c74e84949c85c272bd9365bf732ee108f60",
     patch_strip = 1,
     # Patch is based on 35.1
     patches = ["//third_party:protobuf.patch"],
-    version = "35.1",
 )
 
 # Remove once the following PRs are available in a grpc-java release.

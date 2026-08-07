@@ -115,6 +115,12 @@ def parse_http_artifacts(ctx, lockfile_paths, required_repos):
                             "integrity": attributes.get("integrity", None),
                             "url": extract_url(attributes),
                         })
+    
+    # Hardcode protobuf for now
+    http_artifacts.append({
+        "url": "https://github.com/protocolbuffers/protobuf/archive/da996c74e84949c85c272bd9365bf732ee108f60.zip",
+        "sha256": "87749b2b473447a7f15f29c84b4f6c45d6ac8ea07cd846f8d32f5c457efcf9a4",
+    })
 
     missing_repos = [repo for repo in required_repos if repo not in found_repos]
     if missing_repos:
