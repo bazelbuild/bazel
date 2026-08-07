@@ -52,19 +52,21 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.RemoteExternalOverlayFileSystem;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.MaybeValue;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
+import com.google.devtools.build.lib.skyframe.rewinding.LostRemoteRepoFileException;
+import com.google.devtools.build.lib.skyframe.rewinding.RepoRewinding;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -2400,12 +2402,18 @@ func(
     }
     if (!label.getRepository().isMain()
         && directories.getOutputBase().getFileSystem()
-            instanceof RemoteExternalOverlayFileSystem remoteFs) {
+            instanceof RewindableRepoFileSystem repoFs) {
       try {
-        remoteFs.ensureMaterialized(label.getRepository(), env.getListener());
+        repoFs.ensureRepoMaterialized(label.getRepository().getName(), env.getListener());
       } catch (IOException e) {
-        throw Starlark.errorf(
-            "Failed to materialize remote repo %s: %s", label.getRepository(), e.getMessage());
+        // Keep a lost repo file as the cause so that the failing node can recover it by rewinding,
+        // and record the label it was read through, which determines the package lookup that has
+        // to be rewound along with the repo fetch.
+        LostRemoteRepoFileException lostFile = RepoRewinding.findLostRepoFile(e);
+        throw new EvalException(
+            "Failed to materialize remote repo %s: %s"
+                .formatted(label.getRepository(), e.getMessage()),
+            lostFile == null ? e : lostFile.withLabel(label));
       }
     }
     StarlarkPath starlarkPath = new StarlarkPath(this, rootedPath.asPath());

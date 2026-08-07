@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepoEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
+import com.google.devtools.build.lib.skyframe.rewinding.RepoRewinding;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -67,6 +68,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -187,6 +189,12 @@ public final class RepositoryFetchFunction implements SkyFunction {
                     workerEnv, repositoryName, starlarkSemantics, repoRoot, repoDefinition);
               });
         } catch (ExecutionException e) {
+          // The repo rule may have read a file of another cached repo that the remote cache has
+          // lost. Rather than failing the build, refetch that repo and run this repo rule again.
+          Reset reset = RepoRewinding.resetForLostRepoFile(skyKey, e);
+          if (reset != null) {
+            return reset;
+          }
           Throwables.throwIfInstanceOf(e.getCause(), RepositoryFunctionException.class);
           Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
           Throwables.throwIfUnchecked(e.getCause());
@@ -539,6 +547,11 @@ public final class RepositoryFetchFunction implements SkyFunction {
     } catch (RepositoryFunctionException e) {
       // Upon an exceptional exit, the fetching of that repository is over as well.
       env.getListener().post(RepositoryFetchProgress.finished(repoName));
+      if (RepoRewinding.isLostRepoFile(e)) {
+        // The repo rule read a file of another cached repo that the remote cache has lost. The
+        // build recovers by rewinding that repo's fetch, so this is not a failure to report.
+        throw e;
+      }
       env.getListener().post(new RepositoryFailedEvent(repoName, e.getMessage()));
 
       if (e.getCause() instanceof AlreadyReportedException) {

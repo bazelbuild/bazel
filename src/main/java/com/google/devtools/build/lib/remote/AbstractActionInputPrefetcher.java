@@ -52,7 +52,11 @@ import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.skyframe.rewinding.LostRemoteRepoFileException;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
@@ -441,7 +445,16 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         // contents may only be available in memory and must be materialized to the local file
         // system for local actions to access them.
         if (inputPath.getFileSystem() instanceof SubtreeMaterializer subtreeMaterializer) {
-          subtreeMaterializer.ensureSubtreeMaterialized(inputPath.asFragment());
+          try {
+            subtreeMaterializer.ensureSubtreeMaterialized(inputPath.asFragment());
+          } catch (LostRemoteRepoFileException e) {
+            // The lost file lies below the source directory and thus isn't an input of the action
+            // itself. Report the source directory as lost instead so that rewinding recovers it by
+            // refetching the repo containing it, just like a lost regular file input.
+            throw new BulkTransferException(
+                new CacheNotFoundException(
+                    DigestUtil.fromString(e.getDigest()), input.getExecPath()));
+          }
         }
         return immediateVoidFuture();
       }

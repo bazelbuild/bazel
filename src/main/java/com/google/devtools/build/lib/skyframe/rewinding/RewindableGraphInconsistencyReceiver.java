@@ -113,8 +113,13 @@ public final class RewindableGraphInconsistencyReceiver implements GraphInconsis
         return;
 
       case BUILDING_PARENT_FOUND_UNDONE_CHILD:
+        // Nodes of almost any type may read files and thus depend on the file-related nodes
+        // rewound to recover a lost source file, so the parent type is not constrained if all
+        // undone children are of those types.
         boolean parentDependsOnRewindableNodes =
-            RewindingInconsistencyUtils.isTypeThatDependsOnRewindableNodes(key);
+            RewindingInconsistencyUtils.isTypeThatDependsOnRewindableNodes(key)
+                || otherKeys.stream()
+                    .allMatch(RewindingInconsistencyUtils::isRewindableForLostSourceFile);
         ImmutableList<SkyKey> unrewindableUndoneChildren =
             otherKeys.stream()
                 .filter(Predicate.not(RewindingInconsistencyUtils::isRewindable))
