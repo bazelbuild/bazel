@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.shell;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -182,8 +183,8 @@ public class CommandTest {
     CommandResult result =
         command.executeAsync(emptyInput, out, err, Command.KILL_SUBPROCESS_ON_INTERRUPT).get();
     assertThat(result.terminationStatus().success()).isTrue();
-    assertThat(out.toString("UTF-8")).isEmpty();
-    assertThat(err.toString("UTF-8")).isEmpty();
+    assertThat(out.toString(UTF_8)).isEmpty();
+    assertThat(err.toString(UTF_8)).isEmpty();
   }
 
   @Test
@@ -191,8 +192,8 @@ public class CommandTest {
     Command command = new Command(ImmutableList.of("/bin/cat"), ImmutableMap.of());
     CommandResult result = command.execute();
     assertThat(result.terminationStatus().success()).isTrue();
-    assertThat(new String(result.getStdout(), "UTF-8")).isEmpty();
-    assertThat(new String(result.getStderr(), "UTF-8")).isEmpty();
+    assertThat(new String(result.getStdout(), UTF_8)).isEmpty();
+    assertThat(new String(result.getStderr(), UTF_8)).isEmpty();
   }
 
   @Test
@@ -202,7 +203,7 @@ public class CommandTest {
     ByteArrayOutputStream stdOut = new ByteArrayOutputStream();
     ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
     command.execute(stdOut, stdErr);
-    assertThat(stdOut.toString("UTF-8")).isEqualTo(helloWorld + "\n");
+    assertThat(stdOut.toString(UTF_8)).isEqualTo(helloWorld + "\n");
     assertThat(stdErr.toByteArray()).isEmpty();
   }
 
@@ -229,7 +230,7 @@ public class CommandTest {
     FutureCommandResult result =
         command.executeAsync(emptyInput, stdOut, stdErr, /* killSubprocessOnInterrupt= */ false);
     result.get(); // Make sure the process actually finished
-    assertThat(stdOut.toString("UTF-8")).isEqualTo(helloWorld + "\n");
+    assertThat(stdOut.toString(UTF_8)).isEqualTo(helloWorld + "\n");
     assertThat(stdErr.toByteArray()).isEmpty();
   }
 
