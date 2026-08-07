@@ -126,7 +126,9 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
           ActionsTestUtil.DUMMY_ARTIFACT,
           FileArtifactValue.MISSING_FILE_MARKER,
           /* stdout= */ null,
+          /* stdoutMetadata= */ null,
           /* stderr= */ null,
+          /* stderrMetadata= */ null,
           ErrorTiming.NO_ERROR,
           /* startTime= */ null,
           /* endTime= */ null);
@@ -1424,7 +1426,9 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
             ActionsTestUtil.DUMMY_ARTIFACT,
             /* primaryOutputMetadata= */ null,
             /* stdout= */ null,
+            /* stdoutMetadata= */ null,
             /* stderr= */ null,
+            /* stderrMetadata= */ null,
             ErrorTiming.BEFORE_EXECUTION,
             /* startTime= */ null,
             /* endTime= */ null);
@@ -1469,7 +1473,9 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
             ActionsTestUtil.DUMMY_ARTIFACT,
             /* primaryOutputMetadata= */ null,
             /* stdout= */ null,
+            /* stdoutMetadata= */ null,
             /* stderr= */ null,
+            /* stderrMetadata= */ null,
             ErrorTiming.BEFORE_EXECUTION,
             /* startTime= */ null,
             /* endTime= */ null);

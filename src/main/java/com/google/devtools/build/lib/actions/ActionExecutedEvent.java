@@ -51,7 +51,9 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
   private final Artifact outputArtifact;
   @Nullable private final FileArtifactValue primaryOutputMetadata;
   private final Path stdout;
+  @Nullable private final FileArtifactValue stdoutMetadata;
   private final Path stderr;
+  @Nullable private final FileArtifactValue stderrMetadata;
   private final ErrorTiming timing;
 
   /** Timestamp of the action starting; if no timestamp is available will be {@code null}. */
@@ -68,7 +70,9 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
       Artifact outputArtifact,
       @Nullable FileArtifactValue primaryOutputMetadata,
       Path stdout,
+      @Nullable FileArtifactValue stdoutMetadata,
       Path stderr,
+      @Nullable FileArtifactValue stderrMetadata,
       ErrorTiming timing,
       @Nullable Instant startTime,
       @Nullable Instant endTime) {
@@ -79,7 +83,9 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
     this.outputArtifact = outputArtifact;
     this.primaryOutputMetadata = primaryOutputMetadata;
     this.stdout = stdout;
+    this.stdoutMetadata = stdoutMetadata;
     this.stderr = stderr;
+    this.stderrMetadata = stderrMetadata;
     this.timing = timing;
     this.startTime = startTime;
     this.endTime = endTime;
@@ -156,10 +162,10 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
     ImmutableList.Builder<LocalFile> localFiles = ImmutableList.builder();
     // TODO(b/199940216): thread file metadata through here when possible.
     if (stdout != null) {
-      localFiles.add(new LocalFile(stdout, LocalFileType.STDOUT, /* artifactMetadata= */ null));
+      localFiles.add(new LocalFile(stdout, LocalFileType.STDOUT, stdoutMetadata));
     }
     if (stderr != null) {
-      localFiles.add(new LocalFile(stderr, LocalFileType.STDERR, /* artifactMetadata= */ null));
+      localFiles.add(new LocalFile(stderr, LocalFileType.STDERR, stderrMetadata));
     }
     if (exception == null) {
       localFiles.add(

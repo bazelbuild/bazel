@@ -1959,16 +1959,30 @@ public final class SkyframeActionExecutor {
       ErrorTiming errorTiming) {
     Path stdout = null;
     Path stderr = null;
+    FileArtifactValue stdoutMetadata = null;
+    FileArtifactValue stderrMetadata = null;
 
-    if (outErr.hasRecordedStdout()) {
-      stdout = outErr.getOutputPath();
-    }
-    if (outErr.hasRecordedStderr()) {
-      stderr = outErr.getErrorPath();
-    }
     // Collect MetadataLogs and spawn start times/end times from the Action's SpawnResults.
     ImmutableList<SpawnResult> spawnResults =
         findSpawnResultsInActionResultAndException(actionResult, exception);
+
+    if (outErr.hasRecordedStdout()) {
+      stdout = outErr.getOutputPath();
+    } else {
+      stdoutMetadata = soleRemoteOutErrMetadata(spawnResults, SpawnResult::getRemoteStdoutMetadata);
+      if (stdoutMetadata != null) {
+        stdout = outErr.getOutputPath();
+      }
+    }
+    if (outErr.hasRecordedStderr()) {
+      stderr = outErr.getErrorPath();
+    } else {
+      stderrMetadata = soleRemoteOutErrMetadata(spawnResults, SpawnResult::getRemoteStderrMetadata);
+      if (stderrMetadata != null) {
+        stderr = outErr.getErrorPath();
+      }
+    }
+
     Instant firstStartTime = Instant.MAX;
     Instant lastEndTime = Instant.MIN;
     for (SpawnResult spawnResult : spawnResults) {
@@ -1989,10 +2003,34 @@ public final class SkyframeActionExecutor {
             action.getPrimaryOutput(),
             primaryOutputMetadata,
             stdout,
+            stdoutMetadata,
             stderr,
+            stderrMetadata,
             errorTiming,
             firstStartTime.equals(Instant.MAX) ? null : firstStartTime,
             lastEndTime.equals(Instant.MIN) ? null : lastEndTime));
+  }
+
+  /**
+   * Returns the remote stdout or stderr metadata of the only spawn that has it, or null if no or
+   * multiple spawns do, since a single path can't represent the output of multiple spawns.
+   */
+  @Nullable
+  private static FileArtifactValue soleRemoteOutErrMetadata(
+      ImmutableList<SpawnResult> spawnResults,
+      Function<SpawnResult, FileArtifactValue> extractor) {
+    FileArtifactValue found = null;
+    for (SpawnResult spawnResult : spawnResults) {
+      FileArtifactValue metadata = extractor.apply(spawnResult);
+      if (metadata == null) {
+        continue;
+      }
+      if (found != null) {
+        return null;
+      }
+      found = metadata;
+    }
+    return found;
   }
 
   /**
