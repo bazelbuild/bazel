@@ -76,7 +76,7 @@ public final class ProviderMap implements ProviderMapApi, Mutability.Freezable {
 
   @Override
   public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
-    Provider constructor = selectExportedProvider(key, "index");
+    Provider constructor = selectExportedProvider(key, "indexing");
     Info provider = providers.get(constructor.getKey());
     if (provider != null) {
       return provider;
@@ -87,13 +87,13 @@ public final class ProviderMap implements ProviderMapApi, Mutability.Freezable {
 
   @Override
   public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
-    return providers.containsKey(selectExportedProvider(key, "query").getKey());
+    return providers.containsKey(selectExportedProvider(key, "querying").getKey());
   }
 
   @Override
   public void setIndex(StarlarkSemantics semantics, Object key, Object value) throws EvalException {
     Starlark.checkMutable(this);
-    Provider constructor = selectExportedProvider(key, "assign");
+    Provider constructor = selectExportedProvider(key, "assigning");
     if (!(value instanceof Info info)) {
       throw Starlark.errorf(
           "ProviderMap values must be provider instances, got %s", Starlark.type(value));
@@ -113,6 +113,21 @@ public final class ProviderMap implements ProviderMapApi, Mutability.Freezable {
   }
 
   @Override
+  public Object pop(Object key, Object defaultValue) throws EvalException {
+    Starlark.checkMutable(this);
+    Provider constructor = selectExportedProvider(key, "popping");
+    Info provider = providers.remove(constructor.getKey());
+    if (provider != null) {
+      return provider;
+    }
+    if (defaultValue != Starlark.UNBOUND) {
+      return defaultValue;
+    }
+    throw Starlark.errorf(
+        "ProviderMap doesn't contain declared provider '%s'", constructor.getPrintableName());
+  }
+
+  @Override
   public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<provider map>");
   }
@@ -121,12 +136,12 @@ public final class ProviderMap implements ProviderMapApi, Mutability.Freezable {
       throws EvalException {
     if (!(key instanceof Provider constructor)) {
       throw Starlark.errorf(
-          "Type ProviderMap only supports %sing by object constructors, got %s instead",
+          "Type ProviderMap only supports %s by object constructors, got %s instead",
           operation, Starlark.type(key));
     }
     if (!constructor.isExported()) {
       throw Starlark.errorf(
-          "ProviderMap only supports %sing by exported providers. Assign the provider a name "
+          "ProviderMap only supports %s by exported providers. Assign the provider a name "
               + "in a top-level assignment statement.",
           operation);
     }

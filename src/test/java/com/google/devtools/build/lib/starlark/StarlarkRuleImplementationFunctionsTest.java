@@ -1821,6 +1821,97 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Test
+  public void testProviderMapPopRemovesProviderAndReturnsIt() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        """
+        FooInfo = provider(fields = ["value"])
+        BarInfo = provider(fields = ["value"])
+        MissingInfo = provider()
+
+        def _dep_impl(ctx):
+            return [FooInfo(value = "foo"), BarInfo(value = "bar")]
+
+        dep_rule = rule(implementation = _dep_impl)
+
+        def _reexport_impl(ctx):
+            provider_map = ctx.attr.dep.providers()
+            removed = provider_map.pop(FooInfo)
+            if removed.value != "foo":
+                fail("pop returned the wrong provider")
+            if FooInfo in provider_map:
+                fail("popped provider is still present")
+            if provider_map.pop(MissingInfo, None) != None:
+                fail("pop returned the wrong default")
+            return provider_map
+
+        reexport_rule = rule(
+            implementation = _reexport_impl,
+            attrs = {"dep": attr.label()},
+        )
+
+        def _consumer_impl(ctx):
+            if FooInfo in ctx.attr.dep:
+                fail("popped provider was re-exported")
+            if BarInfo not in ctx.attr.dep or ctx.attr.dep[BarInfo].value != "bar":
+                fail("unrelated provider was not re-exported")
+            return []
+
+        consumer_rule = rule(
+            implementation = _consumer_impl,
+            attrs = {"dep": attr.label()},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":rules.bzl", "consumer_rule", "dep_rule", "reexport_rule")
+
+        dep_rule(name = "dep")
+        reexport_rule(name = "reexport", dep = ":dep")
+        consumer_rule(name = "consumer", dep = ":reexport")
+        """);
+
+    assertThat(getConfiguredTarget("//test:consumer")).isNotNull();
+  }
+
+  @Test
+  public void testProviderMapPopMissingProviderFailsWithoutDefault() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        """
+        MissingInfo = provider()
+
+        def _dep_impl(ctx):
+            return []
+
+        dep_rule = rule(implementation = _dep_impl)
+
+        def _consumer_impl(ctx):
+            provider_map = ctx.attr.dep.providers()
+            provider_map.pop(MissingInfo)
+            return provider_map
+
+        consumer_rule = rule(
+            implementation = _consumer_impl,
+            attrs = {"dep": attr.label()},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":rules.bzl", "consumer_rule", "dep_rule")
+
+        dep_rule(name = "dep")
+        consumer_rule(name = "consumer", dep = ":dep")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//test:consumer")).isNull();
+    assertContainsEvent("ProviderMap doesn't contain declared provider 'MissingInfo'");
+  }
+
+  @Test
   public void testProviderMapIsFrozenAfterRuleEvaluation() throws Exception {
     scratch.file(
         "test/rules.bzl",
