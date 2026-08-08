@@ -758,6 +758,144 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   }
 
   /**
+   * With the default test toolchain, a test action should run on a platform that matches all
+   * constraints of the target platform.
+   */
+  @Test
+  public void testExecPlatformMatchesTargetConstraintsWithDefaultTestToolchainFRME() throws Exception {
+    scratch.file(
+        "some_test.bzl",
+        """
+        def _some_test_impl(ctx):
+            script = ctx.actions.declare_file(ctx.attr.name + ".sh")
+            ctx.actions.write(script, "shell script goes here", is_executable = True)
+            return [
+                DefaultInfo(executable = script),
+            ]
+
+        some_test = rule(
+            implementation = _some_test_impl,
+            test = True,
+            exec_groups = {
+                "test": exec_group(
+                    toolchains = [Label(":my_test_toolchain_type")],
+                ),
+            },
+        )
+        """);
+    scratch.file(
+        "BUILD",
+        """
+        load(":some_test.bzl", "some_test")
+
+        toolchain_type(name = "my_test_toolchain_type")
+
+        constraint_setting(name = "exec")
+        constraint_value(
+            name = "is_exec",
+            constraint_setting = ":exec",
+        )
+
+        constraint_setting(name = "target")
+        constraint_value(
+            name = "is_device",
+            constraint_setting = ":target",
+        )
+
+        platform(
+            name = "target_on_device",
+            constraint_values = [
+                "%1$sos:linux",
+                "%1$scpu:aarch64",
+                ":is_device",
+            ],
+        )
+
+        toolchain(
+            name = "aarch64_test_toolchain",
+            target_compatible_with = [
+                "%1$scpu:aarch64",
+                "%1$sos:linux",
+            ],
+            exec_compatible_with = [
+                "%1$scpu:aarch64",
+                "//:is_exec",
+            ],
+            toolchain_type = ":my_test_toolchain_type",
+            use_target_platform_constraints = True,
+            toolchain = "%2$s//tools/test:empty_toolchain",
+        )
+
+        # Default test toolchain will require exec platform with:
+        #   :linux
+        #   :aarch64
+        #   :is_device
+        # linux_gpu_test_toolchain will require exec platform with:
+        #   :aarch64 - Toolchain exec_compatible_with (and target_compatible with).
+        #   :is_device - Requirement from target platform (use_target_platform_constraints).
+        #   :is_exec - Toolchain exec_compatible_with.
+
+        platform(
+            name = "exec_missing_aarch64",
+            constraint_values = [
+                "%1$sos:linux",
+                ":is_exec",
+                ":is_device",
+            ],
+            exec_properties = {"key": "bad"},
+        )
+
+        platform(
+            name = "exec_missing_is_device",
+            constraint_values = [
+                "%1$sos:linux",
+                "%1$scpu:aarch64",
+                ":is_exec",
+            ],
+            exec_properties = {"key": "bad"},
+        )
+
+        platform(
+            name = "exec_missing_is_exec",
+            constraint_values = [
+                "%1$sos:linux",
+                "%1$scpu:aarch64",
+                ":is_device",
+            ],
+            exec_properties = {"key": "bad"},
+        )
+
+        platform(
+            name = "exec_expected",
+            constraint_values = [
+                "%1$scpu:aarch64",
+                ":is_exec",
+                ":is_device",
+                # macos is not needed: Toolchain target_compatible_with Linux, not exec_compatible_with any os.
+                "%1$sos:macos",
+            ],
+            exec_properties = {"key": "good"},
+        )
+
+        some_test(name = "some_test")
+        """
+            .formatted(TestConstants.CONSTRAINTS_PACKAGE_ROOT, TestConstants.TOOLS_REPOSITORY.getCanonicalForm()));
+    useConfiguration(
+        String.format(
+            "--%s//tools/test:incompatible_use_default_test_toolchain",
+            TestConstants.TOOLS_REPOSITORY.getCanonicalForm()),
+        "--platforms=//:target_on_device",
+        "--extra_toolchains=//:aarch64_test_toolchain",
+        "--extra_execution_platforms=//:exec_missing_aarch64,//:exec_missing_is_device,//:exec_missing_is_exec,//:exec_expected");
+    ImmutableList<Artifact.DerivedArtifact> testStatusList = getTestStatusArtifacts("//:some_test");
+    assertThat(testStatusList).hasSize(1);
+    TestRunnerAction testAction = (TestRunnerAction) getGeneratingAction(testStatusList.get(0));
+    assertThat(testAction.getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonicalUnchecked("//:exec_expected"));
+    assertThat(testAction.getExecProperties()).containsExactly("key", "good");
+  }
+
+  /**
    * With the default test toolchain, a failure to find a suitable execution platform will result in
    * a toolchain resolution error.
    */

@@ -84,10 +84,8 @@ public class ToolchainRule implements RuleDefinition {
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .nonconfigurable("part of toolchain configuration"))
         /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(use_target_platform_constraints) -->
-        If <code>True</code>, this toolchain behaves as if its <code>exec_compatible_with</code> and
-        <code>target_compatible_with</code> constraints are set to those of the current target
-        platform. <code>exec_compatible_with</code> and <code>target_compatible_with</code> must not
-        be set in that case.
+        If <code>True</code>, the constraints in the current target platform that are not part of
+        <code>target_compatible_with</code> will be added to <code>exec_compatible_with</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(USE_TARGET_PLATFORM_CONSTRAINTS_ATTR, Type.BOOLEAN)
