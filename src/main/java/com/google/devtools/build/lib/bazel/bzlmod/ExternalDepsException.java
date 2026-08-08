@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 import javax.annotation.Nullable;
@@ -34,11 +35,16 @@ public class ExternalDepsException extends Exception implements DetailedExceptio
   private ExternalDepsException(String message, @Nullable Throwable cause, ExternalDeps.Code code) {
     super(message, cause);
     detailedExitCode =
-        DetailedExitCode.of(
-            FailureDetail.newBuilder()
-                .setMessage(message)
-                .setExternalDeps(ExternalDeps.newBuilder().setCode(code).build())
-                .build());
+        cause instanceof DetailedIOException detailedCause
+            ? DetailedExitCode.of(
+                detailedCause.getDetailedExitCode().getFailureDetail().toBuilder()
+                    .setMessage(message)
+                    .build())
+            : DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setMessage(message)
+                    .setExternalDeps(ExternalDeps.newBuilder().setCode(code).build())
+                    .build());
   }
 
   @FormatMethod
