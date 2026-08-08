@@ -118,6 +118,10 @@ changes:
     *   Similarly, [`repository_ctx.watch_tree`](/rules/lib/builtins/repository_ctx#watch_tree)
         and [`path.readdir`](/rules/lib/builtins/path#readdir) can cause paths
         to be watched in other ways.
+*   For Bzlmod-managed repositories, the [repository mapping](/external/overview#apparent-repo-name)
+    entries recorded by the repository rule (for example, when resolving
+    labels). A re-fetch is only triggered if the mapping content changes; the
+    order in which these mappings are recorded is ignored.
 *   When `bazel fetch --force` is executed.
 
 There are two parameters of `repository_rule` that control when the repositories
