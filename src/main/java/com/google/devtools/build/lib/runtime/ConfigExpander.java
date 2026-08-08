@@ -61,11 +61,12 @@ final class ConfigExpander {
    * should enable the platform specific config.
    */
   private static boolean shouldEnablePlatformSpecificConfig(
-      OptionValueDescription enablePlatformSpecificConfigDescription,
+      @Nullable OptionValueDescription enablePlatformSpecificConfigDescription,
       ListMultimap<String, RcChunkOfArgs> commandToRcArgs,
       List<String> commandsToParse) {
-    if (enablePlatformSpecificConfigDescription == null
-        || !(boolean) enablePlatformSpecificConfigDescription.getValue()) {
+    // If the option was never explicitly set, the default value (true) applies.
+    if (enablePlatformSpecificConfigDescription != null
+        && !(boolean) enablePlatformSpecificConfigDescription.getValue()) {
       return false;
     }
 
@@ -135,6 +136,12 @@ final class ConfigExpander {
         optionsParser.getOptionValueDescription("enable_platform_specific_config");
     if (shouldEnablePlatformSpecificConfig(
         enablePlatformSpecificConfigDescription, commandToRcArgs, commandsToParse)) {
+      // Parse a fresh instance at this late point so the platform config expansion gets a late
+      // priority, ensuring platform-specific options override non-platform-specific ones
+      // regardless of where --enable_platform_specific_config was originally set in the rc file.
+      optionsParser.parse("--enable_platform_specific_config=true");
+      enablePlatformSpecificConfigDescription =
+          optionsParser.getOptionValueDescription("enable_platform_specific_config");
       var expansion =
           getExpansion(
               eventHandler,
@@ -144,7 +151,7 @@ final class ConfigExpander {
               rcFileNotesConsumer,
               fallbackData);
       ParsedOptionDescription optionToExpand =
-          Iterables.getOnlyElement(enablePlatformSpecificConfigDescription.getCanonicalInstances());
+          Iterables.getLast(enablePlatformSpecificConfigDescription.getCanonicalInstances());
       var ignoredArgs =
           optionsParser.parseArgsAsExpansionOfOption(
               optionToExpand, "enabled by --enable_platform_specific_config", expansion);
