@@ -54,6 +54,14 @@ std::string ToString(const T& value) {
 
 namespace devtools_ijar {
 
+// Returns true iff at least n bytes remain between p and end. Used to bound
+// the class-structure reads in ReadClass/Member::Read (counts, interfaces,
+// field/method headers) against the end of the untrusted class data, so a
+// truncated or crafted class cannot drive get_u*be past the buffer.
+static inline bool IjarRemaining(const u1 *p, const u1 *end, size_t n) {
+  return p <= end && static_cast<size_t>(end - p) >= n;
+}
+
 // See Table 4.4 in JVM 17 Spec.
 enum CONSTANT {
   CONSTANT_Class = 7,
@@ -1401,7 +1409,9 @@ struct Member : HasAttrs {
   Constant *name;
   Constant *descriptor;
 
-  static Member* Read(const u1 *&p) {
+  static Member* Read(const u1 *&p, const u1 *end) {
+    // access_flags (u2) + name_index (u2) + descriptor_index (u2).
+    if (!IjarRemaining(p, end, 6)) return NULL;
     Member *m = new Member;
     m->access_flags = get_u2be(p);
     m->name = constant(get_u2be(p));
@@ -1756,11 +1766,17 @@ bool ClassFile::KeepForCompile() {
 
 static ClassFile *ReadClass(const void *classdata, size_t length) {
   const u1 *p = (u1*) classdata;
+  const u1 *end = p + length;
 
   ClassFile *clazz = new ClassFile;
 
   clazz->length = length;
 
+  // magic (u4) + major (u2) + minor (u2).
+  if (!IjarRemaining(p, end, 8)) {
+    delete clazz;
+    return NULL;
+  }
   clazz->magic = get_u4be(p);
   if (clazz->magic != 0xCAFEBABE) {
     fprintf(stderr, "Bad magic %" PRIx32 "\n", clazz->magic);
@@ -1774,6 +1790,12 @@ static ClassFile *ReadClass(const void *classdata, size_t length) {
     return NULL;
   }
 
+  // access_flags (u2) + this_class (u2) + super_class (u2) + interfaces_count
+  // (u2).
+  if (!IjarRemaining(p, end, 8)) {
+    delete clazz;
+    return NULL;
+  }
   clazz->access_flags = get_u2be(p);
   clazz->this_class = constant(get_u2be(p));
   class_name = clazz->this_class;
@@ -1782,13 +1804,25 @@ static ClassFile *ReadClass(const void *classdata, size_t length) {
   clazz->super_class = super_class_id == 0 ? NULL : constant(super_class_id);
 
   u2 interfaces_count = get_u2be(p);
+  if (!IjarRemaining(p, end, static_cast<size_t>(interfaces_count) * 2)) {
+    delete clazz;
+    return NULL;
+  }
   for (int ii = 0; ii < interfaces_count; ++ii) {
     clazz->interfaces.push_back(constant(get_u2be(p)));
   }
 
+  if (!IjarRemaining(p, end, 2)) {
+    delete clazz;
+    return NULL;
+  }
   u2 fields_count = get_u2be(p);
   for (int ii = 0; ii < fields_count; ++ii) {
-    Member *field = Member::Read(p);
+    Member *field = Member::Read(p, end);
+    if (field == NULL) {
+      delete clazz;
+      return NULL;
+    }
 
     if ((field->access_flags & ACC_PRIVATE) == ACC_PRIVATE) {
       // drop private fields
@@ -1797,9 +1831,17 @@ static ClassFile *ReadClass(const void *classdata, size_t length) {
     clazz->fields.push_back(field);
   }
 
+  if (!IjarRemaining(p, end, 2)) {
+    delete clazz;
+    return NULL;
+  }
   u2 methods_count = get_u2be(p);
   for (int ii = 0; ii < methods_count; ++ii) {
-    Member *method = Member::Read(p);
+    Member *method = Member::Read(p, end);
+    if (method == NULL) {
+      delete clazz;
+      return NULL;
+    }
 
     // drop class initializers
     if (method->name->Display() == "<clinit>") continue;
