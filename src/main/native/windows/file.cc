@@ -109,7 +109,7 @@ int IsSymlinkOrJunction(const WCHAR* path, bool* result, wstring* error) {
   }
 }
 
-static int64_t WindowsFileTimeToUnixNanos(LARGE_INTEGER filetime) {
+int64_t WindowsFileTimeToUnixNanos(LARGE_INTEGER filetime) {
   // Convert from Windows file time (100ns units since January 1, 1601) to
   // Unix nanos (1ns units since January 1, 1970). For the magic constant, see:
   // https://learn.microsoft.com/en-us/windows/win32/sysinfo/converting-a-time-t-value-to-a-file-time

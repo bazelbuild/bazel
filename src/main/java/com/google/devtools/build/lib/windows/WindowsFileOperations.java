@@ -23,6 +23,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.DirectoryNotEmptyException;
+import javax.annotation.Nullable;
 
 /** File operations on Windows. */
 public class WindowsFileOperations {
@@ -94,6 +95,23 @@ public class WindowsFileOperations {
   private static final int READ_SYMLINK_OR_JUNCTION_DOES_NOT_EXIST = 3;
   private static final int READ_SYMLINK_OR_JUNCTION_NOT_A_LINK = 4;
 
+  // Keep STAT_* values in sync with src/main/native/windows/stat.h.
+  private static final int STAT_SUCCESS = 0;
+  // STAT_ERROR = 1;
+  private static final int STAT_DOES_NOT_EXIST = 2;
+  private static final int STAT_ACCESS_DENIED = 3;
+
+  // Keep STAT_RESULT_LENGTH in sync with kStatResultLength in src/main/native/windows/stat.h.
+  private static final int STAT_RESULT_LENGTH = 4;
+
+  // The winnt.h attribute bits that FileMetadata reports on. Note that FILE_ATTRIBUTE_DIRECTORY is
+  // set on a junction and on a directory symlink too, so a caller that distinguishes links from
+  // directories must test FILE_ATTRIBUTE_REPARSE_POINT first.
+  private static final int FILE_ATTRIBUTE_READONLY = 0x00000001;
+  private static final int FILE_ATTRIBUTE_DIRECTORY = 0x00000010;
+  private static final int FILE_ATTRIBUTE_DEVICE = 0x00000040;
+  private static final int FILE_ATTRIBUTE_REPARSE_POINT = 0x00000400;
+
   private static native int nativeIsSymlinkOrJunction(
       String path, boolean[] result, String[] error);
 
@@ -108,6 +126,9 @@ public class WindowsFileOperations {
       String name, String[] result, String[] error);
 
   private static native int nativeDeletePath(String path, String[] error);
+
+  private static native int nativeStat(
+      String path, boolean followReparsePoints, long[] result, String[] error);
 
   /** Determines whether `path` is a junction point or directory symlink. */
   public static boolean isSymlinkOrJunction(String path) throws IOException {
@@ -259,6 +280,48 @@ public class WindowsFileOperations {
         // This is DELETE_PATH_ERROR (1). The JNI code puts a custom message in 'error[0]'.
         throw new IOException(
             platformToInternal(String.format("Cannot delete path '%s': %s", path, error[0])));
+    }
+  }
+
+  /** The metadata of one file. Times are in nanoseconds since the Unix epoch. */
+  record FileMetadata(
+      boolean isDirectory,
+      boolean isReparsePoint,
+      boolean isDevice,
+      boolean isReadOnly,
+      long size,
+      long lastModifiedTimeNanos,
+      long lastChangeTimeNanos) {}
+
+  /** Returns the metadata of `path`, or null if it does not exist. */
+  @Nullable
+  static FileMetadata statIfFound(String path, boolean followReparsePoints) throws IOException {
+    // Keep the layout in sync with nativeStat in file-jni.cc.
+    long[] result = new long[STAT_RESULT_LENGTH];
+    String[] error = new String[] {null};
+    switch (nativeStat(
+        WindowsPathOperations.addUncPrefixAndUseBackslashes(path),
+        followReparsePoints,
+        result,
+        error)) {
+      case STAT_SUCCESS:
+        int attributes = (int) result[0];
+        return new FileMetadata(
+            (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0,
+            (attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0,
+            (attributes & FILE_ATTRIBUTE_DEVICE) != 0,
+            (attributes & FILE_ATTRIBUTE_READONLY) != 0,
+            result[1],
+            result[2],
+            result[3]);
+      case STAT_DOES_NOT_EXIST:
+        return null;
+      case STAT_ACCESS_DENIED:
+        throw new AccessDeniedException(platformToInternal(path));
+      default:
+        // This is STAT_ERROR (1). The JNI code puts a custom message in 'error[0]'.
+        throw new IOException(
+            platformToInternal(String.format("Cannot stat '%s': %s", path, error[0])));
     }
   }
 }
