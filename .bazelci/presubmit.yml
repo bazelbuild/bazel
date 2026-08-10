@@ -143,6 +143,8 @@ tasks:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
+      - "//src:java_tools_zip"
+      - "//src:java_tools_prebuilt_zip"
     include_json_profile:
       - build
   macos_arm64:
@@ -157,6 +159,8 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
+      - "//src:java_tools_zip"
+      - "//src:java_tools_prebuilt_zip"
     test_flags:
       - "--config=ci-macos"
       - "--test_tag_filters=-no_presubmit,-no_macos"
@@ -195,6 +199,8 @@ tasks:
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
       - "//src/main/java/..."
+      - "//src:java_tools_zip"
+      - "//src:java_tools_prebuilt_zip"
     test_flags:
       - "--config=ci-windows"
       # We need to keep --test_tag_filters here for the bazel-diff integration.
