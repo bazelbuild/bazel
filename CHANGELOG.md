@@ -1,3 +1,69 @@
+## Release 10.0.0-pre.20260801.1 (2026-08-10)
+
+```
+Baseline: 14498c82d1af1ee127ac2140f0bfdf0f62d36c60
+
+Cherry picks:
+
+   + 909985a3b9a1f71106e7cba31eb862078e5bdebe:
+     Automated rollback of commit
+     2558ffede4c29cc41c7080eadd3118cb12509517.
+```
+
+Incompatible changes:
+
+  - The Windows shell launcher now again prepends rather than appends
+    the directory containing the shell binary, restoring the behavior
+    of Bazel 8.x. This is technically an incompatible change, but
+    deemed necessary due to the unexpected and widespread
+    implications of the change in 9.0.0. See
+    https://github.com/bazelbuild/bazel/issues/29637 for more context.
+
+New features:
+
+  - The `BAZEL_LLVM_PROFILE_FILE` environment variable can now
+    be used to customize the LLVM profile filename pattern for C++
+    coverage
+    collection (e.g. `--test_env=BAZEL_LLVM_PROFILE_FILE=%p.profraw`).
+    Defaults to `%h-%p-%m.profraw` when unset.
+
+Important changes:
+
+  - --experimental_split_coverage_processing and
+    --experimental_fetch_all_coverage_outputs default to true.
+  - Retry 408 and 429 status codes with HTTP remote caching.
+  - Fixed a bug that could cause `ignore_directories()` to not ignore
+    directories.
+
+This release contains contributions from many people at Google, as well as Akshay Ubale, Benjamin Peterson, Bryce Lampe, Chi Wang, Fabian Meumertzheim, Fabian Meumertzheim, Fabian Meumertzheim, George Gensure, Javier Maestro, Keith Smiley, Matthew Steffen, PikachuHy, Son Luong Ngoc, Tamir Duberstein, Tyler Breisacher, Xdng Yng, Yossi Eliaz, zozo123.
+
+## Release 10.0.0-pre.20260729.1 (2026-08-04)
+
+```
+Baseline: b66e78bad319b5107a5d1be67343a5705360e87a
+```
+
+New features:
+
+  - Added `--experimental_remote_cache_chunking_function` to select
+    the content-defined chunking function used by
+    `--experimental_remote_cache_chunking`. Supported values are
+    `auto` (the default, which negotiates the function from the
+    server capabilities, preferring FastCDC 2020), `fast_cdc_2020`
+    and `rep_max_cdc`.
+
+Important changes:
+
+  - Fixed `repository_ctx.download_and_extract` failing with an
+    "Expected a file with a ... suffix" error when
+    `--downloader_config` blocks all URLs and the archive is served
+    from the repository cache.
+  - `--incompatible_modify_execution_info_additive` is now deprecated
+    and a no-op. When `--modify_execution_info` is specified multiple
+    times, all values are always applied in order.
+
+This release contains contributions from many people at Google, as well as David Zbarsky, Fabian Meumertzheim, ifutivic, Keith Smiley, Tamir Duberstein.
+
 ## Release 10.0.0-pre.20260727.2 (2026-07-31)
 
 ```
