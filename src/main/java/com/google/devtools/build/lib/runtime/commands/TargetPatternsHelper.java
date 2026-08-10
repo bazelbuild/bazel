@@ -97,7 +97,11 @@ public final class TargetPatternsHelper {
       if (hasQuery) {
         try {
           queryTargets = executeQuery(env, buildRequestOptions.getTargetQuery(), options);
-        } catch (QueryException | InterruptedException | IOException e) {
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new TargetPatternsHelperException(
+              "Query interrupted", TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
+        } catch (QueryException | IOException e) {
           throw new TargetPatternsHelperException(
               "Error executing query: " + e.getMessage(),
               TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
@@ -116,7 +120,11 @@ public final class TargetPatternsHelper {
           throw new TargetPatternsHelperException(
               "I/O error reading from " + queryFilePath.getPathString() + ": " + e.getMessage(),
               TargetPatterns.Code.TARGET_PATTERN_FILE_READ_FAILURE);
-        } catch (QueryException | InterruptedException e) {
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new TargetPatternsHelperException(
+              "Query interrupted", TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
+        } catch (QueryException e) {
           throw new TargetPatternsHelperException(
               "Error executing query from file: " + e.getMessage(),
               TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
@@ -230,9 +238,6 @@ public final class TargetPatternsHelper {
       }
 
       return ImmutableList.copyOf(targetPatterns);
-    } catch (InterruptedException e) {
-      throw new TargetPatternsHelperException("Query interrupted",
-          TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
     } catch (RepositoryMappingResolutionException e) {
       throw new TargetPatternsHelperException(e.getMessage(),
           TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
