@@ -18,6 +18,7 @@ java_library(
         exclude = ["EventBusEventHandler.java"],
     ),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/net/starlark/java/eval",
