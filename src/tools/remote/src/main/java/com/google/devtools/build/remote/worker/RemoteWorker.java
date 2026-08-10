@@ -81,6 +81,8 @@ import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -171,6 +173,53 @@ public final class RemoteWorker {
     }
   }
 
+  /**
+   * Fails the first N calls to a single gRPC method with {@link Status#UNAVAILABLE}, optionally
+   * gated on a marker file. The failure budget re-arms whenever the marker transitions from absent
+   * to present, so one worker can serve several tests that each arm the marker for their own build.
+   * This lets a test inject a transient remote failure (e.g. to trip the remote failure circuit
+   * breaker) that then heals on its own. Testing only.
+   */
+  private static class FailFirstNInterceptor implements ServerInterceptor {
+    private final int failureCount;
+    private final String failureMethod;
+    // A java.nio path (checked from this worker process); null means "always armed".
+    private final java.nio.file.Path markerFile;
+
+    private final Object lock = new Object();
+    private boolean wasArmed = false;
+    private int remaining = 0;
+
+    FailFirstNInterceptor(int failureCount, String failureMethod, java.nio.file.Path markerFile) {
+      this.failureCount = failureCount;
+      this.failureMethod = failureMethod;
+      this.markerFile = markerFile;
+    }
+
+    @Override
+    public <ReqT, RespT> Listener<ReqT> interceptCall(
+        ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
+      if (call.getMethodDescriptor().getFullMethodName().equals(failureMethod)) {
+        synchronized (lock) {
+          boolean armed = markerFile == null || Files.exists(markerFile);
+          if (armed && !wasArmed) {
+            // Rising edge: (re)arm the failure budget for this build.
+            remaining = failureCount;
+          }
+          wasArmed = armed;
+          if (armed && remaining > 0) {
+            remaining--;
+            // Observable signal for tests: proves a transient failure was actually delivered.
+            System.err.println("INJECTED_UNAVAILABLE " + failureMethod + " remaining=" + remaining);
+            call.close(Status.UNAVAILABLE.withDescription("injected test failure"), new Metadata());
+            return new ServerCall.Listener<ReqT>() {};
+          }
+        }
+      }
+      return Contexts.interceptCall(Context.current(), call, headers, next);
+    }
+  }
+
   public RemoteWorker(
       FileSystem fs,
       RemoteWorkerOptions workerOptions,
@@ -215,6 +264,15 @@ public final class RemoteWorker {
 
   public Server startServer() throws IOException {
     List<ServerInterceptor> interceptors = new ArrayList<>();
+    if (workerOptions.getFailureCount() > 0) {
+      java.nio.file.Path markerFile =
+          workerOptions.getFailureMarkerFile() == null
+              ? null
+              : Paths.get(workerOptions.getFailureMarkerFile().getPathString());
+      interceptors.add(
+          new FailFirstNInterceptor(
+              workerOptions.getFailureCount(), workerOptions.getFailureMethod(), markerFile));
+    }
     if (workerOptions.getUnavailable()) {
       interceptors.add(new UnavailableInterceptor());
     }
