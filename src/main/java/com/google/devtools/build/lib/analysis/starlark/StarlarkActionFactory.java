@@ -1052,6 +1052,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Boolean useDefaultShellEnv,
       Object envUnchecked,
       Object mnemonicUnchecked,
+      Object resourceSetUnchecked,
       StarlarkFunction implementation,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
@@ -1094,10 +1095,22 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
     String execGroup = determineExecGroup(ruleContext, execGroupUnchecked, toolchainUnchecked);
 
+    ResourceSetOrBuilder resourceSet = DEFAULT_RESOURCE_SET;
+    if (resourceSetUnchecked != Starlark.NONE) {
+      if (resourceSetUnchecked instanceof Dict) {
+        resourceSet = parseResourceSetFromDict(resourceSetUnchecked);
+      } else {
+        validateResourceSetBuilder(resourceSetUnchecked);
+        resourceSet =
+            StarlarkActionResourceSetBuilder.create(
+                (StarlarkCallable) resourceSetUnchecked, mnemonic, getSemantics());
+      }
+    }
+
     SpawnAction.Builder spawnActionBuilder =
         new SpawnAction.Builder()
             .setMnemonic(mnemonic)
-            .setResources(DEFAULT_RESOURCE_SET)
+            .setResources(resourceSet)
             .setActionEnvironment(actionEnv)
             .setExecutionInfo(executionInfo)
             .setOutputPathsMode(PathMappers.getOutputPathsMode(ruleContext.getConfiguration()));
