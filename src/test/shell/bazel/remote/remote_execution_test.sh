@@ -2787,11 +2787,21 @@ function test_uncached_executable_producer_runs_before_cached_test() {
   cat > producer_keyed_test/rule.bzl <<'EOF'
 def _producer_keyed_test_impl(ctx):
     executable = ctx.actions.declare_file(ctx.label.name)
+    inputs = ctx.actions.declare_directory(ctx.label.name + "_inputs")
     ctx.actions.run_shell(
         inputs = [ctx.file.script],
+        outputs = [inputs],
+        command = "mkdir -p %s && cp %s %s/test.sh" % (
+            inputs.path,
+            ctx.file.script.path,
+            inputs.path,
+        ),
+    )
+    ctx.actions.run_shell(
+        inputs = [inputs],
         outputs = [executable],
         command = "cp %s %s && chmod +x %s" % (
-            ctx.file.script.path,
+            inputs.path + "/test.sh",
             executable.path,
             executable.path,
         ),
