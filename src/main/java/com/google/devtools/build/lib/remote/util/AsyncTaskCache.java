@@ -314,7 +314,7 @@ public final class AsyncTaskCache<KeyT, ValueT> {
         emitter -> {
           synchronized (lock) {
             if (state != STATE_ACTIVE) {
-              emitter.onError(new CancellationException("already shutdown"));
+              emitter.tryOnError(new CancellationException("already shutdown"));
               return;
             }
 
@@ -357,9 +357,10 @@ public final class AsyncTaskCache<KeyT, ValueT> {
 
                   @Override
                   public void onError(@NonNull Throwable e) {
-                    if (!emitter.isDisposed()) {
-                      emitter.onError(e);
-                    }
+                    // The emitter can be disposed at any time, in particular right after an
+                    // isDisposed() check, so use tryOnError: onError would hand the error to
+                    // RxJavaPlugins' global error handler if it has been disposed in the meantime.
+                    emitter.tryOnError(e);
                   }
                 });
           }

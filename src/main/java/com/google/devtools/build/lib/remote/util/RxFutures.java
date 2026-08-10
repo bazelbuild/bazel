@@ -92,10 +92,14 @@ public class RxFutures {
                  *   1. The ListenableFuture itself is cancelled.
                  *   2. Completable is disposed by downstream.
                  *
-                 * This check is used to prevent propagating CancellationException to downstream
-                 * when it has already disposed the Completable.
+                 * In the second case, the CancellationException must not be propagated to
+                 * downstream. Since the Completable can be disposed at any time, in particular
+                 * after an isDisposed() check, this is done with tryOnError: onError would hand
+                 * the exception to RxJavaPlugins' global error handler if the Completable has
+                 * been disposed in the meantime.
                  */
-                if (throwable instanceof CancellationException && emitter.isDisposed()) {
+                if (throwable instanceof CancellationException) {
+                  emitter.tryOnError(throwable);
                   return;
                 }
 
@@ -162,10 +166,14 @@ public class RxFutures {
                  *   1. The ListenableFuture itself is cancelled.
                  *   2. Single is disposed by downstream.
                  *
-                 * This check is used to prevent propagating CancellationException to downstream
-                 * when it has already disposed the Single.
+                 * In the second case, the CancellationException must not be propagated to
+                 * downstream. Since the Single can be disposed at any time, in particular after an
+                 * isDisposed() check, this is done with tryOnError: onError would hand the
+                 * exception to RxJavaPlugins' global error handler if the Single has been disposed
+                 * in the meantime.
                  */
-                if (throwable instanceof CancellationException && emitter.isDisposed()) {
+                if (throwable instanceof CancellationException) {
+                  emitter.tryOnError(throwable);
                   return;
                 }
 

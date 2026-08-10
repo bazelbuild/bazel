@@ -20,6 +20,7 @@ import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
+import java.util.concurrent.CancellationException;
 import javax.annotation.Nullable;
 
 /** Utility methods for the Rx. * */
@@ -85,7 +86,13 @@ public class RxUtils {
             error -> {
               if (error instanceof IOException ioException) {
                 return Single.just(TransferResult.error(ioException));
-              } else if (error instanceof InterruptedException) {
+              } else if (error instanceof InterruptedException
+                  || error instanceof CancellationException) {
+                // A transfer is only ever cancelled as part of tearing down the operation it
+                // belongs to, so this is reported as an interruption rather than propagated
+                // downstream: mergeBulkTransfer subscribes to all transfers of a bulk operation at
+                // once and RxJava hands every error but the first one to RxJavaPlugins' global
+                // error handler, which Bazel reports as an error event.
                 return Single.just(TransferResult.interrupted());
               } else {
                 return Single.error(error);
