@@ -99,7 +99,6 @@ import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.TargetConfiguredEvent;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
-import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
@@ -2026,20 +2025,26 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       TestOptions testOptions = options.getOptions(TestOptions.class);
       boolean producerKeyedCacheEnabled =
           testOptions != null && testOptions.getExperimentalProducerKeyedTestCache();
+      ImmutableSet<ActionLookupKey> testLookupKeys =
+          testsToRun.stream()
+              .map(ConfiguredTarget::getLookupKey)
+              .collect(ImmutableSet.toImmutableSet());
       Collection<ConfiguredTarget> targetsToComplete =
           producerKeyedCacheEnabled
-              ? targetsToBuild.stream().filter(target -> !testsToRun.contains(target)).toList()
+              ? targetsToBuild.stream()
+                  .filter(target -> !testLookupKeys.contains(target.getLookupKey()))
+                  .toList()
               : targetsToBuild;
       Set<Artifact> artifactsToRequest = artifactsToBuild;
       if (producerKeyedCacheEnabled) {
-        ImmutableSet.Builder<Artifact> testTargetArtifacts = ImmutableSet.builder();
-        for (ConfiguredTarget test : testsToRun) {
-          testTargetArtifacts.addAll(
-              TopLevelArtifactHelper.getAllArtifactsToBuild(test, topLevelArtifactContext)
-                  .getAllArtifacts()
-                  .toList());
+        ImmutableSet.Builder<Artifact> nonTestArtifacts = ImmutableSet.builder();
+        for (Artifact artifact : artifactsToBuild) {
+          if (!(artifact instanceof Artifact.DerivedArtifact derived)
+              || !testLookupKeys.contains(derived.getArtifactOwner())) {
+            nonTestArtifacts.add(artifact);
+          }
         }
-        artifactsToRequest = Sets.difference(artifactsToBuild, testTargetArtifacts.build());
+        artifactsToRequest = nonTestArtifacts.build();
       }
       Iterable<TargetCompletionValue.TargetCompletionKey> targetKeys =
           TargetCompletionValue.keys(targetsToComplete, topLevelArtifactContext, testsToRun);

@@ -722,34 +722,6 @@ java_test(
 )
 
 java_test(
-    name = "ProducerKeyedTestCacheEligibilityTest",
-    srcs = ["ProducerKeyedTestCacheEligibilityTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "ProducerKeyedTestIdentityTest",
-    srcs = ["ProducerKeyedTestIdentityTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@com_google_protobuf//:protobuf_java",
-    ],
-)
-
-java_test(
     name = "PackageGroupBuildViewTest",
     srcs = ["PackageGroupBuildViewTest.java"],
     deps = [

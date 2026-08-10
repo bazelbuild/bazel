@@ -121,8 +121,6 @@ java_library(
         "test/CoverageCommon.java",
         "test/InstrumentedFileManifestAction.java",
         "test/InstrumentedFilesCollector.java",
-        "test/ProducerKeyedTestCacheEligibility.java",
-        "test/ProducerKeyedTestIdentity.java",
         "test/TestActionBuilder.java",
         "test/TestActionContext.java",
         "test/TestAttempt.java",

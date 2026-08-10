@@ -58,57 +58,9 @@ public final class TestCompletionFunction implements SkyFunction {
         (TestCompletionValue.TestCompletionKey) skyKey.argument();
     ConfiguredTargetKey ctKey = key.configuredTargetKey();
     TopLevelArtifactContext ctx = key.topLevelArtifactContext();
-    if (skyframeActionExecutor.producerKeyedTestCacheEnabled()) {
-      ConfiguredTargetValue ctValue = (ConfiguredTargetValue) env.getValue(ctKey);
-      if (ctValue == null) {
-        return null;
-      }
-      ConfiguredTarget ct = ctValue.getConfiguredTarget();
-      List<Artifact.DerivedArtifact> testStatusArtifacts = TestProvider.getTestStatusArtifacts(ct);
-      SkyframeLookupResult result = env.getValuesAndExceptions(Artifact.keys(testStatusArtifacts));
-      if (env.valuesMissing()) {
-        return null;
-      }
-      boolean allEarlyHits = true;
-      boolean hadUnbuildableInputs = false;
-      for (Artifact.DerivedArtifact testArtifact : testStatusArtifacts) {
-        ActionLookupData actionKey = testArtifact.getGeneratingActionKey();
-        try {
-          if (result.getOrThrow(Artifact.key(testArtifact), ActionExecutionException.class)
-              == null) {
-            return null;
-          }
-        } catch (ActionExecutionException e) {
-          DetailedExitCode detailedExitCode = e.getDetailedExitCode();
-          if (detailedExitCode.getExitCode().equals(ExitCode.BUILD_FAILURE)
-              && ctValue instanceof ActionLookupValue actionLookupValue) {
-            postTestResultEventsForBuiltTestThatCouldNotBeRun(
-                env, actionKey, actionLookupValue, detailedExitCode);
-            hadUnbuildableInputs = true;
-          } else {
-            return null;
-          }
-        }
-        if (ctValue instanceof ActionLookupValue actionLookupValue) {
-          allEarlyHits &=
-              skyframeActionExecutor.wasProducerKeyedEarlyCacheHit(
-                  actionLookupValue.getAction(actionKey.getActionIndex()));
-        } else {
-          allEarlyHits = false;
-        }
-      }
-      if (hadUnbuildableInputs) {
-        return TestCompletionValue.TEST_COMPLETION_MARKER;
-      }
-      if (allEarlyHits) {
-        skyframeActionExecutor.recordProducerKeyedEarlyCompletedTarget(ctKey);
-      }
-      if (env.getValue(TargetCompletionValue.key(ctKey, ctx, /* willTest= */ true)) == null) {
-        return null;
-      }
-      return TestCompletionValue.TEST_COMPLETION_MARKER;
-    }
-    if (env.getValue(TargetCompletionValue.key(ctKey, ctx, /* willTest= */ true)) == null) {
+    boolean producerKeyedCache = skyframeActionExecutor.producerKeyedTestCacheEnabled();
+    if (!producerKeyedCache
+        && env.getValue(TargetCompletionValue.key(ctKey, ctx, /* willTest= */ true)) == null) {
       return null;
     }
 
@@ -118,13 +70,17 @@ public final class TestCompletionFunction implements SkyFunction {
     }
 
     ConfiguredTarget ct = ctValue.getConfiguredTarget();
+    boolean allEarlyHits = producerKeyedCache;
+    boolean hadUnbuildableInputs = false;
     if (key.exclusiveTesting()) {
       // Request test execution iteratively if testing exclusively.
       for (Artifact.DerivedArtifact testArtifact : TestProvider.getTestStatusArtifacts(ct)) {
-        env.getValue(testArtifact.getGeneratingActionKey());
+        ActionLookupData actionKey = testArtifact.getGeneratingActionKey();
+        env.getValue(actionKey);
         if (env.valuesMissing()) {
           return null;
         }
+        allEarlyHits &= wasProducerKeyedEarlyHit(ctValue, actionKey);
       }
     } else {
       List<SkyKey> skyKeys = Artifact.keys(TestProvider.getTestStatusArtifacts(ct));
@@ -143,13 +99,30 @@ public final class TestCompletionFunction implements SkyFunction {
               && ctValue instanceof ActionLookupValue actionLookupValue) {
             postTestResultEventsForBuiltTestThatCouldNotBeRun(
                 env, (ActionLookupData) actionKey, actionLookupValue, detailedExitCode);
+            hadUnbuildableInputs = true;
           } else {
             return null;
           }
         }
+        allEarlyHits &= wasProducerKeyedEarlyHit(ctValue, (ActionLookupData) actionKey);
+      }
+    }
+    if (producerKeyedCache && !hadUnbuildableInputs) {
+      if (allEarlyHits) {
+        skyframeActionExecutor.recordProducerKeyedEarlyCompletedTarget(ctKey);
+      }
+      if (env.getValue(TargetCompletionValue.key(ctKey, ctx, /* willTest= */ true)) == null) {
+        return null;
       }
     }
     return TestCompletionValue.TEST_COMPLETION_MARKER;
+  }
+
+  private boolean wasProducerKeyedEarlyHit(
+      ConfiguredTargetValue ctValue, ActionLookupData actionKey) {
+    return ctValue instanceof ActionLookupValue actionLookupValue
+        && skyframeActionExecutor.wasProducerKeyedEarlyCacheHit(
+            actionLookupValue.getAction(actionKey.getActionIndex()));
   }
 
   @Override

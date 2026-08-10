@@ -2826,6 +2826,7 @@ exit 0
 EOF
 
   bazel test \
+    --noexperimental_merged_skyframe_analysis_execution \
     --experimental_producer_keyed_test_cache \
     --execution_log_json_file=producer_keyed_miss.json \
     --remote_cache=grpc://localhost:${worker_port} \
@@ -2842,6 +2843,7 @@ EOF
   bazel clean
 
   bazel test \
+    --noexperimental_merged_skyframe_analysis_execution \
     --experimental_producer_keyed_test_cache \
     --execution_log_json_file=producer_keyed_hit.json \
     --build_event_json_file=producer_keyed_hit.bep.json \
@@ -2866,6 +2868,7 @@ EOF
   echo '# cache key mutation' >> producer_keyed_test/test.sh
   bazel clean
   bazel test \
+    --noexperimental_merged_skyframe_analysis_execution \
     --experimental_producer_keyed_test_cache \
     --execution_log_json_file=producer_keyed_changed.json \
     --remote_cache=grpc://localhost:${worker_port} \

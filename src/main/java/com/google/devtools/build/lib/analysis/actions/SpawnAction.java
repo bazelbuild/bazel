@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
@@ -358,18 +357,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   }
 
   /**
-   * Returns the spawn used to compute this action's remote key without executing the action.
-   *
-   * <p>This initial API intentionally excludes input-discovering actions and top-level filesets.
-   */
-  public final Spawn getSpawnForActionKey(
-      Map<String, String> clientEnv, InputMetadataProvider inputMetadataProvider)
-      throws CommandLineExpansionException, InterruptedException {
-    checkState(!discoversInputs(), "input-discovering action is unsupported: %s", this);
-    return getSpawn(inputMetadataProvider, clientEnv, /* reportOutputs= */ true);
-  }
-
-  /**
    * Return a spawn that is representative of the command that this Action will execute in the given
    * client environment.
    */
@@ -378,23 +365,15 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       Map<String, String> clientEnv,
       boolean reportOutputs)
       throws CommandLineExpansionException, InterruptedException {
-    return getSpawn(actionExecutionContext.getInputMetadataProvider(), clientEnv, reportOutputs);
-  }
-
-  private Spawn getSpawn(
-      InputMetadataProvider inputMetadataProvider,
-      Map<String, String> clientEnv,
-      boolean reportOutputs)
-      throws CommandLineExpansionException, InterruptedException {
     PathMapper pathMapper =
         PathMappers.create(
             this,
             outputPathsMode,
             this instanceof StarlarkAction,
-            inputMetadataProvider);
+            actionExecutionContext.getInputMetadataProvider());
     ExpandedCommandLines expandedCommandLines =
         commandLines.expand(
-            inputMetadataProvider,
+            actionExecutionContext.getInputMetadataProvider(),
             getPrimaryOutput().getExecPath(),
             pathMapper,
             getCommandLineLimits());
