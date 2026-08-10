@@ -153,8 +153,10 @@ import java.util.TreeSet;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -1809,33 +1811,108 @@ public class RemoteExecutionService {
 
     if (remoteOptions.getRemoteCacheAsync()
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
-      var uploadDone = new CountDownLatch(1);
-      var future =
-          backgroundTaskExecutor.submit(
-              () -> {
-                try {
-                  doUploadOutputs(action, spawnResult, onUploadComplete);
-                } catch (ExecException e) {
-                  reportUploadError(e);
-                } catch (InterruptedException ignored) {
-                  // ThreadPerTaskExecutor does not care about interrupt status.
-                } finally {
-                  uploadDone.countDown();
-                }
-              });
-
-      if (outputService instanceof RemoteOutputService remoteOutputService
-          && remoteOutputService.getRewoundActionSynchronizer()
-              instanceof RemoteRewoundActionSynchronizer remoteRewoundActionSynchronizer) {
-        remoteRewoundActionSynchronizer.registerOutputUploadTask(
-            action.getRemoteActionExecutionContext().getSpawnOwner(),
-            () -> {
-              future.cancel(true);
-              uploadDone.await();
-            });
-      }
+      new OutputUploadTask(action, spawnResult, onUploadComplete).start(backgroundTaskExecutor);
     } else {
       doUploadOutputs(action, spawnResult, onUploadComplete);
+    }
+  }
+
+  @Nullable
+  private RemoteRewoundActionSynchronizer getRewoundActionSynchronizer() {
+    if (outputService instanceof RemoteOutputService remoteOutputService
+        && remoteOutputService.getRewoundActionSynchronizer()
+            instanceof RemoteRewoundActionSynchronizer rewoundActionSynchronizer) {
+      return rewoundActionSynchronizer;
+    }
+    return null;
+  }
+
+  /**
+   * A cancellable background upload of an action's outputs.
+   *
+   * <p>Registers itself with the {@link RemoteRewoundActionSynchronizer}, if there is one, before
+   * the upload starts and unregisters itself when it is done, so that a rewinding of the action
+   * waits for uploads that are still in flight.
+   *
+   * <p>Ensures that the completion callback runs exactly once and that {@link #cancel} only returns
+   * once the upload no longer accesses the action's outputs.
+   */
+  private final class OutputUploadTask implements RemoteRewoundActionSynchronizer.Cancellable {
+    private final RemoteAction action;
+    private final SpawnResult spawnResult;
+    private final Runnable onUploadComplete;
+    private final ActionExecutionMetadata spawnOwner;
+    @Nullable private final RemoteRewoundActionSynchronizer rewoundActionSynchronizer;
+    private final CountDownLatch done = new CountDownLatch(1);
+
+    // The thread running the upload, published by the upload itself before it reads cancelled.
+    @Nullable private volatile Thread thread;
+    // Set by cancel before it reads thread.
+    private volatile boolean cancelled;
+
+    OutputUploadTask(RemoteAction action, SpawnResult spawnResult, Runnable onUploadComplete) {
+      this.action = action;
+      this.spawnResult = spawnResult;
+      this.onUploadComplete = onUploadComplete;
+      this.spawnOwner = action.getRemoteActionExecutionContext().getSpawnOwner();
+      this.rewoundActionSynchronizer = getRewoundActionSynchronizer();
+    }
+
+    /** Registers the task for cancellation and starts the upload on the given executor. */
+    void start(Executor executor) {
+      // Register before starting the upload so that it can't unregister itself before it has been
+      // registered.
+      if (rewoundActionSynchronizer != null) {
+        rewoundActionSynchronizer.registerOutputUploadTask(spawnOwner, this);
+      }
+      try {
+        // Runs the upload rather than submitting it: the body of a task submitted to an
+        // ExecutorService is skipped entirely if its future is cancelled before it starts, which
+        // would leave the completion callback unrun and cancel waiting forever.
+        executor.execute(this::upload);
+      } catch (RejectedExecutionException e) {
+        // The upload will never run, so complete the task on its behalf.
+        finish();
+        throw e;
+      }
+    }
+
+    private void upload() {
+      // Publish the thread before reading cancelled, which cancel writes before it reads the
+      // thread. At least one of the two thus observes the other and the upload is either skipped
+      // or interrupted.
+      thread = Thread.currentThread();
+      try {
+        if (cancelled) {
+          onUploadComplete.run();
+        } else {
+          doUploadOutputs(action, spawnResult, onUploadComplete);
+        }
+      } catch (ExecException e) {
+        reportUploadError(e);
+      } catch (InterruptedException ignored) {
+        // ThreadPerTaskExecutor does not care about interrupt status.
+      } finally {
+        finish();
+      }
+    }
+
+    @Override
+    public void cancel() throws InterruptedException {
+      cancelled = true;
+      var localThread = thread;
+      if (localThread != null) {
+        localThread.interrupt();
+      }
+      done.await();
+    }
+
+    /** Signals that the upload no longer accesses the action's outputs. */
+    private void finish() {
+      done.countDown();
+      if (rewoundActionSynchronizer != null) {
+        rewoundActionSynchronizer.unregisterOutputUploadTask(spawnOwner, this);
+      }
     }
   }
 
