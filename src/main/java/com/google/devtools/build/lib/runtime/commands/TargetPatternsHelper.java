@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -31,7 +30,7 @@ import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
-import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
@@ -45,7 +44,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -220,24 +218,16 @@ public final class TargetPatternsHelper {
               labelPrinter);
 
       var expr = QueryExpression.parse(queryExpression, queryEnv);
-      Set<String> targetPatterns = new LinkedHashSet<>();
-      var callback =
-          new ThreadSafeOutputFormatterCallback<Target>() {
-            @Override
-            public void processOutput(Iterable<Target> partialResult) {
-              for (Target target : partialResult) {
-                targetPatterns.add(target.getLabel().getUnambiguousCanonicalForm());
-              }
-            }
-          };
-
+      var callback = QueryUtil.newAggregateAllCallback(queryEnv);
       var result = queryEnv.evaluateQuery(expr, callback);
       if (!result.getSuccess()) {
         throw new TargetPatternsHelperException("Query evaluation failed",
             TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
       }
 
-      return ImmutableList.copyOf(targetPatterns);
+      return callback.getResult().stream()
+          .map(target -> target.getLabel().getUnambiguousCanonicalForm())
+          .collect(toImmutableList());
     } catch (RepositoryMappingResolutionException e) {
       throw new TargetPatternsHelperException(e.getMessage(),
           TargetPatterns.Code.TARGET_PATTERNS_UNKNOWN);
