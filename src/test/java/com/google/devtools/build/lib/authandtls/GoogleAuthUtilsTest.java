@@ -51,6 +51,21 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class GoogleAuthUtilsTest {
   @Test
+  public void testNewChannel_keepAliveEnabled() throws Exception {
+    AuthAndTLSOptions options = Options.getDefaults(AuthAndTLSOptions.class);
+    ManagedChannel channel =
+        GoogleAuthUtils.newChannel(
+            /* executor= */ null,
+            "localhost:12345",
+            /* proxy= */ null,
+            options,
+            /* interceptors= */ null,
+            /* serviceConfig= */ null);
+    assertThat(channel).isNotNull();
+    channel.shutdownNow();
+  }
+
+  @Test
   public void testNetrc_emptyEnv_shouldIgnore() throws Exception {
     ImmutableMap<String, String> clientEnv = ImmutableMap.of();
     FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);

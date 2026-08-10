@@ -104,6 +104,7 @@ public final class GoogleAuthUtils {
       if (options.getGrpcKeepaliveTime() != null && !options.getGrpcKeepaliveTime().isZero()) {
         builder.keepAliveTime(options.getGrpcKeepaliveTime().toNanos(), NANOSECONDS);
         builder.keepAliveTimeout(options.getGrpcKeepaliveTimeout().toNanos(), NANOSECONDS);
+        builder.keepAliveWithoutCalls(true);
       }
       boolean isUnixSocketChannel = targetUrl.startsWith("unix:") || !Strings.isNullOrEmpty(proxy);
       if (options.getGrpcTcpKeepalive() && !isUnixSocketChannel) {
