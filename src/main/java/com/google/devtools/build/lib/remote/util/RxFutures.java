@@ -93,10 +93,7 @@ public class RxFutures {
                  *   2. Completable is disposed by downstream.
                  *
                  * In the second case, the CancellationException must not be propagated to
-                 * downstream. Since the Completable can be disposed at any time, in particular
-                 * after an isDisposed() check, this is done with tryOnError: onError would hand
-                 * the exception to RxJavaPlugins' global error handler if the Completable has
-                 * been disposed in the meantime.
+                 * downstream.
                  */
                 if (throwable instanceof CancellationException) {
                   emitter.tryOnError(throwable);
@@ -167,10 +164,7 @@ public class RxFutures {
                  *   2. Single is disposed by downstream.
                  *
                  * In the second case, the CancellationException must not be propagated to
-                 * downstream. Since the Single can be disposed at any time, in particular after an
-                 * isDisposed() check, this is done with tryOnError: onError would hand the
-                 * exception to RxJavaPlugins' global error handler if the Single has been disposed
-                 * in the meantime.
+                 * downstream.
                  */
                 if (throwable instanceof CancellationException) {
                   emitter.tryOnError(throwable);
@@ -270,5 +264,4 @@ public class RxFutures {
         });
     return future;
   }
-
 }

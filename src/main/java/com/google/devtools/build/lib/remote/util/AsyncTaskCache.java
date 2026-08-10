@@ -357,9 +357,8 @@ public final class AsyncTaskCache<KeyT, ValueT> {
 
                   @Override
                   public void onError(@NonNull Throwable e) {
-                    // The emitter can be disposed at any time, in particular right after an
-                    // isDisposed() check, so use tryOnError: onError would hand the error to
-                    // RxJavaPlugins' global error handler if it has been disposed in the meantime.
+                    // Don't report via RxJava's global error handler if the emitter has been
+                    // disposed.
                     emitter.tryOnError(e);
                   }
                 });
