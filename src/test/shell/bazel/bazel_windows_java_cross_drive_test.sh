@@ -97,11 +97,6 @@ function delete_tmp_drive() {
 }
 
 function test_java_with_jar_under_different_drive() {
-  # TODO(tjgq): Re-enable once rules_java passes Java version in launcher info.
-  if [[ "$JAVA_VERSION" -ge "25" ]]; then
-    return
-  fi
-
   create_tmp_drive
 
   trap delete_tmp_drive EXIT
