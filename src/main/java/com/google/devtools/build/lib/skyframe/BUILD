@@ -103,6 +103,7 @@ java_library(
         ":build_driver_key",
         ":build_driver_value",
         ":build_options_scope_function",
+        ":build_options_scope_value",
         ":build_result_listener",
         ":bzl_compile",
         ":bzl_compile_value",

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -21,14 +22,37 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.LinkedHashMap;
+import java.util.Set;
 
 /**
- * SkyValue returned by {@link com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction}.
+ * SkyValue returned by {@link BuildOptionsScopeFunction}.
+ *
+ * @param starlarkFlags the Starlark flags this value answers the scoping question for, i.e. the
+ *     labels in the {@link Key} it was computed from.
+ * @param projectScopes the {@link Scope} of each flag in {@code starlarkFlags} that has {@link
+ *     Scope.ScopeType#PROJECT} scope. Flags with any other scope type are absent: scoping only ever
+ *     resets project-scoped flags, so no consumer needs their scope.
  */
-public record BuildOptionsScopeValue(LinkedHashMap<Label, Scope> scopes) implements SkyValue {
+@AutoCodec
+public record BuildOptionsScopeValue(
+    ImmutableSet<Label> starlarkFlags, ImmutableMap<Label, Scope> projectScopes)
+    implements SkyValue {
 
-  /** Key for {@link com.google.devtools.build.lib.skyframe.BuildOptionsScopeValue}. */
+  /** Answers the scoping question for no flag at all. */
+  public static final BuildOptionsScopeValue EMPTY =
+      new BuildOptionsScopeValue(ImmutableSet.of(), ImmutableMap.of());
+
+  /**
+   * Returns whether this value answers the scoping question for all of {@code flags}.
+   *
+   * <p>Callers that hold a value computed for a superset of the flags they care about can use it
+   * instead of asking Skyframe for one computed for the exact set.
+   */
+  public boolean covers(Set<Label> flags) {
+    return starlarkFlags.containsAll(flags);
+  }
+
+  /** Key for {@link BuildOptionsScopeValue}. */
   @ThreadSafety.Immutable
   @AutoCodec
   public static final class Key implements SkyKey {
@@ -76,16 +100,5 @@ public record BuildOptionsScopeValue(LinkedHashMap<Label, Scope> scopes) impleme
     public String toString() {
       return "Key[starlarkOptionLabels=%s]".formatted(starlarkOptionLabels);
     }
-  }
-
-  /**
-   * Returns the map of {@link com.google.devtools.build.lib.cmdline.Label} of scoped flags to their
-   * {@link com.google.devtools.build.lib.analysis.config.Scope} including both {@link
-   * com.google.devtools.build.lib.analysis.config.Scope.ScopeType} and {@link
-   * com.google.devtools.build.lib.analysis.config.Scope.ScopeDefinition}.
-   */
-  @Override
-  public LinkedHashMap<Label, Scope> scopes() {
-    return scopes;
   }
 }

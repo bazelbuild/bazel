@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.config.BaselineOptionsFunction;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -152,19 +153,15 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
 
     BuildOptionsScopeValue buildOptionsScopeValue = executeFunction(key);
 
-    // verify that the Scope is fully resolved for //test_flags:foo and //test_flags:bar
-    var unused =
-        assertThat(
-            buildOptionsScopeValue
-                .scopes()
-                .equals(
-                    ImmutableMap.of(
-                        Label.parseCanonical("//test_flags:foo"),
-                        new Scope(
-                            new Scope.ScopeType(Scope.ScopeType.PROJECT),
-                            new Scope.ScopeDefinition(ImmutableSet.of("//my_project/"))),
-                        Label.parseCanonical("//test_flags:bar"),
-                        new Scope(new Scope.ScopeType(Scope.ScopeType.UNIVERSAL), null))));
+    // verify that the Scope is fully resolved for the project-scoped //test_flags:foo and that the
+    // universally scoped //test_flags:bar is not reported as scoped
+    assertThat(buildOptionsScopeValue.projectScopes())
+        .isEqualTo(
+            ImmutableMap.of(
+                Label.parseCanonical("//test_flags:foo"),
+                new Scope(
+                    new Scope.ScopeType(Scope.ScopeType.PROJECT),
+                    new Scope.ScopeDefinition(ImmutableSet.of("//my_project/")))));
   }
 
   @Test
@@ -197,14 +194,33 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
         BuildOptionsScopeValue.Key.create(buildOptionsWithoutScopes.getStarlarkOptions().keySet());
 
     BuildOptionsScopeValue buildOptionsScopeValue = executeFunction(key);
-    var unused =
-        assertThat(
-            buildOptionsScopeValue
-                .scopes()
-                .equals(
-                    ImmutableMap.of(
-                        Label.parseCanonical("//test_flags:foo"),
-                        new Scope(new Scope.ScopeType(Scope.ScopeType.PROJECT), null))));
+    assertThat(buildOptionsScopeValue.projectScopes())
+        .isEqualTo(
+            ImmutableMap.of(
+                Label.parseCanonical("//test_flags:foo"),
+                new Scope(new Scope.ScopeType(Scope.ScopeType.PROJECT), null)));
+  }
+
+  // BuildConfigurationValue carries a BuildOptionsScopeValue and is serialized for analysis
+  // caching, so scopes have to round-trip through the codec registry.
+  @Test
+  public void codec() throws Exception {
+    Label flag = Label.parseCanonical("//test_flags:foo");
+    new SerializationTester(
+            BuildOptionsScopeValue.EMPTY,
+            new BuildOptionsScopeValue(ImmutableSet.of(flag), ImmutableMap.of()),
+            new BuildOptionsScopeValue(
+                ImmutableSet.of(flag),
+                ImmutableMap.of(
+                    flag, new Scope(new Scope.ScopeType(Scope.ScopeType.PROJECT), null))),
+            new BuildOptionsScopeValue(
+                ImmutableSet.of(flag),
+                ImmutableMap.of(
+                    flag,
+                    new Scope(
+                        new Scope.ScopeType(Scope.ScopeType.PROJECT),
+                        new Scope.ScopeDefinition(ImmutableSet.of("//my_project/"))))))
+        .runTests();
   }
 
   private BuildOptionsScopeValue executeFunction(BuildOptionsScopeValue.Key key) throws Exception {

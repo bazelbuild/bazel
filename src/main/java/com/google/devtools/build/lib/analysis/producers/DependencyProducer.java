@@ -217,6 +217,7 @@ final class DependencyProducer
     return new TransitionApplier(
         toLabel,
         configurationKey,
+        parameters.starlarkFlagScopes(),
         attributeTransition,
         parameters.transitionCache(),
         (TransitionApplier.ResultSink) this,

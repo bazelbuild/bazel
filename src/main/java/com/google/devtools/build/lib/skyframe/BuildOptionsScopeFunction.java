@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.server.FailureDetails.TargetPatterns.Code.DEPENDENCY_NOT_FOUND;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.analysis.ProjectResolutionException;
 import com.google.devtools.build.lib.analysis.config.Scope;
@@ -38,6 +39,7 @@ import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -45,7 +47,8 @@ import javax.annotation.Nullable;
  * labels. This SkyFunction is responsible for the following:
  *
  * <ul>
- *   <li>Resolving the {@link Scope.ScopeType} for each scoped flag if not already resolved.
+ *   <li>Resolving the {@link Scope.ScopeType} of each flag and keeping the ones scoped with {@link
+ *       Scope.ScopeType.PROJECT}.
  *   <li>Getting the PROJECT.scl files for each flag scoped with {@link Scope.ScopeType.PROJECT}.
  *   <li>Looking up {@link ProjectValue} for scoped flags that have PROJECT.scl files to get the
  *       list of active directories that define the scope of the flag.
@@ -58,20 +61,26 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws BuildOptionsScopeFunctionException, InterruptedException {
     BuildOptionsScopeValue.Key key = (BuildOptionsScopeValue.Key) skyKey.argument();
-    LinkedHashMap<Label, Scope> scopes = new LinkedHashMap<>();
+    LinkedHashMap<Label, Scope> projectScopes = new LinkedHashMap<>();
     for (Label scopedFlag : key.starlarkOptionLabels()) {
       Target target = getTarget(env, scopedFlag, scopedFlag.getPackageIdentifier());
       if (target == null) {
         return null;
       }
       Scope.ScopeType scopeType = getScopeType(target);
-      scopes.put(scopedFlag, new Scope(scopeType, null));
+      if (scopeType.scopeType().equals(Scope.ScopeType.PROJECT)) {
+        projectScopes.put(scopedFlag, new Scope(scopeType, null));
+      }
     }
 
-    // get PROJECT.scl files for each scoped flag that is not universal
+    if (projectScopes.isEmpty()) {
+      return new BuildOptionsScopeValue(key.starlarkOptionLabels(), ImmutableMap.of());
+    }
+
+    // get PROJECT.scl files for each project-scoped flag
     ImmutableMultimap<Label, Label> projectFiles;
     try {
-      projectFiles = findProjectFiles(scopes, env);
+      projectFiles = findProjectFiles(projectScopes.keySet(), env);
     } catch (ProjectResolutionException e) {
       throw new BuildOptionsScopeFunctionException(e);
     }
@@ -101,30 +110,29 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
     for (Map.Entry<Label, SkyKey> entry : projectValueSkyKeysMap.entrySet()) {
       Label projectScopedFlag = entry.getKey();
       ProjectValue projectValue = (ProjectValue) projectValuesLookUpResult.get(entry.getValue());
-      scopes.put(
+      projectScopes.put(
           projectScopedFlag,
           new Scope(
-              scopes.get(projectScopedFlag).getScopeType(),
+              projectScopes.get(projectScopedFlag).getScopeType(),
               projectValue.getDefaultProjectDirectories().isEmpty()
                   ? null
                   : new Scope.ScopeDefinition(projectValue.getDefaultProjectDirectories())));
     }
 
-    return new BuildOptionsScopeValue(scopes);
+    return new BuildOptionsScopeValue(
+        key.starlarkOptionLabels(), ImmutableMap.copyOf(projectScopes));
   }
 
   /** TODO: b/384057043 - deduplicate this method in several places in a follow up CL. */
   @Nullable
   private ImmutableMultimap<Label, Label> findProjectFiles(
-      Map<Label, Scope> scopes, Environment env)
+      Set<Label> projectScopedFlags, Environment env)
       throws InterruptedException, ProjectResolutionException {
 
     Map<Label, ProjectFilesLookupValue.Key> targetsToSkyKeys = new HashMap<>();
-    for (Label starlarkOption : scopes.keySet()) {
-      if (scopes.get(starlarkOption).getScopeType().scopeType().equals(Scope.ScopeType.PROJECT)) {
-        targetsToSkyKeys.put(
-            starlarkOption, ProjectFilesLookupValue.key(starlarkOption.getPackageIdentifier()));
-      }
+    for (Label starlarkOption : projectScopedFlags) {
+      targetsToSkyKeys.put(
+          starlarkOption, ProjectFilesLookupValue.key(starlarkOption.getPackageIdentifier()));
     }
 
     Map<Label, ProjectFilesLookupValue> projectFilesLookupValues = new HashMap<>();

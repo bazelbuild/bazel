@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
+import com.google.devtools.build.lib.skyframe.BuildOptionsScopeValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
@@ -267,6 +268,10 @@ public class RuleTransitionApplier
     return new TransitionApplier(
         target.getLabel(),
         preRuleTransitionKey.getConfigurationKey(),
+        // The BuildConfigurationValue for the pre-rule-transition configuration isn't a dependency
+        // of this node yet, so the scopes have to come from Skyframe. This is once per configured
+        // target, not once per dependency edge.
+        BuildOptionsScopeValue.EMPTY,
         ruleTransition,
         targetAndConfigurationData.getTransitionCache(),
         (TransitionApplier.ResultSink) this,
@@ -347,6 +352,7 @@ public class RuleTransitionApplier
       return new TransitionApplier(
           target.getLabel(),
           configurationKey,
+          BuildOptionsScopeValue.EMPTY,
           ruleTransition,
           targetAndConfigurationData.getTransitionCache(),
           (TransitionApplier.ResultSink) this,

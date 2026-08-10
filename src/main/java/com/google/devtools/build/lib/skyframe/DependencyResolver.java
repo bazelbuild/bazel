@@ -729,6 +729,12 @@ public final class DependencyResolver {
                 new DependencyMapProducer(
                     new PrerequisiteParameters(
                         configuredTargetKey,
+                        // Already resolved once per configuration by BuildConfigurationFunction;
+                        // requesting it from Skyframe per dependency edge would make every
+                        // configured target a reverse dep of it.
+                        ctgValue.getConfiguration() == null
+                            ? BuildOptionsScopeValue.EMPTY
+                            : ctgValue.getConfiguration().starlarkFlagScopes(),
                         ctgValue.getTarget(),
                         aspects,
                         loadExecAspectsKey,

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.Starla
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.skyframe.BuildOptionsScopeValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -47,6 +48,7 @@ final class TransitionApplier
   // -------------------- Input --------------------
   private final Label label;
   private final BuildConfigurationKey fromConfiguration;
+  private final BuildOptionsScopeValue fromConfigurationScopes;
   private final ConfigurationTransition transition;
   private final StarlarkTransitionCache transitionCache;
 
@@ -60,15 +62,22 @@ final class TransitionApplier
   // -------------------- Internal State --------------------
   private StarlarkBuildSettingsDetailsValue buildSettingsDetailsValue;
 
+  /**
+   * @param fromConfigurationScopes the scopes already resolved for {@code fromConfiguration}'s
+   *     Starlark flags, or {@link BuildOptionsScopeValue#EMPTY} if the caller doesn't have them.
+   *     See {@link BuildConfigurationKeyProducer}.
+   */
   TransitionApplier(
       Label label,
       BuildConfigurationKey fromConfiguration,
+      BuildOptionsScopeValue fromConfigurationScopes,
       ConfigurationTransition transition,
       StarlarkTransitionCache transitionCache,
       ResultSink sink,
       ExtendedEventHandler eventHandler,
       StateMachine runAfter) {
     this.fromConfiguration = fromConfiguration;
+    this.fromConfigurationScopes = fromConfigurationScopes;
     this.transition = transition;
     this.transitionCache = transitionCache;
     this.sink = sink;
@@ -101,6 +110,7 @@ final class TransitionApplier
           transition.apply(
               TransitionUtil.restrict(transition, fromConfiguration.getOptions()), eventHandler),
           /* forBaseline= */ false,
+          this.fromConfigurationScopes,
           this.label);
     }
     if (stampDependent.get()
@@ -172,6 +182,11 @@ final class TransitionApplier
     }
 
     return new BuildConfigurationKeyMapProducer(
-        this.sink, this.runAfter, transitionedOptions, /* forBaseline= */ false, this.label);
+        this.sink,
+        this.runAfter,
+        transitionedOptions,
+        /* forBaseline= */ false,
+        this.fromConfigurationScopes,
+        this.label);
   }
 }

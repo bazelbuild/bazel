@@ -18,6 +18,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
+import com.google.devtools.build.lib.skyframe.BuildOptionsScopeValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
@@ -55,21 +56,29 @@ public class BuildConfigurationKeyMapProducer
   private final StateMachine runAfter;
   private final Map<String, BuildOptions> options;
   private final boolean forBaseline;
+  private final BuildOptionsScopeValue scopesFromSourceConfiguration;
   private final Label label;
 
   // -------------------- Internal State --------------------
   private final Map<String, BuildConfigurationKey> results;
 
+  /**
+   * @param scopesFromSourceConfiguration the scopes already resolved for the configuration {@code
+   *     options} was transitioned from, or {@link BuildOptionsScopeValue#EMPTY} if the caller has
+   *     none. See {@link BuildConfigurationKeyProducer}.
+   */
   public BuildConfigurationKeyMapProducer(
       ResultSink sink,
       StateMachine runAfter,
       Map<String, BuildOptions> options,
       boolean forBaseline,
+      BuildOptionsScopeValue scopesFromSourceConfiguration,
       Label label) {
     this.sink = sink;
     this.runAfter = runAfter;
     this.options = options;
     this.forBaseline = forBaseline;
+    this.scopesFromSourceConfiguration = scopesFromSourceConfiguration;
     this.results = Maps.newHashMapWithExpectedSize(options.size());
     this.label = label;
   }
@@ -85,6 +94,7 @@ public class BuildConfigurationKeyMapProducer
                     context,
                     buildOptions,
                     forBaseline,
+                    scopesFromSourceConfiguration,
                     label)));
     return this::combineResults;
   }

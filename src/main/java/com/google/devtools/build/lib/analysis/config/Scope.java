@@ -17,6 +17,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -91,13 +92,23 @@ public class Scope {
     }
 
     @Override
+    public boolean equals(Object o) {
+      return o instanceof ScopeDefinition other && ownedCodePaths.equals(other.ownedCodePaths);
+    }
+
+    @Override
+    public int hashCode() {
+      return ownedCodePaths.hashCode();
+    }
+
+    @Override
     public String toString() {
       return MoreObjects.toStringHelper(this).add("ownedCodePaths", ownedCodePaths).toString();
     }
   }
 
-  ScopeType scopeType;
-  @Nullable ScopeDefinition scopeDefinition;
+  private final ScopeType scopeType;
+  @Nullable private final ScopeDefinition scopeDefinition;
 
   public Scope(ScopeType scopeType, @Nullable ScopeDefinition scopeDefinition) {
     this.scopeType = scopeType;
@@ -111,6 +122,22 @@ public class Scope {
   @Nullable
   public ScopeDefinition getScopeDefinition() {
     return scopeDefinition;
+  }
+
+  /**
+   * Value equality, needed because scopes reach {@link BuildConfigurationValue}, whose {@link
+   * BuildConfigurationValue#equals} decides whether Skyframe prunes a configuration change.
+   */
+  @Override
+  public boolean equals(Object o) {
+    return o instanceof Scope other
+        && scopeType.equals(other.scopeType)
+        && Objects.equals(scopeDefinition, other.scopeDefinition);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(scopeType, scopeDefinition);
   }
 
   @Override

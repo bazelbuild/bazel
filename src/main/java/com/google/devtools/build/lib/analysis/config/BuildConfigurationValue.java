@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
+import com.google.devtools.build.lib.skyframe.BuildOptionsScopeValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
@@ -127,10 +128,19 @@ public class BuildConfigurationValue
    * transition. Null if this build uses the native exec transition or sets no Starlark flags.
    *
    * <p>Resolved once per configuration rather than once per configured target: see {@code
-   * StarlarkExecTransitionLoader.BuildSettingsDetailsLoader}. Not part of {@link #equals}: it's a
-   * pure function of the build options.
+   * StarlarkExecTransitionLoader.BuildSettingsDetailsLoader}.
    */
   @Nullable private final StarlarkBuildSettingsDetailsValue starlarkExecScopeDetails;
+
+  /**
+   * The scopes of this configuration's project-scoped Starlark flags, needed to apply scoping to
+   * the configurations of this configuration's dependencies.
+   *
+   * <p>Resolved once per configuration rather than once per dependency edge: see {@code
+   * BuildConfigurationKeyProducer}. {@link BuildOptionsScopeValue#EMPTY} if this configuration sets
+   * no Starlark flags, or if it wasn't created by {@code BuildConfigurationFunction}.
+   */
+  private final BuildOptionsScopeValue starlarkFlagScopes;
 
   /** The cpu value based on the platform the configuration is built for. */
   private final String platformCpu;
@@ -209,6 +219,7 @@ public class BuildConfigurationValue
       boolean siblingRepositoryLayout,
       String platformCpu,
       @Nullable StarlarkBuildSettingsDetailsValue starlarkExecScopeDetails,
+      BuildOptionsScopeValue starlarkFlagScopes,
       // Arguments below this are server-global.
       BlazeDirectories directories,
       GlobalStateProvider globalProvider,
@@ -231,6 +242,7 @@ public class BuildConfigurationValue
         siblingRepositoryLayout,
         platformCpu,
         starlarkExecScopeDetails,
+        starlarkFlagScopes,
         globalProvider.getRunfilesPrefix(),
         directories,
         fragments,
@@ -265,6 +277,7 @@ public class BuildConfigurationValue
         siblingRepositoryLayout,
         "",
         /* starlarkExecScopeDetails= */ null,
+        BuildOptionsScopeValue.EMPTY,
         globalProvider.getRunfilesPrefix(),
         directories,
         fragments,
@@ -293,6 +306,7 @@ public class BuildConfigurationValue
       boolean siblingRepositoryLayout,
       String platformCpu,
       @Nullable StarlarkBuildSettingsDetailsValue starlarkExecScopeDetails,
+      BuildOptionsScopeValue starlarkFlagScopes,
       // Arguments below this are either server-global and constant or completely dependent values.
       String workspaceName,
       BlazeDirectories directories,
@@ -305,6 +319,7 @@ public class BuildConfigurationValue
     this.starlarkVisibleFragments = buildIndexOfStarlarkVisibleFragments();
     this.buildOptions = buildOptions;
     this.starlarkExecScopeDetails = starlarkExecScopeDetails;
+    this.starlarkFlagScopes = starlarkFlagScopes;
     this.mnemonic = mnemonic;
     this.options = buildOptions.get(CoreOptions.class);
     this.outputDirectories =
@@ -359,6 +374,14 @@ public class BuildConfigurationValue
     return starlarkExecScopeDetails;
   }
 
+  /**
+   * Returns the scopes of this configuration's project-scoped Starlark flags, or {@link
+   * BuildOptionsScopeValue#EMPTY} if it has none.
+   */
+  public BuildOptionsScopeValue starlarkFlagScopes() {
+    return starlarkFlagScopes;
+  }
+
   @Override
   public boolean equals(Object other) {
     if (this == other) {
@@ -367,11 +390,18 @@ public class BuildConfigurationValue
     if (!(other instanceof BuildConfigurationValue otherVal)) {
       return false;
     }
-    // Only considering arguments that are non-dependent and non-server-global.
+    // Only considering arguments that are non-dependent and non-server-global, plus the Starlark
+    // build setting info below, which is read out of the configuration by transition logic. That
+    // info is derived from the build settings' definitions, so unlike the build options it can
+    // change without the key changing: leaving it out would let change pruning keep a stale copy
+    // alive. hashCode intentionally doesn't consider it: it isn't needed for correctness there and
+    // hashing these maps on every call is far more expensive than hashing the build options.
     return this.buildOptions.equals(otherVal.buildOptions)
         && this.workspaceName.equals(otherVal.workspaceName)
         && this.siblingRepositoryLayout == otherVal.siblingRepositoryLayout
-        && this.mnemonic.equals(otherVal.mnemonic);
+        && this.mnemonic.equals(otherVal.mnemonic)
+        && Objects.equals(this.starlarkExecScopeDetails, otherVal.starlarkExecScopeDetails)
+        && this.starlarkFlagScopes.equals(otherVal.starlarkFlagScopes);
   }
 
   @Override
