@@ -396,6 +396,22 @@ public class TypesTest {
   }
 
   @Test
+  public void assignability_callable() {
+    // ANY_CALLABLE is assignable to and from any other callable type.
+    assertLtAndGt(
+        Types.ANY_CALLABLE,
+        Types.callable(
+            ImmutableList.of("x", "y"),
+            ImmutableList.of(Types.INT, Types.STR),
+            1,
+            1,
+            ImmutableSet.of("x"),
+            Types.INT,
+            Types.STR,
+            Types.BOOL));
+  }
+
+  @Test
   public void callable_toSignatureString() {
     // ordinary only
     assertThat(

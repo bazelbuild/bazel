@@ -582,7 +582,7 @@ public final class TypeChecker extends NodeVisitor {
     }
 
     StarlarkType callFunctionType = infer(call.getFunction());
-    if (callFunctionType.equals(Types.ANY)) {
+    if (callFunctionType.equals(Types.ANY) || callFunctionType.equals(Types.ANY_CALLABLE)) {
       return Types.ANY;
     }
 

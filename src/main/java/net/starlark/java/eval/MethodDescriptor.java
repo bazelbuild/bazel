@@ -301,6 +301,8 @@ final class MethodDescriptor {
       return Types.collection(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
     } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == Sequence.class) {
       return Types.sequence(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
+    } else if (cls == StarlarkCallable.class || cls == StarlarkFunction.class) {
+      return Types.ANY_CALLABLE;
     } else if (cls == Object.class || cls == StarlarkValue.class) {
       return Types.OBJECT;
     } else {

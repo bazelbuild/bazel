@@ -80,6 +80,7 @@ public final class Types {
   // A frequently used function without parameters, that returns Any.
   public static final CallableType NO_PARAMS_CALLABLE =
       callable(ImmutableList.of(), ImmutableList.of(), 0, 0, ImmutableSet.of(), null, null, ANY);
+  public static final CallableType ANY_CALLABLE = new AnyCallableType();
 
   public static final TypeConstructor ANY_CONSTRUCTOR = wrapType("Any", ANY);
   public static final TypeConstructor OBJECT_CONSTRUCTOR = wrapType("object", OBJECT);
@@ -99,6 +100,8 @@ public final class Types {
   public static final TypeConstructor MAPPING_CONSTRUCTOR =
       wrapTypeConstructor("Mapping", Types::mapping);
   public static final TypeConstructor STRUCT_CONSTRUCTOR = wrapStructConstructor();
+  // TODO: #27370 - allow more complex callable types to be constructed.
+  public static final TypeConstructor CALLABLE_CONSTRUCTOR = wrapType("Callable", ANY_CALLABLE);
 
   private Types() {} // uninstantiable
 
@@ -122,7 +125,8 @@ public final class Types {
         .put("tuple", TUPLE_CONSTRUCTOR)
         .put("Collection", COLLECTION_CONSTRUCTOR)
         .put("Sequence", SEQUENCE_CONSTRUCTOR)
-        .put("Mapping", MAPPING_CONSTRUCTOR);
+        .put("Mapping", MAPPING_CONSTRUCTOR)
+        .put("Callable", CALLABLE_CONSTRUCTOR);
     return env.buildOrThrow();
   }
 
@@ -500,6 +504,16 @@ public final class Types {
     }
 
     @Override
+    public boolean assignableFromHook(StarlarkType that, TypeContext context) {
+      if (that instanceof CallableType) {
+        return this.equals(Types.ANY_CALLABLE)
+            || that.equals(Types.ANY_CALLABLE)
+            || this.equals(that);
+      }
+      return false;
+    }
+
+    @Override
     public String toString() {
       // Approximate representation of the type - as much as Callable can do
       return "Callable[["
@@ -569,6 +583,72 @@ public final class Types {
   // without positional-only parameter and by retrieving parameter names from StarlarkFunction
   @AutoValue
   abstract static class GeneralCallableType extends CallableType {}
+
+  /**
+   * A callable type which is assignable to and from any other callable type; represents a function
+   * with an unspecified signature.
+   */
+  public static final class AnyCallableType extends CallableType {
+    // Singleton.
+    private AnyCallableType() {}
+
+    @Override
+    public String toString() {
+      return "Callable";
+    }
+
+    @Override
+    public ImmutableList<String> getParameterNames() {
+      return ImmutableList.of();
+    }
+
+    @Override
+    public ImmutableList<StarlarkType> getParameterTypes() {
+      return ImmutableList.of();
+    }
+
+    @Override
+    public int getNumPositionalOnlyParameters() {
+      return 0;
+    }
+
+    @Override
+    public int getNumPositionalParameters() {
+      return 0;
+    }
+
+    @Override
+    public ImmutableSet<String> getMandatoryParameters() {
+      return ImmutableSet.of();
+    }
+
+    @Nullable
+    @Override
+    public StarlarkType getVarargsType() {
+      return Types.ANY;
+    }
+
+    @Nullable
+    @Override
+    public StarlarkType getKwargsType() {
+      return Types.ANY;
+    }
+
+    @Override
+    public StarlarkType getReturnType() {
+      return Types.ANY;
+    }
+
+    @Override
+    public int hashCode() {
+      return AnyCallableType.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof AnyCallableType;
+    }
+  }
 
   /**
    * Constructs a union type.
