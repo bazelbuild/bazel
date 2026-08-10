@@ -394,6 +394,24 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testTimeoutChangesActionKey() throws Exception {
+    useConfiguration("--test_timeout=10");
+    Artifact testStatus1 = Iterables.getOnlyElement(getTestStatusArtifacts("//tests:small_test_1"));
+    TestRunnerAction action1 = (TestRunnerAction) getGeneratingAction(testStatus1);
+
+    initializeSkyframeExecutor();
+
+    useConfiguration("--test_timeout=1");
+    Artifact testStatus2 = Iterables.getOnlyElement(getTestStatusArtifacts("//tests:small_test_1"));
+    TestRunnerAction action2 = (TestRunnerAction) getGeneratingAction(testStatus2);
+
+    String key1 = action1.getKey(actionKeyContext, /* inputMetadataProvider= */ null);
+    String key2 = action2.getKey(actionKeyContext, /* inputMetadataProvider= */ null);
+
+    assertThat(key1).isNotEqualTo(key2);
+  }
+
+  @Test
   public void testRunsPerTestWithSharding() throws Exception {
     useConfiguration("--runs_per_test=2");
     scratch.file(
