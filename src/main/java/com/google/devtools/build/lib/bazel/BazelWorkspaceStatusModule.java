@@ -116,9 +116,8 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
           } catch (IOException e) {
             throw createExecutionException(e, Code.STDERR_IO_EXCEPTION);
           }
-          // Keep the output as an internal string, i.e. raw bytes in a Latin-1 String, so that it
-          // matches the encoding of the other entries in the status maps and of the bytes written
-          // to the status files. It is converted to Unicode only when the BEP proto is formed.
+          // Keep the output in Bazel's internal string encoding (see StringEncoding), like the
+          // other entries in the status maps.
           return stdoutStream.toString(ISO_8859_1);
         }
       } catch (BadExitStatusException e) {
@@ -156,8 +155,8 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
               .map(entry -> entry.getKey() + " " + entry.getValue())
               .collect(joining("\n"));
       s += "\n";
-      // The map values are internal strings, i.e. raw bytes in a Latin-1 String, so write them out
-      // as is rather than reencoding them.
+      // The values are in Bazel's internal string encoding (see StringEncoding), write them out as
+      // is.
       return s.getBytes(ISO_8859_1);
     }
 

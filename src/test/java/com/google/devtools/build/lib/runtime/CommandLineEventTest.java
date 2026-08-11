@@ -349,8 +349,7 @@ public class CommandLineEventTest {
         OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
     OptionsParser fakeCommandOptions =
         OptionsParser.builder().optionsClasses(TestOptions.class).build();
-    // Option values reach the server as internal strings, i.e. raw bytes stored in a Latin-1
-    // String. Simulate a UTF-8 encoded value as it is received from the client.
+    // Option values reach the server in Bazel's internal string encoding (see StringEncoding).
     fakeCommandOptions.parse(
         PriorityCategory.COMMAND_LINE,
         "command line",
