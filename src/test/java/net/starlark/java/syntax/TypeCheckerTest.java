@@ -2032,7 +2032,7 @@ public final class TypeCheckerTest {
     // ... but the default's type does not cause the argument's type to be inferred
     assertTypeAfterTypecheck(
         "f",
-        Types.callable(
+        Types.generalCallable(
             ImmutableList.of("x", "y"),
             ImmutableList.of(Types.ANY, Types.ANY), // not list[int] or dict[str, float]
             0,

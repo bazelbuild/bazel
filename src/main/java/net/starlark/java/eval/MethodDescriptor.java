@@ -215,7 +215,7 @@ final class MethodDescriptor {
       }
     }
 
-    return Types.callable(
+    return Types.generalCallable(
         parameterNames.build(),
         parameterTypes.build(),
         numPositionalOnlyParameters,

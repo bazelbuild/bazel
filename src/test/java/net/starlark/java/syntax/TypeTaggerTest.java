@@ -66,7 +66,7 @@ public class TypeTaggerTest {
     }
 
     @Nullable
-    private Types.CallableType getType(Resolver.Function function) {
+    private Types.GeneralCallableType getType(Resolver.Function function) {
       return typeTable().getType(function);
     }
 
@@ -104,14 +104,14 @@ public class TypeTaggerTest {
 
     /** Returns the type of a {@code def}'s resolved function. */
     @Nullable
-    private Types.CallableType getType(DefStatement def) {
+    private Types.GeneralCallableType getType(DefStatement def) {
       assertThat(def.getResolvedFunction()).isNotNull();
       return getType(def.getResolvedFunction());
     }
 
     /** Returns the type of a {@code lambda}'s resolved function. */
     @Nullable
-    private Types.CallableType getType(LambdaExpression lambda) {
+    private Types.GeneralCallableType getType(LambdaExpression lambda) {
       assertThat(lambda.getResolvedFunction()).isNotNull();
       return getType(lambda.getResolvedFunction());
     }
@@ -419,7 +419,8 @@ public class TypeTaggerTest {
             def f(a : int, b = 1, *c : bool, d : str = "abc", e, **f : int) -> bool:
                 pass
             """);
-    Types.CallableType type = result.getType(getFirstStatement(DefStatement.class, result.file()));
+    Types.GeneralCallableType type =
+        result.getType(getFirstStatement(DefStatement.class, result.file()));
 
     assertThat(type).isNotNull();
     assertThat(type.getParameterNames()).containsExactly("a", "b", "d", "e").inOrder();

@@ -446,7 +446,7 @@ public final class StaticTypeCheckTest {
         public ImmutableList<StarlarkType> getSupertypes(TypeContext context) {
           return ImmutableList.of(
               // Nullary callable returning int.
-              Types.callable(
+              Types.generalCallable(
                   ImmutableList.of(),
                   ImmutableList.of(),
                   0,
