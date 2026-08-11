@@ -141,6 +141,21 @@ public final class WorkerTest {
   }
 
   @Test
+  public void testJsonWorkerProtocol_eof() throws Exception {
+    ByteArrayInputStream emptyStream = new ByteArrayInputStream(new byte[0]);
+    JsonWorkerProtocol protocol = new JsonWorkerProtocol(new ByteArrayOutputStream(), emptyStream);
+    assertThat(protocol.getResponse()).isNull();
+  }
+
+  @Test
+  public void testJsonWorkerProtocol_eofAfterResponse() throws Exception {
+    ByteArrayInputStream stream = new ByteArrayInputStream("{}\n".getBytes(UTF_8));
+    JsonWorkerProtocol protocol = new JsonWorkerProtocol(new ByteArrayOutputStream(), stream);
+    assertThat(protocol.getResponse()).isEqualTo(WorkResponse.getDefaultInstance());
+    assertThat(protocol.getResponse()).isNull();
+  }
+
+  @Test
   public void testPutRequest_json_populatedFields_success()
       throws IOException, InterruptedException, UserExecException {
     WorkRequest request =

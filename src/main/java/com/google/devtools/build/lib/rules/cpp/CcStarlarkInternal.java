@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 import static com.google.devtools.build.lib.rules.cpp.CcModule.nullIfNone;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -602,7 +603,7 @@ public class CcStarlarkInternal implements StarlarkValue {
     String aspectName = ctx.getAspectDescriptor().getAspectClass().getName();
     // Starlark aspects names are of the form //my/aspect.bzl%aspect
     if (aspectName.contains("%")) {
-      aspectName = aspectName.split("%", -1)[1];
+      aspectName = Splitter.on('%').splitToList(aspectName).get(1);
     }
     return aspectName;
   }

@@ -660,7 +660,7 @@ class LauncherTest(test_base.TestBase):
     _, stdout, _ = self.RunProgram([binary, '--classpath_limit=0', print_cmd])
     self.assertIn('-classpath', stdout)
     classpath = stdout[stdout.index('-classpath') + 1]
-    self.assertRegex(classpath, r'foo-[A-Za-z0-9]+-classpath.jar$')
+    self.assertRegex(classpath, r'foo-[A-Za-z0-9]+-classpath.(jar|txt)$')
 
   def testWindowsNativeLauncherInNonEnglishPath(self):
     if not self.IsWindows():

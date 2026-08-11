@@ -1334,6 +1334,54 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     checkCriticalPath(2000, "2.00");
   }
 
+  @Test
+  public void testTreeFileDependency_parentNull() throws Exception {
+    SpecialArtifact tree =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "tree");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "file.txt");
+
+    MockAction actionA = new MockAction(ImmutableList.of(), ImmutableSet.of(child));
+
+    MockAction actionB =
+        new MockAction(
+            ImmutableList.of(child),
+            ImmutableSet.of(ActionsTestUtil.createArtifact(derivedArtifactRoot, "b.out")));
+
+    child.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(child.getPath(), "content");
+    FileArtifactValue childMetadata = FileArtifactValue.createForTesting(child);
+    TreeArtifactValue treeMetadata =
+        TreeArtifactValue.newBuilder(tree).putChild(child, childMetadata).build();
+    FakeActionInputFileCache cache = new FakeActionInputFileCache();
+    cache.putTreeArtifact(tree, treeMetadata);
+
+    long startTimeA = clock.nanoTime();
+    computer.actionStarted(new ActionStartedEvent(actionA, startTimeA));
+    clock.advanceMillis(1000);
+    computer.actionComplete(
+        new ActionCompletionEvent(
+            startTimeA,
+            clock.nanoTime(),
+            actionA,
+            cache,
+            null,
+            ActionsTestUtil.NULL_ACTION_LOOKUP_DATA));
+
+    long startTimeB = clock.nanoTime();
+    computer.actionStarted(new ActionStartedEvent(actionB, startTimeB));
+    clock.advanceMillis(1000);
+    computer.actionComplete(
+        new ActionCompletionEvent(
+            startTimeB,
+            clock.nanoTime(),
+            actionB,
+            cache,
+            null,
+            ActionsTestUtil.NULL_ACTION_LOOKUP_DATA));
+
+    checkCriticalPath(2000, "2.00");
+  }
+
   // Test scenario:
   //
   //   [actionA] (outputs TreeArtifact tree)

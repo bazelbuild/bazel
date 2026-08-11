@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
+import com.google.devtools.build.lib.actions.UploadingActionEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
@@ -195,6 +196,7 @@ class UiStateTracker {
     PREPARING("Preparing"),
     SCANNING("Scanning"),
     CACHING("Caching"),
+    UPLOADING("Uploading"),
     SCHEDULING("Scheduling"),
     RUNNING("Running");
 
@@ -303,6 +305,20 @@ class UiStateTracker {
       strategyBitmap |= strategyIds.getId(strategy);
       if (currentPhase.compareTo(ActionPhase.CACHING) < 0) {
         currentPhase = ActionPhase.CACHING;
+        nanoStartTime = nanoChangeTime;
+      }
+    }
+
+    /**
+     * Marks the action as uploading inputs with the given strategy.
+     *
+     * <p>Because we may receive events out of order, this does not affect the current phase if the
+     * action is already uploading, scheduling or running for any other strategy.
+     */
+    synchronized void setUploading(String strategy, long nanoChangeTime) {
+      strategyBitmap |= strategyIds.getId(strategy);
+      if (currentPhase.compareTo(ActionPhase.UPLOADING) < 0) {
+        currentPhase = ActionPhase.UPLOADING;
         nanoStartTime = nanoChangeTime;
       }
     }
@@ -580,6 +596,13 @@ class UiStateTracker {
     Artifact actionId = action.getPrimaryOutput();
     long now = clock.nanoTime();
     getActionState(action, actionId, now).setCaching(event.strategy(), now);
+  }
+
+  void uploadingAction(UploadingActionEvent event) {
+    ActionExecutionMetadata action = event.action();
+    Artifact actionId = action.getPrimaryOutput();
+    long now = clock.nanoTime();
+    getActionState(action, actionId, now).setUploading(event.strategy(), now);
   }
 
   void schedulingAction(SchedulingActionEvent event) {

@@ -191,7 +191,7 @@ You can also build Bazel from scratch, without using an existing Bazel binary.
 2.  Unpack the distribution archive somewhere on disk.
 
     You should verify the signature made by Bazel's
-    [release key](https://bazel.build/bazel-release.pub.gpg) 3D5919B448457EE0.
+    [release key](https://releases.bazel.build/bazel-release.pub.gpg) 3D5919B448457EE0.
 
 ### Step 2a: Bootstrap Bazel on Ubuntu Linux, macOS, and other Unix-like systems {:#bootstrap-unix-overview}
 

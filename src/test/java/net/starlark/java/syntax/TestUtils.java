@@ -133,7 +133,7 @@ public final class TestUtils {
     }
 
     @Override
-    public Scope resolve(String name) throws Undefined {
+    public Scope resolve(String name, boolean resolveTypeSyntax) throws Undefined {
       if (predeclared.contains(name)) {
         return Scope.PREDECLARED;
       } else {
@@ -144,7 +144,7 @@ public final class TestUtils {
     @Override
     @Nullable
     public TypeConstructor getTypeConstructor(String name) throws Undefined {
-      resolve(name); // throws if unknown
+      resolve(name, /* resolveTypeSyntax= */ true); // throws if unknown
       return typeConstructors.get(name);
     }
 

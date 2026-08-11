@@ -982,6 +982,13 @@ public abstract class AbstractQueryTest<T> {
         .isEqualTo(eval("//b union //c union //d"));
     assertThat(eval("rdeps(//a, //d, 0)" + getDependencyCorrection())).isEqualTo(eval("//d"));
 
+    // Test union of multiple rdeps with the same universe (tests universe DTC memoization):
+    assertThat(
+            eval(
+                "(rdeps(//a, //d, 1) except //d) + (rdeps(//a, //c, 1) except //c)"
+                    + getDependencyCorrection()))
+        .isEqualTo(eval("//a union //b union //c"));
+
     // Configurable attributes:
     if (testConfigurableAttributes()) {
       assertThat(eval("rdeps(//configurable:all, //configurable:adep.cc)"))

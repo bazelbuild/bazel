@@ -18,6 +18,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalPhase;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.versioning.LongVersionGetter;
 import com.google.devtools.build.skyframe.InMemoryGraph;
@@ -353,15 +355,21 @@ public class RemoteAnalysisCacheDeps
   }
 
   @Override
-  public void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key) {
+  public void recordRetrievalResult(
+      RetrievalResult retrievalResult,
+      SkyKey key,
+      ImmutableMap<RetrievalPhase, Long> phaseDurationMicros) {
     checkEnabled();
-    listener.recordRetrievalResult(retrievalResult, key);
+    listener.recordRetrievalResult(retrievalResult, key, phaseDurationMicros);
   }
 
   @Override
-  public void recordSerializationException(SerializationException e, SkyKey key) {
+  public void recordSerializationException(
+      SerializationException e,
+      SkyKey key,
+      ImmutableMap<RetrievalPhase, Long> phaseDurationMicros) {
     checkEnabled();
-    listener.recordSerializationException(e, key);
+    listener.recordSerializationException(e, key, phaseDurationMicros);
   }
 
   @Override

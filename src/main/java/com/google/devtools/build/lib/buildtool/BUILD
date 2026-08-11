@@ -244,6 +244,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:options",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_factory",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_caching_services_supplier",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_metadata_writer",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:serialization_dependencies_provider",
         "//src/main/java/com/google/devtools/build/lib/util",

@@ -40,6 +40,12 @@ linux*)
   ;;
 esac
 
+# See https://github.com/bazelbuild/bazel/commit/6c9b022cb367c0a0b179c7d6704238e596988ce7
+# Regular `macos` images are not compatible with the Android SDK installed in BazelCI due to
+# a technical limitation in the underlying system, so null-out the Android env for those jobs.
+export ANDROID_HOME=""
+export ANDROID_NDK_HOME=""
+
 echo Platform: $platform
 
 if [[ "$platform" == "windows" ]]; then

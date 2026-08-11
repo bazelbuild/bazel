@@ -485,7 +485,7 @@ public final class Resolver extends NodeVisitor {
      * @throws Undefined if the name is not defined. The exception may contain a set of available
      *     candidate names that are predefined symbols.
      */
-    Scope resolve(String name) throws Undefined;
+    Scope resolve(String name, boolean resolveTypeSyntax) throws Undefined;
 
     /**
      * Resolves a name to a corresponding type constructor.
@@ -1012,7 +1012,7 @@ public final class Resolver extends NodeVisitor {
     }
     Scope scope;
     try {
-      scope = module.resolve(name);
+      scope = module.resolve(name, options.resolveTypeSyntax());
     } catch (Resolver.Module.Undefined ex) {
       if (!Identifier.isValid(name)) {
         // If Identifier was created by Parser.makeErrorExpression, it

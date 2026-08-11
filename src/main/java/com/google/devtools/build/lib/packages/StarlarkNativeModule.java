@@ -306,7 +306,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
      */
     @Deprecated
     @Override
-    public default void putAll(Map<? extends String, ? extends Object> map) {
+    public default void putAll(Map<? extends String, ?> map) {
       throw new UnsupportedOperationException();
     }
 

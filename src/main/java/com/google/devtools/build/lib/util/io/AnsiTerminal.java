@@ -138,19 +138,18 @@ public class AnsiTerminal {
     setTextColor(Color.MAGENTA);
   }
 
-  /**
-   * Set the terminal title.
-   */
+  /** Set the terminal title. */
+  @SuppressWarnings("DefaultCharset")
   public void setTitle(String title) throws IOException {
     writeBytes(osc, setTermTitle, title.getBytes(), st);
   }
 
   /**
-   * Writes a string to the terminal using the current font, color and cursor
-   * position settings.
+   * Writes a string to the terminal using the current font, color and cursor position settings.
    *
    * @param text the text to write
    */
+  @SuppressWarnings("DefaultCharset")
   public void writeString(String text) throws IOException {
     out.write(text.getBytes());
   }

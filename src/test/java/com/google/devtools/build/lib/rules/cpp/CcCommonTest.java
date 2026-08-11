@@ -441,23 +441,6 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCcLibraryRootIncludesError() throws Exception {
-    checkError(
-        "third_party/root",
-        "lib",
-        // message:
-        "attribute includes: '../..' resolves to the "
-            + "workspace root, which would allow this rule and all of its transitive dependents to "
-            + "include any file in your workspace. Please include only what you need",
-        // build file:
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "licenses(['unencumbered'])",
-        "cc_library(name = 'lib',",
-        "           srcs = ['foo.cc'],",
-        "           includes = ['../..'])");
-  }
-
-  @Test
   public void testStaticallyLinkedBinaryNeedsSharedObject() throws Exception {
     scratch.file(
         "third_party/sophos/BUILD",

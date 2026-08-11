@@ -28,6 +28,7 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <grpc/grpc.h>
+#include <grpc/support/time.h>
 #include <grpcpp/channel.h>
 #include <grpcpp/client_context.h>
 #include <grpcpp/create_channel.h>
@@ -1747,10 +1748,18 @@ BlazeServer::BlazeServer(const StartupOptions &startup_options,
   }
 }
 
+// Returns a gRPC deadline the given number of seconds from now, taken on the
+// monotonic clock so that a wall-clock step cannot expire it early or defer it
+// indefinitely. std::chrono::steady_clock is not usable here: gRPC only knows
+// how to convert gpr_timespec and std::chrono::system_clock::time_point.
+static gpr_timespec DeadlineFromNow(int64_t seconds) {
+  return gpr_time_add(gpr_now(GPR_CLOCK_MONOTONIC),
+                      gpr_time_from_seconds(seconds, GPR_TIMESPAN));
+}
+
 bool BlazeServer::TryConnect(CommandServer::Stub *client) {
   grpc::ClientContext context;
-  context.set_deadline(std::chrono::system_clock::now() +
-                       std::chrono::seconds(connect_timeout_secs_));
+  context.set_deadline(DeadlineFromNow(connect_timeout_secs_));
 
   command_server::PingRequest request;
   command_server::PingResponse response;
@@ -1927,8 +1936,7 @@ void BlazeServer::SendCancelMessage() {
   request.set_cookie(request_cookie_);
   request.set_command_id(command_id_);
   grpc::ClientContext context;
-  context.set_deadline(std::chrono::system_clock::now() +
-                       std::chrono::seconds(10));
+  context.set_deadline(DeadlineFromNow(10));
   command_server::CancelResponse response;
   // There isn't a lot we can do if this request fails
   grpc::Status status = client_->Cancel(&context, request, &response);
@@ -1946,8 +1954,7 @@ void BlazeServer::SendTerminalSizeMessage(int columns) {
   request.set_command_id(command_id_);
   request.set_columns(columns);
   grpc::ClientContext context;
-  context.set_deadline(std::chrono::system_clock::now() +
-                       std::chrono::seconds(10));
+  context.set_deadline(DeadlineFromNow(10));
   command_server::TerminalSizeResponse response;
   grpc::Status status =
       client_->UpdateTerminalSize(&context, request, &response);

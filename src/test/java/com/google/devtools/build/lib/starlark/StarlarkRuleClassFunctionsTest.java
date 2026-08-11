@@ -1008,7 +1008,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testLabelListWithAspectsError() throws Exception {
-    ev.setThreadOwner(keyForBuild(FAKE_LABEL));
+    ev.setBzlLoadThreadOwner(FAKE_LABEL);
     ev.checkEvalErrorContains(
         "at index 1 of aspects, got element of type int, want Aspect",
         "def _impl(target, ctx):",
@@ -1678,7 +1678,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   private static void evalAndExport(BazelEvaluationTestCase ev, String... lines) throws Exception {
-    ev.setThreadOwner(keyForBuild(FAKE_LABEL));
+    ev.setBzlLoadThreadOwner(FAKE_LABEL);
     ev.execAndExport(FAKE_LABEL, lines);
   }
 

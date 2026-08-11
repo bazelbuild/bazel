@@ -97,6 +97,9 @@ java_test(
         "ProcessWrapperSandboxedSpawnRunnerTest.java",
     ],
     data = ["//src/test/java/com/google/devtools/build/lib:embedded_scripts"],
+    exec_group_compatible_with = {
+        "test": ["//:highcpu_machine"],
+    },
     tags = ["no_windows"],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
@@ -109,6 +112,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:param_file_action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:parameter_file",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
         "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",

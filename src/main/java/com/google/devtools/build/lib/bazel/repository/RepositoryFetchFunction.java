@@ -283,11 +283,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
         try {
           boolean cacheHit =
               remoteRepoContentsCache.lookupCache(
-                  repositoryName,
-                  repoRoot,
-                  digestWriter.predeclaredInputHash,
-                  repoDefinition.repoRule().environ(),
-                  env);
+                  repositoryName, repoRoot, digestWriter.predeclaredInputHash, env);
           if (env.valuesMissing()) {
             return null;
           }
