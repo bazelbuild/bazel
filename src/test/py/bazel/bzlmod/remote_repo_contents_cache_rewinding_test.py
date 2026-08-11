@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-import re
 from absl.testing import absltest
 from src.test.py.bazel.bzlmod import remote_repo_contents_cache_test_base
 
@@ -23,11 +22,16 @@ class RemoteRepoContentsCacheRewindingTest(
 ):
   """Tests recovery of repo files lost from the remote cache."""
 
+  def BazelrcLines(self):
+    # Files lost from the remote repo contents cache are recovered by
+    # rewinding their repo fetch.
+    return super().BazelrcLines() + ['common --rewind_lost_inputs']
+
   def testLostRemoteFile_build(self):
     # Create a repo with two BUILD files (one in a subpackage), build a target
     # from one to cause it to be cached, then build that target again after
     # expunging to verify it is cached.
-    # Then, restart the worker and build a target in the other build file.
+    # Then, lose all remote files and build a target in the other build file.
     self.ScratchFile(
         'MODULE.bazel',
         [
@@ -79,23 +83,10 @@ class RemoteRepoContentsCacheRewindingTest(
     # Lose all remote files.
     self.ClearRemoteCache()
 
-    # Build the other target: fails due to the lost input
+    # Build the other target: its BUILD file is no longer available remotely
+    # and is recovered by rewinding the repo fetch.
     _, _, stderr = self.RunBazel(['build', '@my_repo//sub:sub'])
-    # First restart recovers @my_repo, the next one recovers @platforms.
-    self.assertEqual(
-        2,
-        stderr.count(
-            'Found transient remote cache error, retrying the build...'
-        ),
-    )
-    canonical_repo_name = repo_dir[repo_dir.rfind('/') + 1 :]
     stderr = '\n'.join(stderr)
-    self.assertRegex(
-        stderr,
-        'external/%s/sub/BUILD with digest .*/.* no longer available in the'
-        ' remote cache'
-        % re.escape(canonical_repo_name),
-    )
     self.assertIn('JUST FETCHED', stderr)
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'root.txt')))

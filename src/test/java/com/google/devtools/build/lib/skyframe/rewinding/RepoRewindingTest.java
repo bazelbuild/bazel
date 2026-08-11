@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.testutil.ActionEventRecorder;
 import com.google.devtools.build.lib.testutil.SpawnController.ExecResult;
 import com.google.devtools.build.lib.testutil.SpawnController.SpawnShim;
@@ -41,18 +42,24 @@ import com.google.devtools.build.lib.vfs.DelegateFileSystem;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.RewindingSynchronizer;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -83,7 +90,7 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
 
   @Override
   protected FileSystem createFileSystemForBuildArtifacts(FileSystem fileSystem) {
-    rewindableFs = new RewindableRepoFileSystemForTesting(fileSystem);
+    rewindableFs = new RewindableRepoFileSystemForTesting(fileSystem, outputBaseName);
     return rewindableFs;
   }
 
@@ -733,6 +740,61 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
     actionEventRecorder.assertTotalLostInputCountsFromStats(ImmutableList.of(1));
   }
 
+  @Test
+  public void lostBuildFileDuringLoading_repoRewound() throws Exception {
+    writeRepoRule();
+    write("repo/content_a.txt", "old_a");
+    appendToModuleFile(
+        "my_repo = use_repo_rule('//repo:repo.bzl', 'my_repo')",
+        "my_repo(name = 'repo_a', content_file = 'content_a.txt')");
+    write(
+        "test/BUILD",
+        """
+        genrule(
+            name = "consume",
+            srcs = ["@repo_a//:src.txt"],
+            outs = ["out.txt"],
+            cmd = "cp $< $@",
+        )
+        """);
+
+    buildTarget("//test:consume");
+    assertContents("old_a", "//test:consume");
+
+    // @repo_a's BUILD file is lost, which surfaces while loading the package rather than in a repo
+    // rule or an action.
+    write("repo/content_a.txt", "new_a");
+    RepositoryName repoA = canonicalRepoName("repo_a");
+    rewindableFs.loseOnNextRead(repoA.getName() + "/BUILD");
+    getSkyframeExecutor()
+        .getEvaluator()
+        .delete(
+            k ->
+                k.functionName().equals(SkyFunctions.PACKAGE)
+                    || k.functionName().equals(SkyFunctions.PACKAGE_LOOKUP));
+
+    List<SkyKey> rewoundKeys = helper.collectOrderedRewoundKeys();
+    buildTarget("//test:consume");
+
+    assertThat(rewindableFs.lostRepoFiles).isNotEmpty();
+    assertThat(rewoundKeys).contains(RepositoryDirectoryValue.key(repoA));
+    assertContents("new_a", "//test:consume");
+  }
+
+  /** Returns the canonical name of the repo with the given apparent name in the main repo. */
+  private RepositoryName canonicalRepoName(String apparentName) throws IOException {
+    Path externalDir = getOutputBase().getRelative("external");
+    for (Path child : externalDir.getDirectoryEntries()) {
+      String name = child.getBaseName();
+      if (child.isDirectory() && (name.equals(apparentName) || name.endsWith("+" + apparentName))) {
+        return RepositoryName.createUnvalidated(name);
+      }
+    }
+    throw new IllegalStateException(
+        "no repo directory for %s in %s"
+            .formatted(apparentName, externalDir.getDirectoryEntries()));
+  }
+
   private Path markerFileForRepoOf(Artifact repoFile) {
     return getOutputBase()
         .getRelative("external")
@@ -749,13 +811,49 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
    */
   private static final class RewindableRepoFileSystemForTesting extends DelegateFileSystem
       implements RewindableRepoFileSystem {
+    private final String outputBaseName;
     final List<RepositoryName> lostRepos = Collections.synchronizedList(new ArrayList<>());
+    final List<PathFragment> lostRepoFiles = Collections.synchronizedList(new ArrayList<>());
+    private final Set<String> pathsToLoseOnce = ConcurrentHashMap.newKeySet();
     private final RewindingSynchronizer rewindingSynchronizer = new RewindingSynchronizer();
     private final AtomicReference<RepoWriteLockRequest> repoWriteLockRequest =
         new AtomicReference<>();
 
-    RewindableRepoFileSystemForTesting(FileSystem delegateFs) {
+    RewindableRepoFileSystemForTesting(FileSystem delegateFs, String outputBaseName) {
       super(delegateFs);
+      this.outputBaseName = outputBaseName;
+    }
+
+    /**
+     * Makes the next read of the given repo-relative file fail as if the remote cache had lost its
+     * contents. This is how a lost file surfaces during loading, where only the file's metadata has
+     * been injected and reading its contents is what reaches the cache.
+     */
+    void loseOnNextRead(String repoRelativePath) {
+      pathsToLoseOnce.add(repoRelativePath);
+    }
+
+    @Override
+    public InputStream getInputStream(PathFragment path) throws IOException {
+      PathFragment externalDir = externalDirOf(path);
+      if (externalDir != null && !pathsToLoseOnce.isEmpty()) {
+        String repoName = path.getSegment(externalDir.segmentCount());
+        String repoRelativePath = path.relativeTo(externalDir).getPathString();
+        if (pathsToLoseOnce.remove(repoRelativePath)) {
+          lostRepoFiles.add(path);
+          rewindingSynchronizer.markReplacementsPossible();
+          var unused =
+              getPath(
+                      externalDir.getChild(
+                          RepositoryName.createUnvalidated(repoName).getMarkerFileName()))
+                  .delete();
+          throw new LostRemoteRepoFileException(
+              "%s is no longer available in the remote cache".formatted(path),
+              new IOException("missing blob"),
+              RepositoryName.createUnvalidated(repoName));
+        }
+      }
+      return super.getInputStream(path);
     }
 
     @Override
@@ -796,6 +894,17 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
     @Override
     public void markLostRepoFile(RepositoryName repo) {
       lostRepos.add(repo);
+    }
+
+    @Nullable
+    private PathFragment externalDirOf(PathFragment path) {
+      for (int i = 1; i < path.segmentCount() - 1; i++) {
+        if (path.getSegment(i).equals("external")
+            && path.getSegment(i - 1).equals(outputBaseName)) {
+          return path.subFragment(0, i + 1);
+        }
+      }
+      return null;
     }
 
     private record RepoWriteLockRequest(
