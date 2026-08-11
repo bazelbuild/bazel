@@ -15,7 +15,9 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.vfs.RewindingSynchronizer.TransferableWriteLock;
+import java.io.IOException;
 import javax.annotation.Nullable;
 
 /**
@@ -43,9 +45,20 @@ public interface RewindableRepoFileSystem {
    * Acquires the exclusive lock that has to be held while the contents of the given repository are
    * replaced.
    */
-  default SilentCloseable acquireRepoWriteLock(RepositoryName repo) throws InterruptedException {
+  default TransferableWriteLock acquireRepoWriteLock(RepositoryName repo)
+      throws InterruptedException {
     return getRewindingSynchronizer().acquireWriteLock(repo);
   }
+
+  /**
+   * Makes the entire contents of the given repository available on the native file system, if they
+   * are currently only available remotely.
+   *
+   * <p>This is where a file the remote cache has lost is usually noticed, since it is the point at
+   * which a repo's contents are downloaded in bulk rather than on demand.
+   */
+  void ensureRepoMaterialized(RepositoryName repo, ExtendedEventHandler reporter)
+      throws IOException, InterruptedException;
 
   /**
    * Records that a file in the given repository is no longer available in the remote cache, so that

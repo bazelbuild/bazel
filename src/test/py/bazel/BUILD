@@ -427,7 +427,7 @@ py_test(
     name = "remote_repo_contents_cache_rewinding_test",
     size = "large",
     srcs = ["bzlmod/remote_repo_contents_cache_rewinding_test.py"],
-    shard_count = 2,
+    shard_count = 4,
     tags = ["requires-network"],
     deps = [":remote_repo_contents_cache_test_base"],
 )

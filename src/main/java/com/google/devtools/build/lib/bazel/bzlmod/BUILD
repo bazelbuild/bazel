@@ -348,6 +348,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:repo_environment_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:lost_remote_repo_file_exception",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:repo_rewinding",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",

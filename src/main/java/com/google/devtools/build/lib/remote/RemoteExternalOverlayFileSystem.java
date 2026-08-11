@@ -163,6 +163,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       // unconditionally.
       return;
     }
+    rewindingSynchronizer.releaseWriteLocksKeptForRestart();
     this.cache = null;
     this.inputPrefetcher = null;
     this.reporter = null;
@@ -432,7 +433,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
    * Bazel or local actions are handled automatically by the file system or {@link
    * AbstractActionInputPrefetcher}.
    */
-  public void ensureMaterialized(RepositoryName repo, ExtendedEventHandler reporter)
+  @Override
+  public void ensureRepoMaterialized(RepositoryName repo, ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
     if (!markerFileContents.containsKey(repo.getName())) {
       // The repo has not been injected into the in-memory file system.

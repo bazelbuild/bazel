@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.rewinding;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getLast;
@@ -29,7 +30,7 @@ import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.RewindingSynchronizer;
+import com.google.devtools.build.lib.vfs.RewindingSynchronizer.TransferableWriteLock;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -117,6 +119,11 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
    * Writes a repo rule whose repos contain a file {@code src.txt} with the contents of the given
    * workspace file, which is intentionally not watched so that it can be modified mid-build to
    * observe refetches, as well as a file {@code other.txt} with fixed contents.
+   *
+   * <p>Also writes a {@code dep_repo} rule whose repos contain a file {@code own.txt} with the
+   * contents of {@code @repo_a//:src.txt}. Reading another repo's file by label is the analog of
+   * (and in production triggers) the materialization of that repo from the remote repo contents
+   * cache.
    */
   private void writeRepoRule() throws Exception {
     write("repo/BUILD");
@@ -133,6 +140,12 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
             implementation = _my_repo_impl,
             attrs = {"content_file": attr.string()},
         )
+
+        def _dep_repo_impl(rctx):
+            rctx.file("BUILD", "exports_files(['own.txt'])")
+            rctx.file("own.txt", rctx.read(Label("@repo_a//:src.txt")))
+
+        dep_repo = repository_rule(implementation = _dep_repo_impl)
         """);
   }
 
@@ -268,6 +281,7 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
         lostRepoFileShim(
             "src.txt", "content_b.txt", "new_b", allSpawnsObservedLostInputs, lostInputB));
 
+    rewindableFs.setExternalDir(getOutputBase().getRelative("external").asFragment());
     List<SkyKey> rewoundKeys = helper.collectOrderedRewoundKeys();
     buildTarget("//test:consume_a", "//test:consume_b");
 
@@ -445,6 +459,7 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
         lostRepoFileShim(
             "src.txt", "content_a.txt", "new", allSpawnsObservedLostInputs, lostInput2));
 
+    rewindableFs.setExternalDir(getOutputBase().getRelative("external").asFragment());
     List<SkyKey> rewoundKeys = helper.collectOrderedRewoundKeys();
     buildTarget("//test:consume_1", "//test:consume_2");
 
@@ -503,6 +518,7 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
           return helper.createLostInputsExecException(context, ImmutableList.of(input1, input2));
         });
 
+    rewindableFs.setExternalDir(getOutputBase().getRelative("external").asFragment());
     List<SkyKey> rewoundKeys = helper.collectOrderedRewoundKeys();
     buildTarget("//test:consume");
 
@@ -564,6 +580,7 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
         lostRepoFileShim(
             "src_2.txt", "content_2.txt", "new_2", allSpawnsObservedLostInputs, lostInput2));
 
+    rewindableFs.setExternalDir(getOutputBase().getRelative("external").asFragment());
     List<SkyKey> rewoundKeys = helper.collectOrderedRewoundKeys();
     buildTarget("//test:consume_1", "//test:consume_2");
 
@@ -741,6 +758,179 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void repoMaterializedByOtherRepoRefetched() throws Exception {
+    writeRepoRule();
+    write("repo/content_a.txt", "old");
+    appendToModuleFile(
+        "my_repo = use_repo_rule('//repo:repo.bzl', 'my_repo')",
+        "my_repo(name = 'repo_a', content_file = 'content_a.txt')",
+        "dep_repo = use_repo_rule('//repo:repo.bzl', 'dep_repo')",
+        "dep_repo(name = 'repo_b')");
+    write(
+        "test/BUILD",
+        """
+        genrule(
+            name = "consume_a",
+            srcs = ["@repo_a//:src.txt"],
+            outs = ["out_a.txt"],
+            cmd = "cp $< $@",
+        )
+
+        genrule(
+            name = "consume_b",
+            srcs = ["@repo_b//:own.txt"],
+            outs = ["out_b.txt"],
+            cmd = "cp $< $@",
+        )
+        """);
+
+    CountDownLatch lostInputObserved = new CountDownLatch(1);
+    AtomicReference<Artifact> lostInput = new AtomicReference<>();
+    helper.addSpawnShim(
+        "Executing genrule //test:consume_a",
+        lostRepoFileShim("src.txt", "content_a.txt", "new", lostInputObserved, lostInput));
+
+    rewindableFs.setExternalDir(getOutputBase().getRelative("external").asFragment());
+    List<SkyKey> rewoundKeys = helper.collectOrderedRewoundKeys();
+    // The fetch of repo_b reads (in production: materializes) repo_a, whose file is then lost by
+    // the action consuming it and recovered by refetching repo_a.
+    buildTarget("//test:consume_a", "//test:consume_b");
+
+    helper.verifyAllSpawnShimsConsumed();
+    assertContents("new", "//test:consume_a");
+    // repo_b retains the contents it read from repo_a when it was fetched: the refetch of repo_a
+    // does not affect repos fetched from it earlier in the build.
+    assertContents("old", "//test:consume_b");
+    assertThat(rewoundKeys).containsExactlyElementsIn(expectedRewoundChain(lostInput.get()));
+
+    // The next build notices that repo_b's recorded input @repo_a//:src.txt has changed and
+    // refetches it.
+    helper.clearExecutedSpawnDescriptions();
+    buildTarget("//test:consume_b");
+    assertContents("new", "//test:consume_b");
+    assertThat(helper.getExecutedSpawnDescriptions())
+        .containsExactly("Executing genrule //test:consume_b");
+  }
+
+  @Test
+  public void lostFilesInModuleExtension_reposRewound() throws Exception {
+    writeRepoRule();
+    write("repo/content_a.txt", "old_a");
+    write("repo/content_b.txt", "old_b");
+    write(
+        "repo/ext.bzl",
+        """
+        def _generated_repo_impl(rctx):
+            rctx.file("BUILD", "exports_files(['combined.txt'])")
+            rctx.file("combined.txt", rctx.attr.content)
+
+        generated_repo = repository_rule(
+            implementation = _generated_repo_impl,
+            attrs = {"content": attr.string()},
+        )
+
+        def _ext_impl(module_ctx):
+            a = module_ctx.read(Label("@repo_a//:src.txt"), watch = "no")
+            b = module_ctx.read(Label("@repo_b//:src.txt"), watch = "no")
+            generated_repo(name = "generated", content = a + b)
+
+        ext = module_extension(implementation = _ext_impl)
+        """);
+    appendToModuleFile(
+        "my_repo = use_repo_rule('//repo:repo.bzl', 'my_repo')",
+        "my_repo(name = 'repo_a', content_file = 'content_a.txt')",
+        "my_repo(name = 'repo_b', content_file = 'content_b.txt')",
+        "ext = use_extension('//repo:ext.bzl', 'ext')",
+        "use_repo(ext, 'generated')");
+    write(
+        "test/BUILD",
+        """
+        genrule(
+            name = "consume",
+            srcs = ["@generated//:combined.txt"],
+            outs = ["out.txt"],
+            cmd = "cp $< $@",
+        )
+        """);
+
+    // Warm up the repos so that they are fetched and their marker files exist.
+    buildTarget("//test:consume");
+    assertContents("old_a\nold_b", "//test:consume");
+
+    // Both repos lose a file, but the extension only ever observes one at a time: it aborts at the
+    // first failed read. Change what a refetch would produce and drop the marker files so that a
+    // rewound fetch actually re-runs the repo rule, as a cache miss would in production.
+    write("repo/content_a.txt", "new_a");
+    write("repo/content_b.txt", "new_b");
+    RepositoryName repoA = canonicalRepoName("repo_a");
+    RepositoryName repoB = canonicalRepoName("repo_b");
+    for (RepositoryName repo : ImmutableList.of(repoA, repoB)) {
+      rewindableFs.loseOnNextMaterialization(repo.getName());
+    }
+    // Force the extension to be evaluated again.
+    getSkyframeExecutor()
+        .getEvaluator()
+        .delete(k -> k.functionName().equals(SkyFunctions.SINGLE_EXTENSION_EVAL));
+
+    rewindableFs.setExternalDir(getOutputBase().getRelative("external").asFragment());
+    List<SkyKey> rewoundKeys = helper.collectOrderedRewoundKeys();
+    buildTarget("//test:consume");
+
+    // Both repos were refetched within this build.
+    assertContents("new_a\nnew_b", "//test:consume");
+    assertThat(rewoundKeys)
+        .containsAtLeast(RepositoryDirectoryValue.key(repoA), RepositoryDirectoryValue.key(repoB));
+  }
+
+  @Test
+  public void lostFileReadByRepoRule_repoRewound() throws Exception {
+    writeRepoRule();
+    write("repo/content_a.txt", "old_a");
+    appendToModuleFile(
+        "my_repo = use_repo_rule('//repo:repo.bzl', 'my_repo')",
+        "my_repo(name = 'repo_a', content_file = 'content_a.txt')",
+        "dep_repo = use_repo_rule('//repo:repo.bzl', 'dep_repo')",
+        "dep_repo(name = 'dep')");
+    write(
+        "test/BUILD",
+        """
+        genrule(
+            name = "consume",
+            srcs = ["@dep//:own.txt"],
+            outs = ["out.txt"],
+            cmd = "cp $< $@",
+        )
+        """);
+
+    buildTarget("//test:consume");
+    assertContents("old_a", "//test:consume");
+
+    // @dep's repo rule reads @repo_a//:src.txt, which is the analog of materializing a cached repo
+    // in production. Lose that file and make a refetch of @repo_a produce new contents.
+    write("repo/content_a.txt", "new_a");
+    RepositoryName repoA = canonicalRepoName("repo_a");
+    RepositoryName dep = canonicalRepoName("dep");
+    rewindableFs.loseOnNextMaterialization(repoA.getName());
+    // Only @dep's repo rule is made to run again. @repo_a's marker file stays in place, so it is
+    // only refetched because the rewind triggered by the lost file invalidates it.
+    Path depMarkerFile =
+        getOutputBase().getRelative("external").getRelative(dep.getMarkerFileName());
+    checkState(depMarkerFile.delete(), "marker file %s did not exist", depMarkerFile);
+    getSkyframeExecutor()
+        .getEvaluator()
+        .delete(k -> k.functionName().equals(SkyFunctions.REPOSITORY_DIRECTORY));
+
+    rewindableFs.setExternalDir(getOutputBase().getRelative("external").asFragment());
+    List<SkyKey> rewoundKeys = helper.collectOrderedRewoundKeys();
+    buildTarget("//test:consume");
+
+    // @repo_a was refetched within this build and @dep picked up its new contents.
+    assertThat(rewindableFs.lostRepoFiles).isNotEmpty();
+    assertThat(rewoundKeys).contains(RepositoryDirectoryValue.key(repoA));
+    assertContents("new_a", "//test:consume");
+  }
+
+  @Test
   public void lostBuildFileDuringLoading_repoRewound() throws Exception {
     writeRepoRule();
     write("repo/content_a.txt", "old_a");
@@ -765,6 +955,7 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
     // rule or an action.
     write("repo/content_a.txt", "new_a");
     RepositoryName repoA = canonicalRepoName("repo_a");
+    rewindableFs.setExternalDir(getOutputBase().getRelative("external").asFragment());
     rewindableFs.loseOnNextRead(repoA.getName() + "/BUILD");
     getSkyframeExecutor()
         .getEvaluator()
@@ -816,14 +1007,23 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
     private final String outputBaseName;
     final List<RepositoryName> lostRepos = Collections.synchronizedList(new ArrayList<>());
     final List<PathFragment> lostRepoFiles = Collections.synchronizedList(new ArrayList<>());
+    // Repos whose next materialization fails as if the remote cache had lost the contents of one
+    // of their files. A later materialization succeeds, just as it does in production once the
+    // repo has been fetched again.
+    private final Set<String> reposToLoseOnce = ConcurrentHashMap.newKeySet();
     private final Set<String> pathsToLoseOnce = ConcurrentHashMap.newKeySet();
     private final RewindingSynchronizer rewindingSynchronizer = new RewindingSynchronizer();
+    private final AtomicReference<PathFragment> externalDirSupplier = new AtomicReference<>();
     private final AtomicReference<RepoWriteLockRequest> repoWriteLockRequest =
         new AtomicReference<>();
 
     RewindableRepoFileSystemForTesting(FileSystem delegateFs, String outputBaseName) {
       super(delegateFs);
       this.outputBaseName = outputBaseName;
+    }
+
+    void loseOnNextMaterialization(String repoName) {
+      reposToLoseOnce.add(repoName);
     }
 
     /**
@@ -865,7 +1065,8 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
     }
 
     @Override
-    public SilentCloseable acquireRepoWriteLock(RepositoryName repo) throws InterruptedException {
+    public TransferableWriteLock acquireRepoWriteLock(RepositoryName repo)
+        throws InterruptedException {
       RepoWriteLockRequest request = repoWriteLockRequest.get();
       if (request == null
           || !request.repo().equals(repo)
@@ -876,7 +1077,7 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
           rewindingSynchronizer.hasBlockingReadLockForTesting(repo),
           "repo refetch requested before the executing reader acquired its lock");
       request.requested().countDown();
-      SilentCloseable lock = RewindableRepoFileSystem.super.acquireRepoWriteLock(repo);
+      TransferableWriteLock lock = RewindableRepoFileSystem.super.acquireRepoWriteLock(repo);
       request.afterAcquired().run();
       return lock;
     }
@@ -899,6 +1100,25 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
       lostRepos.add(repo);
     }
 
+    @Override
+    public void ensureRepoMaterialized(RepositoryName repo, ExtendedEventHandler reporter)
+        throws IOException {
+      if (!reposToLoseOnce.remove(repo.getName())) {
+        return;
+      }
+      PathFragment externalDir = externalDir();
+      PathFragment lostFile = externalDir.getRelative(repo.getName()).getRelative("src.txt");
+      lostRepoFiles.add(lostFile);
+      rewindingSynchronizer.markReplacementsPossible();
+      // A repo with lost files is a cache miss, so its fetch actually re-runs the repo rule.
+      var unused = getPath(externalDir.getChild(repo.getMarkerFileName())).delete();
+      throw new LostRemoteRepoFileException(
+          "%s is no longer available in the remote cache".formatted(lostFile),
+          new IOException("missing blob"),
+          repo,
+          LOST_BLOB_DIGEST);
+    }
+
     @Nullable
     private PathFragment externalDirOf(PathFragment path) {
       for (int i = 1; i < path.segmentCount() - 1; i++) {
@@ -908,6 +1128,14 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
         }
       }
       return null;
+    }
+
+    private PathFragment externalDir() {
+      return checkNotNull(externalDirSupplier.get(), "external dir not set");
+    }
+
+    void setExternalDir(PathFragment externalDir) {
+      externalDirSupplier.set(externalDir);
     }
 
     private record RepoWriteLockRequest(

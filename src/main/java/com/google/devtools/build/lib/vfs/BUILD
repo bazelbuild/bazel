@@ -101,6 +101,7 @@ java_library(
     deps = [
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//third_party:jsr305",
     ],
