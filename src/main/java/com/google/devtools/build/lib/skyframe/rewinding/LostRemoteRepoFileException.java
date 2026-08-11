@@ -27,14 +27,25 @@ import java.io.IOException;
 public final class LostRemoteRepoFileException extends IOException {
 
   private final RepositoryName repo;
+  private final String digest;
 
-  public LostRemoteRepoFileException(String message, Throwable cause, RepositoryName repo) {
+  public LostRemoteRepoFileException(
+      String message, Throwable cause, RepositoryName repo, String digest) {
     super(message, cause);
     this.repo = repo;
+    this.digest = digest;
   }
 
   /** The canonical name of the repository whose refetch recovers the lost file. */
   public RepositoryName getRepo() {
     return repo;
+  }
+
+  /**
+   * The digest of the lost file in the {@code hash/size} form that identifies lost inputs, so that
+   * a lost file discovered while materializing an action input can be reported as such.
+   */
+  public String getDigest() {
+    return digest;
   }
 }

@@ -1102,10 +1102,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:virtual_action_input",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
+        "//src/main/java/com/google/devtools/build/lib/remote/common:cache_not_found_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/util:async_task_cache",
         "//src/main/java/com/google/devtools/build/lib/remote/util:bulk_transfers",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
         "//src/main/java/com/google/devtools/build/lib/remote/util:futures",
         "//src/main/java/com/google/devtools/build/lib/remote/util:rx_futures",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:lost_remote_repo_file_exception",
         "//src/main/java/com/google/devtools/build/lib/util:temp_path_generator",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -1116,6 +1120,7 @@ java_library(
         "//third_party/java/guava:concurrent",
         "//third_party/java/jsr305_annotations",
         "//third_party/java/rxjava3",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
 
