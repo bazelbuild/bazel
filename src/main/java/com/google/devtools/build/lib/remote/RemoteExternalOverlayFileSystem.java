@@ -491,7 +491,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     // that repo while other consumers may be reading them, which they have to take locks for.
     rewindingSynchronizer.markReplacementsPossible();
     return new LostRemoteRepoFileException(
-        message, cause, RepositoryName.createUnvalidated(repoName));
+        message, cause, RepositoryName.createUnvalidated(repoName), DigestUtil.toString(digest));
   }
 
   private void prefetch(Iterable<PathFragment> paths) throws IOException, InterruptedException {
@@ -547,10 +547,22 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       root = root.resolveSymbolicLinks();
     }
     collectAndCreateDirectories(root, files, symlinks, new HashSet<>());
-    prefetch(files);
-    // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
-    // target.
-    prefetch(symlinks);
+    try {
+      prefetch(files);
+      // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
+      // target.
+      prefetch(symlinks);
+    } catch (BulkTransferException e) {
+      var lostArtifacts = e.getLostArtifacts(ActionInputHelper::fromPath);
+      if (!lostArtifacts.isEmpty()) {
+        // We don't track the particular lost artifacts since the repo needs to be refetched,
+        // which recovers all of them anyway.
+        var anyLostArtifact = lostArtifacts.byDigest().entries().iterator().next();
+        var relativePath = anyLostArtifact.getValue().getExecPath().relativeTo(externalDirectory);
+        throw lostRemoteFile(relativePath, DigestUtil.fromString(anyLostArtifact.getKey()), e);
+      }
+      throw e;
+    }
   }
 
   private void collectAndCreateDirectories(
