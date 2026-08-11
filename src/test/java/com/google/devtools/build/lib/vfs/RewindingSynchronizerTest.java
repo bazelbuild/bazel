@@ -20,6 +20,7 @@ import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.testutil.TestThread;
+import com.google.devtools.build.lib.vfs.RewindingSynchronizer.TransferableWriteLock;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -72,7 +73,7 @@ public final class RewindingSynchronizerTest {
   public void acquireReadLock_replacementInProgress_waitsForItsEnd() throws Exception {
     synchronizer.reset(/* replacementsEnabled= */ true);
     synchronizer.markReplacementsPossible();
-    SilentCloseable writeLock = synchronizer.acquireWriteLock(KEY);
+    TransferableWriteLock writeLock = synchronizer.acquireWriteLock(KEY);
     AtomicBoolean acquired = new AtomicBoolean();
     TestThread reader = readerThread(KEY, acquired);
 
@@ -90,7 +91,7 @@ public final class RewindingSynchronizerTest {
     synchronizer.reset(/* replacementsEnabled= */ true);
     synchronizer.markReplacementsPossible();
 
-    try (SilentCloseable unused = synchronizer.acquireWriteLock(OTHER_KEY)) {
+    try (TransferableWriteLock unused = synchronizer.acquireWriteLock(OTHER_KEY)) {
       try (SilentCloseable unusedReadLock = synchronizer.acquireReadLock(() -> KEY)) {
         assertThat(synchronizer.hasBlockingReadLockForTesting(KEY)).isTrue();
       }
@@ -132,11 +133,49 @@ public final class RewindingSynchronizerTest {
   }
 
   @Test
+  public void acquireReadLock_replacementKeptForRestart_waitsUntilReleased() throws Exception {
+    synchronizer.reset(/* replacementsEnabled= */ true);
+    synchronizer.markReplacementsPossible();
+    TransferableWriteLock writeLock = synchronizer.acquireWriteLock(KEY);
+    writeLock.keepLockedForRestart();
+    AtomicBoolean acquired = new AtomicBoolean();
+    TestThread reader = readerThread(KEY, acquired);
+
+    reader.start();
+    awaitState(reader, Thread.State.WAITING);
+    assertThat(acquired.get()).isFalse();
+    synchronizer.releaseWriteLocksKeptForRestart();
+    reader.joinAndAssertState(TIMEOUT_MILLIS);
+
+    assertThat(acquired.get()).isTrue();
+  }
+
+  @Test
+  public void acquireReadLock_replacementResumedAfterRestart_waitsForItsEnd() throws Exception {
+    synchronizer.reset(/* replacementsEnabled= */ true);
+    synchronizer.markReplacementsPossible();
+    TransferableWriteLock writeLock = synchronizer.acquireWriteLock(KEY);
+    writeLock.keepLockedForRestart();
+    AtomicBoolean acquired = new AtomicBoolean();
+    TestThread reader = readerThread(KEY, acquired);
+
+    reader.start();
+    awaitState(reader, Thread.State.WAITING);
+    // The restarted evaluation takes over the lock and finishes the replacement.
+    TransferableWriteLock resumedWriteLock = synchronizer.acquireWriteLock(KEY);
+    assertThat(acquired.get()).isFalse();
+    resumedWriteLock.close();
+    reader.joinAndAssertState(TIMEOUT_MILLIS);
+
+    assertThat(acquired.get()).isTrue();
+  }
+
+  @Test
   public void acquireReadLock_interruptedWhileWaiting_throws() throws Exception {
     synchronizer.reset(/* replacementsEnabled= */ true);
     synchronizer.markReplacementsPossible();
 
-    try (SilentCloseable unused = synchronizer.acquireWriteLock(KEY)) {
+    try (TransferableWriteLock unused = synchronizer.acquireWriteLock(KEY)) {
       TestThread reader =
           new TestThread(
               () ->
@@ -168,7 +207,7 @@ public final class RewindingSynchronizerTest {
   private TestThread producerThread(Object key, AtomicBoolean acquired) {
     return new TestThread(
         () -> {
-          try (SilentCloseable unused = synchronizer.acquireWriteLock(key)) {
+          try (TransferableWriteLock unused = synchronizer.acquireWriteLock(key)) {
             acquired.set(true);
           }
         });

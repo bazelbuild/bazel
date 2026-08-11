@@ -169,6 +169,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     materializationExecutor.shutdownNow();
     materializationExecutor.close();
 
+    rewindingSynchronizer.releaseWriteLocksKeptForRestart();
     this.cache = null;
     this.inputPrefetcher = null;
     this.reporter = null;

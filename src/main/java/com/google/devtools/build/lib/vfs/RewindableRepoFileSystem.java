@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.vfs;
 
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.vfs.RewindingSynchronizer.TransferableWriteLock;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import javax.annotation.Nullable;
@@ -81,7 +82,8 @@ public interface RewindableRepoFileSystem {
    * Acquires the exclusive lock that has to be held while the contents of the given repository are
    * replaced.
    */
-  default SilentCloseable acquireRepoWriteLock(RepositoryName repo) throws InterruptedException {
+  default TransferableWriteLock acquireRepoWriteLock(RepositoryName repo)
+      throws InterruptedException {
     return getRewindingSynchronizer().acquireWriteLock(repo);
   }
 

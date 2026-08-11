@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ReaderPreferringReadWriteLock;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import java.util.Collection;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
@@ -36,9 +37,9 @@ import javax.annotation.Nullable;
  * consumer takes read locks for the keys of the producers of all its inputs, or the lock of a
  * single producer for the duration of a single read of its outputs.
  *
- * <p>These locks cannot deadlock: read locks are mutually compatible and a producer only ever takes
- * its own write lock, before holding any read lock. A cycle in the wait-for graph would thus imply
- * a cycle in the producer dependency graph, which Skyframe rules out.
+ * <p>Locks cannot deadlock: read locks are mutually compatible and a producer only ever takes its
+ * own write lock, before holding any read lock. A cycle in the wait-for graph would thus imply a
+ * cycle in the producer dependency graph, which Skyframe rules out.
  *
  * <p>Commands that never replace anything don't pay for per-key locks: until {@link
  * #markReplacementsPossible}, write locks are no-ops and consumers only acquire a single shared
@@ -62,6 +63,8 @@ public final class RewindingSynchronizer {
   // are admitted even while a writer waits, so that a reader can never be queued behind one.
   private final LoadingCache<Object, ReaderPreferringReadWriteLock> locks =
       Caffeine.newBuilder().weakValues().build(unused -> new ReaderPreferringReadWriteLock());
+  private final ConcurrentHashMap<Object, ReaderPreferringReadWriteLock> writeLocksKeptForRestart =
+      new ConcurrentHashMap<>();
 
   private volatile Replacements replacements = Replacements.NOT_YET;
 
@@ -76,6 +79,16 @@ public final class RewindingSynchronizer {
   public void reset(boolean replacementsEnabled) {
     replacements = replacementsEnabled ? Replacements.NOT_YET : Replacements.NEVER;
     coarseLock = new ReentrantReadWriteLock();
+  }
+
+  /** Releases the write locks that reset evaluations kept but that were never restarted. */
+  public void releaseWriteLocksKeptForRestart() {
+    writeLocksKeptForRestart.forEach(
+        (key, lock) -> {
+          if (writeLocksKeptForRestart.remove(key, lock)) {
+            lock.unlockWrite();
+          }
+        });
   }
 
   /**
@@ -137,27 +150,30 @@ public final class RewindingSynchronizer {
   }
 
   /** Acquires the exclusive lock for the given producer key. */
-  public SilentCloseable acquireWriteLock(Object key) throws InterruptedException {
+  public TransferableWriteLock acquireWriteLock(Object key) throws InterruptedException {
     if (replacements != Replacements.POSSIBLE) {
       // This producer creates its outputs rather than replacing ones that consumers may be reading.
-      return () -> {};
+      return TransferableWriteLock.noop();
     }
-    var localCoarseLock = coarseLock;
-    if (localCoarseLock != null) {
-      // Wait for the holders of the shared lock and switch all later consumers to per-key ones.
-      Lock coarseWriteLock = localCoarseLock.writeLock();
-      coarseWriteLock.lockInterruptibly();
-      try {
-        coarseLock = null;
-      } finally {
-        coarseWriteLock.unlock();
+    ReaderPreferringReadWriteLock writeLock = writeLocksKeptForRestart.remove(key);
+    if (writeLock == null) {
+      var localCoarseLock = coarseLock;
+      if (localCoarseLock != null) {
+        // Wait for the holders of the shared lock and switch all later consumers to per-key ones.
+        Lock coarseWriteLock = localCoarseLock.writeLock();
+        coarseWriteLock.lockInterruptibly();
+        try {
+          coarseLock = null;
+        } finally {
+          coarseWriteLock.unlock();
+        }
       }
+      // The lock is not owned by a thread, which also allows a reset Skyframe evaluation to
+      // transfer it to its restarted worker thread.
+      writeLock = locks.get(key);
+      writeLock.lockWriteInterruptibly();
     }
-    // The lock is not owned by a thread, which allows it to be released by a thread other than the
-    // one that acquired it.
-    ReaderPreferringReadWriteLock writeLock = locks.get(key);
-    writeLock.lockWriteInterruptibly();
-    return writeLock::unlockWrite;
+    return new TransferableWriteLock(this, key, writeLock);
   }
 
   /**
@@ -193,9 +209,62 @@ public final class RewindingSynchronizer {
     return () -> unlockReadInReverseOrder(locksToRelease);
   }
 
+  private void keepWriteLockForRestart(Object key, ReaderPreferringReadWriteLock writeLock) {
+    Preconditions.checkState(
+        writeLocksKeptForRestart.putIfAbsent(key, writeLock) == null,
+        "write lock already kept for restart: %s",
+        key);
+  }
+
   private static void unlockReadInReverseOrder(ImmutableList<ReaderPreferringReadWriteLock> locks) {
     for (int i = locks.size() - 1; i >= 0; i--) {
       locks.get(i).unlockRead();
+    }
+  }
+
+  /** A write lock that can be transferred to a restarted Skyframe evaluation. */
+  public static final class TransferableWriteLock implements SilentCloseable {
+    @Nullable private final RewindingSynchronizer synchronizer;
+    @Nullable private final Object key;
+    @Nullable private final ReaderPreferringReadWriteLock writeLock;
+    private boolean closed;
+
+    private TransferableWriteLock(
+        @Nullable RewindingSynchronizer synchronizer,
+        @Nullable Object key,
+        @Nullable ReaderPreferringReadWriteLock writeLock) {
+      this.synchronizer = synchronizer;
+      this.key = key;
+      this.writeLock = writeLock;
+    }
+
+    /** Returns a lock that performs no synchronization. */
+    public static TransferableWriteLock noop() {
+      return new TransferableWriteLock(
+          /* synchronizer= */ null, /* key= */ null, /* writeLock= */ null);
+    }
+
+    /** Keeps the lock held for the next evaluation of the same producer after a reset. */
+    public synchronized void keepLockedForRestart() {
+      if (closed) {
+        return;
+      }
+      if (synchronizer != null) {
+        synchronizer.keepWriteLockForRestart(
+            Preconditions.checkNotNull(key), Preconditions.checkNotNull(writeLock));
+      }
+      closed = true;
+    }
+
+    @Override
+    public synchronized void close() {
+      if (closed) {
+        return;
+      }
+      if (writeLock != null) {
+        writeLock.unlockWrite();
+      }
+      closed = true;
     }
   }
 }
