@@ -570,15 +570,17 @@ release_archive(
 release_archive(
     name = "java_tools_prebuilt_zip",
     src_map = {
-        "//tools/jdk:BUILD.java_tools_prebuilt": "BUILD",
+        "//tools/jdk:java_tools_prebuilt_build_file": "BUILD",
     },
     visibility = ["//src/test/shell/bazel:__pkg__"],
     deps = [
-        ":turbine_direct_graal_zip",
         "//src/tools/one_version:one_version_deploy_zip",
         "//src/tools/singlejar:singlejar_deploy_zip",
         "//third_party/ijar:ijar_deploy_zip",
-    ],
+    ] + select({
+        "//src/conditions:darwin_x86_64": [],
+        "//conditions:default": [":turbine_direct_graal_zip"],
+    }),
 )
 
 # Following targets used by the java_tools_binaries Buildkite pipeline to upload

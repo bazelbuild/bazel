@@ -155,6 +155,8 @@ tasks:
       - "+//src/test/shell/bazel/apple/..."
       # Add back one bootstrap test for Intel Mac
       - "+//src/test/shell/bazel:bazel_bootstrap_distfile_test"
+      # Add back head java tools tests for Intel Mac
+      - "+//src/test/shell/bazel:bazel_java_toolchain_head_tests"
     include_json_profile:
       - build
       - test
