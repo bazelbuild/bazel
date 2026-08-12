@@ -37,15 +37,4 @@ filegroup(
     ) or fail("No ijar binary found"),
 )
 
-# LINT.ThenChange(//tools/jdk/BUILD.java_tools_prebuilt_darwin_x86_64)
-
-filegroup(
-    name = "turbine_direct_graal",
-    srcs = glob(
-        [
-            "java_tools/turbine_direct_graal",
-            "java_tools/turbine_direct_graal.exe",
-        ],
-        allow_empty = True,
-    ) or fail("No turbine_direct_graal binary found"),
-)
+# LINT.ThenChange(//tools/jdk/BUILD.java_tools_prebuilt)
