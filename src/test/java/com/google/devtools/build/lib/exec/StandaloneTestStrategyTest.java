@@ -25,6 +25,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.MoreCollectors;
 import com.google.devtools.build.lib.actions.ActionContext;
@@ -36,17 +37,17 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.AttemptGroup;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.ProcessedAttemptResult;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.TestRunnerSpawn;
+import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.analysis.test.TestAttempt;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions.CancelConcurrentTests;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.analysis.test.TestStrategy;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestResult.ExecutionInfo;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestStatus;
+import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
@@ -66,15 +68,17 @@ import com.google.devtools.build.lib.exec.StandaloneTestStrategy.StandaloneProce
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.runtime.TestSummaryOptions;
-import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.common.options.Options;
@@ -223,6 +227,45 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     Path outPath = tmpDirRoot.getRelative("test-out.txt");
     Path errPath = tmpDirRoot.getRelative("test-err.txt");
     return new FileOutErr(outPath, errPath);
+  }
+
+  @Test
+  public void cachedTestResult_outputsNotOnActionFileSystem() throws Exception {
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    TestedStandaloneTestStrategy standaloneTestStrategy =
+        new TestedStandaloneTestStrategy(executionOptions, TestSummaryOptions.DEFAULTS, tmpDirRoot);
+    scratch.file("standalone/simple_test.sh", "this does not get executed, it is mocked out");
+    scratch.file(
+        "standalone/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "simple_test",
+            size = "small",
+            srcs = ["simple_test.sh"],
+        )
+        """);
+    TestRunnerAction testRunnerAction = getTestAction("//standalone:simple_test");
+
+    // A declared test output is resolved through the action filesystem, which is scoped to the
+    // action, so it must not end up in the reported outputs. See #24527.
+    FileSystem actionFileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path testLogOnActionFileSystem =
+        actionFileSystem.getPath(testRunnerAction.getTestLog().getPath().asFragment());
+
+    TestResult result =
+        standaloneTestStrategy.newCachedTestResult(
+            rootDirectory,
+            testRunnerAction,
+            TestResultData.newBuilder().setTestPassed(true).build(),
+            ImmutableMultimap.of(TestFileNameConstants.TEST_LOG, testLogOnActionFileSystem));
+
+    TestAttempt attempt = Iterables.getOnlyElement(result.getCachedTestAttempts());
+    Path reported =
+        Iterables.getOnlyElement(attempt.getFiles().get(TestFileNameConstants.TEST_LOG));
+    assertThat(reported.asFragment()).isEqualTo(testLogOnActionFileSystem.asFragment());
+    assertThat(reported.getFileSystem()).isNotSameInstanceAs(actionFileSystem);
   }
 
   private TestRunnerAction getTestAction(String target) throws Exception {
