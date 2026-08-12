@@ -370,6 +370,24 @@ public final class StaticTypeCheckTest {
     assertInvalid("cannot assign type 'str' to 'x' of type 'int'", "x: int = PREDECLARED_STR");
   }
 
+  @Test
+  public void callbackTypes() throws Exception {
+    /*
+    assertValid(
+        """
+        def negate(x: int) -> int:
+            return -x
+
+        min([1, 2, 3], key = negate)
+        max([1, 2, 3], key = lambda x: -x)
+        min([-1, -2, -3], key = abs)
+        """);
+            */
+    assertInvalid(
+        "parameter 'key' got value of type 'str', want 'Callable|None'",
+        "x: Any = min([1, 2, 3], key = 'abc')");
+  }
+
   // No StarlarkBuiltin annotation.
   public static final class MyUnannotatedType implements StarlarkValue {}
 
@@ -428,7 +446,7 @@ public final class StaticTypeCheckTest {
         public ImmutableList<StarlarkType> getSupertypes(TypeContext context) {
           return ImmutableList.of(
               // Nullary callable returning int.
-              Types.callable(
+              Types.generalCallable(
                   ImmutableList.of(),
                   ImmutableList.of(),
                   0,

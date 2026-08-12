@@ -736,6 +736,20 @@ public final class ParserTest {
   }
 
   @Test
+  public void testKeywordArgumentNameMustNotBeParenthesized() throws Exception {
+    assertThat(parseExpressionError("f((x) = 1)"))
+        .contains("keyword argument must have form name=expr");
+    assertThat(parseExpressionError("f(y = 0, (x) = 1)"))
+        .contains("keyword argument must have form name=expr");
+
+    // The forms that stay legal: a bare keyword, and a parenthesized
+    // expression passed positionally.
+    parseExpression("f(x = 1)");
+    parseExpression("f((x))");
+    parseExpression("f((x), y = 1)");
+  }
+
+  @Test
   public void testSuffixPosition() throws Exception {
     assertExpressionLocationCorrect("'a'.len");
     assertExpressionLocationCorrect("'a'[0]");
