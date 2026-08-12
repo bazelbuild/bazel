@@ -374,13 +374,18 @@ public class BzlLoadFunction implements SkyFunction {
 
   /** Re-initializes the bzl inlining cache, if this instance uses one. No-op otherwise. */
   public void resetInliningCache() {
-    inlineCacheManager.reset(/* resetBuiltins= */ false);
+    if (inlineCacheManager != null) {
+      inlineCacheManager.reset(/* resetBuiltins= */ false);
+    }
   }
 
-  /** Re-initializes the bzl inlining cache, if this instance uses one. No-op otherwise. */
-  @VisibleForTesting
-  public void resetInliningCacheAndBuiltinsForTesting() {
-    inlineCacheManager.reset(/* resetBuiltins= */ true);
+  /**
+   * Re-initializes the bzl inlining cache and builtins, if this instance uses one. No-op otherwise.
+   */
+  public void resetInliningCacheAndBuiltins() {
+    if (inlineCacheManager != null) {
+      inlineCacheManager.reset(/* resetBuiltins= */ true);
+    }
   }
 
   /**
