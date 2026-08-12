@@ -47,9 +47,14 @@ public record BuildOptionsScopeValue(
    *
    * <p>Callers that hold a value computed for a superset of the flags they care about can use it
    * instead of asking Skyframe for one computed for the exact set.
+   *
+   * <p>This runs on every transitioned dependency edge, so it starts with a reference check. That
+   * hits whenever {@code flags} is the very key set this value was computed from, which {@code
+   * ImmutableMap} hands out repeatedly for the same map: a transition that doesn't touch Starlark
+   * flags passes its input {@code BuildOptions} straight through.
    */
   public boolean covers(Set<Label> flags) {
-    return starlarkFlags.containsAll(flags);
+    return starlarkFlags == flags || starlarkFlags.containsAll(flags);
   }
 
   /** Key for {@link BuildOptionsScopeValue}. */
