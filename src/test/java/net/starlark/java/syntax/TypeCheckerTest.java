@@ -1663,9 +1663,8 @@ public final class TypeCheckerTest {
             return 0
         """);
 
-    // Function type unions and Any/ANY_CALLABLE handling
+    // Function type unions and Any handling
     assertTypeGivenDecls("f(42)", Types.ANY, "f: Any");
-    assertTypeGivenDecls("f(42)", Types.ANY, "f: Callable");
     assertTypeGivenDecls(
         "(f if 1 else g)(42)",
         Types.union(Types.INT, Types.STR),
@@ -1683,6 +1682,12 @@ public final class TypeCheckerTest {
             return x
         g: Any
         """);
+
+    // Simple callable types (produced by `Callable` application)
+    assertTypeGivenDecls("f(42)", Types.ANY, "f: Callable");
+    assertTypeGivenDecls("f(42)", Types.BOOL, "f: Callable[[int], bool]");
+    assertTypeGivenDecls("f(1, 2.5, 3, x=[])", Types.STR, "f: Callable[[int, float, ...], str]");
+    assertTypeGivenDecls("f(1, 2.5, 3, x=[])", Types.STR, "f: Callable[..., str]");
 
     // Omitted return type is Any
     assertTypeGivenDecls(
@@ -1731,7 +1736,7 @@ public final class TypeCheckerTest {
         f(42)
         """);
     assertInvalid(
-        "'f if 1 else g' is not callable; got type 'Callable[[int], int]|int'",
+        "'f if 1 else g' is not callable; got type '<def (x: int) -> int>|int'",
         """
         def f(x: int) -> int:
             return x
@@ -1750,12 +1755,24 @@ public final class TypeCheckerTest {
             return 0
         f(123, "hello")
         """);
+    assertInvalid(
+        "in call to 'f()', parameter #2 got value of type 'str', want 'int'",
+        """
+        f: Callable[[Any, int], int]
+        f(123, "hello")
+        """);
     // Too many positionals
     assertInvalid(
-        "'f()' accepts no more than 2 positional arguments but got 3",
+        "'f()' accepts exactly 2 positional arguments but got 3",
         """
         def f(x: int, y: int) -> int:
             return 0
+        f(1, 2, 3)
+        """);
+    assertInvalid(
+        "'f()' accepts exactly 1 positional argument but got 3",
+        """
+        f: Callable[[int], int]
         f(1, 2, 3)
         """);
     // Unexpected arguments
@@ -1766,12 +1783,30 @@ public final class TypeCheckerTest {
             return 0
         f(x = 1, mispelled = 2)
         """);
+    assertInvalid(
+        "'f()' got unexpected keyword argument: named",
+        """
+        f: Callable[[int], int]
+        f(1, named = 2)
+        """);
     // Missing required arguments
     assertInvalid(
         "'f()' missing 1 required argument: y",
         """
         def f(x: int, y: int) -> int:
             return 0
+        f(42)
+        """);
+    assertInvalid(
+        "'f()' accepts exactly 2 positional arguments but got 1",
+        """
+        f: Callable[[int, int], int]
+        f(42)
+        """);
+    assertInvalid(
+        "'f()' accepts 2 or more positional arguments but got 1",
+        """
+        f: Callable[[int, int, ...], int]
         f(42)
         """);
     assertInvalid(

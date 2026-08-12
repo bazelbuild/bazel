@@ -400,6 +400,9 @@ public class TypesTest {
     // ANY_CALLABLE is assignable to and from any other callable type.
     assertLtAndGt(
         Types.ANY_CALLABLE,
+        Types.simpleCallable(ImmutableList.of(Types.INT, Types.STR), true, Types.BOOL));
+    assertLtAndGt(
+        Types.ANY_CALLABLE,
         Types.generalCallable(
             ImmutableList.of("x", "y"),
             ImmutableList.of(Types.INT, Types.STR),
@@ -409,6 +412,8 @@ public class TypesTest {
             Types.INT,
             Types.STR,
             Types.BOOL));
+
+    // TODO: #27370 - Fix assignability hierarchy for callable types.
   }
 
   @Test
