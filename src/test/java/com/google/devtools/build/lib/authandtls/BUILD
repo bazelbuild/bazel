@@ -37,7 +37,9 @@ java_library(
         "//third_party:auth",
         "//third_party:guava",
         "//third_party:junit4",
+        "//third_party:netty",
         "//third_party:truth",
+        "//third_party/grpc-java:grpc-jar",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )

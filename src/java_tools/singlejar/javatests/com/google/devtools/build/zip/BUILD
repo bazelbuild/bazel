@@ -26,6 +26,23 @@ java_test(
     runtime_deps = [":zip_tests"],
 )
 
+# DOS timestamps are always interpreted in the local time zone, so packaging is exercised on both
+# sides of UTC: behind it, an instant pinned to UTC midnight falls before the DOS epoch and is not
+# representable at all, ahead of it, it records a later time of day than on a UTC machine.
+java_test(
+    name = "PackageZipperTest_behind_utc",
+    env = {"TZ": "America/Los_Angeles"},
+    test_class = "com.google.devtools.build.zip.PackageZipperTest",
+    runtime_deps = [":zip_tests"],
+)
+
+java_test(
+    name = "PackageZipperTest_ahead_of_utc",
+    env = {"TZ": "Europe/Berlin"},
+    test_class = "com.google.devtools.build.zip.PackageZipperTest",
+    runtime_deps = [":zip_tests"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["*.java"]) + ["BUILD"],

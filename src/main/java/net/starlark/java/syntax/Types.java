@@ -79,7 +79,9 @@ public final class Types {
 
   // A frequently used function without parameters, that returns Any.
   public static final CallableType NO_PARAMS_CALLABLE =
-      callable(ImmutableList.of(), ImmutableList.of(), 0, 0, ImmutableSet.of(), null, null, ANY);
+      generalCallable(
+          ImmutableList.of(), ImmutableList.of(), 0, 0, ImmutableSet.of(), null, null, ANY);
+  public static final CallableType ANY_CALLABLE = new AnyCallableType();
 
   public static final TypeConstructor ANY_CONSTRUCTOR = wrapType("Any", ANY);
   public static final TypeConstructor OBJECT_CONSTRUCTOR = wrapType("object", OBJECT);
@@ -99,6 +101,8 @@ public final class Types {
   public static final TypeConstructor MAPPING_CONSTRUCTOR =
       wrapTypeConstructor("Mapping", Types::mapping);
   public static final TypeConstructor STRUCT_CONSTRUCTOR = wrapStructConstructor();
+  // TODO: #27370 - allow more complex callable types to be constructed.
+  public static final TypeConstructor CALLABLE_CONSTRUCTOR = wrapType("Callable", ANY_CALLABLE);
 
   private Types() {} // uninstantiable
 
@@ -122,7 +126,8 @@ public final class Types {
         .put("tuple", TUPLE_CONSTRUCTOR)
         .put("Collection", COLLECTION_CONSTRUCTOR)
         .put("Sequence", SEQUENCE_CONSTRUCTOR)
-        .put("Mapping", MAPPING_CONSTRUCTOR);
+        .put("Mapping", MAPPING_CONSTRUCTOR)
+        .put("Callable", CALLABLE_CONSTRUCTOR);
     return env.buildOrThrow();
   }
 
@@ -160,7 +165,8 @@ public final class Types {
     // `Any <op> T` could be application-dependent even if T is a universal built-in type.
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         case IN, NOT_IN ->
             // If we are the LHS, fall through to RHS's inferBinaryOperator; RHS determines whether
@@ -313,7 +319,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         case PLUS, MINUS, PERCENT, SLASH_SLASH -> NUMERIC.getTypes().contains(that) ? that : null;
         case SLASH -> NUMERIC.getTypes().contains(that) ? Types.FLOAT : null;
@@ -354,7 +361,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         case PLUS, MINUS, PERCENT, SLASH, SLASH_SLASH, STAR ->
             NUMERIC.getTypes().contains(that) ? Types.FLOAT : null;
@@ -389,7 +397,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         case PLUS -> that.equals(STR) ? STR : null;
         case PERCENT ->
@@ -416,8 +425,8 @@ public final class Types {
     }
   }
 
-  /** Construct a CallableType representing a Starlark Function */
-  public static CallableType callable(
+  /** Construct a CallableType representing a Starlark function. */
+  public static GeneralCallableType generalCallable(
       ImmutableList<String> parameterNames,
       ImmutableList<StarlarkType> parameterTypes,
       int numPositionalOnlyParameters,
@@ -436,10 +445,10 @@ public final class Types {
         parameterTypes,
         numPositionalOnlyParameters,
         numPositionalParameters,
-        mandatoryParams,
         varargsType,
         kwargsType,
-        returns);
+        returns,
+        mandatoryParams);
   }
 
   /**
@@ -481,7 +490,9 @@ public final class Types {
 
     public abstract int getNumPositionalParameters();
 
-    public abstract ImmutableSet<String> getMandatoryParameters();
+    public abstract int getNumMandatoryParameters();
+
+    public abstract boolean isMandatory(int i);
 
     @Nullable
     public abstract StarlarkType getVarargsType();
@@ -493,6 +504,16 @@ public final class Types {
 
     public StarlarkType getParameterTypeByPos(int i) {
       return getParameterTypes().get(i);
+    }
+
+    @Override
+    public boolean assignableFromHook(StarlarkType that, TypeContext context) {
+      if (that instanceof CallableType) {
+        return this.equals(Types.ANY_CALLABLE)
+            || that.equals(Types.ANY_CALLABLE)
+            || this.equals(that);
+      }
+      return false;
     }
 
     @Override
@@ -512,9 +533,8 @@ public final class Types {
       // positional parameters
       int i = 0;
       for (; i < getNumPositionalOnlyParameters(); i++) {
-        String name = getParameterNames().get(i);
         StarlarkType type = getParameterTypeByPos(i);
-        if (getMandatoryParameters().contains(name)) {
+        if (isMandatory(i)) {
           params.add(type.toString());
         } else {
           params.add("[" + type + "]");
@@ -528,7 +548,7 @@ public final class Types {
       for (; i < getNumPositionalParameters(); i++) {
         String name = getParameterNames().get(i);
         StarlarkType type = getParameterTypeByPos(i);
-        if (getMandatoryParameters().contains(name)) {
+        if (isMandatory(i)) {
           params.add(name + ": " + type);
         } else {
           params.add(name + ": [" + type + "]");
@@ -545,7 +565,7 @@ public final class Types {
       for (; i < getParameterTypes().size(); i++) {
         String name = getParameterNames().get(i);
         String type = getParameterTypeByPos(i).toString();
-        if (getMandatoryParameters().contains(name)) {
+        if (isMandatory(i)) {
           params.add(name + ": " + type);
         } else {
           params.add(name + ": [" + type + "]");
@@ -564,7 +584,93 @@ public final class Types {
   // About 0.1% memory regression may be removed by specializing GeneralCallableType for function
   // without positional-only parameter and by retrieving parameter names from StarlarkFunction
   @AutoValue
-  abstract static class GeneralCallableType extends CallableType {}
+  abstract static class GeneralCallableType extends CallableType {
+    public abstract ImmutableSet<String> getMandatoryParameters();
+
+    @Override
+    public int getNumMandatoryParameters() {
+      return getMandatoryParameters().size();
+    }
+
+    @Override
+    public boolean isMandatory(int i) {
+      if (i < 0 || i >= getParameterNames().size()) {
+        return false;
+      }
+      return getMandatoryParameters().contains(getParameterNames().get(i));
+    }
+  }
+
+  /**
+   * A callable type which is assignable to and from any other callable type; represents a function
+   * with an unspecified signature.
+   */
+  public static final class AnyCallableType extends CallableType {
+    // Singleton.
+    private AnyCallableType() {}
+
+    @Override
+    public String toString() {
+      return "Callable";
+    }
+
+    @Override
+    public ImmutableList<String> getParameterNames() {
+      return ImmutableList.of();
+    }
+
+    @Override
+    public ImmutableList<StarlarkType> getParameterTypes() {
+      return ImmutableList.of();
+    }
+
+    @Override
+    public int getNumPositionalOnlyParameters() {
+      return 0;
+    }
+
+    @Override
+    public int getNumPositionalParameters() {
+      return 0;
+    }
+
+    @Override
+    public int getNumMandatoryParameters() {
+      return 0;
+    }
+
+    @Override
+    public boolean isMandatory(int i) {
+      return false;
+    }
+
+    @Nullable
+    @Override
+    public StarlarkType getVarargsType() {
+      return Types.ANY;
+    }
+
+    @Nullable
+    @Override
+    public StarlarkType getKwargsType() {
+      return Types.ANY;
+    }
+
+    @Override
+    public StarlarkType getReturnType() {
+      return Types.ANY;
+    }
+
+    @Override
+    public int hashCode() {
+      return AnyCallableType.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof AnyCallableType;
+    }
+  }
 
   /**
    * Constructs a union type.
@@ -700,7 +806,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         case PLUS ->
             that instanceof BaseListType thatList
@@ -911,7 +1018,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         case AMPERSAND, MINUS ->
             // TODO: #27370 - we may want to tighten the type of a set intersection, but it's
@@ -957,7 +1065,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         case PLUS -> that instanceof TupleType rhsTuple ? concatenate(rhsTuple) : null;
         // Special case handled by TypeChecker.inferTupleRepetition.
@@ -1173,7 +1282,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType that, boolean thisLeft) {
       return switch (operator) {
         // `in` and `not in` are always valid for collections on the RHS.
         case IN, NOT_IN -> thisLeft ? null : BOOL;
@@ -1333,7 +1443,8 @@ public final class Types {
 
     @Override
     @Nullable
-    StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType rhs, boolean thisLeft) {
+    public StarlarkType inferBinaryOperator(
+        TokenKind operator, StarlarkType rhs, boolean thisLeft) {
       return switch (operator) {
         case PIPE ->
             // TODO: #27370 - mypy supports dict | dict, but doesn't support the | operator for
@@ -1512,7 +1623,7 @@ public final class Types {
     }
   }
 
-  static TypeConstructor.AllowingNullary wrapType(String name, StarlarkType type) {
+  static TypeConstructor wrapType(String name, StarlarkType type) {
     return argsTuple -> {
       if (!argsTuple.isEmpty()) {
         throw new TypeConstructor.Failure(String.format("'%s' does not accept arguments", name));
@@ -1521,8 +1632,7 @@ public final class Types {
     };
   }
 
-  public static TypeConstructor.AllowingNullary wrapType(
-      String name, Supplier<StarlarkType> typeSupplier) {
+  public static TypeConstructor wrapType(String name, Supplier<StarlarkType> typeSupplier) {
     return argsTuple -> {
       if (!argsTuple.isEmpty()) {
         throw new TypeConstructor.Failure(String.format("'%s' does not accept arguments", name));
@@ -1551,7 +1661,7 @@ public final class Types {
    * factory, or with zero arguments, in which case the factory is invoked with {@link #ANY}. (This
    * allows, for instance, {@code list} to be treated as syntactic sugar for {@code list[Any]}.)
    */
-  public static TypeConstructor.AllowingNullary wrapTypeConstructor(
+  public static TypeConstructor wrapTypeConstructor(
       String name, Function<StarlarkType, StarlarkType> factory) {
     final StarlarkType nullaryType = factory.apply(ANY);
     return args -> {
@@ -1575,7 +1685,7 @@ public final class Types {
    * both arguments. (This allows, for instance, {@code dict} to be treated as syntactic sugar for
    * {@code dict[Any, Any]}.)
    */
-  public static TypeConstructor.AllowingNullary wrapTypeConstructor(
+  public static TypeConstructor wrapTypeConstructor(
       String name, BiFunction<StarlarkType, StarlarkType, StarlarkType> factory) {
     final StarlarkType nullaryType = factory.apply(ANY, ANY);
     return args -> {
@@ -1590,7 +1700,7 @@ public final class Types {
     };
   }
 
-  private static TypeConstructor.AllowingNullary wrapTupleConstructor() {
+  private static TypeConstructor wrapTupleConstructor() {
     // This is a function instead of a constant, so that the order of evaluation doesn't depend on
     // the position in the class.
     return args -> {
@@ -1624,7 +1734,7 @@ public final class Types {
     };
   }
 
-  private static final TypeConstructor.AllowingNullary wrapStructConstructor() {
+  private static final TypeConstructor wrapStructConstructor() {
     return args -> {
       if (args.isEmpty()) {
         // `struct` is equivalent to `struct[{}, ...]`

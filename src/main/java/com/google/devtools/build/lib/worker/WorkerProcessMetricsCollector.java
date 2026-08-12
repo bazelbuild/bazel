@@ -250,22 +250,27 @@ public class WorkerProcessMetricsCollector {
       boolean isSandboxed,
       int workerKeyHash,
       @Nullable Cgroup cgroup) {
+    Instant now = Instant.ofEpochMilli(clock != null ? clock.currentTimeMillis() : 0);
     WorkerProcessMetrics workerMetric =
         pidToWorkerProcessMetrics.computeIfAbsent(
             processId,
-            (pid) ->
-                new WorkerProcessMetrics(
-                    workerId,
-                    processId,
-                    status,
-                    mnemonic,
-                    isMultiplex,
-                    isSandboxed,
-                    workerKeyHash));
+            (pid) -> {
+              WorkerProcessMetrics metrics =
+                  new WorkerProcessMetrics(
+                      workerId,
+                      processId,
+                      status,
+                      mnemonic,
+                      isMultiplex,
+                      isSandboxed,
+                      workerKeyHash);
+              metrics.setLastCallTime(now);
+              return metrics;
+            });
     if (cgroup != null) {
       pidToCgroups.putIfAbsent(processId, cgroup);
     }
-    workerMetric.setLastCallTime(Instant.ofEpochMilli(clock.currentTimeMillis()));
+    workerMetric.setLastCallTime(now);
     workerMetric.maybeAddWorkerId(workerId, status);
   }
 

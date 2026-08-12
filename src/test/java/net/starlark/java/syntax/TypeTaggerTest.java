@@ -66,7 +66,7 @@ public class TypeTaggerTest {
     }
 
     @Nullable
-    private Types.CallableType getType(Resolver.Function function) {
+    private Types.GeneralCallableType getType(Resolver.Function function) {
       return typeTable().getType(function);
     }
 
@@ -104,14 +104,14 @@ public class TypeTaggerTest {
 
     /** Returns the type of a {@code def}'s resolved function. */
     @Nullable
-    private Types.CallableType getType(DefStatement def) {
+    private Types.GeneralCallableType getType(DefStatement def) {
       assertThat(def.getResolvedFunction()).isNotNull();
       return getType(def.getResolvedFunction());
     }
 
     /** Returns the type of a {@code lambda}'s resolved function. */
     @Nullable
-    private Types.CallableType getType(LambdaExpression lambda) {
+    private Types.GeneralCallableType getType(LambdaExpression lambda) {
       assertThat(lambda.getResolvedFunction()).isNotNull();
       return getType(lambda.getResolvedFunction());
     }
@@ -419,7 +419,8 @@ public class TypeTaggerTest {
             def f(a : int, b = 1, *c : bool, d : str = "abc", e, **f : int) -> bool:
                 pass
             """);
-    Types.CallableType type = result.getType(getFirstStatement(DefStatement.class, result.file()));
+    Types.GeneralCallableType type =
+        result.getType(getFirstStatement(DefStatement.class, result.file()));
 
     assertThat(type).isNotNull();
     assertThat(type.getParameterNames()).containsExactly("a", "b", "d", "e").inOrder();
@@ -868,7 +869,25 @@ public class TypeTaggerTest {
   }
 
   @Test
-  public void typeAlias_requiresCorrectNumberOfTypeArgs() throws Exception {
+  public void typeAliasWithArgs_mayBeUsedWithoutTypeArgs() throws Exception {
+    // If an alias is invoked with no arguments, the type arguments are set to `Any`.
+    Result result =
+        tagFile(
+            """
+            type optional_list[T] = list[T] | None
+            type dict_or_mapping[K, V] = dict[K, V] | Mapping[K, V]
+
+            x: optional_list
+            y: dict_or_mapping
+            """);
+    assertThat(result.getType("x")).isEqualTo(Types.union(Types.list(Types.ANY), Types.NONE));
+    assertThat(result.getType("y"))
+        .isEqualTo(
+            Types.union(Types.dict(Types.ANY, Types.ANY), Types.mapping(Types.ANY, Types.ANY)));
+  }
+
+  @Test
+  public void typeAlias_requiresCorrectNonzeroNumberOfTypeArgs() throws Exception {
     assertInvalid(
         "'int_or_str' does not accept arguments",
         """
@@ -876,10 +895,10 @@ public class TypeTaggerTest {
         x: int_or_str[int]
         """);
     assertInvalid(
-        "optional_list[] accepts exactly 1 argument but got 0",
+        "optional_list[] accepts exactly 1 argument but got 2",
         """
         type optional_list[T] = list[T] | None
-        x: optional_list
+        x: optional_list[int, float]
         """);
     assertInvalid(
         "optional_dict[] accepts exactly 2 arguments but got 1",

@@ -554,7 +554,7 @@ that is, it configures its tools in the [exec configuration]
 You can see the lingering effects of that transition below.
 
 <pre>
-$ cat > foo/BUILD <<<EOF
+$ cat > foo/BUILD &lt;&lt;&lt;EOF
 genrule(
     name = "my_gen",
     srcs = ["x.in"],

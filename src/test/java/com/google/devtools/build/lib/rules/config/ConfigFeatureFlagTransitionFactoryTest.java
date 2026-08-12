@@ -111,8 +111,12 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
         "tools/allowlists/config_feature_flag/BUILD",
         """
         package_group(
-            name = "config_feature_flag_setter,
-            packages = ['//...'],
+            name = "config_feature_flag",
+            packages = ["//..."],
+        )
+        package_group(
+            name = "config_feature_flag_setter",
+            packages = ["//..."],
         )
         """);
     scratch.overwriteFile(

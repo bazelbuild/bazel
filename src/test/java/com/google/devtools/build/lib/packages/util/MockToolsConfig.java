@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages.util;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -29,6 +30,7 @@ import javax.annotation.Nullable;
 /** Configuration for the mock client setup that we use for testing. */
 public final class MockToolsConfig {
 
+  private final FileSystem nativeFs = FileSystems.getNativeFileSystem();
   private final Path rootDirectory;
   private final boolean realFileSystem;
 
@@ -171,9 +173,7 @@ public final class MockToolsConfig {
   public void copyTool(PathFragment rlocationPath, String dest) throws IOException {
     // Tests are assumed to be run from the main repository only.
     Runfiles runfiles = Runfiles.preload().withSourceRepository("");
-    Path source =
-        FileSystems.getNativeFileSystem()
-            .getPath(runfiles.rlocation(rlocationPath.getPathString()));
+    Path source = nativeFs.getPath(runfiles.rlocation(rlocationPath.getPathString()));
     overwrite(dest, FileSystemUtils.readLinesAsLatin1(source).toArray(String[]::new));
   }
 
@@ -214,8 +214,7 @@ public final class MockToolsConfig {
   public void copyDirectory(PathFragment path, String to, int depth, boolean useEmptyBuildFiles)
       throws IOException {
     // Tests are assumed to be run from the main repository only.
-    java.nio.file.Path source =
-        FileSystems.getNativeFileSystem().getPath(path).getPathFile().toPath();
+    java.nio.file.Path source = nativeFs.getPath(path).getPathFile().toPath();
     try (Stream<java.nio.file.Path> stream = Files.walk(source, depth)) {
       stream
           .filter(f -> f.toFile().isFile())

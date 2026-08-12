@@ -787,17 +787,22 @@ void TrySleep(unsigned int milliseconds) {
 
 string GetUserName() {
   string user = GetEnv("USER");
-  if (!user.empty()) {
-    return user;
+  if (user.empty()) {
+    errno = 0;
+    passwd* pwent = getpwuid(getuid());  // NOLINT (single-threaded)
+    if (pwent == nullptr || pwent->pw_name == nullptr) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "$USER is not set, and unable to look up name of current user: "
+          << GetLastErrorString();
+    }
+    user = pwent->pw_name;
   }
-  errno = 0;
-  passwd* pwent = getpwuid(getuid());  // NOLINT (single-threaded)
-  if (pwent == nullptr || pwent->pw_name == nullptr) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "$USER is not set, and unable to look up name of current user: "
-        << GetLastErrorString();
-  }
-  return pwent->pw_name;
+  // Replace slashes and backslashes with underscores so that usernames like
+  // "DOMAIN\\user" or "foo/bar" do not cause issues in paths (e.g.
+  // output_user_root). See https://github.com/bazelbuild/bazel/issues/20289
+  std::replace(user.begin(), user.end(), '/', '_');
+  std::replace(user.begin(), user.end(), '\\', '_');
+  return user;
 }
 
 bool IsEmacsTerminal() {
@@ -820,10 +825,12 @@ bool IsStandardTerminal() {
     return true;
   }
   if (term.empty() || term == "dumb" || term == "emacs" ||
-      term == "xterm-mono" || term == "symbolics" || term == "9term" ||
-      isEmacs) {
+      term == "xterm-mono" || term == "symbolics" || term == "9term") {
     return false;
   }
+  // For Emacs terminals (other than eterm-color), allow colors if they're a
+  // TTY. This supports modern Emacs terminal packages like 'eat' that set
+  // INSIDE_EMACS and support color output.
   return isatty(STDOUT_FILENO) && isatty(STDERR_FILENO);
 }
 

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -29,11 +30,15 @@ import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Restart;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalPhase;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievedValue;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier.Peer;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
+import com.google.devtools.build.lib.util.DecimalBucketer;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -54,14 +59,27 @@ public class RemoteAnalysisCachingEventListener {
     }
   }
 
+  /** A SkyFunction/retrieval phase pair for logging. */
+  public record FunctionAndPhase(SkyFunctionName functionName, RetrievalPhase phase) {
+    public FunctionAndPhase {
+      checkNotNull(functionName);
+      checkNotNull(phase);
+    }
+  }
+
   private final Set<SkyKey> serializedKeys = ConcurrentHashMap.newKeySet();
   private final Set<SkyKey> cacheHits = ConcurrentHashMap.newKeySet();
   private final Set<SkyKey> cacheMisses = ConcurrentHashMap.newKeySet();
+  private final ConcurrentHashMap<Peer, AtomicLong> peers = new ConcurrentHashMap<>();
   private final Set<SerializationException> serializationExceptions = ConcurrentHashMap.newKeySet();
   private final ConcurrentHashMap<SkyFunctionName, AtomicLong> hitsBySkyFunctionName =
       new ConcurrentHashMap<>();
   private final ConcurrentHashMap<SkyFunctionName, AtomicLong> missesBySkyFunctionName =
       new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<FunctionAndPhase, DecimalBucketer> hitLatenciesBySkyFunctionName =
+      new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<FunctionAndPhase, DecimalBucketer>
+      missLatenciesBySkyFunctionName = new ConcurrentHashMap<>();
 
   private final ConcurrentHashMap<MissReason, AtomicLong> missesByReason =
       new ConcurrentHashMap<>();
@@ -108,6 +126,18 @@ public class RemoteAnalysisCachingEventListener {
     return ImmutableSet.copyOf(cacheMisses);
   }
 
+  public void recordPeers(Map<Peer, AtomicLong> newPeers) {
+    if (newPeers != null) {
+      newPeers.forEach(
+          (peer, count) ->
+              this.peers.computeIfAbsent(peer, k -> new AtomicLong()).addAndGet(count.get()));
+    }
+  }
+
+  public Map<Peer, AtomicLong> getPeers() {
+    return ImmutableMap.copyOf(peers);
+  }
+
   public void recordServiceStats(
       FingerprintValueStore.Stats fvsStats, RemoteAnalysisCacheClient.Stats raccStats) {
     fingerprintValueStoreStats = checkNotNull(fvsStats);
@@ -123,7 +153,8 @@ public class RemoteAnalysisCachingEventListener {
   }
 
   @ThreadSafe
-  public void recordRetrievalResult(RetrievalResult result, SkyKey key) {
+  public void recordRetrievalResult(
+      RetrievalResult result, SkyKey key, ImmutableMap<RetrievalPhase, Long> phaseDurationMicros) {
     switch (result) {
       case RetrievedValue unusedValue -> {
         if (!cacheHits.add(key)) {
@@ -132,10 +163,28 @@ public class RemoteAnalysisCachingEventListener {
         hitsBySkyFunctionName
             .computeIfAbsent(key.functionName(), k -> new AtomicLong())
             .incrementAndGet();
+        recordLatencies(hitLatenciesBySkyFunctionName, key.functionName(), phaseDurationMicros);
       }
-      case NoCachedData(MissReason reason) -> recordCacheMiss(key, reason);
+      case NoCachedData(MissReason reason) -> recordCacheMiss(key, reason, phaseDurationMicros);
       case Restart.RESTART -> {}
     }
+  }
+
+  @VisibleForTesting
+  public void recordRetrievalResult(RetrievalResult result, SkyKey key, long elapsedTimeMicros) {
+    recordRetrievalResult(result, key, ImmutableMap.of(RetrievalPhase.TOTAL, elapsedTimeMicros));
+  }
+
+  private static void recordLatencies(
+      ConcurrentHashMap<FunctionAndPhase, DecimalBucketer> latenciesMap,
+      SkyFunctionName functionName,
+      ImmutableMap<RetrievalPhase, Long> phaseDurationMicros) {
+    phaseDurationMicros.forEach(
+        (phase, micros) ->
+            latenciesMap
+                .computeIfAbsent(
+                    new FunctionAndPhase(functionName, phase), k -> new DecimalBucketer())
+                .add(micros));
   }
 
   /** Returns the number of cache hits grouped by SkyFunction name. */
@@ -148,16 +197,30 @@ public class RemoteAnalysisCachingEventListener {
     return ImmutableMap.copyOf(missesBySkyFunctionName);
   }
 
+  /** Returns the latency distribution of cache hits grouped by SkyFunction name and Phase. */
+  public ImmutableMap<FunctionAndPhase, DecimalBucketer> getHitLatenciesBySkyFunctionName() {
+    return ImmutableMap.copyOf(hitLatenciesBySkyFunctionName);
+  }
+
+  /** Returns the latency distribution of cache misses grouped by SkyFunction name and Phase. */
+  public ImmutableMap<FunctionAndPhase, DecimalBucketer> getMissLatenciesBySkyFunctionName() {
+    return ImmutableMap.copyOf(missLatenciesBySkyFunctionName);
+  }
+
   public ImmutableMap<MissReason, AtomicLong> getMissesByReason() {
     return ImmutableMap.copyOf(missesByReason);
   }
 
   /** Records a {@link SerializationException} encountered during SkyValue retrievals. */
-  public void recordSerializationException(SerializationException e, SkyKey key) {
+  public void recordSerializationException(
+      SerializationException e,
+      SkyKey key,
+      ImmutableMap<RetrievalPhase, Long> phaseDurationMicros) {
     serializationExceptions.add(e);
-    recordCacheMiss(key, e.getReason());
+    recordCacheMiss(key, e.getReason(), phaseDurationMicros);
   }
 
+  @VisibleForTesting
   /**
    * Returns the number of {@link SerializationException}s that were thrown during this invocation.
    */
@@ -189,7 +252,8 @@ public class RemoteAnalysisCachingEventListener {
     return invalidationLookupMetrics.get();
   }
 
-  private void recordCacheMiss(SkyKey key, MissReason reason) {
+  private void recordCacheMiss(
+      SkyKey key, MissReason reason, ImmutableMap<RetrievalPhase, Long> phaseDurationMicros) {
     if (reason == MissReason.MISS_REASON_NOT_ATTEMPTED) {
       // Not actually a cache miss
       return;
@@ -201,6 +265,7 @@ public class RemoteAnalysisCachingEventListener {
     missesBySkyFunctionName
         .computeIfAbsent(key.functionName(), k -> new AtomicLong())
         .incrementAndGet();
+    recordLatencies(missLatenciesBySkyFunctionName, key.functionName(), phaseDurationMicros);
 
     missesByReason.computeIfAbsent(reason, r -> new AtomicLong()).incrementAndGet();
   }

@@ -396,10 +396,26 @@ public class TypesTest {
   }
 
   @Test
+  public void assignability_callable() {
+    // ANY_CALLABLE is assignable to and from any other callable type.
+    assertLtAndGt(
+        Types.ANY_CALLABLE,
+        Types.generalCallable(
+            ImmutableList.of("x", "y"),
+            ImmutableList.of(Types.INT, Types.STR),
+            1,
+            1,
+            ImmutableSet.of("x"),
+            Types.INT,
+            Types.STR,
+            Types.BOOL));
+  }
+
+  @Test
   public void callable_toSignatureString() {
     // ordinary only
     assertThat(
-            Types.callable(
+            Types.generalCallable(
                     /* parameterNames= */ ImmutableList.of("a"),
                     /* parameterTypes= */ ImmutableList.of(Types.INT),
                     /* numPositionalOnlyParameters= */ 0,
@@ -412,7 +428,7 @@ public class TypesTest {
         .isEqualTo("(a: int) -> bool");
     // kwonly only
     assertThat(
-            Types.callable(
+            Types.generalCallable(
                     /* parameterNames= */ ImmutableList.of("a"),
                     /* parameterTypes= */ ImmutableList.of(Types.INT),
                     /* numPositionalOnlyParameters= */ 0,
@@ -425,7 +441,7 @@ public class TypesTest {
         .isEqualTo("(*, a: int) -> bool");
     // positional-only only
     assertThat(
-            Types.callable(
+            Types.generalCallable(
                     /* parameterNames= */ ImmutableList.of("x"),
                     /* parameterTypes= */ ImmutableList.of(Types.INT),
                     /* numPositionalOnlyParameters= */ 1,
@@ -438,7 +454,7 @@ public class TypesTest {
         .isEqualTo("([int], /) -> bool");
     // no params
     assertThat(
-            Types.callable(
+            Types.generalCallable(
                     /* parameterNames= */ ImmutableList.of(),
                     /* parameterTypes= */ ImmutableList.of(),
                     /* numPositionalOnlyParameters= */ 0,
@@ -451,7 +467,7 @@ public class TypesTest {
         .isEqualTo("() -> bool");
     // all kinds of params
     assertThat(
-            Types.callable(
+            Types.generalCallable(
                     /* parameterNames= */ ImmutableList.of("x", "a", "b", "c", "d"),
                     /* parameterTypes= */ ImmutableList.of(
                         Types.BOOL, Types.INT, Types.FLOAT, Types.NONE, Types.ANY),

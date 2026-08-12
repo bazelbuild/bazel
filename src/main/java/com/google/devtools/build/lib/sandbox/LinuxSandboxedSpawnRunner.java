@@ -136,6 +136,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Path slashTmp;
   private final ImmutableSet<Path> knownPathsToMountUnderHermeticTmp;
   private final VirtualCgroupFactory cgroupFactory;
+  private final String productName;
 
   /**
    * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
@@ -175,6 +176,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.treeDeleter = treeDeleter;
     this.slashTmp = cmdEnv.getRuntime().getFileSystem().getPath("/tmp");
     this.knownPathsToMountUnderHermeticTmp = collectPathsToMountUnderHermeticTmp(cmdEnv);
+    this.productName = cmdEnv.getRuntime().getProductName();
   }
 
   private ImmutableSet<Path> collectPathsToMountUnderHermeticTmp(CommandEnvironment cmdEnv) {
@@ -381,6 +383,13 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   protected ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot, Map<String, String> env)
       throws IOException {
     Set<Path> writableDirs = new TreeSet<>(super.getWritableDirs(sandboxExecRoot, env));
+    if (getSandboxOptions().getUseHermetic()) {
+      // In hermetic sandbox mode, the execution root itself is remounted read-only to prevent
+      // actions from writing undeclared files at the root level. Only allow writes to the
+      // designated build output directory (<productName>-out) and explicitly declared paths.
+      writableDirs.remove(sandboxExecRoot);
+      writableDirs.add(sandboxExecRoot.getRelative(productName + "-out"));
+    }
     FileSystem fs = sandboxExecRoot.getFileSystem();
     Path devShm = fs.getPath("/dev/shm");
     if (devShm.exists()) {

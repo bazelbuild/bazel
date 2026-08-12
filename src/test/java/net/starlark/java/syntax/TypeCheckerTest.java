@@ -1663,8 +1663,9 @@ public final class TypeCheckerTest {
             return 0
         """);
 
-    // Function type unions and Any handling
+    // Function type unions and Any/ANY_CALLABLE handling
     assertTypeGivenDecls("f(42)", Types.ANY, "f: Any");
+    assertTypeGivenDecls("f(42)", Types.ANY, "f: Callable");
     assertTypeGivenDecls(
         "(f if 1 else g)(42)",
         Types.union(Types.INT, Types.STR),
@@ -2031,7 +2032,7 @@ public final class TypeCheckerTest {
     // ... but the default's type does not cause the argument's type to be inferred
     assertTypeAfterTypecheck(
         "f",
-        Types.callable(
+        Types.generalCallable(
             ImmutableList.of("x", "y"),
             ImmutableList.of(Types.ANY, Types.ANY), // not list[int] or dict[str, float]
             0,

@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.devtools.build.v1.PublishBuildEventGrpc;
 import com.google.devtools.build.v1.PublishBuildEventGrpc.PublishBuildEventBlockingStub;
 import com.google.devtools.build.v1.PublishBuildEventGrpc.PublishBuildEventStub;
@@ -41,6 +42,7 @@ import java.time.Duration;
 import javax.annotation.Nullable;
 
 /** Implementation of BuildEventServiceClient that uploads data using gRPC. */
+@ScOnly
 public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
   private static final ImmutableSet<Status.Code> NON_RETRYABLE_STATUS_CODES =
       ImmutableSet.of(Status.Code.INVALID_ARGUMENT, Status.Code.PERMISSION_DENIED);

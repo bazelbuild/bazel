@@ -11,6 +11,7 @@ filegroup(
         "BUILD",
         "BUILD.java_tools",
         "BUILD.java_tools_prebuilt",
+        "BUILD.java_tools_prebuilt_darwin_x86_64",
         "BUILD-jdk",  # Tools are build from the workspace for tests.
         "default_java_toolchain.bzl",
         "java_toolchain_alias.bzl",
@@ -36,10 +37,18 @@ filegroup(
     srcs = glob(["**"]),
 )
 
+alias(
+    name = "java_tools_prebuilt_build_file",
+    actual = select({
+        "//src/conditions:darwin_x86_64": ":BUILD.java_tools_prebuilt_darwin_x86_64",
+        "//conditions:default": ":BUILD.java_tools_prebuilt",
+    }),
+    visibility = ["//src:__pkg__"],
+)
+
 exports_files(
     [
         "BUILD.java_tools",
-        "BUILD.java_tools_prebuilt",
     ],
     visibility = ["//src:__pkg__"],
 )

@@ -21,6 +21,7 @@ import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
@@ -40,6 +41,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
 
 /** Utility methods to work with {@link Digest}. */
 public class DigestUtil {
@@ -196,9 +198,9 @@ public class DigestUtil {
   }
 
   public static Digest fromString(String digest) {
-    String[] parts = digest.split("/", /* limit= */ -1);
-    Preconditions.checkArgument(parts.length == 2, "Invalid digest format: %s", digest);
-    return buildDigest(parts[0], Long.parseLong(parts[1]));
+    List<String> parts = Splitter.on('/').splitToList(digest);
+    Preconditions.checkArgument(parts.size() == 2, "Invalid digest format: %s", digest);
+    return buildDigest(parts.get(0), Long.parseLong(parts.get(1)));
   }
 
   public static byte[] toBinaryDigest(Digest digest) {

@@ -96,7 +96,10 @@ java_library(
         "JNI.java",
     ],
     visibility = ["//src/main/java/net/starlark/java:clients"],
-    deps = [":cpu_profiler_native_support"],
+    deps = [
+        ":cpu_profiler_native_support",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
+    ],
 )
 
 # Dynamic library for Starlark CPU profiler.

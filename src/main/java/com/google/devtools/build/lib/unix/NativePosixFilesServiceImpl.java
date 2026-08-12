@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.unix;
 
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.jni.JniLoader;
+import com.google.devtools.build.lib.skybridge.ScOnly;
 import javax.annotation.Nullable;
 
 /** Implementation of {@link NativePosixFilesService}. */
+@ScOnly
 public final class NativePosixFilesServiceImpl implements NativePosixFilesService {
 
   public NativePosixFilesServiceImpl() {}

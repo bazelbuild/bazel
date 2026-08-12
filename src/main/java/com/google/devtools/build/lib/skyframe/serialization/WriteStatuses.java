@@ -26,7 +26,6 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.Collection;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
@@ -309,41 +308,10 @@ public class WriteStatuses {
     }
   }
 
-  private static final class ImmediateFailedWriteStatus implements WriteStatus {
-    private final ExecutionException exception;
-
+  private static final class ImmediateFailedWriteStatus extends AbstractFuture<Boolean>
+      implements WriteStatus {
     private ImmediateFailedWriteStatus(Throwable cause) {
-      this.exception = new ExecutionException(cause);
-    }
-
-    @Override
-    public void addListener(Runnable listener, Executor executor) {
-      executor.execute(listener); // Immediately executes listener.
-    }
-
-    @Override
-    public boolean cancel(boolean mayInterruptIfRunning) {
-      return false;
-    }
-
-    @Override
-    public Boolean get() throws ExecutionException {
-      throw exception;
-    }
-
-    @Override
-    public Boolean get(long timeout, TimeUnit unit) throws ExecutionException {
-      return get();
-    }
-
-    @Override
-    public boolean isCancelled() {
-      return false;
-    }
-
-    @Override
-    public boolean isDone() {
-      return true;
+      setException(cause);
     }
   }
 

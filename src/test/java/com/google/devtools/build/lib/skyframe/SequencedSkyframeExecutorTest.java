@@ -1701,8 +1701,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler); // Expect errors.
     evaluate(Artifact.keys(ImmutableList.of(output, output2)));
     assertContainsEvent(
-        "Test dir/cycleOutput failed: error reading file 'cyclesource': Symlink cycle");
-    assertContainsEvent("Test dir/cycleOutput failed: 1 input file(s) are in error");
+        "Test dir/cycleOutput (from target //null/action:owner) failed: error reading file"
+            + " 'cyclesource': Symlink cycle");
+    assertContainsEvent(
+        "Test dir/cycleOutput (from target //null/action:owner) failed: 1 input file(s) are in"
+            + " error");
   }
 
   @Test

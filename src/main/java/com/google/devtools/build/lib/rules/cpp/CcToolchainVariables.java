@@ -41,12 +41,13 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainVariablesAp
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.Stack;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -405,7 +406,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       return null;
     }
 
-    Stack<String> fieldsToAccess = new Stack<>();
+    Deque<String> fieldsToAccess = new ArrayDeque<>();
     String structPath = name;
     VariableValue variable;
 
@@ -419,7 +420,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       return null;
     }
 
-    while (!fieldsToAccess.empty()) {
+    while (!fieldsToAccess.isEmpty()) {
       String field = fieldsToAccess.pop();
       variable =
           variable.getFieldValue(
@@ -882,6 +883,9 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
             }
           }
           return new Sequence(expandedIterable.build());
+        }
+        if (fieldValue == null) {
+          return null;
         }
         return asVariableValue(fieldValue);
       } catch (EvalException e) {

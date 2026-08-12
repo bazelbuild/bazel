@@ -75,7 +75,6 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
-import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -4032,6 +4031,28 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testDeclareFileUplevelReferenceInRootPackage() throws Exception {
+    scratch.file(
+        "test_rule.bzl",
+        """
+        def _my_rule_impl(ctx):
+          ctx.actions.declare_file('../f')
+        my_rule = rule(implementation = _my_rule_impl)
+        """);
+    scratch.file(
+        "BUILD",
+        """
+        load(':test_rule.bzl', 'my_rule')
+        my_rule(name = 'target')
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//:target")).isNull();
+    assertContainsEvent(
+        "the output artifact '../f' is not under package directory '' for target '//:target'");
+  }
+
+  @Test
   public void testDeclareDirectoryInvalidParent_withSibling() throws Exception {
     scratch.file("test/dep/test_file.txt", "Test file");
 
@@ -4089,6 +4110,51 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertContainsEvent(
         "the output directory '/foo/exe' is not under package directory "
             + "'test/starlark' for target '//test/starlark:target'");
+  }
+
+  @Test
+  public void testDeclareDirectoryUplevelReferenceInRootPackage() throws Exception {
+    scratch.file(
+        "test_rule.bzl",
+        """
+        def _my_rule_impl(ctx):
+          ctx.actions.declare_directory('../f')
+        my_rule = rule(implementation = _my_rule_impl)
+        """);
+    scratch.file(
+        "BUILD",
+        """
+        load(':test_rule.bzl', 'my_rule')
+        my_rule(name = 'target')
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//:target")).isNull();
+    assertContainsEvent(
+        "the output directory '../f' is not under package directory '' for target '//:target'");
+  }
+
+  @Test
+  public void testDeclareSymlinkUplevelReferenceInRootPackage() throws Exception {
+    scratch.file(
+        "test_rule.bzl",
+        """
+        def _my_rule_impl(ctx):
+          ctx.actions.declare_symlink('../f')
+        my_rule = rule(implementation = _my_rule_impl)
+        """);
+    scratch.file(
+        "BUILD",
+        """
+        load(':test_rule.bzl', 'my_rule')
+        my_rule(name = 'target')
+        """);
+    useConfiguration("--allow_unresolved_symlinks");
+
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//:target")).isNull();
+    assertContainsEvent(
+        "the output symlink '../f' contains uplevel references for target '//:target'");
   }
 
   @Test

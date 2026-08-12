@@ -169,7 +169,7 @@ public final class TypeChecker extends NodeVisitor {
       case LAMBDA -> {
         var lambda = (LambdaExpression) expr;
         StarlarkType inferedReturnType = infer(lambda.getBody());
-        Types.CallableType originalType =
+        Types.GeneralCallableType originalType =
             checkNotNull(
                 typeTable.getType(lambda.getResolvedFunction()),
                 "type tagger should have set type for lambda expr '%s'",
@@ -178,7 +178,7 @@ public final class TypeChecker extends NodeVisitor {
           // Update the lambda function type with a more precise return type.
           typeTable.setType(
               lambda.getResolvedFunction(),
-              Types.callable(
+              Types.generalCallable(
                   originalType.getParameterNames(),
                   originalType.getParameterTypes(),
                   originalType.getNumPositionalOnlyParameters(),
@@ -532,10 +532,8 @@ public final class TypeChecker extends NodeVisitor {
         for (StarlarkType xElemType : xTypes) {
           for (StarlarkType yElemType : yTypes) {
             @Nullable
-            StarlarkType resultType = xElemType.inferBinaryOperator(operator, yElemType, true);
-            if (resultType == null) {
-              resultType = yElemType.inferBinaryOperator(operator, xElemType, false);
-            }
+            StarlarkType resultType =
+                StarlarkType.inferBinaryOperator(xElemType, operator, yElemType);
             if (resultType == null && operator == TokenKind.STAR) {
               // Tuple repetition is the only case where we need to examine the expressions.
               // TODO: #28037 - We can get rid of the tuple repetition special case if we
@@ -584,7 +582,7 @@ public final class TypeChecker extends NodeVisitor {
     }
 
     StarlarkType callFunctionType = infer(call.getFunction());
-    if (callFunctionType.equals(Types.ANY)) {
+    if (callFunctionType.equals(Types.ANY) || callFunctionType.equals(Types.ANY_CALLABLE)) {
       return Types.ANY;
     }
 
@@ -622,7 +620,7 @@ public final class TypeChecker extends NodeVisitor {
       ArrayList<Integer> residualNamed = new ArrayList<>(0);
       // Names of mandatory parameters (both positional and named) having a corresponding argument.
       ArrayList<String> seenMandatoryParameters =
-          new ArrayList<>(callable.getMandatoryParameters().size());
+          new ArrayList<>(callable.getNumMandatoryParameters());
       for (int i = 0; i < numArgs; i++) {
         Argument arg = call.getArguments().get(i);
         int parameterIndex;
@@ -646,7 +644,7 @@ public final class TypeChecker extends NodeVisitor {
         // Argument is not residual; check it against the corresponding parameter.
         String parameterName = callable.getParameterNames().get(parameterIndex);
         StarlarkType parameterType = callable.getParameterTypeByPos(parameterIndex);
-        if (callable.getMandatoryParameters().contains(parameterName)) {
+        if (callable.isMandatory(parameterIndex)) {
           seenMandatoryParameters.add(parameterName);
         }
         if (!StarlarkType.assignableFrom(parameterType, argTypes.get(i), typeContext)) {
@@ -894,7 +892,7 @@ public final class TypeChecker extends NodeVisitor {
       boolean callHasKwargs,
       CallExpression call,
       Types.CallableType callable) {
-    if (seenMandatoryParameters.size() < callable.getMandatoryParameters().size()) {
+    if (seenMandatoryParameters.size() < callable.getNumMandatoryParameters()) {
       ImmutableSet<String> seenMandatorySet = ImmutableSet.copyOf(seenMandatoryParameters);
       // Identify mandatory parameters which were not seen and which cannot be possibly supplied
       // from the call's *args or **kwargs.
@@ -903,7 +901,7 @@ public final class TypeChecker extends NodeVisitor {
       ArrayList<String> missingMandatory = new ArrayList<>(0);
       for (int i = 0; i < callable.getParameterNames().size(); i++) {
         String name = callable.getParameterNames().get(i);
-        if (!callable.getMandatoryParameters().contains(name)) {
+        if (!callable.isMandatory(i)) {
           continue;
         }
         if (!seenMandatorySet.contains(name)) {

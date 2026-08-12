@@ -681,6 +681,16 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             + "in $(location) expression expands to more than one file, please use $(locations "
             + "//foo:gl) instead.",
         "ruleContext.expand_location('$(location :gl)')");
+    checkReportedErrorStartsWith(
+        "in genrule rule //foo:bar: label '//foo:gl' "
+            + "in $(execpath) expression expands to more than one file, please use $(execpaths "
+            + "//foo:gl) instead.",
+        "ruleContext.expand_location('$(execpath :gl)')");
+    checkReportedErrorStartsWith(
+        "in genrule rule //foo:bar: label '//foo:gl' "
+            + "in $(rootpath) expression expands to more than one file, please use $(rootpaths "
+            + "//foo:gl) instead.",
+        "ruleContext.expand_location('$(rootpath :gl)')");
 
     // We have to use "locations" for multiple targets
     runExpansion("locations :gl", "[blaze]*-out/.*/bin/foo/gl.a [blaze]*-out/.*/bin/foo/gl.gcgox");

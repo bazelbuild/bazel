@@ -64,6 +64,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandler;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -1092,5 +1093,99 @@ public class HttpCacheClientTest {
     HttpCacheClient.configureSslEngine(engine, clientAuthOptions);
 
     assertThat(engine.getNeedClientAuth()).isTrue();
+  }
+
+  @Test
+  public void isChannelPipelineEmpty_nullFirstContext_returnsTrue() throws Exception {
+    HttpCacheClient client =
+        HttpCacheClient.create(
+            new URI("https://localhost"),
+            /* timeoutSeconds= */ 1,
+            /* remoteMaxConnections= */ 0,
+            /* verifyDownloads= */ true,
+            /* extraHttpHeaders= */ ImmutableList.of(),
+            DIGEST_UTIL,
+            /* retrier= */ mock(RemoteRetrier.class),
+            /* creds= */ null,
+            Options.getDefaults(AuthAndTLSOptions.class));
+
+    ChannelPipeline pipeline = mock(ChannelPipeline.class);
+    when(pipeline.first()).thenReturn(mock(ChannelHandler.class));
+    when(pipeline.firstContext()).thenReturn(null);
+
+    assertThat(client.isChannelPipelineEmpty(pipeline)).isTrue();
+  }
+
+  @Test
+  public void isChannelPipelineEmpty_emptyPipeline_returnsTrue() throws Exception {
+    HttpCacheClient client =
+        HttpCacheClient.create(
+            new URI("https://localhost"),
+            /* timeoutSeconds= */ 1,
+            /* remoteMaxConnections= */ 0,
+            /* verifyDownloads= */ true,
+            /* extraHttpHeaders= */ ImmutableList.of(),
+            DIGEST_UTIL,
+            /* retrier= */ mock(RemoteRetrier.class),
+            /* creds= */ null,
+            Options.getDefaults(AuthAndTLSOptions.class));
+
+    ChannelPipeline pipeline = mock(ChannelPipeline.class);
+    when(pipeline.first()).thenReturn(null);
+    when(pipeline.firstContext()).thenReturn(null);
+
+    assertThat(client.isChannelPipelineEmpty(pipeline)).isTrue();
+  }
+
+  @Test
+  public void isChannelPipelineEmpty_onlySslHandlerWithTls_returnsTrue() throws Exception {
+    HttpCacheClient client =
+        HttpCacheClient.create(
+            new URI("https://localhost"),
+            /* timeoutSeconds= */ 1,
+            /* remoteMaxConnections= */ 0,
+            /* verifyDownloads= */ true,
+            /* extraHttpHeaders= */ ImmutableList.of(),
+            DIGEST_UTIL,
+            /* retrier= */ mock(RemoteRetrier.class),
+            /* creds= */ null,
+            Options.getDefaults(AuthAndTLSOptions.class));
+
+    ChannelHandler sslHandler = mock(ChannelHandler.class);
+    ChannelHandlerContext sslContext = mock(ChannelHandlerContext.class);
+    when(sslContext.name()).thenReturn("ssl-handler");
+
+    ChannelPipeline pipeline = mock(ChannelPipeline.class);
+    when(pipeline.first()).thenReturn(sslHandler);
+    when(pipeline.last()).thenReturn(sslHandler);
+    when(pipeline.firstContext()).thenReturn(sslContext);
+
+    assertThat(client.isChannelPipelineEmpty(pipeline)).isTrue();
+  }
+
+  @Test
+  public void isChannelPipelineEmpty_nonSslHandler_returnsFalse() throws Exception {
+    HttpCacheClient client =
+        HttpCacheClient.create(
+            new URI("http://localhost"),
+            /* timeoutSeconds= */ 1,
+            /* remoteMaxConnections= */ 0,
+            /* verifyDownloads= */ true,
+            /* extraHttpHeaders= */ ImmutableList.of(),
+            DIGEST_UTIL,
+            /* retrier= */ mock(RemoteRetrier.class),
+            /* creds= */ null,
+            Options.getDefaults(AuthAndTLSOptions.class));
+
+    ChannelHandler handler = mock(ChannelHandler.class);
+    ChannelHandlerContext context = mock(ChannelHandlerContext.class);
+    when(context.name()).thenReturn("other-handler");
+
+    ChannelPipeline pipeline = mock(ChannelPipeline.class);
+    when(pipeline.first()).thenReturn(handler);
+    when(pipeline.last()).thenReturn(handler);
+    when(pipeline.firstContext()).thenReturn(context);
+
+    assertThat(client.isChannelPipelineEmpty(pipeline)).isFalse();
   }
 }

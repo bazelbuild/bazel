@@ -154,7 +154,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       fragment = original.replaceName(filename);
     }
 
-    if (!fragment.startsWith(ruleContext.getPackageDirectory())) {
+    if (fragment.containsUplevelReferences()
+        || !fragment.startsWith(ruleContext.getPackageDirectory())) {
       throw Starlark.errorf(
           "the output artifact '%s' is not under package directory '%s' for target '%s'",
           fragment, ruleContext.getPackageDirectory(), ruleContext.getLabel());
@@ -178,7 +179,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       fragment = original.replaceName(filename);
     }
 
-    if (!fragment.startsWith(ruleContext.getPackageDirectory())) {
+    if (fragment.containsUplevelReferences()
+        || !fragment.startsWith(ruleContext.getPackageDirectory())) {
       throw Starlark.errorf(
           "the output directory '%s' is not under package directory '%s' for target '%s'",
           fragment, ruleContext.getPackageDirectory(), ruleContext.getLabel());
@@ -213,6 +215,12 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               .getOutputDirRelativePath(
                   getSemantics().getBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
       rootRelativePath = original.replaceName(filename);
+    }
+
+    if (rootRelativePath.containsUplevelReferences()) {
+      throw Starlark.errorf(
+          "the output symlink '%s' contains uplevel references for target '%s'",
+          rootRelativePath, ruleContext.getLabel());
     }
 
     result =
@@ -1124,6 +1132,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Boolean useDefaultShellEnv,
       Object envUnchecked,
       Object mnemonicUnchecked,
+      Object resourceSetUnchecked,
       StarlarkFunction implementation,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
@@ -1171,10 +1180,22 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
     String execGroup = determineExecGroup(ruleContext, execGroupUnchecked, toolchainUnchecked);
 
+    ResourceSetOrBuilder resourceSet = DEFAULT_RESOURCE_SET;
+    if (resourceSetUnchecked != Starlark.NONE) {
+      if (resourceSetUnchecked instanceof Dict) {
+        resourceSet = parseResourceSetFromDict(resourceSetUnchecked);
+      } else {
+        validateResourceSetBuilder(resourceSetUnchecked);
+        resourceSet =
+            StarlarkActionResourceSetBuilder.create(
+                (StarlarkCallable) resourceSetUnchecked, mnemonic, getSemantics());
+      }
+    }
+
     SpawnAction.Builder spawnActionBuilder =
         new SpawnAction.Builder()
             .setMnemonic(mnemonic)
-            .setResources(DEFAULT_RESOURCE_SET)
+            .setResources(resourceSet)
             .setActionEnvironment(actionEnv)
             .setExecutionInfo(executionInfo)
             .setOutputPathsMode(PathMappers.getOutputPathsMode(ruleContext.getConfiguration()));

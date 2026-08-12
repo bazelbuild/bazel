@@ -138,6 +138,44 @@ public class ExecutionInfoModifierTest {
     assertThat(converter.reverseForStarlark(modifier)).isEqualTo(original);
   }
 
+  @Test
+  public void wouldChange_remove_keyNotPresent_returnsFalse() throws Exception {
+    ExecutionInfoModifier modifier = converter.convert("Genrule=-x");
+    Map<String, String> info = new HashMap<>();
+    assertThat(modifier.wouldChange("Genrule", info)).isFalse();
+  }
+
+  @Test
+  public void wouldChange_remove_keyPresent_returnsTrue() throws Exception {
+    ExecutionInfoModifier modifier = converter.convert("Genrule=-x");
+    Map<String, String> info = new HashMap<>();
+    info.put("x", "");
+    assertThat(modifier.wouldChange("Genrule", info)).isTrue();
+  }
+
+  @Test
+  public void wouldChange_add_keyNotPresent_returnsTrue() throws Exception {
+    ExecutionInfoModifier modifier = converter.convert("Genrule=+x");
+    Map<String, String> info = new HashMap<>();
+    assertThat(modifier.wouldChange("Genrule", info)).isTrue();
+  }
+
+  @Test
+  public void wouldChange_add_keyPresentWithEmptyValue_returnsFalse() throws Exception {
+    ExecutionInfoModifier modifier = converter.convert("Genrule=+x");
+    Map<String, String> info = new HashMap<>();
+    info.put("x", "");
+    assertThat(modifier.wouldChange("Genrule", info)).isFalse();
+  }
+
+  @Test
+  public void wouldChange_add_keyPresentWithNonEmptyValue_returnsTrue() throws Exception {
+    ExecutionInfoModifier modifier = converter.convert("Genrule=+x");
+    Map<String, String> info = new HashMap<>();
+    info.put("x", "val");
+    assertThat(modifier.wouldChange("Genrule", info)).isTrue();
+  }
+
   private void assertModifierMatchesAndResults(
       ExecutionInfoModifier modifier, String mnemonic, Set<String> expectedKeys) {
     assertModifierMatchesAndResults(ImmutableList.of(modifier), mnemonic, expectedKeys);

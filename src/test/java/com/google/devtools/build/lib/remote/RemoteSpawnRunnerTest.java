@@ -86,6 +86,7 @@ import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
+import com.google.devtools.build.lib.exec.SpawnUploadingEvent;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.CombinedCache.CachedActionResult;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
@@ -1672,6 +1673,7 @@ public class RemoteSpawnRunnerTest {
             any(OperationObserver.class));
     InOrder reportOrder = inOrder(policy);
     reportOrder.verify(policy, times(1)).report(SpawnCheckingCacheEvent.create("remote"));
+    reportOrder.verify(policy, times(1)).report(SpawnUploadingEvent.create("remote"));
     reportOrder.verify(policy, times(1)).report(SpawnSchedulingEvent.create("remote"));
     reportOrder.verify(policy, times(1)).report(SpawnExecutingEvent.create("remote"));
   }

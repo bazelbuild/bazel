@@ -111,6 +111,7 @@ java_library(
         "StoppedScanningActionEvent.java",
         "TestExecException.java",
         "TopLevelOutputException.java",
+        "UploadingActionEvent.java",
         "cache/ActionCache.java",
         "cache/CompactPersistentActionCache.java",
         "cache/PersistentStringIndexer.java",

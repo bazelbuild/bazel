@@ -16,10 +16,12 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchPackagePieceException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetRecorder;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.skyframe.MacroInstanceFunction.NoSuchMacroInstanceException;
@@ -28,6 +30,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Comparator;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
@@ -92,7 +95,8 @@ public final class NonFinalizerPackagePiecesFunction implements SkyFunction {
         expander.getPackagePieces(),
         expander.getErrorKeys(),
         nameConflictException,
-        ImmutableSortedMap.copyOf(targetRecorder.getTargetMap()),
+        ImmutableList.sortedCopyOf(
+            Comparator.comparing(Target::getName), targetRecorder.getTargetMap().values()),
         ImmutableSortedMap.copyOf(targetRecorder.getMacroMap()),
         expander.getStarlarkSemantics(),
         expander.getMainRepositoryMapping());

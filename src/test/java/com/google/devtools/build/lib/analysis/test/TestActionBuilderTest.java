@@ -338,6 +338,14 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testRunsPerTestWithFilterContainingAt() throws Exception {
+    useConfiguration("--runs_per_test=//tests:small_test_1@2");
+    ImmutableList<Artifact.DerivedArtifact> testStatusList =
+        getTestStatusArtifacts("//tests:small_test_1");
+    assertThat(testStatusList).hasSize(2);
+  }
+
+  @Test
   public void testRunsPerTestCanBeOverridden() throws Exception {
     useConfiguration("--runs_per_test=1", "--runs_per_test=2");
     ImmutableList<Artifact.DerivedArtifact> testStatusList =
@@ -390,6 +398,24 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     testAction = (TestRunnerAction) getGeneratingAction(Iterables.get(testStatusList, 0));
     timeout = testAction.getTestProperties().getTimeout().getTimeoutSeconds();
     assertThat(timeout).isEqualTo(TestTimeout.LONG.getTimeoutSeconds());
+  }
+
+  @Test
+  public void testTimeoutChangesActionKey() throws Exception {
+    useConfiguration("--test_timeout=10");
+    Artifact testStatus1 = Iterables.getOnlyElement(getTestStatusArtifacts("//tests:small_test_1"));
+    TestRunnerAction action1 = (TestRunnerAction) getGeneratingAction(testStatus1);
+
+    initializeSkyframeExecutor();
+
+    useConfiguration("--test_timeout=1");
+    Artifact testStatus2 = Iterables.getOnlyElement(getTestStatusArtifacts("//tests:small_test_1"));
+    TestRunnerAction action2 = (TestRunnerAction) getGeneratingAction(testStatus2);
+
+    String key1 = action1.getKey(actionKeyContext, /* inputMetadataProvider= */ null);
+    String key2 = action2.getKey(actionKeyContext, /* inputMetadataProvider= */ null);
+
+    assertThat(key1).isNotEqualTo(key2);
   }
 
   @Test

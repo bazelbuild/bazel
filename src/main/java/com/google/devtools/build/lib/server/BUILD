@@ -74,6 +74,7 @@ java_library(
     srcs = ["GrpcCommandServerImpl.java"],
     deps = [
         ":grpc_command_server",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/protobuf:command_server_java_grpc",
         "//src/main/protobuf:command_server_java_proto",
@@ -108,6 +109,7 @@ java_library(
         ":grpc_command_server",
         ":grpc_command_server_impl",
         ":grpc_command_server_service",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
     ],
 )
 

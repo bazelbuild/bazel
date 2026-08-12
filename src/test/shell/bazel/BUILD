@@ -345,6 +345,11 @@ JAVA_VERSIONS_COVERAGE = ("11", "17", "21")
     for java_version in JAVA_VERSIONS
 ]
 
+test_suite(
+    name = "bazel_java_toolchain_head_tests",
+    tests = ["bazel_java_test_jdk" + java_version + "_toolchain_head" for java_version in JAVA_VERSIONS],
+)
+
 [
     sh_test(
         name = "bazel_java_test_local_java_tools_jdk" + java_version,
@@ -483,6 +488,9 @@ sh_test(
     name = "bazel_spawnstats_test",
     srcs = ["bazel_spawnstats_test.sh"],
     data = [":test-deps"],
+    exec_group_compatible_with = {
+        "test": ["//:highcpu_machine"],
+    },
     tags = ["no_windows"],
 )
 
@@ -1241,11 +1249,18 @@ sh_test(
         "//:bazel-distfile",
         "//src:embedded_jdk_allmodules",
         "@bazel_tools//tools/bash/runfiles",
+        "@rules_java//toolchains:remotejdk_21",
     ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for setup_javabase
+    },
     exec_compatible_with = ["//:highcpu_machine"],
     tags = [
         "block-network",
         "no_presubmit",
+    ],
+    toolchains = [
+        "@rules_java//toolchains:remotejdk_21",
     ],
 )
 
@@ -1262,12 +1277,19 @@ sh_test(
         "//:bazel-distfile-tar",
         "//src:embedded_jdk_allmodules",
         "@bazel_tools//tools/bash/runfiles",
+        "@rules_java//toolchains:remotejdk_21",
     ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for setup_javabase
+    },
     exec_compatible_with = ["//:highcpu_machine"],
     tags = [
         "block-network",
         "no_presubmit",
         "no_windows",
+    ],
+    toolchains = [
+        "@rules_java//toolchains:remotejdk_21",
     ],
 )
 

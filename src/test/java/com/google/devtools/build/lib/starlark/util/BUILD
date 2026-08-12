@@ -33,6 +33,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:keep_going_option",
         "//src/main/java/com/google/devtools/build/lib/runtime:starlark_options_parser",
         "//src/main/java/com/google/devtools/build/lib/runtime:ui_options",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",

@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildResult.BuildToolLogCollection;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
-import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
@@ -100,8 +99,9 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
   private ArtifactRoot artifactRoot;
 
   @Before
-  public void initializeRoots() {
+  public void setUp() {
     artifactRoot = ArtifactRoot.asDerivedRoot(scratch.resolve("/"), RootType.OUTPUT, "output");
+    module.resetNanosToMillis();
   }
 
   private static ImmutableList<ExecutionGraph.Node> parse(ByteArrayOutputStream buffer)
@@ -668,8 +668,6 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
   public void spawnAndAction_withDifferentOutputs() throws Exception {
     var buffer = new ByteArrayOutputStream();
     startLogging(eventBus, buffer, DependencyInfo.ALL);
-    var nanosToMillis = BlazeClock.createNanosToMillisSinceEpochConverter();
-    module.setNanosToMillis(nanosToMillis);
 
     module.spawnExecuted(
         new SpawnExecutedEvent(
@@ -708,7 +706,7 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
                 .setIndex(1)
                 .setMetrics(
                     ExecutionGraph.Metrics.newBuilder()
-                        .setStartTimestampMillis(nanosToMillis.toEpochMillis(0)))
+                        .setStartTimestampMillis(module.getNanosToMillis().toEpochMillis(0)))
                 .setRuleClass("dummy-kind")
                 .build());
   }
@@ -717,8 +715,6 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
   public void noSpawnAction_hasCorrectDuration() throws Exception {
     var buffer = new ByteArrayOutputStream();
     startLogging(eventBus, buffer, DependencyInfo.ALL);
-    var nanosToMillis = BlazeClock.createNanosToMillisSinceEpochConverter();
-    module.setNanosToMillis(nanosToMillis);
 
     var action = new ActionsTestUtil.NullAction(createOutputArtifact("foo/out"));
     module.actionComplete(
@@ -736,7 +732,7 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
             executionGraphNodeBuilderForAction(action)
                 .setMetrics(
                     ExecutionGraph.Metrics.newBuilder()
-                        .setStartTimestampMillis(nanosToMillis.toEpochMillis(1000000))
+                        .setStartTimestampMillis(module.getNanosToMillis().toEpochMillis(1000000))
                         .setDurationMillis(1)
                         .setProcessMillis(1))
                 .setRuleClass("dummy-kind")

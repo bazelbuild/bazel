@@ -2083,6 +2083,33 @@ EOF
   assert_contains 'label: "output-\\303\\274n\\303\\257c\\303\\266d\\303\\253.txt"' output
 }
 
+function test_aquery_test_suite() {
+  add_rules_shell "MODULE.bazel"
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+    name = "foo",
+    srcs = ["foo.sh"],
+)
+
+test_suite(
+    name = "suite",
+    tests = [":foo"],
+)
+EOF
+  cat > "$pkg/foo.sh" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+  chmod +x "$pkg/foo.sh"
+
+  bazel aquery "deps(//$pkg:suite)" > output 2> "$TEST_log" || fail "Expected success"
+  assert_contains "//$pkg:foo" output
+}
+
 # Usage: assert_matches expected_pattern actual
 function assert_matches() {
   [[ "$2" =~ $1 ]] || fail "Expected to match '$1', was: $2"
