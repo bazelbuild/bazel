@@ -50,6 +50,7 @@ public final class OptionsParser {
 
   private String outputDepsProtoFile;
   private final Set<String> depsArtifacts = new LinkedHashSet<>();
+  private final List<String> declaredDeps = new ArrayList<>();
 
   /** This modes controls how a probablistic Java classpath reduction is used. */
   public enum ReduceClasspathMode {
@@ -137,6 +138,9 @@ public final class OptionsParser {
           break;
         case "--strict_java_deps":
           strictJavaDeps = getArgument(argQueue, arg);
+          break;
+        case "--declared_dep":
+          declaredDeps.add(getArgument(argQueue, arg));
           break;
         case "--experimental_fix_deps_tool":
           fixDepsTool = getArgument(argQueue, arg);
@@ -363,6 +367,10 @@ public final class OptionsParser {
 
   public Set<String> getDepsArtifacts() {
     return depsArtifacts;
+  }
+
+  public List<String> getDeclaredDeps() {
+    return declaredDeps;
   }
 
   public ReduceClasspathMode reduceClasspathMode() {
