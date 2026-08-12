@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.BuildOptionsScopeValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
@@ -125,6 +126,7 @@ public final class TargetAndConfigurationProducer
   private Target target;
   private BuildConfigurationKey configurationKey;
   private IdempotencyState idempotencyState;
+  private BuildOptionsScopeValue preRuleTransitionScopes = BuildOptionsScopeValue.EMPTY;
 
   public TargetAndConfigurationProducer(
       ConfiguredTargetKey preRuleTransitionKey,
@@ -233,12 +235,33 @@ public final class TargetAndConfigurationProducer
       return DONE;
     }
 
+    // The rule transition scopes the pre-rule-transition configuration's Starlark flags for this
+    // target, which needs their scopes. Requesting the configuration here is cheaper than having
+    // BuildConfigurationKeyProducer request the scopes from Skyframe once per configured target:
+    // most rules define no rule transition, and for those this is the very configuration requested
+    // in computeTargetAndConfigurationOrDelegatedValue below, so no dependency is added. The
+    // request shares a Skyframe batch with the rule transition's own first requests. Any error is
+    // ignored here and reported by whoever requests the configuration next; if the value isn't
+    // ready by the time the transition runs, the producer resolves the scopes itself.
+    tasks.lookUp(
+        configurationKey,
+        InvalidConfigurationException.class,
+        (value, unusedError) -> {
+          if (value != null) {
+            preRuleTransitionScopes = ((BuildConfigurationValue) value).starlarkFlagScopes();
+          }
+        });
     return new RuleTransitionApplier(
         target,
         (TargetAndConfigurationData) this,
         (RuleTransitionApplier.ResultSink) this,
         eventHandler,
         /* runAfter= */ this::computeTargetAndConfigurationOrDelegatedValue);
+  }
+
+  @Override
+  public BuildOptionsScopeValue getPreRuleTransitionScopes() {
+    return preRuleTransitionScopes;
   }
 
   private void delegateTo(Tasks tasks, ActionLookupKey delegate) {

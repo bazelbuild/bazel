@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
+import com.google.devtools.build.lib.skyframe.BuildOptionsScopeValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import javax.annotation.Nullable;
 
@@ -33,4 +34,11 @@ public interface TargetAndConfigurationData {
   public StarlarkTransitionCache getTransitionCache();
 
   public TransitiveDependencyState getTransitiveState();
+
+  /**
+   * The scopes of the project-scoped Starlark flags set in {@link #getPreRuleTransitionKey}'s
+   * configuration, or {@link BuildOptionsScopeValue#EMPTY} if they aren't at hand, in which case
+   * the rule transition resolves them itself.
+   */
+  public BuildOptionsScopeValue getPreRuleTransitionScopes();
 }

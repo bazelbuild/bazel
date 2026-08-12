@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -32,6 +33,8 @@ import com.google.devtools.build.lib.skyframe.config.BaselineOptionsFunction;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.InMemoryNodeEntry;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import org.junit.Before;
@@ -221,6 +224,57 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
                         new Scope.ScopeType(Scope.ScopeType.PROJECT),
                         new Scope.ScopeDefinition(ImmutableSet.of("//my_project/"))))))
         .runTests();
+  }
+
+  // Scopes are a property of the flags a configuration sets, so they are resolved once per
+  // configuration and read off BuildConfigurationValue. Resolving them per configured target
+  // instead would make every configured target a reverse dep of this one node, which is what the
+  // analysis phase CPU regression in this area came down to.
+  @Test
+  public void scopesAreResolvedPerConfiguration_notPerConfiguredTarget() throws Exception {
+    scratch.file(
+        "test_flags/build_setting.bzl",
+        """
+        bool_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.bool(flag = True),
+            attrs = {
+                "scope": attr.string(default = "universal"),
+            },
+        )
+        """);
+    scratch.file(
+        "test_flags/BUILD",
+        """
+        load("//test_flags:build_setting.bzl", "bool_flag")
+        bool_flag(
+            name = "foo",
+            build_setting_default = False,
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        filegroup(name = "top", srcs = [":middle"])
+        filegroup(name = "middle", srcs = [":bottom"])
+        filegroup(name = "bottom")
+        """);
+    useConfiguration("--//test_flags:foo=True");
+
+    assertThat(getConfiguredTarget("//pkg:top")).isNotNull();
+
+    InMemoryNodeEntry entry =
+        getSkyframeExecutor()
+            .getEvaluator()
+            .getInMemoryGraph()
+            .getIfPresent(
+                BuildOptionsScopeValue.Key.create(
+                    ImmutableSet.of(Label.parseCanonical("//test_flags:foo"))));
+    assertThat(entry).isNotNull();
+    assertThat(entry.getReverseDepsForDoneEntry())
+        .comparingElementsUsing(
+            Correspondence.<SkyKey, Class<?>>transforming(SkyKey::getClass, "has class"))
+        .doesNotContain(ConfiguredTargetKey.class);
   }
 
   private BuildOptionsScopeValue executeFunction(BuildOptionsScopeValue.Key key) throws Exception {

@@ -268,10 +268,7 @@ public class RuleTransitionApplier
     return new TransitionApplier(
         target.getLabel(),
         preRuleTransitionKey.getConfigurationKey(),
-        // The BuildConfigurationValue for the pre-rule-transition configuration isn't a dependency
-        // of this node yet, so the scopes have to come from Skyframe. This is once per configured
-        // target, not once per dependency edge.
-        BuildOptionsScopeValue.EMPTY,
+        targetAndConfigurationData.getPreRuleTransitionScopes(),
         ruleTransition,
         targetAndConfigurationData.getTransitionCache(),
         (TransitionApplier.ResultSink) this,
@@ -352,7 +349,9 @@ public class RuleTransitionApplier
       return new TransitionApplier(
           target.getLabel(),
           configurationKey,
-          BuildOptionsScopeValue.EMPTY,
+          // Resolved for the pre-rule-transition configuration. TransitionApplier only applies them
+          // to flags that configuration also sets, so they're safe to offer for this one.
+          targetAndConfigurationData.getPreRuleTransitionScopes(),
           ruleTransition,
           targetAndConfigurationData.getTransitionCache(),
           (TransitionApplier.ResultSink) this,
