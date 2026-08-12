@@ -133,7 +133,8 @@ illegal, and 2) `*args` and `**kwargs` arguments are not allowed.
 
 * Recursion is not allowed.
 
-* Int type is limited to 32-bit signed integers. Overflows will throw an error.
+* Integers may be of any magnitude, and arithmetic on them is exact. See
+  [`int`](lib/int).
 
 * Modifying a collection during iteration is an error.
 
