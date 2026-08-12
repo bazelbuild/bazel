@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -29,8 +30,11 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.config.BaselineOptionsFunction;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.InMemoryNodeEntry;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import org.junit.Before;
@@ -147,42 +151,20 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
     BuildOptions buildOptions =
         createBuildOptions("--//test_flags:foo=True", "--//test_flags:bar=True");
 
-    // purposely removing the scope for //test_flags:bar to simulate the case where the scope is
-    // not yet resolved for a flag.
-    BuildOptions inputBuildOptionsWithIncompleteScopeTypeMap =
-        buildOptions.toBuilder().removeScope(Label.parseCanonical("//test_flags:bar")).build();
-
-    ImmutableList<Label> scopedFlags = ImmutableList.of(Label.parseCanonical("//test_flags:bar"));
     BuildOptionsScopeValue.Key key =
-        BuildOptionsScopeValue.Key.create(inputBuildOptionsWithIncompleteScopeTypeMap, scopedFlags);
-
-    // verify that the scope type is not yet resolved for //test_flags:bar
-    assertThat(key.getBuildOptions().getScopeTypeMap()).hasSize(1);
+        BuildOptionsScopeValue.Key.create(buildOptions.getStarlarkOptions().keySet());
 
     BuildOptionsScopeValue buildOptionsScopeValue = executeFunction(key);
 
-    // verify that the Scope is fully resolved for //test_flags:foo and //test_flags:bar
-    var unused =
-        assertThat(
-            buildOptionsScopeValue
-                .getFullyResolvedScopes()
-                .equals(
-                    ImmutableMap.of(
-                        Label.parseCanonical("//test_flags:foo"),
-                        new Scope(
-                            new Scope.ScopeType(Scope.ScopeType.PROJECT),
-                            new Scope.ScopeDefinition(ImmutableSet.of("//my_project/"))),
-                        Label.parseCanonical("//test_flags:bar"),
-                        new Scope(new Scope.ScopeType(Scope.ScopeType.UNIVERSAL), null))));
-
-    // verify that the BuildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes() has the
-    // correct ScopeType map for all flags.
-    assertThat(buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes().getScopeTypeMap())
-        .containsExactly(
-            Label.parseCanonical("//test_flags:foo"),
-            new Scope.ScopeType(Scope.ScopeType.PROJECT),
-            Label.parseCanonical("//test_flags:bar"),
-            new Scope.ScopeType(Scope.ScopeType.UNIVERSAL));
+    // verify that the Scope is fully resolved for the project-scoped //test_flags:foo and that the
+    // universally scoped //test_flags:bar is not reported as scoped
+    assertThat(buildOptionsScopeValue.projectScopes())
+        .isEqualTo(
+            ImmutableMap.of(
+                Label.parseCanonical("//test_flags:foo"),
+                new Scope(
+                    new Scope.ScopeType(Scope.ScopeType.PROJECT),
+                    new Scope.ScopeDefinition(ImmutableSet.of("//my_project/")))));
   }
 
   @Test
@@ -211,19 +193,88 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
 
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptionsWithoutScopes = createBuildOptions("--//test_flags:foo=True");
-    ImmutableList<Label> scopedFlags = ImmutableList.of(Label.parseCanonical("//test_flags:foo"));
     BuildOptionsScopeValue.Key key =
-        BuildOptionsScopeValue.Key.create(buildOptionsWithoutScopes, scopedFlags);
+        BuildOptionsScopeValue.Key.create(buildOptionsWithoutScopes.getStarlarkOptions().keySet());
 
     BuildOptionsScopeValue buildOptionsScopeValue = executeFunction(key);
-    var unused =
-        assertThat(
-            buildOptionsScopeValue
-                .getFullyResolvedScopes()
-                .equals(
-                    ImmutableMap.of(
-                        Label.parseCanonical("//test_flags:foo"),
-                        new Scope(new Scope.ScopeType(Scope.ScopeType.PROJECT), null))));
+    assertThat(buildOptionsScopeValue.projectScopes())
+        .isEqualTo(
+            ImmutableMap.of(
+                Label.parseCanonical("//test_flags:foo"),
+                new Scope(new Scope.ScopeType(Scope.ScopeType.PROJECT), null)));
+  }
+
+  // BuildConfigurationValue carries a BuildOptionsScopeValue and is serialized for analysis
+  // caching, so scopes have to round-trip through the codec registry.
+  @Test
+  public void codec() throws Exception {
+    Label flag = Label.parseCanonical("//test_flags:foo");
+    new SerializationTester(
+            BuildOptionsScopeValue.EMPTY,
+            new BuildOptionsScopeValue(ImmutableSet.of(flag), ImmutableMap.of()),
+            new BuildOptionsScopeValue(
+                ImmutableSet.of(flag),
+                ImmutableMap.of(
+                    flag, new Scope(new Scope.ScopeType(Scope.ScopeType.PROJECT), null))),
+            new BuildOptionsScopeValue(
+                ImmutableSet.of(flag),
+                ImmutableMap.of(
+                    flag,
+                    new Scope(
+                        new Scope.ScopeType(Scope.ScopeType.PROJECT),
+                        new Scope.ScopeDefinition(ImmutableSet.of("//my_project/"))))))
+        .runTests();
+  }
+
+  // Scopes are a property of the flags a configuration sets, so they are resolved once per
+  // configuration and read off BuildConfigurationValue. Resolving them per configured target
+  // instead would make every configured target a reverse dep of this one node, which is what the
+  // analysis phase CPU regression in this area came down to.
+  @Test
+  public void scopesAreResolvedPerConfiguration_notPerConfiguredTarget() throws Exception {
+    scratch.file(
+        "test_flags/build_setting.bzl",
+        """
+        bool_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.bool(flag = True),
+            attrs = {
+                "scope": attr.string(default = "universal"),
+            },
+        )
+        """);
+    scratch.file(
+        "test_flags/BUILD",
+        """
+        load("//test_flags:build_setting.bzl", "bool_flag")
+        bool_flag(
+            name = "foo",
+            build_setting_default = False,
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        filegroup(name = "top", srcs = [":middle"])
+        filegroup(name = "middle", srcs = [":bottom"])
+        filegroup(name = "bottom")
+        """);
+    useConfiguration("--//test_flags:foo=True");
+
+    assertThat(getConfiguredTarget("//pkg:top")).isNotNull();
+
+    InMemoryNodeEntry entry =
+        getSkyframeExecutor()
+            .getEvaluator()
+            .getInMemoryGraph()
+            .getIfPresent(
+                BuildOptionsScopeValue.Key.create(
+                    ImmutableSet.of(Label.parseCanonical("//test_flags:foo"))));
+    assertThat(entry).isNotNull();
+    assertThat(entry.getReverseDepsForDoneEntry())
+        .comparingElementsUsing(
+            Correspondence.<SkyKey, Class<?>>transforming(SkyKey::getClass, "has class"))
+        .doesNotContain(ConfiguredTargetKey.class);
   }
 
   private BuildOptionsScopeValue executeFunction(BuildOptionsScopeValue.Key key) throws Exception {

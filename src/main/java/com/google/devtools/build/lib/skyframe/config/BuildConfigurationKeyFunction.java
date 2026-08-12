@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyMapProducer;
 import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyMapProducer.ResultSink;
 import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
+import com.google.devtools.build.lib.skyframe.BuildOptionsScopeValue;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -43,14 +44,16 @@ public final class BuildConfigurationKeyFunction implements SkyFunction {
       throws BuildConfigurationKeyFunctionException, InterruptedException {
     // Delegate all work to BuildConfigurationKeyProducer.
     BuildConfigurationKeyValue.Key key = (BuildConfigurationKeyValue.Key) skyKey.argument();
-    BuildOptions buildOptions = key.buildOptions();
     Sink sink = new Sink();
     Driver driver =
         new Driver(
             new BuildConfigurationKeyMapProducer(
                 sink,
                 /* runAfter= */ StateMachine.DONE,
-                ImmutableMap.of(BUILD_OPTIONS_MAP_SINGLETON_KEY, buildOptions),
+                ImmutableMap.of(BUILD_OPTIONS_MAP_SINGLETON_KEY, key.buildOptions()),
+                key.forBaseline(),
+                // There is no source configuration here: the options come straight from the key.
+                BuildOptionsScopeValue.EMPTY,
                 null));
 
     boolean complete = driver.drive(env);

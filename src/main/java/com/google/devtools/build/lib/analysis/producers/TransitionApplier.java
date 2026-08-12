@@ -24,13 +24,12 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.Starla
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.skyframe.BuildOptionsScopeValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
@@ -49,6 +48,7 @@ final class TransitionApplier
   // -------------------- Input --------------------
   private final Label label;
   private final BuildConfigurationKey fromConfiguration;
+  private final BuildOptionsScopeValue fromConfigurationScopes;
   private final ConfigurationTransition transition;
   private final StarlarkTransitionCache transitionCache;
 
@@ -62,15 +62,22 @@ final class TransitionApplier
   // -------------------- Internal State --------------------
   private StarlarkBuildSettingsDetailsValue buildSettingsDetailsValue;
 
+  /**
+   * @param fromConfigurationScopes the scopes already resolved for {@code fromConfiguration}'s
+   *     Starlark flags, or {@link BuildOptionsScopeValue#EMPTY} if the caller doesn't have them.
+   *     See {@link BuildConfigurationKeyProducer}.
+   */
   TransitionApplier(
       Label label,
       BuildConfigurationKey fromConfiguration,
+      BuildOptionsScopeValue fromConfigurationScopes,
       ConfigurationTransition transition,
       StarlarkTransitionCache transitionCache,
       ResultSink sink,
       ExtendedEventHandler eventHandler,
       StateMachine runAfter) {
     this.fromConfiguration = fromConfiguration;
+    this.fromConfigurationScopes = fromConfigurationScopes;
     this.transition = transition;
     this.transitionCache = transitionCache;
     this.sink = sink;
@@ -102,6 +109,8 @@ final class TransitionApplier
           this.runAfter,
           transition.apply(
               TransitionUtil.restrict(transition, fromConfiguration.getOptions()), eventHandler),
+          /* forBaseline= */ false,
+          this.fromConfigurationScopes,
           this.label);
     }
     if (stampDependent.get()
@@ -119,26 +128,19 @@ final class TransitionApplier
         transitionCache.getAllStarlarkBuildSettings(
             transition,
             fromConfiguration.getOptions().get(CoreOptions.class).getCommandLineFlagAliasesMap());
-    Set<Label> hostFlags = new HashSet<>();
+    ImmutableSet<Label> hostFlags;
 
     // If the transition is the exec transition, we want to look up the host flag declared by
     // users in the blazerc/MODULE.bazel files with alias pointing to the starlark definition. This
     // is useful to determine exec propagation for flags with scope that starts with "exec:--".
     if (transition.getName().equals("exec")) {
-      for (Map.Entry<String, Label> alias :
-          fromConfiguration
-              .getOptions()
-              .get(CoreOptions.class)
-              .getCommandLineFlagAliasesMap()
-              .entrySet()) {
-        if (alias.getKey().startsWith("host_")) {
-          hostFlags.add(alias.getValue());
-        }
-      }
+      hostFlags = fromConfiguration.getOptions().get(CoreOptions.class).getHostFlagAliases();
     } else if (starlarkBuildSettings.isEmpty()) {
       // Quick escape if transition doesn't use any Starlark build settings.
       buildSettingsDetailsValue = StarlarkBuildSettingsDetailsValue.EMPTY;
       return applyStarlarkTransition(tasks);
+    } else {
+      hostFlags = ImmutableSet.of();
     }
     tasks.lookUp(
         StarlarkBuildSettingsDetailsValue.key(starlarkBuildSettings, hostFlags),
@@ -180,6 +182,11 @@ final class TransitionApplier
     }
 
     return new BuildConfigurationKeyMapProducer(
-        this.sink, this.runAfter, transitionedOptions, this.label);
+        this.sink,
+        this.runAfter,
+        transitionedOptions,
+        /* forBaseline= */ false,
+        this.fromConfigurationScopes,
+        this.label);
   }
 }

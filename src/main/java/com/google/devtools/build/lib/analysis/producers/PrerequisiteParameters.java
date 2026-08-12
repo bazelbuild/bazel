@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.BaseTargetPrerequisitesSupplier;
+import com.google.devtools.build.lib.skyframe.BuildOptionsScopeValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.LoadAspectsKey;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
@@ -39,6 +40,7 @@ import net.starlark.java.syntax.Location;
 /** Common parameters for computing prerequisites. */
 public final class PrerequisiteParameters {
   private final ConfiguredTargetKey configuredTargetKey;
+  private final BuildOptionsScopeValue starlarkFlagScopes;
   private final Target target;
 
   private final ImmutableList<Aspect> aspects;
@@ -73,6 +75,7 @@ public final class PrerequisiteParameters {
 
   public PrerequisiteParameters(
       ConfiguredTargetKey configuredTargetKey,
+      BuildOptionsScopeValue starlarkFlagScopes,
       Target target,
       Iterable<Aspect> aspects,
       @Nullable LoadAspectsKey loadExecAspectsKey,
@@ -86,6 +89,7 @@ public final class PrerequisiteParameters {
       @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetToolchainContexts,
       boolean requireMatchingAspectHintsProviders) {
     this.configuredTargetKey = configuredTargetKey;
+    this.starlarkFlagScopes = starlarkFlagScopes;
     this.target = target;
     this.aspects = ImmutableList.copyOf(aspects);
     this.loadExecAspectsKey = loadExecAspectsKey;
@@ -130,6 +134,16 @@ public final class PrerequisiteParameters {
   @Nullable
   public BuildConfigurationKey configurationKey() {
     return configuredTargetKey.getConfigurationKey();
+  }
+
+  /**
+   * Returns the scopes of the project-scoped Starlark flags set in {@link #configurationKey}'s
+   * configuration, taken from the {@link
+   * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue} this target is being
+   * analyzed in.
+   */
+  public BuildOptionsScopeValue starlarkFlagScopes() {
+    return starlarkFlagScopes;
   }
 
   public ImmutableList<Aspect> aspects() {

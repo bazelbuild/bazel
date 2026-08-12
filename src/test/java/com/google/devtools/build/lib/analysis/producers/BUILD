@@ -32,6 +32,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis/producers:platform_producer",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_options_scope_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_options_scope_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",

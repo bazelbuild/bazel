@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
@@ -21,44 +22,56 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Objects;
+import java.util.Set;
 
-/** SkyValue returned by {@link BuildOptionsScopeFunction}. */
-public final class BuildOptionsScopeValue implements SkyValue {
+/**
+ * SkyValue returned by {@link BuildOptionsScopeFunction}.
+ *
+ * @param starlarkFlags the Starlark flags this value answers the scoping question for, i.e. the
+ *     labels in the {@link Key} it was computed from.
+ * @param projectScopes the {@link Scope} of each flag in {@code starlarkFlags} that has {@link
+ *     Scope.ScopeType#PROJECT} scope. Flags with any other scope type are absent: scoping only ever
+ *     resets project-scoped flags, so no consumer needs their scope.
+ */
+@AutoCodec
+public record BuildOptionsScopeValue(
+    ImmutableSet<Label> starlarkFlags, ImmutableMap<Label, Scope> projectScopes)
+    implements SkyValue {
 
-  BuildOptions resolvedBuildOptionsWithScopeTypes;
-  List<Label> scopedFlags;
-  LinkedHashMap<Label, Scope> fullyResolvedScopes;
+  /** Answers the scoping question for no flag at all. */
+  public static final BuildOptionsScopeValue EMPTY =
+      new BuildOptionsScopeValue(ImmutableSet.of(), ImmutableMap.of());
+
+  /**
+   * Returns whether this value answers the scoping question for all of {@code flags}.
+   *
+   * <p>Callers that hold a value computed for a superset of the flags they care about can use it
+   * instead of asking Skyframe for one computed for the exact set.
+   *
+   * <p>This runs on every transitioned dependency edge, so it starts with a reference check. That
+   * hits whenever {@code flags} is the very key set this value was computed from, which {@code
+   * ImmutableMap} hands out repeatedly for the same map: a transition that doesn't touch Starlark
+   * flags passes its input {@code BuildOptions} straight through.
+   */
+  public boolean covers(Set<Label> flags) {
+    return starlarkFlags == flags || starlarkFlags.containsAll(flags);
+  }
 
   /** Key for {@link BuildOptionsScopeValue}. */
   @ThreadSafety.Immutable
   @AutoCodec
   public static final class Key implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
-    private final BuildOptions buildOptions;
-    private final List<Label> flagsWithIncompleteScopeInfo;
+    private final ImmutableSet<Label> starlarkOptionLabels;
+    private final int hashCode;
 
-    public Key(BuildOptions buildOptions, List<Label> flagsWithIncompleteScopeInfo) {
-      this.buildOptions = buildOptions;
-      this.flagsWithIncompleteScopeInfo = flagsWithIncompleteScopeInfo;
+    public Key(ImmutableSet<Label> starlarkOptionLabels) {
+      this.starlarkOptionLabels = starlarkOptionLabels;
+      this.hashCode = starlarkOptionLabels.hashCode();
     }
 
-    public static Key create(BuildOptions buildOptions, List<Label> flagsWithIncompleteScopeInfo) {
-      return interner.intern(new Key(buildOptions, flagsWithIncompleteScopeInfo));
-    }
-
-    public BuildOptions getBuildOptions() {
-      return buildOptions;
-    }
-
-    /**
-     * Returns the list of flags that are either project scoped or their scopes are not yet
-     * resolved.
-     */
-    public List<Label> getFlagsWithIncompleteScopeInfo() {
-      return flagsWithIncompleteScopeInfo;
+    public static Key create(ImmutableSet<Label> starlarkOptionLabels) {
+      return interner.intern(new Key(starlarkOptionLabels));
     }
 
     @Override
@@ -71,55 +84,26 @@ public final class BuildOptionsScopeValue implements SkyValue {
       return SkyFunctions.BUILD_OPTIONS_SCOPE;
     }
 
+    public ImmutableSet<Label> starlarkOptionLabels() {
+      return starlarkOptionLabels;
+    }
+
     @Override
-    public boolean equals(Object o) {
-      if (this == o) {
+    public boolean equals(Object obj) {
+      if (obj == this) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-      Key key = (Key) o;
-      return Objects.equals(buildOptions, key.buildOptions)
-          && Objects.equals(flagsWithIncompleteScopeInfo, key.flagsWithIncompleteScopeInfo);
+      return obj instanceof Key other && starlarkOptionLabels.equals(other.starlarkOptionLabels);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(buildOptions, flagsWithIncompleteScopeInfo);
+      return hashCode;
     }
-  }
 
-  public static BuildOptionsScopeValue create(
-      BuildOptions inputBuildOptions,
-      // BuildOptions buildOptionsWithScopes,
-      List<Label> scopedFlags,
-      LinkedHashMap<Label, Scope> fullyResolvedScopes) {
-    return new BuildOptionsScopeValue(inputBuildOptions, scopedFlags, fullyResolvedScopes);
-  }
-
-  public BuildOptionsScopeValue(
-      BuildOptions resolvedBuildOptionsWithScopeTypes,
-      List<Label> scopedFlags,
-      LinkedHashMap<Label, Scope> fullyResolvedScopes) {
-    this.resolvedBuildOptionsWithScopeTypes = resolvedBuildOptionsWithScopeTypes;
-    this.scopedFlags = scopedFlags;
-    this.fullyResolvedScopes = fullyResolvedScopes;
-  }
-
-  /**
-   * Returns the {@link BuildOptions} with the all starlark flags having their {@link
-   * Scope.ScopeType} resolved.
-   */
-  public BuildOptions getResolvedBuildOptionsWithScopeTypes() {
-    return resolvedBuildOptionsWithScopeTypes;
-  }
-
-  /**
-   * Returns the map of {@link Label} of scoped flags to their {@link Scope} including both {@link
-   * Scope.ScopeType} and {@link Scope.ScopeDefinition}.
-   */
-  public LinkedHashMap<Label, Scope> getFullyResolvedScopes() {
-    return fullyResolvedScopes;
+    @Override
+    public String toString() {
+      return "Key[starlarkOptionLabels=%s]".formatted(starlarkOptionLabels);
+    }
   }
 }

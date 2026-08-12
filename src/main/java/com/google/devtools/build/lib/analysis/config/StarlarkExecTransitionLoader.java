@@ -13,17 +13,25 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.base.Splitter;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
+import com.google.devtools.build.lib.rules.config.FeatureFlagValue;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -62,12 +70,44 @@ public final class StarlarkExecTransitionLoader {
   }
 
   /**
+   * Returns the key for the scope info the Starlark exec transition needs to transition {@code
+   * options}, or null if it needs none.
+   *
+   * <p>{@code BuildConfigurationFunction} uses this to resolve the value once per configuration and
+   * store it on the {@code BuildConfigurationValue}, so that the exec transition can read it from
+   * the configuration rather than resolving it once per configured target. Computing the key isn't
+   * free: it scans the configuration's Starlark flags and interns a SkyKey, which during evaluation
+   * routes through the graph's node map.
+   */
+  @Nullable
+  public static StarlarkBuildSettingsDetailsValue.Key execScopeDetailsKey(BuildOptions options) {
+    CoreOptions coreOptions = options.get(CoreOptions.class);
+    if (coreOptions == null || coreOptions.getStarlarkExecConfig() == null) {
+      // The exec transition is implemented by native logic, which doesn't consult scopes.
+      return null;
+    }
+    // All Starlark build setting flags in the config, minus feature flags, which have no scopes.
+    ImmutableSet<Label> starlarkFlags = flagsWithScopes(options.getStarlarkOptions());
+    // Host flags declared by users in the blazerc/MODULE.bazel files with an alias pointing to the
+    // Starlark definition. These determine exec propagation for flags scoped "exec:--".
+    ImmutableSet<Label> hostFlags = coreOptions.getHostFlagAliases();
+    if (starlarkFlags.isEmpty() && hostFlags.isEmpty()) {
+      return null;
+    }
+    return StarlarkBuildSettingsDetailsValue.Key.create(starlarkFlags, hostFlags);
+  }
+
+  /**
    * Loads the Starlark transition that implements execution transition logic according to {@link
    * CoreOptions#starlarkExecConfig}.
    *
    * @param options the current configured target's {@link BuildOptions}. This is used to find the
    *     value for {@link CoreOptions#starlarkExecConfig}.
    * @param bzlFileLoader caller-provided logic for loading {@link BzlLoadValue.Key} skyvalues.
+   * @param scopeDetails the scope info for {@code options}' Starlark flags, which callers holding
+   *     the corresponding {@code BuildConfigurationValue} read off it with {@code
+   *     starlarkExecScopeDetails()}. Null if the exec transition needs none, i.e. whenever {@link
+   *     #execScopeDetailsKey} returns null for {@code options}.
    * @return null if Skyframe deps need loading. A filled {@link Optional} if this build implements
    *     the exec transition with a Starlark transition. An empty {@link Optional} if this build
    *     implements the exec transition with native logic.
@@ -76,7 +116,9 @@ public final class StarlarkExecTransitionLoader {
    */
   @Nullable
   public static Optional<StarlarkAttributeTransitionProvider> loadStarlarkExecTransition(
-      @Nullable BuildOptions options, BzlFileLoader bzlFileLoader)
+      @Nullable BuildOptions options,
+      BzlFileLoader bzlFileLoader,
+      @Nullable StarlarkBuildSettingsDetailsValue scopeDetails)
       throws StarlarkExecTransitionLoadingException, InterruptedException {
     if (options == null || options.equals(CommonOptions.EMPTY_OPTIONS)) {
       return Optional.empty();
@@ -110,14 +152,49 @@ public final class StarlarkExecTransitionLoader {
       throw new StarlarkExecTransitionLoadingException(
           flagName, userRef, parsedRef.starlarkSymbolName() + " is not a Starlark transition");
     }
+
     return Optional.of(
-        new StarlarkExecTransitionProvider((StarlarkDefinedConfigTransition) transition));
+        new StarlarkExecTransitionProvider(
+            (StarlarkDefinedConfigTransition) transition, scopeDetails));
+  }
+
+  /**
+   * Returns the labels of the Starlark flags in {@code starlarkOptions} that can have scopes, i.e.
+   * all of them except feature flags.
+   *
+   * <p>Avoids allocating a new set in the common case where no feature flags are set. Returning the
+   * map's cached key set also lets the {@link StarlarkBuildSettingsDetailsValue.Key} interner
+   * short-circuit on reference equality.
+   */
+  private static ImmutableSet<Label> flagsWithScopes(ImmutableMap<Label, Object> starlarkOptions) {
+    for (Object value : starlarkOptions.values()) {
+      if (value instanceof FeatureFlagValue) {
+        return starlarkOptions.entrySet().stream()
+            .filter(e -> !(e.getValue() instanceof FeatureFlagValue))
+            .map(Map.Entry::getKey)
+            .collect(toImmutableSet());
+      }
+    }
+    return starlarkOptions.keySet();
   }
 
   /** A marker class to distinguish the exec transition from other starlark transitions. */
   static class StarlarkExecTransitionProvider extends StarlarkAttributeTransitionProvider {
-    StarlarkExecTransitionProvider(StarlarkDefinedConfigTransition execTransition) {
+    @Nullable private final StarlarkBuildSettingsDetailsValue scopeDetails;
+
+    private final int hashCode;
+
+    StarlarkExecTransitionProvider(
+        StarlarkDefinedConfigTransition execTransition,
+        @Nullable StarlarkBuildSettingsDetailsValue scopeDetails) {
       super(execTransition);
+      this.scopeDetails = scopeDetails;
+      this.hashCode = Objects.hash(super.hashCode(), scopeDetails);
+    }
+
+    @Override
+    public SplitTransition create(AttributeTransitionData data) {
+      return createWithScopeDetails(data, scopeDetails);
     }
 
     @Override
@@ -129,6 +206,22 @@ public final class StarlarkExecTransitionLoader {
     @Override
     public boolean isExecTransitionProvider() {
       return true;
+    }
+
+    @Override
+    public int hashCode() {
+      return hashCode;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof StarlarkExecTransitionProvider that)) {
+        return false;
+      }
+      return super.equals(o) && Objects.equals(scopeDetails, that.scopeDetails);
     }
   }
 

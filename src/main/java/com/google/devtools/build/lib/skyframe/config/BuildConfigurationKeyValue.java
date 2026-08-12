@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -31,11 +32,15 @@ public final class BuildConfigurationKeyValue implements SkyValue {
   /** Key for {@link BuildConfigurationKeyValue} based on the build options. */
   @ThreadSafety.Immutable
   @AutoCodec
-  public static final class Key implements SkyKey {
+  public static sealed class Key implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     public static Key create(BuildOptions buildOptions) {
       return interner.intern(new Key(buildOptions));
+    }
+
+    public static Key createForBaseline(BuildOptions buildOptions) {
+      return interner.intern(new BaselineKey(buildOptions));
     }
 
     @VisibleForSerialization
@@ -54,6 +59,10 @@ public final class BuildConfigurationKeyValue implements SkyValue {
       return buildOptions;
     }
 
+    public boolean forBaseline() {
+      return false;
+    }
+
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.BUILD_CONFIGURATION_KEY;
@@ -68,22 +77,37 @@ public final class BuildConfigurationKeyValue implements SkyValue {
         return false;
       }
       Key key = (Key) o;
-      return Objects.equals(buildOptions, key.buildOptions);
+      return Objects.equals(buildOptions, key.buildOptions) && forBaseline() == key.forBaseline();
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(buildOptions);
+      return HashCodes.hashObjects(buildOptions, forBaseline());
     }
 
     @Override
     public String toString() {
-      return "BuildConfigurationKeyValue.Key{buildOptions=" + buildOptions.checksum() + "}";
+      return "BuildConfigurationKeyValue.Key{buildOptions="
+          + buildOptions.checksum()
+          + ", forBaseline="
+          + forBaseline()
+          + "}";
     }
 
     @Override
     public SkyKeyInterner<Key> getSkyKeyInterner() {
       return interner;
+    }
+
+    private static final class BaselineKey extends Key {
+      private BaselineKey(BuildOptions buildOptions) {
+        super(buildOptions);
+      }
+
+      @Override
+      public boolean forBaseline() {
+        return true;
+      }
     }
   }
 

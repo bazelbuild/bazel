@@ -13,12 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 import static com.google.devtools.build.lib.server.FailureDetails.TargetPatterns.Code.DEPENDENCY_NOT_FOUND;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.analysis.ProjectResolutionException;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
@@ -37,18 +36,19 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * SkyFunction that creates the {@link BuildOptionsScopeValue} for a given {@link BuildOptions}.
- * This SkyFunction is responsible for the following:
+ * SkyFunction that creates the {@link BuildOptionsScopeValue} for a given set of Starlark option
+ * labels. This SkyFunction is responsible for the following:
  *
  * <ul>
- *   <li>Resolving the {@link Scope.ScopeType} for each scoped flag if not already resolved.
+ *   <li>Resolving the {@link Scope.ScopeType} of each flag and keeping the ones scoped with {@link
+ *       Scope.ScopeType.PROJECT}.
  *   <li>Getting the PROJECT.scl files for each flag scoped with {@link Scope.ScopeType.PROJECT}.
  *   <li>Looking up {@link ProjectValue} for scoped flags that have PROJECT.scl files to get the
  *       list of active directories that define the scope of the flag.
@@ -61,63 +61,26 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws BuildOptionsScopeFunctionException, InterruptedException {
     BuildOptionsScopeValue.Key key = (BuildOptionsScopeValue.Key) skyKey.argument();
-    BuildOptions.Builder fullyResolvedBuildOptionsBuilder = key.getBuildOptions().toBuilder();
-    LinkedHashMap<Label, Scope> scopes = new LinkedHashMap<>();
-    for (Label scopedFlag : key.getFlagsWithIncompleteScopeInfo()) {
-      Scope.ScopeType scopeType = key.getBuildOptions().getScopeTypeMap().get(scopedFlag);
-      Object onLeaveScopeValue = key.getBuildOptions().getOnLeaveScopeValues().get(scopedFlag);
-      if (scopeType == null) {
-        Target target = getTarget(env, scopedFlag, scopedFlag.getPackageIdentifier());
-        if (target == null) {
-          return null;
-        }
-        scopeType = getScopeType(target);
-        onLeaveScopeValue = getOnleaveScopeValue(target);
+    LinkedHashMap<Label, Scope> projectScopes = new LinkedHashMap<>();
+    for (Label scopedFlag : key.starlarkOptionLabels()) {
+      Target target = getTarget(env, scopedFlag, scopedFlag.getPackageIdentifier());
+      if (target == null) {
+        return null;
       }
-      scopes.put(scopedFlag, new Scope(scopeType, null));
-
-      // this is needed because the final BuildOptions used to create the BuildConfigurationKey
-      // needs to have the scopeType set for all starlark flags.
-      fullyResolvedBuildOptionsBuilder =
-          onLeaveScopeValue != null
-              ? fullyResolvedBuildOptionsBuilder
-                  .addScopeType(scopedFlag, scopeType)
-                  .addOnLeaveScopeValue(scopedFlag, onLeaveScopeValue)
-              : fullyResolvedBuildOptionsBuilder.addScopeType(scopedFlag, scopeType);
-
-      if (scopeType.scopeType().startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
-        // handling custom exec case with scope "exec:--<another_flag_name>".
-        // For example: --python_launcher=--host_python_launcher
-        // have the --<another_flag_name> flag default value in the target config but also make sure
-        // that it won't propagate to the exec config by setting the scope to "target".
-        Label anotherFlag = Label.parseCanonicalUnchecked(scopeType.scopeType().substring(7));
-        Target anotherFlagTarget = getTarget(env, anotherFlag, scopedFlag.getPackageIdentifier());
-        if (anotherFlagTarget == null) {
-          return null;
-        }
-
-        if (!key.getBuildOptions().getStarlarkOptions().containsKey(anotherFlag)) {
-          var anotherFlagAttrs = RawAttributeMapper.of(anotherFlagTarget.getAssociatedRule());
-          String anotherFlagScopeType = Scope.ScopeType.DEFAULT;
-          if (anotherFlagAttrs.isAttributeValueExplicitlySpecified("scope")) {
-            anotherFlagScopeType = anotherFlagAttrs.get("scope", Type.STRING);
-          }
-          fullyResolvedBuildOptionsBuilder =
-              fullyResolvedBuildOptionsBuilder
-                  .addStarlarkOption(
-                      anotherFlag,
-                      anotherFlagTarget
-                          .getAssociatedRule()
-                          .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))
-                  .addScopeType(anotherFlag, new Scope.ScopeType(anotherFlagScopeType));
-        }
+      Scope.ScopeType scopeType = getScopeType(target);
+      if (scopeType.scopeType().equals(Scope.ScopeType.PROJECT)) {
+        projectScopes.put(scopedFlag, new Scope(scopeType, null));
       }
     }
 
-    // get PROJECT.scl files for each scoped flag that is not universal
+    if (projectScopes.isEmpty()) {
+      return new BuildOptionsScopeValue(key.starlarkOptionLabels(), ImmutableMap.of());
+    }
+
+    // get PROJECT.scl files for each project-scoped flag
     ImmutableMultimap<Label, Label> projectFiles;
     try {
-      projectFiles = findProjectFiles(scopes, env);
+      projectFiles = findProjectFiles(projectScopes.keySet(), env);
     } catch (ProjectResolutionException e) {
       throw new BuildOptionsScopeFunctionException(e);
     }
@@ -147,33 +110,29 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
     for (Map.Entry<Label, SkyKey> entry : projectValueSkyKeysMap.entrySet()) {
       Label projectScopedFlag = entry.getKey();
       ProjectValue projectValue = (ProjectValue) projectValuesLookUpResult.get(entry.getValue());
-      scopes.put(
+      projectScopes.put(
           projectScopedFlag,
           new Scope(
-              scopes.get(projectScopedFlag).getScopeType(),
+              projectScopes.get(projectScopedFlag).getScopeType(),
               projectValue.getDefaultProjectDirectories().isEmpty()
                   ? null
                   : new Scope.ScopeDefinition(projectValue.getDefaultProjectDirectories())));
     }
 
-    return BuildOptionsScopeValue.create(
-        fullyResolvedBuildOptionsBuilder.build(),
-        new ArrayList<>(projectValueSkyKeysMap.keySet()),
-        scopes);
+    return new BuildOptionsScopeValue(
+        key.starlarkOptionLabels(), ImmutableMap.copyOf(projectScopes));
   }
 
   /** TODO: b/384057043 - deduplicate this method in several places in a follow up CL. */
   @Nullable
   private ImmutableMultimap<Label, Label> findProjectFiles(
-      Map<Label, Scope> scopes, Environment env)
+      Set<Label> projectScopedFlags, Environment env)
       throws InterruptedException, ProjectResolutionException {
 
     Map<Label, ProjectFilesLookupValue.Key> targetsToSkyKeys = new HashMap<>();
-    for (Label starlarkOption : scopes.keySet()) {
-      if (scopes.get(starlarkOption).getScopeType().scopeType().equals(Scope.ScopeType.PROJECT)) {
-        targetsToSkyKeys.put(
-            starlarkOption, ProjectFilesLookupValue.key(starlarkOption.getPackageIdentifier()));
-      }
+    for (Label starlarkOption : projectScopedFlags) {
+      targetsToSkyKeys.put(
+          starlarkOption, ProjectFilesLookupValue.key(starlarkOption.getPackageIdentifier()));
     }
 
     Map<Label, ProjectFilesLookupValue> projectFilesLookupValues = new HashMap<>();
@@ -225,19 +184,6 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
     return new Scope.ScopeType(attrs.get("scope", Type.STRING));
   }
 
-  @Nullable
-  private Object getOnleaveScopeValue(Target target) {
-    var attrs = RawAttributeMapper.of(target.getAssociatedRule());
-    if (!attrs.isAttributeValueExplicitlySpecified("on_leave_scope")) {
-      // do nothing if on_leave_scope is not set.
-      return null;
-    }
-
-    return attrs.get(
-        "on_leave_scope",
-        target.getAssociatedRule().getRuleClassObject().getBuildSetting().getType());
-  }
-
   /**
    * Same as {@link ParsedFlagsFunction.SkyframeTargetLoader} but forking it here to avoid circular
    * dependencies.
@@ -282,10 +228,6 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
     }
 
     BuildOptionsScopeFunctionException(TargetParsingException cause) {
-      super(cause, Transience.PERSISTENT);
-    }
-
-    BuildOptionsScopeFunctionException(IllegalArgumentException cause) {
       super(cause, Transience.PERSISTENT);
     }
   }

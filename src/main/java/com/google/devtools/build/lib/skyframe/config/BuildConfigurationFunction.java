@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe.config;
 
 import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.CPU_CONSTRAINT_SETTING;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
@@ -24,13 +25,16 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationValueEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.config.transitions.BaselineOptionsValue;
 import com.google.devtools.build.lib.analysis.platform.PlatformValue;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.skyframe.BuildOptionsScopeValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -74,6 +78,30 @@ public final class BuildConfigurationFunction implements SkyFunction {
       return null;
     }
 
+    // Resolved here, once per configuration, so that the Starlark exec transition can read it off
+    // the configuration instead of requesting it once per configured target.
+    StarlarkBuildSettingsDetailsValue starlarkExecScopeDetails = null;
+    StarlarkBuildSettingsDetailsValue.Key scopeDetailsKey =
+        StarlarkExecTransitionLoader.execScopeDetailsKey(targetOptions);
+    if (scopeDetailsKey != null) {
+      starlarkExecScopeDetails = (StarlarkBuildSettingsDetailsValue) env.getValue(scopeDetailsKey);
+      if (starlarkExecScopeDetails == null) {
+        return null;
+      }
+    }
+
+    // Likewise resolved once per configuration so that BuildConfigurationKeyProducer can scope the
+    // configurations of this configuration's dependencies without asking Skyframe on every edge.
+    BuildOptionsScopeValue starlarkFlagScopes = BuildOptionsScopeValue.EMPTY;
+    ImmutableSet<Label> starlarkFlags = targetOptions.getStarlarkOptions().keySet();
+    if (!starlarkFlags.isEmpty()) {
+      starlarkFlagScopes =
+          (BuildOptionsScopeValue) env.getValue(BuildOptionsScopeValue.Key.create(starlarkFlags));
+      if (starlarkFlagScopes == null) {
+        return null;
+      }
+    }
+
     try {
       var configurationValue =
           BuildConfigurationValue.create(
@@ -82,6 +110,8 @@ public final class BuildConfigurationFunction implements SkyFunction {
               starlarkSemantics.getBool(
                   BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT),
               platformCpu,
+              starlarkExecScopeDetails,
+              starlarkFlagScopes,
               // Arguments below this are server-global.
               directories,
               ruleClassProvider,

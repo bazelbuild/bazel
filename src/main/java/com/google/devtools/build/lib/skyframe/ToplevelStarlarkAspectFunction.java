@@ -418,6 +418,13 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
     public TransitiveDependencyState getTransitiveState() {
       return state.transitiveState;
     }
+
+    @Override
+    public BuildOptionsScopeValue getPreRuleTransitionScopes() {
+      // Runs once per top-level aspect, so letting the rule transition resolve the scopes itself
+      // costs little.
+      return BuildOptionsScopeValue.EMPTY;
+    }
   }
 
   /**

@@ -2245,6 +2245,24 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public StarlarkAttributeTransitionProvider getStarlarkExecTransition(
       BuildOptions options, ExtendedEventHandler eventHandler)
       throws StarlarkExecTransitionLoadingException, InterruptedException {
+    // Unlike the analysis phase skyfunctions, this has no configuration to read the scope info off,
+    // so it evaluates it through Skyframe.
+    StarlarkBuildSettingsDetailsValue scopeDetails = null;
+    StarlarkBuildSettingsDetailsValue.Key scopeDetailsKey =
+        StarlarkExecTransitionLoader.execScopeDetailsKey(options);
+    if (scopeDetailsKey != null) {
+      EvaluationResult<SkyValue> result =
+          evaluate(
+              ImmutableList.of(scopeDetailsKey),
+              /* keepGoing= */ false,
+              /* numThreads= */ DEFAULT_THREAD_COUNT,
+              eventHandler);
+      if (result.hasError()) {
+        throw new StarlarkExecTransitionLoadingException(
+            "Failed to load build settings details for exec transition");
+      }
+      scopeDetails = (StarlarkBuildSettingsDetailsValue) result.get(scopeDetailsKey);
+    }
     return StarlarkExecTransitionLoader.loadStarlarkExecTransition(
             options,
             (bzlKey) -> {
@@ -2274,7 +2292,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                 throw new IllegalStateException("Unknown error while creating exec transition", e);
               }
               return (BzlLoadValue) result.get(bzlKey);
-            })
+            },
+            scopeDetails)
         .orElse(null);
   }
 
@@ -3747,16 +3766,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
           @Override
           public ImmutableMap<String, Object> getStarlarkOptions() {
-            return ImmutableMap.of();
-          }
-
-          @Override
-          public ImmutableMap<String, String> getScopesAttributes() {
-            return ImmutableMap.of();
-          }
-
-          @Override
-          public ImmutableMap<String, Object> getOnLeaveScopeValues() {
             return ImmutableMap.of();
           }
 
