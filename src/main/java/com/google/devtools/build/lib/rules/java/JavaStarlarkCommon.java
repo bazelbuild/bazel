@@ -20,8 +20,12 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.analysis.starlark.Args;
+import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -51,6 +55,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -201,7 +206,8 @@ public class JavaStarlarkCommon
       boolean enableJSpecify,
       boolean enableDirectClasspath,
       Sequence<?> additionalInputs,
-      Sequence<?> additionalOutputs)
+      Sequence<?> additionalOutputs,
+      Object extraArgs)
       throws EvalException,
           TypeException,
           RuleErrorException,
@@ -217,11 +223,26 @@ public class JavaStarlarkCommon
             .nativeHeader(nativeHeader == Starlark.NONE ? null : (Artifact) nativeHeader)
             .manifestProto(manifestProto)
             .build();
+    Iterable<CommandLineArgsApi> extraArgsList =
+        (extraArgs == null || extraArgs == Starlark.NONE)
+            ? ImmutableList.of()
+            : Sequence.cast(extraArgs, CommandLineArgsApi.class, "extra_args");
+    ImmutableList.Builder<CommandLine> extraCommandLineArgs = ImmutableList.builder();
+    ImmutableSet.Builder<Artifact> extraDirectoryInputs = ImmutableSet.builder();
+    for (CommandLineArgsApi argsApi : extraArgsList) {
+      if (argsApi instanceof Args args) {
+        extraCommandLineArgs.add(
+            args.build(ctx.getRuleContext().getAnalysisEnvironment()::getMainRepoMapping));
+        extraDirectoryInputs.addAll(args.getDirectoryArtifacts());
+      }
+    }
     JavaTargetAttributes.Builder attributesBuilder =
         new JavaTargetAttributes.Builder()
             .addSourceJars(Sequence.cast(sourceJars, Artifact.class, "source_jars"))
             .addSourceFiles(Depset.noneableCast(sourceFiles, Artifact.class, "sources").toList())
             .addDirectJars(directJars.getSet(Artifact.class))
+            .addExtraCommandLineArgs(extraCommandLineArgs.build())
+            .addAdditionalInputs(extraDirectoryInputs.build())
             .setCompileTimeClassPathEntriesWithPrependedDirectJars(
                 compileTimeClasspath.getSet(Artifact.class))
             .addClassPathResources(
@@ -413,6 +434,11 @@ public class JavaStarlarkCommon
   public Sequence<?> tokenizeJavacOpts(Sequence<?> opts) throws EvalException {
     return StarlarkList.immutableCopyOf(
         JavaHelper.tokenizeJavaOptions(Sequence.noneableCast(opts, String.class, "opts")));
+  }
+
+  @Override
+  public boolean isUnusedDepsSupported(StarlarkThread thread) throws EvalException {
+    return true;
   }
 
   static boolean isInstanceOfProvider(Object obj, Provider provider) {

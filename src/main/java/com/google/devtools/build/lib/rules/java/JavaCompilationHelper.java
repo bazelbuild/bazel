@@ -298,6 +298,7 @@ public final class JavaCompilationHelper {
         .getFixDepsTool(ruleContext.getRule(), getJavaConfiguration())
         .ifPresent(builder::setFixDepsTool);
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
+    builder.setExtraCommandLineArgs(attributes.getExtraCommandLineArgs());
     builder.setTargetLabel(
         attributes.getTargetLabel() == null ? label : attributes.getTargetLabel());
     builder.setInjectingRuleKind(attributes.getInjectingRuleKind());
