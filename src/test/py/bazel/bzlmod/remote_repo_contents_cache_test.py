@@ -534,6 +534,8 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     dir_b = self.ScratchDir('b')
     self.ScratchFile('a/MODULE.bazel', module_bazel_lines)
     self.ScratchFile('b/MODULE.bazel', module_bazel_lines)
+    self.CopyFile(self.Path('MODULE.bazel.lock'), 'a/MODULE.bazel.lock')
+    self.CopyFile(self.Path('MODULE.bazel.lock'), 'b/MODULE.bazel.lock')
     self.ScratchFile('a/BUILD.bazel')
     self.ScratchFile('b/BUILD.bazel')
     self.ScratchFile('a/repo.bzl', repo_bzl_lines)
@@ -1976,6 +1978,90 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'root.txt')))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
+
+  def testLostRemoteFile_moduleExtensionMaterialization(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'ext = use_extension("//:extension.bzl", "ext")',
+            'use_repo(ext, "other")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "filegroup(name=\'root\')")',
+            (
+                '  rctx.file("examples/basic_gazelle/.bazelrc",'
+                ' "build --color=no\\n")'
+            ),
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _other_repo_impl(rctx):',
+            '  rctx.file("BUILD", "filegroup(name=\'root\')")',
+            'other_repo = repository_rule(_other_repo_impl)',
+            'def _extension_impl(module_ctx):',
+            '  module_ctx.path(Label("@my_repo//:BUILD"))',
+            '  other_repo(name="other")',
+            'ext = module_extension(implementation=_extension_impl)',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:root'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:root'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
+    self.assertFalse(
+        os.path.exists(
+            os.path.join(repo_dir, 'examples/basic_gazelle/.bazelrc')
+        )
+    )
+
+    self.DeleteCasEntry(b'build --color=no\n')
+
+    _, _, stderr = self.RunBazel(['build', '@other//:root'])
+    stderr = '\n'.join(stderr)
+    self.assertEqual(
+        1,
+        stderr.count(
+            'Found transient remote cache error, retrying the build...'
+        ),
+    )
+    self.assertIn('JUST FETCHED', stderr)
+    self.assertTrue(
+        os.path.exists(
+            os.path.join(repo_dir, 'examples/basic_gazelle/.bazelrc')
+        )
+    )
+
+    # The refetch must repair the remote entry, not just the current output
+    # base, so a cold build can use the repository cache again.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:root'])
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('JUST FETCHED', stderr)
+
+    _, _, stderr = self.RunBazel(['build', '@other//:root'])
+    stderr = '\n'.join(stderr)
+    self.assertNotIn(
+        'Found transient remote cache error, retrying the build...', stderr
+    )
+    self.assertNotIn('JUST FETCHED', stderr)
 
   def doTestMaterializationWithInternalAndExternalSymlinks(
       self, *, expect_symlinks, watch_dep_file=True
