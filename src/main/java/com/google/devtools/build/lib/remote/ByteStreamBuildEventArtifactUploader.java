@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDigestFunction;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
@@ -30,6 +31,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
@@ -109,9 +111,20 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   }
 
   /** Returns {@code true} if Bazel knows that the file is stored on a remote system. */
-  private static boolean isRemoteFile(Path file) throws IOException {
-    return file.getFileSystem() instanceof RemoteActionFileSystem
-        && ((RemoteActionFileSystem) file.getFileSystem()).isRemote(file);
+  /**
+   * Checks that a build event does not reference an action filesystem.
+   *
+   * <p>A build event outlives the action it refers to, since it is uploaded asynchronously, so
+   * referencing one keeps everything it needs to serve that action's inputs on the heap until the
+   * event has been delivered. Events report paths on the local filesystem and supply {@link
+   * BuildEvent.LocalFile#artifactMetadata} for files that may not exist there. See
+   * https://github.com/bazelbuild/bazel/issues/24527.
+   */
+  private static void checkNotActionFileSystem(Path path) {
+    checkArgument(
+        !(path.getFileSystem() instanceof RemoteActionFileSystem),
+        "build event references an action filesystem: %s",
+        path);
   }
 
   private static final class PathMetadata {
@@ -248,7 +261,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         digest,
         /* directory= */ false,
         /* symlink= */ false,
-        isRemoteFile(path),
+        // A file that is only stored remotely is reported through its metadata above.
+        /* remote= */ false,
         isBuildToolLog,
         digestFunction);
   }
@@ -391,6 +405,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     if (files.isEmpty()) {
       return Single.just(PathConverter.NO_CONVERSION);
     }
+
+    files.keySet().forEach(ByteStreamBuildEventArtifactUploader::checkNotActionFileSystem);
 
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "bes-upload");

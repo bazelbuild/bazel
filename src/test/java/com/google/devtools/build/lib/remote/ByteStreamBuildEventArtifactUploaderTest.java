@@ -413,9 +413,10 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   }
 
   @Test
-  public void remoteFileShouldNotBeUploaded_actionFs() throws Exception {
-    // Test that we don't attempt to upload remotely stored file but convert the remote path
-    // to a bytestream:// URI.
+  public void remoteFileShouldNotBeUploaded_remoteMetadata() throws Exception {
+    // Test that we don't attempt to upload a remotely stored file, but convert it to a
+    // bytestream:// URI. Build events report such a file on the local filesystem, where it does not
+    // exist, and supply its metadata; see #24527.
 
     // arrange
 
@@ -430,23 +431,15 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     ActionInputMap outputs = new ActionInputMap(2);
     Artifact artifact = createRemoteArtifact("file1.txt", "foo", outputs);
 
-    RemoteActionFileSystem remoteFs =
-        new RemoteActionFileSystem(
-            fs,
-            execRoot.asFragment(),
-            outputRoot.getRoot().asPath().relativeTo(execRoot).getPathString(),
-            outputs,
-            actionInputFetcher);
-    Path remotePath = remoteFs.getPath(artifact.getPath().getPathString());
-    assertThat(remotePath.getFileSystem()).isEqualTo(remoteFs);
-    LocalFile file =
-        new LocalFile(remotePath, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null);
+    FileArtifactValue metadata = outputs.getInputMetadata(artifact);
+    Path remotePath = artifact.getPath();
+    assertThat(remotePath.exists()).isFalse();
+    LocalFile file = new LocalFile(remotePath, LocalFileType.OUTPUT_FILE, metadata);
 
     // act
 
     PathConverter pathConverter = artifactUploader.upload(ImmutableMap.of(remotePath, file)).get();
 
-    FileArtifactValue metadata = outputs.getInputMetadata(artifact);
     Digest digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
 
     // assert
