@@ -69,30 +69,15 @@ public final class StarlarkExecTransitionLoader {
         throws BzlLoadFailedException, InterruptedException, StarlarkExecTransitionLoadingException;
   }
 
-  /** Caller-provided logic for loading {@link StarlarkBuildSettingsDetailsValue}. */
-  public interface BuildSettingsDetailsLoader {
-    /**
-     * Loads the scope info identified by {@code key}. Returns null if not all Skyframe deps are
-     * ready.
-     *
-     * <p>Callers that already hold the {@code BuildConfigurationValue} for the options passed to
-     * {@link #loadStarlarkExecTransition} should answer from {@code
-     * BuildConfigurationValue.starlarkExecScopeDetails()} instead of asking Skyframe: this method
-     * is called once per configured target, and requesting the value from Skyframe here makes every
-     * configured target a reverse dep of a single node.
-     */
-    @Nullable
-    StarlarkBuildSettingsDetailsValue getValue(StarlarkBuildSettingsDetailsValue.Key key)
-        throws InterruptedException, StarlarkExecTransitionLoadingException;
-  }
-
   /**
    * Returns the key for the scope info the Starlark exec transition needs to transition {@code
    * options}, or null if it needs none.
    *
    * <p>{@code BuildConfigurationFunction} uses this to resolve the value once per configuration and
    * store it on the {@code BuildConfigurationValue}, so that the exec transition can read it from
-   * the configuration rather than requesting it once per configured target.
+   * the configuration rather than resolving it once per configured target. Computing the key isn't
+   * free: it scans the configuration's Starlark flags and interns a SkyKey, which during evaluation
+   * routes through the graph's node map.
    */
   @Nullable
   public static StarlarkBuildSettingsDetailsValue.Key execScopeDetailsKey(BuildOptions options) {
@@ -119,8 +104,10 @@ public final class StarlarkExecTransitionLoader {
    * @param options the current configured target's {@link BuildOptions}. This is used to find the
    *     value for {@link CoreOptions#starlarkExecConfig}.
    * @param bzlFileLoader caller-provided logic for loading {@link BzlLoadValue.Key} skyvalues.
-   * @param detailsLoader caller-provided logic for loading {@link
-   *     StarlarkBuildSettingsDetailsValue} for scope info.
+   * @param scopeDetails the scope info for {@code options}' Starlark flags, which callers holding
+   *     the corresponding {@code BuildConfigurationValue} read off it with {@code
+   *     starlarkExecScopeDetails()}. Null if the exec transition needs none, i.e. whenever {@link
+   *     #execScopeDetailsKey} returns null for {@code options}.
    * @return null if Skyframe deps need loading. A filled {@link Optional} if this build implements
    *     the exec transition with a Starlark transition. An empty {@link Optional} if this build
    *     implements the exec transition with native logic.
@@ -131,7 +118,7 @@ public final class StarlarkExecTransitionLoader {
   public static Optional<StarlarkAttributeTransitionProvider> loadStarlarkExecTransition(
       @Nullable BuildOptions options,
       BzlFileLoader bzlFileLoader,
-      BuildSettingsDetailsLoader detailsLoader)
+      @Nullable StarlarkBuildSettingsDetailsValue scopeDetails)
       throws StarlarkExecTransitionLoadingException, InterruptedException {
     if (options == null || options.equals(CommonOptions.EMPTY_OPTIONS)) {
       return Optional.empty();
@@ -166,15 +153,6 @@ public final class StarlarkExecTransitionLoader {
           flagName, userRef, parsedRef.starlarkSymbolName() + " is not a Starlark transition");
     }
 
-    StarlarkBuildSettingsDetailsValue scopeDetails = null;
-    StarlarkBuildSettingsDetailsValue.Key scopeDetailsKey = execScopeDetailsKey(options);
-    if (scopeDetailsKey != null) {
-      scopeDetails = detailsLoader.getValue(scopeDetailsKey);
-      if (scopeDetails == null) {
-        return null;
-      }
-    }
-
     return Optional.of(
         new StarlarkExecTransitionProvider(
             (StarlarkDefinedConfigTransition) transition, scopeDetails));
@@ -184,9 +162,9 @@ public final class StarlarkExecTransitionLoader {
    * Returns the labels of the Starlark flags in {@code starlarkOptions} that can have scopes, i.e.
    * all of them except feature flags.
    *
-   * <p>This method is called once per configured target, so it avoids allocating a new set in the
-   * common case where no feature flags are set. Returning the map's cached key set also lets the
-   * {@link StarlarkBuildSettingsDetailsValue.Key} interner short-circuit on reference equality.
+   * <p>Avoids allocating a new set in the common case where no feature flags are set. Returning the
+   * map's cached key set also lets the {@link StarlarkBuildSettingsDetailsValue.Key} interner
+   * short-circuit on reference equality.
    */
   private static ImmutableSet<Label> flagsWithScopes(ImmutableMap<Label, Object> starlarkOptions) {
     for (Object value : starlarkOptions.values()) {
