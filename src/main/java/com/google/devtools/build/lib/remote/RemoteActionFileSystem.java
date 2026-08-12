@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifact
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
+import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -106,7 +107,16 @@ import javax.annotation.Nullable;
 public class RemoteActionFileSystem extends FileSystem implements PathCanonicalizer.Resolver {
   private final PathFragment execRoot;
   private final PathFragment outputBase;
-  private final InputMetadataProvider inputArtifactData;
+
+  /**
+   * The action's inputs, or {@link StaticInputMetadataProvider#empty()} once {@link
+   * #releaseActionContext} has been called.
+   *
+   * <p>Volatile so that a thread reading this filesystem while the input view is released observes
+   * one of the two providers rather than keeping the released one alive indefinitely.
+   */
+  private volatile InputMetadataProvider inputArtifactData;
+
   private final TreeArtifactDirectoryCache inputTreeArtifactDirectoryCache;
   private final PathCanonicalizer pathCanonicalizer;
   private final RemoteActionInputFetcher inputFetcher;
@@ -193,6 +203,11 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
     public synchronized Collection<Dirent> get(PathFragment execPath) {
       ensureCached(execPath);
       return dirToEntries.get(execPath);
+    }
+
+    synchronized void clear() {
+      cachedTrees.clear();
+      dirToEntries.clear();
     }
 
     private void ensureCached(PathFragment execPath) {
@@ -303,6 +318,25 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
 
   public void updateContext(ActionExecutionMetadata action) {
     this.action = action;
+  }
+
+  /**
+   * Releases the parts of this filesystem that are only needed while the action is executing.
+   *
+   * <p>This filesystem outlives its action, and build events are not the only reason. They
+   * reference {@link com.google.devtools.build.lib.vfs.Path}s in it and are uploaded
+   * asynchronously, so it stays reachable until the last of them has been delivered; with {@code
+   * --remote_cache_async}, the action result upload reads it from a background thread as well.
+   *
+   * <p>All of these only ever reference outputs, which remain served by the remote output tree and
+   * the local filesystem. The input view is therefore dropped here instead of retaining the
+   * metadata of every input of every action that something is still holding on to. See
+   * https://github.com/bazelbuild/bazel/issues/24527.
+   */
+  public void releaseActionContext() {
+    inputArtifactData = StaticInputMetadataProvider.empty();
+    inputTreeArtifactDirectoryCache.clear();
+    action = null;
   }
 
   void injectRemoteFile(

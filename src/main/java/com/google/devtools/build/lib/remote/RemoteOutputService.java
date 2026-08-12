@@ -115,6 +115,11 @@ public class RemoteOutputService implements OutputService {
   }
 
   @Override
+  public void releaseActionFileSystemContext(FileSystem actionFileSystem) {
+    ((RemoteActionFileSystem) actionFileSystem).releaseActionContext();
+  }
+
+  @Override
   public String getFileSystemName(String outputBaseFileSystemName) {
     return "remoteActionFS";
   }

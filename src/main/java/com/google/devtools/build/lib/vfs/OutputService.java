@@ -237,6 +237,19 @@ public interface OutputService {
       OutputMetadataStore outputMetadataStore) {}
 
   /**
+   * Releases the context set up by {@link #updateActionFileSystemContext} once the action has
+   * finished executing.
+   *
+   * <p>An action filesystem can outlive its action: build events reference {@link Path}s in it and
+   * are uploaded asynchronously, and an implementation may have further asynchronous readers. Since
+   * they only ever reference outputs, whatever the filesystem needs to serve the action's inputs
+   * should be dropped here rather than being retained until the last of them is done.
+   *
+   * @param actionFileSystem must be a filesystem returned by {@link #createActionFileSystem}.
+   */
+  default void releaseActionFileSystemContext(FileSystem actionFileSystem) {}
+
+  /**
    * Checks the filesystem returned by {@link #createActionFileSystem} for errors attributable to
    * lost inputs.
    */

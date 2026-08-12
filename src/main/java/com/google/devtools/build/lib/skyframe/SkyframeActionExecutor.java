@@ -690,6 +690,9 @@ public final class SkyframeActionExecutor {
     }
 
     if (result != null || finalException != null) {
+      if (actionFileSystem != null) {
+        outputService.releaseActionFileSystemContext(actionFileSystem);
+      }
       closeContext(actionExecutionContext, action, finalException);
     }
     return result;

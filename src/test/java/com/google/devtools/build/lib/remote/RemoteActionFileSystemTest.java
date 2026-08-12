@@ -294,6 +294,28 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Test
+  public void releaseActionContext_dropsInputsButKeepsOutputs() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(2);
+    Artifact input = createRemoteArtifact("input", "input contents", inputs);
+    SpecialArtifact inputTree =
+        createRemoteTreeArtifact("input-tree", ImmutableMap.of("subdir/file", ""), inputs);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+    Artifact output = ActionsTestUtil.createArtifact(outputRoot, "output");
+    injectRemoteFile(actionFs, output.getPath().asFragment(), "output contents");
+
+    actionFs.releaseActionContext();
+
+    // Build events reference outputs, so those must remain readable.
+    assertThat(actionFs.exists(output.getPath().asFragment())).isTrue();
+    assertThat(actionFs.getDigest(output.getPath().asFragment()))
+        .isEqualTo(getDigest("output contents"));
+
+    // The inputs are no longer needed and must no longer be retained.
+    assertThat(actionFs.exists(input.getPath().asFragment())).isFalse();
+    assertThat(actionFs.exists(inputTree.getPath().getChild("subdir").asFragment())).isFalse();
+  }
+
+  @Test
   public void statAndExists_notFound() throws Exception {
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
     PathFragment path = getOutputPath("does_not_exist");
