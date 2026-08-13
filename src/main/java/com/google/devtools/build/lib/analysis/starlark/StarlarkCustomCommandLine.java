@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -134,11 +135,6 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
   private static final AtomicBoolean interningEnabled = new AtomicBoolean(true);
 
-  /** Enables or disables interning of {@link Recipe} and {@link VectorArg} instances. */
-  public static void setInterningEnabled(boolean enabled) {
-    interningEnabled.set(enabled);
-  }
-
   // Used to distinguish command line arguments that are potentially subject to special default
   // stringification (such as Artifacts when path mapped or Labels when not main repo labels) from
   // strings that happen to be identical to their string representations.
@@ -153,7 +149,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
    * Representation of a sequence of arguments originating from {@code Args.add_all} or {@code
    * Args.add_joined}.
    */
-  @AutoCodec
+  @AutoCodec(memoizationEquality = MemoizationEquality.BY_VALUE)
   static final class VectorArg {
 
     private static final Interner<VectorArg> interner = BlazeInterners.newWeakInterner();
@@ -266,7 +262,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
               joinWith,
               formatJoined,
               terminateWith);
-      return interningEnabled.get() ? interner.intern(vectorArg) : vectorArg;
+      return interner.intern(vectorArg);
     }
 
     private static void push(
@@ -808,7 +804,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
    * instances are weakly interned so that all command lines with the same flag "template" share a
    * single instance.
    */
-  @AutoCodec
+  @AutoCodec(memoizationEquality = MemoizationEquality.BY_VALUE)
   static final class Recipe {
     private static final Interner<Recipe> interner = BlazeInterners.newWeakInterner();
 
@@ -821,14 +817,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
       this.hashCode = Arrays.hashCode(elements);
     }
 
-    static Recipe intern(Recipe recipe) {
-      return interner.intern(recipe);
-    }
-
     @AutoCodec.Instantiator
     static Recipe create(Object[] elements) {
-      Recipe recipe = new Recipe(elements);
-      return interningEnabled.get() ? interner.intern(recipe) : recipe;
+      return interner.intern(new Recipe(elements));
     }
 
     @Override
