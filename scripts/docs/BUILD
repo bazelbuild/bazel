@@ -97,15 +97,32 @@ py_test(
     ],
 )
 
+py_library(
+    name = "docs2mdx_lib",
+    srcs = ["docs2mdx.py"],
+    deps = [
+        "//third_party/py/abseil",
+        requirement("markdownify"),
+    ],
+)
+
 py_binary(
     name = "docs2mdx",
-    srcs = ["docs2mdx.py"],
+    main = "docs2mdx.py",
     visibility = [
         "//src/main/java/com/google/devtools/build/lib:__pkg__",
     ],
     deps = [
+        ":docs2mdx_lib",
+    ],
+)
+
+py_test(
+    name = "docs2mdx_test",
+    srcs = ["docs2mdx_test.py"],
+    deps = [
+        ":docs2mdx_lib",
         "//third_party/py/abseil",
-        requirement("markdownify"),
     ],
 )
 
