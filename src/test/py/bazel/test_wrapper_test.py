@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import string
 import zipfile
 
 from absl.testing import absltest
@@ -754,6 +755,44 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertXmlGeneration(flags)
     self._AssertXmlGeneratedByTestIsRetained(flags)
     self._AssertAddCurrentDirectoryToPathTest(flags)
+
+  # Test that chdir'ing into a runfiles directory longer than MAX_PATH works.
+  # See https://github.com/bazelbuild/bazel/issues/30609
+  def testChdirToRunfilesWithPathLongerThanMaxPath(self):
+    # Used for both the package directory and the target name so the overall
+    # runfiles path exceeds MAX_PATH, while each individual path component
+    # remains well below the separate 255-character per-component limit:
+    # https://support.microsoft.com/en-us/onedrive/what-are-file-path-length-limits
+    _130_chars = string.ascii_lowercase * 5
+    self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "rules_python", version = "0.40.0")']
+    )
+    self.CopyFile(
+        src_path=self.Rlocation('io_bazel/src/test/py/bazel/native_test.bzl'),
+        dst_path='%s/native_test.bzl' % _130_chars,
+    )
+    self.CopyFile(
+        src_path=self.Rlocation('io_bazel/src/test/py/bazel/printargs.exe'),
+        dst_path='%s/printargs.exe' % _130_chars,
+        executable=True,
+    )
+    self.ScratchFile(
+        '%s/BUILD' % _130_chars,
+        [
+            'load(":native_test.bzl", "exe_test")',
+            'exe_test(',
+            '    name = "%s",' % _130_chars,
+            '    src = "printargs.exe",',
+            ')',
+        ],
+    )
+    self.RunBazel([
+        'test',
+        '//%s:%s' % (_130_chars, _130_chars),
+        '-t-',
+        '--shell_executable=',
+        '--test_output=errors',
+    ])
 
 
 if __name__ == '__main__':
