@@ -16,6 +16,7 @@
 
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -47,6 +48,7 @@ static constexpr const char* JAR_BIN_PATH = "jar_bin_path";
 static constexpr const char* CLASSPATH = "classpath";
 static constexpr const char* JAVA_START_CLASS = "java_start_class";
 static constexpr const char* JVM_FLAGS = "jvm_flags";
+static constexpr const char* JAVA_VERSION = "java_version";
 
 // Check if a string start with a certain prefix.
 // If it's true, store the substring without the prefix in value.
@@ -97,8 +99,6 @@ bool JavaBinaryLauncher::ProcessWrapperArgument(const wstring& argument) {
     this->print_javabin = true;
   } else if (GetFlagValue(argument, L"--classpath_limit=", &flag_value)) {
     this->classpath_limit = std::stoi(flag_value);
-  } else if (GetFlagValue(argument, L"--java_version=", &flag_value)) {
-    this->java_version = std::stoi(flag_value);
   } else {
     return false;
   }
@@ -323,6 +323,14 @@ wstring JavaBinaryLauncher::CreateClasspathFlagfile(const wstring& classpath) {
   return flagfile_path;
 }
 
+std::optional<int> JavaBinaryLauncher::GetJavaVersion() {
+  wstring version_str = GetLaunchInfoByKeyOrEmpty(JAVA_VERSION);
+  if (version_str.empty()) {
+    return std::nullopt;
+  }
+  return std::stoi(version_str);
+}
+
 ExitCode JavaBinaryLauncher::Launch() {
   // Parse the original command line.
   vector<wstring> remaining_args = this->ProcessesCommandLine();
@@ -418,7 +426,8 @@ ExitCode JavaBinaryLauncher::Launch() {
   wstring classpath_file;
   bool delete_junction_base_dir = false;
   if (classpath_str.length() > classpath_limit) {
-    if (java_version <= 8) {
+    std::optional<int> java_version = GetJavaVersion();
+    if (!java_version.has_value() || java_version.value() <= 8) {
       classpath_file = CreateClasspathJar(classpath_str);
       arguments.push_back(classpath_file);
       delete_junction_base_dir = true;
