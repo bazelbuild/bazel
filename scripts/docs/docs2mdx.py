@@ -55,6 +55,11 @@ _ANGLE_BRACKET_LINK_RE = re.compile(r"<(https?://[^>]+)>")
 _HTML_PRE_PATTERN = re.compile(r"(?:<pre>)(.*?)(?:</pre>)")
 _HTML_STYLE_PATTERN = re.compile(r"^</?style>", re.MULTILINE)
 _MD_FRONT_MATTER_PATTERN = re.compile(r"^---", re.MULTILINE)
+_HEADING_TAG_RE = re.compile(
+    r"<h([1-6])([^>]*)>(.*?)</h\1>", re.DOTALL | re.IGNORECASE
+)
+_HEADING_ID_ATTR_RE = re.compile(r"""\bid=(["'])([^"']+)\1""")
+_ESCAPED_HEADING_ANCHOR_RE = re.compile(r" &lcub;#([^&]+)&rcub;")
 
 # Across code blocks and similar pre-formatted blocks, these
 # characters must be converted to HTML entities so they don't
@@ -178,11 +183,39 @@ def _pre_markdown_transforms(content):
   # Remove Project: and Book: lines
   no_metadata = _METADATA_PATTERN.sub("", no_comments, count=2).lstrip()
   no_templates = _TEMPLATE_RE.sub("", no_metadata)
+  with_heading_anchors = _convert_heading_ids_to_mdx_anchors(no_templates)
   return _HTML_PRE_PATTERN.sub(
       _escape_chars_in_pre_blocks,
-      no_templates,
+      with_heading_anchors,
       re.DOTALL,
   )
+
+
+def _convert_heading_ids_to_mdx_anchors(content):
+  """Converts HTML headings with id attributes to MDX anchor syntax.
+
+  Example: <h2 id='foo'>Title</h2> -> ## Title {#foo}
+
+  Headings without an id attribute are left unchanged for markdownify.
+
+  Args:
+    content: str; HTML content before markdown conversion.
+
+  Returns:
+    Content with id-bearing headings converted to MDX anchor syntax.
+  """
+
+  def repl(match):
+    level = int(match.group(1))
+    attrs = match.group(2)
+    text = match.group(3).strip()
+    id_match = _HEADING_ID_ATTR_RE.search(attrs)
+    if not id_match:
+      return match.group(0)
+    heading_id = id_match.group(2)
+    return f"{'#' * level} {text} {{#{heading_id}}}"
+
+  return _HEADING_TAG_RE.sub(repl, content)
 
 
 def _post_markdown_transforms(content):
@@ -204,7 +237,13 @@ def _post_markdown_transforms(content):
       else _HEADING_RE.sub(_fix_title_heading, no_trailing_whitespaces, count=1)
   )
   front_matter_first = _remove_anything_before_front_matter(fixed_headings)
-  return _remove_style_sections(front_matter_first)
+  no_styles = _remove_style_sections(front_matter_first)
+  return _restore_heading_anchors(no_styles)
+
+
+def _restore_heading_anchors(content):
+  """Restores MDX heading anchors escaped during markdown conversion."""
+  return _ESCAPED_HEADING_ANCHOR_RE.sub(r" {#\1}", content)
 
 
 def _remove_trailing_whitespaces(content):
