@@ -75,11 +75,9 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
@@ -88,9 +86,9 @@ import javax.annotation.Nullable;
 public class GrpcCacheClient extends RemoteCacheClient implements MissingDigestsFinder {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final Pattern GRPC_GO_MESSAGE_TOO_LARGE =
-      Pattern.compile("grpc: received message larger than max \\((\\d+) vs\\. (\\d+)\\)");
+      Pattern.compile("grpc: received message larger than max \\(\\d+ vs\\. \\d+\\)");
   private static final Pattern GRPC_JAVA_MESSAGE_TOO_LARGE =
-      Pattern.compile("gRPC message exceeds maximum size (\\d+): (\\d+)");
+      Pattern.compile("gRPC message exceeds maximum size \\d+: \\d+");
 
   private final CallCredentialsProvider callCredentialsProvider;
   private final ReferenceCountedChannel channel;
@@ -403,18 +401,14 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
                                         .updateActionResult(request)),
                             StatusRuntimeException.class,
                             (sre) -> {
-                              OptionalLong maximumSize =
-                                  getMaximumMessageSize(sre);
-                              if (maximumSize.isPresent()) {
+                              if (isMessageTooLarge(sre)) {
                                 Status status =
                                     sre.getStatus()
                                         .withDescription(
                                             ("UpdateActionResult was rejected because its gRPC "
                                                     + "message exceeds the remote cache's maximum "
-                                                    + "size of %d bytes; increase the server's "
-                                                    + "receive limit or reduce the action result "
-                                                    + "size")
-                                                .formatted(maximumSize.getAsLong()));
+                                                    + "size; increase the server's receive limit "
+                                                    + "or reduce the action result size"));
                                 return Futures.immediateFailedFuture(
                                     new RemoteRetrier.NonRetryableCacheException(
                                         status.asRuntimeException(sre.getTrailers())));
@@ -428,36 +422,14 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
   }
 
   @VisibleForTesting
-  static OptionalLong getMaximumMessageSize(StatusRuntimeException exception) {
+  static boolean isMessageTooLarge(StatusRuntimeException exception) {
     Status status = exception.getStatus();
     if (status.getCode() != Code.RESOURCE_EXHAUSTED || status.getDescription() == null) {
-      return OptionalLong.empty();
+      return false;
     }
 
-    Matcher grpcGoMatcher = GRPC_GO_MESSAGE_TOO_LARGE.matcher(status.getDescription());
-    if (grpcGoMatcher.matches()) {
-      return validatedMaximumSize(grpcGoMatcher.group(1), grpcGoMatcher.group(2));
-    }
-
-    Matcher grpcJavaMatcher = GRPC_JAVA_MESSAGE_TOO_LARGE.matcher(status.getDescription());
-    if (grpcJavaMatcher.matches()) {
-      return validatedMaximumSize(grpcJavaMatcher.group(2), grpcJavaMatcher.group(1));
-    }
-
-    return OptionalLong.empty();
-  }
-
-  private static OptionalLong validatedMaximumSize(
-      String actualSizeText, String maximumSizeText) {
-    try {
-      long actualSize = Long.parseLong(actualSizeText);
-      long maximumSize = Long.parseLong(maximumSizeText);
-      return actualSize > maximumSize
-          ? OptionalLong.of(maximumSize)
-          : OptionalLong.empty();
-    } catch (NumberFormatException e) {
-      return OptionalLong.empty();
-    }
+    return GRPC_GO_MESSAGE_TOO_LARGE.matcher(status.getDescription()).matches()
+        || GRPC_JAVA_MESSAGE_TOO_LARGE.matcher(status.getDescription()).matches();
   }
 
   @Override
