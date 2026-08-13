@@ -162,10 +162,13 @@ wstring AsShortPath(wstring path, wstring* result);
 // Otherwise this method attempts to compute an 8dot3 style short name for
 // `path`, and if that succeeds and the result is at most MAX_PATH - 1 long (not
 // including null terminator), then that will be the result (plus quotes).
-// Otherwise, if `path` is an absolute, normalized path to a plain executable
-// (not a batch file), `extended_path` is set to its extended-length form (the
-// "\\?\" prefix plus `path`) for use as CreateProcessW's lpApplicationName, and
-// `quoted_path` to the quoted `path`.
+// Otherwise, if `path` is an absolute, normalized path, `extended_path` is set
+// for use as CreateProcessW's lpApplicationName:
+//   - For plain executables: the extended-length form ("\\?\" prefix plus
+//     `path`), which lifts the MAX_PATH limit from lpApplicationName.
+//   - For batch files (.bat, .cmd): the native path without the "\\?\" prefix,
+//     because cmd.exe cannot handle extended-length paths.
+// In both cases, `quoted_path` is set to the quoted `path`.
 // Otherwise this function fails and returns an error message.
 wstring AsExecutablePathForCreateProcess(wstring path, wstring* quoted_path,
                                          wstring* extended_path);
