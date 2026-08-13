@@ -246,7 +246,7 @@ java_test(
         # 20 on most architectures, which guarantees no segfault; unfortunately, modified JDKs may
         # set a lower default for performance reasons; at -XX:StackShadowPages=6, we observe
         # occasional segfaults.
-        "-XX:StackShadowPages=16",
+        "-XX:StackShadowPages=20",
     ],
     shard_count = 25,
     deps = [
