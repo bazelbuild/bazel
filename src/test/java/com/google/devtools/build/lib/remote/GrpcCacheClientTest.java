@@ -1316,9 +1316,10 @@ public class GrpcCacheClientTest {
     Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis(any(Exception.class));
     assertThat(Status.fromThrowable(error).getCode()).isEqualTo(Status.Code.RESOURCE_EXHAUSTED);
     assertThat(Status.fromThrowable(error).getDescription())
-        .contains("UpdateActionResult was rejected");
-    assertThat(Status.fromThrowable(error).getDescription())
-        .contains("increase the server's receive limit");
+        .startsWith(
+            grpcJavaFormat
+                ? "gRPC message exceeds maximum size"
+                : "grpc: received message larger than max");
   }
 
   @Test

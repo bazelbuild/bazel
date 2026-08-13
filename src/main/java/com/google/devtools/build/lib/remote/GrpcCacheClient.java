@@ -402,16 +402,8 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
                             StatusRuntimeException.class,
                             (sre) -> {
                               if (isMessageTooLarge(sre)) {
-                                Status status =
-                                    sre.getStatus()
-                                        .withDescription(
-                                            ("UpdateActionResult was rejected because its gRPC "
-                                                    + "message exceeds the remote cache's maximum "
-                                                    + "size; increase the server's receive limit "
-                                                    + "or reduce the action result size"));
                                 return Futures.immediateFailedFuture(
-                                    new RemoteRetrier.NonRetryableCacheException(
-                                        status.asRuntimeException(sre.getTrailers())));
+                                    new RemoteRetrier.NonRetryableCacheException(sre));
                               }
                               return Futures.immediateFailedFuture(new IOException(sre));
                             },
