@@ -801,11 +801,13 @@ public class StandaloneTestStrategy extends TestStrategy {
           if (e.isCatastrophic()) {
             closeSuppressed(e, streamed);
             closeSuppressed(e, fileOutErr);
+            closeSuppressed(e, coverageOutErr);
             throw e;
           }
           if (!e.getSpawnResult().setupSuccess()) {
             closeSuppressed(e, streamed);
             closeSuppressed(e, fileOutErr);
+            closeSuppressed(e, coverageOutErr);
             // Rethrow as the test could not be run and thus there's no point in retrying.
             throw e;
           }
@@ -816,10 +818,12 @@ public class StandaloneTestStrategy extends TestStrategy {
         } catch (ExecException | InterruptedException e) {
           closeSuppressed(e, streamed);
           closeSuppressed(e, fileOutErr);
+          closeSuppressed(e, coverageOutErr);
           throw e;
         }
 
         // Append all output from the coverage spawn to the test log.
+        coverageOutErr.close();
         appendCoverageLog(coverageOutErr, fileOutErr);
       } else {
         Artifact coverageData = testAction.getCoverageData();
