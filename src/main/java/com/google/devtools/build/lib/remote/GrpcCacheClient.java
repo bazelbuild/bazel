@@ -78,17 +78,12 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /** A RemoteActionCache implementation that uses gRPC calls to a remote cache server. */
 @ThreadSafe
 public class GrpcCacheClient extends RemoteCacheClient implements MissingDigestsFinder {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-  private static final Pattern GRPC_GO_MESSAGE_TOO_LARGE =
-      Pattern.compile("grpc: received message larger than max \\(\\d+ vs\\. \\d+\\)");
-  private static final Pattern GRPC_JAVA_MESSAGE_TOO_LARGE =
-      Pattern.compile("gRPC message exceeds maximum size \\d+: \\d+");
 
   private final CallCredentialsProvider callCredentialsProvider;
   private final ReferenceCountedChannel channel;
@@ -400,28 +395,13 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
                                     acFutureStub(context, channel)
                                         .updateActionResult(request)),
                             StatusRuntimeException.class,
-                            (sre) -> {
-                              if (isMessageTooLarge(sre)) {
-                                return Futures.immediateFailedFuture(
-                                    new RemoteRetrier.NonRetryableCacheException(sre));
-                              }
-                              return Futures.immediateFailedFuture(new IOException(sre));
-                            },
+                            (sre) ->
+                                Futures.immediateFailedFuture(
+                                    new RemoteRetrier.ActionCacheUpdateException(sre)),
                             MoreExecutors.directExecutor())),
             callCredentialsProvider);
 
     return Futures.transform(upload, ac -> null, MoreExecutors.directExecutor());
-  }
-
-  @VisibleForTesting
-  static boolean isMessageTooLarge(StatusRuntimeException exception) {
-    Status status = exception.getStatus();
-    if (status.getCode() != Code.RESOURCE_EXHAUSTED || status.getDescription() == null) {
-      return false;
-    }
-
-    return GRPC_GO_MESSAGE_TOO_LARGE.matcher(status.getDescription()).matches()
-        || GRPC_JAVA_MESSAGE_TOO_LARGE.matcher(status.getDescription()).matches();
   }
 
   @Override

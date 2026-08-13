@@ -32,12 +32,17 @@ import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /** Specific retry logic for remote execution/caching. */
 public class RemoteRetrier extends Retrier {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+  private static final Pattern GRPC_GO_MESSAGE_TOO_LARGE =
+      Pattern.compile("grpc: received message larger than max \\(\\d+ vs\\. \\d+\\)");
+  private static final Pattern GRPC_JAVA_MESSAGE_TOO_LARGE =
+      Pattern.compile("gRPC message exceeds maximum size \\d+: \\d+");
 
   /**
    * Supplies the gRPC log sink to which a terminal marker is written on retry exhaustion, or {@code
@@ -58,34 +63,46 @@ public class RemoteRetrier extends Retrier {
   }
 
   /**
-   * A deterministic cache request failure that should be propagated without retrying or counting
-   * it as a remote service failure.
+   * Identifies a failure from ActionCache.UpdateActionResult so the result classifier can apply
+   * operation-specific policy without changing the original gRPC status.
    */
-  static final class NonRetryableCacheException extends IOException {
-    NonRetryableCacheException(Throwable cause) {
+  static final class ActionCacheUpdateException extends IOException {
+    ActionCacheUpdateException(Throwable cause) {
       super(cause);
     }
   }
 
-  private static boolean causedByNonRetryableCacheException(Exception e) {
+  private static boolean causedByActionCacheUpdateException(Exception e) {
     for (Throwable cause = e; cause != null; cause = cause.getCause()) {
-      if (cause instanceof NonRetryableCacheException) {
+      if (cause instanceof ActionCacheUpdateException) {
         return true;
       }
     }
     return false;
   }
 
+  private static boolean isMessageTooLarge(Status status) {
+    if (status.getCode() != Status.Code.RESOURCE_EXHAUSTED || status.getDescription() == null) {
+      return false;
+    }
+
+    return GRPC_GO_MESSAGE_TOO_LARGE.matcher(status.getDescription()).matches()
+        || GRPC_JAVA_MESSAGE_TOO_LARGE.matcher(status.getDescription()).matches();
+  }
+
   /** A ResultClassifier suitable to be used by ExperimentalGrpcRemoteExecutor. */
   public static final ResultClassifier EXPERIMENTAL_GRPC_RESULT_CLASSIFIER =
       e -> {
-        if (causedByNonRetryableCacheException(e)) {
-          return Result.SUCCESS;
-        }
         Status s = fromException(e);
         if (s == null) {
           // It's not a gRPC error.
           return Result.PERMANENT_FAILURE;
+        }
+        if (causedByActionCacheUpdateException(e) && isMessageTooLarge(s)) {
+          // Retrying an unchanged request cannot make it fit the server's fixed receive limit. The
+          // failure also doesn't indicate an unhealthy remote service, so don't count it against
+          // the circuit breaker.
+          return Result.SUCCESS;
         }
         return switch (s.getCode()) {
           case CANCELLED ->

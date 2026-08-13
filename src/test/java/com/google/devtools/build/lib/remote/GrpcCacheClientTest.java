@@ -1350,26 +1350,6 @@ public class GrpcCacheClientTest {
   }
 
   @Test
-  public void messageTooLargeDetection_rejectsMalformedAndDescriptiveNearMatches() {
-    ImmutableList<String> descriptions =
-        ImmutableList.of(
-            "received message larger than max (5621411 vs. 4194304)",
-            "grpc: received message larger than max (5621411 vs. 4194304) while decoding",
-            "grpc: received message larger than max (many vs. 4194304)",
-            "gRPC message exceeds maximum size 4194304: 5621411 while decoding",
-            "request quota exhausted");
-
-    for (String description : descriptions) {
-      assertThat(
-              GrpcCacheClient.isMessageTooLarge(
-                  Status.RESOURCE_EXHAUSTED
-                      .withDescription(description)
-                      .asRuntimeException()))
-          .isFalse();
-    }
-  }
-
-  @Test
   public void downloadBlobIsRetriedWithProgress() throws IOException, InterruptedException {
     Backoff mockBackoff = Mockito.mock(Backoff.class);
     GrpcCacheClient client = newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);

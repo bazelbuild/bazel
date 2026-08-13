@@ -134,13 +134,47 @@ public class RemoteRetrierTest {
   }
 
   @Test
-  public void nonRetryableCacheExceptionDoesNotCountAsRemoteFailure() {
+  public void oversizedActionCacheUpdateDoesNotCountAsRemoteFailure() {
     Exception error =
-        new RemoteRetrier.NonRetryableCacheException(
-            Status.RESOURCE_EXHAUSTED.withDescription("request too large").asRuntimeException());
+        new RemoteRetrier.ActionCacheUpdateException(
+            Status.RESOURCE_EXHAUSTED
+                .withDescription("grpc: received message larger than max (5621411 vs. 4194304)")
+                .asRuntimeException());
 
     assertThat(RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER.test(error))
         .isEqualTo(Result.SUCCESS);
+  }
+
+  @Test
+  public void oversizedMessageOutsideActionCacheUpdateRemainsTransient() {
+    Exception error =
+        Status.RESOURCE_EXHAUSTED
+            .withDescription("grpc: received message larger than max (5621411 vs. 4194304)")
+            .asRuntimeException();
+
+    assertThat(RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER.test(error))
+        .isEqualTo(Result.TRANSIENT_FAILURE);
+  }
+
+  @Test
+  public void actionCacheUpdateNearMatchesRemainTransient() {
+    List<String> descriptions =
+        List.of(
+            "received message larger than max (5621411 vs. 4194304)",
+            "grpc: received message larger than max (5621411 vs. 4194304) while decoding",
+            "grpc: received message larger than max (many vs. 4194304)",
+            "gRPC message exceeds maximum size 4194304: 5621411 while decoding",
+            "request quota exhausted");
+
+    for (String description : descriptions) {
+      Exception error =
+          new RemoteRetrier.ActionCacheUpdateException(
+              Status.RESOURCE_EXHAUSTED
+                  .withDescription(description)
+                  .asRuntimeException());
+      assertThat(RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER.test(error))
+          .isEqualTo(Result.TRANSIENT_FAILURE);
+    }
   }
 
   @Test
