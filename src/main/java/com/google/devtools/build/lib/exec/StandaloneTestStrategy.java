@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.analysis.test.TestAttempt;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction.ResolvedPaths;
+import com.google.devtools.build.lib.analysis.test.TestRunnerActionConstants;
 import com.google.devtools.build.lib.analysis.test.TestStrategy;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestResult.ExecutionInfo;
@@ -484,7 +485,8 @@ public class StandaloneTestStrategy extends TestStrategy {
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* outputs= */ ImmutableSet.of(action.getTestXml()),
         /* mandatoryOutputs= */ null,
-        SpawnAction.DEFAULT_RESOURCE_SET);
+        SpawnAction.DEFAULT_RESOURCE_SET,
+        derivedSpawnMnemonic(action, TestRunnerActionConstants.TEST_XML_GENERATION_MNEMONIC));
   }
 
   private static Spawn createCoveragePostProcessingSpawn(
@@ -523,7 +525,13 @@ public class StandaloneTestStrategy extends TestStrategy {
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* outputs= */ ImmutableSet.of(action.getCoverageData()),
         /* mandatoryOutputs= */ null,
-        SpawnAction.DEFAULT_RESOURCE_SET);
+        SpawnAction.DEFAULT_RESOURCE_SET,
+        derivedSpawnMnemonic(
+            action, TestRunnerActionConstants.TEST_COVERAGE_POST_PROCESSING_MNEMONIC));
+  }
+
+  private static String derivedSpawnMnemonic(TestRunnerAction action, String separateMnemonic) {
+    return action.usesSeparateSpawnMnemonics() ? separateMnemonic : action.getMnemonic();
   }
 
   private static Map<String, String> createEnvironment(

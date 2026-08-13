@@ -1,4 +1,4 @@
-// Copyright 2026 The Bazel Authors. All rights reserved.
+// Copyright 2025 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,12 +14,11 @@
 
 package com.google.devtools.build.lib.analysis.test;
 
-/** Hardcoded flag values for test configuration that differ between Blaze and Bazel. */
-final class FlagConstants {
+/** Constants shared by test-related actions without pulling analysis_cluster dependencies. */
+public final class TestRunnerActionConstants {
+  public static final String MNEMONIC = "TestRunner";
+  public static final String TEST_XML_GENERATION_MNEMONIC = "TestXmlGeneration";
+  public static final String TEST_COVERAGE_POST_PROCESSING_MNEMONIC = "TestCoveragePostProcessing";
 
-  private FlagConstants() {}
-
-  public static final String DEFAULT_INCOMPATIBLE_SEPARATE_TEST_SPAWN_MNEMONICS = "true";
-  public static final String DEFAULT_EXPERIMENTAL_SPLIT_COVERAGE_POSTPROCESSING = "true";
-  public static final String DEFAULT_EXPERIMENTAL_FETCH_ALL_COVERAGE_OUTPUTS = "true";
+  private TestRunnerActionConstants() {}
 }
