@@ -62,25 +62,6 @@ public class RemoteRetrier extends Retrier {
     return null;
   }
 
-  /**
-   * Identifies a failure from ActionCache.UpdateActionResult so the result classifier can apply
-   * operation-specific policy without changing the original gRPC status.
-   */
-  static final class ActionCacheUpdateException extends IOException {
-    ActionCacheUpdateException(Throwable cause) {
-      super(cause);
-    }
-  }
-
-  private static boolean causedByActionCacheUpdateException(Exception e) {
-    for (Throwable cause = e; cause != null; cause = cause.getCause()) {
-      if (cause instanceof ActionCacheUpdateException) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   private static boolean isMessageTooLarge(Status status) {
     if (status.getCode() != Status.Code.RESOURCE_EXHAUSTED || status.getDescription() == null) {
       return false;
@@ -98,7 +79,7 @@ public class RemoteRetrier extends Retrier {
           // It's not a gRPC error.
           return Result.PERMANENT_FAILURE;
         }
-        if (causedByActionCacheUpdateException(e) && isMessageTooLarge(s)) {
+        if (isMessageTooLarge(s)) {
           // Retrying an unchanged request cannot make it fit the server's fixed receive limit. The
           // failure also doesn't indicate an unhealthy remote service, so don't count it against
           // the circuit breaker.

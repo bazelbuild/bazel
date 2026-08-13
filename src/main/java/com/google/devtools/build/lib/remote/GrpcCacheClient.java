@@ -377,13 +377,6 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
   @Override
   public ListenableFuture<Void> uploadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
-    UpdateActionResultRequest request =
-        UpdateActionResultRequest.newBuilder()
-            .setInstanceName(options.getRemoteInstanceName())
-            .setDigestFunction(digestUtil.getDigestFunction())
-            .setActionDigest(actionKey.digest())
-            .setActionResult(actionResult)
-            .build();
     ListenableFuture<ActionResult> upload =
         Utils.refreshIfUnauthenticatedAsync(
             () ->
@@ -393,11 +386,15 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
                             channel.withChannelFuture(
                                 channel ->
                                     acFutureStub(context, channel)
-                                        .updateActionResult(request)),
+                                        .updateActionResult(
+                                            UpdateActionResultRequest.newBuilder()
+                                                .setInstanceName(options.getRemoteInstanceName())
+                                                .setDigestFunction(digestUtil.getDigestFunction())
+                                                .setActionDigest(actionKey.digest())
+                                                .setActionResult(actionResult)
+                                                .build())),
                             StatusRuntimeException.class,
-                            (sre) ->
-                                Futures.immediateFailedFuture(
-                                    new RemoteRetrier.ActionCacheUpdateException(sre)),
+                            (sre) -> Futures.immediateFailedFuture(new IOException(sre)),
                             MoreExecutors.directExecutor())),
             callCredentialsProvider);
 
