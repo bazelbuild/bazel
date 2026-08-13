@@ -19,6 +19,11 @@ filegroup(
 )
 
 java_library(
+    name = "test_runner_action_constants",
+    srcs = ["test/TestRunnerActionConstants.java"],
+)
+
+java_library(
     name = "analysis_cluster",
     exports = [
         ":actions/action_construction_context",
@@ -229,6 +234,7 @@ java_library(
         ":test/test_configuration",
         ":test/test_sharding_strategy",
         ":test/test_tags_provider",
+        ":test_runner_action_constants",
         ":toolchain_collection",
         ":transitive_info_collection",
         ":transitive_info_provider",
