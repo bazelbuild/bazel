@@ -1293,20 +1293,26 @@ public final class TypeChecker extends NodeVisitor {
               typeTable.getType(function),
               "type tagger should have set type for def statement '%s'",
               def);
-      int numOrdinaryParams = callableType.getParameterTypes().size();
-      for (int i = 0; i < numOrdinaryParams; i++) {
-        Parameter param = def.getParameters().get(i);
+      int numNonSpecialParams = callableType.getParameterTypes().size();
+      // Indices of parameters in `def` and their types in `callableType` may be offset:
+      // `def f(a: T, *, b: U)` has 3 parameters, but only 2 parameter types in its callableType.
+      for (int iParam = 0, iType = 0; iType < numNonSpecialParams; iParam++, iType++) {
+        Parameter param = def.getParameters().get(iParam);
+        while (!(param instanceof Parameter.Mandatory || param instanceof Parameter.Optional)) {
+          // Skip special params; they are not in callableType.getParameterTypes().
+          param = def.getParameters().get(++iParam);
+        }
         if (param.getDefaultValue() != null) {
           StarlarkType defaultValueType = infer(param.getDefaultValue());
           if (!StarlarkType.assignableFrom(
-              callableType.getParameterTypeByPos(i), defaultValueType, typeContext)) {
+              callableType.getParameterTypeByPos(iType), defaultValueType, typeContext)) {
             errorf(
                 param.getDefaultValue().getStartLocation(),
                 "%s(): parameter '%s' has default value of type '%s', declares '%s'",
                 def.getIdentifier().getName(),
                 param.getName(),
                 defaultValueType,
-                callableType.getParameterTypeByPos(i));
+                callableType.getParameterTypeByPos(iType));
           }
         }
       }
