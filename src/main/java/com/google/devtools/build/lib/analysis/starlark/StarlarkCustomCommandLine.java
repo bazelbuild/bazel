@@ -872,6 +872,13 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @CanIgnoreReturnValue
+    Builder addArgName(String argName) {
+      checkNotNull(argName);
+      recipe.add(argName);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
     Builder add(Object object) {
       checkNotNull(object);
       recipe.add(PLAIN_ARG_MARKER);
@@ -979,6 +986,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
       } else if (item == PLAIN_ARG_MARKER) {
         Object arg = values.get(vali++);
         builder.addArg(expandToCommandLine(arg, mainRepoMapping));
+      } else if (item instanceof String s) {
+        builder.addArg(s);
       } else {
         throw new AssertionError("Unexpected recipe item: " + item);
       }
@@ -1082,6 +1091,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
           } else if (item == PLAIN_ARG_MARKER) {
             Object arg = values.get(vali++);
             line.addArg(expandToCommandLine(arg, mainRepoMapping));
+          } else if (item instanceof String s) {
+            line.addArg(s);
           } else {
             throw new AssertionError("Unexpected recipe item: " + item);
           }
@@ -1132,6 +1143,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
       } else if (item == PLAIN_ARG_MARKER) {
         Object arg = values.get(vali++);
         addSingleObjectToFingerprint(fingerprint, arg, mainRepoMapping);
+      } else if (item instanceof String s) {
+        fingerprint.addString(s);
       } else {
         throw new AssertionError("Unexpected recipe item: " + item);
       }
