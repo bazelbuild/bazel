@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -167,6 +168,44 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
     assertThat(error)
         .hasMessageThat()
         .contains(String.format("%s/%s", digest.getHash(), digest.getSizeBytes()));
+  }
+
+  @Test
+  public void rewoundActionOutput_execRootOnOverlayFileSystem_redownloaded() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Artifact a = createRemoteArtifact("file", "hello world", metadata, cas);
+    // When the remote repo contents cache is enabled, the exec root lies on the file system
+    // overlaying the host file system that downloads are written to.
+    RemoteExternalOverlayFileSystem overlayFs =
+        new RemoteExternalOverlayFileSystem(PathFragment.create("/output_base/external"), fs);
+    RemoteActionInputFetcher actionInputFetcher =
+        new RemoteActionInputFetcher(
+            new Reporter(eventBus),
+            "none",
+            "none",
+            newCombinedCache(digestUtil, cas),
+            overlayFs.getPath(execRoot.getPathString()),
+            tempPathGenerator,
+            DUMMY_REMOTE_OUTPUT_CHECKER,
+            ActionOutputDirectoryHelper.createForTesting(),
+            OutputPermissions.READONLY);
+
+    wait(
+        actionInputFetcher.prefetchFilesInterruptibly(
+            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+    assertThat(FileSystemUtils.readContent(a.getPath(), StandardCharsets.UTF_8))
+        .isEqualTo("hello world");
+
+    // Rewinding deletes the output and requires it to be downloaded again.
+    a.getPath().delete();
+    actionInputFetcher.handleRewoundActionOutputs(ImmutableList.of(a));
+
+    wait(
+        actionInputFetcher.prefetchFilesInterruptibly(
+            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+    assertThat(FileSystemUtils.readContent(a.getPath(), StandardCharsets.UTF_8))
+        .isEqualTo("hello world");
   }
 
   private CombinedCache newCombinedCache(DigestUtil digestUtil, Map<HashCode, byte[]> cas) {
