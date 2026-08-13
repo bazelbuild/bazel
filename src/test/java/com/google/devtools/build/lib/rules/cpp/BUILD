@@ -57,25 +57,6 @@ java_library(
     ],
 )
 
-java_library(
-    name = "CcImportBaseConfiguredTargetTest",
-    srcs = ["CcImportBaseConfiguredTargetTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
-        "//src/test/java/com/google/devtools/build/lib/rules/cpp:cc-info",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
 java_test(
     name = "CcBinaryThinLtoTest",
     srcs = ["CcBinaryThinLtoTest.java"],
@@ -191,15 +172,6 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:junit4",
         "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "CcImportConfiguredTargetTest",
-    srcs = ["CcImportConfiguredTargetTest.java"],
-    deps = [
-        ":CcImportBaseConfiguredTargetTest",
-        "//third_party:junit4",
     ],
 )
 
