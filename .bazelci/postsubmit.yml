@@ -17,29 +17,8 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
-    test_flags:
-      - "--config=ci-macos"
-      # Fine tune the number of test jobs running in parallel to avoid timeout
-      - "--local_test_jobs=2"
-    test_targets:
-      - "//..."
-      # Disable python and shell integration tests on Intel Macs
-      - "-//src/test/shell/..."
-      - "-//src/test/py/..."
-      # https://github.com/bazelbuild/bazel/issues/17410
-      - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
-      # Disable android tests since we are moving Android rules out of the Bazel repo.
-      # ServerTests frequently runs into deadlocks on Intel Macs
-      - "-//src/test/java/com/google/devtools/build/lib/server:ServerTests"
-      # Add back a few Apple specific tests
-      - "+//src/test/shell/bazel/apple/..."
-      # Add back one bootstrap test for Intel Mac
-      - "+//src/test/shell/bazel:bazel_bootstrap_distfile_test"
-      # Add back head java tools tests for Intel Mac
-      - "+//src/test/shell/bazel:bazel_java_toolchain_head_tests"
     include_json_profile:
       - build
-      - test
   macos_arm64:
     shards: 5
     shell_commands:
@@ -54,16 +33,5 @@ tasks:
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
       - "//..."
-    test_flags:
-      - "--config=ci-macos"
-      # Fine tune the number of test jobs running in parallel to avoid timeout
-      - "--local_test_jobs=2"
-      # Increase the test timeout by 20% to avoid flaky test failures due to timeout
-      - "--test_timeout=72,360,1080,4320"
-    test_targets:
-      - "//..."
-      # https://github.com/bazelbuild/bazel/issues/17410
-      - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
     include_json_profile:
       - build
-      - test
