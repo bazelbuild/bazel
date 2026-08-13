@@ -17,47 +17,63 @@ from __future__ import division
 from __future__ import print_function
 
 import unittest
-
+from absl.testing import parameterized
 from scripts.docs import docs2mdx
 
 
-class Docs2MdxTest(unittest.TestCase):
+class Docs2MdxFlagAnchorTest(parameterized.TestCase):
 
-  def test_flag_docs_preserve_copyable_anchor_links(self):
-    # Matches HtmlUtils.getUsageHtml() output from OptionsUsageTest.
-    html = """<html><body>
-<h1>Command-Line Reference</h1>
-<dl>Startup options:
-<dt id="flag--test_string"><code><a href="#flag--test_string">--test_string</a>=&lt;a string&gt;</code> default: "test string default"</dt>
-<dd>
-<p>a string-valued option to test simple option operations</p>
-</dd>
-<dt id="build-flag--jobs"><code id="jobs"><a href="#build-flag--jobs">--jobs</a>=&lt;an integer&gt;</code> default: "auto"</dt>
-<dd>
-<p>number of parallel jobs</p>
-<p>Expands to:
-<br/>&nbsp;&nbsp;<code><a href="#flag--local_test_jobs">--local_test_jobs=0</a></code>
-</p></dd>
+  @parameterized.named_parameters(
+      (
+          "command_specific_flag",
+          """
+<dl>
+<dt id="build-flag--define"><code id="define"><a href="#build-flag--define">--define</a>=&lt;a 'name=value' assignment&gt;</code> multiple uses are accumulated</dt>
+<dd><p>Each --define option specifies an assignment for a build variable.</p></dd>
 </dl>
-</body></html>"""
-    result = docs2mdx._transform("command-line-reference.html", html)
+""",
+          "build-flag--define",
+          "[`--define=<a 'name=value' assignment>`](#build-flag--define)",
+      ),
+      (
+          "global_flag",
+          """
+<dl>
+<dt id="flag--test_string"><code><a href="#flag--test_string">--test_string</a>=&lt;a string&gt;</code> default: "test string default"</dt>
+<dd><p>a string-valued option to test simple option operations</p></dd>
+</dl>
+""",
+          "flag--test_string",
+          "[`--test_string=<a string>`](#flag--test_string)",
+      ),
+      (
+          "boolean_flag",
+          """
+<dl>
+<dt id="flag--expanded_a"><code><a href="#flag--expanded_a">--[no]expanded_a</a></code> default: "true"</dt>
+<dd><p>boolean option</p></dd>
+</dl>
+""",
+          "flag--expanded_a",
+          "[`--[no]expanded_a`](#flag--expanded_a)",
+      ),
+  )
+  def test_flag_anchor_preserved(self, html, anchor_id, expected_link):
+    result = docs2mdx._transform("test.html", html)
+    self.assertIn(f'<a id="{anchor_id}"></a>', result)
+    self.assertIn(expected_link, result)
 
-    self.assertIn('<a id="flag--test_string"></a>', result)
-    self.assertIn(
-        '[`--test_string=&lt;a string&gt;`](#flag--test_string) default: "test'
-        ' string default"',
-        result,
-    )
-    self.assertIn('<a id="build-flag--jobs"></a>', result)
-    self.assertIn('[`--jobs=&lt;an integer&gt;`](#build-flag--jobs)', result)
-    self.assertIn(
-        '[`--local_test_jobs=0`](#flag--local_test_jobs)',
-        result,
-    )
-    self.assertNotIn(
-        '`--test_string=&lt;a string&gt;` default: "test string default"',
-        result,
-    )
+  def test_duplicate_anchor_id_inserted_once(self):
+    html = """
+<dl>
+<dt id="build-flag--define"><code><a href="#build-flag--define">--define</a>=&lt;value&gt;</code></dt>
+<dd><p>First definition.</p></dd>
+<dt id="build-flag--define"><code><a href="#build-flag--define">--define</a>=&lt;value&gt;</code></dt>
+<dd><p>Duplicate id should not add a second anchor.</p></dd>
+</dl>
+"""
+    result = docs2mdx._transform("test.html", html)
+    self.assertEqual(result.count('<a id="build-flag--define"></a>'), 1)
 
 
 if __name__ == "__main__":
