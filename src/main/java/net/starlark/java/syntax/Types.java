@@ -101,8 +101,7 @@ public final class Types {
   public static final TypeConstructor MAPPING_CONSTRUCTOR =
       wrapTypeConstructor("Mapping", Types::mapping);
   public static final TypeConstructor STRUCT_CONSTRUCTOR = wrapStructConstructor();
-  // TODO: #27370 - allow more complex callable types to be constructed.
-  public static final TypeConstructor CALLABLE_CONSTRUCTOR = wrapType("Callable", ANY_CALLABLE);
+  public static final TypeConstructor CALLABLE_CONSTRUCTOR = wrapCallableConstructor();
 
   private Types() {} // uninstantiable
 
@@ -451,6 +450,13 @@ public final class Types {
         mandatoryParams);
   }
 
+  public static SimpleCallableType simpleCallable(
+      ImmutableList<StarlarkType> parameterTypes,
+      boolean hasVarargsAndKwargs,
+      StarlarkType returns) {
+    return new AutoValue_Types_SimpleCallableType(parameterTypes, returns, hasVarargsAndKwargs);
+  }
+
   /**
    * An interface for the general Starlark callable.
    *
@@ -516,16 +522,6 @@ public final class Types {
       return false;
     }
 
-    @Override
-    public String toString() {
-      // Approximate representation of the type - as much as Callable can do
-      return "Callable[["
-          + getParameterTypes().stream().map(StarlarkType::toString).collect(joining(", "))
-          + "], "
-          + getReturnType()
-          + "]";
-    }
-
     /** Returns a complete string representation of the type */
     public String toSignatureString() {
       ImmutableList.Builder<String> params = ImmutableList.builder();
@@ -586,6 +582,14 @@ public final class Types {
   @AutoValue
   abstract static class GeneralCallableType extends CallableType {
     public abstract ImmutableSet<String> getMandatoryParameters();
+
+    @Override
+    public final String toString() {
+      // We cannot represent a general callable type as a `Callable[...]` expression, so follow
+      // mypy's example and format it as the signature string (with angle brackets to make it
+      // composable).
+      return String.format("<def %s>", toSignatureString());
+    }
 
     @Override
     public int getNumMandatoryParameters() {
@@ -669,6 +673,76 @@ public final class Types {
     @Override
     public boolean equals(Object obj) {
       return obj instanceof AnyCallableType;
+    }
+  }
+
+  /**
+   * A callable type all of whose parameters are positional-only and mandatory, optionally with
+   * varargs and kwargs. The type produced by a non-nullary application of the {@code Callable} type
+   * constructor.
+   */
+  @AutoValue
+  abstract static class SimpleCallableType extends CallableType {
+
+    @Override
+    public final String toString() {
+      StringBuilder sb = new StringBuilder("Callable[");
+      if (getParameterTypes().isEmpty() && hasVarargsAndKwargs()) {
+        sb.append("..., ");
+      } else {
+        sb.append("[");
+        sb.append(getParameterTypes().stream().map(StarlarkType::toString).collect(joining(", ")));
+        if (hasVarargsAndKwargs()) {
+          sb.append(", ...");
+        }
+        sb.append("], ");
+      }
+      sb.append(getReturnType()).append("]");
+      return sb.toString();
+    }
+
+    @Override
+    public ImmutableList<String> getParameterNames() {
+      ImmutableList.Builder<String> names =
+          ImmutableList.builderWithExpectedSize(getParameterTypes().size());
+      for (int i = 1; i <= getParameterTypes().size(); i++) {
+        names.add("_" + i);
+      }
+      return names.build();
+    }
+
+    @Override
+    public int getNumPositionalOnlyParameters() {
+      return getParameterTypes().size();
+    }
+
+    @Override
+    public int getNumPositionalParameters() {
+      return getParameterTypes().size();
+    }
+
+    @Override
+    public int getNumMandatoryParameters() {
+      return getParameterTypes().size();
+    }
+
+    @Override
+    public boolean isMandatory(int i) {
+      return true;
+    }
+
+    public abstract boolean hasVarargsAndKwargs();
+
+    @Nullable
+    @Override
+    public StarlarkType getVarargsType() {
+      return hasVarargsAndKwargs() ? Types.ANY : null;
+    }
+
+    @Nullable
+    @Override
+    public StarlarkType getKwargsType() {
+      return hasVarargsAndKwargs() ? Types.ANY : null;
     }
   }
 
@@ -1768,6 +1842,43 @@ public final class Types {
         throw new TypeConstructor.Failure(
             String.format("struct[] accepts at most 2 arguments but got %d", args.size()));
       }
+    };
+  }
+
+  private static final TypeConstructor wrapCallableConstructor() {
+    return args -> {
+      if (args.isEmpty()) {
+        return ANY_CALLABLE;
+      } else if (args.size() != 2) {
+        throw new TypeConstructor.Failure(
+            String.format("Callable[] accepts exactly 2 arguments but got %d", args.size()));
+      }
+      TypeConstructor.Term arg1 = args.get(0);
+      TypeConstructor.Term arg2 = args.get(1);
+      if (!(arg2 instanceof StarlarkType returnType)) {
+        throw new TypeConstructor.Failure(
+            String.format(
+                "in application to Callable, got '%s' for argument #2, expected a type", arg2));
+      }
+      boolean hasVarargsAndKwargs = false;
+      ImmutableList<StarlarkType> paramTypes;
+      if (arg1 instanceof TypeConstructor.Term.Ellipsis) {
+        hasVarargsAndKwargs = true;
+        paramTypes = ImmutableList.of();
+      } else if (arg1 instanceof TypeConstructor.Term.TypeList typeList) {
+        ImmutableList<TypeConstructor.Term> terms = typeList.getTerms();
+        if (!terms.isEmpty() && terms.getLast() instanceof TypeConstructor.Term.Ellipsis) {
+          hasVarargsAndKwargs = true;
+          terms = terms.subList(0, terms.size() - 1);
+        }
+        paramTypes = toStarlarkTypes("Callable", terms);
+      } else {
+        throw new TypeConstructor.Failure(
+            String.format(
+                "in application to Callable, got '%s' for argument #1, expected a list or '...'",
+                arg1));
+      }
+      return simpleCallable(paramTypes, hasVarargsAndKwargs, returnType);
     };
   }
 }

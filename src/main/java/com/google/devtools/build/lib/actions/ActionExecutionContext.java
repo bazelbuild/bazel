@@ -239,6 +239,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   private final SyscallCache syscallCache;
   private final ThreadStateReceiver threadStateReceiverForMetrics;
   private final boolean fileSystemSupportsInputDiscovery;
+  private final boolean bustCaches;
 
   private ActionExecutionContext(
       Executor executor,
@@ -256,7 +257,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       DiscoveredModulesPruner discoveredModulesPruner,
       SyscallCache syscallCache,
       ThreadStateReceiver threadStateReceiverForMetrics,
-      boolean fileSystemSupportsInputDiscovery) {
+      boolean fileSystemSupportsInputDiscovery,
+      boolean bustCaches) {
     this.inputMetadataProvider = inputMetadataProvider;
     this.actionInputPrefetcher = actionInputPrefetcher;
     this.actionKeyContext = actionKeyContext;
@@ -276,6 +278,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     this.discoveredModulesPruner = discoveredModulesPruner;
     this.syscallCache = syscallCache;
     this.fileSystemSupportsInputDiscovery = fileSystemSupportsInputDiscovery;
+    this.bustCaches = bustCaches;
   }
 
   public ActionExecutionContext(
@@ -309,7 +312,44 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverForMetrics,
-        /* fileSystemSupportsInputDiscovery= */ false);
+        /* fileSystemSupportsInputDiscovery= */ false,
+        /* bustCaches= */ false);
+  }
+
+  public ActionExecutionContext(
+      Executor executor,
+      InputMetadataProvider inputMetadataProvider,
+      ActionInputPrefetcher actionInputPrefetcher,
+      ActionKeyContext actionKeyContext,
+      OutputMetadataStore outputMetadataStore,
+      boolean rewindingEnabled,
+      LostInputsCheck lostInputsCheck,
+      FileOutErr fileOutErr,
+      ExtendedEventHandler eventHandler,
+      Map<String, String> clientEnv,
+      @Nullable FileSystem actionFileSystem,
+      DiscoveredModulesPruner discoveredModulesPruner,
+      SyscallCache syscallCache,
+      ThreadStateReceiver threadStateReceiverForMetrics,
+      boolean bustCaches) {
+    this(
+        executor,
+        inputMetadataProvider,
+        actionInputPrefetcher,
+        actionKeyContext,
+        outputMetadataStore,
+        rewindingEnabled,
+        lostInputsCheck,
+        fileOutErr,
+        eventHandler,
+        clientEnv,
+        /* env= */ null,
+        actionFileSystem,
+        discoveredModulesPruner,
+        syscallCache,
+        threadStateReceiverForMetrics,
+        /* fileSystemSupportsInputDiscovery= */ false,
+        bustCaches);
   }
 
   public static ActionExecutionContext forInputDiscovery(
@@ -344,7 +384,12 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         discoveredModulesPruner,
         syscalls,
         threadStateReceiverForMetrics,
-        fileSystemSupportsInputDiscovery);
+        fileSystemSupportsInputDiscovery,
+        /* bustCaches= */ false);
+  }
+
+  public boolean bustCaches() {
+    return bustCaches;
   }
 
   public ActionInputPrefetcher getActionInputPrefetcher() {
@@ -566,7 +611,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverForMetrics,
-        fileSystemSupportsInputDiscovery);
+        fileSystemSupportsInputDiscovery,
+        bustCaches);
   }
 
   /**
@@ -620,7 +666,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverForMetrics,
-        fileSystemSupportsInputDiscovery);
+        fileSystemSupportsInputDiscovery,
+        bustCaches);
   }
 
   /**

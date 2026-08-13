@@ -648,11 +648,15 @@ public final class TypeChecker extends NodeVisitor {
           seenMandatoryParameters.add(parameterName);
         }
         if (!StarlarkType.assignableFrom(parameterType, argTypes.get(i), typeContext)) {
+          String parameterDescription =
+              callable instanceof Types.SimpleCallableType
+                  ? "#" + (parameterIndex + 1)
+                  : String.format("'%s'", parameterName);
           errorf(
               call.getArguments().get(i),
-              "in call to '%s()', parameter '%s' got value of type '%s', want '%s'",
+              "in call to '%s()', parameter %s got value of type '%s', want '%s'",
               call.getFunction(),
-              parameterName,
+              parameterDescription,
               argTypes.get(i),
               parameterType);
           return Types.ANY;
@@ -805,21 +809,12 @@ public final class TypeChecker extends NodeVisitor {
       return true;
     } else if (callable.getVarargsType() == null) {
       // callable cannot accept residual positional args
-      if (callable.getNumPositionalParameters() > 0) {
-        errorf(
-            call.getArguments().get(callable.getNumPositionalParameters()),
-            "'%s()' accepts no more than %d positional argument%s but got %d",
-            call.getFunction(),
-            callable.getNumPositionalParameters(),
-            plural(callable.getNumPositionalParameters()),
-            call.getNumPositionalArguments());
-      } else {
-        errorf(
-            call.getArguments().getFirst(),
-            "'%s()' does not accept positional arguments, but got %d",
-            call.getFunction(),
-            call.getNumPositionalArguments());
-      }
+      errorf(
+          call.getArguments().get(callable.getNumPositionalParameters()),
+          "'%s()' %s but got %d",
+          call.getFunction(),
+          describeAcceptsPositionals(callable),
+          call.getNumPositionalArguments());
       return false;
     } else {
       // residual positional args go into callable's varargs
@@ -917,17 +912,49 @@ public final class TypeChecker extends NodeVisitor {
         }
       }
       if (!missingMandatory.isEmpty()) {
-        errorf(
-            call.getLparenLocation(),
-            "'%s()' missing %d required argument%s: %s",
-            call.getFunction(),
-            missingMandatory.size(),
-            plural(missingMandatory.size()),
-            Joiner.on(", ").join(missingMandatory));
+        if (callable instanceof Types.SimpleCallableType) {
+          errorf(
+              call.getLparenLocation(),
+              "'%s()' %s but got %d",
+              call.getFunction(),
+              describeAcceptsPositionals(callable),
+              call.getNumPositionalArguments());
+        } else {
+          errorf(
+              call.getLparenLocation(),
+              "'%s()' missing %d required argument%s: %s",
+              call.getFunction(),
+              missingMandatory.size(),
+              plural(missingMandatory.size()),
+              Joiner.on(", ").join(missingMandatory));
+        }
         return false;
       }
     }
     return true;
+  }
+
+  private static String describeAcceptsPositionals(Types.CallableType callable) {
+    if (callable.getVarargsType() != null) {
+      return String.format(
+          "accepts %d or more positional argument%s",
+          callable.getNumPositionalParameters(), plural(callable.getNumPositionalParameters()));
+    } else if (callable.getNumPositionalParameters() == 0) {
+      return "does not accept positional arguments";
+    } else {
+      boolean allPositionalsMandatory = true;
+      for (int i = 0; i < callable.getNumPositionalParameters(); i++) {
+        if (!callable.isMandatory(i)) {
+          allPositionalsMandatory = false;
+          break;
+        }
+      }
+      return String.format(
+          "accepts %s %d positional argument%s",
+          allPositionalsMandatory ? "exactly" : "no more than",
+          callable.getNumPositionalParameters(),
+          plural(callable.getNumPositionalParameters()));
+    }
   }
 
   private StarlarkType inferComprehension(Comprehension comp) {

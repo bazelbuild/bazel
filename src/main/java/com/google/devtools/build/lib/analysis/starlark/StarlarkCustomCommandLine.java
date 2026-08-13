@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -62,6 +63,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -131,10 +133,13 @@ public class StarlarkCustomCommandLine extends CommandLine {
   private static final Joiner LINE_JOINER = Joiner.on("\n").skipNulls();
   private static final Joiner FIELD_JOINER = Joiner.on(": ").skipNulls();
 
+  private static final AtomicBoolean interningEnabled = new AtomicBoolean(true);
+
   // Used to distinguish command line arguments that are potentially subject to special default
   // stringification (such as Artifacts when path mapped or Labels when not main repo labels) from
   // strings that happen to be identical to their string representations.
-  private enum StringificationType {
+  @VisibleForSerialization
+  enum StringificationType {
     DEFAULT,
     FILE,
     LABEL
@@ -144,7 +149,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
    * Representation of a sequence of arguments originating from {@code Args.add_all} or {@code
    * Args.add_joined}.
    */
-  @AutoCodec
+  @AutoCodec(memoizationEquality = MemoizationEquality.BY_VALUE)
   static final class VectorArg {
 
     private static final Interner<VectorArg> interner = BlazeInterners.newWeakInterner();
@@ -185,7 +190,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
     @Nullable private final String formatJoined;
     @Nullable private final String terminateWith;
 
-    private VectorArg(
+    @VisibleForSerialization
+    VectorArg(
         boolean isNestedSet,
         boolean expandDirectories,
         boolean uniquify,
@@ -220,9 +226,42 @@ public class StarlarkCustomCommandLine extends CommandLine {
       this.terminateWith = terminateWith;
     }
 
-    @VisibleForSerialization
-    @AutoCodec.Interner
-    static VectorArg intern(VectorArg vectorArg) {
+    @AutoCodec.Instantiator
+    static VectorArg create(
+        boolean isNestedSet,
+        boolean expandDirectories,
+        boolean uniquify,
+        boolean omitIfEmpty,
+        boolean hasSingleArg,
+        boolean hasNonGlobalMapEach,
+        StringificationType stringificationType,
+        @Nullable Location location,
+        @Nullable String argName,
+        @Nullable StarlarkCallable mapEach,
+        @Nullable StarlarkSemantics starlarkSemantics,
+        @Nullable String formatEach,
+        @Nullable String beforeEach,
+        @Nullable String joinWith,
+        @Nullable String formatJoined,
+        @Nullable String terminateWith) {
+      VectorArg vectorArg =
+          new VectorArg(
+              isNestedSet,
+              expandDirectories,
+              uniquify,
+              omitIfEmpty,
+              hasSingleArg,
+              hasNonGlobalMapEach,
+              stringificationType,
+              location,
+              argName,
+              mapEach,
+              starlarkSemantics,
+              formatEach,
+              beforeEach,
+              joinWith,
+              formatJoined,
+              terminateWith);
       return interner.intern(vectorArg);
     }
 
@@ -244,24 +283,23 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
       boolean hasNonGlobalMapEach = arg.mapEach instanceof StarlarkFunction fn && !fn.isGlobal();
       recipe.add(
-          VectorArg.intern(
-              new VectorArg(
-                  arg.nestedSet != null,
-                  arg.expandDirectories,
-                  arg.uniquify,
-                  arg.omitIfEmpty,
-                  arg.nestedSet == null && arg.list.size() == 1,
-                  hasNonGlobalMapEach,
-                  arg.nestedSetStringificationType,
-                  arg.mapEach != null ? arg.location : null,
-                  arg.argName,
-                  hasNonGlobalMapEach ? null : arg.mapEach,
-                  arg.mapEach != null ? starlarkSemantics : null,
-                  arg.formatEach,
-                  arg.beforeEach,
-                  arg.joinWith,
-                  arg.formatJoined,
-                  arg.terminateWith)));
+          VectorArg.create(
+              arg.nestedSet != null,
+              arg.expandDirectories,
+              arg.uniquify,
+              arg.omitIfEmpty,
+              arg.nestedSet == null && arg.list.size() == 1,
+              hasNonGlobalMapEach,
+              arg.nestedSetStringificationType,
+              arg.mapEach != null ? arg.location : null,
+              arg.argName,
+              hasNonGlobalMapEach ? null : arg.mapEach,
+              arg.mapEach != null ? starlarkSemantics : null,
+              arg.formatEach,
+              arg.beforeEach,
+              arg.joinWith,
+              arg.formatJoined,
+              arg.terminateWith));
 
       if (hasNonGlobalMapEach) {
         values.add(arg.mapEach);
@@ -766,26 +804,22 @@ public class StarlarkCustomCommandLine extends CommandLine {
    * instances are weakly interned so that all command lines with the same flag "template" share a
    * single instance.
    */
-  @AutoCodec
+  @AutoCodec(memoizationEquality = MemoizationEquality.BY_VALUE)
   static final class Recipe {
     private static final Interner<Recipe> interner = BlazeInterners.newWeakInterner();
 
     final Object[] elements;
     private final int hashCode;
 
+    @VisibleForSerialization
     Recipe(Object[] elements) {
       this.elements = elements;
       this.hashCode = Arrays.hashCode(elements);
     }
 
-    @VisibleForSerialization
-    @AutoCodec.Interner
-    static Recipe intern(Recipe recipe) {
-      return interner.intern(recipe);
-    }
-
+    @AutoCodec.Instantiator
     static Recipe create(Object[] elements) {
-      return intern(new Recipe(elements));
+      return interner.intern(new Recipe(elements));
     }
 
     @Override
