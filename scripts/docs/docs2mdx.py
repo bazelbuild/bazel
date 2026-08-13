@@ -55,6 +55,16 @@ _ANGLE_BRACKET_LINK_RE = re.compile(r"<(https?://[^>]+)>")
 _HTML_PRE_PATTERN = re.compile(r"(?:<pre>)(.*?)(?:</pre>)")
 _HTML_STYLE_PATTERN = re.compile(r"^</?style>", re.MULTILINE)
 _MD_FRONT_MATTER_PATTERN = re.compile(r"^---", re.MULTILINE)
+# Flag docs wrap the anchor link inside <code>, which markdownify drops. Move the
+# link outside <code> so it survives conversion to MDX definition lists.
+_CODE_FLAG_LINK_RE = re.compile(
+    r'<code(?:\s[^>]*)?><a href="(#[^"]+)">(.*?)</a>(.*?)</code>',
+    re.DOTALL,
+)
+# Definition-list flag terms that should expose a copyable deep-link anchor.
+_FLAG_TERM_LINK_RE = re.compile(
+    r'^\[`([^`]+)`\]\(#((?:[^)]*-)?flag--[^)]+)\)',
+)
 
 # Across code blocks and similar pre-formatted blocks, these
 # characters must be converted to HTML entities so they don't
