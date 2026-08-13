@@ -631,7 +631,13 @@ public class TypeTaggerTest {
     }
 
     assertThat(bindingTypes)
-        .containsExactly(Types.INT, Types.ANY, Types.BOOL, Types.STR, Types.ANY, Types.INT)
+        .containsExactly(
+            Types.INT,
+            Types.ANY,
+            Types.homogeneousTuple(Types.BOOL),
+            Types.STR,
+            Types.ANY,
+            Types.dict(Types.STR, Types.INT))
         .inOrder();
   }
 

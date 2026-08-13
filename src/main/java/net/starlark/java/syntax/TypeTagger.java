@@ -568,6 +568,11 @@ public final class TypeTagger extends NodeVisitor {
       if (param.getType() != null) {
         setUsesTypeSyntax();
         type = extractType(param.getType());
+        if (param instanceof Parameter.Star) {
+          type = Types.homogeneousTuple(type);
+        } else if (param instanceof Parameter.StarStar) {
+          type = Types.dict(Types.STR, type);
+        }
       }
       setType(param, param.getIdentifier(), type);
     }
