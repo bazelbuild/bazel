@@ -204,6 +204,34 @@ public final class SymlinkTreeHelper {
     return symlinks.buildOrThrow();
   }
 
+  /**
+   * Returns whether the given path is an existing, up-to-date copy of the given symlink target.
+   *
+   * <p>File systems that don't support symbolic links natively materialize them as copies of their
+   * target, so the contents of the tree they produce can go stale when a target is modified. Since
+   * a copy is created after its target was last modified, it is considered up to date as long as
+   * the target hasn't been modified since and its size is unchanged. This is the same approximation
+   * that {@link com.google.devtools.build.lib.actions.FileContentsProxy} makes for local files.
+   *
+   * <p>Always returns false on a file system that creates real symbolic links, where an entry that
+   * isn't a symlink is never up to date.
+   */
+  private static boolean isUpToDateCopy(Path link, PathFragment target) throws IOException {
+    if (link.getFileSystem().supportsSymbolicLinksNatively(link.asFragment())) {
+      return false;
+    }
+    // A relative target is resolved relative to the directory containing the link, matching how the
+    // file system resolves it when creating the copy.
+    Path targetPath = link.getParentDirectory().getRelative(target);
+    FileStatus linkStat = link.statIfFound(Symlinks.NOFOLLOW);
+    FileStatus targetStat = targetPath.statIfFound(Symlinks.FOLLOW);
+    if (linkStat == null || targetStat == null || !linkStat.isFile() || !targetStat.isFile()) {
+      return false;
+    }
+    return linkStat.getSize() == targetStat.getSize()
+        && linkStat.getLastModifiedTime() >= targetStat.getLastModifiedTime();
+  }
+
   private static final class Directory<T> {
     private final Map<String, T> symlinks = new HashMap<>();
     private final Map<String, Directory<T>> directories = new HashMap<>();
@@ -250,12 +278,18 @@ public final class SymlinkTreeHelper {
             // TODO(tjgq): Ponder whether this is still necessary to preserve the intentional
             // non-hermeticity of symlink trees under source edits.
           } else {
+            PathFragment target = targetPathFn.get(value);
             // ensureSymbolicLink will replace a symlink that doesn't have the correct target, but
-            // everything else needs to be deleted first.
+            // everything else needs to be deleted first. An existing copy of the target is kept if
+            // it is still up to date, which avoids recreating the entire tree on every build on
+            // file systems that materialize symlinks as copies.
             if (dirent.getType() != Dirent.Type.SYMLINK) {
+              if (isUpToDateCopy(next, target)) {
+                continue;
+              }
               next.deleteTree();
             }
-            FileSystemUtils.ensureSymbolicLink(next, targetPathFn.get(value));
+            FileSystemUtils.ensureSymbolicLink(next, target);
           }
         } else if (directories.containsKey(basename)) {
           Directory<T> nextDir = directories.remove(basename);
