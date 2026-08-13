@@ -134,6 +134,16 @@ public class RemoteRetrierTest {
   }
 
   @Test
+  public void nonRetryableCacheExceptionDoesNotCountAsRemoteFailure() {
+    Exception error =
+        new RemoteRetrier.NonRetryableCacheException(
+            Status.RESOURCE_EXHAUSTED.withDescription("request too large").asRuntimeException());
+
+    assertThat(RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER.test(error))
+        .isEqualTo(Result.SUCCESS);
+  }
+
+  @Test
   public void testRepeatedRetriesReset() throws Exception {
     Supplier<Backoff> s =
         () -> new ExponentialBackoff(Duration.ofSeconds(1), Duration.ofSeconds(10), 2.0, 0.0, 2);

@@ -75,15 +75,22 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /** A RemoteActionCache implementation that uses gRPC calls to a remote cache server. */
 @ThreadSafe
 public class GrpcCacheClient extends RemoteCacheClient implements MissingDigestsFinder {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+  private static final Pattern GRPC_GO_MESSAGE_TOO_LARGE =
+      Pattern.compile("grpc: received message larger than max \\((\\d+) vs\\. (\\d+)\\)");
+  private static final Pattern GRPC_JAVA_MESSAGE_TOO_LARGE =
+      Pattern.compile("gRPC message exceeds maximum size (\\d+): (\\d+)");
 
   private final CallCredentialsProvider callCredentialsProvider;
   private final ReferenceCountedChannel channel;
@@ -377,6 +384,13 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
   @Override
   public ListenableFuture<Void> uploadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
+    UpdateActionResultRequest request =
+        UpdateActionResultRequest.newBuilder()
+            .setInstanceName(options.getRemoteInstanceName())
+            .setDigestFunction(digestUtil.getDigestFunction())
+            .setActionDigest(actionKey.digest())
+            .setActionResult(actionResult)
+            .build();
     ListenableFuture<ActionResult> upload =
         Utils.refreshIfUnauthenticatedAsync(
             () ->
@@ -386,19 +400,64 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
                             channel.withChannelFuture(
                                 channel ->
                                     acFutureStub(context, channel)
-                                        .updateActionResult(
-                                            UpdateActionResultRequest.newBuilder()
-                                                .setInstanceName(options.getRemoteInstanceName())
-                                                .setDigestFunction(digestUtil.getDigestFunction())
-                                                .setActionDigest(actionKey.digest())
-                                                .setActionResult(actionResult)
-                                                .build())),
+                                        .updateActionResult(request)),
                             StatusRuntimeException.class,
-                            (sre) -> Futures.immediateFailedFuture(new IOException(sre)),
+                            (sre) -> {
+                              OptionalLong maximumSize =
+                                  getMaximumMessageSize(sre);
+                              if (maximumSize.isPresent()) {
+                                Status status =
+                                    sre.getStatus()
+                                        .withDescription(
+                                            ("UpdateActionResult was rejected because its gRPC "
+                                                    + "message exceeds the remote cache's maximum "
+                                                    + "size of %d bytes; increase the server's "
+                                                    + "receive limit or reduce the action result "
+                                                    + "size")
+                                                .formatted(maximumSize.getAsLong()));
+                                return Futures.immediateFailedFuture(
+                                    new RemoteRetrier.NonRetryableCacheException(
+                                        status.asRuntimeException(sre.getTrailers())));
+                              }
+                              return Futures.immediateFailedFuture(new IOException(sre));
+                            },
                             MoreExecutors.directExecutor())),
             callCredentialsProvider);
 
     return Futures.transform(upload, ac -> null, MoreExecutors.directExecutor());
+  }
+
+  @VisibleForTesting
+  static OptionalLong getMaximumMessageSize(StatusRuntimeException exception) {
+    Status status = exception.getStatus();
+    if (status.getCode() != Code.RESOURCE_EXHAUSTED || status.getDescription() == null) {
+      return OptionalLong.empty();
+    }
+
+    Matcher grpcGoMatcher = GRPC_GO_MESSAGE_TOO_LARGE.matcher(status.getDescription());
+    if (grpcGoMatcher.matches()) {
+      return validatedMaximumSize(grpcGoMatcher.group(1), grpcGoMatcher.group(2));
+    }
+
+    Matcher grpcJavaMatcher = GRPC_JAVA_MESSAGE_TOO_LARGE.matcher(status.getDescription());
+    if (grpcJavaMatcher.matches()) {
+      return validatedMaximumSize(grpcJavaMatcher.group(2), grpcJavaMatcher.group(1));
+    }
+
+    return OptionalLong.empty();
+  }
+
+  private static OptionalLong validatedMaximumSize(
+      String actualSizeText, String maximumSizeText) {
+    try {
+      long actualSize = Long.parseLong(actualSizeText);
+      long maximumSize = Long.parseLong(maximumSizeText);
+      return actualSize > maximumSize
+          ? OptionalLong.of(maximumSize)
+          : OptionalLong.empty();
+    } catch (NumberFormatException e) {
+      return OptionalLong.empty();
+    }
   }
 
   @Override

@@ -1271,6 +1271,106 @@ public class GrpcCacheClientTest {
   }
 
   @Test
+  public void uploadActionResult_grpcGoMessageTooLargeIsNotRetried() throws Exception {
+    assertMessageTooLargeIsNotRetried(/* grpcJavaFormat= */ false);
+  }
+
+  @Test
+  public void uploadActionResult_grpcJavaMessageTooLargeIsNotRetried() throws Exception {
+    assertMessageTooLargeIsNotRetried(/* grpcJavaFormat= */ true);
+  }
+
+  private void assertMessageTooLargeIsNotRetried(boolean grpcJavaFormat) throws Exception {
+    Backoff mockBackoff = mock(Backoff.class);
+    GrpcCacheClient client = newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);
+    ActionKey actionKey = DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key"));
+    AtomicInteger calls = new AtomicInteger();
+    serviceRegistry.addService(
+        new ActionCacheImplBase() {
+          @Override
+          public void updateActionResult(
+              UpdateActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            calls.incrementAndGet();
+            int actualSize = request.getSerializedSize();
+            int maximumSize = actualSize - 1;
+            String description =
+                grpcJavaFormat
+                    ? "gRPC message exceeds maximum size %d: %d"
+                        .formatted(maximumSize, actualSize)
+                    : "grpc: received message larger than max (%d vs. %d)"
+                        .formatted(actualSize, maximumSize);
+            responseObserver.onError(
+                Status.RESOURCE_EXHAUSTED.withDescription(description).asRuntimeException());
+          }
+        });
+
+    IOException error =
+        assertThrows(
+            IOException.class,
+            () ->
+                getFromFuture(
+                    client.uploadActionResult(
+                        context, actionKey, ActionResult.getDefaultInstance())));
+
+    assertThat(calls.get()).isEqualTo(1);
+    Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis(any(Exception.class));
+    assertThat(Status.fromThrowable(error).getCode()).isEqualTo(Status.Code.RESOURCE_EXHAUSTED);
+    assertThat(Status.fromThrowable(error).getDescription())
+        .contains("UpdateActionResult was rejected");
+    assertThat(Status.fromThrowable(error).getDescription())
+        .contains("increase the server's receive limit");
+  }
+
+  @Test
+  public void uploadActionResult_ordinaryResourceExhaustedRemainsRetryable() throws Exception {
+    Backoff mockBackoff = mock(Backoff.class);
+    when(mockBackoff.nextDelayMillis(any(Exception.class))).thenReturn(-1L);
+    GrpcCacheClient client = newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);
+    ActionKey actionKey = DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key"));
+    serviceRegistry.addService(
+        new ActionCacheImplBase() {
+          @Override
+          public void updateActionResult(
+              UpdateActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            responseObserver.onError(
+                Status.RESOURCE_EXHAUSTED
+                    .withDescription("request quota exhausted")
+                    .asRuntimeException());
+          }
+        });
+
+    assertThrows(
+        IOException.class,
+        () ->
+            getFromFuture(
+                client.uploadActionResult(context, actionKey, ActionResult.getDefaultInstance())));
+
+    Mockito.verify(mockBackoff, Mockito.times(1)).nextDelayMillis(any(Exception.class));
+  }
+
+  @Test
+  public void messageTooLargeDetection_rejectsMalformedAndDescriptiveNearMatches() {
+    ImmutableList<String> descriptions =
+        ImmutableList.of(
+            "received message larger than max (5621411 vs. 4194304)",
+            "grpc: received message larger than max (5621411 vs. 5621411)",
+            "grpc: received message larger than max (5621411 vs. 4194304) while decoding",
+            "grpc: received message larger than max (many vs. 4194304)",
+            "gRPC message exceeds maximum size 4194304: 5621411 while decoding",
+            "request quota exhausted");
+
+    for (String description : descriptions) {
+      assertThat(
+              GrpcCacheClient.getMaximumMessageSize(
+                      Status.RESOURCE_EXHAUSTED
+                          .withDescription(description)
+                          .asRuntimeException())
+                  .isPresent())
+          .isFalse();
+    }
+  }
+
+  @Test
   public void downloadBlobIsRetriedWithProgress() throws IOException, InterruptedException {
     Backoff mockBackoff = Mockito.mock(Backoff.class);
     GrpcCacheClient client = newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);

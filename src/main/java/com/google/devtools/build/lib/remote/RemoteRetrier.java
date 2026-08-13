@@ -57,9 +57,31 @@ public class RemoteRetrier extends Retrier {
     return null;
   }
 
+  /**
+   * A deterministic cache request failure that should be propagated without retrying or counting
+   * it as a remote service failure.
+   */
+  static final class NonRetryableCacheException extends IOException {
+    NonRetryableCacheException(Throwable cause) {
+      super(cause);
+    }
+  }
+
+  private static boolean causedByNonRetryableCacheException(Exception e) {
+    for (Throwable cause = e; cause != null; cause = cause.getCause()) {
+      if (cause instanceof NonRetryableCacheException) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /** A ResultClassifier suitable to be used by ExperimentalGrpcRemoteExecutor. */
   public static final ResultClassifier EXPERIMENTAL_GRPC_RESULT_CLASSIFIER =
       e -> {
+        if (causedByNonRetryableCacheException(e)) {
+          return Result.SUCCESS;
+        }
         Status s = fromException(e);
         if (s == null) {
           // It's not a gRPC error.
