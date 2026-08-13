@@ -511,9 +511,13 @@ public final class TypeChecker extends NodeVisitor {
       boolean augmentedAssignment) {
     // TokenKind operator = binop.getOperator();
     switch (operator) {
-      case AND, OR, EQUALS_EQUALS, NOT_EQUALS -> {
+      case EQUALS_EQUALS, NOT_EQUALS -> {
         // Boolean regardless of LHS and RHS.
         return Types.BOOL;
+      }
+      case AND, OR -> {
+        // LHS | RHS
+        return Types.union(xType, yType);
       }
       case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS -> {
         // Boolean or type error.
