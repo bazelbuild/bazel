@@ -277,7 +277,8 @@ public final class RemoteModule extends BlazeModule {
       AuthAndTLSOptions authAndTlsOptions,
       RemoteOptions remoteOptions,
       @Nullable PathFragment diskCachePath,
-      DigestUtil digestUtil) {
+      DigestUtil digestUtil,
+      boolean checkDiskCacheActionResultIntegrity) {
     CombinedCacheClient combinedCacheClient;
     Retrier.CircuitBreaker circuitBreaker =
         CircuitBreakerFactory.createCircuitBreaker(remoteOptions);
@@ -291,7 +292,8 @@ public final class RemoteModule extends BlazeModule {
               Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"),
               digestUtil,
               new RemoteRetrier(
-                  remoteOptions, HTTP_RESULT_CLASSIFIER, retryScheduler, circuitBreaker));
+                  remoteOptions, HTTP_RESULT_CLASSIFIER, retryScheduler, circuitBreaker),
+              checkDiskCacheActionResultIntegrity);
     } catch (IOException e) {
       handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
       return;
@@ -718,9 +720,23 @@ public final class RemoteModule extends BlazeModule {
               buildRequestOptions != null && buildRequestOptions.getRewindLostInputs());
     }
 
+    // Verifying that the blobs referenced by a disk cache action result are present locally turns
+    // most disk cache hits into misses when Build without the Bytes is enabled, as outputs aren't
+    // downloaded and thus never added to the disk cache's CAS. With action rewinding, a blob that
+    // is missing after all is cheap to recover from, so the check can be skipped. This allows disk
+    // cache AC checks to be entirely local, reducing server load and avoiding a network round trip.
+    boolean checkDiskCacheActionResultIntegrity =
+        buildRequestOptions == null || !buildRequestOptions.getRewindLostInputs();
+
     if ((enableHttpCache || enableDiskCache) && !enableGrpcCache) {
       initHttpAndDiskCache(
-          env, credentials, authAndTlsOptions, remoteOptions, diskCachePath, digestUtil);
+          env,
+          credentials,
+          authAndTlsOptions,
+          remoteOptions,
+          diskCachePath,
+          digestUtil,
+          checkDiskCacheActionResultIntegrity);
       initRepoHelpersAndOverlayFs(env, buildRequestId, invocationId, verboseFailures);
       return true;
     }
@@ -844,7 +860,10 @@ public final class RemoteModule extends BlazeModule {
         try {
           diskCacheClient =
               CombinedCacheClientFactory.createDiskCache(
-                  env.getWorkingDirectory(), diskCachePath, digestUtil);
+                  env.getWorkingDirectory(),
+                  diskCachePath,
+                  digestUtil,
+                  checkDiskCacheActionResultIntegrity);
         } catch (Exception e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
           return false;
@@ -884,7 +903,10 @@ public final class RemoteModule extends BlazeModule {
         try {
           diskCacheClient =
               CombinedCacheClientFactory.createDiskCache(
-                  env.getWorkingDirectory(), diskCachePath, digestUtil);
+                  env.getWorkingDirectory(),
+                  diskCachePath,
+                  digestUtil,
+                  checkDiskCacheActionResultIntegrity);
         } catch (Exception e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
           return false;

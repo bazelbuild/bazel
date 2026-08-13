@@ -237,13 +237,6 @@ public class CombinedCache extends AbstractReferenceCounted {
     ListenableFuture<CachedActionResult> future = immediateFuture(null);
 
     if (diskCacheClient != null && context.getReadCachePolicy().allowDiskCache()) {
-      // If Build without the Bytes is enabled, the future will likely return null
-      // and fallback to remote cache because AC integrity check is enabled and referenced blobs are
-      // probably missing from disk cache due to BwoB.
-      //
-      // TODO(chiwang): With lease service, instead of doing the integrity check against local
-      // filesystem, we can check whether referenced blobs are alive in the lease service to
-      // increase the cache-hit rate for disk cache.
       if (spawnExecutionContext != null) {
         spawnExecutionContext.report(SPAWN_CHECKING_DISK_CACHE_EVENT);
       }
