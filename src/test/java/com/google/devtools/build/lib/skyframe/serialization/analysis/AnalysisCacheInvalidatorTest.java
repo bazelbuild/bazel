@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor.safeDirectExecutor;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -77,7 +77,7 @@ public final class AnalysisCacheInvalidatorTest {
             baseClientId,
             mockEventHandler,
             mockEventListener,
-            directExecutor());
+            safeDirectExecutor());
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
@@ -110,7 +110,7 @@ public final class AnalysisCacheInvalidatorTest {
             baseClientId,
             mockEventHandler,
             mockEventListener,
-            directExecutor());
+            safeDirectExecutor());
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
@@ -142,7 +142,7 @@ public final class AnalysisCacheInvalidatorTest {
             baseClientId,
             mockEventHandler,
             mockEventListener,
-            directExecutor());
+            safeDirectExecutor());
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
@@ -184,7 +184,7 @@ public final class AnalysisCacheInvalidatorTest {
             baseClientId,
             mockEventHandler,
             mockEventListener,
-            directExecutor());
+            safeDirectExecutor());
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
@@ -226,7 +226,7 @@ public final class AnalysisCacheInvalidatorTest {
             baseClientId,
             mockEventHandler,
             mockEventListener,
-            directExecutor());
+            safeDirectExecutor());
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
@@ -271,7 +271,7 @@ public final class AnalysisCacheInvalidatorTest {
             baseClientId,
             mockEventHandler,
             mockEventListener,
-            directExecutor());
+            safeDirectExecutor());
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
@@ -343,7 +343,7 @@ public final class AnalysisCacheInvalidatorTest {
             testCase.currentClientId,
             mockEventHandler,
             mockEventListener,
-            directExecutor());
+            safeDirectExecutor());
 
     ImmutableSet<SkyKey> keysToInvalidate =
         invalidator.lookupKeysToInvalidate(
@@ -376,7 +376,7 @@ public final class AnalysisCacheInvalidatorTest {
             baseClientId,
             mockEventHandler,
             mockEventListener,
-            directExecutor());
+            safeDirectExecutor());
 
     assertThat(
             invalidator.lookupKeysToInvalidate(
@@ -425,7 +425,7 @@ public final class AnalysisCacheInvalidatorTest {
             baseClientId,
             mockEventHandler,
             mockEventListener,
-            directExecutor());
+            safeDirectExecutor());
 
     var unused =
         invalidator.lookupKeysToInvalidate(
@@ -472,7 +472,7 @@ public final class AnalysisCacheInvalidatorTest {
             baseClientId,
             mockEventHandler,
             mockEventListener,
-            directExecutor());
+            safeDirectExecutor());
 
     var unused =
         invalidator.lookupKeysToInvalidate(
@@ -518,7 +518,7 @@ public final class AnalysisCacheInvalidatorTest {
             baseClientId,
             mockEventHandler,
             mockEventListener,
-            directExecutor());
+            safeDirectExecutor());
 
     var unused =
         invalidator.lookupKeysToInvalidate(
@@ -555,7 +555,7 @@ public final class AnalysisCacheInvalidatorTest {
             baseClientId,
             mockEventHandler,
             mockEventListener,
-            directExecutor());
+            safeDirectExecutor());
 
     assertThat(
             invalidator.lookupKeysToInvalidate(

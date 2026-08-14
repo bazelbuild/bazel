@@ -26,6 +26,7 @@ java_library(
     ),
     deps = [
         ":thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
         "//third_party:flogger",
         "//third_party:guava",

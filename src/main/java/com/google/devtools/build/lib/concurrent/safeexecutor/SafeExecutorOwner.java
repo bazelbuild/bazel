@@ -202,6 +202,18 @@ public final class SafeExecutorOwner implements SafeExecutor {
     return dispatcherTerminated;
   }
 
+  /** Returns true if this executor has been shut down. */
+  @VisibleForTesting
+  public boolean isShutdownForTesting() {
+    return delegate.isShutdown();
+  }
+
+  /** Returns true if all tasks have completed following shut down. */
+  @VisibleForTesting
+  public boolean isTerminatedForTesting() {
+    return delegate.isTerminated() && rejectionDispatcher.isTerminated();
+  }
+
   /**
    * Offloads rejection notification tasks to {@code rejectionDispatcher}.
    *

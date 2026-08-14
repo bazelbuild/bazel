@@ -14,13 +14,11 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor.safeDirectExecutor;
 
 import com.google.common.util.concurrent.AbstractFuture;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.concurrent.QuiescingFuture;
+import com.google.devtools.build.lib.concurrent.AccumulatingQuiescingFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -36,7 +34,6 @@ import java.util.concurrent.TimeUnit;
  * inner classes, requires all the implementations to be public.
  */
 public class WriteStatuses {
-
 
   /** Returns the stateless, immediately successful write status. */
   public static WriteStatus immediateWriteStatus() {
@@ -78,11 +75,9 @@ public class WriteStatuses {
    *
    * <p>Uses less memory in-flight than {@link Futures#whenAllSucceed} because it does not retain
    * the list of input futures and therefore also releases those futures earlier.
-   *
-   * <p>Preserves all callback edges.
    */
-  private static final class AggregateWriteStatus extends QuiescingFuture<Boolean>
-      implements WriteStatus, FutureCallback<Boolean> {
+  private static final class AggregateWriteStatus
+      extends AccumulatingQuiescingFuture<Boolean, Boolean> implements WriteStatus {
     private volatile boolean wasNovel = false;
 
     private static WriteStatus create(Iterable<WriteStatus> writeStatuses) {
@@ -90,7 +85,7 @@ public class WriteStatuses {
     }
 
     private AggregateWriteStatus() {
-      super(directExecutor());
+      super(safeDirectExecutor());
     }
 
     @Override
@@ -98,42 +93,11 @@ public class WriteStatuses {
       return wasNovel;
     }
 
-    /**
-     * Implementation of {@link FutureCallback<Boolean>}.
-     *
-     * @deprecated only used by {@link #create} for callback processing
-     */
-    @Deprecated
     @Override
-    public void onSuccess(Boolean novel) {
+    protected void accumulateFutureResult(Boolean novel) {
       if (novel) {
         var unused = WAS_NOVEL_HANDLE.compareAndSet(this, false, true);
       }
-      decrement();
-    }
-
-    /**
-     * Implementation of {@link FutureCallback<Boolean>}.
-     *
-     * @deprecated only used by {@link #create} for callback processing
-     */
-    @Deprecated
-    @Override
-    public void onFailure(Throwable t) {
-      if (t instanceof CancellationException) {
-        cancel(/* mayInterruptIfRunning= */ false); // nothing running
-        return;
-      }
-      notifyException(t);
-    }
-
-    private void add(ListenableFuture<Boolean> status) {
-      increment();
-      Futures.addCallback(status, (FutureCallback<Boolean>) this, directExecutor());
-    }
-
-    private void clearPreincrement() {
-      decrement();
     }
 
     private static final VarHandle WAS_NOVEL_HANDLE;
@@ -172,10 +136,10 @@ public class WriteStatuses {
         first = status;
       } else if (aggregate == null) {
         aggregate = new AggregateWriteStatus();
-        aggregate.add(first);
-        aggregate.add(status);
+        aggregate.addFuture(first, safeDirectExecutor());
+        aggregate.addFuture(status, safeDirectExecutor());
       } else {
-        aggregate.add(status);
+        aggregate.addFuture(status, safeDirectExecutor());
       }
       return this;
     }
@@ -217,7 +181,7 @@ public class WriteStatuses {
         return wrapper;
       }
       if (!built) {
-        aggregate.clearPreincrement();
+        aggregate.finishRegistration();
         built = true;
       }
       return aggregate;

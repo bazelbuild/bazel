@@ -439,6 +439,16 @@ public final class Types {
         "%s != %s",
         parameterNames.size(),
         parameterTypes.size());
+    Preconditions.checkArgument(
+        numPositionalOnlyParameters <= numPositionalParameters,
+        "numPositionalOnlyParameters (%s) > numPositionalParameters (%s)",
+        numPositionalOnlyParameters,
+        numPositionalParameters);
+    Preconditions.checkArgument(
+        numPositionalParameters <= parameterTypes.size(),
+        "numPositionalParameters (%s) > numParameterTypes (%s)",
+        numPositionalParameters,
+        parameterTypes.size());
     return new AutoValue_Types_GeneralCallableType(
         parameterNames,
         parameterTypes,
@@ -513,13 +523,103 @@ public final class Types {
     }
 
     @Override
-    public boolean assignableFromHook(StarlarkType that, TypeContext context) {
-      if (that instanceof CallableType) {
-        return this.equals(Types.ANY_CALLABLE)
-            || that.equals(Types.ANY_CALLABLE)
-            || this.equals(that);
+    public boolean assignableFromHook(StarlarkType t, TypeContext context) {
+      if (t instanceof CallableType that) {
+        if (this.equals(Types.ANY_CALLABLE) || t.equals(Types.ANY_CALLABLE) || this.equals(t)) {
+          return true;
+        }
+
+        // Covariant in the return type
+        if (!StarlarkType.assignableFrom(this.getReturnType(), that.getReturnType(), context)) {
+          return false;
+        }
+
+        // Contravariant in the positional parameter types
+        for (int i = 0; i < getNumPositionalParameters(); i++) {
+          StarlarkType thisParameterType = getParameterTypeByPos(i);
+          @Nullable
+          StarlarkType thatParameterType =
+              i < that.getNumPositionalParameters()
+                  ? that.getParameterTypeByPos(i)
+                  : that.getVarargsType();
+          if (!nullTolerantAssignableFrom(thatParameterType, thisParameterType, context)) {
+            return false;
+          }
+        }
+
+        // Contravariant in the keyword parameter types
+        if (getParameterTypes().size() != getNumPositionalOnlyParameters()) {
+          for (int i = getNumPositionalOnlyParameters(); i < getParameterTypes().size(); i++) {
+            String name = getParameterNames().get(i);
+            StarlarkType thisParameterType = getParameterTypeByPos(i);
+            int thatParameterIndex = that.getKeywordParameterIndex(name);
+            @Nullable
+            StarlarkType thatParameterType =
+                thatParameterIndex >= 0
+                    ? that.getParameterTypeByPos(thatParameterIndex)
+                    : that.getKwargsType();
+            if (!nullTolerantAssignableFrom(thatParameterType, thisParameterType, context)) {
+              return false;
+            }
+          }
+        }
+
+        // Contravariant in varargs and kwargs.
+        if (this.getVarargsType() != null
+            && !nullTolerantAssignableFrom(that.getVarargsType(), this.getVarargsType(), context)) {
+          return false;
+        }
+        if (this.getKwargsType() != null
+            && !nullTolerantAssignableFrom(that.getKwargsType(), this.getKwargsType(), context)) {
+          return false;
+        }
+
+        // `that` cannot have mandatory parameters that `this` is not guaranteed to supply.
+        for (int i = 0; i < that.getParameterTypes().size(); i++) {
+          if (!that.isMandatory(i)) {
+            continue;
+          }
+          if (i < that.getNumPositionalParameters()) {
+            // The mandatory parameter can be satisfied as a positional.
+            if (i < getNumPositionalOnlyParameters() && isMandatory(i)) {
+              // ... and `this` is guaranteed to supply a positional.
+              continue;
+            }
+          }
+          if (i >= that.getNumPositionalOnlyParameters()) {
+            // The mandatory parameter can be satisfied as a keyword.
+            String name = that.getParameterNames().get(i);
+            if (isMandatory(getKeywordParameterIndex(name))) {
+              // ... and `this` is guaranteed to supply a keyword.
+              continue;
+            }
+          }
+          // The mandatory parameter cannot be satisfied.
+          return false;
+        }
+
+        // All checks passed.
+        return true;
       }
       return false;
+    }
+
+    private static boolean nullTolerantAssignableFrom(
+        @Nullable StarlarkType x, StarlarkType y, TypeContext context) {
+      if (x != null) {
+        return StarlarkType.assignableFrom(x, y, context);
+      } else {
+        return false;
+      }
+    }
+
+    protected int getKeywordParameterIndex(String name) {
+      for (int i = getNumPositionalOnlyParameters(); i < getParameterTypes().size(); i++) {
+        if (getParameterNames().get(i).equals(name)) {
+          return i;
+        }
+      }
+      return -1;
     }
 
     /** Returns a complete string representation of the type */

@@ -35,17 +35,20 @@ import com.google.devtools.build.lib.concurrent.RequestBatching.FutureSink;
 import com.google.devtools.build.lib.concurrent.RequestBatching.Multiplexer;
 import com.google.devtools.build.lib.concurrent.RequestBatching.Operation;
 import com.google.devtools.build.lib.concurrent.RequestBatching.ResponseSink;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.unsafe.UnsafeProvider;
 
 import java.lang.ref.Cleaner;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -63,7 +66,7 @@ public final class RequestBatcherTest {
     var batcher =
         RequestBatcher.<Request, Response>create(
             requests -> immediateFuture(respondTo(requests)),
-            commonPool(),
+            new SafeExecutorOwner(commonPool()),
             /* maxBatchSize= */ 255,
             /* maxConcurrentRequests= */ 1);
     ListenableFuture<Response> response = batcher.submit(new Request(1));
@@ -79,7 +82,7 @@ public final class RequestBatcherTest {
     var batcher =
         RequestBatcher.<Request, Response>create(
             multiplexer,
-            commonPool(),
+            new SafeExecutorOwner(commonPool()),
             /* maxBatchSize= */ batchSize - 1,
             /* maxConcurrentRequests= */ 1);
     ListenableFuture<Response> response0 = batcher.submit(new Request(0));
@@ -136,7 +139,10 @@ public final class RequestBatcherTest {
     var multiplexer = new SettableMultiplexer();
     var batcher =
         RequestBatcher.<Request, Response>create(
-            multiplexer, commonPool(), /* maxBatchSize= */ 255, /* maxConcurrentRequests= */ 1);
+            multiplexer,
+            new SafeExecutorOwner(commonPool()),
+            /* maxBatchSize= */ 255,
+            /* maxConcurrentRequests= */ 1);
     ListenableFuture<Response> response1 = batcher.submit(new Request(1));
     BatchedOperations requestResponses1 = multiplexer.queue.take();
 
@@ -175,7 +181,8 @@ public final class RequestBatcherTest {
         new RequestBatcher<Request, Response>(
             /* queueDrainingExecutor= */ queueDrainingExecutor,
             createBatchExecutionStrategy(
-                requests -> immediateFuture(respondTo(requests)), commonPool()),
+                requests -> immediateFuture(respondTo(requests)),
+                new SafeExecutorOwner(commonPool())),
             /* maxBatchSize= */ 255,
             /* maxConcurrentRequests= */ 1,
             countersAddress,
@@ -215,7 +222,7 @@ public final class RequestBatcherTest {
     var batcher =
         RequestBatcher.<Request, Response>create(
             requests -> immediateFuture(respondTo(requests)),
-            commonPool(),
+            new SafeExecutorOwner(commonPool()),
             /* maxBatchSize= */ 255,
             /* maxConcurrentRequests= */ 4);
 
@@ -399,16 +406,40 @@ public final class RequestBatcherTest {
   public void cancelledRequest_doesNotCrash() throws Exception {
     var uncaughtException = new AtomicReference<Throwable>();
     var crashDetectingExecutor =
-        new Executor() {
-          @Override
-          public void execute(Runnable command) {
-            try {
-              command.run();
-            } catch (Throwable t) {
-              uncaughtException.set(t);
-            }
-          }
-        };
+        new SafeExecutorOwner(
+            new AbstractExecutorService() {
+              @Override
+              public void execute(Runnable command) {
+                try {
+                  command.run();
+                } catch (Throwable t) {
+                  uncaughtException.set(t);
+                }
+              }
+
+              @Override
+              public void shutdown() {}
+
+              @Override
+              public ImmutableList<Runnable> shutdownNow() {
+                return ImmutableList.of();
+              }
+
+              @Override
+              public boolean isShutdown() {
+                return false;
+              }
+
+              @Override
+              public boolean isTerminated() {
+                return false;
+              }
+
+              @Override
+              public boolean awaitTermination(long timeout, TimeUnit unit) {
+                return true;
+              }
+            });
     var multiplexer = new SettableMultiplexer();
     var batcher =
         RequestBatcher.<Request, Response>create(
@@ -643,7 +674,7 @@ public final class RequestBatcherTest {
     var batcher =
         RequestBatcher.<Request, Response>create(
             delegatingMultiplexer,
-            commonPool(),
+            new SafeExecutorOwner(commonPool()),
             /* maxBatchSize= */ 255,
             /* maxConcurrentRequests= */ 1);
 
