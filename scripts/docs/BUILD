@@ -97,6 +97,20 @@ py_test(
     ],
 )
 
+py_library(
+    name = "clr_converter",
+    srcs = ["clr_converter.py"],
+)
+
+py_test(
+    name = "clr_converter_test",
+    srcs = ["clr_converter_test.py"],
+    data = [":testdata"],
+    deps = [
+        ":clr_converter",
+    ],
+)
+
 py_binary(
     name = "docs2mdx",
     srcs = ["docs2mdx.py"],
@@ -104,6 +118,7 @@ py_binary(
         "//src/main/java/com/google/devtools/build/lib:__pkg__",
     ],
     deps = [
+        ":clr_converter",
         "//third_party/py/abseil",
         requirement("markdownify"),
     ],
