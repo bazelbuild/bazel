@@ -859,7 +859,7 @@ public class RemoteExecutionService {
         && action
             .getSpawn()
             .getExecutionInfo()
-            .containsKey(ExecutionRequirements.SUPPORTS_REMOTE_CACHE_METADATA_ONLY)
+            .containsKey(ExecutionRequirements.NO_REMOTE_CACHE_OUTPUT_UPLOAD)
         && getInMemoryOutputPath(action.getSpawn()) == null;
   }
 

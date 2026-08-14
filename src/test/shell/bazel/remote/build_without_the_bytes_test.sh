@@ -148,7 +148,7 @@ EOF
   local -a metadata_options=(
     --remote_cache="grpc://localhost:${worker_port}"
     --remote_download_minimal
-    --modify_execution_info=MetadataOnlyProducer=+supports-remote-cache-metadata-only
+    --modify_execution_info=MetadataOnlyProducer=+no-remote-cache-output-upload
     --rewind_lost_inputs
     --enable_bzlmod=false
     --enable_workspace=true
