@@ -1,0 +1,89 @@
+## Commands
+
+| | |
+| --- | --- |
+| [`build`](#build) | Builds the specified targets. |
+| [`test`](#test) | Builds and runs the specified test targets. |
+
+## Startup Options
+
+Options that appear before the command and are parsed by the client
+
+<ParamField path="--[no]batch" type="boolean" default="false" deprecated>
+  If set, Bazel will be run as just a client process without a server.
+
+  Tags: [`loses_incremental_state`](#effect_tag_LOSES_INCREMENTAL_STATE), [`deprecated`](#metadata_tag_DEPRECATED)
+</ParamField>
+
+<ParamField path="--connect_timeout_secs" type="an integer" default="30">
+  The amount of time the client waits for each attempt to connect to the server
+
+  Tags: [`bazel_internal_configuration`](#effect_tag_BAZEL_INTERNAL_CONFIGURATION)
+</ParamField>
+
+<ParamField path="--bazelrc" type="path">
+  The location of the user .bazelrc file.
+
+  *May be used multiple times; values are accumulated.*
+
+  Tags: [`changes_inputs`](#effect_tag_CHANGES_INPUTS)
+</ParamField>
+
+<ParamField path="--host_jvm_debug" type="void">
+  Convenience option to add some additional JVM startup flags.
+
+  Expands to:
+  - `--host_jvm_args=-agentlib:jdwp=transport=dt_socket,server=y,address=5005`
+</ParamField>
+
+<ParamField path="--digest_function" type="hash function" default="see description">
+  The hash function to use when computing file digests.
+
+  Tags: [`loses_incremental_state`](#effect_tag_LOSES_INCREMENTAL_STATE)
+</ParamField>
+
+<ParamField path="--io_nice_level" type="&lcub;-1,0,1,2,3,4,5,6,7&rcub;" default="-1">
+  Only on Linux; set a level from 0-7 for best-effort IO scheduling.
+
+  Tags: [`host_machine_resource_optimizations`](#effect_tag_HOST_MACHINE_RESOURCE_OPTIMIZATIONS)
+</ParamField>
+
+
+## Options Common to all Commands {#common_options}
+
+Verbosity options
+
+<ParamField path="--[no]verbose" type="boolean" default="false">
+  If true, enable verbose output.
+
+  Tags: [`affects_outputs`](#effect_tag_AFFECTS_OUTPUTS)
+</ParamField>
+
+
+## Build Options {#build}
+
+Inherits all options from [common_options](#common_options).
+
+Build-specific options
+
+<ParamField path="--jobs" type="an integer" default="auto">
+  Short form: `-j`
+
+  The number of concurrent jobs to run. Takes an integer, or "auto".
+
+  Tags: [`execution`](#effect_tag_EXECUTION)
+</ParamField>
+
+
+### Option Effect Tags
+
+| | |
+| --- | --- |
+| <span id="effect_tag_LOSES_INCREMENTAL_STATE">`loses_incremental_state`</span> | This option affects the incremental state. |
+| <span id="effect_tag_AFFECTS_OUTPUTS">`affects_outputs`</span> | This option affects the outputs. |
+
+### Option Metadata Tags
+
+| | |
+| --- | --- |
+| <span id="metadata_tag_DEPRECATED">`deprecated`</span> | This option is deprecated. |
