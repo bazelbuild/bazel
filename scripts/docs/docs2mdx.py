@@ -55,6 +55,16 @@ _ANGLE_BRACKET_LINK_RE = re.compile(r"<(https?://[^>]+)>")
 _HTML_PRE_PATTERN = re.compile(r"(?:<pre>)(.*?)(?:</pre>)")
 _HTML_STYLE_PATTERN = re.compile(r"^</?style>", re.MULTILINE)
 _MD_FRONT_MATTER_PATTERN = re.compile(r"^---", re.MULTILINE)
+# Flag docs wrap the anchor link inside <code>, which markdownify drops. Move the
+# link outside <code> so it survives conversion to MDX definition lists.
+_CODE_FLAG_LINK_RE = re.compile(
+    r'<code(?:\s[^>]*)?><a href="(#[^"]+)">(.*?)</a>(.*?)</code>',
+    re.DOTALL,
+)
+# Definition-list flag terms that should expose a copyable deep-link anchor.
+_FLAG_TERM_LINK_RE = re.compile(
+    r'^\[`([^`]+)`\]\(#((?:[^)]*-)?flag--[^)]+)\)',
+)
 
 # Across code blocks and similar pre-formatted blocks, these
 # characters must be converted to HTML entities so they don't
@@ -89,8 +99,42 @@ def _escape_chars(text, replacements):
   return text
 
 
+# Table cells containing these elements cannot be represented as plain markdown
+# table cell text. Preserve their inner HTML so MDX renders them correctly.
+_COMPLEX_CELL_TAGS = frozenset(["ul", "ol", "table", "pre"])
+
+
+def _cell_has_complex_content(cell):
+  """Returns True if a table cell contains content that needs HTML preservation."""
+  return cell.find(list(_COMPLEX_CELL_TAGS)) is not None
+
+
+def _cell_inner_html(cell):
+  """Returns the raw inner HTML of a table cell."""
+  return "".join(str(child) for child in cell.children).strip()
+
+
+def _format_table_cell(cell, content):
+  """Formats table cell content as a markdown table cell."""
+  colspan = 1
+  if "colspan" in cell.attrs and cell["colspan"].isdigit():
+    colspan = max(1, min(1000, int(cell["colspan"])))
+  # Markdown table rows must be single-line; HTML in cells is fine on one line.
+  return " " + content.replace("\n", " ") + " |" * colspan
+
+
 class AcornSafeMarkdownConverter(markdownify.MarkdownConverter):
   """Custom converter that produces Acorn-parsable MDX output."""
+
+  def convert_td(self, el, text, parent_tags):
+    if _cell_has_complex_content(el):
+      return _format_table_cell(el, _cell_inner_html(el))
+    return super().convert_td(el, text, parent_tags)
+
+  def convert_th(self, el, text, parent_tags):
+    if _cell_has_complex_content(el):
+      return _format_table_cell(el, _cell_inner_html(el))
+    return super().convert_th(el, text, parent_tags)
 
   def convert_code(self, node, text, parent_tags):
     """Normalize whitespace in inline code before converting.
