@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor.safeDirectExecutor;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.AlwaysMatch.ALWAYS_MATCH_RESULT;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.NestedMatchResultTypes.createNestedMatchResult;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.NoMatch.NO_MATCH_RESULT;
@@ -21,6 +22,8 @@ import static com.google.devtools.build.lib.skyframe.serialization.analysis.NoMa
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
+import com.google.devtools.build.lib.concurrent.safeexecutor.RejectionHandlingRunnable;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FileOpMatchResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FileOpMatchResultOrFuture;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FutureFileOpMatchResult;
@@ -34,7 +37,6 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.NestedMatch
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executor;
 
 /**
  * Computes matching versions for {@link NestedDependencies} with memoization.
@@ -49,11 +51,11 @@ import java.util.concurrent.Executor;
 final class NestedMatchMemoizingLookup
     extends AbstractValueOrFutureMap<
         NestedDependencies, NestedMatchResultOrFuture, NestedMatchResult, FutureNestedMatchResult> {
-  private final Executor executor;
+  private final SafeExecutor executor;
   private final FileOpMatchMemoizingLookup fileOpMatches;
 
   NestedMatchMemoizingLookup(
-      Executor executor,
+      SafeExecutor executor,
       FileOpMatchMemoizingLookup fileOpMatches,
       ConcurrentMap<NestedDependencies, NestedMatchResultOrFuture> map) {
     super(map, FutureNestedMatchResult::new, FutureNestedMatchResult.class);
@@ -89,15 +91,23 @@ final class NestedMatchMemoizingLookup
               // recursive traversal of child nodes to avoid being singly-threaded in this scenario.
               aggregator.signalNestedTaskAdded();
               executor.execute(
-                  () -> {
-                    switch (getValueOrFuture(child, validityHorizon)) {
-                      case NestedMatchResult result -> {
-                        aggregator.addNestedResult(result);
-                        aggregator.signalNestedTaskComplete();
+                  new RejectionHandlingRunnable() {
+                    @Override
+                    public void run() {
+                      switch (getValueOrFuture(child, validityHorizon)) {
+                        case NestedMatchResult result -> {
+                          aggregator.addNestedResult(result);
+                          aggregator.signalNestedTaskComplete();
+                        }
+                        case FutureNestedMatchResult future ->
+                            // The aggregator decrements when the future completes.
+                            aggregator.addFutureNestedMatchResult(future);
                       }
-                      case FutureNestedMatchResult future ->
-                          // The aggregator decrements when the future completes.
-                          aggregator.addFutureNestedMatchResult(future);
+                    }
+
+                    @Override
+                    public void handleRejection(Throwable t) {
+                      aggregator.notifyTaskFailed(t);
                     }
                   });
             }
@@ -121,7 +131,11 @@ final class NestedMatchMemoizingLookup
     private volatile int earliestSourceMatch = VersionedChanges.NO_MATCH;
 
     private NestedFutureResultAggregator() {
-      super(directExecutor());
+      super(safeDirectExecutor());
+    }
+
+    private void notifyTaskFailed(Throwable t) {
+      notifyException(t);
     }
 
     private void addAnalysisResultOrFuture(FileOpMatchResultOrFuture resultOrFuture) {

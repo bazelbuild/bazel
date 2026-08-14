@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent;
 
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.errorprone.annotations.DoNotCall;
-import java.util.concurrent.Executor;
 
 /**
  * A future that tracks in-flight tasks and completes when the tasks quiesce or an error occurs.
@@ -45,7 +45,7 @@ public abstract class QuiescingFuture<T> extends AbstractQuiescingFuture<T> {
    *
    * @param getValueExecutor runner for running {@link #getValue} or {@link #doneWithError}.
    */
-  public QuiescingFuture(Executor getValueExecutor) {
+  public QuiescingFuture(SafeExecutor getValueExecutor) {
     super(getValueExecutor, /* taskCount= */ 1);
   }
 
@@ -57,7 +57,7 @@ public abstract class QuiescingFuture<T> extends AbstractQuiescingFuture<T> {
    * @param getValueExecutor runner for running {@link #getValue} or {@link #doneWithError}.
    * @param taskCount initial task count, <i>no pre-increment</i> is applied
    */
-  public QuiescingFuture(Executor getValueExecutor, int taskCount) {
+  public QuiescingFuture(SafeExecutor getValueExecutor, int taskCount) {
     super(getValueExecutor, taskCount);
   }
 

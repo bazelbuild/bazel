@@ -14,17 +14,24 @@
 package com.google.devtools.build.lib.concurrent;
 
 import com.google.common.util.concurrent.AbstractFuture;
+import com.google.devtools.build.lib.concurrent.safeexecutor.RejectionHandlingRunnable;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.errorprone.annotations.ForOverride;
 import com.google.errorprone.annotations.Keep;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
-import java.util.concurrent.Executor;
 
 /**
  * A base class for futures that track in-flight tasks and complete when the tasks quiesce or an
  * error occurs.
+ *
+ * <p>// TODO(b/540026469): The current direct {@link RejectionHandlingRunnable} implementation and
+ * {@link SafeExecutor} integration on this class is a temporary bridge to prevent cross-classloader
+ * linkage errors across Skybridge interfaces. It has known correctness limitations to be addressed
+ * in the next change.
  */
-public abstract class AbstractQuiescingFuture<T> extends AbstractFuture<T> implements Runnable {
+public abstract class AbstractQuiescingFuture<T> extends AbstractFuture<T>
+    implements RejectionHandlingRunnable {
   /**
    * Handle for {@link #taskCount}.
    *
@@ -34,7 +41,7 @@ public abstract class AbstractQuiescingFuture<T> extends AbstractFuture<T> imple
 
   private static final VarHandle ERROR_COUNT_HANDLE;
 
-  private final Executor getValueExecutor;
+  private final SafeExecutor getValueExecutor;
 
   /**
    * Count of in-flight tasks.
@@ -56,7 +63,7 @@ public abstract class AbstractQuiescingFuture<T> extends AbstractFuture<T> imple
    * @param getValueExecutor runner for running {@link #getValue} or {@link #doneWithError}.
    * @param taskCount initial task count.
    */
-  protected AbstractQuiescingFuture(Executor getValueExecutor, int taskCount) {
+  protected AbstractQuiescingFuture(SafeExecutor getValueExecutor, int taskCount) {
     this.getValueExecutor = getValueExecutor;
     this.taskCount = taskCount;
   }
@@ -72,6 +79,13 @@ public abstract class AbstractQuiescingFuture<T> extends AbstractFuture<T> imple
     if (countBeforeDecrement == 1) {
       getValueExecutor.execute(this);
     }
+  }
+
+  @Override
+  public void handleRejection(Throwable t) {
+    setException(t);
+    ERROR_COUNT_HANDLE.getAndAdd(this, 1);
+    handleQuiescence();
   }
 
   /**

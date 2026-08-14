@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.runtime.BlazeService;
 import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
@@ -24,7 +25,6 @@ import com.google.devtools.build.lib.util.SerializedAbruptExitException;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nullable;
 
@@ -93,7 +93,7 @@ public interface RemoteAnalysisCachingServicesSupplier extends BlazeService {
   }
 
   @Nullable
-  ExecutorService getCommandExecutor();
+  SafeExecutor getCommandExecutor();
 
   /**
    * Gets the parameters for querying and updating Skycache metadata.

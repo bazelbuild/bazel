@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor.safeDirectExecutor;
 import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers.FAILURE_REPORTING_CALLBACK;
 import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers.waitForSerializationFuture;
 import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.aggregateWriteStatuses;
@@ -512,7 +513,7 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
     private WriteStatusBuilder childWriteStatuses;
 
     private SerializationTask(SharedValueSerializationContext context, @Nullable Object subject) {
-      super(directExecutor());
+      super(safeDirectExecutor());
       this.context = context;
       this.subject = subject;
       this.topLevelProfileRecorder = context.getProfileRecorder();

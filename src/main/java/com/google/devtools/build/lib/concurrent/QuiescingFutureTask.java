@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent;
 
+import com.google.devtools.build.lib.concurrent.safeexecutor.RejectionHandlingRunnable;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.errorprone.annotations.ForOverride;
 import com.google.errorprone.annotations.Keep;
 import java.lang.invoke.MethodHandles;
@@ -31,7 +33,8 @@ import java.util.concurrent.Executor;
  * {@link QuiescingFuture}, users of {@link QuiescingFutureTask} do <b>not</b> need to call {@link
  * #decrement} manually to offset the initial count.
  */
-public abstract class QuiescingFutureTask<T> extends AbstractQuiescingFuture<T> {
+public abstract class QuiescingFutureTask<T> extends AbstractQuiescingFuture<T>
+    implements RejectionHandlingRunnable {
   private static final VarHandle STATE_HANDLE;
 
   /** State used to distinguish between the initial run and subsequent completion runs. */
@@ -43,7 +46,7 @@ public abstract class QuiescingFutureTask<T> extends AbstractQuiescingFuture<T> 
    *
    * @param getValueExecutor runner for running {@link #getValue} or {@link #doneWithError}.
    */
-  public QuiescingFutureTask(Executor getValueExecutor) {
+  public QuiescingFutureTask(SafeExecutor getValueExecutor) {
     super(getValueExecutor, /* taskCount= */ 1);
   }
 
@@ -87,6 +90,11 @@ public abstract class QuiescingFutureTask<T> extends AbstractQuiescingFuture<T> 
     } else {
       handleQuiescence();
     }
+  }
+
+  @Override
+  public void handleRejection(Throwable t) {
+    notifyException(t);
   }
 
   static {

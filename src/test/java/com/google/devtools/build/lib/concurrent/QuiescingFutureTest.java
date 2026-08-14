@@ -14,13 +14,17 @@
 package com.google.devtools.build.lib.concurrent;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor.safeDirectExecutor;
 import static java.util.concurrent.ForkJoinPool.commonPool;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
@@ -71,7 +75,7 @@ public final class QuiescingFutureTest {
 
   private static final class ConstantQuiescingFuture extends QuiescingFuture<String> {
     private ConstantQuiescingFuture() {
-      super(directExecutor());
+      super(safeDirectExecutor());
     }
 
     @Override
@@ -124,7 +128,7 @@ public final class QuiescingFutureTest {
     private final AtomicInteger counter;
 
     private CountingQuiescingFuture(AtomicInteger counter) {
-      super(directExecutor());
+      super(safeDirectExecutor());
       this.counter = counter;
     }
 
@@ -195,21 +199,29 @@ public final class QuiescingFutureTest {
   @Test
   public void executorTest() throws Exception {
     AtomicBoolean executorCalled = new AtomicBoolean(false);
-    var future =
-        new QuiescingFuture<String>(
-            command -> {
-              executorCalled.set(true);
-              command.run();
-            }) {
+    var threadPool =
+        new ThreadPoolExecutor(1, 1, 0L, MILLISECONDS, new LinkedBlockingQueue<>()) {
           @Override
-          protected String getValue() {
-            return "executed";
+          public void execute(Runnable command) {
+            executorCalled.set(true);
+            super.execute(command);
           }
         };
+    try {
+      var future =
+          new QuiescingFuture<String>(new SafeExecutorOwner(threadPool)) {
+            @Override
+            protected String getValue() {
+              return "executed";
+            }
+          };
 
-    future.decrement();
-    assertThat(future.get()).isEqualTo("executed");
-    assertThat(executorCalled.get()).isTrue();
+      future.decrement();
+      assertThat(future.get()).isEqualTo("executed");
+      assertThat(executorCalled.get()).isTrue();
+    } finally {
+      threadPool.shutdown();
+    }
   }
 
   @Test
@@ -254,7 +266,7 @@ public final class QuiescingFutureTest {
     }
 
     private TestQuiescingFuture(Runnable doneWithErrorCallback, Runnable getValueCallback) {
-      super(directExecutor());
+      super(safeDirectExecutor());
       this.doneWithErrorCallback = doneWithErrorCallback;
       this.getValueCallback = getValueCallback;
     }
@@ -275,7 +287,7 @@ public final class QuiescingFutureTest {
   public void getValueThrowsUncheckedException_completesFutureExceptionally() throws Exception {
     var expectedException = new RuntimeException("getValue exception");
     var future =
-        new QuiescingFuture<String>(directExecutor()) {
+        new QuiescingFuture<String>(safeDirectExecutor()) {
           @Override
           protected String getValue() {
             throw expectedException;
@@ -295,7 +307,7 @@ public final class QuiescingFutureTest {
     AtomicBoolean doneWithErrorCalled = new AtomicBoolean(false);
     var doneWithErrorException = new RuntimeException("doneWithError exception");
     var future =
-        new QuiescingFuture<String>(directExecutor()) {
+        new QuiescingFuture<String>(safeDirectExecutor()) {
           @Override
           protected String getValue() {
             return "result";

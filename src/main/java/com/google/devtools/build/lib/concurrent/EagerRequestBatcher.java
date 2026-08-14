@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.concurrent;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -24,9 +25,10 @@ import com.google.devtools.build.lib.concurrent.RequestBatching.CallbackMultiple
 import com.google.devtools.build.lib.concurrent.RequestBatching.FutureMultiplexer;
 import com.google.devtools.build.lib.concurrent.RequestBatching.Multiplexer;
 import com.google.devtools.build.lib.concurrent.RequestBatching.Operation;
+import com.google.devtools.build.lib.concurrent.safeexecutor.RejectionHandlingRunnable;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
-import java.util.concurrent.Executor;
 import javax.annotation.Nullable;
 
 /**
@@ -92,7 +94,7 @@ public final class EagerRequestBatcher<RequestT, ResponseT> {
 
   private final int maxBatchSize;
   private final int targetConcurrentRequests;
-  private final Executor executor;
+  private final SafeExecutor executor;
   private final BatchExecutionStrategy<RequestT, ResponseT> batchExecutionStrategy;
 
   /**
@@ -103,23 +105,13 @@ public final class EagerRequestBatcher<RequestT, ResponseT> {
    */
   private volatile State state;
 
-  /**
-   * Creates a batcher with standard Multiplexer.
-   *
-   * @param executor the executor used for distributing responses and triggering completion.
-   *     <b>CRITICAL CONCURRENCY CONTRACT:</b> The injected executor MUST be unbounded (e.g., {@link
-   *     ForkJoinPool#commonPool()} or an executor configured with an unbounded task queue). Using a
-   *     bounded-queue executor will result in silent, permanent capacity slot leaks and a complete
-   *     lockup of eager sending under task saturation, as asynchronous {@link
-   *     RejectedExecutionException}s are silently swallowed inside the underlying {@link
-   *     ListenableFuture#addListener} pipeline.
-   */
+  /** Creates a batcher with standard Multiplexer. */
   public static <RequestT, ResponseT> EagerRequestBatcher<RequestT, ResponseT> create(
       Multiplexer<RequestT, ResponseT> multiplexer,
-      Executor responseDistributionExecutor,
+      SafeExecutor responseDistributionExecutor,
       int maxBatchSize,
       int targetConcurrentRequests,
-      Executor executor) {
+      SafeExecutor executor) {
     return new EagerRequestBatcher<>(
         RequestBatching.createBatchExecutionStrategy(multiplexer, responseDistributionExecutor),
         maxBatchSize,
@@ -127,23 +119,13 @@ public final class EagerRequestBatcher<RequestT, ResponseT> {
         executor);
   }
 
-  /**
-   * Creates a batcher with CallbackMultiplexer.
-   *
-   * @param executor the executor used for distributing responses and triggering completion.
-   *     <b>CRITICAL CONCURRENCY CONTRACT:</b> The injected executor MUST be unbounded (e.g., {@link
-   *     ForkJoinPool#commonPool()} or an executor configured with an unbounded task queue). Using a
-   *     bounded-queue executor will result in silent, permanent capacity slot leaks and a complete
-   *     lockup of eager sending under task saturation, as asynchronous {@link
-   *     RejectedExecutionException}s are silently swallowed inside the underlying {@link
-   *     ListenableFuture#addListener} pipeline.
-   */
+  /** Creates a batcher with CallbackMultiplexer. */
   public static <RequestT, ResponseT>
       EagerRequestBatcher<RequestT, ResponseT> createWithCallbackMultiplexer(
           CallbackMultiplexer<RequestT, ResponseT> multiplexer,
           int maxBatchSize,
           int targetConcurrentRequests,
-          Executor executor) {
+          SafeExecutor executor) {
     return new EagerRequestBatcher<>(
         RequestBatching.createCallbackBatchExecutionStrategy(multiplexer),
         maxBatchSize,
@@ -151,23 +133,13 @@ public final class EagerRequestBatcher<RequestT, ResponseT> {
         executor);
   }
 
-  /**
-   * Creates a batcher with FutureMultiplexer.
-   *
-   * @param executor the executor used for distributing responses and triggering completion.
-   *     <b>CRITICAL CONCURRENCY CONTRACT:</b> The injected executor MUST be unbounded (e.g., {@link
-   *     ForkJoinPool#commonPool()} or an executor configured with an unbounded task queue). Using a
-   *     bounded-queue executor will result in silent, permanent capacity slot leaks and a complete
-   *     lockup of eager sending under task saturation, as asynchronous {@link
-   *     RejectedExecutionException}s are silently swallowed inside the underlying {@link
-   *     ListenableFuture#addListener} pipeline.
-   */
+  /** Creates a batcher with FutureMultiplexer. */
   public static <RequestT, ResponseT>
       EagerRequestBatcher<RequestT, ResponseT> createWithFutureMultiplexer(
           FutureMultiplexer<RequestT, ResponseT> multiplexer,
           int maxBatchSize,
           int targetConcurrentRequests,
-          Executor executor) {
+          SafeExecutor executor) {
     return new EagerRequestBatcher<>(
         RequestBatching.createFutureBatchExecutionStrategy(multiplexer),
         maxBatchSize,
@@ -181,7 +153,7 @@ public final class EagerRequestBatcher<RequestT, ResponseT> {
       BatchExecutionStrategy<RequestT, ResponseT> batchExecutionStrategy,
       int maxBatchSize,
       int targetConcurrentRequests,
-      Executor executor) {
+      SafeExecutor executor) {
     checkArgument(maxBatchSize >= 1, "maxBatchSize must be >= 1");
     this.batchExecutionStrategy = batchExecutionStrategy;
     this.maxBatchSize = maxBatchSize;
@@ -311,18 +283,36 @@ public final class EagerRequestBatcher<RequestT, ResponseT> {
   }
 
   private void execute(Buffer buffer) {
-    ImmutableList<Operation<RequestT, ResponseT>> batch = copyElements(buffer);
+    executor.execute(new BatchTask(buffer));
+  }
 
-    ListenableFuture<?> batchFuture;
-    try {
-      batchFuture =
-          batchExecutionStrategy.executeBatch(Lists.transform(batch, Operation::request), batch);
-    } catch (Throwable t) {
-      handleSynchronousException(batch, t);
-      return;
+  private final class BatchTask implements RejectionHandlingRunnable {
+    private final Buffer buffer;
+
+    private BatchTask(Buffer buffer) {
+      this.buffer = buffer;
     }
 
-    batchFuture.addListener(this::onBatchDone, executor);
+    @Override
+    public void run() {
+      ImmutableList<Operation<RequestT, ResponseT>> batch = copyElements(buffer);
+
+      ListenableFuture<?> batchFuture;
+      try {
+        batchFuture =
+            batchExecutionStrategy.executeBatch(Lists.transform(batch, Operation::request), batch);
+      } catch (Throwable t) {
+        handleSynchronousException(batch, t);
+        return;
+      }
+
+      batchFuture.addListener(EagerRequestBatcher.this::onBatchDone, directExecutor());
+    }
+
+    @Override
+    public void handleRejection(Throwable t) {
+      handleSynchronousException(copyElements(buffer), t);
+    }
   }
 
   private static <RequestT, ResponseT> ImmutableList<Operation<RequestT, ResponseT>> copyElements(

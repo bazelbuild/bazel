@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.util.concurrent.Futures.whenAllSucceed;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor.safeDirectExecutor;
 import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFileOpNode.EMPTY_FILE_OP_NODE;
 import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_ANALYSIS_NODE;
 import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_EXECUTION_NODE;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
+import com.google.devtools.build.lib.concurrent.safeexecutor.RejectionHandlingRunnable;
 import com.google.devtools.build.lib.profiler.CounterSeriesCollector;
 import com.google.devtools.build.lib.profiler.CounterSeriesTask;
 import com.google.devtools.build.lib.profiler.CounterSeriesTask.Color;
@@ -76,7 +78,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -440,7 +441,8 @@ final class SelectedEntrySerializer {
     new UploadTask(key, value, dependencyKey, dependencyDeps).submit();
   }
 
-  private final class UploadTask implements Runnable, FutureCallback<FileOpNodeOrEmpty> {
+  private final class UploadTask
+      implements RejectionHandlingRunnable, FutureCallback<FileOpNodeOrEmpty> {
     private final SkyKey key;
     private final SkyValue value;
     private final ActionLookupKey dependencyKey;
@@ -464,12 +466,7 @@ final class SelectedEntrySerializer {
     }
 
     void submit() {
-      try {
-        fingerprintValueService.getExecutor().execute(this);
-      } catch (RejectedExecutionException e) {
-        writeStatuses.selectedEntryFailed(e);
-        throw e;
-      }
+      fingerprintValueService.getExecutor().execute(this);
     }
 
     @Override
@@ -507,13 +504,18 @@ final class SelectedEntrySerializer {
         switch (fileOpNodeOrFuture) {
           case FileOpNodeOrEmpty nodeOrEmpty -> onSuccess(nodeOrEmpty);
           case FutureFileOpNode future ->
-              Futures.addCallback(future, this, fingerprintValueService.getExecutor());
+              fingerprintValueService.getExecutor().addCallback(future, this);
         }
         eventBus.post(new SerializedNodeEvent(key));
 
       } catch (Throwable t) {
         writeStatuses.selectedEntryFailed(t);
       }
+    }
+
+    @Override
+    public void handleRejection(Throwable t) {
+      writeStatuses.selectedEntryFailed(t);
     }
 
     /**
@@ -559,10 +561,9 @@ final class SelectedEntrySerializer {
               case EMPTY_FILE_OP_NODE ->
                   whenAllSucceed(keyResultTask, valueResultTask).call(() -> null, directExecutor());
             };
-        Futures.addCallback(
-            futureDataInfo,
-            new InvalidationDataInfoHandler(),
-            fingerprintValueService.getExecutor());
+        fingerprintValueService
+            .getExecutor()
+            .addCallback(futureDataInfo, new InvalidationDataInfoHandler());
       } catch (Throwable t) {
         writeStatuses.counters.entriesWaitingForInvalidationBytes.decrementAndGet();
         writeStatuses.selectedEntryFailed(t);
@@ -670,20 +671,21 @@ final class SelectedEntrySerializer {
           futuresToBlockOn.add(node.writeStatus());
           ListenableFuture<Void> blockedOn =
               whenAllSucceed(futuresToBlockOn).call(() -> null, directExecutor());
-          Futures.addCallback(
-              blockedOn,
-              new FutureCallback<>() {
-                @Override
-                public void onSuccess(Void unused) {
-                  uploadEntryBytes(versionedKey, entryBytes, keyByteCount, valueByteCount);
-                }
+          fingerprintValueService
+              .getExecutor()
+              .addCallback(
+                  blockedOn,
+                  new FutureCallback<Void>() {
+                    @Override
+                    public void onSuccess(Void unused) {
+                      uploadEntryBytes(versionedKey, entryBytes, keyByteCount, valueByteCount);
+                    }
 
-                @Override
-                public void onFailure(Throwable t) {
-                  onUploadFailure(t, keyByteCount, valueByteCount);
-                }
-              },
-              fingerprintValueService.getExecutor());
+                    @Override
+                    public void onFailure(Throwable t) {
+                      onUploadFailure(t, keyByteCount, valueByteCount);
+                    }
+                  });
         } catch (Throwable t) {
           onFailure(t);
         }
@@ -777,7 +779,7 @@ final class SelectedEntrySerializer {
             "Skycache: Serialization: Objects: Uploaded", "done", Color.RAIL_RESPONSE);
 
     SerializationStatus(FileDependencySerializer.Counters fileDependencySerializerCounters) {
-      super(directExecutor());
+      super(safeDirectExecutor());
 
       this.fileDependencySerializerCounters = fileDependencySerializerCounters;
 

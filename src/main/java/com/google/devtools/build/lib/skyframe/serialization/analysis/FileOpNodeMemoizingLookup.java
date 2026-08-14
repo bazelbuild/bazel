@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor.safeDirectExecutor;
 import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFileOpNode.EMPTY_FILE_OP_NODE;
 
 import com.google.common.base.Verify;
@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture;
@@ -45,7 +46,6 @@ import com.google.protobuf.ByteString;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import javax.annotation.Nullable;
 
 /**
@@ -117,7 +117,7 @@ public final class FileOpNodeMemoizingLookup {
     }
   }
 
-  private final Executor executor;
+  private final SafeExecutor executor;
   private final InMemoryGraph graph;
   private final FileOpNodeMap nodes = new FileOpNodeMap();
 
@@ -127,7 +127,7 @@ public final class FileOpNodeMemoizingLookup {
   private ImmutableSet<PackageIdentifier> referencedPackages;
 
   FileOpNodeMemoizingLookup(
-      Executor executor,
+      SafeExecutor executor,
       InMemoryGraph graph,
       ImmutableSet<SkyKey> selectedKeys,
       boolean shouldDiscardMemory,
@@ -255,13 +255,13 @@ public final class FileOpNodeMemoizingLookup {
 
   private final class FileOpNodeCollector extends QuiescingFuture<FileOpNodeOrEmpty>
       implements FutureCallback<FileOpNodeOrEmpty> {
-    private final Executor executor;
+    private final SafeExecutor executor;
     private final SkyKey key;
     private final Set<FileOpNode> nodes = ConcurrentHashMap.newKeySet();
     @Nullable private FileKey sourceFile = null;
 
-    private FileOpNodeCollector(Executor executor, SkyKey key) {
-      super(directExecutor());
+    private FileOpNodeCollector(SafeExecutor executor, SkyKey key) {
+      super(safeDirectExecutor());
       this.executor = executor;
       this.key = key;
     }
@@ -298,7 +298,7 @@ public final class FileOpNodeMemoizingLookup {
       // There is a graph made of futures that parallels the Skyframe dependency graph. Therefore,
       // it's a bad idea to use directExecutor() here because the amount of work that the
       // the completion of the future unblocks can be quite large.
-      Futures.addCallback(future, (FutureCallback<FileOpNodeOrEmpty>) this, executor);
+      executor.addCallback(future, (FutureCallback<FileOpNodeOrEmpty>) this);
     }
 
     private void notifyAllFuturesAdded() {

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.concurrent.RequestBatching.CallbackMultiple
 import com.google.devtools.build.lib.concurrent.RequestBatching.FutureMultiplexer;
 import com.google.devtools.build.lib.concurrent.RequestBatching.Multiplexer;
 import com.google.devtools.build.lib.concurrent.RequestBatching.Operation;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.unsafe.UnsafeProvider;
 
 import java.lang.ref.Cleaner;
@@ -160,7 +161,7 @@ public class RequestBatcher<RequestT, ResponseT> {
    */
   public static <RequestT, ResponseT> RequestBatcher<RequestT, ResponseT> create(
       Multiplexer<RequestT, ResponseT> multiplexer,
-      Executor responseDistributionExecutor,
+      SafeExecutor responseDistributionExecutor,
       int maxBatchSize,
       int maxConcurrentRequests) {
     return createWithStrategy(

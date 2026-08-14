@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor.safeDirectExecutor;
 
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.FutureCallback;
@@ -90,7 +91,7 @@ public class WriteStatuses {
     }
 
     private AggregateWriteStatus() {
-      super(directExecutor());
+      super(safeDirectExecutor());
     }
 
     @Override

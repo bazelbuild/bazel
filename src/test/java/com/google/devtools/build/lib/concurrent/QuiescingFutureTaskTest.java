@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.concurrent;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor.safeDirectExecutor;
 import static org.junit.Assert.assertThrows;
 
 import java.util.concurrent.ExecutionException;
@@ -31,7 +31,7 @@ public final class QuiescingFutureTaskTest {
   public void runOnce() throws Exception {
     AtomicInteger callCount = new AtomicInteger(0);
     var task =
-        new QuiescingFutureTask<String>(directExecutor()) {
+        new QuiescingFutureTask<String>(safeDirectExecutor()) {
           @Override
           protected void arrangeSubtasks() {
             callCount.incrementAndGet();
@@ -59,7 +59,7 @@ public final class QuiescingFutureTaskTest {
   public void subtasksCompletion() throws Exception {
     AtomicInteger subtaskCallCount = new AtomicInteger(0);
     var task =
-        new QuiescingFutureTask<String>(directExecutor()) {
+        new QuiescingFutureTask<String>(safeDirectExecutor()) {
           @Override
           protected void arrangeSubtasks() {
             increment();
@@ -85,7 +85,7 @@ public final class QuiescingFutureTaskTest {
   public void exceptionInArrangeSubtasks() throws Exception {
     var error = new RuntimeException("oops");
     var task =
-        new QuiescingFutureTask<String>(directExecutor()) {
+        new QuiescingFutureTask<String>(safeDirectExecutor()) {
           @Override
           protected void arrangeSubtasks() {
             throw error;
@@ -107,7 +107,7 @@ public final class QuiescingFutureTaskTest {
   public void doneWithErrorCalled() throws Exception {
     AtomicBoolean doneWithErrorCalled = new AtomicBoolean(false);
     var task =
-        new QuiescingFutureTask<String>(directExecutor()) {
+        new QuiescingFutureTask<String>(safeDirectExecutor()) {
           @Override
           protected void arrangeSubtasks() {
             notifyException(new RuntimeException("error"));
