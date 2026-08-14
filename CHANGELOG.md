@@ -1,3 +1,30 @@
+## Release 10.0.0-pre.20260806.4 (2026-08-14)
+
+```
+Baseline: 4cc61677898c457f289fa06eb528b99ffaa93ca1
+
+Cherry picks:
+
+   + 2685d96916dbc3d097290cfb240e0b4ee77a7ab0:
+     Fix NullPointerException in CriticalPathComputer.
+   + 40d145301469ebf27d679bdb670aaf3eb056f4b1:
+     Fix duplicate execution info entry crash in SpawnIncludeScanner.
+   + 7f5421b25aae980a5b22b33dbe0a0a27f20d3fda:
+     Automated rollback of commit
+     f138e4937c816d6263bf1b9bc3eb6cc89ded7871.
+   + 53428ca4a01e330c29a01e92487abe52177c583a:
+     Close the coverage post-processing `FileOutErr` before deleting
+     its files (https://github.com/bazelbuild/bazel/pull/30662)
+   + 27aaf57930ab5edf6b24101d791712a949f5617a:
+     Pass Host header to curl in remote-ip sandboxing networking test.
+```
+
+Important changes:
+
+  - Honor XDG_CACHE_HOME on Windows in Bazel.
+
+This release contains contributions from many people at Google, as well as Benedict Chacko, Benjamin Peterson, David Zbarsky, Fabian Meumertzheim, jcater, Keith Smiley, Tamir Duberstein.
+
 ## Release 10.0.0-pre.20260801.1 (2026-08-10)
 
 ```
