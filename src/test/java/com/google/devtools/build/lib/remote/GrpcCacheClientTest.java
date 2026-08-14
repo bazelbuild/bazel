@@ -1272,15 +1272,27 @@ public class GrpcCacheClientTest {
 
   @Test
   public void uploadActionResult_grpcGoMessageTooLargeIsNotRetried() throws Exception {
-    assertMessageTooLargeIsNotRetried(/* grpcJavaFormat= */ false);
+    assertMessageTooLargeIsNotRetried(
+        "grpc: received message larger than max (%d vs. %d)",
+        "grpc: received message larger than max");
   }
 
   @Test
   public void uploadActionResult_grpcJavaMessageTooLargeIsNotRetried() throws Exception {
-    assertMessageTooLargeIsNotRetried(/* grpcJavaFormat= */ true);
+    assertMessageTooLargeIsNotRetried(
+        "gRPC message exceeds maximum size %2$d: %1$d",
+        "gRPC message exceeds maximum size");
   }
 
-  private void assertMessageTooLargeIsNotRetried(boolean grpcJavaFormat) throws Exception {
+  @Test
+  public void uploadActionResult_grpcCppMessageTooLargeIsNotRetried() throws Exception {
+    assertMessageTooLargeIsNotRetried(
+        "SERVER: Received message larger than max (%d vs. %d)",
+        "SERVER: Received message larger than max");
+  }
+
+  private void assertMessageTooLargeIsNotRetried(
+      String descriptionFormat, String descriptionPrefix) throws Exception {
     Backoff mockBackoff = mock(Backoff.class);
     GrpcCacheClient client = newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);
     ActionKey actionKey = DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key"));
@@ -1293,12 +1305,7 @@ public class GrpcCacheClientTest {
             calls.incrementAndGet();
             int actualSize = request.getSerializedSize();
             int maximumSize = actualSize - 1;
-            String description =
-                grpcJavaFormat
-                    ? "gRPC message exceeds maximum size %d: %d"
-                        .formatted(maximumSize, actualSize)
-                    : "grpc: received message larger than max (%d vs. %d)"
-                        .formatted(actualSize, maximumSize);
+            String description = descriptionFormat.formatted(actualSize, maximumSize);
             responseObserver.onError(
                 Status.RESOURCE_EXHAUSTED.withDescription(description).asRuntimeException());
           }
@@ -1315,11 +1322,7 @@ public class GrpcCacheClientTest {
     assertThat(calls.get()).isEqualTo(1);
     Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis(any(Exception.class));
     assertThat(Status.fromThrowable(error).getCode()).isEqualTo(Status.Code.RESOURCE_EXHAUSTED);
-    assertThat(Status.fromThrowable(error).getDescription())
-        .startsWith(
-            grpcJavaFormat
-                ? "gRPC message exceeds maximum size"
-                : "grpc: received message larger than max");
+    assertThat(Status.fromThrowable(error).getDescription()).startsWith(descriptionPrefix);
   }
 
   @Test

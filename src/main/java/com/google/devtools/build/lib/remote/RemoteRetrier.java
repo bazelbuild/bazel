@@ -39,10 +39,18 @@ import javax.annotation.Nullable;
 public class RemoteRetrier extends Retrier {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  // gRPC deliberately maps framework message-size failures to RESOURCE_EXHAUSTED, the same status
+  // applications use for potentially transient failures such as quota exhaustion. The protocol
+  // provides no structured subtype to distinguish them. See https://github.com/grpc/grpc/pull/10612.
   private static final Pattern GRPC_GO_MESSAGE_TOO_LARGE =
-      Pattern.compile("grpc: received message larger than max \\(\\d+ vs\\. \\d+\\)");
+      Pattern.compile("^grpc: received message larger than max \\(\\d+ vs\\. \\d+\\)$");
   private static final Pattern GRPC_JAVA_MESSAGE_TOO_LARGE =
-      Pattern.compile("gRPC message exceeds maximum size \\d+: \\d+");
+      Pattern.compile("^gRPC message exceeds maximum size \\d+: \\d+$");
+  private static final Pattern GRPC_CPP_MESSAGE_TOO_LARGE =
+      Pattern.compile(
+          "^(?:CLIENT|SERVER): (?:Sent|Received) message larger than max"
+              + " \\(\\d+ vs\\. \\d+\\)$");
 
   /**
    * Supplies the gRPC log sink to which a terminal marker is written on retry exhaustion, or {@code
@@ -68,7 +76,8 @@ public class RemoteRetrier extends Retrier {
     }
 
     return GRPC_GO_MESSAGE_TOO_LARGE.matcher(status.getDescription()).matches()
-        || GRPC_JAVA_MESSAGE_TOO_LARGE.matcher(status.getDescription()).matches();
+        || GRPC_JAVA_MESSAGE_TOO_LARGE.matcher(status.getDescription()).matches()
+        || GRPC_CPP_MESSAGE_TOO_LARGE.matcher(status.getDescription()).matches();
   }
 
   /** A ResultClassifier suitable to be used by ExperimentalGrpcRemoteExecutor. */

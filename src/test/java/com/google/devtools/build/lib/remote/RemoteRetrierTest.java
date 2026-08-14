@@ -138,7 +138,11 @@ public class RemoteRetrierTest {
     List<String> descriptions =
         List.of(
             "grpc: received message larger than max (5621411 vs. 4194304)",
-            "gRPC message exceeds maximum size 4194304: 5621411");
+            "gRPC message exceeds maximum size 4194304: 5621411",
+            "SERVER: Received message larger than max (5621411 vs. 4194304)",
+            "SERVER: Sent message larger than max (5621411 vs. 4194304)",
+            "CLIENT: Received message larger than max (5621411 vs. 4194304)",
+            "CLIENT: Sent message larger than max (5621411 vs. 4194304)");
 
     for (String description : descriptions) {
       Exception error =
@@ -156,6 +160,8 @@ public class RemoteRetrierTest {
             "grpc: received message larger than max (5621411 vs. 4194304) while decoding",
             "grpc: received message larger than max (many vs. 4194304)",
             "gRPC message exceeds maximum size 4194304: 5621411 while decoding",
+            "SERVER: Received message larger than max (5621411 vs. 4194304) while decoding",
+            "server: received message larger than max (5621411 vs. 4194304)",
             "request quota exhausted");
 
     for (String description : descriptions) {
