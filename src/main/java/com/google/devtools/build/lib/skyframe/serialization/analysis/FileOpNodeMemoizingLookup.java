@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFil
 
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -28,7 +27,7 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.concurrent.QuiescingFuture;
+import com.google.devtools.build.lib.concurrent.AccumulatingQuiescingFuture;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.FileKey;
@@ -171,10 +170,10 @@ public final class FileOpNodeMemoizingLookup {
       @Nullable SkyValue value,
       @Nullable Iterable<SkyKey> directDeps) {
     SkyKey key = ownedFuture.key();
-    var collector = new FileOpNodeCollector(executor, key);
+    var collector = new FileOpNodeCollector(key);
 
     accumulateTransitiveFileSystemOperations(collector, key, value, directDeps);
-    collector.notifyAllFuturesAdded();
+    collector.finishRegistration();
 
     if (collector.isDone()) {
       try {
@@ -249,20 +248,21 @@ public final class FileOpNodeMemoizingLookup {
     switch (nodes.getValueOrFuture(dependencyKey)) {
       case EMPTY_FILE_OP_NODE -> {}
       case FileOpNode node -> collector.addNode(node);
-      case FutureFileOpNode future -> collector.addFuture(future);
+      // There is a graph made of futures that parallels the Skyframe dependency graph. Therefore,
+      // it's a bad idea to use directExecutor() here because the amount of work that the completion
+      // of the future unblocks can be quite large.
+      case FutureFileOpNode future -> collector.addFuture(future, executor);
     }
   }
 
-  private final class FileOpNodeCollector extends QuiescingFuture<FileOpNodeOrEmpty>
-      implements FutureCallback<FileOpNodeOrEmpty> {
-    private final SafeExecutor executor;
+  private final class FileOpNodeCollector
+      extends AccumulatingQuiescingFuture<FileOpNodeOrEmpty, FileOpNodeOrEmpty> {
     private final SkyKey key;
     private final Set<FileOpNode> nodes = ConcurrentHashMap.newKeySet();
     @Nullable private FileKey sourceFile = null;
 
-    private FileOpNodeCollector(SafeExecutor executor, SkyKey key) {
+    private FileOpNodeCollector(SkyKey key) {
       super(safeDirectExecutor());
-      this.executor = executor;
       this.key = key;
     }
 
@@ -293,46 +293,16 @@ public final class FileOpNodeMemoizingLookup {
       this.sourceFile = sourceFile;
     }
 
-    private void addFuture(FutureFileOpNode future) {
-      increment();
-      // There is a graph made of futures that parallels the Skyframe dependency graph. Therefore,
-      // it's a bad idea to use directExecutor() here because the amount of work that the
-      // the completion of the future unblocks can be quite large.
-      executor.addCallback(future, (FutureCallback<FileOpNodeOrEmpty>) this);
-    }
-
-    private void notifyAllFuturesAdded() {
-      decrement();
-    }
-
     private void failWith(MissingSkyframeEntryException e) {
-      notifyException(e);
+      recordException(e);
     }
 
-    /**
-     * Implementation of {@link FutureCallback<FileOpNode>}.
-     *
-     * @deprecated do not call, only used for callback processing
-     */
-    @Deprecated
     @Override
-    public void onSuccess(FileOpNodeOrEmpty nodeOrEmpty) {
+    protected void accumulateFutureResult(FileOpNodeOrEmpty nodeOrEmpty) {
       switch (nodeOrEmpty) {
         case EMPTY_FILE_OP_NODE -> {}
         case FileOpNode node -> addNode(node);
       }
-      decrement();
-    }
-
-    /**
-     * Implementation of {@link FutureCallback<FileOpNode>}.
-     *
-     * @deprecated do not call, only used for callback processing
-     */
-    @Deprecated
-    @Override
-    public void onFailure(Throwable t) {
-      notifyException(t);
     }
   }
 

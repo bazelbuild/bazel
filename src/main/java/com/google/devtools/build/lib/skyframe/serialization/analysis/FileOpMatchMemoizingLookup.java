@@ -17,8 +17,7 @@ import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.AlwaysMatch.ALWAYS_MATCH_RESULT;
 import static java.lang.Math.min;
 
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.devtools.build.lib.concurrent.QuiescingFuture;
+import com.google.devtools.build.lib.concurrent.AccumulatingQuiescingFuture;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.AvailableFileDependencies;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.MissingFileDependencies;
@@ -101,37 +100,24 @@ final class FileOpMatchMemoizingLookup
     if (file.getDependencyCount() == 0) {
       return ownedFuture.completeWith(FileOpMatchResult.create(baseVersion));
     }
-    var aggregator = new AggregatingFutureFileOpMatchResult(baseVersion, executor);
+    var aggregator = new AggregatingFutureFileOpMatchResult(baseVersion);
     for (int i = 0; i < file.getDependencyCount(); i++) {
-      aggregator.addDependency(getValueOrFuture(file.getDependency(i), validityHorizon));
+      switch (getValueOrFuture(file.getDependency(i), validityHorizon)) {
+        case FileOpMatchResult match -> aggregator.updateResult(match);
+        case FutureFileOpMatchResult future -> aggregator.addFuture(future, executor);
+      }
     }
-    aggregator.notifyAllDependenciesAdded();
+    aggregator.finishRegistration();
     return ownedFuture.completeWith(aggregator);
   }
 
   private static final class AggregatingFutureFileOpMatchResult
-      extends QuiescingFuture<FileOpMatchResult> implements FutureCallback<FileOpMatchResult> {
-    private final SafeExecutor executor;
+      extends AccumulatingQuiescingFuture<FileOpMatchResult, FileOpMatchResult> {
     private volatile FileOpMatchResult result;
 
-    private AggregatingFutureFileOpMatchResult(int version, SafeExecutor executor) {
+    private AggregatingFutureFileOpMatchResult(int version) {
       super(safeDirectExecutor());
-      this.executor = executor;
       this.result = FileOpMatchResult.create(version);
-    }
-
-    private void addDependency(FileOpMatchResultOrFuture resultOrFuture) {
-      switch (resultOrFuture) {
-        case FileOpMatchResult match -> updateResult(match);
-        case FutureFileOpMatchResult future -> {
-          increment();
-          executor.addCallback(future, (FutureCallback<FileOpMatchResult>) this);
-        }
-      }
-    }
-
-    private void notifyAllDependenciesAdded() {
-      decrement();
     }
 
     private void updateResult(FileOpMatchResult newResult) {
@@ -147,27 +133,9 @@ final class FileOpMatchMemoizingLookup
       return result;
     }
 
-    /**
-     * Implementation of {@link FutureCallback<FileOpMatchResult>}.
-     *
-     * @deprecated only for {@link #addDependency} futures callback processing.
-     */
-    @Deprecated
     @Override
-    public void onSuccess(FileOpMatchResult result) {
+    protected void accumulateFutureResult(FileOpMatchResult result) {
       updateResult(result);
-      decrement();
-    }
-
-    /**
-     * Implementation of {@link FutureCallback<FileOpMatchResult>}.
-     *
-     * @deprecated only for {@link #addDependency} futures callback processing.
-     */
-    @Deprecated
-    @Override
-    public void onFailure(Throwable t) {
-      notifyException(t);
     }
 
     private static final VarHandle RESULT_HANDLE;

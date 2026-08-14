@@ -69,6 +69,7 @@ import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.errorprone.annotations.DoNotCall;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
@@ -299,7 +300,7 @@ final class SelectedEntrySerializer {
       serializer.upload(selectedKey);
     }
 
-    writeStatuses.notifyAllStarted();
+    writeStatuses.finishRegistration();
     return writeStatuses;
   }
 
@@ -803,10 +804,6 @@ final class SelectedEntrySerializer {
       inflightSkyframeEntrySemaphore.release();
     }
 
-    void notifyAllStarted() {
-      decrement();
-    }
-
     private void notifyWriteFailure(Throwable t) {
       errors.add(t);
       decrement();
@@ -818,10 +815,20 @@ final class SelectedEntrySerializer {
 
     @Override
     protected ImmutableList<Throwable> getValue() {
+      unregisterCountersCollectors();
+      return ImmutableList.copyOf(errors);
+    }
+
+    @Override
+    protected void doneWithError(
+        @Nullable Throwable primaryCause, ImmutableList<Throwable> secondaryCauses) {
+      unregisterCountersCollectors();
+    }
+
+    private void unregisterCountersCollectors() {
       Profiler.instance().unregisterCounterSeriesCollector(this);
       Profiler.instance().unregisterCounterSeriesCollector(counters);
       Profiler.instance().unregisterCounterSeriesCollector(fileDependencySerializerCounters);
-      return ImmutableList.copyOf(errors);
     }
 
     private void addWriteStatus(@Nullable ListenableFuture<?> writeStatus) {
@@ -829,28 +836,25 @@ final class SelectedEntrySerializer {
         return;
       }
       increment();
-      Futures.addCallback(writeStatus, (FutureCallback<Object>) this, directExecutor());
+      try {
+        Futures.addCallback(writeStatus, (FutureCallback<Object>) this, directExecutor());
+      } catch (Throwable t) {
+        recordException(t);
+        decrement();
+      }
     }
 
-    /**
-     * Implementation of {@link FutureCallback<Object>}.
-     *
-     * @deprecated only for use via {@link #addWriteStatus}
-     */
+    /** Implementation of {@link FutureCallback<Object>}. */
     @Override
-    @Deprecated // only called via addWriteStatus
-    public void onSuccess(Object unused) {
+    @DoNotCall("Only called via addWriteStatus")
+    public final void onSuccess(Object unused) {
       decrement();
     }
 
-    /**
-     * Implementation of {@link FutureCallback<void>}.
-     *
-     * @deprecated only for use via {@link #addWriteStatus}
-     */
+    /** Implementation of {@link FutureCallback<void>}. */
     @Override
-    @Deprecated // only called via addWriteStatus
-    public void onFailure(Throwable t) {
+    @DoNotCall("Only called via addWriteStatus")
+    public final void onFailure(Throwable t) {
       notifyWriteFailure(t);
     }
 
@@ -858,8 +862,7 @@ final class SelectedEntrySerializer {
     public void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer) {
       // This should really be a method on StatsCollector but that means that serialization must
       // depend on profiler, and profiler transitively depends on serialization because it depends
-      // on
-      // common/options, which has EnvVar, which is marked as @AutoCodec.
+      // on common/options, which has EnvVar, which is marked as @AutoCodec.
 
       consumer.accept(
           BYTES_WAITING_FOR_FUTURE_PUTS,

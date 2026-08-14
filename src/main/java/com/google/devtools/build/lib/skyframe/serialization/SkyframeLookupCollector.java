@@ -51,7 +51,7 @@ final class SkyframeLookupCollector extends QuiescingFuture<ArrayDeque<SkyframeL
    * described in {@link QuiescingFuture} is followed.
    */
   void notifyFetchesInitialized() {
-    decrement();
+    finishRegistration();
   }
 
   void notifyFetchStarting() {

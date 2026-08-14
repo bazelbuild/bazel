@@ -426,7 +426,7 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
       COUNTERS.objectsWaitingForFuturePuts.incrementAndGet();
       COUNTERS.bytesWaitingForFuturePuts.addAndGet(childBytes.length);
 
-      decrement(); // signal ready
+      finishRegistration(); // signal ready
     }
 
     @Override

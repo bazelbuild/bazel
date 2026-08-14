@@ -22,7 +22,6 @@ import static com.google.devtools.build.lib.skyframe.serialization.analysis.NoMa
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
-import com.google.devtools.build.lib.concurrent.safeexecutor.RejectionHandlingRunnable;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FileOpMatchResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FileOpMatchResultOrFuture;
@@ -85,32 +84,16 @@ final class NestedMatchMemoizingLookup
             case FileOpDependency dependency ->
                 aggregator.addAnalysisResultOrFuture(
                     fileOpMatches.getValueOrFuture(dependency, validityHorizon));
-            case NestedDependencies child -> {
-              // In a common case, the cache reader sends a single top-level request that traverses
-              // the full set of dependencies and waits for that request to complete. Parallelizes
-              // recursive traversal of child nodes to avoid being singly-threaded in this scenario.
-              aggregator.signalNestedTaskAdded();
-              executor.execute(
-                  new RejectionHandlingRunnable() {
-                    @Override
-                    public void run() {
-                      switch (getValueOrFuture(child, validityHorizon)) {
-                        case NestedMatchResult result -> {
-                          aggregator.addNestedResult(result);
-                          aggregator.signalNestedTaskComplete();
-                        }
-                        case FutureNestedMatchResult future ->
-                            // The aggregator decrements when the future completes.
-                            aggregator.addFutureNestedMatchResult(future);
-                      }
-                    }
-
-                    @Override
-                    public void handleRejection(Throwable t) {
-                      aggregator.notifyTaskFailed(t);
-                    }
-                  });
-            }
+            case NestedDependencies child ->
+                // In a common case, the cache reader sends a single top-level request that
+                // traverses the full set of dependencies and waits for that request to complete.
+                // Parallelizes recursive traversal of child nodes to avoid being singly-threaded in
+                // this scenario.
+                aggregator.executeSubtask(
+                    () ->
+                        aggregator.addNestedResultOrFuture(
+                            getValueOrFuture(child, validityHorizon)),
+                    executor);
           }
         }
         for (int i = 0; i < nested.sourcesCount(); i++) {
@@ -132,10 +115,6 @@ final class NestedMatchMemoizingLookup
 
     private NestedFutureResultAggregator() {
       super(safeDirectExecutor());
-    }
-
-    private void notifyTaskFailed(Throwable t) {
-      notifyException(t);
     }
 
     private void addAnalysisResultOrFuture(FileOpMatchResultOrFuture resultOrFuture) {
@@ -187,28 +166,26 @@ final class NestedMatchMemoizingLookup
       }
     }
 
-    private void addFutureNestedMatchResult(FutureNestedMatchResult future) {
-      Futures.addCallback(
-          future,
-          new ResultCallback<NestedMatchResult>() {
-            @Override
-            void processResult(NestedMatchResult result) {
-              addNestedResult(result);
-            }
-          },
-          directExecutor());
-    }
-
-    private void signalNestedTaskAdded() {
-      increment();
-    }
-
-    private void signalNestedTaskComplete() {
-      decrement();
+    private void addNestedResultOrFuture(NestedMatchResultOrFuture resultOrFuture) {
+      switch (resultOrFuture) {
+        case NestedMatchResult result -> addNestedResult(result);
+        case FutureNestedMatchResult future -> {
+          increment();
+          Futures.addCallback(
+              future,
+              new ResultCallback<NestedMatchResult>() {
+                @Override
+                void processResult(NestedMatchResult result) {
+                  addNestedResult(result);
+                }
+              },
+              directExecutor());
+        }
+      }
     }
 
     private void notifyAllDependenciesAdded() {
-      decrement();
+      finishRegistration();
     }
 
     @Override
@@ -236,7 +213,12 @@ final class NestedMatchMemoizingLookup
 
       @Override
       public final void onSuccess(T result) {
-        processResult(result);
+        try {
+          processResult(result);
+        } catch (Throwable t) {
+          notifyException(t);
+          return;
+        }
         decrement();
       }
 

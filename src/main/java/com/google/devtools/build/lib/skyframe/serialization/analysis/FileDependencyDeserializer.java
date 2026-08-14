@@ -665,7 +665,7 @@ final class FileDependencyDeserializer {
               }
             }
           }
-          countdown.notifyInitializationDone();
+          countdown.finishRegistration();
           return countdown;
         }
       } catch (IOException e) {
@@ -695,10 +695,6 @@ final class FileDependencyDeserializer {
 
     private void registerPendingElement() {
       increment();
-    }
-
-    private void notifyInitializationDone() {
-      decrement();
     }
 
     private void setPendingElement(int index, FileSystemDependencies value) {
