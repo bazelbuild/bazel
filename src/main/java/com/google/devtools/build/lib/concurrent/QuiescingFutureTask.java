@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.safeexecutor.RejectionHandlingRunnable;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
+import com.google.errorprone.annotations.DoNotCall;
 import com.google.errorprone.annotations.ForOverride;
 import com.google.errorprone.annotations.Keep;
 import java.lang.invoke.MethodHandles;
@@ -37,9 +39,12 @@ public abstract class QuiescingFutureTask<T> extends AbstractQuiescingFuture<T>
     implements RejectionHandlingRunnable {
   private static final VarHandle STATE_HANDLE;
 
+  private static final int STATE_INITIAL = 0;
+  private static final int STATE_STARTED = 1;
+
   /** State used to distinguish between the initial run and subsequent completion runs. */
   @Keep // used via STATE_HANDLE
-  private volatile int state = 0;
+  private volatile int state = STATE_INITIAL;
 
   /**
    * Constructor.
@@ -53,14 +58,11 @@ public abstract class QuiescingFutureTask<T> extends AbstractQuiescingFuture<T>
   /**
    * Arranges subtasks.
    *
-   * <p>Implementations should call {@link #increment} for each subtask and {@link #decrement} once
-   * the subtask completes.
+   * <p>Implementations should schedule subtasks via {@link #executeSubtask} or manually instrument
+   * subtasks with {@link #increment} and {@link #decrement}.
    *
-   * <p>Note: The base class's {@link #run} method automatically calls {@link #decrement} to offset
-   * the initial count after this method completes.
-   *
-   * <p>If this method fails with an unchecked exception, the future is failed immediately. In this
-   * case, there's no guarantee that {@link #doneWithError} is called.
+   * <p>Note: This class's {@link #run} method automatically calls {@link #decrement} in a finally
+   * block after this method completes to offset the initial count.
    */
   @ForOverride
   protected abstract void arrangeSubtasks();
@@ -68,24 +70,25 @@ public abstract class QuiescingFutureTask<T> extends AbstractQuiescingFuture<T>
   /**
    * Called to either arrange subtasks or handle quiescence.
    *
-   * <p>Unlike {@link QuiescingFuture}, this method is used for both the initial setup (by
-   * submitting this task to an executor) and for finalization (when the task count reaches zero).
-   *
    * <ul>
    *   <li><b>INITIAL (0):</b> The first call to this method executes {@link #arrangeSubtasks} and
-   *       then calls {@link #decrement} to offset the initial count.
-   *   <li><b>ARRANGED (1):</b> Subsequent calls to this method (triggered when the task count
+   *       then calls {@link #decrement} in a {@code finally} block to offset the initial count.
+   *   <li><b>STARTED (1):</b> Subsequent calls to this method (triggered when the task count
    *       reaches zero) will execute the completion logic via {@link #handleQuiescence}.
    * </ul>
+   *
+   * <p>Unlike with other classes of this family, it is okay for clients to call this for
+   * synchronous dispatch of {@link #arrangeSubtasks}.
    */
   @Override
   public final void run() {
-    if (STATE_HANDLE.compareAndSet(this, 0, 1)) {
+    if (STATE_HANDLE.compareAndSet(this, STATE_INITIAL, STATE_STARTED)) {
       try {
         arrangeSubtasks();
-        decrement();
       } catch (Throwable t) {
-        notifyException(t);
+        recordException(t);
+      } finally {
+        decrement();
       }
     } else {
       handleQuiescence();
@@ -93,8 +96,21 @@ public abstract class QuiescingFutureTask<T> extends AbstractQuiescingFuture<T>
   }
 
   @Override
-  public void handleRejection(Throwable t) {
-    notifyException(t);
+  @DoNotCall("Only called by SafeExecutor upon rejection.")
+  public final void handleRejection(Throwable t) {
+    // There are 2 points in the lifecycle of QuiescingFutureTask where a rejection is possible.
+    // 1. Pre-arrangeSubtasks. The first call to `run` should perform the arrangement, but can be
+    // rejected.
+    // 2. Upon quiescence, the second call to `run` is meant to trigger handleQuiescence. This can
+    // also result in a rejection.
+    Preconditions.checkNotNull(t, "t");
+    recordException(t);
+    if (STATE_HANDLE.compareAndSet(this, STATE_INITIAL, STATE_STARTED)) {
+      // This branch is reached if the rejection happened at (1). Since the initial arrangeSubtasks
+      // was never called, the pre-increment is still present. We decrement it here for consistency.
+      decrementWithoutScheduling();
+    }
+    handleQuiescence();
   }
 
   static {

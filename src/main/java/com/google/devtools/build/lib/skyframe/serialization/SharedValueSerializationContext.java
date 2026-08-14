@@ -23,6 +23,7 @@ import com.github.luben.zstd.RecyclingBufferPool;
 import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -37,6 +38,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nullable;
@@ -364,6 +366,41 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
     return newChildBytes;
   }
 
+  /**
+   * Cleans up and reports errors when serialization fails or is cancelled.
+   *
+   * <p>Because the caller will only observe {@code primaryCause} (or cancellation) via the future
+   * and will not receive the {@link SerializationResult} or {@link PutOperation}:
+   *
+   * <ul>
+   *   <li>Reports any write errors from in-flight uploads in {@code childWriteStatuses} that would
+   *       otherwise be ignored by the caller.
+   *   <li>Reports any distinct concurrent {@code secondaryCauses} that would otherwise be silently
+   *       dropped.
+   * </ul>
+   */
+  private static void handleDoneWithError(
+      @Nullable WriteStatusBuilder childWriteStatuses,
+      @Nullable Throwable primaryCause,
+      ImmutableList<Throwable> secondaryCauses) {
+    if (childWriteStatuses != null) {
+      // Reports any write errors from in-flight uploads that would otherwise be ignored by the
+      // caller due to the primary error.
+      Futures.addCallback(childWriteStatuses.build(), FAILURE_REPORTING_CALLBACK, directExecutor());
+    }
+    // Multiple references to a shared failing child in a DAG produce duplicate exception
+    // instances across primaryCause and secondaryCauses. Deduplicates to avoid redundant reports.
+    var seen = new HashSet<Throwable>();
+    if (primaryCause != null) {
+      seen.add(primaryCause);
+    }
+    for (Throwable secondary : secondaryCauses) {
+      if (seen.add(secondary)) {
+        BugReporter.defaultInstance().sendBugReport(secondary);
+      }
+    }
+  }
+
   private static final class UploadOnceFuturePutsResolve extends QuiescingFuture<PutOperation>
       implements FuturePutBuffer {
     private final FingerprintValueService fingerprintValueService;
@@ -426,10 +463,9 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
     }
 
     @Override
-    protected final void doneWithError() {
-      // All FuturePuts are done, but some of them had errors. Reports any write errors that would
-      // otherwise be ignored by the caller due to the primary error.
-      Futures.addCallback(childWriteStatuses.build(), FAILURE_REPORTING_CALLBACK, directExecutor());
+    protected final void doneWithError(
+        @Nullable Throwable primaryCause, ImmutableList<Throwable> secondaryCauses) {
+      handleDoneWithError(childWriteStatuses, primaryCause, secondaryCauses);
     }
 
     @Override
@@ -532,7 +568,7 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
         try {
           bytes = context.serializeToBytes(subject);
         } catch (SerializationException e) {
-          notifyException(e);
+          recordException(e);
           return;
         }
         ArrayList<FuturePut> futurePuts = context.futurePuts;
@@ -571,11 +607,9 @@ public abstract class SharedValueSerializationContext extends MemoizingSerializa
     }
 
     @Override
-    protected final void doneWithError() {
-      if (childWriteStatuses != null) {
-        Futures.addCallback(
-            childWriteStatuses.build(), FAILURE_REPORTING_CALLBACK, directExecutor());
-      }
+    protected final void doneWithError(
+        @Nullable Throwable primaryCause, ImmutableList<Throwable> secondaryCauses) {
+      handleDoneWithError(childWriteStatuses, primaryCause, secondaryCauses);
     }
 
     @Override

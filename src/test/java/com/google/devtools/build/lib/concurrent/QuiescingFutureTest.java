@@ -20,13 +20,23 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.concurrent.safeexecutor.RejectionHandlingRunnable;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -40,6 +50,17 @@ public final class QuiescingFutureTest {
     assertThat(future.isDone()).isFalse();
 
     future.decrement();
+
+    assertThat(future.isDone()).isTrue();
+    assertThat(future.get()).isEqualTo("result");
+  }
+
+  @Test
+  public void finishRegistration_completesFuture() throws Exception {
+    var future = new ConstantQuiescingFuture();
+    assertThat(future.isDone()).isFalse();
+
+    future.finishRegistration();
 
     assertThat(future.isDone()).isTrue();
     assertThat(future.get()).isEqualTo("result");
@@ -257,6 +278,159 @@ public final class QuiescingFutureTest {
     assertThat(doneWithErrorCalled.await(60, SECONDS)).isTrue();
   }
 
+  @Test
+  public void executeSubtask_runnable_success() throws Exception {
+    AtomicBoolean subtaskExecuted = new AtomicBoolean(false);
+    var future = new ConstantQuiescingFuture();
+
+    future.executeSubtask(() -> subtaskExecuted.set(true), safeDirectExecutor());
+    future.finishRegistration();
+
+    assertThat(subtaskExecuted.get()).isTrue();
+    assertThat(future.isDone()).isTrue();
+    assertThat(future.get()).isEqualTo("result");
+  }
+
+  @Test
+  public void executeSubtask_throwsException_propagatesErrorAndInvokesDoneWithError()
+      throws Exception {
+    AtomicBoolean doneWithErrorCalled = new AtomicBoolean(false);
+    AtomicBoolean getValueCalled = new AtomicBoolean(false);
+    var future = new TestQuiescingFuture(doneWithErrorCalled, getValueCalled);
+
+    var error = new RuntimeException("subtask failure");
+    future.executeSubtask(
+        () -> {
+          throw error;
+        },
+        safeDirectExecutor());
+    future.finishRegistration();
+
+    assertThat(future.isDone()).isTrue();
+    assertThat(doneWithErrorCalled.get()).isTrue();
+    assertThat(getValueCalled.get()).isFalse();
+    var thrown = assertThrows(ExecutionException.class, future::get);
+    assertThat(thrown).hasCauseThat().isSameInstanceAs(error);
+  }
+
+  @Test
+  public void executeSubtask_rejection_recordsExceptionAndCompletesWithError() throws Exception {
+    AtomicBoolean doneWithErrorCalled = new AtomicBoolean(false);
+    AtomicBoolean getValueCalled = new AtomicBoolean(false);
+    var future = new TestQuiescingFuture(doneWithErrorCalled, getValueCalled);
+
+    var rejectionException = new RejectedExecutionException("rejected");
+    SafeExecutor rejectingExecutor =
+        new SafeExecutor() {
+          @Override
+          public void execute(RejectionHandlingRunnable task) {
+            task.handleRejection(rejectionException);
+          }
+
+          @Override
+          public <T> void addCallback(
+              ListenableFuture<T> future, FutureCallback<? super T> callback) {}
+
+          @Override
+          public Executor getInternalUnsafeExecutor() {
+            return null;
+          }
+        };
+
+    future.executeSubtask(() -> {}, rejectingExecutor);
+    future.finishRegistration();
+
+    assertThat(future.isDone()).isTrue();
+    assertThat(doneWithErrorCalled.get()).isTrue();
+    var thrown = assertThrows(ExecutionException.class, future::get);
+    assertThat(thrown).hasCauseThat().isSameInstanceAs(rejectionException);
+  }
+
+  @Test
+  public void doneWithError_receivesPrimaryAndSecondaryExceptions() throws Exception {
+    AtomicReference<Throwable> capturedPrimary = new AtomicReference<>();
+    AtomicReference<ImmutableList<Throwable>> capturedSecondaries = new AtomicReference<>();
+
+    var future =
+        new QuiescingFuture<String>(safeDirectExecutor()) {
+          @Override
+          protected String getValue() {
+            return "result";
+          }
+
+          @Override
+          protected void doneWithError(
+              @Nullable Throwable primaryCause, ImmutableList<Throwable> secondaryCauses) {
+            capturedPrimary.set(primaryCause);
+            capturedSecondaries.set(secondaryCauses);
+          }
+        };
+
+    var error1 = new RuntimeException("error1");
+    var error2 = new RuntimeException("error2");
+    var error3 = new RuntimeException("error3");
+
+    future.increment();
+    future.increment();
+
+    future.notifyException(error1);
+    future.notifyException(error2);
+    future.notifyException(error3);
+
+    assertThat(future.isDone()).isTrue();
+    assertThat(capturedPrimary.get()).isSameInstanceAs(error1);
+    assertThat(capturedSecondaries.get()).containsExactly(error2, error3).inOrder();
+  }
+
+  @Test
+  public void cancelBeforeQuiescence_invokesDoneWithError() throws Exception {
+    AtomicBoolean doneWithErrorCalled = new AtomicBoolean(false);
+    var future =
+        new QuiescingFuture<String>(safeDirectExecutor()) {
+          @Override
+          protected String getValue() {
+            return "result";
+          }
+
+          @Override
+          protected void doneWithError(
+              @Nullable Throwable primaryCause, ImmutableList<Throwable> secondaryCauses) {
+            doneWithErrorCalled.set(true);
+            assertThat(primaryCause).isNull();
+          }
+        };
+
+    future.cancel(true);
+    assertThat(future.isCancelled()).isTrue();
+    assertThat(doneWithErrorCalled.get()).isFalse();
+
+    future.finishRegistration();
+    assertThat(doneWithErrorCalled.get()).isTrue();
+  }
+
+  @Test
+  public void cancelDuringQuiescence_invokesDoneWithError() throws Exception {
+    AtomicBoolean doneWithErrorCalled = new AtomicBoolean(false);
+    var future =
+        new QuiescingFuture<String>(safeDirectExecutor()) {
+          @Override
+          protected String getValue() {
+            cancel(true);
+            return "result";
+          }
+
+          @Override
+          protected void doneWithError(
+              @Nullable Throwable primaryCause, ImmutableList<Throwable> secondaryCauses) {
+            doneWithErrorCalled.set(true);
+          }
+        };
+
+    future.finishRegistration();
+    assertThat(future.isCancelled()).isTrue();
+    assertThat(doneWithErrorCalled.get()).isTrue();
+  }
+
   private static class TestQuiescingFuture extends QuiescingFuture<String> {
     private final Runnable doneWithErrorCallback;
     private final Runnable getValueCallback;
@@ -278,7 +452,8 @@ public final class QuiescingFutureTest {
     }
 
     @Override
-    protected void doneWithError() {
+    protected void doneWithError(
+        @Nullable Throwable primaryCause, ImmutableList<Throwable> secondaryCauses) {
       doneWithErrorCallback.run();
     }
   }
@@ -314,7 +489,8 @@ public final class QuiescingFutureTest {
           }
 
           @Override
-          protected void doneWithError() {
+          protected void doneWithError(
+              @Nullable Throwable primaryCause, ImmutableList<Throwable> secondaryCauses) {
             doneWithErrorCalled.set(true);
             throw doneWithErrorException;
           }
@@ -329,5 +505,73 @@ public final class QuiescingFutureTest {
     assertThat(doneWithErrorCalled.get()).isTrue();
     var thrown = assertThrows(ExecutionException.class, future::get);
     assertThat(thrown).hasCauseThat().isSameInstanceAs(notifiedException);
+  }
+
+  @SuppressWarnings("AssertThrowsMinimizer") // safeDirectExecutor() does not throw exceptions
+  @Test
+  public void executeSubtask_nullParameters_throwNullPointerException() {
+    var future = new ConstantQuiescingFuture();
+    assertThrows(
+        NullPointerException.class, () -> future.executeSubtask(null, safeDirectExecutor()));
+    assertThrows(NullPointerException.class, () -> future.executeSubtask(() -> {}, null));
+  }
+
+  @Test
+  public void notifyException_cancellationException_transitionsToCancelled() throws Exception {
+    AtomicBoolean doneWithErrorCalled = new AtomicBoolean(false);
+    var future =
+        new QuiescingFuture<String>(safeDirectExecutor()) {
+          @Override
+          protected String getValue() {
+            return "result";
+          }
+
+          @Override
+          protected void doneWithError(
+              @Nullable Throwable primaryCause, ImmutableList<Throwable> secondaryCauses) {
+            doneWithErrorCalled.set(true);
+            assertThat(primaryCause).isNull();
+          }
+        };
+
+    future.notifyException(new CancellationException("task cancelled"));
+
+    assertThat(future.isDone()).isTrue();
+    assertThat(future.isCancelled()).isTrue();
+    assertThat(doneWithErrorCalled.get()).isTrue();
+    assertThrows(CancellationException.class, future::get);
+  }
+
+  @Test
+  public void notifyException_secondaryCancellationException_ignored() throws Exception {
+    AtomicReference<Throwable> capturedPrimary = new AtomicReference<>();
+    AtomicReference<ImmutableList<Throwable>> capturedSecondaries = new AtomicReference<>();
+
+    var future =
+        new QuiescingFuture<String>(safeDirectExecutor()) {
+          @Override
+          protected String getValue() {
+            return "result";
+          }
+
+          @Override
+          protected void doneWithError(
+              @Nullable Throwable primaryCause, ImmutableList<Throwable> secondaryCauses) {
+            capturedPrimary.set(primaryCause);
+            capturedSecondaries.set(secondaryCauses);
+          }
+        };
+
+    var primaryError = new RuntimeException("primary error");
+    var cancellationError = new CancellationException("secondary cancellation");
+
+    future.increment();
+    future.notifyException(primaryError);
+    future.notifyException(cancellationError);
+
+    assertThat(future.isDone()).isTrue();
+    assertThat(future.isCancelled()).isFalse();
+    assertThat(capturedPrimary.get()).isSameInstanceAs(primaryError);
+    assertThat(capturedSecondaries.get()).isEmpty();
   }
 }

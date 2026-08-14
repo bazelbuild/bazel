@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.errorprone.annotations.DoNotCall;
 
@@ -62,14 +63,29 @@ public abstract class QuiescingFuture<T> extends AbstractQuiescingFuture<T> {
   }
 
   /**
-   * Called when all tasks are complete.
+   * Decrements the task count to offset the pre-increment from construction.
    *
-   * @deprecated only for {@link #decrement}
+   * <p>Must be called after all initial tasks have been registered.
    */
-  @Deprecated
+  public final void finishRegistration() {
+    decrement();
+  }
+
+  /** Called when all tasks are complete. */
   @Override
-  @DoNotCall
+  @DoNotCall("Called only by SafeExecutor via submission from decrement() at quiescence.")
   public final void run() {
     handleQuiescence();
+  }
+
+  @Override
+  @DoNotCall("Only called by SafeExecutor upon rejection.")
+  public final void handleRejection(Throwable t) {
+    Preconditions.checkNotNull(t, "t");
+    try {
+      recordException(t);
+    } finally {
+      handleQuiescence();
+    }
   }
 }
