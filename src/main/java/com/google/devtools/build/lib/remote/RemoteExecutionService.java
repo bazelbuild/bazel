@@ -856,8 +856,10 @@ public class RemoteExecutionService {
 
   private boolean shouldUseMetadataOnlyRecord(RemoteAction action) {
     return remoteOptions.getRemoteOutputsMode() == RemoteOutputsMode.MINIMAL
-        && remoteOptions.getRemoteCacheMetadataOnlyMnemonics().contains(
-            action.getSpawn().getMnemonic())
+        && action
+            .getSpawn()
+            .getExecutionInfo()
+            .containsKey(ExecutionRequirements.SUPPORTS_REMOTE_CACHE_METADATA_ONLY)
         && getInMemoryOutputPath(action.getSpawn()) == null;
   }
 

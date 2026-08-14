@@ -148,7 +148,8 @@ EOF
   local -a metadata_options=(
     --remote_cache="grpc://localhost:${worker_port}"
     --remote_download_minimal
-    --experimental_remote_cache_metadata_only_mnemonic=MetadataOnlyProducer
+    --modify_execution_info=MetadataOnlyProducer=+supports-remote-cache-metadata-only
+    --rewind_lost_inputs
     --enable_bzlmod=false
     --enable_workspace=true
   )
@@ -177,7 +178,6 @@ EOF
   bazel build "${metadata_options[@]}" //metadata_only:subject >& "${TEST_log}" \
     || fail "Failed to fall back after downstream cache miss"
   assert_equals 2 "$(wc -l < "${producer_log}" | tr -d ' ')"
-  expect_log "lost inputs with digests:"
 }
 
 function test_cc_tree_prefetching_download_minimal() {

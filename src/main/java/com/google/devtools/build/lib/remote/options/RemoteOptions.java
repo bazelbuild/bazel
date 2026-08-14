@@ -47,23 +47,6 @@ import javax.annotation.Nullable;
 public abstract class RemoteOptions extends CommonRemoteOptions {
 
   @Option(
-      name = "experimental_remote_cache_metadata_only_mnemonic",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      allowMultiple = true,
-      help =
-          "For local actions with this mnemonic, upload a derived-key action result containing "
-              + "output metadata but do not upload output file contents. With "
-              + "--remote_download_minimal, this allows downstream cache lookup without first "
-              + "materializing the producer output. A consumer cache miss falls back through "
-              + "lost-input recovery. May be repeated.")
-  public abstract List<String> getRemoteCacheMetadataOnlyMnemonics();
-
-  public abstract void setRemoteCacheMetadataOnlyMnemonics(List<String> value);
-
-  @Option(
       name = "remote_proxy",
       oldName = "remote_cache_proxy",
       defaultValue = "null",
