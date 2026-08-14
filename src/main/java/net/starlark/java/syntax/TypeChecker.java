@@ -615,9 +615,6 @@ public final class TypeChecker extends NodeVisitor {
         return Types.ANY;
       }
 
-      // TODO: #28043 - Some of the checks below can be used to implement
-      // Types.CallableType.assignableFromHook().
-
       // Indices of residual arguments in call.getArguments() and their corresponding types in
       // argTypes. (Micro-optimization to avoid allocating <Argument, StarlarkType> pairs.)
       ArrayList<Integer> residualPositional = new ArrayList<>(0);
