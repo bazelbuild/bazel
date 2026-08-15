@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindingSynchronizer;
 import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import java.util.Map;
@@ -52,6 +53,11 @@ public class RemoteOutputService implements OutputService {
 
   private final BlazeDirectories directories;
   private final boolean rewindLostInputs;
+  // Rewound actions are synchronized with the actions reading their outputs by the same structure
+  // that synchronizes repository fetches with their readers, but with its own keys and thus its own
+  // instance: a rewound action is no reason to make every action determine the repos of its inputs,
+  // or vice versa.
+  private final RewindingSynchronizer rewindingSynchronizer = new RewindingSynchronizer();
 
   private RewoundActionSynchronizer rewoundActionSynchronizer = RewoundActionSynchronizer.NOOP;
 
@@ -71,7 +77,8 @@ public class RemoteOutputService implements OutputService {
   void setActionInputFetcher(RemoteActionInputFetcher actionInputFetcher) {
     this.actionInputFetcher = checkNotNull(actionInputFetcher, "actionInputFetcher");
     if (rewindLostInputs) {
-      this.rewoundActionSynchronizer = new RemoteRewoundActionSynchronizer(actionInputFetcher);
+      this.rewoundActionSynchronizer =
+          new RemoteRewoundActionSynchronizer(actionInputFetcher, rewindingSynchronizer);
     }
   }
 
