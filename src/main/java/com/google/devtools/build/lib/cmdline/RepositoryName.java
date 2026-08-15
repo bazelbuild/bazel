@@ -43,7 +43,6 @@ public final class RepositoryName {
 
   private static final Interner<RepositoryName> interner = BlazeInterners.newWeakInterner();
 
-  // Interned so that creating one of these by name returns the constant itself.
   @SerializationConstant
   public static final RepositoryName BAZEL_TOOLS = createUnvalidated("bazel_tools");
 
