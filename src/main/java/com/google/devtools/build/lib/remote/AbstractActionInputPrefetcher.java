@@ -28,6 +28,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.SetMultimap;
 import com.google.common.flogger.GoogleLogger;
@@ -209,6 +210,14 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       if (caughtException.get() != null) {
         throw caughtException.get();
       }
+    }
+
+    /**
+     * Forgets the tracked state of every directory at or below one of the given paths, so that its
+     * permissions are set again the next time it is written to.
+     */
+    void invalidateUnder(ImmutableList<PathFragment> prefixes) {
+      directoryStateMap.keySet().removeIf(dir -> isUnderAny(dir, prefixes));
     }
   }
 
@@ -815,6 +824,39 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       // Downloads are written to the actual host file system, not any overlays.
       downloadCache.invalidate(execRoot.getRelative(path).forHostFileSystem());
     }
+  }
+
+  /**
+   * Like {@link #invalidateDownloads}, but also forgets about every completed download and every
+   * cached directory permission at a path below one of the given ones.
+   *
+   * <p>Needed for tree artifacts, whose individual children and subdirectories are what the caches
+   * are keyed by, but are not known to the caller.
+   */
+  public void invalidateDownloadsUnder(Iterable<PathFragment> execPaths) {
+    ImmutableList<PathFragment> prefixes =
+        ImmutableList.copyOf(
+            Iterables.transform(
+                execPaths, path -> execRoot.getRelative(path).forHostFileSystem().asFragment()));
+    if (prefixes.isEmpty()) {
+      return;
+    }
+    for (Path path : downloadCache.getFinishedTasks()) {
+      if (isUnderAny(path, prefixes)) {
+        downloadCache.invalidate(path);
+      }
+    }
+    directoryTracker.invalidateUnder(prefixes);
+  }
+
+  private static boolean isUnderAny(Path path, ImmutableList<PathFragment> prefixes) {
+    PathFragment fragment = path.asFragment();
+    for (PathFragment prefix : prefixes) {
+      if (fragment.startsWith(prefix)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public ImmutableSet<Path> downloadedFiles() {

@@ -176,7 +176,16 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
     var writeLock = fineLocks.get(outputKeyFor(action)).writeLock();
     writeLock.lockInterruptibly();
     prepareOutputsForRewinding(action);
-    return writeLock::unlock;
+    return () -> {
+      try {
+        // The outputs have been regenerated, so the prefetcher no longer needs to bypass its
+        // caches for them. Done before releasing the write lock so that no consumer can observe
+        // the outputs with neither the forced refetch nor the invalidated caches in effect.
+        actionInputFetcher.finishRewoundActionOutputs(action.getOutputs());
+      } finally {
+        writeLock.unlock();
+      }
+    };
   }
 
   /**
