@@ -65,7 +65,11 @@ public interface DefaultInfoApi extends StructApi {
       name = "files_to_run",
       doc =
           "A <a href='../providers/FilesToRunProvider.html'><code>FilesToRunProvider</code></a>"
-              + " object containing information about the executable and runfiles of the target.",
+              + " object containing information about the executable and runfiles of the target."
+              + " On a directly constructed <code>DefaultInfo</code>, including one returned by"
+              + " <code>ctx.super()</code>, this provider contains only the executable. Runfiles"
+              + " and manifests are populated only after configured-target finalization. Do not"
+              + " rely on automatic action runfiles before finalization.",
       structField = true,
       allowReturnNones = true)
   @Nullable
