@@ -406,6 +406,7 @@ public final class ActionRewindStrategy {
     // TODO(b/395634488): This should be solved in a more elegant way, but a solution is needed to
     // unblock the simplifications to Fileset (b/394611260)
     Set<ArtifactNestedSetKey> seenNestedSets = precise ? new HashSet<>() : null;
+    Set<ArtifactNestedSetKey> fullyExpandedNestedSets = new HashSet<>();
 
     for (var entry : nestedSetsForPropagatingActions.entries()) {
       ActionAndLookupData root = entry.getKey();
@@ -420,8 +421,11 @@ public final class ActionRewindStrategy {
             rewindGraph, rootKey, nestedSetKey, lostInputsAndTransitiveOwners, seenNestedSets);
       } else {
         // This block isn't expected to execute in practice when precise=true. The exception is a
-        // runfiles SymlinkTreeAction on Windows, which takes all artifacts as inputs.
-        ArtifactNestedSetKey.addEntireNestedSetToRewindGraph(rewindGraph, nestedSetKey);
+        // runfiles SymlinkTreeAction on Windows, which takes all artifacts as inputs. Note that it
+        // shares its input NestedSet with the runfiles RunfilesTreeAction, so this may visit nodes
+        // that the precise walk above has already partially added to the rewind graph.
+        ArtifactNestedSetKey.addEntireNestedSetToRewindGraph(
+            rewindGraph, nestedSetKey, fullyExpandedNestedSets);
         rewindGraph.putEdge(rootKey, nestedSetKey);
       }
     }

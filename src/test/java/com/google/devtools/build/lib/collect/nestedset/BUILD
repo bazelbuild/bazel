@@ -14,6 +14,24 @@ filegroup(
 )
 
 java_test(
+    name = "ArtifactNestedSetKeyTest",
+    srcs = ["ArtifactNestedSetKeyTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:artifact_nested_set_key",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "CompileOrderExpanderTest",
     srcs = ["CompileOrderExpanderTest.java"],
     deps = [

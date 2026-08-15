@@ -111,12 +111,19 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
    * key}, including all child {@link ArtifactNestedSetKey} nodes and non-source artifacts.
    *
    * <p>This is used in the imprecise/legacy rewinding case where any lost input in a nested set
-   * results in rewinding all artifacts within it. The walk is terminated when a node is already in
-   * the rewind graph.
+   * results in rewinding all artifacts within it. The walk is terminated when a node has already
+   * been fully expanded, as tracked by {@code fullyExpanded}.
+   *
+   * <p>Membership in {@code rewindGraph} must not be used as the termination condition: a node may
+   * already be in the graph because {@link #addNestedSetPathsToRewindGraph} added only the paths
+   * within it that lead to a lost artifact, in which case its remaining children still need to be
+   * added.
    */
   public static void addEntireNestedSetToRewindGraph(
-      MutableGraph<SkyKey> rewindGraph, ArtifactNestedSetKey key) {
-    if (rewindGraph.nodes().contains(key)) {
+      MutableGraph<SkyKey> rewindGraph,
+      ArtifactNestedSetKey key,
+      Set<ArtifactNestedSetKey> fullyExpanded) {
+    if (!fullyExpanded.add(key)) {
       return;
     }
     for (Object child : key.children) {
@@ -126,7 +133,7 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
         }
       } else {
         ArtifactNestedSetKey nextNode = createInternal((Object[]) child);
-        addEntireNestedSetToRewindGraph(rewindGraph, nextNode);
+        addEntireNestedSetToRewindGraph(rewindGraph, nextNode, fullyExpanded);
         rewindGraph.putEdge(key, nextNode);
       }
     }
