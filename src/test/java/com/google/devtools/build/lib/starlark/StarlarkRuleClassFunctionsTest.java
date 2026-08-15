@@ -31,6 +31,7 @@ import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
@@ -6147,6 +6148,89 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertNoEvents();
     assertThat(rule.getRuleClassObject().isExecutableStarlark()).isTrue();
     assertThat(rule.getRuleClassObject().getRuleClassType()).isEqualTo(RuleClassType.TEST);
+  }
+
+  @Test
+  public void extendRule_parentDefaultInfoExposesExecutable() throws Exception {
+    scratch.file("extend_rule_testing/parent/BUILD");
+    scratch.file(
+        "extend_rule_testing/parent/parent.bzl",
+        """
+        def _parent_impl(ctx):
+            executable = ctx.actions.declare_file(
+                ctx.label.name + "_/unrelated_launcher.bat",
+            )
+            ctx.actions.write(executable, "", is_executable = True)
+            return DefaultInfo(
+                executable = executable,
+                runfiles = ctx.runfiles(files = [ctx.file.runtime_data]),
+            )
+
+        parent_test = rule(
+            implementation = _parent_impl,
+            attrs = {"runtime_data": attr.label(allow_single_file = True)},
+            test = True,
+            extendable = True,
+        )
+        """);
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        """
+        load("//extend_rule_testing/parent:parent.bzl", "parent_test")
+
+        def _child_impl(ctx):
+            parent_default = ctx.super()[0]
+            if parent_default.files != None:
+                fail("parent DefaultInfo.files should be unset")
+
+            files_to_run = parent_default.files_to_run
+            if files_to_run == None:
+                fail("parent DefaultInfo.files_to_run should contain its executable")
+            if files_to_run != parent_default.files_to_run:
+                fail("parent DefaultInfo.files_to_run changed between reads")
+            if files_to_run.executable.basename != "unrelated_launcher.bat":
+                fail("parent executable was not preserved")
+            if files_to_run.runfiles_manifest != None:
+                fail("parent runfiles manifest should not exist before finalization")
+            if files_to_run.repo_mapping_manifest != None:
+                fail("parent repo mapping manifest should not exist before finalization")
+            if files_to_run.executable in parent_default.default_runfiles.files.to_list():
+                fail("parent executable should not be present in its raw runfiles")
+            if DefaultInfo().files_to_run != None:
+                fail("DefaultInfo without an executable should not have files_to_run")
+
+            executable = ctx.actions.declare_file(ctx.label.name + ".wrapped")
+            ctx.actions.symlink(
+                output = executable,
+                target_file = files_to_run.executable,
+                is_executable = True,
+            )
+            return DefaultInfo(
+                executable = executable,
+                runfiles = parent_default.default_runfiles,
+            )
+
+        child_test = rule(implementation = _child_impl, parent = parent_test)
+        """);
+    scratch.file("extend_rule_testing/runtime.data", "runtime data");
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        """
+        load(":child.bzl", "child_test")
+
+        child_test(name = "my_target", runtime_data = "runtime.data")
+        """);
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//extend_rule_testing:my_target");
+    FilesToRunProvider filesToRun = configuredTarget.getProvider(FilesToRunProvider.class);
+
+    assertNoEvents();
+    assertThat(filesToRun.getExecutable().getFilename()).isEqualTo("my_target.wrapped");
+    assertThat(filesToRun.getRunfilesSupport()).isNotNull();
+    assertThat(
+            filesToRun.getRunfilesSupport().getRunfiles().getAllArtifacts().toList().stream()
+                .map(Artifact::getFilename))
+        .containsAtLeast("my_target.wrapped", "runtime.data");
   }
 
   @Test

@@ -18,6 +18,8 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -96,15 +98,20 @@ public abstract class DefaultInfo extends NativeInfo implements DefaultInfoApi {
         Runfiles runfiles,
         Runfiles dataRunfiles,
         Runfiles defaultRunfiles,
-        Artifact executable,
-        @Nullable FilesToRunProvider filesToRunProvider) {
+        Artifact executable) {
       super(loc);
       this.files = files;
       this.runfiles = runfiles;
       this.dataRunfiles = dataRunfiles;
       this.defaultRunfiles = defaultRunfiles;
       this.executable = executable;
-      this.filesToRunProvider = filesToRunProvider;
+      this.filesToRunProvider =
+          executable == null
+              ? null
+              : FilesToRunProvider.create(
+                  NestedSetBuilder.create(Order.STABLE_ORDER, executable),
+                  /* runfilesSupport= */ null,
+                  executable);
     }
 
     @Override
@@ -225,8 +232,7 @@ public abstract class DefaultInfo extends NativeInfo implements DefaultInfoApi {
           statelessRunfiles,
           dataRunfiles,
           defaultRunfiles,
-          castNoneToNull(Artifact.class, executable),
-          null);
+          castNoneToNull(Artifact.class, executable));
     }
   }
 
