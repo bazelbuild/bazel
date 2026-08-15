@@ -129,6 +129,15 @@ public class RepositoryNameTest {
     new SerializationTester(
             RepositoryName.create("foo"),
             RepositoryName.create("foo").toNonVisible(RepositoryName.create("owner")))
+        .<RepositoryName>setVerificationFunction(
+            (original, deserialized) -> {
+              assertThat(deserialized).isEqualTo(original);
+              // Instances must stay canonical across separate serialized streams.
+              if (deserialized.isVisible()) {
+                assertThat(deserialized)
+                    .isSameInstanceAs(RepositoryName.createUnvalidated(deserialized.getName()));
+              }
+            })
         .runTests();
   }
 

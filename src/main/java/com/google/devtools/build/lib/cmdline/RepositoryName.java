@@ -368,10 +368,13 @@ public final class RepositoryName {
     @Override
     public RepositoryName deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      return new RepositoryName(
-          context.deserializeLeaf(codedIn, stringCodec()),
-          context.deserializeLeaf(codedIn, this),
-          context.deserializeLeaf(codedIn, stringCodec()));
+      String name = context.deserializeLeaf(codedIn, stringCodec());
+      RepositoryName contextRepoIfNotVisible = context.deserializeLeaf(codedIn, this);
+      String didYouMeanSuffix = context.deserializeLeaf(codedIn, stringCodec());
+      RepositoryName repositoryName = createUnvalidated(name);
+      return contextRepoIfNotVisible == null
+          ? repositoryName
+          : repositoryName.toNonVisible(contextRepoIfNotVisible, didYouMeanSuffix);
     }
   }
 }
