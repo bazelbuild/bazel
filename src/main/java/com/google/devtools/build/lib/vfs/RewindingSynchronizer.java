@@ -32,10 +32,11 @@ import javax.annotation.Nullable;
 /**
  * Synchronizes producers that replace their outputs in place with the consumers reading them.
  *
- * <p>Keys identify producers, currently external repository fetches keyed by their {@code
- * RepositoryName}. A producer takes its key's write lock before replacing its outputs, while a
- * consumer takes read locks for the keys of the producers of all its inputs, or the lock of a
- * single producer for the duration of a single read of its outputs.
+ * <p>Keys identify producers: external repository fetches keyed by their {@code RepositoryName} and
+ * rewound actions keyed by their {@code ActionLookupData}, each kind in its own instance. A
+ * producer takes its key's write lock before replacing its outputs, while a consumer takes read
+ * locks for the keys of the producers of all its inputs, or the lock of a single producer for the
+ * duration of a single read of its outputs.
  *
  * <p>Locks cannot deadlock: read locks are mutually compatible and a producer only ever takes its
  * own write lock, before holding any read lock. A cycle in the wait-for graph would thus imply a
@@ -60,7 +61,8 @@ public final class RewindingSynchronizer {
   }
 
   // Weakly referenced values so that locks are cleaned up once they are no longer needed. Readers
-  // are admitted even while a writer waits, so that a reader can never be queued behind one.
+  // are admitted even while a writer waits, so that a reader can never be queued behind one, which
+  // the proof of deadlock freedom in RemoteRewoundActionSynchronizer relies on.
   private final LoadingCache<Object, ReaderPreferringReadWriteLock> locks =
       Caffeine.newBuilder().weakValues().build(unused -> new ReaderPreferringReadWriteLock());
   private final ConcurrentHashMap<Object, ReaderPreferringReadWriteLock> writeLocksKeptForRestart =
