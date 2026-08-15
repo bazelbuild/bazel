@@ -288,11 +288,12 @@ public class ModuleFileFunction implements SkyFunction {
     var state = env.getState(State::new);
     if (state.compiledModuleFile == null) {
       RootedPath moduleFilePath = getModuleFilePath(workspaceRoot);
-      if (env.getValue(FileValue.key(moduleFilePath)) == null) {
+      FileValue moduleFileValue = (FileValue) env.getValue(FileValue.key(moduleFilePath));
+      if (moduleFileValue == null) {
         return null;
       }
       byte[] moduleFileContents;
-      if (moduleFilePath.asPath().exists()) {
+      if (moduleFileValue.exists()) {
         moduleFileContents = readModuleFile(moduleFilePath.asPath());
       } else {
         moduleFileContents = BZLMOD_REMINDER.getBytes(UTF_8);
