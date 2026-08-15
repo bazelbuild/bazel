@@ -167,17 +167,43 @@ public abstract class ModuleExtensionUsage {
     // preserves correctness in case new fields are added without updating this code.
     return toBuilder()
         .setTags(getTags().stream().map(Tag::trimForEvaluation).collect(toImmutableList()))
-        // Clear out all proxies as information contained therein isn't useful for evaluation.
+        // Reduce the proxies to the only piece of information about them that the extension can
+        // observe: whether there are any dev and/or non-dev usages, which is exposed to the root
+        // module's extensions as module_ctx.root_module_has_non_dev_dependency.
         // Locations are only used for error reporting and thus don't influence whether the
         // evaluation of the extension is successful and what its result is in case of success.
         // Extension implementation functions do not see the imports, they are only validated
         // against the set of generated repos in a validation step that comes afterward.
-        .setProxies(ImmutableList.of())
+        .setProxies(trimProxiesForEvaluation())
         // Tracked in SingleExtensionUsagesValue instead, using canonical instead of apparent names.
         // Whether this override must apply to an existing repo as well as its source location also
         // don't influence the evaluation of the extension as they are checked in
         // SingleExtensionFunction.
         .setRepoOverrides(ImmutableMap.of())
+        .build();
+  }
+
+  /**
+   * Returns at most two content-free proxies, one for each of {@link #getHasNonDevUseExtension} and
+   * {@link #getHasDevUseExtension} that holds.
+   */
+  private ImmutableList<Proxy> trimProxiesForEvaluation() {
+    var proxies = ImmutableList.<Proxy>builder();
+    if (getHasNonDevUseExtension()) {
+      proxies.add(trimmedProxy(/* devDependency= */ false));
+    }
+    if (getHasDevUseExtension()) {
+      proxies.add(trimmedProxy(/* devDependency= */ true));
+    }
+    return proxies.build();
+  }
+
+  private static Proxy trimmedProxy(boolean devDependency) {
+    return Proxy.builder()
+        .setDevDependency(devDependency)
+        .setLocation(Location.BUILTIN)
+        .setContainingModuleFilePath(PathFragment.EMPTY_FRAGMENT)
+        .setImports(ImmutableBiMap.of())
         .build();
   }
 

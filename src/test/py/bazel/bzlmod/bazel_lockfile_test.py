@@ -2622,6 +2622,65 @@ class BazelLockfileTest(test_base.TestBase):
     stderr = ''.join(stderr)
     self.assertIn('I am running the extension: 4.5.6', stderr)
 
+  def testModuleExtensionRerunsOnDevDependencyChange(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            (
+                'lockfile_ext = use_extension("//:extension.bzl",'
+                ' "lockfile_ext", dev_dependency = True)'
+            ),
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=impl)',
+            '',
+            'def _module_ext_impl(ctx):',
+            (
+                '    print("I am running the extension: " +'
+                ' str(ctx.root_module_has_non_dev_dependency))'
+            ),
+            '    repo_rule(name="hello")',
+            '',
+            'lockfile_ext = module_extension(',
+            '    implementation=_module_ext_impl',
+            ')',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension: False', stderr)
+
+    # Shutdown bazel to empty cache and run with no changes
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertNotIn('I am running the extension:', stderr)
+
+    # Turn the usage into a non-dev dependency and rerun
+    self.RunBazel(['shutdown'])
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            (
+                'lockfile_ext = use_extension("//:extension.bzl",'
+                ' "lockfile_ext")'
+            ),
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension: True', stderr)
+
   def testModuleExtensionRerunsOnGetenvChanges(self):
     self.ScratchFile(
         'MODULE.bazel',
