@@ -12,6 +12,18 @@ filegroup(
 )
 
 java_test(
+    name = "BlazeJavacMainTest",
+    srcs = ["BlazeJavacMainTest.java"],
+    add_exports = ["jdk.compiler/com.sun.tools.javac.util"],
+    test_class = "com.google.devtools.build.buildjar.javac.BlazeJavacMainTest",
+    deps = [
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:javac",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "VanillaJavaBuilderTest",
     srcs = ["VanillaJavaBuilderTest.java"],
     deps = [

@@ -124,9 +124,7 @@ public class BlazeJavacMain {
     // Initialize parts of context that the filemanager depends on
     context.put(DiagnosticListener.class, diagnosticsBuilder);
     Log.instance(context).setWriters(errWriter);
-    Options options = Options.instance(context);
-    options.put("-Xlint:path", "path");
-    options.put("expandJarClassPaths", "false");
+    setupDefaultJavacOptions(Options.instance(context), Runtime.version().feature());
 
     try (ClassloaderMaskingFileManager fileManager = new ClassloaderMaskingFileManager(context)) {
 
@@ -189,6 +187,23 @@ public class BlazeJavacMain {
 
     return BlazeJavacResult.createFullResult(
         status, filterDiagnostics(werror, diagnostics), errOutput.toString(), builder.build());
+  }
+
+  @VisibleForTesting
+  static void setupDefaultJavacOptions(Options options, int runtimeFeatureVersion) {
+    options.put("-Xlint:path", "path");
+    options.put("expandJarClassPaths", "false");
+    // JDK-8225377: before JDK 22, javac does not attach type-use annotations
+    // loaded from classpath class files to the corresponding symbols, so
+    // Error Prone's nullness checks emit false positives on nullable-annotated
+    // parameters (e.g. NullArgumentForNonNullParameter on Guava
+    // @ParametricNullness / JSpecify @Nullable). Error Prone's -Xplugin entry
+    // point requires -XDaddTypeAnnotationsToSymbol=true on JDK <= 21; JavaBuilder
+    // wires Error Prone directly, so set the option here. Enabled by default and
+    // a no-op on JDK 22+.
+    if (runtimeFeatureVersion <= 21) {
+      options.put("addTypeAnnotationsToSymbol", "true");
+    }
   }
 
   private static Status fromResult(Result result) {
