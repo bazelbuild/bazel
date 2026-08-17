@@ -69,6 +69,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -215,22 +216,26 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
         remoteContents.getChildrenList().stream()
             .collect(
                 toImmutableMap(cache.digestUtil::compute, directory -> directory, (a, b) -> a));
-    var filesToPrefetch = new ArrayList<PathFragment>();
+    var filesToPrefetch = new LinkedHashSet<PathFragment>();
+    var symlinksToPrefetch = new ArrayList<PathFragment>();
     externalFs.createDirectoryAndParents(repoDir.getParentDirectory());
     injectRecursively(
         externalFs,
         repoDir,
+        repoDir,
         remoteContents.getRoot(),
         childMap,
         filesToPrefetch::add,
+        symlinksToPrefetch::add,
         Instant.now().plus(remoteCacheTtl));
+    addSymlinkTargetsToPrefetch(symlinksToPrefetch, filesToPrefetch);
     try {
       // TODO: This prefetches a large number of small files. Investigate whether BatchReadBlobs
       // would be more efficient.
       prefetch(filesToPrefetch);
     } catch (BulkTransferException e) {
       if (e.allCausedByCacheNotFoundException()) {
-        // The cache has lost the .bzl files, which should be treated just like a cache miss.
+        // The cache has lost the prefetched files, which should be treated just like a cache miss.
         externalFs.deleteTree(repoDir);
         return false;
       }
@@ -245,12 +250,48 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     return true;
   }
 
+  /**
+   * Collects the targets of the given symlinks into {@code filesToPrefetch}.
+   *
+   * <p>Whether a read is served from the native file system is decided by the path it is made
+   * through, which for a symlink is not the path of the file that would be prefetched. A symlink
+   * that should be prefetched thus requires its target to be materialized, no matter whether the
+   * target's own path calls for prefetching.
+   *
+   * <p>Symlink targets can only be resolved once the entire repo has been injected, which is why
+   * this doesn't happen in {@link #injectRecursively}.
+   */
+  private void addSymlinkTargetsToPrefetch(
+      List<PathFragment> symlinks, Set<PathFragment> filesToPrefetch) {
+    for (var symlink : symlinks) {
+      Path target;
+      try {
+        target = externalFs.getPath(symlink).resolveSymbolicLinks();
+      } catch (IOException e) {
+        // Dangling symlinks and symlink loops are reproduced verbatim and only fail when read.
+        continue;
+      }
+      if (target.isFile()) {
+        filesToPrefetch.add(target.asFragment());
+      }
+    }
+  }
+
+  private static boolean isValidName(String name) {
+    return !name.isEmpty()
+        && !PathFragment.containsSeparator(name)
+        && !PathFragment.containsUplevelReferences(name)
+        && PathFragment.isNormalizedRelativePath(name);
+  }
+
   private static void injectRecursively(
       RemoteExternalFileSystem fs,
+      PathFragment repoDir,
       PathFragment path,
       Directory dir,
       ImmutableMap<Digest, Directory> childMap,
       Consumer<PathFragment> filesToPrefetch,
+      Consumer<PathFragment> symlinksToPrefetch,
       Instant expirationTime)
       throws IOException {
     // The parent directory always exists at this point: the repo's parent is created by
@@ -259,7 +300,14 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
         fs.createDirectory(
             path, dir.getFilesCount() + dir.getSymlinksCount() + dir.getDirectoriesCount());
     for (var file : dir.getFilesList()) {
-      var filePath = path.getRelative(unicodeToInternal(file.getName()));
+      String name = unicodeToInternal(file.getName());
+      if (!isValidName(name)) {
+        throw new IOException("invalid remote repo tree node name: " + name);
+      }
+      var filePath = path.getRelative(name);
+      if (!filePath.startsWith(repoDir)) {
+        throw new IOException("Path traversal detected: " + filePath + " is outside " + repoDir);
+      }
       if (shouldPrefetch(filePath)) {
         filesToPrefetch.accept(filePath);
       }
@@ -282,19 +330,55 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       fs.setWritable(filePath, false);
     }
     for (var symlink : dir.getSymlinksList()) {
-      fs.createSymbolicLink(
-          path.getRelative(unicodeToInternal(symlink.getName())),
-          PathFragment.create(unicodeToInternal(symlink.getTarget())));
+      String name = unicodeToInternal(symlink.getName());
+      if (!isValidName(name)) {
+        throw new IOException("invalid remote repo tree node name: " + name);
+      }
+      var linkPath = path.getRelative(name);
+      if (!linkPath.startsWith(repoDir)) {
+        throw new IOException("Path traversal detected: " + linkPath + " is outside " + repoDir);
+      }
+      if (shouldPrefetch(linkPath)) {
+        symlinksToPrefetch.accept(linkPath);
+      }
+      String target = unicodeToInternal(symlink.getTarget());
+      PathFragment targetFragment = PathFragment.create(target);
+      PathFragment resolvedTarget;
+      if (targetFragment.isAbsolute()) {
+        resolvedTarget = targetFragment;
+      } else {
+        resolvedTarget = linkPath.getParentDirectory().getRelative(targetFragment);
+      }
+      if (!resolvedTarget.startsWith(repoDir)) {
+        throw new IOException(
+            "Path traversal detected: symlink target " + resolvedTarget + " is outside " + repoDir);
+      }
+      fs.createSymbolicLink(linkPath, targetFragment);
     }
     for (var subdirNode : dir.getDirectoriesList()) {
-      var subdirPath = path.getRelative(unicodeToInternal(subdirNode.getName()));
+      String name = unicodeToInternal(subdirNode.getName());
+      if (!isValidName(name)) {
+        throw new IOException("invalid remote repo tree node name: " + name);
+      }
+      var subdirPath = path.getRelative(name);
+      if (!subdirPath.startsWith(repoDir)) {
+        throw new IOException("Path traversal detected: " + subdirPath + " is outside " + repoDir);
+      }
       var subdir = childMap.get(subdirNode.getDigest());
       if (subdir == null) {
         throw new IOException(
             "Directory %s with digest %s not found in tree"
                 .formatted(subdirPath, subdirNode.getDigest().getHash()));
       }
-      injectRecursively(fs, subdirPath, subdir, childMap, filesToPrefetch, expirationTime);
+      injectRecursively(
+          fs,
+          repoDir,
+          subdirPath,
+          subdir,
+          childMap,
+          filesToPrefetch,
+          symlinksToPrefetch,
+          expirationTime);
     }
   }
 
@@ -432,7 +516,13 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     }
   }
 
-  /** Whether the file with the given path should be materialized eagerly when injecting a repo. */
+  /**
+   * Whether reads of the given path should be served from the native file system, which requires
+   * its contents to be materialized eagerly when injecting a repo.
+   *
+   * <p>This is decided by the path a read is made through, which for a symlink is not the path of
+   * the file that ends up being materialized.
+   */
   private static boolean shouldPrefetch(PathFragment path) {
     // .bzl files are typically small and the loads between them can form complex DAGs that can only
     // be discovered layer by layer, so prefetching is worthwhile to reduce the number of sequential
@@ -761,12 +851,13 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
 
     @Override
     public synchronized InputStream getInputStream(PathFragment path) throws IOException {
-      // .bzl and REPO.bazel files are prefetched to the native file system during injection, but
-      // only if they are regular files, a symlink with such a name is kept in the in-memory overlay
-      // only. We thus need to follow symlinks before attempting to read a supposedly prefetched
-      // file.
+      // Symlinks are never prefetched to the native file system themselves, only the regular file
+      // they resolve to, so follow them before reading a prefetched file. Either end of the chain
+      // can be what makes the read eligible: a symlink named `helper.bzl` pointing at `helper.txt`
+      // as well as one named `helper.txt` pointing at `helper.bzl`.
+      boolean prefetched = shouldPrefetch(path);
       path = resolveSymbolicLinks(path).asFragment();
-      if (shouldPrefetch(path)) {
+      if (prefetched || shouldPrefetch(path)) {
         return nativeFs.getInputStream(path);
       }
       var relativePath = path.relativeTo(externalDirectory);
