@@ -56,6 +56,7 @@ public final class SpawnBuilder {
   private final NestedSetBuilder<ActionInput> tools = NestedSetBuilder.stableOrder();
 
   private ResourceSet resourceSet = ResourceSet.ZERO;
+  @Nullable private SimpleSpawn.LocalResourcesSupplier localResourcesSupplier;
   private PathMapper pathMapper = PathMapper.NOOP;
   private boolean builtForToolConfiguration;
 
@@ -74,6 +75,19 @@ public final class SpawnBuilder {
             platform,
             execProperties,
             builtForToolConfiguration);
+    if (localResourcesSupplier != null) {
+      return new SimpleSpawn(
+          owner,
+          ImmutableList.copyOf(args),
+          ImmutableMap.copyOf(environment),
+          ImmutableMap.copyOf(executionInfo),
+          SpawnInputs.of(inputs.build()),
+          tools.build(),
+          ImmutableSet.copyOf(outputs),
+          mandatoryOutputs,
+          localResourcesSupplier,
+          pathMapper);
+    }
     return new SimpleSpawn(
         owner,
         ImmutableList.copyOf(args),
@@ -245,6 +259,13 @@ public final class SpawnBuilder {
   @CanIgnoreReturnValue
   public SpawnBuilder withLocalResources(ResourceSet resourceSet) {
     this.resourceSet = resourceSet;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public SpawnBuilder withLocalResourcesSupplier(
+      SimpleSpawn.LocalResourcesSupplier localResourcesSupplier) {
+    this.localResourcesSupplier = localResourcesSupplier;
     return this;
   }
 

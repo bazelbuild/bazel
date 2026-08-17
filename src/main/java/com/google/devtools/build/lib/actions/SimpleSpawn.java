@@ -23,7 +23,9 @@ import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.util.OS;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -238,16 +240,13 @@ public final class SimpleSpawn implements Spawn {
   }
 
   @Override
-  public ResourceSet getLocalResources() throws ExecException {
+  public ResourceSet getLocalResources() throws ExecException, InterruptedException {
     ResourceSet result = localResourcesCached;
     if (result == null) {
       // Not expected to be called concurrently, and an idempotent computation if it is.
       result =
-          localResourcesSupplier
-              .get()
-              .withResourceOverrides(
-                  ExecutionRequirements.parseResources(getExecutionInfo()),
-                  ExecutionRequirements.parseResources(getCombinedExecProperties()));
+          localResourcesSupplier.buildLocalResources(
+              getExecutionInfo(), getCombinedExecProperties());
       localResourcesCached = result;
     }
     return result;
@@ -274,8 +273,54 @@ public final class SimpleSpawn implements Spawn {
     return Spawns.prettyPrint(this);
   }
 
-  /** Supplies resources needed for local execution. Result will be cached. */
-  public interface LocalResourcesSupplier {
+  /**
+   * Supplies resources needed for local execution. Result will be cached.
+   * TODO(Silic0nS0ldier): This has significant overlap with ResourceSetOrBuilder. Merge them
+   * while preserving the lazy computation of local resources.
+   */
+  @FunctionalInterface
+  public interface LocalResourcesSupplier extends ResourceSetOrBuilder {
     ResourceSet get() throws ExecException;
+
+    @Override
+    default ResourceSet buildResourceSet(OS os, int inputsSize) throws ExecException {
+      return get();
+    }
+
+    /**
+     * The {@link ResourceSetOrBuilder#buildLocalResources} this interface's callers use, without
+     * the build context a supplier ignores by contract.
+     */
+    default ResourceSet buildLocalResources(
+        Map<String, String> executionInfo, Map<String, String> execProperties)
+        throws ExecException, InterruptedException {
+      // Placeholders, so that the override behaviour stays defined in exactly one place.
+      return buildLocalResources(
+          OS.getCurrent(), /* inputsSize= */ 0, executionInfo, execProperties);
+    }
+  }
+
+  /**
+   * Returns a supplier of fixed {@code resources} that the owning target's {@code resources:}
+   * entries must not override.
+   *
+   * <p>The {@link ResourceSetOrBuilder#fixed} equivalent, in the form {@link SimpleSpawn} accepts.
+   */
+  public static LocalResourcesSupplier fixedLocalResources(ResourceSet resources) {
+    return new LocalResourcesSupplier() {
+      @Override
+      public ResourceSet get() {
+        return resources;
+      }
+
+      @Override
+      public ResourceSet buildLocalResources(
+          OS os,
+          int inputsSize,
+          Map<String, String> executionInfo,
+          Map<String, String> execProperties) {
+        return resources;
+      }
+    };
   }
 }
