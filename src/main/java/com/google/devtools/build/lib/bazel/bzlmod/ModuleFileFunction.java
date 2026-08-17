@@ -21,7 +21,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.github.difflib.patch.PatchFailedException;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -245,7 +244,7 @@ public class ModuleFileFunction implements SkyFunction {
     } else {
       moduleThreadContext =
           execNonRegistryModuleFile(
-              moduleKey, starlarkSemantics, env, SymbolGenerator.create(skyKey));
+              moduleKey, state, starlarkSemantics, env, SymbolGenerator.create(skyKey));
       if (moduleThreadContext == null) {
         return null;
       }
@@ -319,7 +318,8 @@ public class ModuleFileFunction implements SkyFunction {
       }
     }
     var moduleThreadContext =
-        execNonRegistryModuleFile(ModuleKey.ROOT, starlarkSemantics, env, symbolGenerator);
+        execNonRegistryModuleFile(
+            ModuleKey.ROOT, state, starlarkSemantics, env, symbolGenerator);
     if (moduleThreadContext == null) {
       return null;
     }
@@ -330,16 +330,19 @@ public class ModuleFileFunction implements SkyFunction {
         env.getListener());
   }
 
-  /** env.getState(State::new).compiledModuleFile must be set before calling this method. */
+  /**
+   * Executes the module file compiled into {@code state}, which the caller must have obtained from
+   * the environment: looking it up again could return a fresh instance without a compiled module
+   * file if the state was dropped in response to memory pressure in the meantime.
+   */
   @Nullable
   private ModuleThreadContext execNonRegistryModuleFile(
       ModuleKey moduleKey,
+      State state,
       StarlarkSemantics starlarkSemantics,
       Environment env,
       SymbolGenerator<?> symbolGenerator)
       throws ModuleFileFunctionException, InterruptedException {
-    var state = env.getState(State::new);
-    Preconditions.checkNotNull(state.compiledModuleFile);
     if (state.horizon == null) {
       state.horizon = state.compiledModuleFile.includeStatements();
     }
