@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -320,7 +321,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
         // can make more repos eligible.
         Path externalRepoRoot = RepositoryUtils.getExternalRepositoryDirectory(directories);
         RepositoryUtils.ReplantSymlinksResult replantSymlinksResult;
-        try {
+        try (var repoWriteLock = acquireRepoWriteLock(repoRoot, repositoryName)) {
           replantSymlinksResult =
               RepositoryUtils.replantSymlinks(
                   repoRoot,
@@ -350,7 +351,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
         }
         if (repoContentsCache.isEnabled() && replantSymlinksResult.safeForLocalCache()) {
           CandidateRepo newCacheEntry;
-          try {
+          try (var repoWriteLock = acquireRepoWriteLock(repoRoot, repositoryName)) {
             newCacheEntry =
                 repoContentsCache.moveToCache(
                     repoRoot, digestWriter.markerPath, digestWriter.predeclaredInputHash);
@@ -585,6 +586,15 @@ public final class RepositoryFetchFunction implements SkyFunction {
   private FetchResult fetch(
       RepoDefinition repoDefinition, Path outputDirectory, Environment env, RepositoryName repoName)
       throws RepositoryFunctionException, InterruptedException {
+    try (var repoWriteLock = acquireRepoWriteLock(outputDirectory, repoName)) {
+      return fetchUnderWriteLock(repoDefinition, outputDirectory, env, repoName);
+    }
+  }
+
+  @Nullable
+  private FetchResult fetchUnderWriteLock(
+      RepoDefinition repoDefinition, Path outputDirectory, Environment env, RepositoryName repoName)
+      throws RepositoryFunctionException, InterruptedException {
     setupRepoRoot(outputDirectory);
 
     String defInfo = RepositoryResolvedEvent.getRuleDefinitionInformation(repoDefinition);
@@ -787,13 +797,27 @@ public final class RepositoryFetchFunction implements SkyFunction {
   private RepositoryDirectoryValue setupOverride(
       PathFragment sourcePath, Environment env, Path repoRoot, RepositoryName repoName)
       throws RepositoryFunctionException, InterruptedException {
-    DigestWriter.clearMarkerFile(directories, repoName);
-    return symlinkRepoRoot(
-        directories,
-        repoRoot,
-        directories.getWorkspace().getRelative(sourcePath),
-        repoName.getName(),
-        env);
+    try (var repoWriteLock = acquireRepoWriteLock(repoRoot, repoName)) {
+      DigestWriter.clearMarkerFile(directories, repoName);
+      return symlinkRepoRoot(
+          directories,
+          repoRoot,
+          directories.getWorkspace().getRelative(sourcePath),
+          repoName.getName(),
+          env);
+    }
+  }
+
+  /**
+   * Acquires the lock that has to be held while the repo root is replaced, which keeps actions from
+   * observing it in an intermediate state.
+   */
+  private static SilentCloseable acquireRepoWriteLock(Path repoRoot, RepositoryName repoName)
+      throws InterruptedException {
+    if (repoRoot.getFileSystem() instanceof RewindableRepoFileSystem repoFileSystem) {
+      return repoFileSystem.acquireRepoWriteLock(repoName);
+    }
+    return () -> {};
   }
 
   @Nullable

@@ -407,16 +407,29 @@ py_test(
     ],
 )
 
+py_library(
+    name = "remote_repo_contents_cache_test_base",
+    testonly = 1,
+    srcs = ["bzlmod/remote_repo_contents_cache_test_base.py"],
+    deps = [":test_base"],
+)
+
 py_test(
     name = "remote_repo_contents_cache_test",
     size = "large",
     srcs = ["bzlmod/remote_repo_contents_cache_test.py"],
     shard_count = 2,
     tags = ["requires-network"],
-    deps = [
-        ":bzlmod_test_utils",
-        ":test_base",
-    ],
+    deps = [":remote_repo_contents_cache_test_base"],
+)
+
+py_test(
+    name = "remote_repo_contents_cache_rewinding_test",
+    size = "large",
+    srcs = ["bzlmod/remote_repo_contents_cache_rewinding_test.py"],
+    shard_count = 2,
+    tags = ["requires-network"],
+    deps = [":remote_repo_contents_cache_test_base"],
 )
 
 py_test(

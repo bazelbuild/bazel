@@ -190,6 +190,11 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
     boolean anyFound = false;
     for (Object child : node.children) {
       if (child instanceof Artifact artifact) {
+        // Source artifacts are eligible here, unlike in addEntireNestedSetToRewindGraph, which only
+        // has to rewind artifacts that an action can recreate. A source file in an external
+        // repository served from the remote repo contents cache can be lost and is recovered by
+        // rewinding the fetch of its repository, so it must be reachable in the rewind graph when it
+        // is named in lostArtifacts.
         if (lostArtifacts.contains(artifact)) {
           rewindGraph.putEdge(node, Artifact.key(artifact));
           anyFound = true;

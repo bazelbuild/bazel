@@ -1055,11 +1055,15 @@ public class ActionExecutionFunction implements SkyFunction {
       if (value != null) {
         ActionInputMapHelper.addToMap(
             inputArtifactData, input, value, MetadataConsumerForMetrics.NO_OP);
-      } else if (!hasMissingInputs && input.hasKnownGeneratingAction()) {
-        // Derived inputs are mandatory, but we did not detect any missing inputs. This is only
-        // possible for indirect inputs (beneath an ArtifactNestedSetKey) when, between the time the
-        // associated direct dependency ArtifactNestedSetKey completes successfully and the call to
-        // lookupInput, the input's key was rewound and completed with an error.
+      } else if (!hasMissingInputs
+          && (input.hasKnownGeneratingAction()
+              || (isRewindableSourceArtifact(input) && isMandatoryInput.test(input)))) {
+        // Derived inputs are mandatory and source inputs in external repositories may be rewound
+        // to recover files lost from the remote repo contents cache, but we did not detect any
+        // missing inputs. This is only possible for indirect inputs (beneath an
+        // ArtifactNestedSetKey) when, between the time the associated direct dependency
+        // ArtifactNestedSetKey completes successfully and the call to lookupInput, the input's key
+        // was rewound and completed with an error.
         undoneInputs.add(input);
       }
     }
@@ -1161,7 +1165,8 @@ public class ActionExecutionFunction implements SkyFunction {
       case null -> {
         checkState(
             !isMandatoryInput.test(input)
-                || (input.hasKnownGeneratingAction() && skyframeActionExecutor.rewindingEnabled()),
+                || ((input.hasKnownGeneratingAction() || isRewindableSourceArtifact(input))
+                    && skyframeActionExecutor.rewindingEnabled()),
             "Unexpected undone mandatory input: %s",
             input);
         return null;
@@ -1169,6 +1174,14 @@ public class ActionExecutionFunction implements SkyFunction {
       default -> {}
     }
     return value;
+  }
+
+  /**
+   * Returns whether the given input can be rewound although it has no generating action: only
+   * source artifacts in external repositories can be, by rewinding the fetch of their repository.
+   */
+  private static boolean isRewindableSourceArtifact(Artifact input) {
+    return input.isSourceArtifact() && input.getRoot().isExternal();
   }
 
   /**
