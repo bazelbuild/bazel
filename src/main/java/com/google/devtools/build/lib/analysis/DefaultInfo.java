@@ -18,8 +18,6 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -73,6 +71,8 @@ public abstract class DefaultInfo extends NativeInfo implements DefaultInfoApi {
    * If the rule producing this info object is marked 'executable' or 'test', this is an artifact
    * representing the file that should be executed to run the target. This is null otherwise.
    */
+  @Nullable
+  @Override
   public abstract Artifact getExecutable();
 
   @Override
@@ -98,20 +98,15 @@ public abstract class DefaultInfo extends NativeInfo implements DefaultInfoApi {
         Runfiles runfiles,
         Runfiles dataRunfiles,
         Runfiles defaultRunfiles,
-        Artifact executable) {
+        Artifact executable,
+        @Nullable FilesToRunProvider filesToRunProvider) {
       super(loc);
       this.files = files;
       this.runfiles = runfiles;
       this.dataRunfiles = dataRunfiles;
       this.defaultRunfiles = defaultRunfiles;
       this.executable = executable;
-      this.filesToRunProvider =
-          executable == null
-              ? null
-              : FilesToRunProvider.create(
-                  NestedSetBuilder.create(Order.STABLE_ORDER, executable),
-                  /* runfilesSupport= */ null,
-                  executable);
+      this.filesToRunProvider = filesToRunProvider;
     }
 
     @Override
@@ -191,9 +186,11 @@ public abstract class DefaultInfo extends NativeInfo implements DefaultInfoApi {
       return null;
     }
 
+    @Nullable
     @Override
     public Artifact getExecutable() {
-      return target.getProvider(FilesToRunProvider.class).getExecutable();
+      FilesToRunProvider filesToRun = getFilesToRun();
+      return filesToRun == null ? null : filesToRun.getExecutable();
     }
   }
 
@@ -232,7 +229,8 @@ public abstract class DefaultInfo extends NativeInfo implements DefaultInfoApi {
           statelessRunfiles,
           dataRunfiles,
           defaultRunfiles,
-          castNoneToNull(Artifact.class, executable));
+          castNoneToNull(Artifact.class, executable),
+          null);
     }
   }
 
