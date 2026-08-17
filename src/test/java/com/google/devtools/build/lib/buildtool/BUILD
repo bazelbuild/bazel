@@ -138,6 +138,8 @@ java_test(
 java_test(
     name = "DanglingSymlinkTest",
     srcs = ["DanglingSymlinkTest.java"],
+    # Test genrule runs `/bin/ln -sf`, which msys2 cannot use to make a symlink.
+    tags = ["no_windows"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -153,6 +155,9 @@ java_test(
 java_test(
     name = "UnusedInputsFailureIntegrationTest",
     srcs = ["UnusedInputsFailureIntegrationTest.java"],
+    # Asserts on which of two concurrently failing actions is reported first,
+    # which does not hold on Windows.
+    tags = ["no_windows"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -478,6 +483,9 @@ java_library(
 java_test(
     name = "TargetCompleteEventTest",
     srcs = ["TargetCompleteEventTest.java"],
+    # outputSymlink points a symlink at a Unix-absolute path, which CreateSymlink
+    # rejects on Windows; artifactsNotRetained runs a shell script directly.
+    tags = ["no_windows"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
@@ -608,6 +616,9 @@ java_test(
 java_test(
     name = "SubcommandEventTest",
     srcs = ["SubcommandEventTest.java"],
+    # Re-executes the logged subcommand via a hardcoded /bin/sh, which Windows
+    # resolves to a nonexistent C:\\bin\\sh.
+    tags = ["no_windows"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/shell",
@@ -678,6 +689,9 @@ java_test(
     srcs = [
         "ConvenienceSymlinkTest.java",
     ],
+    # unsettingSymlinksRemovesSymlinksEvenIfNotPointingInsideExecRoot points a
+    # symlink at a Unix-absolute path, which CreateSymlink rejects on Windows.
+    tags = ["no_windows"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/file_write_action_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
