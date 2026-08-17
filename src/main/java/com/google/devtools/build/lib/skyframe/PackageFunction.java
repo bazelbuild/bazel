@@ -76,6 +76,7 @@ import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -1285,9 +1286,12 @@ public abstract class PackageFunction implements SkyFunction {
     byte[] buildFileBytes;
     try {
       buildFileBytes =
-          buildFileValue.isSpecialFile()
-              ? FileSystemUtils.readContent(inputFile)
-              : FileSystemUtils.readWithKnownFileSize(inputFile, buildFileValue.getSize());
+          RewindableRepoFileSystem.readUnderRepoLock(
+              inputFile,
+              () ->
+                  buildFileValue.isSpecialFile()
+                      ? FileSystemUtils.readContent(inputFile)
+                      : FileSystemUtils.readWithKnownFileSize(inputFile, buildFileValue.getSize()));
     } catch (IOException e) {
       buildFileBytes =
           actionOnIOExceptionReadingBuildFile.maybeGetBuildFileContentsToUse(

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -328,7 +329,8 @@ public final class DefaultSyscallCache implements SyscallCache {
   /** Returns {@link FileStatus} or {@link IOException}. */
   private static Object statImpl(Pair<Path, Symlinks> p) {
     try {
-      FileStatus stat = p.first.statIfFound(p.second);
+      FileStatus stat =
+          RewindableRepoFileSystem.readUnderRepoLock(p.first, () -> p.first.statIfFound(p.second));
       return firstNonNull(stat, NO_STATUS);
     } catch (IOException e) {
       return e;
@@ -338,7 +340,8 @@ public final class DefaultSyscallCache implements SyscallCache {
   /** Returns a collection of {@link Dirent} or {@link IOException}. */
   private static Object readdirImpl(Path p) {
     try {
-      return CompactSortedDirents.create(p.readdir(Symlinks.NOFOLLOW));
+      return CompactSortedDirents.create(
+          RewindableRepoFileSystem.readUnderRepoLock(p, () -> p.readdir(Symlinks.NOFOLLOW)));
     } catch (IOException e) {
       return e;
     }

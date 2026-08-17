@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.concurrent;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -29,7 +29,7 @@ import java.lang.invoke.VarHandle;
  * releasing the lock while a writer is waiting for it. It is thus only inflated while a writer
  * holds or waits for the lock.
  */
-final class ReaderPreferringReadWriteLock {
+public final class ReaderPreferringReadWriteLock {
   private static final VarHandle HOLDS;
 
   static {
@@ -51,7 +51,7 @@ final class ReaderPreferringReadWriteLock {
   // zero.
   private volatile int holds;
 
-  void lockReadInterruptibly() throws InterruptedException {
+  public void lockReadInterruptibly() throws InterruptedException {
     while (true) {
       if (Thread.interrupted()) {
         throw new InterruptedException();
@@ -73,7 +73,7 @@ final class ReaderPreferringReadWriteLock {
     }
   }
 
-  void unlockRead() {
+  public void unlockRead() {
     int currentHolds;
     int newHolds;
     do {
@@ -94,7 +94,7 @@ final class ReaderPreferringReadWriteLock {
     }
   }
 
-  void lockWriteInterruptibly() throws InterruptedException {
+  public void lockWriteInterruptibly() throws InterruptedException {
     synchronized (this) {
       while (true) {
         if (Thread.interrupted()) {
@@ -117,13 +117,19 @@ final class ReaderPreferringReadWriteLock {
     }
   }
 
-  void unlockWrite() {
+  public void unlockWrite() {
     if (!HOLDS.compareAndSet(this, WRITER, 0)) {
       throw new IllegalMonitorStateException("holds: " + holds);
     }
     synchronized (this) {
       notifyAll();
     }
+  }
+
+  /** Returns whether at least one reader currently holds the lock. */
+  public boolean isReadLocked() {
+    int currentHolds = holds;
+    return currentHolds != WRITER && (currentHolds & READER_COUNT_MASK) != 0;
   }
 
   @Override

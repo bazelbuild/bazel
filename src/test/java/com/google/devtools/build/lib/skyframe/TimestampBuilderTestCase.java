@@ -187,7 +187,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   }
 
   protected BuilderWithResult createBuilder(ActionCache actionCache) throws Exception {
-    return createBuilder(actionCache, 1, /*keepGoing=*/ false);
+    return createBuilder(actionCache, 1, /* keepGoing= */ false);
   }
 
   /** Create a ParallelBuilder with a DatabaseDependencyChecker using the specified ActionCache. */
@@ -232,7 +232,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             /* sourceRootSupplier= */ ImmutableList::of,
             SyscallCache.NO_CACHE,
             k -> ThreadStateReceiver.NULL_INSTANCE,
-            key -> (ActionLookupValue) evaluatorRef.get().getExistingValue(key));
+            key -> (ActionLookupValue) evaluatorRef.get().getExistingValue(key),
+            /* repoRewindingSynchronizer= */ null);
 
     Path actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
     skyframeActionExecutor.setActionLogBufferPathGenerator(
@@ -272,7 +273,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                         new ActionRewindStrategy(
                             skyframeActionExecutor,
                             BugReporter.defaultInstance(),
-                            () -> RemoteAnalysisCacheDeps.createDisabled()),
+                            () -> RemoteAnalysisCacheDeps.createDisabled(),
+                            /* repoFileSystem= */ null),
                         skyframeActionExecutor,
                         evaluatorRef::get,
                         directories,
