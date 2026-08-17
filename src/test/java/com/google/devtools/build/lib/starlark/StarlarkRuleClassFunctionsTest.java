@@ -6182,27 +6182,21 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             parent_default = ctx.super()[0]
             if parent_default.files != None:
                 fail("parent DefaultInfo.files should be unset")
+            if parent_default.files_to_run != None:
+                fail("parent DefaultInfo.files_to_run should not exist before finalization")
 
-            files_to_run = parent_default.files_to_run
-            if files_to_run == None:
-                fail("parent DefaultInfo.files_to_run should contain its executable")
-            if files_to_run != parent_default.files_to_run:
-                fail("parent DefaultInfo.files_to_run changed between reads")
-            if files_to_run.executable.basename != "unrelated_launcher.bat":
+            parent_executable = parent_default.executable
+            if parent_executable.basename != "unrelated_launcher.bat":
                 fail("parent executable was not preserved")
-            if files_to_run.runfiles_manifest != None:
-                fail("parent runfiles manifest should not exist before finalization")
-            if files_to_run.repo_mapping_manifest != None:
-                fail("parent repo mapping manifest should not exist before finalization")
-            if files_to_run.executable in parent_default.default_runfiles.files.to_list():
+            if parent_executable in parent_default.default_runfiles.files.to_list():
                 fail("parent executable should not be present in its raw runfiles")
-            if DefaultInfo().files_to_run != None:
-                fail("DefaultInfo without an executable should not have files_to_run")
+            if DefaultInfo().executable != None:
+                fail("DefaultInfo without an executable should return None")
 
             executable = ctx.actions.declare_file(ctx.label.name + ".wrapped")
             ctx.actions.symlink(
                 output = executable,
-                target_file = files_to_run.executable,
+                target_file = parent_executable,
                 is_executable = True,
             )
             return DefaultInfo(
