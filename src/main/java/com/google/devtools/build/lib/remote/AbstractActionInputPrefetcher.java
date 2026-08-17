@@ -139,10 +139,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       // dir may be on the host file system while the output base is on an overlay) so that the exec
       // root, which is only resolvable during the loading phase and later, is not resolved during
       // external repo materialization.
+      //
+      // Compare against the exec root as fragments as well, since it may be located on a file
+      // system overlaying the host file system where downloads are written to.
       if (dir.asFragment()
               .startsWith(
                   outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION).asFragment())
-          || !dir.startsWith(execRoot())) {
+          || !dir.asFragment().startsWith(execRoot().asFragment())) {
         return;
       }
       AtomicReference<IOException> caughtException = new AtomicReference<>();
