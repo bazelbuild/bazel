@@ -56,17 +56,17 @@ fi
 
 # The prerequisites documented at
 # https://bazel.build/install/compile-source#bootstrap-unix-prereq ask for a JDK
-# 25, so bootstrap with a hermetic JDK 25 from the runfiles rather than with
+# 21, so bootstrap with a hermetic JDK 21 from the runfiles rather than with
 # whichever JDK happens to be installed on the machine running this test. This
-# both keeps the test hermetic and verifies that a JDK 25 is in fact sufficient.
+# both keeps the test hermetic and verifies that a JDK 21 is in fact sufficient.
 setup_javabase
 export JAVA_HOME="${bazel_javabase}"
 # JAVA_TOOL_OPTIONS and _JAVA_OPTIONS make the JVM print an extra line, so unset
 # them for this check just like compile.sh does for the bootstrap itself.
 declare -r JAVAC_VERSION="$(unset JAVA_TOOL_OPTIONS _JAVA_OPTIONS; \
   "${JAVA_HOME}/bin/javac" -version 2>&1)"
-if [[ ! "${JAVAC_VERSION}" =~ ^javac\ 25(\.|$) ]]; then
-  log_fatal "expected a JDK 25 in JAVA_HOME, but got '${JAVAC_VERSION}'"
+if [[ ! "${JAVAC_VERSION}" =~ ^javac\ 21(\.|$) ]]; then
+  log_fatal "expected a JDK 21 in JAVA_HOME, but got '${JAVAC_VERSION}'"
 fi
 
 function test_bootstrap() {

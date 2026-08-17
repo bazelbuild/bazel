@@ -1250,7 +1250,7 @@ sh_test(
         "//:bazel-distfile",
         "//src:embedded_jdk_allmodules",
         "@bazel_tools//tools/bash/runfiles",
-        "@rules_java//toolchains:remotejdk_25",
+        "@rules_java//toolchains:remotejdk_21",
     ],
     env = {
         "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for setup_javabase
@@ -1261,7 +1261,7 @@ sh_test(
         "no_presubmit",
     ],
     toolchains = [
-        "@rules_java//toolchains:remotejdk_25",
+        "@rules_java//toolchains:remotejdk_21",
     ],
 )
 
@@ -1278,7 +1278,7 @@ sh_test(
         "//:bazel-distfile-tar",
         "//src:embedded_jdk_allmodules",
         "@bazel_tools//tools/bash/runfiles",
-        "@rules_java//toolchains:remotejdk_25",
+        "@rules_java//toolchains:remotejdk_21",
     ],
     env = {
         "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for setup_javabase
@@ -1290,7 +1290,7 @@ sh_test(
         "no_windows",
     ],
     toolchains = [
-        "@rules_java//toolchains:remotejdk_25",
+        "@rules_java//toolchains:remotejdk_21",
     ],
 )
 
