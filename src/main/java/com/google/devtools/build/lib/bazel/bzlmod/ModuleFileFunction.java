@@ -330,11 +330,7 @@ public class ModuleFileFunction implements SkyFunction {
         env.getListener());
   }
 
-  /**
-   * Executes the module file compiled into {@code state}, which the caller must have obtained from
-   * the environment: looking it up again could return a fresh instance without a compiled module
-   * file if the state was dropped in response to memory pressure in the meantime.
-   */
+  /** env.getState(State::new).compiledModuleFile must be set before calling this method. */
   @Nullable
   private ModuleThreadContext execNonRegistryModuleFile(
       ModuleKey moduleKey,
