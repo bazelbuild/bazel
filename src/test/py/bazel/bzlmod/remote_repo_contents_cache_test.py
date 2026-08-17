@@ -2133,6 +2133,11 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     outcomes = []
     for attempt in range(5):
       self.RunBazel(['clean', '--expunge'])
+      # The drop budget is consumed by whichever fetch allocates first, so any
+      # unrelated repo fetched by the build below can use it up before the fetch
+      # of my_repo even starts. On Windows, test_base registers a Python
+      # toolchain from rules_python, whose archive extraction reliably does so.
+      self.RunBazel(['fetch', '--repo=@@rules_python+'], allow_failure=True)
       exit_code, _, stderr = self.RunBazel(
           [
               # A small heap makes minor GC events frequent under allocation
