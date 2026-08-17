@@ -248,8 +248,7 @@ class BuildResultPrinter {
    *
    * <p>Artifacts in output groups prefixed with {@link OutputGroupInfo#HIDDEN_OUTPUT_GROUP_PREFIX}
    * are never shown, but are still built, so the build may well have executed actions on this
-   * target's behalf. Bazel requests these output groups by itself, so report that they were built
-   * without naming them.
+   * target's behalf.
    */
   private static String nothingToBuildMessage(
       ProviderCollection target, TopLevelArtifactContext context) {
