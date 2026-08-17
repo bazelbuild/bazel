@@ -160,19 +160,6 @@ public final class RemoteWorker {
     }
   }
 
-  private static class UnavailableInterceptor implements ServerInterceptor {
-
-    @Override
-    public <ReqT, RespT> Listener<ReqT> interceptCall(
-        ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
-      if (!call.getMethodDescriptor().getServiceName().contains("Capabilities")) {
-        call.close(Status.UNAVAILABLE, new Metadata());
-        return new ServerCall.Listener<ReqT>() {};
-      }
-      return Contexts.interceptCall(Context.current(), call, headers, next);
-    }
-  }
-
   /**
    * Fails the first N calls to a single gRPC method with {@link Status#UNAVAILABLE}, optionally
    * gated on a marker file. The failure budget re-arms whenever the marker transitions from absent
@@ -272,9 +259,6 @@ public final class RemoteWorker {
       interceptors.add(
           new FailFirstNInterceptor(
               workerOptions.getFailureCount(), workerOptions.getFailureMethod(), markerFile));
-    }
-    if (workerOptions.getUnavailable()) {
-      interceptors.add(new UnavailableInterceptor());
     }
     interceptors.add(new TracingMetadataUtils.ServerHeadersInterceptor());
     if (workerOptions.getExpectedAuthorizationToken() != null) {
