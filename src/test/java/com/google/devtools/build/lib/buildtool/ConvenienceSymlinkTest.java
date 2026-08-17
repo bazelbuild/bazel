@@ -876,7 +876,11 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     Path workspaceLink = getWorkspace().getChild("replaced-" + TestConstants.WORKSPACE_NAME);
     Path outLink = getWorkspace().getChild("replaced-out");
 
-    Path original = getWorkspace().getRelative("/arbitrary/somewhere/else/in/the/filesystem");
+    // Derived from the workspace so that the path is absolute on Windows too, where
+    // CreateSymlink rejects a target without a drive letter. Outside the exec root,
+    // which lives under the output base.
+    Path original =
+        getWorkspace().getParentDirectory().getRelative("arbitrary/somewhere/else");
     binLink.createSymbolicLink(original);
     genfilesLink.createSymbolicLink(original);
     testlogsLink.createSymbolicLink(original);
@@ -1123,7 +1127,11 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     Path workspaceLink = getWorkspace().getChild("deleted-" + TestConstants.WORKSPACE_NAME);
     Path outLink = getWorkspace().getChild("deleted-out");
 
-    Path original = getWorkspace().getRelative("/arbitrary/somewhere/else/in/the/filesystem");
+    // Derived from the workspace so that the path is absolute on Windows too, where
+    // CreateSymlink rejects a target without a drive letter. Outside the exec root,
+    // which lives under the output base.
+    Path original =
+        getWorkspace().getParentDirectory().getRelative("arbitrary/somewhere/else");
     binLink.createSymbolicLink(original);
     genfilesLink.createSymbolicLink(original);
     testlogsLink.createSymbolicLink(original);

@@ -692,9 +692,6 @@ java_test(
     srcs = [
         "ConvenienceSymlinkTest.java",
     ],
-    # unsettingSymlinksRemovesSymlinksEvenIfNotPointingInsideExecRoot points a
-    # symlink at a Unix-absolute path, which CreateSymlink rejects on Windows.
-    tags = ["no_windows"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/file_write_action_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
