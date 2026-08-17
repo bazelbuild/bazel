@@ -79,7 +79,7 @@ even posted a
 <img src="/community/images/canva.svg" width="90" align="right">
 
 Canva leverages Bazel to manage its large polyglot codebase, which includes
-Java, TypeScript, Scala, Python, and more. Migration to Bazel has delivered
+Java, TypeScript, Rust, Python, and more. Migration to Bazel has delivered
 significant developer and compute infrastructure efficiencies, for example 5-6x
 decreases in average CI build times, and it continues to become the foundation
 of fast, reproducible, and standardised software builds at the company.
