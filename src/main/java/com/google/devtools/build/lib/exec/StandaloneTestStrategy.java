@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnInputs;
@@ -125,8 +126,8 @@ public class StandaloneTestStrategy extends TestStrategy {
     executionInfo.put(
         ExecutionRequirements.TIMEOUT, Long.toString(action.getTimeout().toSeconds()));
 
-    SimpleSpawn.LocalResourcesSupplier localResourcesSupplier =
-        () ->
+    ResourceSetOrBuilder localResources =
+        (os, inputsSize) ->
             action
                 .getTestProperties()
                 .getLocalResourceUsage(
@@ -142,7 +143,7 @@ public class StandaloneTestStrategy extends TestStrategy {
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             ImmutableSet.copyOf(action.getSpawnOutputs()),
             /* mandatoryOutputs= */ ImmutableSet.of(),
-            localResourcesSupplier);
+            localResources);
     Path execRoot = actionExecutionContext.getExecRoot();
     ArtifactPathResolver pathResolver = actionExecutionContext.getPathResolver();
     Path tmpDir = pathResolver.convertPath(tmpDirRoot.getChild(TestStrategy.getTmpDirName(action)));
@@ -489,7 +490,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         // describe the test process, not this script. Letting them override the default would
         // make a log-to-XML conversion book the whole test's CPU/memory/custom resources and
         // queue behind unrelated actions.
-        SimpleSpawn.fixedLocalResources(SpawnAction.DEFAULT_RESOURCE_SET));
+        ResourceSetOrBuilder.fixed(SpawnAction.DEFAULT_RESOURCE_SET));
   }
 
   private static Spawn createCoveragePostProcessingSpawn(
@@ -530,7 +531,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         /* mandatoryOutputs= */ null,
         // As in createXmlGeneratingSpawn: the test target's `resources:` entries describe the
         // test process, not this post-processing step.
-        SimpleSpawn.fixedLocalResources(SpawnAction.DEFAULT_RESOURCE_SET));
+        ResourceSetOrBuilder.fixed(SpawnAction.DEFAULT_RESOURCE_SET));
   }
 
   private static Map<String, String> createEnvironment(

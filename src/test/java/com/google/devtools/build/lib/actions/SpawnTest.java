@@ -127,7 +127,7 @@ public final class SpawnTest {
   public void getLocalResources_fixedDeclaration_ignoresResourceOverrides() throws Exception {
     Spawn spawn =
         new SpawnBuilder("/bin/true")
-            .withLocalResourcesSupplier(SimpleSpawn.fixedLocalResources(DECLARED_RESOURCES))
+            .withLocalResources(ResourceSetOrBuilder.fixed(DECLARED_RESOURCES))
             .withExecutionInfo("resources:cpu:4", "")
             .withCombinedExecProperties(ImmutableMap.of("resources:memory", "8000"))
             .build();
@@ -139,7 +139,7 @@ public final class SpawnTest {
   }
 
   // NullAction's owner has no exec properties, so these only exercise the execution-info route.
-  // Both routes share ResourceSetOrBuilder#applyDeclaredOverrides, which the cases above cover.
+  // Both routes share ResourceSetOrBuilder#buildLocalResources, which the cases above cover.
   private static BaseSpawn baseSpawn(ResourceSetOrBuilder localResources) {
     return new BaseSpawn(
         ImmutableList.of("/bin/true"),

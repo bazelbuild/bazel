@@ -1792,12 +1792,9 @@ public class CppCompileAction extends AbstractAction
           /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           getOutputs(),
           mandatoryOutputs,
-          () ->
+          (os, inputsSize) ->
               estimateResourceConsumptionLocal(
-                  enabledCppCompileResourcesEstimation(),
-                  getMnemonic(),
-                  OS.getCurrent(),
-                  inputs.flatten().size()),
+                  enabledCppCompileResourcesEstimation(), getMnemonic(), os, inputsSize),
           pathMapper);
     } catch (CommandLineExpansionException e) {
       String message =
