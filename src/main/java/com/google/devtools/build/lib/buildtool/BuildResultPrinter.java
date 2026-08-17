@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -162,6 +164,7 @@ class BuildResultPrinter {
     outputConfiguredTargets(
         outErr,
         prettyPrinter,
+        context,
         succeeded,
         artifactsToPrintPerTarget,
         failed,
@@ -170,6 +173,8 @@ class BuildResultPrinter {
     outputAspects(
         outErr,
         prettyPrinter,
+        context,
+        aspects,
         successfulAspects,
         artifactsToPrintPerAspect,
         failedAspects,
@@ -237,6 +242,46 @@ class BuildResultPrinter {
     return artifacts;
   }
 
+  /**
+   * Returns the message printed in place of the artifacts of a target or aspect that has none to
+   * show.
+   *
+   * <p>Artifacts in output groups prefixed with {@link OutputGroupInfo#HIDDEN_OUTPUT_GROUP_PREFIX}
+   * are never shown, but are still built, so the build may well have executed actions on this
+   * target's behalf. Bazel requests these output groups by itself, so report that they were built
+   * without naming them.
+   */
+  private static String nothingToBuildMessage(
+      ProviderCollection target, TopLevelArtifactContext context) {
+    boolean ranValidationActions = false;
+    boolean builtInternalOutputGroups = false;
+    for (Map.Entry<String, ArtifactsInOutputGroup> outputGroup :
+        TopLevelArtifactHelper.getAllArtifactsToBuild(target, context)
+            .getAllArtifactsByOutputGroup()
+            .entrySet()) {
+      if (outputGroup.getValue().areImportant()) {
+        continue;
+      }
+      if (outputGroup.getKey().equals(OutputGroupInfo.VALIDATION)
+          || outputGroup.getKey().equals(OutputGroupInfo.VALIDATION_TOP_LEVEL)) {
+        ranValidationActions = true;
+      } else {
+        builtInternalOutputGroups = true;
+      }
+    }
+    if (ranValidationActions && builtInternalOutputGroups) {
+      return "nothing to build except validation outputs and other internal output groups, use"
+          + " --norun_validations to skip validations";
+    }
+    if (ranValidationActions) {
+      return "nothing to build except validation outputs, use --norun_validations to skip them";
+    }
+    if (builtInternalOutputGroups) {
+      return "nothing to build except internal output groups";
+    }
+    return "nothing to build";
+  }
+
   private static int splitAspectsByResultReturnRemaining(
       Collection<AspectKey> aspectsToPrint,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
@@ -269,6 +314,7 @@ class BuildResultPrinter {
   private static void outputConfiguredTargets(
       OutErr outErr,
       PathPrettyPrinter prettyPrinter,
+      TopLevelArtifactContext context,
       ArrayList<ConfiguredTarget> succeeded,
       ArrayList<ArrayList<Artifact>> artifactsToPrintPerTarget,
       ArrayList<ConfiguredTarget> failed,
@@ -283,7 +329,8 @@ class BuildResultPrinter {
       ArrayList<Artifact> artifacts = artifactsToPrintPerTarget.get(i);
       if (artifacts.isEmpty()) {
         if (!omitNothingToBuild) {
-          outErr.printErr("Target " + label + " up-to-date (nothing to build)\n");
+          outErr.printErr(
+              "Target " + label + " up-to-date (" + nothingToBuildMessage(target, context) + ")\n");
         }
         continue;
       }
@@ -312,6 +359,8 @@ class BuildResultPrinter {
   private static void outputAspects(
       OutErr outErr,
       PathPrettyPrinter prettyPrinter,
+      TopLevelArtifactContext context,
+      ImmutableMap<AspectKey, ConfiguredAspect> aspects,
       ArrayList<AspectKey> succeeded,
       ArrayList<ArrayList<Artifact>> artifactsToPrintPerAspect,
       ArrayList<AspectKey> failed,
@@ -324,7 +373,13 @@ class BuildResultPrinter {
       if (artifacts.isEmpty()) {
         if (!omitNothingToBuild) {
           outErr.printErr(
-              "Aspect " + aspectName + " of " + label + " up-to-date (nothing to build)\n");
+              "Aspect "
+                  + aspectName
+                  + " of "
+                  + label
+                  + " up-to-date ("
+                  + nothingToBuildMessage(aspects.get(aspect), context)
+                  + ")\n");
         }
         continue;
       }

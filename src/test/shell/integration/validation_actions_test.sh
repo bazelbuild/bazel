@@ -223,6 +223,39 @@ function test_validation_actions() {
   assert_exists bazel-bin/validation_actions/foo0.validation
 }
 
+function test_validation_actions_with_empty_output_group() {
+  setup_test_project
+  setup_passing_validation_action
+
+  # Requesting an output group that has no artifacts leaves nothing to show, but validation actions
+  # are run regardless of --output_groups, so the build is not a no-op.
+  bazel build --run_validations --output_groups=no_such_output_group \
+      //validation_actions:foo0 >& "$TEST_log" || fail "Expected build to succeed"
+
+  expect_log "Target //validation_actions:foo0 up-to-date (nothing to build except validation \
+outputs, use --norun_validations to skip them)"
+  assert_exists bazel-bin/validation_actions/foo0.validation
+
+  bazel build --norun_validations --output_groups=no_such_output_group \
+      //validation_actions:foo0 >& "$TEST_log" || fail "Expected build to succeed"
+
+  expect_log "Target //validation_actions:foo0 up-to-date (nothing to build)"
+}
+
+function test_no_output_group_but_runfiles() {
+  setup_test_project
+  setup_passing_validation_action
+
+  # Subtracting the default output group still leaves the internal output group that carries the
+  # runfiles, so the build is not a no-op here either.
+  bazel build --norun_validations --output_groups=-default \
+      //validation_actions:test_with_rule_with_validation_in_deps \
+      >& "$TEST_log" || fail "Expected build to succeed"
+
+  expect_log "Target //validation_actions:test_with_rule_with_validation_in_deps up-to-date \
+(nothing to build except internal output groups)"
+}
+
 function test_validation_actions_with_validation_aspect() {
   setup_test_project
   setup_passing_validation_action
