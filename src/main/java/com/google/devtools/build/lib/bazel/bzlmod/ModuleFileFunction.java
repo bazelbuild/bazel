@@ -339,6 +339,7 @@ public class ModuleFileFunction implements SkyFunction {
       Environment env,
       SymbolGenerator<?> symbolGenerator)
       throws ModuleFileFunctionException, InterruptedException {
+    Preconditions.checkNotNull(state.compiledModuleFile);
     if (state.horizon == null) {
       state.horizon = state.compiledModuleFile.includeStatements();
     }
