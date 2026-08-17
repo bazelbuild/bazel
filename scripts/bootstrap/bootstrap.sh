@@ -29,7 +29,7 @@ if [ -n "${EMBED_LABEL}" ]; then
     EMBED_LABEL_ARG=(--stamp --embed_label "${EMBED_LABEL}")
 fi
 
-: ${JAVA_VERSION:="25"}
+: ${JAVA_VERSION:="21"}
 
 # TODO: remove `--repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0` once all dependencies are
 #  mirrored. See https://github.com/bazelbuild/bazel/pull/19549 for more context.

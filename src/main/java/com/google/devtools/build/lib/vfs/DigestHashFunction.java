@@ -199,7 +199,7 @@ public class DigestHashFunction {
 
   private static boolean supportsClone(MessageDigest toCheck) {
     try {
-      var _ = toCheck.clone();
+      var unused = toCheck.clone();
       return true;
     } catch (CloneNotSupportedException e) {
       return false;

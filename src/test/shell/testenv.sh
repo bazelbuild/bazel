@@ -308,10 +308,10 @@ build --incompatible_skip_genfiles_symlink=false
 
 build --incompatible_use_toolchain_resolution_for_java_rules
 
-# Support JDK 25, data dependencies that get compiled and used tools need to be
-# run with 25 runtime.
-build --java_runtime_version=25
-build --tool_java_runtime_version=25
+# Support JDK 21, data dependencies that get compiled and used tools need to be
+# run with 21 runtime.
+build --java_runtime_version=21
+build --tool_java_runtime_version=21
 
 ${EXTRA_BAZELRC:-}
 EOF

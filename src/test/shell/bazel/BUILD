@@ -145,7 +145,6 @@ sh_test(
     (11, "remote_jdk11"),
     (17, "remotejdk_17"),
     (21, "remotejdk_21"),
-    (25, "remotejdk_25"),
 ]]
 
 sh_test(
@@ -311,9 +310,9 @@ sh_test(
     ],
 )
 
-JAVA_VERSIONS = ("11", "17", "21", "25")
+JAVA_VERSIONS = ("11", "17", "21")
 
-JAVA_VERSIONS_COVERAGE = ("11", "17", "21", "25")
+JAVA_VERSIONS_COVERAGE = ("11", "17", "21")
 
 [
     sh_test(
