@@ -41,7 +41,7 @@ public final class AdjustSfx {
     File inputFile = new File(args[0]);
     File outputFile = new File(args[1]);
 
-    try (ZipReader reader = new ZipReader(inputFile, UTF_8, false);
+    try (ZipReader reader = ZipReader.createForAdjustSfx(inputFile, UTF_8);
         InputStream in = new FileInputStream(inputFile);
         OutputStream out = new BufferedOutputStream(new FileOutputStream(outputFile))) {
 
