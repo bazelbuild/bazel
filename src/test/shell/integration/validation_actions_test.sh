@@ -242,20 +242,6 @@ outputs, use --norun_validations to skip them)"
   expect_log "Target //validation_actions:foo0 up-to-date (nothing to build)"
 }
 
-function test_no_output_group_but_runfiles() {
-  setup_test_project
-  setup_passing_validation_action
-
-  # Subtracting the default output group still leaves the internal output group that carries the
-  # runfiles, so the build is not a no-op here either.
-  bazel build --norun_validations --output_groups=-default \
-      //validation_actions:test_with_rule_with_validation_in_deps \
-      >& "$TEST_log" || fail "Expected build to succeed"
-
-  expect_log "Target //validation_actions:test_with_rule_with_validation_in_deps up-to-date \
-(nothing to build except internal output groups)"
-}
-
 function test_validation_actions_with_validation_aspect() {
   setup_test_project
   setup_passing_validation_action

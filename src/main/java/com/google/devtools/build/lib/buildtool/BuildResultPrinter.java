@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
-import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -39,12 +38,9 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Map;
 import java.util.Objects;
 
-/**
- * Handles --show_result and --experimental_show_artifacts.
- */
+/** Handles --show_result and --experimental_show_artifacts. */
 class BuildResultPrinter {
   private final CommandEnvironment env;
 
@@ -254,7 +250,7 @@ class BuildResultPrinter {
       ProviderCollection target, TopLevelArtifactContext context) {
     boolean ranValidationActions = false;
     boolean builtInternalOutputGroups = false;
-    for (Map.Entry<String, ArtifactsInOutputGroup> outputGroup :
+    for (var outputGroup :
         TopLevelArtifactHelper.getAllArtifactsToBuild(target, context)
             .getAllArtifactsByOutputGroup()
             .entrySet()) {
@@ -329,7 +325,8 @@ class BuildResultPrinter {
       if (artifacts.isEmpty()) {
         if (!omitNothingToBuild) {
           outErr.printErr(
-              "Target " + label + " up-to-date (" + nothingToBuildMessage(target, context) + ")\n");
+              String.format(
+                  "Target %s up-to-date (%s)\n", label, nothingToBuildMessage(target, context)));
         }
         continue;
       }
@@ -372,13 +369,9 @@ class BuildResultPrinter {
       if (artifacts.isEmpty()) {
         if (!omitNothingToBuild) {
           outErr.printErr(
-              "Aspect "
-                  + aspectName
-                  + " of "
-                  + label
-                  + " up-to-date ("
-                  + nothingToBuildMessage(aspects.get(aspect), context)
-                  + ")\n");
+              String.format(
+                  "Aspect %s of %s up-to-date (%s)\n",
+                  aspectName, label, nothingToBuildMessage(aspects.get(aspect), context)));
         }
         continue;
       }
