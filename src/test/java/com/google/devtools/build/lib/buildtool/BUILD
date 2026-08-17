@@ -512,6 +512,9 @@ java_test(
     name = "TargetSummaryEventTest",
     srcs = ["TargetSummaryEventTest.java"],
     data = ["//src/test/java/com/google/devtools/build/lib:embedded_scripts"],
+    # Flaky on Windows: getOverallTestStatus() intermittently reports NO_STATUS
+    # instead of the test result. Passed one CI run, failed all 3 attempts the next.
+    tags = ["no_windows"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
