@@ -2075,6 +2075,62 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
             % (name, len(expected), len(actual), actual[:100])
         )
 
+    # DEBUG ONLY: the server log is ground truth for restarts. The progress
+    # event that carries the restart message is transient and is only visible in
+    # stderr if the progress bar happens to be repainted while it is the latest
+    # message for the repo, so a missing message in stderr does not imply that
+    # no restart happened.
+    output_base = repo_dir.rsplit('/external/', 1)[0]
+
+    def server_log_lines(pattern):
+      lines = []
+      for name in sorted(os.listdir(output_base)):
+        if not name.startswith('java.log'):
+          continue
+        path = os.path.join(output_base, name)
+        if os.path.islink(path) or not os.path.isfile(path):
+          continue
+        with open(path, 'r', errors='replace') as f:
+          for line in f:
+            if pattern in line:
+              lines.append(line.rstrip()[:300])
+      return lines
+
+    def dump_diagnostics(attempt, exit_code, stderr):
+      print('=== DEBUG attempt %d: exit_code=%d ===' % (attempt, exit_code))
+      seen = set()
+      progress_lines = []
+      for line in stderr.split('\n'):
+        line = line.strip()
+        if 'Fetching' not in line and 'memory pressure' not in line:
+          continue
+        # Progress bar lines repeat with only their elapsed time changing.
+        normalized = re.sub(r'\d+s\b', 'Ns', line)
+        if normalized in seen:
+          continue
+        seen.add(normalized)
+        progress_lines.append(line[:300])
+      print('--- %d distinct fetch progress lines' % len(progress_lines))
+      for line in progress_lines[:60]:
+        print('  ' + line)
+      diags = [
+          line.strip()[:300]
+          for line in stderr.split('\n')
+          if 'WARNING' in line or 'ERROR' in line or 'JUST FETCHED' in line
+      ]
+      print('--- %d warning/error lines' % len(diags))
+      for line in diags[:30]:
+        print('  ' + line)
+      restarts = server_log_lines('DEBUG_RESTART')
+      drops = server_log_lines('DEBUG_DROP')
+      print('--- %d restarts, %d state drops in the server log' % (
+          len(restarts), len(drops)))
+      for line in restarts[:40]:
+        print('  ' + line)
+      for line in drops[:40]:
+        print('  ' + line)
+
+    outcomes = []
     for attempt in range(5):
       self.RunBazel(['clean', '--expunge'])
       exit_code, _, stderr = self.RunBazel(
@@ -2096,6 +2152,9 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
           allow_failure=True,
       )
       stderr = '\n'.join(stderr)
+      # DEBUG ONLY: all attempts are run so that a single CI run yields as many
+      # samples as possible.
+      dump_diagnostics(attempt, exit_code, stderr)
       # An interrupted fetch must never corrupt the repo, in particular not
       # lose or truncate the native copies of prefetched files.
       self.assertEqual(exit_code, 0, stderr)
@@ -2111,9 +2170,8 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
           'poison attempt %d: interrupted=%s refetched=%s'
           % (attempt, interrupted, refetched)
       )
-      if interrupted and not refetched:
-        break
-    else:
+      outcomes.append(interrupted and not refetched)
+    if not any(outcomes):
       self.fail(
           'the cached fetch of my_repo was never both interrupted by a'
           ' memory-pressure compute state drop and served from the cache'

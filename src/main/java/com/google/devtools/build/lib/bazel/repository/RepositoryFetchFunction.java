@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -88,6 +89,10 @@ import net.starlark.java.eval.SymbolGenerator;
 
 /** A {@link SkyFunction} that fetches the given repository. */
 public final class RepositoryFetchFunction implements SkyFunction {
+
+  // DEBUG ONLY: ground truth for testMemoryPressureRestartDuringCachedFetch, which can otherwise
+  // only observe restarts through the (transient) progress bar.
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final BlazeDirectories directories;
   private final LocalRepoContentsCache repoContentsCache;
@@ -196,6 +201,9 @@ public final class RepositoryFetchFunction implements SkyFunction {
           // This can only happen if the state object was invalidated due to memory pressure, in
           // which case we can simply reattempt the fetch. Show a message and continue into the next
           // `while` iteration.
+          logger.atInfo().log(
+              "DEBUG_RESTART fetch of %s interrupted due to memory pressure; restarting.",
+              repositoryName);
           env.getListener()
               .post(
                   RepositoryFetchProgress.ongoing(

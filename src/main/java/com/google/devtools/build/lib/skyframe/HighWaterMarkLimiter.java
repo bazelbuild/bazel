@@ -96,6 +96,9 @@ public final class HighWaterMarkLimiter {
           actual, threshold, remainingStat);
     }
 
+    // DEBUG ONLY: unlike the rate-limited log statements above, this records every single drop.
+    logger.atInfo().log("DEBUG_DROP dropping temporary state (fullGc=%s)", event.wasFullGc());
+
     // These caches trade temporary memory for CPU savings. Therefore if we're under memory
     // pressure, clearing them is definitely a good idea.
     skyframeExecutor.dropUnnecessaryTemporarySkyframeState();
