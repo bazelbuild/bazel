@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnInputs;
@@ -55,8 +56,7 @@ public final class SpawnBuilder {
   @Nullable private Set<? extends ActionInput> mandatoryOutputs;
   private final NestedSetBuilder<ActionInput> tools = NestedSetBuilder.stableOrder();
 
-  private ResourceSet resourceSet = ResourceSet.ZERO;
-  @Nullable private SimpleSpawn.LocalResourcesSupplier localResourcesSupplier;
+  private ResourceSetOrBuilder localResources = ResourceSet.ZERO;
   private PathMapper pathMapper = PathMapper.NOOP;
   private boolean builtForToolConfiguration;
 
@@ -75,19 +75,6 @@ public final class SpawnBuilder {
             platform,
             execProperties,
             builtForToolConfiguration);
-    if (localResourcesSupplier != null) {
-      return new SimpleSpawn(
-          owner,
-          ImmutableList.copyOf(args),
-          ImmutableMap.copyOf(environment),
-          ImmutableMap.copyOf(executionInfo),
-          SpawnInputs.of(inputs.build()),
-          tools.build(),
-          ImmutableSet.copyOf(outputs),
-          mandatoryOutputs,
-          localResourcesSupplier,
-          pathMapper);
-    }
     return new SimpleSpawn(
         owner,
         ImmutableList.copyOf(args),
@@ -97,7 +84,7 @@ public final class SpawnBuilder {
         tools.build(),
         ImmutableSet.copyOf(outputs),
         mandatoryOutputs,
-        resourceSet,
+        localResources,
         pathMapper);
   }
 
@@ -257,15 +244,8 @@ public final class SpawnBuilder {
   }
 
   @CanIgnoreReturnValue
-  public SpawnBuilder withLocalResources(ResourceSet resourceSet) {
-    this.resourceSet = resourceSet;
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public SpawnBuilder withLocalResourcesSupplier(
-      SimpleSpawn.LocalResourcesSupplier localResourcesSupplier) {
-    this.localResourcesSupplier = localResourcesSupplier;
+  public SpawnBuilder withLocalResources(ResourceSetOrBuilder localResources) {
+    this.localResources = localResources;
     return this;
   }
 
