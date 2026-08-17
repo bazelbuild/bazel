@@ -2136,8 +2136,15 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
       # The drop budget is consumed by whichever fetch allocates first, so any
       # unrelated repo fetched by the build below can use it up before the fetch
       # of my_repo even starts. On Windows, test_base registers a Python
-      # toolchain from rules_python, whose archive extraction reliably does so.
-      self.RunBazel(['fetch', '--repo=@@rules_python+'], allow_failure=True)
+      # toolchain from rules_python, whose fetch reliably does so. Fetch it
+      # without a remote cache so that it ends up on disk: a fetch served from
+      # the remote repo contents cache only injects the repo into the memory of
+      # the server it runs in, which is not the one the build below uses.
+      warmup_exit_code, _, _ = self.RunBazel(
+          ['fetch', '--repo=@@rules_python+', '--remote_cache='],
+          allow_failure=True,
+      )
+      print('warmup fetch exit code: %d' % warmup_exit_code)
       exit_code, _, stderr = self.RunBazel(
           [
               # A small heap makes minor GC events frequent under allocation
