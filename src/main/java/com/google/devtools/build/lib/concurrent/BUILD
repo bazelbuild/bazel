@@ -19,6 +19,7 @@ java_library(
     srcs = glob(
         ["*.java"],
         exclude = [
+            "CancellableTask.java",
             "SettableFutureKeyedValue.java",
             "TaskDeduplicator.java",
             "ThreadSafety.java",
@@ -32,6 +33,12 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
+)
+
+java_library(
+    name = "cancellable_task",
+    srcs = ["CancellableTask.java"],
+    deps = ["//third_party:jsr305"],
 )
 
 java_library(

@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_AC
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.createTreeArtifactWithGeneratingAction;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -979,6 +980,64 @@ public abstract class ActionInputPrefetcherTestBase {
     assertThat(downloadThatNeverFinishes.isCancelled()).isTrue();
     assertThat(artifact.getPath().exists()).isFalse();
     assertThat(tempPathGenerator.getTempDir().getDirectoryEntries()).isEmpty();
+  }
+
+  @Test
+  public void prefetchFiles_cancelDuringFinalization_waitsForDestinationWrite() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Artifact artifact = createRemoteArtifact("file", "hello world", metadata, cas);
+    SettableFuture<Void> download = SettableFuture.create();
+    AbstractActionInputPrefetcher prefetcher = spy(createPrefetcher(cas));
+    mockDownload(prefetcher, cas, () -> download);
+
+    Semaphore finalizationStarted = new Semaphore(0);
+    Semaphore finalizationMayContinue = new Semaphore(0);
+    doAnswer(
+            invocation -> {
+              PathFragment source = invocation.getArgument(0);
+              PathFragment target = invocation.getArgument(1);
+              if (source.startsWith(tempPathGenerator.getTempDir().asFragment())
+                  && target.equals(artifact.getPath().asFragment())) {
+                finalizationStarted.release();
+                finalizationMayContinue.acquireUninterruptibly();
+              }
+              return invocation.callRealMethod();
+            })
+        .when(fs)
+        .renameTo(any(), any());
+
+    ListenableFuture<Void> prefetch =
+        prefetcher.prefetchFilesInterruptibly(
+            action, ImmutableList.of(artifact), metadata::get, Priority.MEDIUM, Reason.INPUTS);
+    Thread completion = new Thread(() -> download.set(null));
+    completion.start();
+    assertThat(finalizationStarted.tryAcquire(10, SECONDS)).isTrue();
+
+    Semaphore cancellationStarted = new Semaphore(0);
+    Semaphore cancellationReturned = new Semaphore(0);
+    Thread cancellation =
+        new Thread(
+            () -> {
+              cancellationStarted.release();
+              prefetch.cancel(/* mayInterruptIfRunning= */ true);
+              cancellationReturned.release();
+            });
+    cancellation.start();
+    assertThat(cancellationStarted.tryAcquire(10, SECONDS)).isTrue();
+    // Cancellation must not expose a destination write that is still in progress to a caller that
+    // may immediately replace the destination tree.
+    try {
+      assertThat(cancellationReturned.tryAcquire(100, MILLISECONDS)).isFalse();
+    } finally {
+      finalizationMayContinue.release();
+    }
+    assertThat(cancellationReturned.tryAcquire(10, SECONDS)).isTrue();
+    completion.join();
+    cancellation.join();
+
+    assertThat(prefetch.isCancelled()).isTrue();
+    assertThat(FileSystemUtils.readContent(artifact.getPath(), UTF_8)).isEqualTo("hello world");
   }
 
   @Test
