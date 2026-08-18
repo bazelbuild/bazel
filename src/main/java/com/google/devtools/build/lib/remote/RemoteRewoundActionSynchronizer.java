@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
@@ -43,12 +46,19 @@ import javax.annotation.Nullable;
 final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer {
   /** A task with a cancellation callback. */
   public interface Cancellable {
+    /**
+     * Cancels the task and only returns once it no longer accesses the outputs of the action it
+     * belongs to.
+     */
     void cancel() throws InterruptedException;
   }
 
   private final RemoteActionInputFetcher actionInputFetcher;
-  private final ConcurrentHashMap<ActionExecutionMetadata, Cancellable> outputUploadTasks =
-      new ConcurrentHashMap<>();
+
+  // An action generally has at most one such task in flight, but nothing prevents an action from
+  // executing multiple spawns whose outputs are uploaded concurrently.
+  private final ConcurrentHashMap<ActionExecutionMetadata, ImmutableList<Cancellable>>
+      outputUploadTasks = new ConcurrentHashMap<>();
 
   // A single coarse lock is used to synchronize rewound actions (writers) and both rewound and
   // non-rewound actions (readers) as long as no rewound action has attempted to prepare for its
@@ -127,6 +137,11 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
    * The proof would not go through at (*) if fineLocks were replaced by a Striped lock structure
      with a fixed number of locks. In fact, this gives rise to a deadlock if the number of stripes
      is at least 2, but low enough that distinct generating actions hash to the same stripe.
+   * Reordering the acquisitions so that a rewound action takes the read locks of its inputs
+     before its own write lock would break the proof, and not just formally: two rewound actions
+     R_1, R_2 and two actions C_1, C_2 that each consume outputs of both R_1 and R_2 deadlock if
+     C_1 holds R(R_1) and waits for R(R_2) while C_2 holds R(R_2) and waits for R(R_1), with R_1
+     and R_2 waiting for their own write locks. No dependency cycle is involved.
    */
 
   @Override
@@ -173,7 +188,7 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
       }
     }
 
-    var writeLock = fineLocks.get(outputKeyFor(action)).writeLock();
+    var writeLock = checkNotNull(fineLocks).get(outputKeyFor(action)).writeLock();
     writeLock.lockInterruptibly();
     prepareOutputsForRewinding(action);
     return writeLock::unlock;
@@ -184,9 +199,11 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
    * their prefetching state.
    */
   private void prepareOutputsForRewinding(Action action) throws InterruptedException {
-    Cancellable task = outputUploadTasks.remove(action);
-    if (task != null) {
-      task.cancel();
+    ImmutableList<Cancellable> tasks = outputUploadTasks.remove(action);
+    if (tasks != null) {
+      for (Cancellable task : tasks) {
+        task.cancel();
+      }
     }
     actionInputFetcher.handleRewoundActionOutputs(action.getOutputs());
   }
@@ -218,17 +235,29 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
   /**
    * Registers a cancellation callback for an upload of action outputs that may still be running
    * after the action has completed.
+   *
+   * <p>Must be paired with a call to {@link #unregisterOutputUploadTask} once the upload has
+   * completed so that the task doesn't remain registered (and thus retained) for the rest of the
+   * build.
    */
   public void registerOutputUploadTask(ActionExecutionMetadata action, Cancellable task) {
-    // We don't expect to have multiple output upload tasks for the same action registered at the
-    // same time.
+    // merge is atomic with respect to the removal of the entry in prepareOutputsForRewinding.
     outputUploadTasks.merge(
         action,
-        task,
-        (oldTask, newTask) -> {
-          throw new IllegalStateException(
-              "Attempted to register multiple output upload tasks for %s: %s and %s"
-                  .formatted(action, oldTask, newTask));
+        ImmutableList.of(task),
+        (oldTasks, newTasks) ->
+            ImmutableList.<Cancellable>builder().addAll(oldTasks).addAll(newTasks).build());
+  }
+
+  /** Unregisters a task previously registered via {@link #registerOutputUploadTask}. */
+  public void unregisterOutputUploadTask(ActionExecutionMetadata action, Cancellable task) {
+    outputUploadTasks.computeIfPresent(
+        action,
+        (unusedKey, tasks) -> {
+          // Identity comparison: a task is only ever registered once, and a task registered by a
+          // re-execution of the action must not be unregistered by its predecessor.
+          var remainingTasks = tasks.stream().filter(t -> t != task).collect(toImmutableList());
+          return remainingTasks.isEmpty() ? null : remainingTasks;
         });
   }
 
@@ -240,21 +269,24 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
       // Common case for builds without any rewound actions: acquire the single lock that is never
       // acquired by a writer.
       localCoarseLock.readLock().lockInterruptibly();
-    }
-    // Read the fine locks after acquiring the coarse lock to allow the fine locks to be inflated
-    // lazily.
-    var localFineLocks = fineLocks;
-    if (localFineLocks == null) {
-      // Continuation of the common case for builds without any rewound actions: the fine locks
-      // have not been inflated.
-      return localCoarseLock.readLock()::unlock;
-    }
-
-    // At this point, there has been at least one rewound action that has inflated the fine locks.
-    // We need to switch to it.
-    if (localCoarseLock != null) {
+      // Read the fine locks after acquiring the coarse lock to allow the fine locks to be inflated
+      // lazily.
+      if (fineLocks == null) {
+        // Continuation of the common case for builds without any rewound actions: the fine locks
+        // have not been inflated.
+        return localCoarseLock.readLock()::unlock;
+      }
+      // At this point, there has been at least one rewound action that has inflated the fine
+      // locks. We need to switch to them.
       localCoarseLock.readLock().unlock();
     }
+    // A null coarseLock implies a non-null fineLocks as the latter is assigned before the former
+    // is cleared, with both fields being volatile.
+    var localFineLocks = checkNotNull(fineLocks);
+    // getAll deduplicates the keys, which is required for correctness and not just an
+    // optimization: inputs commonly share a generating action, and a StampedLock is not reentrant,
+    // so acquiring the same read lock twice on this thread would block indefinitely if a writer is
+    // queued up in between.
     var allReadWriteLocks =
         localFineLocks.getAll(inputKeysFor(artifacts, metadataProvider)).values();
     var locksToUnlockBuilder =

@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_AC
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.createTreeArtifactWithGeneratingAction;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -763,6 +764,49 @@ public abstract class ActionInputPrefetcherTestBase {
   }
 
   @Test
+  public void prefetchFiles_cancelWhileSettingTreePermissions_waitsForChmod() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
+        createRemoteTreeArtifact(
+            "dir",
+            /* localContentMap= */ ImmutableMap.of(),
+            /* remoteContentMap= */ ImmutableMap.of("subdir/file", "content"),
+            metadata,
+            cas);
+    SpecialArtifact tree = treeAndChildren.getFirst();
+    Artifact child = Iterables.getOnlyElement(treeAndChildren.getSecond());
+    SettableFuture<Void> download = SettableFuture.create();
+    AbstractActionInputPrefetcher prefetcher = spy(createPrefetcher(cas));
+    mockDownload(prefetcher, cas, () -> download);
+
+    Semaphore chmodStarted = new Semaphore(0);
+    Semaphore chmodMayContinue = new Semaphore(0);
+    doAnswer(
+            invocation -> {
+              chmodStarted.release();
+              chmodMayContinue.acquireUninterruptibly();
+              return invocation.callRealMethod();
+            })
+        .when(fs)
+        .chmod(eq(tree.getPath().asFragment()), eq(0555));
+
+    ListenableFuture<Void> prefetch =
+        prefetcher.prefetchFilesInterruptibly(
+            action, ImmutableList.of(child), metadata::get, Priority.MEDIUM, Reason.INPUTS);
+    Thread completion = new Thread(() -> download.set(null));
+    completion.start();
+    assertThat(chmodStarted.tryAcquire(10, SECONDS)).isTrue();
+
+    // Cancellation must not let a rewound action replace the tree while its permissions are still
+    // being restored.
+    assertCancellationWaitsFor(prefetch, chmodMayContinue);
+
+    completion.join();
+    assertTreeReadableNonWritableAndExecutable(tree.getPath());
+  }
+
+  @Test
   public void prefetchFiles_treeFiles_concurrentFinalizations_doNotRacePermissions()
       throws Exception {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
@@ -982,6 +1026,46 @@ public abstract class ActionInputPrefetcherTestBase {
   }
 
   @Test
+  public void prefetchFiles_cancelDuringFinalization_waitsForDestinationWrite() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Artifact artifact = createRemoteArtifact("file", "hello world", metadata, cas);
+    SettableFuture<Void> download = SettableFuture.create();
+    AbstractActionInputPrefetcher prefetcher = spy(createPrefetcher(cas));
+    mockDownload(prefetcher, cas, () -> download);
+
+    Semaphore finalizationStarted = new Semaphore(0);
+    Semaphore finalizationMayContinue = new Semaphore(0);
+    doAnswer(
+            invocation -> {
+              PathFragment source = invocation.getArgument(0);
+              PathFragment target = invocation.getArgument(1);
+              if (source.startsWith(tempPathGenerator.getTempDir().asFragment())
+                  && target.equals(artifact.getPath().asFragment())) {
+                finalizationStarted.release();
+                finalizationMayContinue.acquireUninterruptibly();
+              }
+              return invocation.callRealMethod();
+            })
+        .when(fs)
+        .renameTo(any(), any());
+
+    ListenableFuture<Void> prefetch =
+        prefetcher.prefetchFilesInterruptibly(
+            action, ImmutableList.of(artifact), metadata::get, Priority.MEDIUM, Reason.INPUTS);
+    Thread completion = new Thread(() -> download.set(null));
+    completion.start();
+    assertThat(finalizationStarted.tryAcquire(10, SECONDS)).isTrue();
+
+    // Cancellation must not expose a destination write that is still in progress to a caller that
+    // may immediately replace the destination tree.
+    assertCancellationWaitsFor(prefetch, finalizationMayContinue);
+
+    completion.join();
+    assertThat(FileSystemUtils.readContent(artifact.getPath(), UTF_8)).isEqualTo("hello world");
+  }
+
+  @Test
   public void prefetchFiles_multipleThreads_downloadIsNotCancelledByOtherThreads()
       throws Exception {
     // Test multiple threads can share downloads, but do not cancel each other when interrupted
@@ -1177,6 +1261,31 @@ public abstract class ActionInputPrefetcherTestBase {
             })
         .when(prefetcher)
         .doDownloadFile(any(), any(), any(), any(), any(), any(), any());
+  }
+
+  /**
+   * Cancels {@code future} on a separate thread and asserts that the cancellation only returns
+   * after {@code mayContinue} has been released, i.e., that it waits for the operation blocked on
+   * that semaphore.
+   */
+  private static void assertCancellationWaitsFor(
+      ListenableFuture<Void> future, Semaphore mayContinue) throws Exception {
+    Semaphore cancellationReturned = new Semaphore(0);
+    Thread cancellation =
+        new Thread(
+            () -> {
+              future.cancel(/* mayInterruptIfRunning= */ true);
+              cancellationReturned.release();
+            });
+    cancellation.start();
+    try {
+      assertThat(cancellationReturned.tryAcquire(100, MILLISECONDS)).isFalse();
+    } finally {
+      mayContinue.release();
+    }
+    assertThat(cancellationReturned.tryAcquire(10, SECONDS)).isTrue();
+    cancellation.join();
+    assertThat(future.isCancelled()).isTrue();
   }
 
   private void assertReadableNonWritableAndExecutable(Path path) throws IOException {

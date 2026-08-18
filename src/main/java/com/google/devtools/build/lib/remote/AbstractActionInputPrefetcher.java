@@ -31,7 +31,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.SetMultimap;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.Striped;
 import com.google.devtools.build.lib.actions.Action;
@@ -49,6 +48,7 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
+import com.google.devtools.build.lib.concurrent.CancellableTask;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -387,28 +387,27 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       mergedTransfer = mergeBulkTransfer(transfers);
     }
 
-    return Futures.transformAsync(
-        mergedTransfer,
-        unused -> {
-          try {
-            // Match the directory output permissions set by SkyframeActionExecutor#checkOutputs.
-            for (var entry : directoriesByTreeRoot.asMap().entrySet()) {
-              Lock lock = treeArtifactLocks.get(entry.getKey().asFragment()).writeLock();
-              lock.lock();
-              try {
-                for (Path dir : entry.getValue()) {
-                  directoryTracker.setOutputPermissions(dir);
-                }
-              } finally {
-                lock.unlock();
-              }
-            }
-          } catch (IOException e) {
-            return immediateFailedFuture(e);
-          }
-          return immediateVoidFuture();
-        },
-        directExecutor());
+    return toListenableFuture(
+        toCompletable(() -> mergedTransfer, directExecutor())
+            .andThen(awaitableAction(() -> setTreeOutputPermissions(directoriesByTreeRoot))));
+  }
+
+  /**
+   * Matches the directory output permissions set by {@code SkyframeActionExecutor#checkOutputs}.
+   */
+  private void setTreeOutputPermissions(SetMultimap<Path, Path> directoriesByTreeRoot)
+      throws IOException {
+    for (var entry : directoriesByTreeRoot.asMap().entrySet()) {
+      Lock lock = treeArtifactLocks.get(entry.getKey().asFragment()).writeLock();
+      lock.lock();
+      try {
+        for (Path dir : entry.getValue()) {
+          directoryTracker.setOutputPermissions(dir);
+        }
+      } finally {
+        lock.unlock();
+      }
+    }
   }
 
   private ListenableFuture<Void> prefetchFile(
@@ -676,12 +675,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                                 priority,
                                 reason),
                         directExecutor())
-                    .doOnComplete(
-                        () -> {
-                          finalizeDownload(
-                              metadata, tempPath.forHostFileSystem(), finalPath, finalTreeRoot);
-                          alreadyDeleted.set(true);
-                        }));
+                    .andThen(
+                        awaitableAction(
+                            () -> {
+                              finalizeDownload(
+                                  metadata, tempPath.forHostFileSystem(), finalPath, finalTreeRoot);
+                              alreadyDeleted.set(true);
+                            })));
 
     return downloadCache.execute(
         finalPath,
@@ -790,7 +790,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     Path linkPath = symlink.linkPath().forHostFileSystem();
     return downloadCache.execute(
         linkPath,
-        Completable.defer(
+        awaitableAction(
             () -> {
               if (!symlink.linkPath().asFragment().startsWith(execRoot.asFragment())) {
                 // If the symlink is a source file in an external repo, its parent directory may not
@@ -801,9 +801,28 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               // whose root directory is created before the action runs.
               linkPath.delete();
               linkPath.createSymbolicLink(symlink.targetPath());
-              return Completable.complete();
             }),
         forceRefetch(linkPath));
+  }
+
+  /**
+   * Runs {@code action} synchronously, making disposal wait for an action that has already started.
+   *
+   * <p>This is used for file-system mutations after an asynchronous download. Disposing an ordinary
+   * completion callback can return while the callback is still running on the thread that completed
+   * the download. The caller may then replace the output tree while that callback is still writing
+   * to it. This stage instead makes disposal either prevent the action from starting or wait until
+   * it has finished.
+   */
+  private static Completable awaitableAction(CancellableTask.Task<IOException> action) {
+    return Completable.create(
+        emitter -> {
+          var task = new CancellableTask<>(action);
+          emitter.setCancellable(() -> task.cancelAndAwaitUninterruptibly(false));
+          if (task.runIfNotCancelled()) {
+            emitter.onComplete();
+          }
+        });
   }
 
   /**
