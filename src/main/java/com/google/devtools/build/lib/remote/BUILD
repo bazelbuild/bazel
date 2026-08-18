@@ -173,6 +173,14 @@ java_library(
 )
 
 java_library(
+    name = "remote_external_overlay_file_system",
+    srcs = ["RemoteExternalOverlayFileSystem.java"],
+    deps = [
+        ":subtree_materializer",
+    ],
+)
+
+java_library(
     name = "ExecutionStatusException",
     srcs = ["ExecutionStatusException.java"],
     deps = [
