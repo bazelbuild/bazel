@@ -125,6 +125,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.channels.ClosedChannelException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -164,14 +165,16 @@ public final class RemoteModule extends BlazeModule {
             String target,
             String proxy,
             AuthAndTLSOptions options,
-            List<ClientInterceptor> interceptors)
+            List<ClientInterceptor> interceptors,
+            Map<String, ?> serviceConfig)
             throws IOException {
           return GoogleAuthUtils.newChannel(
               executorService,
               target,
               proxy,
               options,
-              interceptors.isEmpty() ? null : interceptors);
+              interceptors.isEmpty() ? null : interceptors,
+              serviceConfig);
         }
       };
 
@@ -622,6 +625,16 @@ public final class RemoteModule extends BlazeModule {
             retryScheduler,
             circuitBreaker);
 
+    ImmutableMap<String, ?> remoteGrpcServiceConfig;
+    try {
+      remoteGrpcServiceConfig =
+          RemoteGrpcServiceConfig.create(remoteOptions, env.getWorkingDirectory());
+    } catch (IOException e) {
+      throw createOptionsExitException(
+          "Invalid --remote_grpc_service_config: " + e.getMessage(),
+          FailureDetails.RemoteOptions.Code.REMOTE_GRPC_SERVICE_CONFIG_INVALID);
+    }
+
     if (!Strings.isNullOrEmpty(remoteOptions.remoteOutputService)) {
       var bazelOutputServiceChannel =
           createChannel(
@@ -631,6 +644,7 @@ public final class RemoteModule extends BlazeModule {
               Options.getDefaults(AuthAndTLSOptions.class),
               null,
               null,
+              remoteGrpcServiceConfig,
               channelFactory,
               remoteOptions.remoteOutputService,
               null,
@@ -691,7 +705,6 @@ public final class RemoteModule extends BlazeModule {
             invocationId,
             remoteOptions.remoteInstanceName,
             callCredentials,
-            remoteOptions.remoteTimeout.toSeconds(),
             retrier);
 
     ReferenceCountedChannel execChannel = null;
@@ -715,6 +728,7 @@ public final class RemoteModule extends BlazeModule {
                   authAndTlsOptions,
                   TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions),
                   loggingInterceptor,
+                  remoteGrpcServiceConfig,
                   channelFactory,
                   remoteOptions.remoteExecutor,
                   remoteOptions.remoteProxy,
@@ -734,6 +748,7 @@ public final class RemoteModule extends BlazeModule {
                   authAndTlsOptions,
                   TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions),
                   loggingInterceptor,
+                  remoteGrpcServiceConfig,
                   channelFactory,
                   remoteOptions.remoteExecutor,
                   remoteOptions.remoteProxy,
@@ -755,6 +770,7 @@ public final class RemoteModule extends BlazeModule {
                 authAndTlsOptions,
                 TracingMetadataUtils.newCacheHeadersInterceptor(remoteOptions),
                 loggingInterceptor,
+                remoteGrpcServiceConfig,
                 channelFactory,
                 remoteOptions.remoteCache,
                 remoteOptions.remoteProxy,
@@ -870,6 +886,7 @@ public final class RemoteModule extends BlazeModule {
                 authAndTlsOptions,
                 /* headersInterceptor= */ null,
                 loggingInterceptor,
+                remoteGrpcServiceConfig,
                 channelFactory,
                 remoteOptions.remoteDownloader,
                 remoteOptions.remoteProxy,
@@ -908,6 +925,7 @@ public final class RemoteModule extends BlazeModule {
       AuthAndTLSOptions authAndTlsOptions,
       @Nullable ClientInterceptor headersInterceptor,
       @Nullable ClientInterceptor loggingInterceptor,
+      Map<String, ?> serviceConfig,
       ChannelFactory channelFactory,
       String target,
       String proxy,
@@ -932,6 +950,7 @@ public final class RemoteModule extends BlazeModule {
                 target,
                 proxy,
                 remoteOptions,
+                serviceConfig,
                 authAndTlsOptions,
                 interceptors.build(),
                 maxConcurrencyPerConnection,
