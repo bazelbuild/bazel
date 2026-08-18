@@ -82,6 +82,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
+import com.google.devtools.build.lib.concurrent.CancellableTask;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -151,10 +152,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -1809,33 +1811,103 @@ public class RemoteExecutionService {
 
     if (remoteOptions.getRemoteCacheAsync()
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
-      var uploadDone = new CountDownLatch(1);
-      var future =
-          backgroundTaskExecutor.submit(
+      new OutputUploadTask(
               () -> {
                 try {
                   doUploadOutputs(action, spawnResult, onUploadComplete);
                 } catch (ExecException e) {
                   reportUploadError(e);
-                } catch (InterruptedException ignored) {
-                  // ThreadPerTaskExecutor does not care about interrupt status.
-                } finally {
-                  uploadDone.countDown();
                 }
-              });
-
-      if (outputService instanceof RemoteOutputService remoteOutputService
-          && remoteOutputService.getRewoundActionSynchronizer()
-              instanceof RemoteRewoundActionSynchronizer remoteRewoundActionSynchronizer) {
-        remoteRewoundActionSynchronizer.registerOutputUploadTask(
-            action.getRemoteActionExecutionContext().getSpawnOwner(),
-            () -> {
-              future.cancel(true);
-              uploadDone.await();
-            });
-      }
+              },
+              onUploadComplete,
+              getRewoundActionSynchronizer(),
+              action.getRemoteActionExecutionContext().getSpawnOwner())
+          .start(backgroundTaskExecutor);
     } else {
       doUploadOutputs(action, spawnResult, onUploadComplete);
+    }
+  }
+
+  @Nullable
+  private RemoteRewoundActionSynchronizer getRewoundActionSynchronizer() {
+    if (outputService instanceof RemoteOutputService remoteOutputService
+        && remoteOutputService.getRewoundActionSynchronizer()
+            instanceof RemoteRewoundActionSynchronizer rewoundActionSynchronizer) {
+      return rewoundActionSynchronizer;
+    }
+    return null;
+  }
+
+  /**
+   * A cancellable background upload of an action's outputs.
+   *
+   * <p>Registers itself with the {@link RemoteRewoundActionSynchronizer}, if there is one, before
+   * the upload starts and unregisters itself when it is done, so that a rewinding of the action
+   * waits for uploads that are still in flight.
+   *
+   * <p>Ensures that the completion callback runs exactly once and that {@link #cancel} only returns
+   * once the upload no longer accesses the action's outputs.
+   */
+  private static final class OutputUploadTask
+      implements RemoteRewoundActionSynchronizer.Cancellable {
+    private final CancellableTask<InterruptedException> upload;
+    private final Runnable onUploadComplete;
+    @Nullable private final RemoteRewoundActionSynchronizer rewoundActionSynchronizer;
+    private final ActionExecutionMetadata spawnOwner;
+
+    OutputUploadTask(
+        CancellableTask.Task<InterruptedException> upload,
+        Runnable onUploadComplete,
+        @Nullable RemoteRewoundActionSynchronizer rewoundActionSynchronizer,
+        ActionExecutionMetadata spawnOwner) {
+      this.upload = new CancellableTask<>(upload);
+      this.onUploadComplete = onUploadComplete;
+      this.rewoundActionSynchronizer = rewoundActionSynchronizer;
+      this.spawnOwner = spawnOwner;
+    }
+
+    /** Registers the task for cancellation and starts the upload on the given executor. */
+    void start(Executor executor) {
+      // Register before starting the upload so that it can't unregister itself before it has been
+      // registered.
+      if (rewoundActionSynchronizer != null) {
+        rewoundActionSynchronizer.registerOutputUploadTask(spawnOwner, this);
+      }
+      try {
+        // Executes rather than submits the upload: the body of a task submitted to an
+        // ExecutorService is skipped entirely if its future is cancelled before the body starts,
+        // which is why cancellation goes through the task itself instead of its future.
+        executor.execute(this::run);
+      } catch (RejectedExecutionException e) {
+        // The upload will never run, so it must not stay registered for the rest of the build.
+        unregister();
+        throw e;
+      }
+    }
+
+    private void run() {
+      try {
+        var unused = upload.runIfNotCancelled();
+      } catch (InterruptedException ignored) {
+        // ThreadPerTaskExecutor does not care about interrupt status.
+      } finally {
+        unregister();
+      }
+    }
+
+    private void unregister() {
+      if (rewoundActionSynchronizer != null) {
+        rewoundActionSynchronizer.unregisterOutputUploadTask(spawnOwner, this);
+      }
+    }
+
+    @Override
+    public void cancel() throws InterruptedException {
+      if (upload.cancelAndAwait(/* mayInterruptIfRunning= */ true)) {
+        // The upload will never run, so run the completion callback on its behalf. It is otherwise
+        // run by doUploadOutputs, including when the upload is interrupted.
+        onUploadComplete.run();
+      }
     }
   }
 
