@@ -20,6 +20,7 @@ import com.google.common.collect.Interners;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -238,6 +239,18 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
 
   public boolean isExternal() {
     return rootType == RootType.EXTERNAL_SOURCE || rootType == RootType.SIBLING_EXTERNAL_OUTPUT;
+  }
+
+  /**
+   * Returns the repository whose sources this root contains.
+   *
+   * <p>The root has to be an {@linkplain RootType#EXTERNAL_SOURCE external source root}, which is
+   * always $OUTPUT_BASE/external/&lt;canonical repository name&gt;.
+   */
+  public RepositoryName getExternalRepositoryName() {
+    Preconditions.checkState(
+        rootType == RootType.EXTERNAL_SOURCE, "not an external source root: %s", this);
+    return RepositoryName.createUnvalidated(root.asPath().getBaseName());
   }
 
   /**

@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.rewinding.LostRemoteRepoFileException;
 import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -53,6 +54,8 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
+import com.google.devtools.build.lib.vfs.RewindingSynchronizer;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -87,7 +90,7 @@ import javax.annotation.Nullable;
  * memory in the {@link RemoteExternalFileSystem}.
  */
 public final class RemoteExternalOverlayFileSystem extends FileSystem
-    implements SubtreeMaterializer {
+    implements SubtreeMaterializer, RewindableRepoFileSystem {
   private final PathFragment externalDirectory;
   private final int externalDirectorySegmentCount;
   private final FileSystem nativeFs;
@@ -99,6 +102,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   // externalFs.
   private final ConcurrentHashMap<String, String> markerFileContents = new ConcurrentHashMap<>();
   private final Set<String> reposWithLostFiles = ConcurrentHashMap.newKeySet();
+  private final RewindingSynchronizer rewindingSynchronizer = new RewindingSynchronizer();
 
   // Per-build information that is set in beforeCommand and cleared in afterCommand.
   @Nullable private CombinedCache cache;
@@ -109,6 +113,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   @Nullable private MemoizingEvaluator evaluator;
   @Nullable private Duration remoteCacheTtl;
   @Nullable private ListeningExecutorService materializationExecutor;
+  // Whether lost repo files can be recovered by rewinding the fetch of the repo containing them.
+  private boolean rewindingEnabled;
 
   public RemoteExternalOverlayFileSystem(PathFragment externalDirectory, FileSystem nativeFs) {
     super(nativeFs.getDigestFunction());
@@ -125,7 +131,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       String buildRequestId,
       String commandId,
       MemoizingEvaluator evaluator,
-      Duration remoteCacheTtl) {
+      Duration remoteCacheTtl,
+      boolean rewindingEnabled) {
     checkState(
         this.cache == null
             && this.inputPrefetcher == null
@@ -142,6 +149,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     this.commandId = commandId;
     this.evaluator = evaluator;
     this.remoteCacheTtl = remoteCacheTtl;
+    this.rewindingEnabled = rewindingEnabled;
+    this.rewindingSynchronizer.reset(rewindingEnabled);
     this.materializationExecutor =
         MoreExecutors.listeningDecorator(
             Executors.newThreadPerTaskExecutor(
@@ -154,6 +163,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       // unconditionally.
       return;
     }
+    rewindingSynchronizer.releaseWriteLocksKeptForRestart();
     this.cache = null;
     this.inputPrefetcher = null;
     this.reporter = null;
@@ -171,7 +181,6 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     materializedRepos.forEach(this::evictInMemoryRepo);
     reposWithLostFiles.forEach(this::evictInMemoryRepo);
     invalidateRepoDirectories(evaluator, reposWithLostFiles);
-    reposWithLostFiles.clear();
     this.evaluator = null;
   }
 
@@ -378,6 +387,43 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     }
   }
 
+  @Override
+  public RewindingSynchronizer getRewindingSynchronizer() {
+    return rewindingSynchronizer;
+  }
+
+  @Override
+  public void markLostRepoFile(RepositoryName repo) {
+    if (markerFileContents.containsKey(repo.getName())) {
+      // The repo contents are served from the remote cache. Make the next cache lookup report a
+      // miss so that rewinding the repo fetch executes the repo rule again locally, which also
+      // uploads the fresh contents to the remote cache and thus repairs the cache entry.
+      reposWithLostFiles.add(repo.getName());
+    }
+    // If the repo has been materialized or refetched in the meantime, rewinding the repo fetch
+    // still recovers the file by re-reading the on-disk state.
+  }
+
+  /**
+   * Returns whether the remote cache has lost files of the given repo since it was last fetched.
+   *
+   * <p>Called by the remote repo contents cache before a lookup so that repos with lost files are
+   * treated as cache misses, which causes them to be refetched and their contents to be uploaded to
+   * the remote cache again.
+   *
+   * <p>Deliberately does not clear the state: a lookup is not a promise that the repo will actually
+   * be fetched, so a repo that reported a cache miss once must keep doing so until its contents
+   * have actually been uploaded anew.
+   */
+  public boolean shouldRefetch(RepositoryName repo) {
+    return reposWithLostFiles.contains(repo.getName());
+  }
+
+  /** Must be called once the given repo's contents have been uploaded to the remote cache. */
+  public void repoContentsUploaded(RepositoryName repo) {
+    reposWithLostFiles.remove(repo.getName());
+  }
+
   /**
    * Materializes the given external repository to the native file system if it hasn't been
    * materialized yet. This method blocks until the materialization is complete.
@@ -387,7 +433,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
    * Bazel or local actions are handled automatically by the file system or {@link
    * AbstractActionInputPrefetcher}.
    */
-  public void ensureMaterialized(RepositoryName repo, ExtendedEventHandler reporter)
+  @Override
+  public void ensureRepoMaterialized(RepositoryName repo, ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
     if (!markerFileContents.containsKey(repo.getName())) {
       // The repo has not been injected into the in-memory file system.
@@ -419,6 +466,34 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     FileSystemUtils.writeContentAsLatin1(
         markerFileSibling, markerFileContents.remove(repo.getName()));
     markerFileSibling.renameTo(markerFile);
+  }
+
+  /**
+   * Records that the given file in a repo has been lost from the remote cache and returns the
+   * exception to fail the read with.
+   */
+  private IOException lostRemoteFile(
+      PathFragment relativePath, Digest digest, BulkTransferException cause) {
+    String repoName = relativePath.getSegment(0);
+    reposWithLostFiles.add(repoName);
+    String message =
+        "%s/%s with digest %s is no longer available in the remote cache"
+            .formatted(externalDirectory.getBaseName(), relativePath, DigestUtil.toString(digest));
+    if (!rewindingEnabled) {
+      // Without rewinding, the repo can only be refetched by a new command, which the transient
+      // failure detail causes to be retried automatically.
+      return new DetailedIOException(
+          message,
+          cause,
+          FailureDetails.Filesystem.Code.REMOTE_FILE_EVICTED,
+          SkyFunctionException.Transience.TRANSIENT);
+    }
+    // The failing Skyframe node can recover the file within this command by rewinding the fetch of
+    // the repo containing it, so tell it which repo that is. The refetch replaces the contents of
+    // that repo while other consumers may be reading them, which they have to take locks for.
+    rewindingSynchronizer.markReplacementsPossible();
+    return new LostRemoteRepoFileException(
+        message, cause, RepositoryName.createUnvalidated(repoName), DigestUtil.toString(digest));
   }
 
   private void prefetch(Iterable<PathFragment> paths) throws IOException, InterruptedException {
@@ -474,10 +549,22 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       root = root.resolveSymbolicLinks();
     }
     collectAndCreateDirectories(root, files, symlinks, new HashSet<>());
-    prefetch(files);
-    // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
-    // target.
-    prefetch(symlinks);
+    try {
+      prefetch(files);
+      // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
+      // target.
+      prefetch(symlinks);
+    } catch (BulkTransferException e) {
+      var lostArtifacts = e.getLostArtifacts(ActionInputHelper::fromPath);
+      if (!lostArtifacts.isEmpty()) {
+        // We don't track the particular lost artifacts since the repo needs to be refetched,
+        // which recovers all of them anyway.
+        var anyLostArtifact = lostArtifacts.byDigest().entries().iterator().next();
+        var relativePath = anyLostArtifact.getValue().getExecPath().relativeTo(externalDirectory);
+        throw lostRemoteFile(relativePath, DigestUtil.fromString(anyLostArtifact.getKey()), e);
+      }
+      throw e;
+    }
   }
 
   private void collectAndCreateDirectories(
@@ -895,14 +982,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
         throw new InterruptedIOException("interrupted while waiting for remote file transfer");
       } catch (BulkTransferException e) {
         if (e.allCausedByCacheNotFoundException()) {
-          reposWithLostFiles.add(relativePath.getSegment(0));
-          throw new DetailedIOException(
-              "%s/%s with digest %s is no longer available in the remote cache"
-                  .formatted(
-                      externalDirectory.getBaseName(), relativePath, DigestUtil.toString(digest)),
-              e,
-              FailureDetails.Filesystem.Code.REMOTE_FILE_EVICTED,
-              SkyFunctionException.Transience.TRANSIENT);
+          throw lostRemoteFile(relativePath, digest, e);
         }
         throw e;
       } catch (ExecutionException e) {

@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Comparators.max;
 import static com.google.common.collect.Comparators.min;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.buildtool.BuildRequestOptions.MAX_JOBS;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -25,6 +26,7 @@ import static java.lang.Math.min;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
@@ -61,6 +63,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -75,6 +79,7 @@ import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit.ActionCachedContext;
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SpawnActionExecutionException;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -87,6 +92,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -114,6 +120,7 @@ import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.RewindingSynchronizer;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.XattrProvider;
@@ -123,6 +130,7 @@ import com.google.devtools.common.options.OptionsProvider;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -241,6 +249,8 @@ public final class SkyframeActionExecutor {
   @Nullable private ActionCompletedReceiver completionReceiver;
 
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef;
+  // Null if the file system doesn't serve repository contents that can be replaced during a build.
+  @Nullable private final RewindingSynchronizer repoRewindingSynchronizer;
   private OutputService outputService;
   private boolean finalizeActions;
   private boolean rewindingEnabled;
@@ -274,7 +284,8 @@ public final class SkyframeActionExecutor {
       Supplier<ImmutableList<Root>> sourceRootSupplier,
       SyscallCache syscallCache,
       Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory,
-      ExistingActionLookupValuePeeker actionLookupValuePeeker) {
+      ExistingActionLookupValuePeeker actionLookupValuePeeker,
+      @Nullable RewindingSynchronizer repoRewindingSynchronizer) {
     this.actionKeyContext = actionKeyContext;
     this.outputArtifactsSeen = outputArtifactsSeen;
     this.outputArtifactsFromActionCache = outputArtifactsFromActionCache;
@@ -283,6 +294,7 @@ public final class SkyframeActionExecutor {
     this.syscallCache = syscallCache;
     this.threadStateReceiverFactory = threadStateReceiverFactory;
     this.actionLookupValuePeeker = actionLookupValuePeeker;
+    this.repoRewindingSynchronizer = repoRewindingSynchronizer;
   }
 
   /**
@@ -1179,9 +1191,15 @@ public final class SkyframeActionExecutor {
               createOutputDirectories(action);
             }
 
+            // Acquired after the action output locks: a rewound action holds the lock on its
+            // outputs while waiting for its repo read locks, so a consumer of those outputs must
+            // not hold a repo read lock while waiting for that lock.
             try (SilentCloseable innerLock =
-                rewoundActionSynchronizer.enterActionExecution(
-                    action, actionExecutionContext.getInputMetadataProvider())) {
+                    rewoundActionSynchronizer.enterActionExecution(
+                        action, actionExecutionContext.getInputMetadataProvider());
+                SilentCloseable repoReadLocks =
+                    acquireRepoReadLocks(
+                        action, actionExecutionContext.getInputMetadataProvider())) {
               return executeAction(env.getListener(), action);
             }
           }
@@ -1467,6 +1485,42 @@ public final class SkyframeActionExecutor {
           action.resetDiscoveredInputs();
         }
         return ActionStepOrResult.of(value);
+      }
+    }
+  }
+
+  /**
+   * Acquires read locks for the external repositories containing source inputs of the given action,
+   * so that a concurrent refetch can't replace their contents while the action reads them.
+   */
+  private SilentCloseable acquireRepoReadLocks(
+      Action action, InputMetadataProvider metadataProvider) throws InterruptedException {
+    if (repoRewindingSynchronizer == null) {
+      return () -> {};
+    }
+    return repoRewindingSynchronizer.acquireReadLocks(() -> repoKeysFor(action, metadataProvider));
+  }
+
+  private static ImmutableSet<RepositoryName> repoKeysFor(
+      Action action, InputMetadataProvider metadataProvider) {
+    // Roots are interned, so an input's repo takes a single comparison of its root's type and the
+    // names are only looked up once per distinct root.
+    Set<ArtifactRoot> externalSourceRoots = new HashSet<>();
+    collectExternalSourceRoots(action.getInputs().toList(), externalSourceRoots);
+    for (RunfilesTree runfilesTree : metadataProvider.getRunfilesTrees()) {
+      collectExternalSourceRoots(runfilesTree.getArtifacts().toList(), externalSourceRoots);
+    }
+    return externalSourceRoots.stream()
+        .map(ArtifactRoot::getExternalRepositoryName)
+        .collect(toImmutableSet());
+  }
+
+  private static void collectExternalSourceRoots(
+      ImmutableList<Artifact> artifacts, Set<ArtifactRoot> externalSourceRoots) {
+    for (Artifact artifact : artifacts) {
+      ArtifactRoot root = artifact.getRoot();
+      if (root.getRootType() == RootType.EXTERNAL_SOURCE) {
+        externalSourceRoots.add(root);
       }
     }
   }
