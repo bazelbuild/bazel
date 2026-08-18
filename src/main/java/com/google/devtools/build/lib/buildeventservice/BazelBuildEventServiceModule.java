@@ -173,7 +173,8 @@ public class BazelBuildEventServiceModule
         config.besBackend(),
         config.besProxy(),
         config.authAndTLSOptions(),
-        /* interceptors= */ null);
+        /* interceptors= */ null,
+        /* serviceConfig= */ null);
   }
 
   @Override

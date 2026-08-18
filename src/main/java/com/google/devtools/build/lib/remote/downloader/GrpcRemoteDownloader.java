@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.remote.downloader;
 
-
 import build.bazel.remote.asset.v1.FetchBlobRequest;
 import build.bazel.remote.asset.v1.FetchBlobResponse;
 import build.bazel.remote.asset.v1.FetchGrpc;
@@ -57,7 +56,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -311,8 +309,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         .withInterceptors(
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
         .withInterceptors(TracingMetadataUtils.newDownloaderHeadersInterceptor(options))
-        .withCallCredentials(credentials.orElse(null))
-        .withDeadlineAfter(options.remoteTimeout.toSeconds(), TimeUnit.SECONDS);
+        .withCallCredentials(credentials.orElse(null));
   }
 
   private OutputStream newOutputStream(Path destination, Optional<Checksum> checksum)
