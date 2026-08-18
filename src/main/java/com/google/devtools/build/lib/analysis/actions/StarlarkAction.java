@@ -515,7 +515,7 @@ public class StarlarkAction extends SpawnAction {
 
       // This order guarantees that the Starlark action can overwrite any variable in its shadowed
       // action environment with a new value.
-      env.resolve(environment, clientEnv);
+      env.resolve(environment, clientEnv, pathMapper);
       return ImmutableMap.copyOf(environment);
     }
   }

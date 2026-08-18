@@ -406,6 +406,63 @@ EOF
   expect_log '2 remote[^ ]'
 }
 
+function test_path_stripping_env_files() {
+  mkdir pkg
+  cat > pkg/defs.bzl <<'EOF'
+def _copy_via_env_impl(ctx):
+    out = ctx.actions.declare_file(ctx.attr.name + ".out")
+    ctx.actions.run_shell(
+        outputs = [out],
+        inputs = [ctx.file.src],
+        command = 'cat "$SRC_PATH" > "$OUT_PATH"',
+        env = {
+            "SRC_PATH": ctx.file.src,
+            "OUT_PATH": out,
+        },
+        execution_requirements = {"supports-path-mapping": ""},
+        mnemonic = "CopyViaEnv",
+    )
+    return [DefaultInfo(files = depset([out]))]
+
+copy_via_env = rule(
+    implementation = _copy_via_env_impl,
+    attrs = {"src": attr.label(allow_single_file = True)},
+)
+EOF
+  cat > pkg/BUILD <<'EOF'
+load(":defs.bzl", "copy_via_env")
+
+genrule(
+    name = "gen_src",
+    outs = ["src.txt"],
+    cmd = "echo 'Hello, World!' > $@",
+)
+
+copy_via_env(
+    name = "copy",
+    src = ":gen_src",
+)
+EOF
+
+  bazel build -c fastbuild \
+    --experimental_output_paths=strip \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //pkg:copy &> $TEST_log || fail "build failed unexpectedly"
+  expect_not_log 'remote cache hit'
+  assert_contains 'Hello, World!' bazel-bin/pkg/copy.out
+
+  # The genrule does not support path mapping and runs again in the new
+  # configuration, but the CopyViaEnv action gets a remote cache hit since the
+  # mapped path in the SRC_PATH and OUT_PATH env variables is identical across
+  # configurations.
+  bazel build -c opt \
+    --experimental_output_paths=strip \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //pkg:copy &> $TEST_log || fail "build failed unexpectedly"
+  expect_log '1 remote cache hit'
+  assert_contains 'Hello, World!' bazel-bin/pkg/copy.out
+}
+
 function test_path_stripping_disabled_with_tags() {
   mkdir pkg
   cat > pkg/defs.bzl <<'EOF'
