@@ -27,5 +27,13 @@ public final class MemoryOptimizations {
    *
    * <p>Set by BlazeCommandDispatcher at the start of each command.
    */
-  public static final AtomicBoolean doNonDeterministicMemoryOptimizations = new AtomicBoolean(true);
+  public static final AtomicBoolean allowNonDeterministicEfficacy = new AtomicBoolean(true);
+
+  /**
+   * Whether or not Blaze internals should attempt to do memory optimizations that may lead to
+   * non-deterministic serialization.
+   *
+   * <p>Set by RemoteAnalysisCachingModule before the start of each command.
+   */
+  public static final AtomicBoolean allowNonDeterministicSerialization = new AtomicBoolean(true);
 }

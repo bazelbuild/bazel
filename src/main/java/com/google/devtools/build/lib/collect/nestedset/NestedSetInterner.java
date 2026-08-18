@@ -124,8 +124,10 @@ public class NestedSetInterner {
 
   private static boolean enabled() {
     // Since we use bounded caches, the efficacy of nested set interning is non-deterministic.
-    // Therefore we respect what MemoryOptimizations.doNonDeterministicMemoryOptimizations says.
-    return MemoryOptimizations.doNonDeterministicMemoryOptimizations.get();
+    // In addition, interning nested sets may lead to non-deterministic serialization.
+    // Therefore we respect both MemoryOptimizations knobs.
+    return MemoryOptimizations.allowNonDeterministicEfficacy.get()
+        && MemoryOptimizations.allowNonDeterministicSerialization.get();
   }
 
   /** Interns a {@link NestedSet} instance. */

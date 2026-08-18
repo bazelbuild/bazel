@@ -33,7 +33,7 @@ public final class LabelNameDeduper {
   private LabelNameDeduper() {}
 
   static String deduplicateTargetName(String name) {
-    if (!MemoryOptimizations.doNonDeterministicMemoryOptimizations.get()) {
+    if (!MemoryOptimizations.allowNonDeterministicEfficacy.get()) {
       return name;
     }
     int hash = name.hashCode();
