@@ -509,7 +509,7 @@ public class BuildEventStreamer {
       for (NestedSet<?> succ : set.getNonLeaves()) {
         maybeReportArtifactSet(ctx, succ);
       }
-      post(new NamedArtifactGroup(lockedName.getName(), ctx, set));
+      post(new NamedArtifactGroup(lockedName.getName(), ctx.pathResolver(), set));
     }
   }
 

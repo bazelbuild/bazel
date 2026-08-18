@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -58,6 +59,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -73,6 +75,7 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import javax.annotation.Nullable;
 
 /** Runs TestRunnerAction actions. */
 // TODO(bazel-team): add tests for this strategy.
@@ -242,6 +245,42 @@ public class StandaloneTestStrategy extends TestStrategy {
     postTestResult(actionExecutionContext, result);
   }
 
+  /**
+   * Returns {@code testOutputs} with every path on the filesystem of {@code execRoot}.
+   *
+   * <p>The test log and the coverage data are declared outputs of the test action, so they are
+   * resolved through the action filesystem. That filesystem is scoped to the action, while the
+   * paths below are reported in build events, which are uploaded asynchronously and thus outlive
+   * it. See https://github.com/bazelbuild/bazel/issues/24527.
+   */
+  private static ImmutableMultimap<String, Path> onFileSystemOf(
+      ImmutableMultimap<String, Path> testOutputs, Path execRoot) {
+    FileSystem fileSystem = execRoot.getFileSystem();
+    ImmutableMultimap.Builder<String, Path> builder = ImmutableMultimap.builder();
+    testOutputs.forEach((name, path) -> builder.put(name, fileSystem.getPath(path.asFragment())));
+    return builder.build();
+  }
+
+  /**
+   * Returns the metadata of the test log, or null if it is unavailable.
+   *
+   * <p>The test log is a declared output of the test action, so with {@code
+   * --remote_download_minimal} it may not exist on the local filesystem. Its metadata lets the build
+   * event artifact uploader report it without reading it.
+   */
+  @Nullable
+  private static FileArtifactValue getTestLogMetadata(
+      ActionExecutionContext actionExecutionContext, TestRunnerAction action) {
+    try {
+      return actionExecutionContext.getOutputMetadataStore().getOutputMetadata(action.getTestLog());
+    } catch (IOException | InterruptedException e) {
+      if (e instanceof InterruptedException) {
+        Thread.currentThread().interrupt();
+      }
+      return null;
+    }
+  }
+
   private StandaloneProcessedAttemptResult processTestAttempt(
       int attemptId,
       boolean isLastAttempt,
@@ -283,13 +322,21 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     // Add the test log to the output
     TestResultData data = dataBuilder.build();
+    ImmutableMultimap<String, Path> reportedOutputs =
+        onFileSystemOf(testOutputs, actionExecutionContext.getExecRoot());
     actionExecutionContext
         .getEventHandler()
         .post(
             TestAttempt.forExecutedTestResult(
-                action, data, attemptId, testOutputs, result.executionInfo(), isLastAttempt));
+                action,
+                data,
+                attemptId,
+                reportedOutputs,
+                getTestLogMetadata(actionExecutionContext, action),
+                result.executionInfo(),
+                isLastAttempt));
     processTestOutput(actionExecutionContext, data, action.getTestName(), renamedTestLog);
-    return new StandaloneProcessedAttemptResult(data, testOutputs);
+    return new StandaloneProcessedAttemptResult(data, reportedOutputs);
   }
 
   private static Map<String, String> setupEnvironment(
@@ -543,7 +590,12 @@ public class StandaloneTestStrategy extends TestStrategy {
       TestResultData cachedResult,
       ImmutableMultimap<String, Path> testOutputs) {
     return new TestResult(
-        action, cachedResult, testOutputs, /* cached= */ true, execRoot, /* systemFailure= */ null);
+        action,
+        cachedResult,
+        onFileSystemOf(testOutputs, execRoot),
+        /* cached= */ true,
+        execRoot,
+        /* systemFailure= */ null);
   }
 
   @VisibleForTesting

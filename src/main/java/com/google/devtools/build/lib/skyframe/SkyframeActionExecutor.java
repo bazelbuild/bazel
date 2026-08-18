@@ -1952,7 +1952,20 @@ public final class SkyframeActionExecutor {
     }
   }
 
-  private static void reportActionExecution(
+  /**
+   * Returns {@code path} on the filesystem that build events should reference.
+   *
+   * <p>A build event outlives the action it refers to, so it must not hold on to the action
+   * filesystem. That is only possible if the files also exist on the local filesystem, which is not
+   * the case for an output service whose action filesystem takes full control of the output base.
+   */
+  private Path pathForBuildEvent(Path path) {
+    return outputService.actionFileSystemType().supportsLocalActions()
+        ? executorEngine.getExecRoot().getFileSystem().getPath(path.asFragment())
+        : path;
+  }
+
+  private void reportActionExecution(
       ExtendedEventHandler eventHandler,
       Path primaryOutputPath,
       @Nullable FileArtifactValue primaryOutputMetadata,
@@ -1965,10 +1978,10 @@ public final class SkyframeActionExecutor {
     Path stderr = null;
 
     if (outErr.hasRecordedStdout()) {
-      stdout = outErr.getOutputPath();
+      stdout = pathForBuildEvent(outErr.getOutputPath());
     }
     if (outErr.hasRecordedStderr()) {
-      stderr = outErr.getErrorPath();
+      stderr = pathForBuildEvent(outErr.getErrorPath());
     }
     // Collect MetadataLogs and spawn start times/end times from the Action's SpawnResults.
     ImmutableList<SpawnResult> spawnResults =
@@ -1989,7 +2002,7 @@ public final class SkyframeActionExecutor {
             action.getPrimaryOutput().getExecPath(),
             action,
             exception,
-            primaryOutputPath,
+            pathForBuildEvent(primaryOutputPath),
             action.getPrimaryOutput(),
             primaryOutputMetadata,
             stdout,
