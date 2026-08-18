@@ -10,6 +10,7 @@ JDK_VERSIONS = [
     "11",
     "17",
     "21",
+    "25",
 ]
 
 # To avoid accidentally force fetching those dependencies, we put this target in its own package.

@@ -348,6 +348,11 @@ use_repo(
     "remotejdk21_macos",
     "remotejdk21_macos_aarch64",
     "remotejdk21_win",
+    "remotejdk25_linux",
+    "remotejdk25_linux_s390x",
+    "remotejdk25_macos",
+    "remotejdk25_macos_aarch64",
+    "remotejdk25_win",
 )
 
 # =========================================
