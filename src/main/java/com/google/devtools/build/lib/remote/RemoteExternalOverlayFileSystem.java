@@ -339,6 +339,11 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   }
 
   private void prefetch(Iterable<PathFragment> paths) throws IOException, InterruptedException {
+    // These paths may have been prefetched and then deleted again earlier in this invocation, e.g.
+    // by an injection whose fetch was subsequently restarted due to memory pressure. The
+    // prefetcher's download cache would otherwise consider them downloaded already and not even
+    // verify they exist on the local file system.
+    inputPrefetcher.invalidateDownloads(paths);
     var unused =
         getFromFuture(
             inputPrefetcher.prefetchFilesInterruptibly(
