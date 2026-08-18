@@ -764,6 +764,49 @@ public abstract class ActionInputPrefetcherTestBase {
   }
 
   @Test
+  public void prefetchFiles_cancelWhileSettingTreePermissions_waitsForChmod() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
+        createRemoteTreeArtifact(
+            "dir",
+            /* localContentMap= */ ImmutableMap.of(),
+            /* remoteContentMap= */ ImmutableMap.of("subdir/file", "content"),
+            metadata,
+            cas);
+    SpecialArtifact tree = treeAndChildren.getFirst();
+    Artifact child = Iterables.getOnlyElement(treeAndChildren.getSecond());
+    SettableFuture<Void> download = SettableFuture.create();
+    AbstractActionInputPrefetcher prefetcher = spy(createPrefetcher(cas));
+    mockDownload(prefetcher, cas, () -> download);
+
+    Semaphore chmodStarted = new Semaphore(0);
+    Semaphore chmodMayContinue = new Semaphore(0);
+    doAnswer(
+            invocation -> {
+              chmodStarted.release();
+              chmodMayContinue.acquireUninterruptibly();
+              return invocation.callRealMethod();
+            })
+        .when(fs)
+        .chmod(eq(tree.getPath().asFragment()), eq(0555));
+
+    ListenableFuture<Void> prefetch =
+        prefetcher.prefetchFilesInterruptibly(
+            action, ImmutableList.of(child), metadata::get, Priority.MEDIUM, Reason.INPUTS);
+    Thread completion = new Thread(() -> download.set(null));
+    completion.start();
+    assertThat(chmodStarted.tryAcquire(10, SECONDS)).isTrue();
+
+    // Cancellation must not let a rewound action replace the tree while its permissions are still
+    // being restored.
+    assertCancellationWaitsFor(prefetch, chmodMayContinue);
+
+    completion.join();
+    assertTreeReadableNonWritableAndExecutable(tree.getPath());
+  }
+
+  @Test
   public void prefetchFiles_treeFiles_concurrentFinalizations_doNotRacePermissions()
       throws Exception {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
