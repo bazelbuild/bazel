@@ -1,3 +1,4 @@
+load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
@@ -13,6 +14,14 @@ WIN_LINK_OPTS = [
     "-DEFAULTLIB:shell32.lib",  # SHGetKnownFolderPath
     "-DEFAULTLIB:ws2_32.lib",  # grpc
 ]
+
+selects.config_setting_group(
+    name = "windows_clang",
+    match_all = [
+        "//src/conditions:windows",
+        "@rules_cc//cc/compiler:clang",
+    ],
+)
 
 cc_library(
     name = "blaze_util",
@@ -58,6 +67,17 @@ cc_library(
         "//conditions:default": [
             "-lrt",
         ],
+    }) + select({
+        ":windows_clang": [
+            "-ladvapi32",
+            "-lbcrypt",
+            "-lole32",
+            "-lshell32",
+            "-luuid",
+            "-lws2_32",
+            "-municode",
+        ],
+        "//conditions:default": [],
     }),
     deps = [
         "//src/main/cpp/util",

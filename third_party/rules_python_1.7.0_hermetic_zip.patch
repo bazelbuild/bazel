@@ -1,0 +1,51 @@
+diff -ruN a/MODULE.bazel b/MODULE.bazel
+--- a/MODULE.bazel	2026-06-07 09:44:22
++++ b/MODULE.bazel	2026-06-07 09:44:22
+@@ -5,6 +5,7 @@
+ )
+
+ bazel_dep(name = "bazel_features", version = "1.21.0")
++bazel_dep(name = "bazel_lib", version = "3.2.2")
+ bazel_dep(name = "bazel_skylib", version = "1.8.2")
+ bazel_dep(name = "rules_cc", version = "0.1.5")
+ bazel_dep(name = "platforms", version = "0.0.11")
+diff -ruN a/python/private/py_executable.bzl b/python/private/py_executable.bzl
+--- a/python/private/py_executable.bzl	2026-06-07 09:44:22
++++ b/python/private/py_executable.bzl	2026-06-07 09:44:22
+@@ -68,6 +68,7 @@
+
+ _py_builtins = py_internal
+ _EXTERNAL_PATH_PREFIX = "external"
++_COREUTILS_TOOLCHAIN = Label("@bazel_lib//lib:coreutils_toolchain_type")
+ _ZIP_RUNFILES_DIRECTORY_NAME = "runfiles"
+
+ # Non-Google-specific attributes for executables
+@@ -906,15 +907,14 @@
+     else:
+         ctx.actions.write(prelude, "#!/usr/bin/env python3\n")
+
++    coreutils = ctx.toolchains[_COREUTILS_TOOLCHAIN].coreutils_info
+     ctx.actions.run_shell(
+-        command = "cat {prelude} {zip} > {output}".format(
+-            prelude = prelude.path,
+-            zip = zip_file.path,
+-            output = output.path,
+-        ),
++        command = '"$1" cat "$2" "$3" > "$4"',
++        arguments = [coreutils.bin.path, prelude.path, zip_file.path, output.path],
+         inputs = [prelude, zip_file],
+         outputs = [output],
+-        use_default_shell_env = True,
++        tools = [coreutils.bin],
++        toolchain = _COREUTILS_TOOLCHAIN,
+         mnemonic = "PyBuildExecutableZip",
+         progress_message = "Build Python zip executable: %{label}",
+     )
+@@ -1823,6 +1823,7 @@
+         toolchains = [
+             ruleb.ToolchainType(TOOLCHAIN_TYPE),
+             ruleb.ToolchainType(EXEC_TOOLS_TOOLCHAIN_TYPE, mandatory = False),
++            ruleb.ToolchainType(_COREUTILS_TOOLCHAIN),
+             ruleb.ToolchainType("@bazel_tools//tools/cpp:toolchain_type", mandatory = False),
+         ],
+         cfg = dict(
