@@ -589,7 +589,8 @@ public final class ActionCacheCheckerTest {
       SpecialArtifact parent,
       ImmutableMap<String, ? extends FileArtifactValue> children,
       Optional<FileArtifactValue> archivedArtifactValue,
-      Optional<PathFragment> resolvedPath) {
+      Optional<PathFragment> resolvedPath,
+      boolean contentCopy) {
     TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(parent);
     for (Map.Entry<String, ? extends FileArtifactValue> entry : children.entrySet()) {
       builder.putChild(
@@ -602,6 +603,7 @@ public final class ActionCacheCheckerTest {
               TreeArtifactValue.ArchivedRepresentation.create(artifact, metadata));
         });
     resolvedPath.ifPresent(builder::setResolvedPath);
+    builder.setContentCopy(contentCopy);
     return builder.build();
   }
 
@@ -920,7 +922,7 @@ public final class ActionCacheCheckerTest {
                 output,
                 children,
                 /* archivedArtifactValue= */ Optional.empty(),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
 
     runAction(action);
 
@@ -932,7 +934,7 @@ public final class ActionCacheCheckerTest {
             new SerializableTreeArtifactValue(
                 children,
                 /* archivedFileValue= */ Optional.empty(),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
   }
 
@@ -948,7 +950,7 @@ public final class ActionCacheCheckerTest {
                 output,
                 ImmutableMap.of(),
                 Optional.of(createRemoteMetadata("content")),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
 
     runAction(action);
 
@@ -960,7 +962,7 @@ public final class ActionCacheCheckerTest {
             new SerializableTreeArtifactValue(
                 /* childValues= */ ImmutableMap.of(),
                 /* archivedFileValue= */ Optional.of(createRemoteMetadata("content")),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
   }
 
@@ -976,7 +978,8 @@ public final class ActionCacheCheckerTest {
                 output,
                 ImmutableMap.of(),
                 /* archivedArtifactValue= */ Optional.empty(),
-                Optional.of(execRoot.getRelative("some/path").asFragment())));
+                Optional.of(execRoot.getRelative("some/path").asFragment()),
+                /* contentCopy= */ false));
 
     runAction(action);
 
@@ -988,7 +991,8 @@ public final class ActionCacheCheckerTest {
             new SerializableTreeArtifactValue(
                 /* childValues= */ ImmutableMap.of(),
                 /* archivedFileValue= */ Optional.empty(),
-                Optional.of(execRoot.getRelative("some/path").asFragment())));
+                Optional.of(execRoot.getRelative("some/path").asFragment()),
+                /* contentCopy= */ false));
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
   }
 
@@ -1002,7 +1006,7 @@ public final class ActionCacheCheckerTest {
             output,
             /* children= */ ImmutableMap.of(),
             /* archivedArtifactValue= */ Optional.empty(),
-            /* resolvedPath= */ Optional.empty());
+            /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false);
     Action action = new InjectOutputTreeMetadataAction(output, treeMetadata);
     FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
 
@@ -1029,7 +1033,7 @@ public final class ActionCacheCheckerTest {
             new SerializableTreeArtifactValue(
                 /* childValues= */ ImmutableMap.of(),
                 /* archivedFileValue= */ Optional.empty(),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
     assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
   }
 
@@ -1051,7 +1055,7 @@ public final class ActionCacheCheckerTest {
                 output,
                 children,
                 /* archivedArtifactValue= */ Optional.empty(),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
 
     runAction(action);
 
@@ -1063,7 +1067,7 @@ public final class ActionCacheCheckerTest {
             new SerializableTreeArtifactValue(
                 ImmutableMap.of("file1", createRemoteMetadata("content1")),
                 /* archivedFileValue= */ Optional.empty(),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
   }
 
@@ -1080,7 +1084,7 @@ public final class ActionCacheCheckerTest {
                 output,
                 /* children= */ ImmutableMap.of(),
                 Optional.of(FileArtifactValue.createForTesting(fileSystem.getPath("/archive"))),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
     fileSystem.getPath("/archive").delete();
 
     runAction(action);
@@ -1108,7 +1112,7 @@ public final class ActionCacheCheckerTest {
                 output,
                 children,
                 /* archivedArtifactValue= */ Optional.empty(),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
     FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
 
     runAction(action);
@@ -1130,7 +1134,7 @@ public final class ActionCacheCheckerTest {
             output,
             children,
             /* archivedArtifactValue= */ Optional.empty(),
-            /* resolvedPath= */ Optional.empty());
+            /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false);
     assertThat(token).isNull();
     assertThat(output.getPath().exists()).isFalse();
     ActionCache.Entry entry = cache.get(output.getExecPathString());
@@ -1160,12 +1164,12 @@ public final class ActionCacheCheckerTest {
                 output,
                 children1,
                 /* archivedArtifactValue= */ Optional.empty(),
-                /* resolvedPath= */ Optional.empty()),
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false),
             createTreeMetadata(
                 output,
                 children2,
                 /* archivedArtifactValue= */ Optional.empty(),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
     FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
 
     runAction(action);
@@ -1211,7 +1215,7 @@ public final class ActionCacheCheckerTest {
                 "file1", createRemoteMetadata("content1"),
                 "file2", createRemoteMetadata("modified_remote")),
             /* archivedArtifactValue= */ Optional.empty(),
-            /* resolvedPath= */ Optional.empty());
+            /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false);
     ActionCache.Entry entry = cache.get(output.getExecPathString());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
@@ -1231,12 +1235,12 @@ public final class ActionCacheCheckerTest {
                 output,
                 /* children= */ ImmutableMap.of(),
                 /* archivedArtifactValue= */ Optional.of(createRemoteMetadata("content")),
-                /* resolvedPath= */ Optional.empty()),
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false),
             createTreeMetadata(
                 output,
                 /* children= */ ImmutableMap.of(),
                 /* archivedArtifactValue= */ Optional.of(createRemoteMetadata("modified")),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
     FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
 
     runAction(action);
@@ -1278,7 +1282,7 @@ public final class ActionCacheCheckerTest {
             output,
             ImmutableMap.of(),
             Optional.of(createRemoteMetadata("modified")),
-            /* resolvedPath= */ Optional.empty());
+            /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false);
     ActionCache.Entry entry = cache.get(output.getExecPathString());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
@@ -1306,7 +1310,7 @@ public final class ActionCacheCheckerTest {
                 output,
                 children,
                 /* archivedArtifactValue= */ Optional.empty(),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
     FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
 
     runAction(action);
@@ -1350,7 +1354,7 @@ public final class ActionCacheCheckerTest {
                         "archived",
                         /* expirationTime= */ Instant.ofEpochMilli(1),
                         /* resolvedPath= */ null)),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
     FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
 
     runAction(action);
@@ -1392,7 +1396,7 @@ public final class ActionCacheCheckerTest {
                 /* archivedArtifactValue= */ initiallyEnabled
                     ? Optional.of(createRemoteMetadata("archived"))
                     : Optional.empty(),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
     FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
 
     runAction(
@@ -1444,7 +1448,11 @@ public final class ActionCacheCheckerTest {
         new InjectOutputTreeMetadataAction(
             output,
             createTreeMetadata(
-                output, children, /* archivedArtifactValue= */ Optional.empty(), Optional.empty()));
+                output,
+                children,
+                /* archivedArtifactValue= */ Optional.empty(),
+                Optional.empty(),
+                /* contentCopy= */ false));
     FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
 
     runAction(action);
@@ -1471,7 +1479,10 @@ public final class ActionCacheCheckerTest {
     assertThat(entry.getOutputTree(output))
         .isEqualTo(
             new SerializableTreeArtifactValue(
-                children, /* archivedFileValue= */ Optional.empty(), Optional.empty()));
+                children,
+                /* archivedFileValue= */ Optional.empty(),
+                Optional.empty(),
+                /* contentCopy= */ false));
 
     assertThat(metadataHandler.getTreeArtifactValue(output))
         .isEqualTo(
@@ -1483,7 +1494,7 @@ public final class ActionCacheCheckerTest {
                     "file2",
                     createRemoteMetadata("content2")),
                 /* archivedArtifactValue= */ Optional.empty(),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
   }
 
   @Test
@@ -1499,7 +1510,7 @@ public final class ActionCacheCheckerTest {
                 output,
                 /* children= */ ImmutableMap.of(),
                 /* archivedArtifactValue= */ Optional.of(createRemoteMetadata("content")),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
     ArchivedTreeArtifact archivedArtifact = ArchivedTreeArtifact.createForTree(output);
     FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
 
@@ -1517,14 +1528,14 @@ public final class ActionCacheCheckerTest {
             new SerializableTreeArtifactValue(
                 /* childValues= */ ImmutableMap.of(),
                 /* archivedFileValue= */ Optional.of(createRemoteMetadata("content")),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
     assertThat(metadataHandler.getTreeArtifactValue(output))
         .isEqualTo(
             createTreeMetadata(
                 output,
                 /* children= */ ImmutableMap.of(),
                 Optional.of(FileArtifactValue.createForTesting(archivedArtifact)),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
   }
 
   @Test
@@ -1540,7 +1551,7 @@ public final class ActionCacheCheckerTest {
             tree,
             children,
             /* archivedArtifactValue= */ Optional.empty(),
-            /* resolvedPath= */ Optional.empty());
+            /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false);
     Action action = new InjectOutputTreeMetadataAction(tree, treeMetadata, treeMetadata);
     runAction(action);
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
@@ -1563,7 +1574,7 @@ public final class ActionCacheCheckerTest {
             new SerializableTreeArtifactValue(
                 children,
                 /* archivedFileValue= */ Optional.empty(),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
   }
 
   @Test
@@ -1576,7 +1587,7 @@ public final class ActionCacheCheckerTest {
             tree,
             /* children= */ ImmutableMap.of(),
             /* archivedArtifactValue= */ Optional.empty(),
-            /* resolvedPath= */ Optional.empty());
+            /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false);
     Action action = new InjectOutputTreeMetadataAction(tree, treeMetadata, treeMetadata);
     runAction(action);
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
@@ -1599,7 +1610,7 @@ public final class ActionCacheCheckerTest {
             new SerializableTreeArtifactValue(
                 /* childValues= */ ImmutableMap.of(),
                 /* archivedFileValue= */ Optional.empty(),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
   }
 
   @Test
@@ -1615,7 +1626,7 @@ public final class ActionCacheCheckerTest {
             tree,
             children,
             /* archivedArtifactValue= */ Optional.empty(),
-            /* resolvedPath= */ Optional.empty());
+            /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false);
     Action action = new InjectOutputTreeMetadataAction(tree, treeMetadata, treeMetadata);
     runAction(action);
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
@@ -1645,7 +1656,7 @@ public final class ActionCacheCheckerTest {
             new SerializableTreeArtifactValue(
                 children,
                 /* archivedFileValue= */ Optional.empty(),
-                /* resolvedPath= */ Optional.empty()));
+                /* resolvedPath= */ Optional.empty(), /* contentCopy= */ false));
   }
 
   @Test
