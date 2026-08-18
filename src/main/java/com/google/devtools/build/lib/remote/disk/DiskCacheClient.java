@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistryLite;
 import java.io.FileNotFoundException;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -270,9 +271,7 @@ public class DiskCacheClient {
   public ListenableFuture<Void> uploadFile(Digest digest, Path file) {
     return executorService.submit(
         () -> {
-          try (InputStream in = file.getInputStream()) {
-            saveFile(digest, Store.CAS, in);
-          }
+          saveFile(digest, Store.CAS, file);
           return null;
         });
   }
@@ -313,6 +312,51 @@ public class DiskCacheClient {
   }
 
   public void saveFile(Digest digest, Store store, InputStream in) throws IOException {
+    save(
+        digest,
+        store,
+        temp -> {
+          try (OutputStream out = temp.getOutputStream()) {
+            ByteStreams.copy(in, out);
+            // Fsync temp before we rename it to avoid data loss in the case of machine
+            // crashes (the OS may reorder the writes and the rename).
+            if (out instanceof FileOutputStream fos) {
+              fos.getFD().sync();
+            }
+          }
+        });
+  }
+
+  /**
+   * Saves an existing file into the cache.
+   *
+   * <p>The contents are copied through {@link FileSystemUtils#copyFile}, so a filesystem with
+   * copy-on-write support (clonefile on macOS, copy_file_range on Linux) can serve the copy as a
+   * clone, leaving the entry sharing its blocks with the file it was saved from.
+   */
+  private void saveFile(Digest digest, Store store, Path file) throws IOException {
+    save(
+        digest,
+        store,
+        temp -> {
+          FileSystemUtils.copyFile(file, temp);
+          // copyFile preserves the source's permissions and mtime, neither of which suits a cache
+          // entry: an entry must remain readable by every user of a shared cache, and its mtime
+          // records when it was last stored or retrieved.
+          temp.chmod(0644);
+          temp.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
+          // Fsync temp before we rename it to avoid data loss in the case of machine
+          // crashes (the OS may reorder the writes and the rename).
+          syncFile(temp);
+        });
+  }
+
+  /** Writes the contents of a cache entry into a temporary file. */
+  private interface TempFileWriter {
+    void write(Path temp) throws IOException;
+  }
+
+  private void save(Digest digest, Store store, TempFileWriter writer) throws IOException {
     Path path = toPath(digest, store);
 
     // CAS entries are content-addressed and thus automatically have the correct content if they
@@ -325,14 +369,7 @@ public class DiskCacheClient {
     Path temp = getTempPath();
 
     try {
-      try (OutputStream out = temp.getOutputStream()) {
-        ByteStreams.copy(in, out);
-        // Fsync temp before we rename it to avoid data loss in the case of machine
-        // crashes (the OS may reorder the writes and the rename).
-        if (out instanceof FileOutputStream fos) {
-          fos.getFD().sync();
-        }
-      }
+      writer.write(temp);
       path.getParentDirectory().createDirectoryAndParents();
       FileSystemUtils.renameToleratingConcurrentCreation(temp, path);
     } catch (IOException e) {
@@ -342,6 +379,15 @@ public class DiskCacheClient {
         e.addSuppressed(deleteErr);
       }
       throw e;
+    }
+  }
+
+  /** Flushes a file's contents to stable storage, where the filesystem supports it. */
+  private static void syncFile(Path path) throws IOException {
+    try (InputStream in = path.getInputStream()) {
+      if (in instanceof FileInputStream fileInputStream) {
+        fileInputStream.getFD().sync();
+      }
     }
   }
 }
