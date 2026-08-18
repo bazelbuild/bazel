@@ -389,24 +389,25 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
     return toListenableFuture(
         toCompletable(() -> mergedTransfer, directExecutor())
-            .andThen(
-                awaitableAction(
-                    () -> {
-                      // Match the directory output permissions set by
-                      // SkyframeActionExecutor#checkOutputs.
-                      for (var entry : directoriesByTreeRoot.asMap().entrySet()) {
-                        Lock lock =
-                            treeArtifactLocks.get(entry.getKey().asFragment()).writeLock();
-                        lock.lock();
-                        try {
-                          for (Path dir : entry.getValue()) {
-                            directoryTracker.setOutputPermissions(dir);
-                          }
-                        } finally {
-                          lock.unlock();
-                        }
-                      }
-                    })));
+            .andThen(awaitableAction(() -> setTreeOutputPermissions(directoriesByTreeRoot))));
+  }
+
+  /**
+   * Matches the directory output permissions set by {@code SkyframeActionExecutor#checkOutputs}.
+   */
+  private void setTreeOutputPermissions(SetMultimap<Path, Path> directoriesByTreeRoot)
+      throws IOException {
+    for (var entry : directoriesByTreeRoot.asMap().entrySet()) {
+      Lock lock = treeArtifactLocks.get(entry.getKey().asFragment()).writeLock();
+      lock.lock();
+      try {
+        for (Path dir : entry.getValue()) {
+          directoryTracker.setOutputPermissions(dir);
+        }
+      } finally {
+        lock.unlock();
+      }
+    }
   }
 
   private ListenableFuture<Void> prefetchFile(

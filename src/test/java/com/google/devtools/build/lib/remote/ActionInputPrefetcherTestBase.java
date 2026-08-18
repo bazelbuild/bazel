@@ -798,26 +798,11 @@ public abstract class ActionInputPrefetcherTestBase {
     completion.start();
     assertThat(chmodStarted.tryAcquire(10, SECONDS)).isTrue();
 
-    Semaphore cancellationReturned = new Semaphore(0);
-    Thread cancellation =
-        new Thread(
-            () -> {
-              prefetch.cancel(/* mayInterruptIfRunning= */ true);
-              cancellationReturned.release();
-            });
-    cancellation.start();
     // Cancellation must not let a rewound action replace the tree while its permissions are still
     // being restored.
-    try {
-      assertThat(cancellationReturned.tryAcquire(100, MILLISECONDS)).isFalse();
-    } finally {
-      chmodMayContinue.release();
-    }
-    assertThat(cancellationReturned.tryAcquire(10, SECONDS)).isTrue();
-    completion.join();
-    cancellation.join();
+    assertCancellationWaitsFor(prefetch, chmodMayContinue);
 
-    assertThat(prefetch.isCancelled()).isTrue();
+    completion.join();
     assertTreeReadableNonWritableAndExecutable(tree.getPath());
   }
 
@@ -1072,29 +1057,11 @@ public abstract class ActionInputPrefetcherTestBase {
     completion.start();
     assertThat(finalizationStarted.tryAcquire(10, SECONDS)).isTrue();
 
-    Semaphore cancellationStarted = new Semaphore(0);
-    Semaphore cancellationReturned = new Semaphore(0);
-    Thread cancellation =
-        new Thread(
-            () -> {
-              cancellationStarted.release();
-              prefetch.cancel(/* mayInterruptIfRunning= */ true);
-              cancellationReturned.release();
-            });
-    cancellation.start();
-    assertThat(cancellationStarted.tryAcquire(10, SECONDS)).isTrue();
     // Cancellation must not expose a destination write that is still in progress to a caller that
     // may immediately replace the destination tree.
-    try {
-      assertThat(cancellationReturned.tryAcquire(100, MILLISECONDS)).isFalse();
-    } finally {
-      finalizationMayContinue.release();
-    }
-    assertThat(cancellationReturned.tryAcquire(10, SECONDS)).isTrue();
-    completion.join();
-    cancellation.join();
+    assertCancellationWaitsFor(prefetch, finalizationMayContinue);
 
-    assertThat(prefetch.isCancelled()).isTrue();
+    completion.join();
     assertThat(FileSystemUtils.readContent(artifact.getPath(), UTF_8)).isEqualTo("hello world");
   }
 
@@ -1294,6 +1261,31 @@ public abstract class ActionInputPrefetcherTestBase {
             })
         .when(prefetcher)
         .doDownloadFile(any(), any(), any(), any(), any(), any(), any());
+  }
+
+  /**
+   * Cancels {@code future} on a separate thread and asserts that the cancellation only returns
+   * after {@code mayContinue} has been released, i.e., that it waits for the operation blocked on
+   * that semaphore.
+   */
+  private static void assertCancellationWaitsFor(
+      ListenableFuture<Void> future, Semaphore mayContinue) throws Exception {
+    Semaphore cancellationReturned = new Semaphore(0);
+    Thread cancellation =
+        new Thread(
+            () -> {
+              future.cancel(/* mayInterruptIfRunning= */ true);
+              cancellationReturned.release();
+            });
+    cancellation.start();
+    try {
+      assertThat(cancellationReturned.tryAcquire(100, MILLISECONDS)).isFalse();
+    } finally {
+      mayContinue.release();
+    }
+    assertThat(cancellationReturned.tryAcquire(10, SECONDS)).isTrue();
+    cancellation.join();
+    assertThat(future.isCancelled()).isTrue();
   }
 
   private void assertReadableNonWritableAndExecutable(Path path) throws IOException {

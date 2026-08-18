@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.concurrent;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.testutil.TestThread;
 import java.util.concurrent.Semaphore;
@@ -77,5 +78,43 @@ public final class CancellableTaskTest {
     assertThat(cancellationReturned.tryAcquire(10, SECONDS)).isTrue();
     runner.joinAndAssertState(10_000);
     canceller.joinAndAssertState(10_000);
+  }
+
+  @Test
+  public void cancelAfterRun_returnsWithoutBlocking() throws Exception {
+    var task = new CancellableTask<>(() -> {});
+
+    assertThat(task.runIfNotCancelled()).isTrue();
+
+    assertThat(task.cancelAndAwait(/* mayInterruptIfRunning= */ true)).isFalse();
+    // Repeated cancellation is allowed and must not block either.
+    assertThat(task.cancelAndAwait(/* mayInterruptIfRunning= */ true)).isFalse();
+  }
+
+  @Test
+  public void cancelTwiceBeforeRun_onlyFirstCallPreventsStart() throws Exception {
+    var task = new CancellableTask<>(() -> {});
+
+    assertThat(task.cancelAndAwait(/* mayInterruptIfRunning= */ false)).isTrue();
+    assertThat(task.cancelAndAwait(/* mayInterruptIfRunning= */ false)).isFalse();
+  }
+
+  @Test
+  public void runTwice_throws() throws Exception {
+    var task = new CancellableTask<>(() -> {});
+
+    assertThat(task.runIfNotCancelled()).isTrue();
+
+    assertThrows(IllegalStateException.class, task::runIfNotCancelled);
+  }
+
+  @Test
+  public void cancelUninterruptibly_whileInterrupted_restoresInterruptBit() {
+    var task = new CancellableTask<>(() -> {});
+    Thread.currentThread().interrupt();
+
+    assertThat(task.cancelAndAwaitUninterruptibly(/* mayInterruptIfRunning= */ false)).isTrue();
+
+    assertThat(Thread.interrupted()).isTrue();
   }
 }

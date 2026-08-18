@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
@@ -240,17 +241,12 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
    * build.
    */
   public void registerOutputUploadTask(ActionExecutionMetadata action, Cancellable task) {
-    // The task is added to the list inside the mapping function so that registration is atomic
-    // with respect to the removal of the entry in prepareOutputsForRewinding.
-    outputUploadTasks.compute(
+    // merge is atomic with respect to the removal of the entry in prepareOutputsForRewinding.
+    outputUploadTasks.merge(
         action,
-        (unusedKey, tasks) ->
-            tasks == null
-                ? ImmutableList.of(task)
-                : ImmutableList.<Cancellable>builderWithExpectedSize(tasks.size() + 1)
-                    .addAll(tasks)
-                    .add(task)
-                    .build());
+        ImmutableList.of(task),
+        (oldTasks, newTasks) ->
+            ImmutableList.<Cancellable>builder().addAll(oldTasks).addAll(newTasks).build());
   }
 
   /** Unregisters a task previously registered via {@link #registerOutputUploadTask}. */
@@ -260,8 +256,7 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
         (unusedKey, tasks) -> {
           // Identity comparison: a task is only ever registered once, and a task registered by a
           // re-execution of the action must not be unregistered by its predecessor.
-          var remainingTasks =
-              tasks.stream().filter(t -> t != task).collect(ImmutableList.toImmutableList());
+          var remainingTasks = tasks.stream().filter(t -> t != task).collect(toImmutableList());
           return remainingTasks.isEmpty() ? null : remainingTasks;
         });
   }

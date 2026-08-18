@@ -79,6 +79,10 @@ public final class CancellableTask<E extends Exception> {
    * <p>The return value allows the caller that prevented execution to perform any completion work
    * that would otherwise have been the task's responsibility.
    *
+   * <p>Note that {@code mayInterruptIfRunning} may interrupt the executing thread just after it has
+   * left the task body, so the task must be run on a thread that either does no further work or
+   * tolerates a spurious interrupt.
+   *
    * @return whether this call prevented the task from starting
    */
   public boolean cancelAndAwait(boolean mayInterruptIfRunning) throws InterruptedException {
