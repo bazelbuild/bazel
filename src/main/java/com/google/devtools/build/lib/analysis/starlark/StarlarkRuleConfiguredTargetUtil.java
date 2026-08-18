@@ -144,7 +144,6 @@ public final class StarlarkRuleConfiguredTargetUtil {
           StarlarkList.copyOf(
               ruleContext.getStarlarkThread().mutability(), providerMap.getProviderInstances());
     }
-
     return providersRaw;
   }
 
@@ -393,7 +392,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
         && !executable.getRoot().equals(context.getGenfilesDirectory())) {
       throw errorWithLoc(
           locForError,
-          "'executable' provided by an executable rule '%s' must be a generated file from the same"
+          "'executable' provided by rule '%s' must be a generated file from the same"
               + " configuration.",
           context.getRule().getRuleClass());
     }

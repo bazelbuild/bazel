@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderMapApi;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -26,18 +26,22 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 
-/** A non-iterable Starlark map from declared provider constructors to provider instances. */
+/**
+ * A mutable, non-iterable Starlark map from declared provider constructors to provider instances.
+ *
+ * <p>A map exposed to Starlark is scoped to the rule or aspect implementation that created it. It
+ * may be returned directly as a rule's provider collection.
+ */
 public final class ProviderMap implements ProviderMapApi, Mutability.Freezable {
   private final LinkedHashMap<Provider.Key, Info> providers;
   private final Mutability mutability;
 
-  /** Returns a new map containing {@code providers}. */
-  public static ProviderMap create(Iterable<Info> providers) {
-    LinkedHashMap<Provider.Key, Info> providersByKey = new LinkedHashMap<>();
-    for (Info provider : providers) {
-      providersByKey.put(provider.getProvider().getKey(), provider);
-    }
-    return new ProviderMap(providersByKey, Mutability.IMMUTABLE);
+  /**
+   * Returns a new map that takes ownership of {@code providers}. The caller must not subsequently
+   * mutate the supplied map.
+   */
+  public static ProviderMap create(LinkedHashMap<Provider.Key, Info> providers) {
+    return new ProviderMap(providers, Mutability.IMMUTABLE);
   }
 
   private ProviderMap(LinkedHashMap<Provider.Key, Info> providers, Mutability mutability) {
@@ -50,8 +54,8 @@ public final class ProviderMap implements ProviderMapApi, Mutability.Freezable {
   }
 
   /** Returns the provider instances for consumption by rule implementation machinery. */
-  public ImmutableCollection<Info> getProviderInstances() {
-    return ImmutableList.copyOf(providers.values());
+  public Collection<Info> getProviderInstances() {
+    return Collections.unmodifiableCollection(providers.values());
   }
 
   @Override
@@ -117,7 +121,13 @@ public final class ProviderMap implements ProviderMapApi, Mutability.Freezable {
 
   @Override
   public void repr(Printer printer, StarlarkSemantics semantics) {
-    printer.append("<provider map>");
+    printer.append("<ProviderMap");
+    String separator = ": ";
+    for (Info info : providers.values()) {
+      printer.append(separator).append(info.getProvider().getPrintableName());
+      separator = ", ";
+    }
+    printer.append(">");
   }
 
   private void checkUsable() throws EvalException {

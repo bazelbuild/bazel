@@ -1621,9 +1621,15 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         dep_rule = rule(implementation = _dep_impl, executable = True)
 
         def _reexport_impl(ctx):
+            discarded_copy = ctx.attr.dep.providers()
+            discarded_copy.remove(BarInfo)
+            if BarInfo not in ctx.attr.dep.providers():
+                fail("providers() did not return an independent copy")
             provider_map = ctx.attr.dep.providers()
             if type(provider_map) != "ProviderMap":
                 fail("expected ProviderMap, got %s" % type(provider_map))
+            if repr(provider_map) != "<ProviderMap: DefaultInfo, FooInfo, BarInfo, OutputGroupInfo>":
+                fail("unexpected ProviderMap repr: %r" % provider_map)
             if DefaultInfo not in provider_map:
                 fail("DefaultInfo is missing")
             if len(provider_map[DefaultInfo].files.to_list()) != 1:
@@ -1641,7 +1647,6 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         reexport_rule = rule(
             implementation = _reexport_impl,
             attrs = {"dep": attr.label()},
-            executable = True,
         )
 
         def _consumer_impl(ctx):
@@ -1749,6 +1754,60 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         """);
 
     assertThat(getConfiguredTarget("//test:consumer")).isNotNull();
+  }
+
+  @Test
+  public void testTargetProvidersSupportsConfiguredTargetKinds() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        """
+        def _check_impl(ctx):
+            targets = [
+                ctx.attr.native_rule,
+                ctx.attr.input_file,
+                ctx.attr.output_file,
+                ctx.attr.package_group,
+            ]
+            for target in targets:
+                provider_map = target.providers()
+                if type(provider_map) != "ProviderMap":
+                    fail("expected ProviderMap for %s, got %s" % (target.label, type(provider_map)))
+                if DefaultInfo not in provider_map:
+                    fail("DefaultInfo missing for %s" % target.label)
+            if PackageSpecificationInfo not in ctx.attr.package_group.providers():
+                fail("PackageSpecificationInfo missing for package group")
+            return []
+
+        check_rule = rule(
+            implementation = _check_impl,
+            attrs = {
+                "native_rule": attr.label(),
+                "input_file": attr.label(allow_single_file = True),
+                "output_file": attr.label(allow_single_file = True),
+                "package_group": attr.label(providers = [PackageSpecificationInfo]),
+            },
+        )
+        """);
+    scratch.file("test/input.txt", "input");
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":rules.bzl", "check_rule")
+
+        filegroup(name = "native", srcs = ["input.txt"])
+        genrule(name = "generator", outs = ["generated.txt"], cmd = "touch $@")
+        package_group(name = "group", packages = ["//test"])
+
+        check_rule(
+            name = "check",
+            native_rule = ":native",
+            input_file = ":input.txt",
+            output_file = ":generated.txt",
+            package_group = ":group",
+        )
+        """);
+
+    assertThat(getConfiguredTarget("//test:check")).isNotNull();
   }
 
   @Test
@@ -1903,6 +1962,86 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//test:consumer")).isNull();
     assertContainsEvent("ProviderMap doesn't contain declared provider 'MissingInfo'");
+  }
+
+  @Test
+  public void testProviderMapIndexingMissingProviderFails() throws Exception {
+    assertProviderMapExpressionFails(
+        "MissingInfo = provider()",
+        "provider_map[MissingInfo]",
+        "ProviderMap doesn't contain declared provider 'MissingInfo'");
+  }
+
+  @Test
+  public void testProviderMapRejectsInvalidKey() throws Exception {
+    assertProviderMapExpressionFails(
+        "",
+        "provider_map[\"not a provider\"]",
+        "Type ProviderMap only supports indexing by provider constructors, got string instead");
+  }
+
+  @Test
+  public void testProviderMapRejectsUnexportedProviderKey() throws Exception {
+    assertProviderMapExpressionFails(
+        "",
+        "provider_map[provider()]",
+        "ProviderMap only supports indexing by exported providers. Assign the provider a name in"
+            + " a top-level assignment statement.");
+  }
+
+  @Test
+  public void testProviderMapRejectsUnexportedProviderInstance() throws Exception {
+    assertProviderMapExpressionFails(
+        """
+        def make_info():
+            LocalInfo = provider()
+            return LocalInfo()
+        """,
+        "provider_map.add(make_info())",
+        "ProviderMap only accepts instances of exported providers. Assign the provider a name in"
+            + " a top-level assignment statement.");
+  }
+
+  @Test
+  public void testProviderMapIsUnhashable() throws Exception {
+    assertProviderMapExpressionFails(
+        "", "{provider_map: None}", "unhashable type: 'ProviderMap'");
+  }
+
+  private void assertProviderMapExpressionFails(
+      String declarations, String expression, String expectedError) throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        """
+        %s
+        def _dep_impl(ctx):
+            return []
+
+        dep_rule = rule(implementation = _dep_impl)
+
+        def _consumer_impl(ctx):
+            provider_map = ctx.attr.dep.providers()
+            _ = %s
+            return []
+
+        consumer_rule = rule(
+            implementation = _consumer_impl,
+            attrs = {"dep": attr.label()},
+        )
+        """
+            .formatted(declarations, expression));
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":rules.bzl", "consumer_rule", "dep_rule")
+
+        dep_rule(name = "dep")
+        consumer_rule(name = "consumer", dep = ":dep")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//test:consumer")).isNull();
+    assertContainsEvent(expectedError);
   }
 
   @Test

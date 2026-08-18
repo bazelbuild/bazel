@@ -27,10 +27,12 @@ import net.starlark.java.eval.StarlarkValue;
     name = "ProviderMap",
     category = DocCategory.BUILTIN,
     doc =
-        "A non-iterable collection of providers. Providers can be accessed by type using index"
-            + " notation, their presence can be checked using the <code>in</code> operator, and"
-            + " they can be replaced or removed using the <code>add</code> and <code>remove</code>"
-            + " methods.")
+        "A mutable copy of a target's declared providers. It is intentionally non-iterable; use"
+            + " known provider constructors with index notation or the <code>in</code> operator"
+            + " instead. Providers can be replaced or removed using the <code>add</code> and"
+            + " <code>remove</code> methods. A ProviderMap is only usable during the rule or aspect"
+            + " implementation function that created it. It may be returned directly from a rule"
+            + " implementation function.")
 public interface ProviderMapApi extends StarlarkValue, StarlarkIndexable {
 
   @StarlarkMethod(

@@ -1100,7 +1100,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
     ],
 )
 

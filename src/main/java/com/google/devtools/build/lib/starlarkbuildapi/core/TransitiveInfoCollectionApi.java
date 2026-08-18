@@ -49,9 +49,12 @@ public interface TransitiveInfoCollectionApi extends StarlarkValue {
   @StarlarkMethod(
       name = "providers",
       doc =
-          "Returns this target's providers as a <a"
-              + " href='../builtins/ProviderMap.html'>ProviderMap</a>. The result can be returned"
-              + " directly from another rule implementation function to re-export the target's"
+          "Returns a fresh, mutable <a href='../builtins/ProviderMap.html'>ProviderMap</a>"
+              + " containing this target's <code>DefaultInfo</code> and declared providers that"
+              + " have provider constructors. Native class-keyed providers and legacy"
+              + " string-keyed providers are omitted because Starlark rules cannot return them."
+              + " Mutating the result does not change the original target. Return the result"
+              + " directly from a rule implementation function to re-export the selected"
               + " providers.",
       useStarlarkThread = true)
   ProviderMapApi providersForStarlark(StarlarkThread thread);

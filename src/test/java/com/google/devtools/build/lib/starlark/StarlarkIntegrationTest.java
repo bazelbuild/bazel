@@ -2656,7 +2656,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//src:r_tools")).isNull();
     assertContainsEvent(
-        "'executable' provided by an executable rule 'r' must be a generated file from the same"
+        "'executable' provided by rule 'r' must be a generated file from the same"
             + " configuration.");
   }
 

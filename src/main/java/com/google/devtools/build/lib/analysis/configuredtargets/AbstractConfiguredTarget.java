@@ -224,16 +224,17 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
             providers.put(key, info);
           }
         });
-    return ProviderMap.create(providers.values());
+    return ProviderMap.create(providers);
   }
 
   /**
-   * Emits this target's declared providers to {@code collector} for {@link
-   * #providers}. {@link DefaultInfo}, which is synthesized on demand rather than stored, is added
-   * by the caller.
+   * Emits this target's declared {@link Provider.Key}-keyed providers to {@code collector} for
+   * {@link #providers}. {@link DefaultInfo}, which is synthesized on demand rather than stored, is
+   * added by the caller. Native class-keyed and legacy string-keyed providers are intentionally
+   * omitted because Starlark rules cannot return them.
    */
   @ForOverride
-  protected void addDeclaredProviders(Consumer<Info> collector) {}
+  protected abstract void addDeclaredProviders(Consumer<Info> collector);
 
   /** Emits the declared providers (the {@link Provider.Key}-keyed values) in {@code providers}. */
   protected static void addDeclaredProviders(
