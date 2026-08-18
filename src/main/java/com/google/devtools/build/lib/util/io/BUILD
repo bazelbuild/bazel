@@ -73,6 +73,7 @@ java_library(
     srcs = OUT_ERR_SRCS,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//third_party:flogger",
         "//third_party:guava",
     ],
