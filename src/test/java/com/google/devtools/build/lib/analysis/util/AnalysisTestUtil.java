@@ -83,7 +83,8 @@ public final class AnalysisTestUtil {
       new TopLevelArtifactContext(
           /* runTestsExclusively= */ false,
           /* expandFilesets= */ false,
-          OutputGroupInfo.DEFAULT_GROUPS);
+          OutputGroupInfo.DEFAULT_GROUPS,
+          /* forRunCommand= */ false);
 
   /**
    * An {@link AnalysisEnvironment} implementation that collects the actions registered.
