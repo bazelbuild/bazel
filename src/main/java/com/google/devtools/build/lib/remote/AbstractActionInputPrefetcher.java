@@ -31,7 +31,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.SetMultimap;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.Striped;
 import com.google.devtools.build.lib.actions.Action;
@@ -388,28 +387,26 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       mergedTransfer = mergeBulkTransfer(transfers);
     }
 
-    return Futures.transformAsync(
-        mergedTransfer,
-        unused -> {
-          try {
-            // Match the directory output permissions set by SkyframeActionExecutor#checkOutputs.
-            for (var entry : directoriesByTreeRoot.asMap().entrySet()) {
-              Lock lock = treeArtifactLocks.get(entry.getKey().asFragment()).writeLock();
-              lock.lock();
-              try {
-                for (Path dir : entry.getValue()) {
-                  directoryTracker.setOutputPermissions(dir);
-                }
-              } finally {
-                lock.unlock();
-              }
-            }
-          } catch (IOException e) {
-            return immediateFailedFuture(e);
-          }
-          return immediateVoidFuture();
-        },
-        directExecutor());
+    return toListenableFuture(
+        toCompletable(() -> mergedTransfer, directExecutor())
+            .andThen(
+                awaitableAction(
+                    () -> {
+                      // Match the directory output permissions set by
+                      // SkyframeActionExecutor#checkOutputs.
+                      for (var entry : directoriesByTreeRoot.asMap().entrySet()) {
+                        Lock lock =
+                            treeArtifactLocks.get(entry.getKey().asFragment()).writeLock();
+                        lock.lock();
+                        try {
+                          for (Path dir : entry.getValue()) {
+                            directoryTracker.setOutputPermissions(dir);
+                          }
+                        } finally {
+                          lock.unlock();
+                        }
+                      }
+                    })));
   }
 
   private ListenableFuture<Void> prefetchFile(
