@@ -85,13 +85,22 @@ public class ZipReader implements Closeable, AutoCloseable {
    * @throws IOException if an I/O error has occurred
    */
   public ZipReader(File file, Charset charset, boolean strictEntries) throws IOException {
+    this(file, charset, strictEntries, /* isUnadjustedSfx= */ false);
+  }
+
+  ZipReader(File file, Charset charset, boolean strictEntries, boolean isUnadjustedSfx)
+      throws IOException {
     if (file == null || charset == null) {
       throw new NullPointerException();
     }
     this.file = file;
     this.in = new RandomAccessFile(file, "r");
     this.zipData = new ZipFileData(charset);
-    readCentralDirectory(strictEntries);
+    readCentralDirectory(strictEntries, isUnadjustedSfx);
+  }
+
+  static ZipReader createForAdjustSfx(File file, Charset charset) throws IOException {
+    return new ZipReader(file, charset, /* strictEntries= */ false, /* isUnadjustedSfx= */ true);
   }
 
   /**
@@ -189,12 +198,13 @@ public class ZipReader implements Closeable, AutoCloseable {
   /**
    * Finds, reads and parses ZIP file entries from the central directory.
    *
-   * @param strictEntries force parsing to use the number of entries recorded in the end of
-   *     central directory as the correct value, not as an estimate
+   * @param strictEntries force parsing to use the number of entries recorded in the end of central
+   *     directory as the correct value, not as an estimate
    * @throws ZipException if a ZIP format error has occurred
    * @throws IOException if an I/O error has occurred
    */
-  private void readCentralDirectory(boolean strictEntries) throws IOException {
+  private void readCentralDirectory(boolean strictEntries, boolean isUnadjustedSfx)
+      throws IOException {
     long eocdLocation = findEndOfCentralDirectoryRecord();
     InputStream stream = getStreamAt(eocdLocation);
     EndOfCentralDirectoryRecord.read(stream, zipData);
@@ -211,16 +221,21 @@ public class ZipReader implements Closeable, AutoCloseable {
       }
     }
 
-    long actualCenEnd =
-        (zipData.isZip64() && zipData.getZip64EndOfCentralDirectoryOffset() > 0)
-            ? zipData.getZip64EndOfCentralDirectoryOffset()
-            : eocdLocation;
-    long actualCenStart = actualCenEnd - zipData.getCentralDirectorySize();
+    if (isUnadjustedSfx) {
+      long actualCenEnd =
+          (zipData.isZip64() && zipData.getZip64EndOfCentralDirectoryOffset() > 0)
+              ? zipData.getZip64EndOfCentralDirectoryOffset()
+              : eocdLocation;
+      long actualCenStart = actualCenEnd - zipData.getCentralDirectorySize();
+      readCentralDirectoryFileHeaders(zipData.getExpectedEntries(), actualCenStart);
+      return;
+    }
 
     if (zipData.isZip64() || strictEntries) {
       // If in Zip64 format or using strict entry numbers, use the parsed information as is to read
       // the central directory file headers.
-      readCentralDirectoryFileHeaders(zipData.getExpectedEntries(), actualCenStart);
+      readCentralDirectoryFileHeaders(
+          zipData.getExpectedEntries(), zipData.getCentralDirectoryOffset());
     } else {
       // If not in Zip64 format, compute central directory offset by end of central directory record
       // offset and central directory size to allow reading large non-compliant Zip32 directories.
@@ -230,7 +245,8 @@ public class ZipReader implements Closeable, AutoCloseable {
       if ((int) centralDirectoryOffset == (int) zipData.getCentralDirectoryOffset()) {
         readCentralDirectoryFileHeaders(centralDirectoryOffset);
       } else {
-        readCentralDirectoryFileHeaders(zipData.getExpectedEntries(), actualCenStart);
+        readCentralDirectoryFileHeaders(
+            zipData.getExpectedEntries(), zipData.getCentralDirectoryOffset());
       }
     }
   }

@@ -393,8 +393,9 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
       }
       List<ListenableFuture<?>> innerReadStatusFutures = innerContext.readStatusFutures;
       if (innerReadStatusFutures == null || innerReadStatusFutures.isEmpty()) {
-        Object result = deferred.call();
+        Object result;
         try {
+          result = deferred.call();
           setter.set(parent, result);
         } catch (SerializationException e) {
           getOperation.setException(e);
@@ -488,7 +489,7 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
 
   @Override
   @SuppressWarnings("FutureReturnValueIgnored")
-  Object combineValueWithReadFutures(Object value) {
+  Object combineValueWithReadFutures(Object value) throws SerializationException {
     if (readStatusFutures == null) {
       return unwrapIfDeferredValue(value);
     }
@@ -520,7 +521,7 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
     readStatusFutures.add(readStatus);
   }
 
-  private static Object unwrapIfDeferredValue(Object value) {
+  private static Object unwrapIfDeferredValue(Object value) throws SerializationException {
     if (value instanceof DeferredValue) {
       @SuppressWarnings("unchecked")
       DeferredValue<Object> castValue = (DeferredValue<Object>) value;
