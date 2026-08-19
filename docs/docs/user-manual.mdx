@@ -1265,7 +1265,7 @@ will include the STABLE lines and the volatile status file will include the rest
 #### Using workspace status in your build
 
 The status key-value pairs can be used in your build through Starlark actions and templates.
-Bazel provides built-in rules like `cc_binary` and `genrule` that support the `stamp` attribute,
+Many binary or 'top-level' rules, and other rules like `genrule`, support the `stamp` attribute,
 which can embed workspace status information into the compiled binaries.
 
 For example, when using `cc_binary` with `stamp = 1`, Bazel will automatically make the workspace
