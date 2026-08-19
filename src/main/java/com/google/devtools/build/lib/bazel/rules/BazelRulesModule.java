@@ -911,6 +911,26 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
     public abstract boolean getAddTestSupportToCompileTimeDeps();
+
+    @Deprecated
+    @Option(
+        name = "experimental_execution_graph_enable_edges_from_filewrite_actions",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated. No-op.")
+    public abstract boolean getExperimentalExecutionGraphEnableEdgesFromFilewriteActions();
+
+    @Deprecated
+    @Option(
+        name = "experimental_execution_graph_include_change_pruned_actions",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated. No-op.")
+    public abstract boolean getExperimentalExecutionGraphIncludeChangePrunedActions();
   }
 
   /**
