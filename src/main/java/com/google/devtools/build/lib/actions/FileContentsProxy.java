@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import java.io.IOException;
 import java.util.Objects;
@@ -48,6 +49,16 @@ public final class FileContentsProxy {
         // Note: there are file systems that return mtime for getLastChangeTime() instead of ctime,
         // such as the JavaIoFileSystem.
         stat.getLastChangeTime(), stat.getLastModifiedTime(), stat.getNodeId());
+  }
+
+  /**
+   * Returns the identity {@link DigestUtils} keys cached digests on, for a file of the given size.
+   *
+   * <p>A proxy records exactly the metadata the digest cache is keyed on, so a caller holding one
+   * can look up a cached digest without making {@link DigestUtils} stat the file again.
+   */
+  public DigestUtils.FileIdentity toFileIdentity(long size) {
+    return new DigestUtils.FileIdentity(nodeId, ctime, mtime, size);
   }
 
   @Override

@@ -75,6 +75,46 @@ public final class DigestUtilsTest {
   }
 
   @Test
+  public void cacheHitRegardlessOfHowTheFileIdentityWasObtained() throws Exception {
+    AtomicInteger getDigestCounter = new AtomicInteger(0);
+    AtomicInteger statCounter = new AtomicInteger(0);
+
+    FileSystem tracingFileSystem =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          @Override
+          public byte[] getDigest(PathFragment path) throws IOException {
+            getDigestCounter.incrementAndGet();
+            return super.getDigest(path);
+          }
+
+          @Override
+          public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
+            statCounter.incrementAndGet();
+            return super.stat(path, followSymlinks);
+          }
+        };
+
+    DigestUtils.configureCache(/* maximumSize= */ 100);
+
+    Path file = tracingFileSystem.getPath("/file.txt");
+    FileSystemUtils.writeContentAsLatin1(file, "some contents");
+
+    // Without an identity, DigestUtils has to stat the file itself to build the cache key.
+    byte[] digest = DigestUtils.manuallyComputeDigest(file);
+    assertThat(getDigestCounter.get()).isEqualTo(1);
+    assertThat(statCounter.get()).isEqualTo(1);
+
+    // A caller that already knows the identity gets the cached digest without a further stat,
+    // which only works if both spellings of the key agree.
+    statCounter.set(0);
+    FileStatus stat = file.stat();
+    assertThat(DigestUtils.manuallyComputeDigest(file, DigestUtils.FileIdentity.of(stat)))
+        .isEqualTo(digest);
+    assertThat(getDigestCounter.get()).isEqualTo(1); // Cached.
+    assertThat(statCounter.get()).isEqualTo(1); // Only the caller's own stat.
+  }
+
+  @Test
   public void manuallyComputeDigest() throws Exception {
     byte[] digest = {1, 2, 3};
     FileSystem noDigestFileSystem =

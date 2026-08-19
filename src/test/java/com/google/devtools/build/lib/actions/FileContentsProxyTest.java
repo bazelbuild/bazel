@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import java.io.IOException;
 import org.junit.Test;
@@ -98,6 +99,17 @@ public class FileContentsProxyTest {
         .addEqualityGroup(FileContentsProxy.create(new InjectedStat(3L, 4L)))
         .addEqualityGroup(FileContentsProxy.create(new InjectedStat(-1L, -1L)))
         .testEquals();
+  }
+
+  @Test
+  public void toFileIdentityMatchesTheStatItWasCreatedFrom() throws Exception {
+    // The digest cache is keyed on a FileIdentity, and callers reach it both ways: some hold a
+    // FileStatus, others only the proxy Skyframe recorded earlier. Both have to produce the same
+    // key, or a digest cached by one caller is invisible to the other.
+    FileStatus stat =
+        new InjectedStat(/* mtime= */ 1, /* ctime= */ 2, /* size= */ 3, /* nodeId= */ 4);
+    assertThat(FileContentsProxy.create(stat).toFileIdentity(stat.getSize()))
+        .isEqualTo(DigestUtils.FileIdentity.of(stat));
   }
 
   @Test
