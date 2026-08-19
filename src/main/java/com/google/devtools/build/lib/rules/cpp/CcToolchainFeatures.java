@@ -918,14 +918,13 @@ public class CcToolchainFeatures implements StarlarkValue {
       return enabledActionConfigActionNames.contains(actionName);
     }
 
-    /**
-     * @return the command line for the given {@code action}.
-     */
+    @VisibleForTesting
     public List<String> getCommandLine(String action, CcToolchainVariables variables)
         throws ExpansionException {
       return getCommandLine(action, variables, /* treeArtifactExpander= */ null, PathMapper.NOOP);
     }
 
+    /** Returns the command line for the given {@code action}. */
     public List<String> getCommandLine(
         String action,
         CcToolchainVariables variables,

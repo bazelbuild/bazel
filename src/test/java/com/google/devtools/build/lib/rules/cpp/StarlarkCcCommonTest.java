@@ -39,6 +39,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.PathMapper;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
@@ -897,6 +899,150 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                 ")"))
         .containsAtLeast("-o", "foo/bar/hello.o")
         .inOrder();
+  }
+
+  @Test
+  public void testCommandLineExpandedInMapEachIsPathMapped() throws Exception {
+    useConfiguration("--experimental_output_paths=strip");
+    scratch.file(
+        "a/BUILD",
+        """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
+        load("//test_defs:foo_binary.bzl", "foo_binary")
+        load(":rule.bzl", "crule")
+
+        cc_toolchain_alias(name = "alias")
+
+        foo_binary(
+            name = "tool",
+            srcs = ["tool.sh"],
+        )
+
+        genrule(
+            name = "gen_src",
+            outs = ["gen_src.cc"],
+            cmd = "<some command>",
+        )
+
+        crule(
+            name = "r",
+            src = "gen_src.cc",
+        )
+        """);
+    scratch.file(
+        "a/rule.bzl",
+        """
+        load("@rules_cc//cc/common:cc_common.bzl", _cc_common = "cc_common")
+        load("//myinfo:myinfo.bzl", "MyInfo")
+
+        # The `cc_common` toplevel is the builtin module that rules_cc's cc_common.bzl forwards to.
+        # It is used directly for the command line expansions below since rules_cc doesn't pass on
+        # the `expander` argument yet.
+        _cc_common_internal = cc_common
+
+        def _get_memory_efficient_command_line(*, feature_configuration, action_name, variables):
+            # Unlike get_memory_inefficient_command_line, this doesn't expand anything during
+            # analysis. The result is opaque and must be passed to Args.add_all as a single-element
+            # list with map_each = _expand_command_line, which expands it at execution time with
+            # Bazel's path mapping in effect.
+            return struct(
+                feature_configuration = feature_configuration,
+                action_name = action_name,
+                variables = variables,
+            )
+
+        # Must stay a top-level def; the second parameter makes Bazel pass in the DirectoryExpander
+        # needed to expand tree artifacts contained in the build variables.
+        def _expand_command_line(deferred_command_line, expander):
+            return _cc_common_internal.get_memory_inefficient_command_line(
+                feature_configuration = deferred_command_line.feature_configuration,
+                action_name = deferred_command_line.action_name,
+                variables = deferred_command_line.variables,
+                expander = expander,
+            )
+
+        def _impl(ctx):
+            toolchain = ctx.attr._cc_toolchain[_cc_common.CcToolchainInfo]
+            feature_configuration = _cc_common.configure_features(
+                ctx = ctx,
+                cc_toolchain = toolchain,
+            )
+            out = ctx.actions.declare_file(ctx.label.name + ".o")
+            variables = _cc_common.create_compile_variables(
+                feature_configuration = feature_configuration,
+                cc_toolchain = toolchain,
+                source_file = ctx.file.src,
+                output_file = out,
+            )
+            args = ctx.actions.args()
+            args.add_all(
+                [_get_memory_efficient_command_line(
+                    feature_configuration = feature_configuration,
+                    action_name = "c++-compile",
+                    variables = variables,
+                )],
+                map_each = _expand_command_line,
+            )
+            ctx.actions.run(
+                outputs = [out],
+                inputs = [ctx.file.src],
+                executable = ctx.executable._tool,
+                arguments = [args],
+                mnemonic = "LazyCppCompile",
+                execution_requirements = {"supports-path-mapping": "1"},
+            )
+            return [
+                DefaultInfo(files = depset([out])),
+                MyInfo(
+                    eager_command_line = _cc_common_internal.get_memory_inefficient_command_line(
+                        feature_configuration = feature_configuration,
+                        action_name = "c++-compile",
+                        variables = variables,
+                    ),
+                ),
+            ]
+
+        crule = rule(
+            _impl,
+            attrs = {
+                "src": attr.label(allow_single_file = True),
+                "_cc_toolchain": attr.label(default = Label("//a:alias")),
+                "_tool": attr.label(
+                    default = Label("//a:tool"),
+                    executable = True,
+                    cfg = "exec",
+                ),
+            },
+            fragments = ["cpp"],
+        )
+        """);
+
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+    Artifact src = getArtifact("//a:gen_src.cc");
+    Artifact out = getArtifact("//a:r");
+
+    // Expanding the command line during analysis can't apply path mapping: the paths it returns are
+    // the unmapped exec paths.
+    @SuppressWarnings("unchecked")
+    Sequence<String> eagerCommandLine =
+        (Sequence<String>) getMyInfoFromTarget(r).getValue("eager_command_line");
+    assertThat(eagerCommandLine).containsAtLeast("-c", src.getExecPathString()).inOrder();
+    assertThat(eagerCommandLine).containsAtLeast("-o", out.getExecPathString()).inOrder();
+
+    // Deferring the expansion to the map_each callback makes it observe the path mapper of the
+    // spawn instead.
+    SpawnAction action = (SpawnAction) getGeneratingAction(out);
+    Spawn spawn =
+        action.getSpawn(
+            new ActionExecutionContextBuilder()
+                .setMetadataProvider(new FakeActionInputFileCache())
+                .build());
+    assertThat(spawn.getPathMapper().isNoop()).isFalse();
+    String outDir = analysisMock.getProductName() + "-out";
+    assertThat(spawn.getArguments())
+        .containsAtLeast("-c", outDir + "/cfg/bin/a/gen_src.cc")
+        .inOrder();
+    assertThat(spawn.getArguments()).containsAtLeast("-o", outDir + "/cfg/bin/a/r.o").inOrder();
   }
 
   @Test

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
+import com.google.devtools.build.lib.starlarkbuildapi.DirectoryExpander;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
@@ -879,7 +880,9 @@ public interface CcModuleApi<
           "Returns flattened command line flags for given action, using given variables for "
               + "expansion. Flattens nested sets and ideally should not be used, or at least "
               + "should not outlive analysis. Work on memory efficient function returning Args is "
-              + "ongoing.",
+              + "ongoing.<p>When called from a <a "
+              + "href='../builtins/Args.html#add_all.map_each'><code>map_each</code></a> callback, "
+              + "the returned flags have Bazel's path mapping applied to them.",
       parameters = {
         @Param(
             name = "feature_configuration",
@@ -900,12 +903,28 @@ public interface CcModuleApi<
             doc = "Build variables to be used for template expansions.",
             named = true,
             positional = false),
+        @Param(
+            name = "expander",
+            allowedTypes = {
+              @ParamType(type = DirectoryExpander.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            doc =
+                "The <a href='../builtins/DirectoryExpander.html'><code>DirectoryExpander</code>"
+                    + "</a> passed to a <a href='../builtins/Args.html#add_all.map_each'>"
+                    + "<code>map_each</code></a> callback, if any. It is required to expand tree "
+                    + "artifacts contained in <code>variables</code>; without it they are left "
+                    + "unexpanded.",
+            named = true,
+            positional = false),
       },
       useStarlarkThread = true)
   Sequence<String> getCommandLine(
       FeatureConfigurationT featureConfiguration,
       String actionName,
       CcToolchainVariablesT variables,
+      Object expander,
       StarlarkThread thread)
       throws EvalException;
 

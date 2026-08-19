@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.starlarkbuildapi.DirectoryExpander;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainVariablesApi;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -270,16 +271,44 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
         throws ExpansionException;
   }
 
-  /** Expands a tree artifact into its individual files. */
+  /** Expands a tree artifact into the files it contains. */
   @FunctionalInterface
   public interface TreeArtifactExpander {
+    /**
+     * Returns the files contained in {@code treeArtifact}, or {@code null} if they are not known.
+     */
     @Nullable
-    Collection<? extends Artifact> expandTreeArtifact(Artifact treeArtifact);
+    Collection<? extends Artifact> expandTreeArtifact(Artifact treeArtifact)
+        throws ExpansionException;
 
-    static TreeArtifactExpander of(InputMetadataProvider inputMetadataProvider) {
+    /**
+     * Returns an expander backed by the given metadata provider or {@code null} if not available.
+     */
+    @Nullable
+    static TreeArtifactExpander of(@Nullable InputMetadataProvider inputMetadataProvider) {
+      if (inputMetadataProvider == null) {
+        return null;
+      }
       return treeArtifact -> {
         var metadata = inputMetadataProvider.getTreeMetadata(treeArtifact);
         return metadata != null ? metadata.getChildren() : null;
+      };
+    }
+
+    /**
+     * Returns an expander backed by the {@link DirectoryExpander} or {@code null} if not available.
+     */
+    @Nullable
+    static TreeArtifactExpander of(@Nullable DirectoryExpander directoryExpander) {
+      if (directoryExpander == null) {
+        return null;
+      }
+      return treeArtifact -> {
+        try {
+          return Collections2.transform(directoryExpander.list(treeArtifact), Artifact.class::cast);
+        } catch (EvalException e) {
+          throw new ExpansionException(e.getMessage(), e);
+        }
       };
     }
   }
