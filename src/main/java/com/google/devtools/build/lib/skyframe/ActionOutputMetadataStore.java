@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -53,6 +54,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
@@ -84,6 +86,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       OutputPermissions outputPermissions,
       ImmutableSet<Artifact> outputs,
       XattrProvider xattrProvider,
+      @Nullable BatchStat batchStatter,
       TimestampGranularityMonitor tsgm,
       ArtifactPathResolver artifactPathResolver) {
     return new ActionOutputMetadataStore(
@@ -91,6 +94,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
         outputPermissions,
         outputs,
         xattrProvider,
+        batchStatter,
         tsgm,
         artifactPathResolver);
   }
@@ -99,6 +103,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
   private final OutputPermissions outputPermissions;
 
   private final XattrProvider xattrProvider;
+  @Nullable private final BatchStat batchStatter;
   private final TimestampGranularityMonitor tsgm;
   private final ArtifactPathResolver artifactPathResolver;
 
@@ -115,12 +120,14 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       OutputPermissions outputPermissions,
       ImmutableSet<Artifact> outputs,
       XattrProvider xattrProvider,
+      @Nullable BatchStat batchStatter,
       TimestampGranularityMonitor tsgm,
       ArtifactPathResolver artifactPathResolver) {
     this.archivedTreeArtifactsEnabled = archivedTreeArtifactsEnabled;
     this.outputPermissions = outputPermissions;
     this.outputs = checkNotNull(outputs);
     this.xattrProvider = xattrProvider;
+    this.batchStatter = batchStatter;
     this.tsgm = checkNotNull(tsgm);
     this.artifactPathResolver = checkNotNull(artifactPathResolver);
   }
@@ -262,6 +269,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     }
 
     TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(parent);
+    ConcurrentLinkedQueue<TreeFileArtifact> childrenToBatchStat = new ConcurrentLinkedQueue<>();
 
     TreeArtifactValue.visitTree(
         treeDir,
@@ -277,12 +285,30 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
             return; // The final TreeArtifactValue does not contain child directories.
           }
           TreeFileArtifact child = TreeFileArtifact.createTreeOutput(parent, parentRelativePath);
+          if (batchStatter != null) {
+            childrenToBatchStat.add(child);
+            return;
+          }
           FileArtifactValue metadata = constructFileArtifactValueFromFilesystem(child);
           // visitTree() uses multiple threads and putChild() is not thread-safe
           synchronized (tree) {
             tree.putChild(child, metadata);
           }
         });
+
+    if (!childrenToBatchStat.isEmpty()) {
+      ImmutableList<TreeFileArtifact> children = ImmutableList.copyOf(childrenToBatchStat);
+      var stats = checkNotNull(batchStatter).batchStat(Artifact.asPathFragments(children));
+      checkState(
+          stats.size() == children.size(),
+          "BatchStat returned %s statuses for %s tree artifact children",
+          stats.size(),
+          children.size());
+      for (int index = 0; index < children.size(); index++) {
+        tree.putChild(
+            children.get(index), constructFileArtifactValue(children.get(index), stats.get(index)));
+      }
+    }
 
     if (archivedTreeArtifactsEnabled) {
       ArchivedTreeArtifact archivedTreeArtifact = ArchivedTreeArtifact.createForTree(parent);
