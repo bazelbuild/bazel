@@ -440,7 +440,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       return FileArtifactValue.createFromInjectedDigest(value, /* digest= */ null);
     }
 
-    checkState(type.isFile());
+    checkState(type.isFile(), type);
     // We don't have an injected digest and there is no digest in the file value (which attempts a
     // fast digest). Manually compute the digest instead.
     var path = statAndValue.pathNoFollow();
