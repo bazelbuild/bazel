@@ -23,6 +23,11 @@ import javax.annotation.Nullable;
 
 /** Handles the metadata of the outputs of the action during its execution. */
 public interface OutputMetadataStore {
+  /** Returns whether injected tree metadata must include an archived representation. */
+  default boolean requiresArchivedTreeArtifacts() {
+    return false;
+  }
+
   /**
    * Injects the metadata of a file.
    *

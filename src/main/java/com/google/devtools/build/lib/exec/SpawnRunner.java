@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -216,6 +217,12 @@ public interface SpawnRunner {
      */
     InputMetadataProvider getInputMetadataProvider();
 
+    /** Returns the action-scoped output metadata store, if one is available. */
+    @Nullable
+    default OutputMetadataStore getOutputMetadataStore() {
+      return null;
+    }
+
     /** The {@link ArtifactPathResolver} to use when directly writing output files. */
     default ArtifactPathResolver getPathResolver() {
       return ArtifactPathResolver.IDENTITY;
@@ -342,6 +349,11 @@ public interface SpawnRunner {
     @Override
     public final ArtifactPathResolver getPathResolver() {
       return actionExecutionContext.getPathResolver();
+    }
+
+    @Override
+    public final OutputMetadataStore getOutputMetadataStore() {
+      return actionExecutionContext.getOutputMetadataStore();
     }
 
     @Override
