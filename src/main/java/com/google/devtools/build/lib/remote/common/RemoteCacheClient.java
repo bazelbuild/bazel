@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.remote.common;
 
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.ChunkingFunction;
@@ -25,29 +23,28 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
-import com.google.devtools.build.lib.remote.util.RxFutures;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
-import io.reactivex.rxjava3.functions.Supplier;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
  * Base class for a remote caching protocol.
  *
  * <p>Concurrent uploads of the same digest are deduplicated: only one network upload is performed
- * per digest at a time, and subsequent callers attach as observers to the in-flight upload.
- * Implementations provide the raw network calls via the {@code *Impl} methods.
+ * per digest at a time, and subsequent callers join the in-flight upload. Implementations provide
+ * the raw network calls via the {@code *Impl} methods.
  *
  * <p>Implementations must be thread-safe.
  */
 public abstract class RemoteCacheClient implements MissingDigestsFinder {
 
-  private final AsyncTaskCache.NoResult<Digest> casUploadCache = AsyncTaskCache.NoResult.create();
+  private final AsyncTaskCache<Digest, Void> casUploadCache = AsyncTaskCache.create();
 
   public abstract ServerCapabilities getServerCapabilities() throws IOException;
 
@@ -154,11 +151,7 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
    */
   public final ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, Blob blob, boolean force) {
-    return RxFutures.toListenableFuture(
-        casUploadCache.execute(
-            digest,
-            RxFutures.toCompletable(() -> uploadBlobImpl(context, digest, blob), directExecutor()),
-            force));
+    return casUploadCache.execute(digest, () -> uploadBlobImpl(context, digest, blob), force);
   }
 
   /**
@@ -215,8 +208,7 @@ public abstract class RemoteCacheClient implements MissingDigestsFinder {
    */
   public final ListenableFuture<Void> dedupUpload(
       Digest digest, Supplier<ListenableFuture<Void>> upload, boolean force) {
-    return RxFutures.toListenableFuture(
-        casUploadCache.execute(digest, RxFutures.toCompletable(upload, directExecutor()), force));
+    return casUploadCache.execute(digest, upload, force);
   }
 
   /** Returns the digests currently being uploaded. */

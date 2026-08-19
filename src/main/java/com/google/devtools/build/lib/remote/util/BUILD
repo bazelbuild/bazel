@@ -15,9 +15,9 @@ java_library(
     name = "async_task_cache",
     srcs = ["AsyncTaskCache.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent:task_deduplicator",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party:rxjava3",
     ],
 )
 
@@ -25,17 +25,6 @@ java_library(
     name = "rx_futures",
     srcs = ["RxFutures.java"],
     deps = [
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:rxjava3",
-    ],
-)
-
-java_library(
-    name = "rx_utils",
-    srcs = ["RxUtils.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:rxjava3",

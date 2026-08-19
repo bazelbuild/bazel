@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.concurrent;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CheckReturnValue;
@@ -41,8 +42,9 @@ public final class TaskDeduplicator<K, V> {
    * <p>The returned future must eventually be completed. The task is only canceled if the futures
    * returned to all callers for the same key have been canceled.
    *
-   * <p>taskSupplier may be called multiple times. It should be inexpensive and free of side
-   * effects.
+   * <p>taskSupplier is called at most once per call to this method, and only if a new execution is
+   * started, which makes it usable to detect that case. It runs while holding exclusive access to
+   * {@code key}, so it must be short and must not block on other tasks.
    */
   @CheckReturnValue
   public ListenableFuture<V> executeIfNew(K key, Supplier<ListenableFuture<V>> taskSupplier) {
@@ -75,14 +77,25 @@ public final class TaskDeduplicator<K, V> {
    * <p>The returned future must eventually be completed. The task is only canceled if the futures
    * returned to all callers for the same key have been canceled.
    *
-   * <p>taskSupplier may be called multiple times. It should be inexpensive and free of side
-   * effects.
+   * <p>taskSupplier is called at most once per call to this method, and only if a new execution is
+   * started, which makes it usable to detect that case. It runs while holding exclusive access to
+   * {@code key}, so it must be short and must not block on other tasks.
    */
   @CheckReturnValue
   public ListenableFuture<V> executeUnconditionally(
       K key, Supplier<ListenableFuture<V>> taskSupplier) {
     inFlightTasks.remove(key);
     return executeIfNew(key, taskSupplier);
+  }
+
+  /**
+   * Returns the number of callers that are currently awaiting an ongoing execution of the task for
+   * the given key, or 0 if there is none.
+   */
+  @VisibleForTesting
+  public int getActiveUseCount(K key) {
+    var future = inFlightTasks.get(key);
+    return future != null ? future.getActiveUseCount() : 0;
   }
 
   /**
@@ -151,6 +164,10 @@ public final class TaskDeduplicator<K, V> {
     /** Retains the future, returning true if successful. */
     boolean retain() {
       return refcount.updateAndGet(oldCount -> oldCount >= 1 ? oldCount + 1 : 0) != 0;
+    }
+
+    int getActiveUseCount() {
+      return refcount.get();
     }
   }
 

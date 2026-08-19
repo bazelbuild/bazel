@@ -13,88 +13,97 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.util.concurrent.Futures.immediateCancelledFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.reactivex.rxjava3.annotations.NonNull;
-import io.reactivex.rxjava3.core.Completable;
-import io.reactivex.rxjava3.core.CompletableEmitter;
-import io.reactivex.rxjava3.core.Flowable;
-import io.reactivex.rxjava3.core.Single;
-import io.reactivex.rxjava3.core.SingleObserver;
-import io.reactivex.rxjava3.disposables.Disposable;
-import io.reactivex.rxjava3.functions.Action;
-import io.reactivex.rxjava3.subjects.AsyncSubject;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.concurrent.TaskDeduplicator;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
-import javax.annotation.concurrent.GuardedBy;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import javax.annotation.concurrent.ThreadSafe;
 
 /**
  * A cache which de-duplicates the executions and stores the results of asynchronous tasks. Each
  * task is identified by a key of type {@link KeyT} and has the result of type {@link ValueT}.
  *
- * <p>Use {@link #executeIfNot} or {@link #execute} and subscribe the returned {@link Single} to
- * start executing a task. The {@link Single} turns to completed once the task is {@code finished}.
- * Errors are propagated if any.
+ * <p>Calling {@link #execute} multiple times with the same task key joins the same underlying
+ * execution if the task is still executing, or returns a completed future if the task has already
+ * finished successfully. Results of failed tasks are not cached.
  *
- * <p>Calling {@code execute[IfNot]} multiple times with the same task key can get an {@link Single}
- * which connects to the same underlying execution if the task is still executing, or get a
- * completed {@link Single} if the task is already finished. Set {@code force} to {@code true } to
- * re-execute a finished task.
+ * <p>Cancelling a returned future only cancels the underlying task once every caller that joined it
+ * has cancelled its own future; the task is interrupted only if all of them requested interruption.
  *
- * <p>Dispose the {@link Single} to cancel to task execution.
+ * <p>Use {@link #shutdown} to shut the cache down. Any in progress tasks will continue running
+ * while new tasks are immediately cancelled. Use {@link #awaitTermination()} after {@link
+ * #shutdown} to wait for the in progress tasks to finish. Use {@link #shutdownNow} to cancel all in
+ * progress and new tasks.
  *
- * <p>Use {@link #shutdown} to shuts the cache down. Any in progress tasks will continue running
- * while new tasks will be injected with {@link CancellationException}. Use {@link
- * #awaitTermination()} after {@link #shutdown} to wait for the in progress tasks finished.
+ * <p>This class holds no lock of its own: all mutual exclusion is provided by {@link
+ * TaskDeduplicator} and {@link ConcurrentHashMap}, and no caller-provided code ever runs in a
+ * critical section. Two ordering invariants make that safe:
  *
- * <p>Use {@link #shutdownNow} to cancel all in progress and new tasks with exception {@link
- * CancellationException}.
+ * <ol>
+ *   <li>A task's result is published to {@link #finished} and the task is unregistered from {@link
+ *       #inProgress} strictly before the future handed to callers completes, so a caller that
+ *       observes a task as no longer running also observes its result.
+ *   <li>A task is only removed from the deduplicator after the future returned by {@link
+ *       #registerTask} completes, so a caller that finds no in-flight task for a key and misses the
+ *       cache lookup in {@link #execute} is guaranteed to see the cached result when it re-checks
+ *       from within the deduplicator's per-key critical section.
+ * </ol>
  */
 @ThreadSafe
 public final class AsyncTaskCache<KeyT, ValueT> {
-  private final Object lock = new Object();
 
   private static final int STATE_ACTIVE = 0;
   private static final int STATE_SHUTDOWN = 1;
   private static final int STATE_TERMINATED = 2;
 
-  @GuardedBy("lock")
-  private int state = STATE_ACTIVE;
+  /** Stands in for a {@code null} result, which {@link ConcurrentHashMap} cannot store. */
+  private static final Object NULL_VALUE = new Object();
 
-  @GuardedBy("lock")
-  private final ArrayList<CompletableEmitter> terminationSubscriber = new ArrayList<>();
+  /** A task that has been started, but whose result has not been published yet. */
+  private record InProgressTask<KeyT, ValueT>(KeyT key, ListenableFuture<ValueT> future) {}
 
-  // Concurrent so that {@link #invalidate} can run without acquiring {@code lock}, which prevents
-  // lock-ordering deadlocks when invalidation is triggered from within another cache's observer
-  // notification (e.g., a doFinally on an upload completion).
-  private final ConcurrentHashMap<KeyT, ValueT> finished = new ConcurrentHashMap<>();
-
-  @GuardedBy("lock")
-  private Map<KeyT, Execution> inProgress = new HashMap<>();
+  private final TaskDeduplicator<KeyT, ValueT> deduplicator = new TaskDeduplicator<>();
+  private final ConcurrentHashMap<KeyT, Object> finished = new ConcurrentHashMap<>();
+  private final Set<InProgressTask<KeyT, ValueT>> inProgress = ConcurrentHashMap.newKeySet();
+  private final AtomicInteger state = new AtomicInteger(STATE_ACTIVE);
+  private final SettableFuture<Void> termination = SettableFuture.create();
 
   public static <KeyT, ValueT> AsyncTaskCache<KeyT, ValueT> create() {
     return new AsyncTaskCache<>();
   }
 
-  /** Returns a set of keys for tasks which is finished. */
+  /** Returns the set of keys of tasks that have finished successfully. */
   public ImmutableSet<KeyT> getFinishedTasks() {
     return ImmutableSet.copyOf(finished.keySet());
   }
 
+  /** Returns the set of keys of tasks that are still executing. */
+  public ImmutableSet<KeyT> getInProgressTasks() {
+    return inProgress.stream().map(InProgressTask::key).collect(ImmutableSet.toImmutableSet());
+  }
+
+  /** Returns the number of callers awaiting an in progress task for {@code key}. */
+  @VisibleForTesting
+  public int getSubscriberCount(KeyT key) {
+    return deduplicator.getActiveUseCount(key);
+  }
+
   /**
    * Removes any cached result for the given {@code key}, so that the next call to {@link #execute}
-   * for that key re-runs the task. Does not affect in-progress tasks. Safe to call concurrently
-   * with {@link #execute}.
+   * for that key re-runs the task. Does not affect in-progress tasks.
    */
   public void invalidate(KeyT key) {
     finished.remove(key);
@@ -102,509 +111,196 @@ public final class AsyncTaskCache<KeyT, ValueT> {
 
   /**
    * Atomically replaces the cached result for {@code key} with {@code value}. The new value is
-   * visible to subsequent {@link #execute} callers. Safe to call concurrently with {@link
-   * #execute}.
+   * visible to subsequent {@link #execute} callers.
    */
   public void put(KeyT key, ValueT value) {
-    finished.put(key, value);
-  }
-
-  /** Returns a set of keys for tasks which is still executing. */
-  public ImmutableSet<KeyT> getInProgressTasks() {
-    synchronized (lock) {
-      return ImmutableSet.copyOf(inProgress.keySet());
-    }
+    finished.put(key, wrap(value));
   }
 
   /**
    * Executes a task if it hasn't been executed.
    *
-   * @param key identifies the task.
-   * @return a {@link Single} which turns to completed once the task is finished or propagates the
-   *     error if any.
+   * @see #execute(Object, Supplier, boolean)
    */
-  public Single<ValueT> executeIfNot(KeyT key, Single<ValueT> task) {
-    return execute(key, task, false);
-  }
-
-  /** Returns count of subscribers for a task. */
-  public int getSubscriberCount(KeyT key) {
-    synchronized (lock) {
-      Execution task = inProgress.get(key);
-      if (task != null) {
-        return task.getSubscriberCount();
-      }
-    }
-
-    return 0;
-  }
-
-  class Execution extends Single<ValueT> implements SingleObserver<ValueT> {
-    private final KeyT key;
-    private final Single<ValueT> upstream;
-
-    @GuardedBy("lock")
-    private boolean terminated = false;
-
-    @GuardedBy("lock")
-    private Disposable upstreamDisposable;
-
-    @GuardedBy("lock")
-    private final List<SingleObserver<? super ValueT>> observers = new ArrayList<>();
-
-    private final AsyncSubject<ValueT> completion = AsyncSubject.create();
-
-    Execution(KeyT key, Single<ValueT> upstream) {
-      this.key = key;
-      this.upstream = upstream;
-    }
-
-    int getSubscriberCount() {
-      synchronized (lock) {
-        return observers.size();
-      }
-    }
-
-    @Override
-    protected void subscribeActual(@NonNull SingleObserver<? super ValueT> observer) {
-      synchronized (lock) {
-        checkState(!terminated, "terminated");
-
-        boolean shouldSubscribe = observers.isEmpty();
-
-        observers.add(observer);
-
-        observer.onSubscribe(new ExecutionDisposable(this, observer));
-
-        if (shouldSubscribe) {
-          upstream.subscribe(this);
-        }
-      }
-    }
-
-    @Override
-    public void onSubscribe(@NonNull Disposable d) {
-      synchronized (lock) {
-        upstreamDisposable = d;
-
-        if (terminated) {
-          d.dispose();
-        }
-      }
-    }
-
-    @Override
-    public void onSuccess(@NonNull ValueT value) {
-      synchronized (lock) {
-        if (!terminated) {
-          inProgress.remove(key);
-          finished.put(key, value);
-          terminated = true;
-
-          for (SingleObserver<? super ValueT> observer : ImmutableList.copyOf(observers)) {
-            observer.onSuccess(value);
-          }
-
-          completion.onNext(value);
-          completion.onComplete();
-
-          maybeNotifyTermination();
-        }
-      }
-    }
-
-    @Override
-    public void onError(@NonNull Throwable error) {
-      synchronized (lock) {
-        if (!terminated) {
-          inProgress.remove(key);
-          terminated = true;
-
-          for (SingleObserver<? super ValueT> observer : ImmutableList.copyOf(observers)) {
-            observer.onError(error);
-          }
-
-          completion.onError(error);
-
-          maybeNotifyTermination();
-        }
-      }
-    }
-
-    void remove(SingleObserver<? super ValueT> observer) {
-      synchronized (lock) {
-        observers.remove(observer);
-
-        if (observers.isEmpty() && !terminated) {
-          inProgress.remove(key);
-          terminated = true;
-
-          if (upstreamDisposable != null) {
-            upstreamDisposable.dispose();
-          }
-        }
-      }
-    }
-
-    void cancel() {
-      synchronized (lock) {
-        if (!terminated) {
-          if (upstreamDisposable != null) {
-            upstreamDisposable.dispose();
-          }
-
-          onError(new CancellationException("cancelled"));
-        }
-      }
-    }
-  }
-
-  class ExecutionDisposable implements Disposable {
-    final Execution execution;
-    final SingleObserver<? super ValueT> observer;
-    AtomicBoolean isDisposed = new AtomicBoolean(false);
-
-    ExecutionDisposable(Execution execution, SingleObserver<? super ValueT> observer) {
-      this.execution = execution;
-      this.observer = observer;
-    }
-
-    @Override
-    public void dispose() {
-      if (isDisposed.compareAndSet(false, true)) {
-        execution.remove(observer);
-      }
-    }
-
-    @Override
-    public boolean isDisposed() {
-      return isDisposed.get();
-    }
+  public ListenableFuture<ValueT> executeIfNot(
+      KeyT key, Supplier<ListenableFuture<ValueT>> task) {
+    return execute(key, task, /* force= */ false);
   }
 
   /**
-   * Executes a task.
+   * Executes a task, unless an equivalent one has already finished successfully or is currently
+   * running.
    *
-   * @see #execute(Object, Single, Action, Action, boolean).
+   * <p>If the cache has been shut down, a cancelled future is returned.
+   *
+   * @param key identifies the task.
+   * @param task supplies the future for a new execution of the task. It is invoked at most once,
+   *     and only if a new execution is actually started, which makes it usable to detect that case.
+   *     It runs while holding exclusive access to {@code key}, so it must be short, must not block
+   *     on other tasks, and must report failures through the returned future rather than by
+   *     throwing.
+   * @param force start a new execution even if the task has already finished or is currently
+   *     running.
+   * @return a future which completes once the task is finished, or propagates its error.
    */
-  public Single<ValueT> execute(KeyT key, Single<ValueT> task, boolean force) {
-    return execute(key, task, () -> {}, () -> {}, force);
+  public ListenableFuture<ValueT> execute(
+      KeyT key, Supplier<ListenableFuture<ValueT>> task, boolean force) {
+    if (state.get() != STATE_ACTIVE) {
+      return immediateCancelledFuture();
+    }
+
+    if (force) {
+      finished.remove(key);
+    } else {
+      Object cached = finished.get(key);
+      if (cached != null) {
+        return immediateFuture(unwrap(cached));
+      }
+    }
+
+    var isNew = new boolean[1];
+    Supplier<ListenableFuture<ValueT>> newExecution =
+        () -> {
+          if (!force) {
+            // Re-check from within the deduplicator's per-key critical section: if the task
+            // finished between the lookup above and here, it has already been removed from the
+            // deduplicator and thus can no longer be joined, but its result is guaranteed to be
+            // visible by now.
+            Object cached = finished.get(key);
+            if (cached != null) {
+              return immediateFuture(unwrap(cached));
+            }
+          }
+          isNew[0] = true;
+          return registerTask(key, task.get());
+        };
+
+    ListenableFuture<ValueT> future =
+        force
+            ? deduplicator.executeUnconditionally(key, newExecution)
+            : deduplicator.executeIfNew(key, newExecution);
+
+    if (isNew[0] && state.get() != STATE_ACTIVE) {
+      // Raced with a shutdown. The task exists only because of this call, so cancelling the future
+      // returned to this (so far only) caller also cancels the task itself.
+      future.cancel(/* mayInterruptIfRunning= */ true);
+    }
+    return future;
   }
 
   /**
-   * Executes a task. If the task has already finished, this execution of the task is ignored unless
-   * `force` is true. If the task is in progress this execution of the task is always ignored.
+   * Tracks {@code task} as in progress and publishes its result to {@link #finished} on success.
    *
-   * <p>If the cache is already shutdown, a {@link CancellationException} will be emitted.
-   *
-   * @param key identifies the task.
-   * @param onAlreadyRunning callback called when provided task is already running.
-   * @param onAlreadyFinished callback called when provided task is already finished.
-   * @param force re-execute a finished task if set to {@code true}.
-   * @return a {@link Single} which turns to completed once the task is finished or propagates the
-   *     error if any.
+   * <p>The returned future completes only after both have happened, which is what establishes the
+   * ordering invariants documented on this class.
    */
-  public Single<ValueT> execute(
-      KeyT key,
-      Single<ValueT> task,
-      Action onAlreadyRunning,
-      Action onAlreadyFinished,
-      boolean force) {
-    return Single.create(
-        emitter -> {
-          synchronized (lock) {
-            if (state != STATE_ACTIVE) {
-              emitter.tryOnError(new CancellationException("already shutdown"));
-              return;
-            }
-
-            if (!force) {
-              ValueT cached = finished.get(key);
-              if (cached != null) {
-                onAlreadyFinished.run();
-                emitter.onSuccess(cached);
-                return;
-              }
-            } else {
-              finished.remove(key);
-            }
-
-            Execution execution = inProgress.get(key);
-            if (execution != null) {
-              onAlreadyRunning.run();
-            } else {
-              execution = new Execution(key, task);
-              inProgress.put(key, execution);
-            }
-
-            // We must subscribe the execution within the scope of lock to avoid race condition
-            // that:
-            //    1. Two callers get the same execution instance
-            //    2. One decides to dispose the execution, since no more observers, the execution
-            // will change to the terminate state
-            //    3. Another one try to subscribe, will get "terminated" error.
-            execution.subscribe(
-                new SingleObserver<ValueT>() {
-                  @Override
-                  public void onSubscribe(@NonNull Disposable d) {
-                    emitter.setDisposable(d);
-                  }
-
-                  @Override
-                  public void onSuccess(@NonNull ValueT valueT) {
-                    emitter.onSuccess(valueT);
-                  }
-
-                  @Override
-                  public void onError(@NonNull Throwable e) {
-                    // Don't report via RxJava's global error handler if the emitter has been
-                    // disposed.
-                    emitter.tryOnError(e);
-                  }
-                });
-          }
-        });
+  private ListenableFuture<ValueT> registerTask(KeyT key, ListenableFuture<ValueT> task) {
+    var inProgressTask = new InProgressTask<>(key, task);
+    inProgress.add(inProgressTask);
+    ListenableFuture<ValueT> result =
+        Futures.transform(
+            task,
+            value -> {
+              finished.put(key, wrap(value));
+              inProgress.remove(inProgressTask);
+              return value;
+            },
+            directExecutor());
+    result.addListener(
+        () -> {
+          // No-op unless the task failed or was cancelled, in which case its result is not cached.
+          inProgress.remove(inProgressTask);
+          maybeTerminate();
+        },
+        directExecutor());
+    return result;
   }
 
   /**
    * Initiates an orderly shutdown in which preexisting tasks continue but new tasks are immediately
-   * cancelled with {@link CancellationException}.
+   * cancelled.
    */
   public void shutdown() {
-    synchronized (lock) {
-      if (state == STATE_ACTIVE) {
-        state = STATE_SHUTDOWN;
-        maybeNotifyTermination();
-      }
+    if (state.compareAndSet(STATE_ACTIVE, STATE_SHUTDOWN)) {
+      maybeTerminate();
     }
   }
 
   /**
-   * Waits for the in-progress tasks to finish. Any tasks that are submitted after the call are not
-   * waited.
-   */
-  public void awaitInProgressTasks() throws InterruptedException {
-    Completable completable =
-        Completable.defer(
-            () -> {
-              ImmutableList<Execution> executions;
-              synchronized (lock) {
-                executions = ImmutableList.copyOf(inProgress.values());
-              }
-
-              if (executions.isEmpty()) {
-                return Completable.complete();
-              }
-
-              return Completable.fromPublisher(
-                  Flowable.fromIterable(executions)
-                      .flatMapSingle(e -> Single.fromObservable(e.completion)));
-            });
-
-    try {
-      completable.blockingAwait();
-    } catch (RuntimeException e) {
-      Throwable cause = e.getCause();
-      if (cause != null) {
-        throwIfInstanceOf(cause, InterruptedException.class);
-      }
-      throw e;
-    }
-  }
-
-  /** Waits for the channel to become terminated. */
-  public void awaitTermination() throws InterruptedException {
-    Completable completable =
-        Completable.create(
-            emitter -> {
-              synchronized (lock) {
-                if (state == STATE_TERMINATED) {
-                  // Reduce retained size in case references to the cache are held after shutdown.
-                  terminationSubscriber.trimToSize();
-                  inProgress = new HashMap<>();
-                  finished.clear();
-                  emitter.onComplete();
-                } else {
-                  terminationSubscriber.add(emitter);
-
-                  emitter.setCancellable(
-                      () -> {
-                        synchronized (lock) {
-                          if (state != STATE_TERMINATED) {
-                            terminationSubscriber.remove(emitter);
-                          }
-                        }
-                      });
-                }
-              }
-            });
-
-    try {
-      completable.blockingAwait();
-    } catch (RuntimeException e) {
-      Throwable cause = e.getCause();
-      if (cause != null) {
-        throwIfInstanceOf(cause, InterruptedException.class);
-      }
-      throw e;
-    }
-  }
-
-  /**
-   * Initiates a forceful shutdown in which preexisting and new tasks are cancelled with {@link
-   * CancellationException}. Although forceful, the shutdown process is still not instantaneous;
-   * {@link #isTerminated()} will likely return {@code false} immediately after this method returns.
+   * Initiates a forceful shutdown in which preexisting and new tasks are cancelled. Although
+   * forceful, the shutdown process is still not instantaneous; {@link #isTerminated()} will likely
+   * return {@code false} immediately after this method returns.
    */
   public void shutdownNow() {
     shutdown();
 
-    synchronized (lock) {
-      if (state == STATE_SHUTDOWN) {
-        for (Execution execution : ImmutableList.copyOf(inProgress.values())) {
-          execution.cancel();
-        }
-      }
+    for (InProgressTask<KeyT, ValueT> task : ImmutableList.copyOf(inProgress)) {
+      task.future().cancel(/* mayInterruptIfRunning= */ true);
     }
   }
 
   /**
-   * Returns whether the cache is shutdown. Shutdown cache immediately cancels any new tasks, but
-   * may still have some tasks in the progress.
+   * Waits for the tasks that are in progress at the time of the call to finish. Tasks that are
+   * submitted afterwards are not waited for.
+   *
+   * <p>Task failures are not reported: they are propagated to whoever requested the task.
+   */
+  public void awaitInProgressTasks() throws InterruptedException {
+    ImmutableList<ListenableFuture<ValueT>> futures =
+        inProgress.stream().map(InProgressTask::future).collect(ImmutableList.toImmutableList());
+
+    try {
+      var unused = Futures.successfulAsList(futures).get();
+    } catch (ExecutionException e) {
+      throw new IllegalStateException("successfulAsList is not expected to fail", e);
+    }
+  }
+
+  /** Waits for the cache to become terminated. */
+  public void awaitTermination() throws InterruptedException {
+    try {
+      var unused = termination.get();
+    } catch (ExecutionException e) {
+      throw new IllegalStateException("termination is not expected to fail", e);
+    } catch (CancellationException e) {
+      throw new IllegalStateException("termination is not expected to be cancelled", e);
+    }
+  }
+
+  /**
+   * Returns whether the cache is shut down. A shut down cache immediately cancels any new tasks,
+   * but may still have some tasks in progress.
    */
   public boolean isShutdown() {
-    synchronized (lock) {
-      return state == STATE_SHUTDOWN || state == STATE_TERMINATED;
-    }
+    return state.get() != STATE_ACTIVE;
   }
 
   /**
-   * Returns whether the cache is terminated. Terminated cache have no running tasks and relevant
-   * resources released.
+   * Returns whether the cache is terminated. A terminated cache has no running tasks and has
+   * released the relevant resources.
    */
   public boolean isTerminated() {
-    synchronized (lock) {
-      return state == STATE_TERMINATED;
+    return state.get() == STATE_TERMINATED;
+  }
+
+  private void maybeTerminate() {
+    // Both the writer of state and the remover of the last in progress task run this check after
+    // their own write, so at least one of them observes both.
+    if (state.get() == STATE_SHUTDOWN
+        && inProgress.isEmpty()
+        && state.compareAndSet(STATE_SHUTDOWN, STATE_TERMINATED)) {
+      // Reduce retained size in case references to the cache are held after shutdown.
+      finished.clear();
+      termination.set(null);
     }
   }
 
-  @GuardedBy("lock")
-  private void maybeNotifyTermination() {
-    if (state == STATE_SHUTDOWN && inProgress.isEmpty()) {
-      state = STATE_TERMINATED;
-
-      for (CompletableEmitter emitter : terminationSubscriber) {
-        emitter.onComplete();
-      }
-      terminationSubscriber.clear();
-    }
+  private static Object wrap(Object value) {
+    return value != null ? value : NULL_VALUE;
   }
 
-  /** An {@link AsyncTaskCache} without result. */
-  public static final class NoResult<KeyT> {
-    private final AsyncTaskCache<KeyT, Optional<Void>> cache;
-
-    public static <KeyT> AsyncTaskCache.NoResult<KeyT> create() {
-      return new AsyncTaskCache.NoResult<>(AsyncTaskCache.create());
-    }
-
-    public NoResult(AsyncTaskCache<KeyT, Optional<Void>> cache) {
-      this.cache = cache;
-    }
-
-    /** Same as {@link AsyncTaskCache#executeIfNot} but operates on {@link Completable}. */
-    public Completable executeIfNot(KeyT key, Completable task) {
-      return Completable.fromSingle(
-          cache.executeIfNot(key, task.toSingleDefault(Optional.empty())));
-    }
-
-    /** Same as {@link AsyncTaskCache#execute} but operates on {@link Completable}. */
-    public Completable execute(KeyT key, Completable task, boolean force) {
-      return execute(key, task, () -> {}, () -> {}, force);
-    }
-
-    /** Same as {@link AsyncTaskCache#execute} but operates on {@link Completable}. */
-    public Completable execute(
-        KeyT key,
-        Completable task,
-        Action onAlreadyRunning,
-        Action onAlreadyFinished,
-        boolean force) {
-      return Completable.fromSingle(
-          cache.execute(
-              key,
-              task.toSingleDefault(Optional.empty()),
-              onAlreadyRunning,
-              onAlreadyFinished,
-              force));
-    }
-
-    /** Returns a set of keys for tasks which is finished. */
-    public ImmutableSet<KeyT> getFinishedTasks() {
-      return cache.getFinishedTasks();
-    }
-
-    /**
-     * @see AsyncTaskCache#invalidate
-     */
-    public void invalidate(KeyT key) {
-      cache.invalidate(key);
-    }
-
-    /** Returns a set of keys for tasks which is still executing. */
-    public ImmutableSet<KeyT> getInProgressTasks() {
-      return cache.getInProgressTasks();
-    }
-
-    /** Returns count of subscribers for a task. */
-    public int getSubscriberCount(KeyT key) {
-      return cache.getSubscriberCount(key);
-    }
-
-    /**
-     * Initiates an orderly shutdown in which preexisting tasks continue but new tasks are
-     * immediately cancelled with {@link CancellationException}.
-     */
-    public void shutdown() {
-      cache.shutdown();
-    }
-
-    /**
-     * Waits for the in-progress tasks to finish. Any tasks that are submitted after the call are
-     * not waited.
-     */
-    public void awaitInProgressTasks() throws InterruptedException {
-      cache.awaitInProgressTasks();
-    }
-
-    /** Waits for the cache to become terminated. */
-    public void awaitTermination() throws InterruptedException {
-      cache.awaitTermination();
-    }
-
-    /**
-     * Initiates a forceful shutdown in which preexisting and new tasks are cancelled with {@link
-     * CancellationException}. Although forceful, the shutdown process is still not instantaneous;
-     * {@link #isTerminated()} will likely return {@code false} immediately after this method
-     * returns.
-     */
-    public void shutdownNow() {
-      cache.shutdownNow();
-    }
-
-    /**
-     * Returns whether the cache is shutdown. Shutdown cache immediately cancels any new tasks, but
-     * may still have some tasks in the progress.
-     */
-    public boolean isShutdown() {
-      return cache.isShutdown();
-    }
-
-    /**
-     * Returns whether the cache is terminated. Terminated cache have no running tasks and relevant
-     * resources released.
-     */
-    public boolean isTerminated() {
-      return cache.isTerminated();
-    }
+  @SuppressWarnings("unchecked")
+  private ValueT unwrap(Object value) {
+    return value != NULL_VALUE ? (ValueT) value : null;
   }
 }

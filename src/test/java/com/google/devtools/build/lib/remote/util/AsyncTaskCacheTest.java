@@ -14,23 +14,20 @@
 package com.google.devtools.build.lib.remote.util;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static org.junit.Assert.assertThrows;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.reactivex.rxjava3.core.Completable;
-import io.reactivex.rxjava3.core.Single;
-import io.reactivex.rxjava3.core.SingleEmitter;
-import io.reactivex.rxjava3.observers.TestObserver;
 import java.io.IOException;
 import java.util.Random;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -39,38 +36,17 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class AsyncTaskCacheTest {
 
-  @Rule public final RxNoGlobalErrorsRule rxNoGlobalErrorsRule = new RxNoGlobalErrorsRule();
-
   @Test
-  public void execute_noSubscription_noExecution() {
+  public void execute_taskFinished_completed() throws Exception {
     AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
-    AtomicBoolean executed = new AtomicBoolean(false);
+    SettableFuture<String> task = SettableFuture.create();
+    ListenableFuture<String> future = cache.executeIfNot("key1", () -> task);
+    assertThat(future.isDone()).isFalse();
+    assertThat(cache.getInProgressTasks()).containsExactly("key1");
 
-    cache.executeIfNot(
-        "key1",
-        Single.create(
-            emitter -> {
-              executed.set(true);
-              emitter.onSuccess("value1");
-            }));
+    task.set("value1");
 
-    assertThat(executed.get()).isFalse();
-    assertThat(cache.getInProgressTasks()).isEmpty();
-    assertThat(cache.getFinishedTasks()).isEmpty();
-  }
-
-  @Test
-  public void execute_taskFinished_completed() {
-    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
-    AtomicReference<SingleEmitter<String>> emitterRef = new AtomicReference<>(null);
-    TestObserver<String> observer =
-        cache.executeIfNot("key1", Single.create(emitterRef::set)).test();
-    SingleEmitter<String> emitter = emitterRef.get();
-    assertThat(emitter).isNotNull();
-
-    emitter.onSuccess("value1");
-
-    observer.assertValue("value1");
+    assertThat(future.get()).isEqualTo("value1");
     assertThat(cache.getInProgressTasks()).isEmpty();
     assertThat(cache.getFinishedTasks()).containsExactly("key1");
   }
@@ -78,398 +54,340 @@ public class AsyncTaskCacheTest {
   @Test
   public void execute_taskHasError_propagateError() {
     AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
-    AtomicReference<SingleEmitter<String>> emitterRef = new AtomicReference<>(null);
-    TestObserver<String> observer =
-        cache.executeIfNot("key1", Single.create(emitterRef::set)).test();
-    SingleEmitter<String> emitter = emitterRef.get();
-    assertThat(emitter).isNotNull();
-    Throwable error = new IllegalStateException("error");
+    SettableFuture<String> task = SettableFuture.create();
+    ListenableFuture<String> future = cache.executeIfNot("key1", () -> task);
+    var error = new IOException("error");
 
-    emitter.onError(error);
+    task.setException(error);
 
-    observer.assertError(error);
+    var e = assertThrows(ExecutionException.class, future::get);
+    assertThat(e).hasCauseThat().isSameInstanceAs(error);
     assertThat(cache.getInProgressTasks()).isEmpty();
     assertThat(cache.getFinishedTasks()).isEmpty();
   }
 
   @Test
-  public void execute_taskInProgress_noReExecution() {
+  public void execute_taskInProgress_noReExecution() throws Exception {
     AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
-    AtomicReference<SingleEmitter<String>> emitterRef = new AtomicReference<>(null);
+    SettableFuture<String> task = SettableFuture.create();
     AtomicInteger executionTimes = new AtomicInteger(0);
-    Single<String> single =
+    ListenableFuture<String> future1 =
         cache.executeIfNot(
             "key1",
-            Single.create(
-                emitter -> {
-                  executionTimes.incrementAndGet();
-                  emitterRef.set(emitter);
-                }));
-    TestObserver<String> ob1 = single.test();
-    ob1.assertEmpty();
-    SingleEmitter<String> emitter = emitterRef.get();
-    assertThat(emitter).isNotNull();
+            () -> {
+              executionTimes.incrementAndGet();
+              return task;
+            });
     assertThat(cache.getInProgressTasks()).containsExactly("key1");
     assertThat(cache.getFinishedTasks()).isEmpty();
 
-    TestObserver<String> ob2 = single.test();
-    ob2.assertEmpty();
-    emitter.onSuccess("value1");
-
-    ob1.assertValue("value1");
-    ob2.assertValue("value1");
-    assertThat(executionTimes.get()).isEqualTo(1);
-    assertThat(cache.getInProgressTasks()).isEmpty();
-    assertThat(cache.getFinishedTasks()).containsExactly("key1");
-  }
-
-  @Test
-  public void executeForcibly_taskInProgress_noReExecution() {
-    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
-    AtomicReference<SingleEmitter<String>> emitterRef = new AtomicReference<>(null);
-    AtomicInteger executionTimes = new AtomicInteger(0);
-    Single<String> single =
-        cache.execute(
-            "key1",
-            Single.create(
-                emitter -> {
-                  executionTimes.incrementAndGet();
-                  emitterRef.set(emitter);
-                }),
-            /* force= */ true);
-    TestObserver<String> ob1 = single.test();
-    ob1.assertEmpty();
-    SingleEmitter<String> emitter = emitterRef.get();
-    assertThat(emitter).isNotNull();
-    assertThat(cache.getInProgressTasks()).containsExactly("key1");
-    assertThat(cache.getFinishedTasks()).isEmpty();
-
-    TestObserver<String> ob2 = single.test();
-    ob2.assertEmpty();
-    emitter.onSuccess("value1");
-
-    ob1.assertValue("value1");
-    ob2.assertValue("value1");
-    assertThat(executionTimes.get()).isEqualTo(1);
-    assertThat(cache.getInProgressTasks()).isEmpty();
-    assertThat(cache.getFinishedTasks()).containsExactly("key1");
-  }
-
-  @Test
-  public void execute_taskFinished_noReExecution() {
-    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
-    AtomicReference<SingleEmitter<String>> emitterRef = new AtomicReference<>(null);
-    AtomicInteger executionTimes = new AtomicInteger(0);
-    Single<String> single =
+    ListenableFuture<String> future2 =
         cache.executeIfNot(
             "key1",
-            Single.create(
-                emitter -> {
-                  executionTimes.incrementAndGet();
-                  emitterRef.set(emitter);
-                }));
-    TestObserver<String> ob1 = single.test();
-    SingleEmitter<String> emitter = emitterRef.get();
-    assertThat(emitter).isNotNull();
-    emitter.onSuccess("value1");
-    ob1.assertValue("value1");
+            () -> {
+              executionTimes.incrementAndGet();
+              return task;
+            });
+    assertThat(future2.isDone()).isFalse();
+
+    task.set("value1");
+
+    assertThat(future1.get()).isEqualTo("value1");
+    assertThat(future2.get()).isEqualTo("value1");
+    assertThat(executionTimes.get()).isEqualTo(1);
+    assertThat(cache.getInProgressTasks()).isEmpty();
+    assertThat(cache.getFinishedTasks()).containsExactly("key1");
+  }
+
+  @Test
+  public void executeForcibly_taskInProgress_reExecution() throws Exception {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    SettableFuture<String> task1 = SettableFuture.create();
+    SettableFuture<String> task2 = SettableFuture.create();
+    ListenableFuture<String> future1 = cache.execute("key1", () -> task1, /* force= */ true);
+    assertThat(cache.getInProgressTasks()).containsExactly("key1");
+
+    ListenableFuture<String> future2 = cache.execute("key1", () -> task2, /* force= */ true);
+
+    // Unlike a non-forced execution, this does not join the in-progress one.
+    task2.set("value2");
+    assertThat(future2.get()).isEqualTo("value2");
+    assertThat(future1.isDone()).isFalse();
+
+    task1.set("value1");
+    assertThat(future1.get()).isEqualTo("value1");
+  }
+
+  @Test
+  public void execute_taskFinished_noReExecution() throws Exception {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    AtomicInteger executionTimes = new AtomicInteger(0);
+    ListenableFuture<String> future1 =
+        cache.executeIfNot(
+            "key1",
+            () -> {
+              executionTimes.incrementAndGet();
+              return immediateFuture("value1");
+            });
+    assertThat(future1.get()).isEqualTo("value1");
     assertThat(cache.getFinishedTasks()).containsExactly("key1");
 
-    TestObserver<String> ob2 = single.test();
+    ListenableFuture<String> future2 =
+        cache.executeIfNot(
+            "key1",
+            () -> {
+              executionTimes.incrementAndGet();
+              return immediateFuture("value2");
+            });
 
-    ob2.assertValue("value1");
+    assertThat(future2.get()).isEqualTo("value1");
     assertThat(executionTimes.get()).isEqualTo(1);
   }
 
   @Test
-  public void executeForcibly_taskFinished_reExecution() {
+  public void executeForcibly_taskFinished_reExecution() throws Exception {
     AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
-    AtomicReference<SingleEmitter<String>> emitterRef = new AtomicReference<>(null);
     AtomicInteger executionTimes = new AtomicInteger(0);
-    Single<String> single =
-        cache.execute(
+    ListenableFuture<String> future1 =
+        cache.executeIfNot(
             "key1",
-            Single.create(
-                emitter -> {
-                  executionTimes.incrementAndGet();
-                  emitterRef.set(emitter);
-                }),
-            /* force= */ true);
-    TestObserver<String> ob1 = single.test();
-    SingleEmitter<String> emitter = emitterRef.get();
-    assertThat(emitter).isNotNull();
-    emitter.onSuccess("value1");
-    ob1.assertValue("value1");
+            () -> {
+              executionTimes.incrementAndGet();
+              return immediateFuture("value1");
+            });
+    assertThat(future1.get()).isEqualTo("value1");
     assertThat(cache.getFinishedTasks()).containsExactly("key1");
 
-    TestObserver<String> ob2 = single.test();
+    SettableFuture<String> task = SettableFuture.create();
+    ListenableFuture<String> future2 =
+        cache.execute(
+            "key1",
+            () -> {
+              executionTimes.incrementAndGet();
+              return task;
+            },
+            /* force= */ true);
 
-    ob2.assertEmpty();
+    assertThat(future2.isDone()).isFalse();
     assertThat(executionTimes.get()).isEqualTo(2);
     assertThat(cache.getInProgressTasks()).containsExactly("key1");
     assertThat(cache.getFinishedTasks()).isEmpty();
   }
 
   @Test
-  public void execute_dispose_cancelled() {
+  public void invalidate_reExecutesOnNextCall() throws Exception {
     AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
-    AtomicReference<SingleEmitter<String>> emitterRef = new AtomicReference<>(null);
-    TestObserver<String> observer =
-        cache.executeIfNot("key1", Single.create(emitterRef::set)).test();
-    SingleEmitter<String> emitter = emitterRef.get();
-    assertThat(emitter).isNotNull();
-    AtomicBoolean disposed = new AtomicBoolean(false);
-    emitter.setCancellable(() -> disposed.set(true));
+    AtomicInteger executionTimes = new AtomicInteger(0);
+    var unused =
+        cache
+            .executeIfNot(
+                "key1",
+                () -> immediateFuture("value" + executionTimes.incrementAndGet()))
+            .get();
 
-    observer.dispose();
+    cache.invalidate("key1");
 
-    assertThat(disposed.get()).isTrue();
+    assertThat(cache.getFinishedTasks()).isEmpty();
+    assertThat(
+            cache
+                .executeIfNot(
+                    "key1",
+                    () -> immediateFuture("value" + executionTimes.incrementAndGet()))
+                .get())
+        .isEqualTo("value2");
+  }
+
+  @Test
+  public void put_shortCircuitsNextCall() throws Exception {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+
+    cache.put("key1", "value1");
+
+    assertThat(cache.getFinishedTasks()).containsExactly("key1");
+    assertThat(
+            cache
+                .executeIfNot(
+                    "key1",
+                    () -> {
+                      throw new AssertionError("should not be executed");
+                    })
+                .get())
+        .isEqualTo("value1");
+  }
+
+  @Test
+  public void put_nullValue_shortCircuitsNextCall() throws Exception {
+    AsyncTaskCache<String, Void> cache = AsyncTaskCache.create();
+
+    cache.put("key1", null);
+
+    assertThat(cache.getFinishedTasks()).containsExactly("key1");
+    assertThat(
+            cache
+                .executeIfNot(
+                    "key1",
+                    () -> {
+                      throw new AssertionError("should not be executed");
+                    })
+                .get())
+        .isNull();
+  }
+
+  @Test
+  public void execute_cancel_taskCancelled() {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    SettableFuture<String> task = SettableFuture.create();
+    ListenableFuture<String> future = cache.executeIfNot("key1", () -> task);
+
+    assertThat(future.cancel(/* mayInterruptIfRunning= */ true)).isTrue();
+
+    assertThat(task.isCancelled()).isTrue();
     assertThat(cache.getInProgressTasks()).isEmpty();
     assertThat(cache.getFinishedTasks()).isEmpty();
   }
 
   @Test
-  public void execute_disposeWhenMultipleSubscriptions_notCancelled() {
+  public void execute_cancelOneOfTwoCallers_taskNotCancelled() {
     AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
-    AtomicReference<SingleEmitter<String>> emitterRef = new AtomicReference<>(null);
-    Single<String> single = cache.executeIfNot("key1", Single.create(emitterRef::set));
-    TestObserver<String> ob1 = single.test();
-    TestObserver<String> ob2 = single.test();
-    SingleEmitter<String> emitter = emitterRef.get();
-    assertThat(emitter).isNotNull();
-    AtomicBoolean disposed = new AtomicBoolean(false);
-    emitter.setCancellable(() -> disposed.set(true));
+    SettableFuture<String> task = SettableFuture.create();
+    ListenableFuture<String> future1 = cache.executeIfNot("key1", () -> task);
+    ListenableFuture<String> future2 = cache.executeIfNot("key1", () -> task);
+    assertThat(cache.getSubscriberCount("key1")).isEqualTo(2);
 
-    ob1.dispose();
+    assertThat(future1.cancel(/* mayInterruptIfRunning= */ true)).isTrue();
 
-    ob2.assertEmpty();
-    assertThat(disposed.get()).isFalse();
+    assertThat(future2.isDone()).isFalse();
+    assertThat(task.isCancelled()).isFalse();
     assertThat(cache.getInProgressTasks()).containsExactly("key1");
-    assertThat(cache.getFinishedTasks()).isEmpty();
+    assertThat(cache.getSubscriberCount("key1")).isEqualTo(1);
   }
 
   @Test
-  public void execute_disposeWhenMultipleSubscriptions_cancelled() {
+  public void execute_cancelAllCallers_taskCancelled() {
     AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
-    AtomicReference<SingleEmitter<String>> emitterRef = new AtomicReference<>(null);
-    Single<String> single = cache.executeIfNot("key1", Single.create(emitterRef::set));
-    TestObserver<String> ob1 = single.test();
-    TestObserver<String> ob2 = single.test();
-    SingleEmitter<String> emitter = emitterRef.get();
-    assertThat(emitter).isNotNull();
-    AtomicBoolean disposed = new AtomicBoolean(false);
-    emitter.setCancellable(() -> disposed.set(true));
+    SettableFuture<String> task = SettableFuture.create();
+    ListenableFuture<String> future1 = cache.executeIfNot("key1", () -> task);
+    ListenableFuture<String> future2 = cache.executeIfNot("key1", () -> task);
 
-    ob1.dispose();
-    ob2.dispose();
+    assertThat(future1.cancel(/* mayInterruptIfRunning= */ true)).isTrue();
+    assertThat(future2.cancel(/* mayInterruptIfRunning= */ true)).isTrue();
 
-    assertThat(disposed.get()).isTrue();
+    assertThat(task.isCancelled()).isTrue();
     assertThat(cache.getInProgressTasks()).isEmpty();
     assertThat(cache.getFinishedTasks()).isEmpty();
   }
 
   @Test
-  public void execute_multipleTasks_completeOne() {
+  public void execute_multipleTasks_completeOne() throws Exception {
     AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
-    AtomicReference<SingleEmitter<String>> emitterRef1 = new AtomicReference<>(null);
-    TestObserver<String> observer1 =
-        cache.executeIfNot("key1", Single.create(emitterRef1::set)).test();
-    SingleEmitter<String> emitter1 = emitterRef1.get();
-    assertThat(emitter1).isNotNull();
-    AtomicReference<SingleEmitter<String>> emitterRef2 = new AtomicReference<>(null);
-    TestObserver<String> observer2 =
-        cache.executeIfNot("key2", Single.create(emitterRef2::set)).test();
-    SingleEmitter<String> emitter2 = emitterRef1.get();
-    assertThat(emitter2).isNotNull();
+    SettableFuture<String> task1 = SettableFuture.create();
+    SettableFuture<String> task2 = SettableFuture.create();
+    ListenableFuture<String> future1 = cache.executeIfNot("key1", () -> task1);
+    ListenableFuture<String> future2 = cache.executeIfNot("key2", () -> task2);
 
-    emitter1.onSuccess("value1");
+    task1.set("value1");
 
-    observer1.assertValue("value1");
-    observer2.assertEmpty();
+    assertThat(future1.get()).isEqualTo("value1");
+    assertThat(future2.isDone()).isFalse();
     assertThat(cache.getInProgressTasks()).containsExactly("key2");
     assertThat(cache.getFinishedTasks()).containsExactly("key1");
   }
 
-  private Completable newTask(ExecutorService executorService) {
-    return RxFutures.toCompletable(
-        () -> {
-          SettableFuture<Void> future = SettableFuture.create();
-          executorService.execute(
-              () -> {
-                try {
-                  Thread.sleep((long) (Math.random() * 1000));
-                  future.set(null);
-                } catch (InterruptedException e) {
-                  future.setException(new IOException(e));
-                }
-              });
-          return future;
-        },
-        executorService);
+  @Test
+  public void awaitInProgressTasks_completesAfterAllTasksFinish() throws Exception {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    SettableFuture<String> task1 = SettableFuture.create();
+    SettableFuture<String> task2 = SettableFuture.create();
+    var unused1 = cache.executeIfNot("key1", () -> task1);
+    var unused2 = cache.executeIfNot("key2", () -> task2);
+
+    Thread waiter = new Thread(() -> awaitInProgressTasksUninterruptibly(cache));
+    waiter.start();
+    task1.set("value1");
+    assertThat(waiter.isAlive()).isTrue();
+    task2.setException(new IOException("error"));
+    waiter.join();
+
+    // A failed task does not fail the wait.
+    assertThat(cache.getInProgressTasks()).isEmpty();
   }
 
-  @Test
-  public void execute_executeAndDisposeLoop_noErrors() throws Throwable {
-    int taskCount = 1000;
-    int maxKey = 20;
-    Random random = new Random();
-    ExecutorService executorService = Executors.newFixedThreadPool(taskCount);
-    AsyncTaskCache.NoResult<String> cache = AsyncTaskCache.NoResult.create();
-    AtomicReference<Throwable> error = new AtomicReference<>(null);
-    Semaphore semaphore = new Semaphore(0);
-
-    for (int i = 0; i < taskCount; ++i) {
-      executorService.execute(
-          () -> {
-            try {
-              Completable task =
-                  cache.execute("key" + random.nextInt(maxKey), newTask(executorService), true);
-              TestObserver<Void> observer = task.test();
-              observer.assertNoErrors();
-              if (random.nextBoolean()) {
-                observer.dispose();
-              } else {
-                observer.await();
-                observer.assertNoErrors();
-              }
-            } catch (Throwable e) {
-              if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-              }
-              error.set(e);
-            } finally {
-              semaphore.release();
-            }
-          });
-    }
-    semaphore.acquire(taskCount);
-
-    if (error.get() != null) {
-      throw error.get();
-    }
-  }
-
-  @Test
-  public void execute_executeWithFutureAndCancelLoop_noErrors() throws Throwable {
-    int taskCount = 1000;
-    int maxKey = 20;
-    Random random = new Random();
-    ExecutorService executorService = Executors.newFixedThreadPool(taskCount);
-    AsyncTaskCache.NoResult<String> cache = AsyncTaskCache.NoResult.create();
-    AtomicReference<Throwable> error = new AtomicReference<>(null);
-    Semaphore semaphore = new Semaphore(0);
-
-    for (int i = 0; i < taskCount; ++i) {
-      executorService.execute(
-          () -> {
-            try {
-              Completable download =
-                  cache.execute("key" + random.nextInt(maxKey), newTask(executorService), true);
-              Future<Void> future = RxFutures.toListenableFuture(download);
-              if (!future.isDone() && random.nextBoolean()) {
-                future.cancel(true);
-              } else {
-                future.get();
-              }
-            } catch (Throwable e) {
-              if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-              }
-              error.set(e);
-            } finally {
-              semaphore.release();
-            }
-          });
-    }
-    semaphore.acquire(taskCount);
-
-    if (error.get() != null) {
-      throw error.get();
+  private static void awaitInProgressTasksUninterruptibly(AsyncTaskCache<?, ?> cache) {
+    try {
+      cache.awaitInProgressTasks();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
     }
   }
 
   @Test
   public void execute_pendingShutdown_getCancellationError() {
     AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
-    cache
-        .executeIfNot(
-            "key1",
-            Single.create(
-                emitter -> {
-                  // never complete
-                }))
-        .test()
-        .assertNotComplete();
+    ListenableFuture<String> inProgress =
+        cache.executeIfNot("key1", () -> SettableFuture.create());
     cache.shutdown();
     assertThat(cache.isShutdown()).isTrue();
     assertThat(cache.isTerminated()).isFalse();
+    assertThat(inProgress.isDone()).isFalse();
 
-    TestObserver<String> ob = cache.executeIfNot("key2", Single.just("value2")).test();
+    ListenableFuture<String> future =
+        cache.executeIfNot("key2", () -> immediateFuture("value2"));
 
-    ob.assertError(e -> e instanceof CancellationException);
+    assertThat(future.isCancelled()).isTrue();
+    assertThrows(CancellationException.class, future::get);
   }
 
   @Test
-  public void execute_afterShutdown_getCancellationError() throws InterruptedException {
+  public void execute_afterShutdown_getCancellationError() throws Exception {
     AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
     cache.shutdown();
     cache.awaitTermination();
 
-    TestObserver<String> ob = cache.executeIfNot("key", Single.just("value")).test();
+    ListenableFuture<String> future = cache.executeIfNot("key", () -> immediateFuture("value"));
 
-    ob.assertError(e -> e instanceof CancellationException);
+    assertThat(future.isCancelled()).isTrue();
   }
 
   @Test
-  public void shutdownNow_cancelInProgressTasks() throws InterruptedException {
+  public void shutdownNow_cancelInProgressTasks() throws Exception {
     AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
-    TestObserver<String> ob =
-        cache
-            .executeIfNot(
-                "key",
-                Single.create(
-                    emitter -> {
-                      // never complete
-                    }))
-            .test();
+    SettableFuture<String> task = SettableFuture.create();
+    ListenableFuture<String> future = cache.executeIfNot("key", () -> task);
     cache.shutdown();
     assertThat(cache.isShutdown()).isTrue();
     assertThat(cache.isTerminated()).isFalse();
-    ob.assertNotComplete();
+    assertThat(future.isDone()).isFalse();
 
     cache.shutdownNow();
     cache.awaitTermination();
 
     assertThat(cache.isShutdown()).isTrue();
     assertThat(cache.isTerminated()).isTrue();
-    ob.assertError(e -> e instanceof CancellationException);
+    assertThat(task.isCancelled()).isTrue();
+    assertThat(future.isCancelled()).isTrue();
   }
 
   @Test
-  public void awaitTermination_pendingShutdown_completeAfterTaskFinished()
-      throws InterruptedException {
+  public void awaitTermination_pendingShutdown_completeAfterTaskFinished() throws Exception {
     AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
-    AtomicReference<SingleEmitter<String>> emitterRef = new AtomicReference<>(null);
-    TestObserver<String> ob =
-        cache.executeIfNot("key", Single.create(emitterRef::set)).test().assertNotComplete();
-    assertThat(emitterRef.get()).isNotNull();
+    SettableFuture<String> task = SettableFuture.create();
+    ListenableFuture<String> future = cache.executeIfNot("key", () -> task);
     cache.shutdown();
     assertThat(cache.isShutdown()).isTrue();
     assertThat(cache.isTerminated()).isFalse();
 
-    emitterRef.get().onSuccess("value");
+    task.set("value");
     cache.awaitTermination();
 
     assertThat(cache.isShutdown()).isTrue();
     assertThat(cache.isTerminated()).isTrue();
-    ob.assertValue("value");
-
+    assertThat(future.get()).isEqualTo("value");
     assertThat(cache.getInProgressTasks()).isEmpty();
     assertThat(cache.getFinishedTasks()).isEmpty();
   }
 
   @Test
-  public void awaitTermination_afterShutdown_complete() throws InterruptedException {
+  public void awaitTermination_afterShutdown_complete() throws Exception {
     AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
     cache.shutdownNow();
     cache.awaitTermination();
@@ -478,5 +396,76 @@ public class AsyncTaskCacheTest {
 
     assertThat(cache.isShutdown()).isTrue();
     assertThat(cache.isTerminated()).isTrue();
+  }
+
+  @Test
+  public void execute_executeAndCancelLoop_noErrors() throws Throwable {
+    runExecuteAndCancelLoop(/* force= */ false);
+  }
+
+  @Test
+  public void executeForcibly_executeAndCancelLoop_noErrors() throws Throwable {
+    runExecuteAndCancelLoop(/* force= */ true);
+  }
+
+  private static void runExecuteAndCancelLoop(boolean force) throws Throwable {
+    int taskCount = 1000;
+    int maxKey = 20;
+    Random random = new Random();
+    // Separate pools: callers block on their futures, so they must not compete for the threads
+    // that complete the tasks.
+    ExecutorService callerExecutor = Executors.newFixedThreadPool(64);
+    ExecutorService taskExecutor = Executors.newVirtualThreadPerTaskExecutor();
+    AsyncTaskCache<String, Void> cache = AsyncTaskCache.create();
+    AtomicReference<Throwable> error = new AtomicReference<>(null);
+    Semaphore semaphore = new Semaphore(0);
+
+    for (int i = 0; i < taskCount; ++i) {
+      callerExecutor.execute(
+          () -> {
+            try {
+              ListenableFuture<Void> future =
+                  cache.execute(
+                      "key" + random.nextInt(maxKey), () -> newTask(taskExecutor), force);
+              if (!future.isDone() && random.nextBoolean()) {
+                future.cancel(true);
+              } else {
+                try {
+                  var unused = future.get();
+                } catch (CancellationException e) {
+                  // Another caller cancelled the shared task.
+                }
+              }
+            } catch (Throwable e) {
+              if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+              }
+              error.set(e);
+            } finally {
+              semaphore.release();
+            }
+          });
+    }
+    semaphore.acquire(taskCount);
+    callerExecutor.shutdown();
+    taskExecutor.shutdown();
+
+    if (error.get() != null) {
+      throw error.get();
+    }
+  }
+
+  private static ListenableFuture<Void> newTask(ExecutorService taskExecutor) {
+    SettableFuture<Void> future = SettableFuture.create();
+    taskExecutor.execute(
+        () -> {
+          try {
+            Thread.sleep((long) (Math.random() * 10));
+            future.set(null);
+          } catch (InterruptedException e) {
+            future.setException(new IOException(e));
+          }
+        });
+    return future;
   }
 }
