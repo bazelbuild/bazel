@@ -44,6 +44,7 @@ public record DeclaredToolchainInfo(
     ToolchainTypeInfo toolchainType,
     ConstraintCollection execConstraints,
     ConstraintCollection targetConstraints,
+    boolean useTargetPlatformConstraints,
     ImmutableList<ConfigMatchingProvider> targetSettings,
     Label targetLabel,
     Label resolvedToolchainLabel)
@@ -58,20 +59,7 @@ public record DeclaredToolchainInfo(
   }
 
   public boolean hasTargetToExecConstraints() {
-    // This needs to check identity as the special ConstraintCollection is otherwise equal to the
-    // empty one. This avoids adding a new field or making ConstraintCollection more complex.
-    return execConstraints == USE_TARGET_PLATFORM_CONSTRAINTS
-        && targetConstraints == USE_TARGET_PLATFORM_CONSTRAINTS;
-  }
-
-  private static final ConstraintCollection USE_TARGET_PLATFORM_CONSTRAINTS;
-
-  static {
-    try {
-      USE_TARGET_PLATFORM_CONSTRAINTS = ConstraintCollection.builder().build();
-    } catch (ConstraintCollection.DuplicateConstraintException e) {
-      throw new IllegalStateException(e);
-    }
+    return useTargetPlatformConstraints;
   }
 
   /** Builder class to assist in creating {@link DeclaredToolchainInfo} instances. */
@@ -79,6 +67,7 @@ public record DeclaredToolchainInfo(
     private ToolchainTypeInfo toolchainType;
     private final ConstraintCollection.Builder execConstraints = ConstraintCollection.builder();
     private final ConstraintCollection.Builder targetConstraints = ConstraintCollection.builder();
+    private boolean useTargetPlatformConstraints = false;
     private final ImmutableList.Builder<ConfigMatchingProvider> targetSettings =
         new ImmutableList.Builder<>();
     private Label targetLabel;
@@ -115,6 +104,13 @@ public record DeclaredToolchainInfo(
     @CanIgnoreReturnValue
     public Builder addTargetConstraints(ConstraintValueInfo... constraints) {
       return addTargetConstraints(ImmutableList.copyOf(constraints));
+    }
+
+    /** Sets the flag to add unmatched target platform constraints as exec constraints. */
+    @CanIgnoreReturnValue
+    public Builder useTargetPlatformConstraints(boolean enabled) {
+      this.useTargetPlatformConstraints = enabled;
+      return this;
     }
 
     @CanIgnoreReturnValue
@@ -164,16 +160,7 @@ public record DeclaredToolchainInfo(
           toolchainType,
           execConstraints,
           targetConstraints,
-          targetSettings.build(),
-          targetLabel,
-          resolvedToolchainLabel);
-    }
-
-    public DeclaredToolchainInfo buildWithTargetToExecConstraints() {
-      return new DeclaredToolchainInfo(
-          toolchainType,
-          USE_TARGET_PLATFORM_CONSTRAINTS,
-          USE_TARGET_PLATFORM_CONSTRAINTS,
+          useTargetPlatformConstraints,
           targetSettings.build(),
           targetLabel,
           resolvedToolchainLabel);

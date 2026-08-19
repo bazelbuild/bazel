@@ -170,11 +170,8 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
             .collect(toImmutableList());
 
     for (DeclaredToolchainInfo toolchain : filteredToolchains) {
-      // Make sure the target platform matches. A toolchain with use_target_platform_constraints
-      // matches
-      // any target platform.
-      if (!toolchain.hasTargetToExecConstraints()
-          && !checkConstraints(
+      // Make sure the target platform matches.
+      if (!checkConstraints(
               debugPrinter,
               toolchain.targetConstraints(),
               /* isTargetPlatform= */ true,
@@ -182,6 +179,17 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
               toolchain.targetLabel(),
               toolchain.resolvedToolchainLabel())) {
         continue;
+      }
+      ConstraintCollection unmatchedTargetConstraints = null;
+      if (toolchain.useTargetPlatformConstraints()) {
+        try {
+          unmatchedTargetConstraints = ConstraintCollection.builder().addConstraints(
+              toolchain.targetConstraints().findMissing(targetPlatform.constraints())
+          ).build();
+        } catch (ConstraintCollection.DuplicateConstraintException e) {
+          // This should never happen because this is a subset of targetPlatform.constraints().
+          throw new IllegalStateException("unreachable: " + e);
+        }
       }
 
       debugPrinter.reportCompatibleTargetPlatform(
@@ -213,9 +221,18 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
         // Check if the execution constraints match.
         if (!checkConstraints(
             debugPrinter,
-            toolchain.hasTargetToExecConstraints()
-                ? targetPlatform.constraints()
-                : toolchain.execConstraints(),
+            toolchain.execConstraints(),
+            /* isTargetPlatform= */ false,
+            executionPlatform,
+            toolchain.targetLabel(),
+            toolchain.resolvedToolchainLabel())) {
+          // Keep looking for a valid toolchain for this exec platform
+          done = false;
+          continue;
+        }
+        if (toolchain.useTargetPlatformConstraints() && !checkConstraints(
+            debugPrinter,
+            unmatchedTargetConstraints,
             /* isTargetPlatform= */ false,
             executionPlatform,
             toolchain.targetLabel(),

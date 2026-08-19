@@ -134,6 +134,15 @@ public abstract class ConstraintCollection
    * present in this {@link ConstraintCollection}, either directly, or by being the default for
    * their {@link ConstraintSettingInfo}.
    */
+  public ImmutableList<ConstraintValueInfo> findMissing(ConstraintCollection expected) {
+    return findMissing(expected.constraints().values());
+  }
+
+  /**
+   * Returns the set of {@link ConstraintValueInfo constraints} from {@code expected} that are not
+   * present in this {@link ConstraintCollection}, either directly, or by being the default for
+   * their {@link ConstraintSettingInfo}.
+   */
   public ImmutableList<ConstraintValueInfo> findMissing(Iterable<ConstraintValueInfo> expected) {
     ImmutableList.Builder<ConstraintValueInfo> missing = new ImmutableList.Builder<>();
     // For every constraint check if it is (1) non-null and (2) set correctly.

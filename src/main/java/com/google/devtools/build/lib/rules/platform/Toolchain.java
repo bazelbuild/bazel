@@ -62,31 +62,19 @@ public class Toolchain implements RuleConfiguredTargetFactory {
         ruleContext
             .attributes()
             .get(ToolchainRule.USE_TARGET_PLATFORM_CONSTRAINTS_ATTR, Type.BOOLEAN);
-    if (targetToExecConstraints && !(execConstraints.isEmpty() && targetConstraints.isEmpty())) {
-      ruleContext.attributeError(
-          ToolchainRule.USE_TARGET_PLATFORM_CONSTRAINTS_ATTR,
-          "Cannot set use_target_platform_constraints to True and also set exec_compatible_with or "
-              + "target_compatible_with");
-      return null;
-    }
 
     DeclaredToolchainInfo registeredToolchain;
     try {
-      var registeredToolchainBuilder =
+      registeredToolchain =
           DeclaredToolchainInfo.builder()
               .toolchainType(toolchainType)
               .addTargetSettings(targetSettings)
               .resolvedToolchainLabel(resolvedToolchainLabel)
-              .targetLabel(ruleContext.getLabel());
-      if (targetToExecConstraints) {
-        registeredToolchain = registeredToolchainBuilder.buildWithTargetToExecConstraints();
-      } else {
-        registeredToolchain =
-            registeredToolchainBuilder
-                .addExecConstraints(execConstraints)
-                .addTargetConstraints(targetConstraints)
-                .build();
-      }
+              .targetLabel(ruleContext.getLabel())
+              .addExecConstraints(execConstraints)
+              .addTargetConstraints(targetConstraints)
+              .useTargetPlatformConstraints(targetToExecConstraints)
+              .build();
     } catch (DeclaredToolchainInfo.DuplicateConstraintException e) {
       if (e.execConstraintsException() != null) {
         ruleContext.attributeError(
