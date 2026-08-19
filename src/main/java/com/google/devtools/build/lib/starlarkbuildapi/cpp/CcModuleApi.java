@@ -887,7 +887,7 @@ public interface CcModuleApi<
               + "should not outlive analysis. Work on memory efficient function returning Args is "
               + "ongoing.<p>When called from a <a "
               + "href='../builtins/Args.html#add_all.map_each'><code>map_each</code></a> callback, "
-              + "the returned flags have Bazel's path mapping applied to them.",
+              + "the returned flags have path mapping applied to them if enabled.",
       parameters = {
         @Param(
             name = "feature_configuration",
