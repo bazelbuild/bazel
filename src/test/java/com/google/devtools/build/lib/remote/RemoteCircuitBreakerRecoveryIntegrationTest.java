@@ -77,11 +77,8 @@ public class RemoteCircuitBreakerRecoveryIntegrationTest extends BuildIntegratio
     addOptions(
         "--remote_executor=grpc://localhost:" + worker.getPort(),
         "--remote_download_minimal",
-        // Both tests recover a lost input via action rewinding: a failed prefetch (with
-        // --remote_retries=0) is treated as a lost input, and rewinding re-runs the action.
-        "--rewind_lost_inputs",
-        // Disable build-level invocation retries (default 5) so recovery is exercised via action
-        // rewinding within one build, not by retrying the whole build with a fresh breaker.
+        // Disable build-level invocation retries (default 5) so recovery is exercised within a
+        // single build, not by retrying the whole build with a fresh breaker.
         "--experimental_remote_cache_eviction_retries=0");
   }
 
@@ -175,20 +172,20 @@ public class RemoteCircuitBreakerRecoveryIntegrationTest extends BuildIntegratio
   }
 
   @Test
-  public void recovers_whenPrefetchingInput_succeedsWithActionRewinding() throws Exception {
+  public void recovers_whenPrefetchingInput_succeedsWithRetriedDownload() throws Exception {
     setupRemoteOnlyFooOut();
 
     // Act: enable the failure breaker with a short recovery delay, arm a single transient read
     // failure, and force bar to re-prefetch the remote-only foo.out. The prefetch read trips the
-    // breaker; with --remote_retries=0 that becomes a lost input and drives action rewinding, and
-    // the breaker re-closes on a trial probe during the rewind so the build recovers.
+    // breaker, and the retry scheduled for it (~100ms out, well past the recovery delay) is the
+    // caller that picks up the trial probe, so the download succeeds and the build recovers.
     addOptions(
         "--experimental_circuit_breaker_strategy=failure",
         "--experimental_remote_min_fail_count_to_compute_failure_rate=1",
         "--experimental_remote_min_call_count_to_compute_failure_rate=1",
         "--experimental_remote_failure_rate_threshold=1",
         "--experimental_remote_circuit_breaker_recovery_delay=1ms",
-        "--remote_retries=0");
+        "--remote_retries=1");
     write("a/bar.in", "updated bar");
     int stderrLenBefore = worker.getStderr().length();
     worker.armReadFailures();
@@ -206,22 +203,22 @@ public class RemoteCircuitBreakerRecoveryIntegrationTest extends BuildIntegratio
     setupRemoteOnlyFooOut();
 
     // Act: same as the recovery test, but recovery is disabled (the delay defaults to 0), so the
-    // tripped breaker stays open for the rest of the build and the rewound re-execution is
-    // rejected.
+    // tripped breaker stays open for the rest of the build and rejects the retry outright.
     addOptions(
         "--experimental_circuit_breaker_strategy=failure",
         "--experimental_remote_min_fail_count_to_compute_failure_rate=1",
         "--experimental_remote_min_call_count_to_compute_failure_rate=1",
         "--experimental_remote_failure_rate_threshold=1",
-        "--remote_retries=0");
+        "--remote_retries=1");
     write("a/bar.in", "updated bar");
     int stderrLenBefore = worker.getStderr().length();
     worker.armReadFailures();
 
     var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
 
-    // Assert: the breaker tripped and, without recovery, the build failed with a remote error.
+    // Assert: the breaker tripped and, without recovery, it rejected the retry instead of letting
+    // the download recover, failing the build.
     assertReadFailureInjectedSince(stderrLenBefore);
-    assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(34);
+    assertThat(error).hasMessageThat().contains("Call not executed due to a high failure rate");
   }
 }

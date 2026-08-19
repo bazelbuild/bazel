@@ -215,16 +215,6 @@ public abstract class RemoteWorkerOptions extends OptionsBase {
   public abstract String getExpectedAuthorizationToken();
 
   @Option(
-      name = "unavailable",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "If true, all gRPC services, except Capabilities, return UNAVAILABLE. This is useful for"
-              + " testing only.")
-  public abstract boolean getUnavailable();
-
-  @Option(
       name = "error_on_duplicate_downloads",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
