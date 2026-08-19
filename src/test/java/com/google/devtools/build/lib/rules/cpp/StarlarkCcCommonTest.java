@@ -903,6 +903,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testCommandLineExpandedInMapEachIsPathMapped() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig, CcToolchainConfig.builder().withGeneratedTool("@@//a:gen_tool"));
     useConfiguration("--experimental_output_paths=strip");
     scratch.file(
         "a/BUILD",
@@ -922,6 +926,13 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             name = "gen_src",
             outs = ["gen_src.cc"],
             cmd = "<some command>",
+        )
+
+        genrule(
+            name = "gen_tool",
+            outs = ["gen_tool.sh"],
+            cmd = "<some command>",
+            visibility = ["//visibility:public"],
         )
 
         crule(
@@ -1047,10 +1058,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         .inOrder();
     assertThat(spawn.getArguments()).containsAtLeast("-o", outDir + "/cfg/bin/a/r.o").inOrder();
 
-    // The tool of this toolchain isn't an output, so path mapping leaves it alone.
+    // The tool of this toolchain is a generated file, so its path is mapped just like the others.
     String eagerTool = (String) getMyInfoFromTarget(r).getValue("eager_tool");
-    assertThat(eagerTool).doesNotContain(outDir);
-    assertThat(spawn.getArguments()).contains(eagerTool);
+    assertThat(eagerTool).isEqualTo(getArtifact("//a:gen_tool.sh").getExecPathString());
+    assertThat(spawn.getArguments()).contains(outDir + "/cfg/bin/a/gen_tool.sh");
   }
 
   @Test
