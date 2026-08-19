@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.remote.common;
 
 import build.bazel.remote.execution.v2.Digest;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import java.io.IOException;
 
 /**
@@ -38,9 +39,6 @@ public final class BlobNotSplittableException extends IOException {
 
   @Override
   public String getMessage() {
-    return "Not splittable into chunks: "
-        + blobDigest.getHash()
-        + "/"
-        + blobDigest.getSizeBytes();
+    return "Not splittable into chunks: %s".formatted(DigestUtil.toString(blobDigest));
   }
 }
