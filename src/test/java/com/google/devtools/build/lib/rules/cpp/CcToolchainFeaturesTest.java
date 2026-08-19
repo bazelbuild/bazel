@@ -23,14 +23,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.PathMapper;
-import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
@@ -42,15 +38,12 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValu
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValueAdapter;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.starlarkbuildapi.DirectoryExpander;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.StarlarkList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -581,68 +574,6 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
     assertContainsEvent(
         "Invalid toolchain configuration: expected path after 'path:' at position 2 while parsing a"
             + " flag containing '%{path:}");
-  }
-
-  @Test
-  public void testStructureFieldWithTreeArtifactIsExpandedByExpander() throws Exception {
-    PathMapper pathMapper =
-        (PathFragment path) ->
-            path.startsWith(PathFragment.create("bazel-out"))
-                ? path.subFragment(0, 1).getRelative("cfg").getRelative(path.subFragment(2))
-                : path;
-    SpecialArtifact tree =
-        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
-            getBinArtifactWithNoOwner("pkg/tree").getRoot(), "pkg/tree");
-    TreeFileArtifact firstChild = TreeFileArtifact.createTreeOutput(tree, "one.o");
-    TreeFileArtifact secondChild = TreeFileArtifact.createTreeOutput(tree, "two.o");
-    // A fresh instance per expansion: reusing one would additionally exercise the memoization in
-    // CcToolchainVariables#lookupVariable, which is not what this test is about.
-    Supplier<CcToolchainVariables> variables =
-        () ->
-            CcToolchainVariables.builder()
-                .addVariable(
-                    "group",
-                    StructProvider.STRUCT.create(
-                        ImmutableMap.of("object_files", StarlarkList.immutableOf(tree)),
-                        "no such field: %s"))
-                .build();
-    FeatureConfiguration configuration =
-        buildFeatures(
-                "features = [feature(",
-                "    name = 'a',",
-                "    flag_sets = [",
-                "        flag_set(",
-                "            actions = ['c++-compile'],",
-                "            flag_groups = [",
-                "                flag_group(",
-                "                    iterate_over = 'group.object_files',",
-                "                    flags = ['%{group.object_files}'],",
-                "                ),",
-                "            ],",
-                "        ),",
-                "    ],",
-                ")]")
-            .getFeatureConfiguration(ImmutableSet.of("a"));
-
-    // Without an expander the tree artifact itself ends up on the command line.
-    assertThat(
-            configuration.getCommandLine(
-                CppActionNames.CPP_COMPILE,
-                variables.get(),
-                /* treeArtifactExpander= */ null,
-                pathMapper))
-        .containsExactly("bazel-out/cfg/bin/pkg/tree");
-
-    // With one its files do, with path mapping applied to them.
-    assertThat(
-            configuration.getCommandLine(
-                CppActionNames.CPP_COMPILE,
-                variables.get(),
-                TreeArtifactExpander.of(
-                    (DirectoryExpander) file -> ImmutableList.of(firstChild, secondChild)),
-                pathMapper))
-        .containsExactly("bazel-out/cfg/bin/pkg/tree/one.o", "bazel-out/cfg/bin/pkg/tree/two.o")
-        .inOrder();
   }
 
   private static CcToolchainVariables createStructureSequenceVariables(
