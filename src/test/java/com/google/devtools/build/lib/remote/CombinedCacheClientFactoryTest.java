@@ -80,8 +80,7 @@ public class CombinedCacheClientFactoryTest {
             authAndTlsOptions,
             workingDirectory,
             digestUtil,
-            retrier,
-            /* checkActionResultIntegrity= */ true);
+            retrier);
 
     assertThat(blobStore.remoteCacheClient()).isInstanceOf(HttpCacheClient.class);
     assertThat(blobStore.diskCacheClient()).isNotNull();
@@ -101,8 +100,7 @@ public class CombinedCacheClientFactoryTest {
             authAndTlsOptions,
             workingDirectory,
             digestUtil,
-            retrier,
-            /* checkActionResultIntegrity= */ true);
+            retrier);
 
     assertThat(blobStore.remoteCacheClient()).isInstanceOf(HttpCacheClient.class);
     assertThat(blobStore.diskCacheClient()).isNotNull();
@@ -127,8 +125,7 @@ public class CombinedCacheClientFactoryTest {
                 authAndTlsOptions,
                 /* workingDirectory= */ null,
                 digestUtil,
-                retrier,
-                /* checkActionResultIntegrity= */ true));
+                retrier));
   }
 
   @Test
@@ -147,8 +144,7 @@ public class CombinedCacheClientFactoryTest {
             authAndTlsOptions,
             workingDirectory,
             digestUtil,
-            retrier,
-            /* checkActionResultIntegrity= */ true);
+            retrier);
 
     assertThat(blobStore.remoteCacheClient()).isInstanceOf(HttpCacheClient.class);
     assertThat(blobStore.diskCacheClient()).isNull();
@@ -170,8 +166,7 @@ public class CombinedCacheClientFactoryTest {
                         authAndTlsOptions,
                         workingDirectory,
                         digestUtil,
-                        retrier,
-                        /* checkActionResultIntegrity= */ true)))
+                        retrier)))
         .hasMessageThat()
         .contains("Remote cache proxy unsupported: bad-proxy");
   }
@@ -188,8 +183,7 @@ public class CombinedCacheClientFactoryTest {
             authAndTlsOptions,
             workingDirectory,
             digestUtil,
-            retrier,
-            /* checkActionResultIntegrity= */ true);
+            retrier);
 
     assertThat(blobStore.remoteCacheClient()).isInstanceOf(HttpCacheClient.class);
     assertThat(blobStore.diskCacheClient()).isNull();
@@ -207,8 +201,7 @@ public class CombinedCacheClientFactoryTest {
             authAndTlsOptions,
             workingDirectory,
             digestUtil,
-            retrier,
-            /* checkActionResultIntegrity= */ true);
+            retrier);
 
     assertThat(blobStore.remoteCacheClient()).isNull();
     assertThat(blobStore.diskCacheClient()).isNotNull();

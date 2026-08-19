@@ -71,7 +71,6 @@ public class DiskCacheClient {
 
   private final ImmutableMap<Store, Path> storeRootMap;
   private final Path tmpRoot;
-  private final boolean checkActionResultIntegrity;
 
   // Disk cache operations are almost entirely I/O-bound as digests are only computed as part of
   // I/O operations, so using virtual threads is appropriate.
@@ -80,15 +79,7 @@ public class DiskCacheClient {
       MoreExecutors.listeningDecorator(
           Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("disk-cache-", 0).factory()));
 
-  /**
-   * Creates a new disk cache client.
-   *
-   * @param checkActionResultIntegrity whether {@link #downloadActionResult} should only return an
-   *     action result whose referenced blobs are all present in the disk cache
-   */
-  public DiskCacheClient(Path root, DigestUtil digestUtil, boolean checkActionResultIntegrity)
-      throws IOException {
-    this.checkActionResultIntegrity = checkActionResultIntegrity;
+  public DiskCacheClient(Path root, DigestUtil digestUtil) throws IOException {
     Path fnRoot =
         isOldStyleDigestFunction(digestUtil.getDigestFunction())
             ? root
@@ -183,90 +174,56 @@ public class DiskCacheClient {
         directExecutor());
   }
 
-  /**
-   * If the blob with the given digest exists, marks it as recently used.
-   *
-   * @return whether the blob exists.
-   * @throws IOException if an I/O error other than a missing file occurs.
-   */
-  private boolean refreshDigest(Digest digest) throws IOException {
+  private void checkDigestExists(Digest digest) throws IOException {
     if (digest.getSizeBytes() == 0) {
-      return true;
+      return;
     }
 
-    return refresh(toPath(digest, Store.CAS));
+    Path path = toPath(digest, Store.CAS);
+    if (!refresh(path)) {
+      throw new CacheNotFoundException(digest);
+    }
   }
 
-  private boolean refreshOutputDirectory(Directory dir, boolean stopAtFirstMissing)
-      throws IOException {
-    boolean allPresent = true;
+  private void checkOutputDirectory(Directory dir) throws IOException {
     for (var file : dir.getFilesList()) {
-      allPresent &= refreshDigest(file.getDigest());
-      if (!allPresent && stopAtFirstMissing) {
-        return false;
-      }
+      checkDigestExists(file.getDigest());
     }
-    return allPresent;
   }
 
   /**
-   * Marks all of the blobs referenced by the {@link ActionResult} that exist as recently used.
+   * Checks that all of the blobs referenced by the {@link ActionResult} exist and marks them as
+   * recently used.
    *
-   * @param stopAtFirstMissing whether to return as soon as a referenced blob is found to be
-   *     missing, leaving the mtime of the remaining blobs untouched.
-   * @return whether all of the referenced blobs exist.
+   * @throws CacheNotFoundException if at least one of the referenced blobs is missing.
    * @throws IOException if an I/O error other than a missing file occurs.
    */
-  private boolean refreshActionResult(ActionResult actionResult, boolean stopAtFirstMissing)
-      throws IOException {
-    boolean allPresent = true;
-
+  private void checkActionResult(ActionResult actionResult) throws IOException {
     for (var outputFile : actionResult.getOutputFilesList()) {
-      allPresent &= refreshDigest(outputFile.getDigest());
-      if (!allPresent && stopAtFirstMissing) {
-        return false;
-      }
+      checkDigestExists(outputFile.getDigest());
     }
 
     for (var outputDirectory : actionResult.getOutputDirectoriesList()) {
       var treeDigest = outputDirectory.getTreeDigest();
-      if (!refreshDigest(treeDigest)) {
-        // Without the Tree, the blobs it references can't be determined.
-        if (stopAtFirstMissing) {
-          return false;
-        }
-        allPresent = false;
-        continue;
-      }
+      checkDigestExists(treeDigest);
 
       Tree tree;
       try (var in = toPath(treeDigest, Store.CAS).getInputStream()) {
         tree = Tree.parseFrom(in, ExtensionRegistryLite.getEmptyRegistry());
       }
-      allPresent &= refreshOutputDirectory(tree.getRoot(), stopAtFirstMissing);
-      if (!allPresent && stopAtFirstMissing) {
-        return false;
-      }
+      checkOutputDirectory(tree.getRoot());
       for (var dir : tree.getChildrenList()) {
-        allPresent &= refreshOutputDirectory(dir, stopAtFirstMissing);
-        if (!allPresent && stopAtFirstMissing) {
-          return false;
-        }
+        checkOutputDirectory(dir);
       }
     }
 
     if (actionResult.hasStdoutDigest()) {
-      allPresent &= refreshDigest(actionResult.getStdoutDigest());
-      if (!allPresent && stopAtFirstMissing) {
-        return false;
-      }
+      checkDigestExists(actionResult.getStdoutDigest());
     }
 
     if (actionResult.hasStderrDigest()) {
-      allPresent &= refreshDigest(actionResult.getStderrDigest());
+      checkDigestExists(actionResult.getStderrDigest());
     }
-
-    return allPresent;
   }
 
   public ListenableFuture<ActionResult> downloadActionResult(ActionKey actionKey) {
@@ -280,13 +237,14 @@ public class DiskCacheClient {
             return immediateFuture(null);
           }
 
-          boolean allBlobsPresent =
-              refreshActionResult(
-                  actionResult, /* stopAtFirstMissing= */ checkActionResultIntegrity);
-
-          if (checkActionResultIntegrity && !allBlobsPresent) {
+          try {
+            // Verify that all of the referenced blobs exist and update their mtime.
+            checkActionResult(actionResult);
+          } catch (CacheNotFoundException e) {
             // If at least one of the referenced blobs is missing, consider the action result to be
-            // stale.
+            // stale. At this point we might have unnecessarily updated the mtime on some of the
+            // referenced blobs, but this should happen infrequently, and doing it this way avoids a
+            // double pass over the blobs.
             return immediateFuture(null);
           }
 
