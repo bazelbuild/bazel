@@ -479,11 +479,14 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
     } catch (IOException e) {
       return Futures.immediateFailedFuture(e);
     }
+    // The offset this attempt resumes the read at. Bytes written past it are forward progress that
+    // no earlier attempt made, which is what earns this attempt a fresh deck of retries.
+    long readOffset = rawOut.getCount();
     bsAsyncStub(context, channel)
         .read(
             ReadRequest.newBuilder()
                 .setResourceName(resourceName)
-                .setReadOffset(rawOut.getCount())
+                .setReadOffset(readOffset)
                 .build(),
             new ClientResponseObserver<ReadRequest, ReadResponse>() {
               private volatile ClientCallStreamObserver<ReadRequest> requestStream;
@@ -514,8 +517,6 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
                   future.setException(e);
                   return;
                 }
-                // reset the stall backoff because we've made progress or been kept alive
-                progressiveBackoff.reset();
               }
 
               @Override
@@ -530,6 +531,16 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
                   return;
                 }
                 releaseOut();
+                if (rawOut.getCount() > readOffset) {
+                  // This attempt advanced the read past where it resumed, so the next one starts
+                  // from further along and deserves a full deck of retries. An attempt that
+                  // received no data at all deliberately does not reset the backoff: otherwise a
+                  // server that keeps accepting the read but never delivers any of the blob --
+                  // e.g. one that only ever sends headers or keepalives before the deadline or the
+                  // idle timeout kicks in -- would be retried forever and this future would never
+                  // become terminal, hanging every thread waiting on the download.
+                  progressiveBackoff.reset();
+                }
                 Status status = Status.fromThrowable(t);
                 if (status.getCode() == Status.Code.NOT_FOUND) {
                   future.setException(new CacheNotFoundException(digest));
