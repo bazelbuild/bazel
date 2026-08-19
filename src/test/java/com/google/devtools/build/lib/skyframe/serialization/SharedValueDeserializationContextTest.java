@@ -374,18 +374,43 @@ public final class SharedValueDeserializationContextTest {
     verifyDeserializedNotNestedSet(subject, (NotNestedSet) result.get());
   }
 
-  private static class InternedValue {
-    private Integer value;
+  /**
+   * A substitute for {@link Integer} but declared <b>not</b> to be a <a
+   * href="https://openjdk.org/jeps/401">value class</a> (as {@link Integer} is becoming).
+   */
+  private static class SharedElement {
+    private final int value;
 
-    private static InternedValue create(int value) {
-      InternedValue result = new InternedValue();
-      result.value = value;
-      return result;
+    private SharedElement(int value) {
+      this.value = value;
     }
 
     @Override
     public int hashCode() {
       return value;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj instanceof SharedElement that) {
+        return this.value == that.value;
+      }
+      return false;
+    }
+  }
+
+  private static class InternedValue {
+    private SharedElement value;
+
+    private static InternedValue create(int value) {
+      InternedValue result = new InternedValue();
+      result.value = new SharedElement(value);
+      return result;
+    }
+
+    @Override
+    public int hashCode() {
+      return value.hashCode();
     }
 
     @Override
@@ -409,7 +434,7 @@ public final class SharedValueDeserializationContextTest {
         SerializationContext context, InternedValue obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
       context.putSharedValue(
-          obj.value, /* distinguisher= */ null, DeferredIntegerCodec.INSTANCE, codedOut);
+          obj.value, /* distinguisher= */ null, DeferredSharedElementCodec.INSTANCE, codedOut);
     }
 
     @Override
@@ -420,9 +445,9 @@ public final class SharedValueDeserializationContextTest {
       context.getSharedValue(
           codedIn,
           /* distinguisher= */ null,
-          DeferredIntegerCodec.INSTANCE,
+          DeferredSharedElementCodec.INSTANCE,
           value,
-          (parent, v) -> parent.value = (Integer) v);
+          (parent, v) -> parent.value = (SharedElement) v);
       return value;
     }
 
@@ -434,12 +459,12 @@ public final class SharedValueDeserializationContextTest {
     }
   }
 
-  private static class DeferredIntegerCodec extends DeferredObjectCodec<Integer> {
-    private static final DeferredIntegerCodec INSTANCE = new DeferredIntegerCodec();
+  private static class DeferredSharedElementCodec extends DeferredObjectCodec<SharedElement> {
+    private static final DeferredSharedElementCodec INSTANCE = new DeferredSharedElementCodec();
 
     @Override
-    public Class<Integer> getEncodedClass() {
-      return Integer.class;
+    public Class<SharedElement> getEncodedClass() {
+      return SharedElement.class;
     }
 
     @Override
@@ -448,17 +473,18 @@ public final class SharedValueDeserializationContextTest {
     }
 
     @Override
-    public void serialize(SerializationContext context, Integer obj, CodedOutputStream codedOut)
+    public void serialize(
+        SerializationContext context, SharedElement obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      codedOut.writeInt32NoTag(obj);
+      codedOut.writeInt32NoTag(obj.value);
     }
 
     @Override
-    public DeferredValue<Integer> deserializeDeferred(
+    public DeferredValue<SharedElement> deserializeDeferred(
         AsyncDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       int value = codedIn.readInt32();
-      return () -> value;
+      return () -> new SharedElement(value);
     }
   }
 
