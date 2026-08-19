@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.bazel;
 
 import static com.google.common.base.StandardSystemProperty.USER_NAME;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
@@ -58,7 +58,6 @@ import com.google.devtools.common.options.OptionsBase;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -117,7 +116,9 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
           } catch (IOException e) {
             throw createExecutionException(e, Code.STDERR_IO_EXCEPTION);
           }
-          return stdoutStream.toString(UTF_8);
+          // Keep the output in Bazel's internal string encoding (see StringEncoding), like the
+          // other entries in the status maps.
+          return stdoutStream.toString(ISO_8859_1);
         }
       } catch (BadExitStatusException e) {
         throw createExecutionException(e, Code.NON_ZERO_EXIT);
@@ -154,7 +155,9 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
               .map(entry -> entry.getKey() + " " + entry.getValue())
               .collect(joining("\n"));
       s += "\n";
-      return s.getBytes(StandardCharsets.UTF_8);
+      // The values are in Bazel's internal string encoding (see StringEncoding), write them out as
+      // is.
+      return s.getBytes(ISO_8859_1);
     }
 
     @Override
