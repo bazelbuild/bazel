@@ -932,13 +932,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/rule.bzl",
         """
-        load("@rules_cc//cc/common:cc_common.bzl", _cc_common = "cc_common")
+        load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
         load("//myinfo:myinfo.bzl", "MyInfo")
-
-        # The `cc_common` toplevel is the builtin module that rules_cc's cc_common.bzl forwards to.
-        # It is used directly for the command line expansions below since rules_cc doesn't pass on
-        # the `expander` argument yet.
-        _cc_common_internal = cc_common
 
         def _get_memory_efficient_command_line(*, feature_configuration, action_name, variables):
             # Unlike get_memory_inefficient_command_line, this doesn't expand anything during
@@ -951,24 +946,25 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                 variables = variables,
             )
 
-        # Must stay a top-level def; the second parameter makes Bazel pass in the DirectoryExpander
-        # needed to expand tree artifacts contained in the build variables.
-        def _expand_command_line(deferred_command_line, expander):
-            return _cc_common_internal.get_memory_inefficient_command_line(
+        # TODO: Once rules_cc forwards the `expander` argument, declare a second parameter here to
+        # receive a DirectoryExpander and assert that tree artifacts contained in structure-valued
+        # build variables are expanded.
+        # Must stay a top-level def to be usable as a map_each callback.
+        def _expand_command_line(deferred_command_line):
+            return cc_common.get_memory_inefficient_command_line(
                 feature_configuration = deferred_command_line.feature_configuration,
                 action_name = deferred_command_line.action_name,
                 variables = deferred_command_line.variables,
-                expander = expander,
             )
 
         def _impl(ctx):
-            toolchain = ctx.attr._cc_toolchain[_cc_common.CcToolchainInfo]
-            feature_configuration = _cc_common.configure_features(
+            toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
+            feature_configuration = cc_common.configure_features(
                 ctx = ctx,
                 cc_toolchain = toolchain,
             )
             out = ctx.actions.declare_file(ctx.label.name + ".o")
-            variables = _cc_common.create_compile_variables(
+            variables = cc_common.create_compile_variables(
                 feature_configuration = feature_configuration,
                 cc_toolchain = toolchain,
                 source_file = ctx.file.src,
@@ -994,7 +990,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             return [
                 DefaultInfo(files = depset([out])),
                 MyInfo(
-                    eager_command_line = _cc_common_internal.get_memory_inefficient_command_line(
+                    eager_command_line = cc_common.get_memory_inefficient_command_line(
                         feature_configuration = feature_configuration,
                         action_name = "c++-compile",
                         variables = variables,
