@@ -108,6 +108,7 @@ function test_cc_tree_remote_cache_download_minimal() {
 function test_metadata_only_action_result_skips_unused_producer() {
   mkdir -p metadata_only
   local -r producer_log="${TEST_TMPDIR}/metadata_only_producer_executions"
+  local -r disk_cache="${TEST_TMPDIR}/metadata_only_disk_cache"
   touch "${producer_log}"
 
   cat > metadata_only/rules.bzl <<EOF
@@ -119,6 +120,7 @@ def _metadata_only_pipeline_impl(ctx):
         command = "echo producer >> '${producer_log}'; echo payload > \"\$1\"",
         arguments = [intermediate.path],
         mnemonic = "MetadataOnlyProducer",
+        execution_requirements = {"no-sandbox": ""},
     )
     ctx.actions.run_shell(
         inputs = [intermediate, ctx.file.mode],
@@ -145,8 +147,7 @@ metadata_only_pipeline(
 EOF
   echo first > metadata_only/mode.txt
 
-  local -a metadata_options=(
-    --remote_cache="grpc://localhost:${worker_port}"
+  local -a common_options=(
     --remote_download_minimal
     --modify_execution_info=MetadataOnlyProducer=+no-remote-cache-output-upload
     --rewind_lost_inputs
@@ -154,28 +155,42 @@ EOF
     --enable_workspace=true
   )
   if [[ -n "${METADATA_TEST_REPOSITORY_CACHE:-}" ]]; then
-    metadata_options+=(--repository_cache="${METADATA_TEST_REPOSITORY_CACHE}")
+    common_options+=(--repository_cache="${METADATA_TEST_REPOSITORY_CACHE}")
   fi
   if [[ -n "${METADATA_TEST_DISTDIR:-}" ]]; then
-    metadata_options+=(--distdir="${METADATA_TEST_DISTDIR}")
+    common_options+=(--distdir="${METADATA_TEST_DISTDIR}")
   fi
 
-  bazel build "${metadata_options[@]}" //metadata_only:subject >& "${TEST_log}" \
+  bazel build "${common_options[@]}" \
+      --disk_cache="${disk_cache}" \
+      --remote_cache="grpc://localhost:${worker_port}" \
+      //metadata_only:subject >& "${TEST_log}" \
     || fail "Failed to populate metadata-only producer and consumer results"
   assert_equals 1 "$(wc -l < "${producer_log}" | tr -d ' ')"
-  expect_log "remote cache: metadata-only action result uploaded mnemonic=MetadataOnlyProducer"
+
+  # The execution requirement only affects the remote part of a combined cache. The disk cache
+  # receives the normal result and output blobs.
+  bazel clean >& "${TEST_log}"
+  bazel build "${common_options[@]}" \
+      --disk_cache="${disk_cache}" \
+      //metadata_only:subject >& "${TEST_log}" \
+    || fail "Failed to reuse the producer result from the disk cache"
+  assert_equals 1 "$(wc -l < "${producer_log}" | tr -d ' ')"
 
   bazel clean >& "${TEST_log}"
-  bazel build "${metadata_options[@]}" //metadata_only:subject >& "${TEST_log}" \
+  bazel build "${common_options[@]}" \
+      --remote_cache="grpc://localhost:${worker_port}" \
+      //metadata_only:subject >& "${TEST_log}" \
     || fail "Failed to reuse downstream result from metadata-only producer result"
   assert_equals 1 "$(wc -l < "${producer_log}" | tr -d ' ')"
-  expect_log "remote cache: metadata-only action result hit mnemonic=MetadataOnlyProducer"
 
   # Change only a downstream input. The consumer now misses, so fetching the deliberately absent
   # intermediate blob must trigger lost-input recovery and execute the producer normally.
   echo second > metadata_only/mode.txt
   bazel clean >& "${TEST_log}"
-  bazel build "${metadata_options[@]}" //metadata_only:subject >& "${TEST_log}" \
+  bazel build "${common_options[@]}" \
+      --remote_cache="grpc://localhost:${worker_port}" \
+      //metadata_only:subject >& "${TEST_log}" \
     || fail "Failed to fall back after downstream cache miss"
   assert_equals 2 "$(wc -l < "${producer_log}" | tr -d ' ')"
 }

@@ -795,24 +795,28 @@ public class RemoteExecutionService {
 
     if (cachedActionResult == null && shouldUseMetadataOnlyRecord(action)) {
       ActionKey metadataActionKey = metadataOnlyActionKey(action);
+      RemoteActionExecutionContext metadataContext =
+          action
+              .getRemoteActionExecutionContext()
+              .withReadCachePolicy(CachePolicy.REMOTE_CACHE_ONLY);
       CachedActionResult metadataRecord =
           combinedCache.downloadActionResult(
-              action.getRemoteActionExecutionContext(),
+              metadataContext,
               metadataActionKey,
               /* inlineOutErr= */ false,
               ImmutableSet.of());
-      if (metadataRecord != null && !metadataRecord.actionResult().getStdoutRaw().isEmpty()) {
+      if (metadataRecord != null && metadataRecord.actionResult().hasStdoutDigest()) {
         try {
           ActionResult outputMetadata =
-              ActionResult.parseFrom(metadataRecord.actionResult().getStdoutRaw());
+              ActionResult.parseFrom(
+                  getFromFuture(
+                      combinedCache.downloadBlobAsByteString(
+                          metadataContext,
+                          /* blobName= */ "metadata-only action result",
+                          /* execPath= */ null,
+                          metadataRecord.actionResult().getStdoutDigest())));
           cachedActionResult =
               new CachedActionResult(outputMetadata, metadataRecord.cacheName());
-          report(
-              Event.info(
-                  "remote cache: metadata-only action result hit mnemonic="
-                      + action.getSpawn().getMnemonic()
-                      + " action_key="
-                      + action.getActionKey().digest().getHash()));
         } catch (IOException e) {
           report(
               Event.warn(
@@ -1901,22 +1905,22 @@ public class RemoteExecutionService {
         Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
       UploadManifest manifest = buildUploadManifest(action, spawnResult);
       if (shouldUseMetadataOnlyRecord(action)) {
+        RemoteActionExecutionContext context = action.getRemoteActionExecutionContext();
+        if (context.getWriteCachePolicy().allowDiskCache()) {
+          manifest.upload(
+              context.withWriteCachePolicy(CachePolicy.DISK_CACHE_ONLY), combinedCache, reporter);
+        }
+        if (!context.getWriteCachePolicy().allowRemoteCache()) {
+          return;
+        }
         Action metadataAction = metadataOnlyAction(action);
         ActionKey metadataActionKey = digestUtil.computeActionKey(metadataAction);
         manifest.uploadMetadataOnly(
-            action.getRemoteActionExecutionContext(),
+            context.withWriteCachePolicy(CachePolicy.REMOTE_CACHE_ONLY),
             combinedCache,
             reporter,
             metadataAction,
             metadataActionKey);
-        report(
-            Event.info(
-                "remote cache: metadata-only action result uploaded mnemonic="
-                    + action.getSpawn().getMnemonic()
-                    + " action_key="
-                    + action.getActionKey().digest().getHash()
-                    + " metadata_key="
-                    + metadataActionKey.digest().getHash()));
         return;
       }
       var unused =

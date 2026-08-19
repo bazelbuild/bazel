@@ -655,11 +655,24 @@ public class UploadManifest {
       Action metadataAction,
       ActionKey metadataActionKey)
       throws IOException, InterruptedException, ExecException {
+    ActionResult outputMetadata =
+        result
+            .clone()
+            .clearStdoutDigest()
+            .clearStderrDigest()
+            .clearStdoutRaw()
+            .clearStderrRaw()
+            .build();
+    ByteString outputMetadataBlob = outputMetadata.toByteString();
+    Digest outputMetadataDigest = digestUtil.compute(outputMetadataBlob);
+
     // digestToBlobs contains the original Action and Command and any Tree protos required to
     // interpret directory metadata. Add the derived Action required by REAPI UpdateActionResult,
-    // but deliberately exclude digestToFile, which contains regular outputs and stdout/stderr.
+    // the output metadata blob referenced by the synthetic result, but deliberately exclude
+    // digestToFile, which contains regular outputs and stdout/stderr.
     Map<Digest, ByteString> metadataBlobs = new HashMap<>(digestToBlobs);
     metadataBlobs.put(metadataActionKey.digest(), metadataAction.toByteString());
+    metadataBlobs.put(outputMetadataDigest, outputMetadataBlob);
     ImmutableSet<Digest> metadataDigests = ImmutableSet.copyOf(metadataBlobs.keySet());
     ImmutableSet<Digest> missingDigests;
     try (var s =
@@ -683,19 +696,9 @@ public class UploadManifest {
     }
     waitForBulkTransfer(uploadFutures);
 
-    ActionResult outputMetadata =
-        result
-            .clone()
-            .clearStdoutDigest()
-            .clearStderrDigest()
-            .clearStdoutRaw()
-            .clearStderrRaw()
-            .build();
     if (outputMetadata.getExitCode() == 0) {
-      // Keep the record self-contained so an integrity-checking cache can return it even though the
-      // producer's regular output blobs are intentionally absent.
       ActionResult metadataRecord =
-          ActionResult.newBuilder().setStdoutRaw(outputMetadata.toByteString()).build();
+          ActionResult.newBuilder().setStdoutDigest(outputMetadataDigest).build();
       getFromFuture(
           decorateUploadFuture(
               combinedCache.uploadActionResult(context, metadataActionKey, metadataRecord),
