@@ -786,7 +786,12 @@ public interface CcModuleApi<
 
   @StarlarkMethod(
       name = "get_tool_for_action",
-      doc = "Returns tool path for given action.",
+      doc =
+          "Returns tool path for given action.<p>When called from a <a "
+              + "href='../builtins/Args.html#add_all.map_each'><code>map_each</code></a> callback, "
+              + "the returned path has Bazel's path mapping applied to it. This is only needed if "
+              + "the path is used somewhere other than the <code>executable</code> parameter of an "
+              + "action, which is path mapped automatically.",
       parameters = {
         @Param(
             name = "feature_configuration",

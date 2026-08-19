@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.TreeArtifactExpander;
 import com.google.devtools.build.lib.starlarkbuildapi.DirectoryExpander;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcModuleApi;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -68,7 +69,15 @@ public abstract class CcModule
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
     try {
-      return featureConfiguration.getFeatureConfiguration().getToolPathForAction(actionName);
+      String toolPath =
+          featureConfiguration.getFeatureConfiguration().getToolPathForAction(actionName);
+      PathMapper pathMapper = PathMapper.loadFrom(thread.getSemantics());
+      if (pathMapper.isNoop()) {
+        return toolPath;
+      }
+      // Tool paths are always the string form of a PathFragment, so parsing them back doesn't
+      // change them.
+      return pathMapper.map(PathFragment.create(toolPath)).getSafePathString();
     } catch (IllegalArgumentException illegalArgumentException) {
       throw new EvalException(illegalArgumentException);
     }
