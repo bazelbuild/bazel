@@ -508,10 +508,27 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
                 } catch (IOException e) {
                   // The output stream was likely closed due to cancellation (e.g. dynamic execution
                   // choosing the local branch).
-                  if (requestStream != null) {
-                    requestStream.cancel("output stream closed", e);
-                  }
-                  future.setException(e);
+                  failAndCancel(e, "output stream closed");
+                  return;
+                } catch (RuntimeException e) {
+                  // gRPC turns an exception thrown by this listener into a CANCELLED status, which
+                  // the retrier treats as transient and retries while the real cause -- e.g. a
+                  // decompressor rejecting corrupt data -- is reported as "Failed to read message".
+                  // Such a failure is deterministic, so fail with the actual exception instead.
+                  logger.atWarning().withCause(e).log("Unexpected exception while reading blob");
+                  failAndCancel(e, "unexpected exception");
+                  return;
+                }
+                if (rawOut.getCount() > digest.getSizeBytes()) {
+                  // The server sent more data than the blob is long, which typically means that it
+                  // ignored the read offset and restarted the stream from the beginning after a
+                  // retry. Retrying can't fix that and would keep buffering data indefinitely, so
+                  // fail with a non-retriable error instead.
+                  failAndCancel(
+                      new IOException(
+                          "Remote cache sent more than the expected %d bytes for %s"
+                              .formatted(digest.getSizeBytes(), DigestUtil.toString(digest))),
+                      "too many bytes received");
                   return;
                 }
                 // reset the stall backoff because we've made progress or been kept alive
@@ -556,6 +573,20 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
                   future.setException(e);
                 }
                 future.set(rawOut.getCount());
+              }
+
+              /**
+               * Cancels the call and fails the download, making the future terminal even if the
+               * cancellation fails or gRPC never delivers a terminal callback for it.
+               */
+              private void failAndCancel(Throwable t, String cancelMessage) {
+                try {
+                  if (requestStream != null) {
+                    requestStream.cancel(cancelMessage, t);
+                  }
+                } finally {
+                  future.setException(t);
+                }
               }
 
               private void releaseOut() {
