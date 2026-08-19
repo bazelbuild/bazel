@@ -951,7 +951,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         # build variables are expanded.
         # Must stay a top-level def to be usable as a map_each callback.
         def _expand_command_line(deferred_command_line):
-            return cc_common.get_memory_inefficient_command_line(
+            return [cc_common.get_tool_for_action(
+                feature_configuration = deferred_command_line.feature_configuration,
+                action_name = deferred_command_line.action_name,
+            )] + cc_common.get_memory_inefficient_command_line(
                 feature_configuration = deferred_command_line.feature_configuration,
                 action_name = deferred_command_line.action_name,
                 variables = deferred_command_line.variables,
@@ -994,6 +997,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                         feature_configuration = feature_configuration,
                         action_name = "c++-compile",
                         variables = variables,
+                    ),
+                    eager_tool = cc_common.get_tool_for_action(
+                        feature_configuration = feature_configuration,
+                        action_name = "c++-compile",
                     ),
                 ),
             ]
@@ -1039,6 +1046,11 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         .containsAtLeast("-c", outDir + "/cfg/bin/a/gen_src.cc")
         .inOrder();
     assertThat(spawn.getArguments()).containsAtLeast("-o", outDir + "/cfg/bin/a/r.o").inOrder();
+
+    // The tool of this toolchain isn't an output, so path mapping leaves it alone.
+    String eagerTool = (String) getMyInfoFromTarget(r).getValue("eager_tool");
+    assertThat(eagerTool).doesNotContain(outDir);
+    assertThat(spawn.getArguments()).contains(eagerTool);
   }
 
   @Test
@@ -1382,8 +1394,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       String actionName, int pkgSuffix, String... variables) throws Exception {
     scratch.file(
         "a" + pkgSuffix + "/BUILD",
-        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
-            + " 'cc_toolchain_alias')",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl'," + " 'cc_toolchain_alias')",
         "load(':rule.bzl', 'crule')",
         "cc_toolchain_alias(name='alias')",
         "crule(name='r')");
@@ -7725,8 +7736,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.overwriteFile(
         "b/BUILD",
         "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl',"
-            + " 'cc_toolchain_alias')",
+        "load('@rules_cc//cc/toolchains:cc_toolchain_alias.bzl'," + " 'cc_toolchain_alias')",
         "load('//" + rulePkg + ":rule.bzl', 'cc_rule')",
         "cc_library(name='cc_dep', srcs=['cc_dep.cc'])",
         "cc_toolchain_alias(name='alias')",
