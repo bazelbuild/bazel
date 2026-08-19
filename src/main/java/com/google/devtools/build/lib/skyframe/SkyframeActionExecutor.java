@@ -18,9 +18,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Comparators.max;
 import static com.google.common.collect.Comparators.min;
-import static com.google.devtools.build.lib.buildtool.BuildRequestOptions.MAX_JOBS;
-import static java.lang.Math.max;
-import static java.lang.Math.min;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
@@ -371,13 +368,9 @@ public final class SkyframeActionExecutor {
             ? new Semaphore(Runtime.getRuntime().availableProcessors())
             : null;
 
-    var minActiveAction = buildRequestOptions.getJobs();
-    var maxActiveAction =
-        useAsyncExecution
-            ? min(MAX_JOBS, buildRequestOptions.getAsyncExecutionMaxConcurrentActions())
-            : minActiveAction;
     this.actionConcurrencyMeter =
-        new ActionConcurrencyMeter(minActiveAction, max(minActiveAction, maxActiveAction));
+        new ActionConcurrencyMeter(
+            buildRequestOptions.getJobs(), buildRequestOptions.getMaxConcurrentActions());
   }
 
   public void setActionLogBufferPathGenerator(

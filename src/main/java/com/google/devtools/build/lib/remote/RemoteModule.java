@@ -602,17 +602,25 @@ public final class RemoteModule extends BlazeModule {
     BuildRequestOptions buildRequestOptions =
         env.getOptions().getOptions(BuildRequestOptions.class);
 
-    int jobs = 0;
+    // This pool runs the gRPC callbacks of the actions that are in flight, so it is sized after the
+    // maximum number of concurrent actions, which exceeds --jobs under async execution. Threads are
+    // created on demand and time out when idle, so an unused pool costs nothing.
+    int maxConcurrentActions = 0;
     if (buildRequestOptions != null) {
-      jobs = buildRequestOptions.getJobs();
+      maxConcurrentActions = buildRequestOptions.getMaxConcurrentActions();
     }
 
     ThreadFactory threadFactory =
         new ThreadFactoryBuilder().setNameFormat("remote-executor-%d").build();
-    if (jobs != 0) {
+    if (maxConcurrentActions != 0) {
       ThreadPoolExecutor tpe =
           new ThreadPoolExecutor(
-              jobs, jobs, 60L, SECONDS, new LinkedBlockingQueue<>(), threadFactory);
+              maxConcurrentActions,
+              maxConcurrentActions,
+              60L,
+              SECONDS,
+              new LinkedBlockingQueue<>(),
+              threadFactory);
       tpe.allowCoreThreadTimeOut(true);
       executorService = tpe;
     } else {

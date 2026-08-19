@@ -14,10 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.devtools.build.lib.buildtool.BuildRequestOptions.MAX_JOBS;
 import static com.google.devtools.build.lib.concurrent.NamedForkJoinPool.newNamedPool;
-import static java.lang.Math.max;
-import static java.lang.Math.min;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
@@ -102,11 +99,7 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
     this.useAsyncExecution =
         buildRequestOptions != null && buildRequestOptions.getUseAsyncExecution();
     this.asyncExecutionMaxConcurrentActions =
-        max(
-            buildRequestOptions != null
-                ? min(MAX_JOBS, buildRequestOptions.getAsyncExecutionMaxConcurrentActions())
-                : 0,
-            this.executionParallelism);
+        buildRequestOptions != null ? buildRequestOptions.getMaxConcurrentActions() : 0;
     var packageOptions = options.getOptions(PackageOptions.class);
     this.globbingParallelism = packageOptions != null ? packageOptions.getGlobbingThreads() : 0;
     var analysisOptions = options.getOptions(AnalysisOptions.class);

@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static java.lang.Math.max;
+import static java.lang.Math.min;
+
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
@@ -94,6 +97,23 @@ public abstract class BuildRequestOptions extends OptionsBase {
           less than `--jobs`, it is clamped to `--jobs`.
           """)
   public abstract int getAsyncExecutionMaxConcurrentActions();
+
+  /**
+   * Returns the maximum number of actions that may be in flight at the same time.
+   *
+   * <p>Without async execution, this is {@link #getJobs}. With async execution, actions run on
+   * virtual threads and up to {@link #getAsyncExecutionMaxConcurrentActions} of them may be in
+   * flight, clamped to at least {@link #getJobs} and at most {@link #MAX_JOBS}.
+   *
+   * <p>Platform thread pools that serve in-flight actions must be sized after this value rather
+   * than after {@link #getJobs}, or they starve the extra actions that async execution admits.
+   */
+  public int getMaxConcurrentActions() {
+    if (!getUseAsyncExecution()) {
+      return getJobs();
+    }
+    return max(getJobs(), min(MAX_JOBS, getAsyncExecutionMaxConcurrentActions()));
+  }
 
   @Option(
       name = "bust_action_caches",

@@ -31,6 +31,19 @@ java_test(
 )
 
 java_test(
+    name = "BuildRequestOptionsTest",
+    srcs = [
+        "BuildRequestOptionsTest.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request_options",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "SymlinkForestTest",
     srcs = [
         "SymlinkForestTest.java",
@@ -52,6 +65,7 @@ java_test(
 test_suite(
     name = "BuildtoolTests",
     tests = [
+        ":BuildRequestOptionsTest",
         ":JobsConverterTest",
         ":SymlinkForestTest",
     ],
