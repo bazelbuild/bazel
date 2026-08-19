@@ -139,7 +139,8 @@ public final class LinkCommandLine extends AbstractCommandLine {
       try {
         Optional<String> formatString =
             featureConfiguration
-                .getCommandLine(actionName, variables, null, PathMapper.NOOP)
+                .getCommandLine(
+                    actionName, variables, /* treeArtifactExpander= */ null, PathMapper.NOOP)
                 .stream()
                 .filter(s -> s.contains("LINKER_PARAM_FILE_PLACEHOLDER"))
                 .findAny();

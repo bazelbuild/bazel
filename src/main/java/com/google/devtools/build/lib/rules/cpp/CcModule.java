@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.TreeArtifactExpander;
+import com.google.devtools.build.lib.starlarkbuildapi.DirectoryExpander;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcModuleApi;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -110,11 +112,19 @@ public abstract class CcModule
       FeatureConfigurationForStarlark featureConfiguration,
       String actionName,
       CcToolchainVariables variables,
+      Object expander,
       StarlarkThread thread)
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
+    DirectoryExpander directoryExpander = expander instanceof DirectoryExpander e ? e : null;
     return StarlarkList.immutableCopyOf(
-        featureConfiguration.getFeatureConfiguration().getCommandLine(actionName, variables));
+        featureConfiguration
+            .getFeatureConfiguration()
+            .getCommandLine(
+                actionName,
+                variables,
+                TreeArtifactExpander.of(directoryExpander),
+                PathMapper.loadFrom(thread.getSemantics())));
   }
 
   @Override
@@ -128,7 +138,8 @@ public abstract class CcModule
     return Dict.immutableCopyOf(
         featureConfiguration
             .getFeatureConfiguration()
-            .getEnvironmentVariables(actionName, variables, PathMapper.NOOP));
+            .getEnvironmentVariables(
+                actionName, variables, PathMapper.loadFrom(thread.getSemantics())));
   }
 
   @Override

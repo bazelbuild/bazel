@@ -27,8 +27,8 @@ def _get_execution_requirements(*, feature_configuration, action_name: str) -> S
 def _action_is_enabled(*, feature_configuration, action_name: str) -> bool:
     return _cc_common_internal.action_is_enabled(feature_configuration = feature_configuration, action_name = action_name)
 
-def _get_memory_inefficient_command_line(*, feature_configuration, action_name: str, variables) -> Sequence[str]:
-    return _cc_common_internal.get_memory_inefficient_command_line(feature_configuration = feature_configuration, action_name = action_name, variables = variables)
+def _get_memory_inefficient_command_line(*, feature_configuration, action_name: str, variables, expander = None) -> Sequence[str]:
+    return _cc_common_internal.get_memory_inefficient_command_line(feature_configuration = feature_configuration, action_name = action_name, variables = variables, expander = expander)
 
 def _get_environment_variables(*, feature_configuration, action_name: str, variables) -> dict[str, str]:
     return _cc_common_internal.get_environment_variables(feature_configuration = feature_configuration, action_name = action_name, variables = variables)
