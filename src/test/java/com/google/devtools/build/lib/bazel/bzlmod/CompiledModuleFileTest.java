@@ -45,7 +45,8 @@ public class CompiledModuleFileTest {
         """;
     assertThat(checkSyntax(program))
         .containsExactly(
-            new IncludeStatement("hullo", Location.fromFileLineColumn("test file", 2, 1)));
+            new IncludeStatement(
+                "hullo", false, Location.fromFileLineColumn("test file", 2, 1)));
   }
 
   @Test
@@ -59,8 +60,10 @@ public class CompiledModuleFileTest {
         """;
     assertThat(checkSyntax(program))
         .containsExactly(
-            new IncludeStatement("hullo", Location.fromFileLineColumn("test file", 2, 1)),
-            new IncludeStatement("world", Location.fromFileLineColumn("test file", 4, 1)));
+            new IncludeStatement(
+                "hullo", false, Location.fromFileLineColumn("test file", 2, 1)),
+            new IncludeStatement(
+                "world", false, Location.fromFileLineColumn("test file", 4, 1)));
   }
 
   @Test
@@ -74,7 +77,24 @@ public class CompiledModuleFileTest {
         """;
     assertThat(checkSyntax(program))
         .containsExactly(
-            new IncludeStatement("hullo\nworld", Location.fromFileLineColumn("test file", 3, 1)));
+            new IncludeStatement(
+                "hullo\nworld", false, Location.fromFileLineColumn("test file", 3, 1)));
+  }
+
+  @Test
+  public void checkSyntax_good_devDependency() throws Exception {
+    String program =
+        """
+        include("dev.MODULE.bazel", dev_dependency = True)
+        include("prod.MODULE.bazel", dev_dependency = False)
+        """;
+    assertThat(checkSyntax(program))
+        .containsExactly(
+            new IncludeStatement(
+                "dev.MODULE.bazel", true, Location.fromFileLineColumn("test file", 1, 1)),
+            new IncludeStatement(
+                "prod.MODULE.bazel", false, Location.fromFileLineColumn("test file", 2, 1)))
+        .inOrder();
   }
 
   @Test
@@ -100,7 +120,8 @@ public class CompiledModuleFileTest {
         """;
     assertThat(checkSyntax(program))
         .containsExactly(
-            new IncludeStatement("world", Location.fromFileLineColumn("test file", 1, 1)));
+            new IncludeStatement(
+                "world", false, Location.fromFileLineColumn("test file", 1, 1)));
   }
 
   @Test
@@ -151,7 +172,7 @@ public class CompiledModuleFileTest {
     var ex = assertThrows(SyntaxError.Exception.class, () -> checkSyntax(program));
     assertThat(ex)
         .hasMessageThat()
-        .contains("the `include` directive MUST be called with exactly one positional");
+        .contains("the `include` directive MUST be called with one positional string literal");
   }
 
   @Test
@@ -163,7 +184,7 @@ public class CompiledModuleFileTest {
     var ex = assertThrows(SyntaxError.Exception.class, () -> checkSyntax(program));
     assertThat(ex)
         .hasMessageThat()
-        .contains("the `include` directive MUST be called with exactly one positional");
+        .contains("the `include` directive MUST be called with one positional string literal");
   }
 
   @Test
@@ -176,6 +197,19 @@ public class CompiledModuleFileTest {
     var ex = assertThrows(SyntaxError.Exception.class, () -> checkSyntax(program));
     assertThat(ex)
         .hasMessageThat()
-        .contains("the `include` directive MUST be called with exactly one positional");
+        .contains("the `include` directive MUST be called with one positional string literal");
+  }
+
+  @Test
+  public void checkSyntax_bad_nonLiteralDevDependency() throws Exception {
+    String program =
+        """
+        dev = True
+        include('hello', dev_dependency = dev)
+        """;
+    var ex = assertThrows(SyntaxError.Exception.class, () -> checkSyntax(program));
+    assertThat(ex)
+        .hasMessageThat()
+        .contains("optionally, `dev_dependency` as a boolean literal");
   }
 }

@@ -890,14 +890,23 @@ public class ModuleFileGlobals {
                     + " main repo; in other words, it <strong>must<strong> start with double"
                     + " slashes (<code>//</code>). The name of the file must end with"
                     + " <code>.MODULE.bazel</code> and must not start with <code>.</code>."),
+        @Param(
+            name = "dev_dependency",
+            doc =
+                "If true, this include will be ignored if the current module is not the root"
+                    + " module or <code>--ignore_dev_dependency</code> is enabled. The value must"
+                    + " be a literal <code>True</code> or <code>False</code>.",
+            named = true,
+            positional = false,
+            defaultValue = "False"),
       },
       useStarlarkThread = true)
-  public void include(String label, StarlarkThread thread)
+  public void include(String label, boolean devDependency, StarlarkThread thread)
       throws InterruptedException, EvalException {
     ModuleThreadContext context =
         ModuleThreadContext.fromOrFail(thread, CompiledModuleFile.INCLUDE_IDENTIFIER + "()");
     context.setNonModuleCalled();
-    context.include(label, thread);
+    context.include(label, devDependency, thread);
   }
 
   @StarlarkMethod(
