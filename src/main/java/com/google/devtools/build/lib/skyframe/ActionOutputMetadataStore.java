@@ -436,23 +436,24 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
           artifactPathResolver.toPath(artifact).getLastModifiedTime());
     }
 
-    byte[] digest = null;
-    if (type.isFile()) {
-      // We don't have an injected digest and there is no digest in the file value (which attempts a
-      // fast digest). Manually compute the digest instead.
-      Path path = statAndValue.pathNoFollow();
-      if (statAndValue.statNoFollow() != null
-          && statAndValue.statNoFollow().isSymbolicLink()
-          && statAndValue.realPath() != null) {
-        // If the file is a symlink, we compute the digest using the target path so that it's
-        // possible to hit the digest cache - we probably already computed the digest for the
-        // target during previous action execution.
-        path = statAndValue.realPath();
-      }
-
-      digest = DigestUtils.manuallyComputeDigest(path);
+    if (type.isSpecialFile()) {
+      return FileArtifactValue.createFromInjectedDigest(value, /* digest= */ null);
     }
-    return FileArtifactValue.createFromInjectedDigest(value, digest);
+
+    checkState(type.isFile());
+    // We don't have an injected digest and there is no digest in the file value (which attempts a
+    // fast digest). Manually compute the digest instead.
+    var path = statAndValue.pathNoFollow();
+    // The file exists and is not an unresolved symlink, so it must have been stat'ed.
+    if (checkNotNull(statAndValue.statNoFollow(), statAndValue).isSymbolicLink()) {
+      // If the file is a symlink, we compute the digest using the target path so that it's
+      // possible to hit the digest cache - we probably already computed the digest for the
+      // target during previous action execution.
+      // The case of an unresolved symlink has been handled above, so realPath() is never null.
+      path = checkNotNull(statAndValue.realPath(), statAndValue);
+    }
+    return FileArtifactValue.createFromInjectedDigest(
+        value, DigestUtils.manuallyComputeDigest(path));
   }
 
   /**
