@@ -20,9 +20,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:labelrenderer",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -40,8 +40,9 @@ java_test(
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:stardoc_output_java_proto",
         "//src/test/java/com/google/devtools/build/lib/starlark/util",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+        "//third_party/java/truth/extensions:proto",
     ],
 )
 
@@ -55,8 +56,8 @@ java_test(
         "//src/main/protobuf:stardoc_output_java_proto",
         "//src/test/java/com/google/devtools/build/lib/packages:PackageTestsUtil",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -74,9 +75,10 @@ java_test(
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:stardoc_output_java_proto",
         "//src/test/java/com/google/devtools/build/lib/starlark/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
+        "//third_party/java/truth/extensions:proto",
     ],
 )

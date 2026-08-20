@@ -30,7 +30,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_metrics",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -40,7 +41,8 @@ java_library(
     deps = [
         ":profiler",
         "//src/main/java/com/google/devtools/build/lib/clock",
-        "//third_party:guava",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -53,8 +55,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:heap_offset_helper",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -80,9 +83,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
         "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -91,7 +94,7 @@ java_library(
     srcs = ["CounterSeriesTaskImpl.java"],
     deps = [
         ":profiler",
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -130,10 +133,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
         "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:error_prone_annotations",
-        "//third_party:gson",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/gson",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -145,10 +152,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:async_profiler",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/async_profiler",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -158,9 +165,9 @@ java_library(
     deps = [
         ":system_network_stats_service",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -183,7 +190,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -193,8 +200,8 @@ java_library(
     deps = [
         ":auto_profiler",
         ":profiler",
-        "//third_party:flogger",
-        "//third_party:guava",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -212,8 +219,8 @@ java_library(
     deps = [
         ":profiler",
         "//src/main/java/com/google/devtools/build/lib/util",
-        "//third_party:gson",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/gson",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )

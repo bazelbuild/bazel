@@ -15,7 +15,7 @@ java_library(
     name = "action_key",
     srcs = ["ActionKey.java"],
     deps = [
-        "//third_party:guava",
+        "//third_party/java/guava:base",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -29,7 +29,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -38,7 +39,7 @@ java_library(
     srcs = ["CacheNotFoundException.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -48,7 +49,7 @@ java_library(
     srcs = ["LostInputsEvent.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -74,11 +75,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/util:rx_futures",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:rxjava3",
-        "@com_google_protobuf//:protobuf_java",
-        "@googleapis//google/longrunning:longrunning_java_proto",
+        "//third_party/google/longrunning:operations_java_proto",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/rxjava3",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )

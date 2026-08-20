@@ -64,10 +64,12 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/skyframe/util:SkyframeExecutorTestUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:caffeine",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/caffeine",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:hash",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 

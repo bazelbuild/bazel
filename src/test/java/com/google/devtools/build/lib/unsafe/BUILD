@@ -16,7 +16,7 @@ java_test(
     srcs = ["StringUnsafeTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )

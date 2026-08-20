@@ -30,8 +30,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/common/options:options_internal",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -50,9 +50,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/query2/common:cquery-node",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/common/options:options_internal",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -83,9 +83,9 @@ java_test(
         "//src/main/protobuf:failure_details_java_proto",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/query2/testutil",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -104,7 +104,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/query2/testutil",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -119,9 +119,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/query2/common:cquery-node",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/test/java/com/google/devtools/build/lib/query2/testutil",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -149,12 +149,13 @@ java_test(
         "//src/main/protobuf:build_java_proto",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@com_google_protobuf//:protobuf_java",
-        "@com_google_protobuf//:protobuf_java_util",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/protobuf",
+        "//third_party/java/protobuf/util:json",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
+        "//third_party/java/truth/extensions:proto",
     ],
 )
 
@@ -181,8 +182,8 @@ java_test(
         "//src/main/java/com/google/devtools/common/options:options_internal",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/query2/testutil",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -201,8 +202,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/query2/common:cquery-node",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/common/options:options_internal",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
