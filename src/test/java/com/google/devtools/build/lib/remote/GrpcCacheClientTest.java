@@ -1455,6 +1455,27 @@ public class GrpcCacheClientTest {
   }
 
   @Test
+  public void downloadBlobFailsWhenServerCompletesBeforeExpectedSize() throws IOException {
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.setRemoteVerifyDownloads(false);
+    GrpcCacheClient client = newClient(remoteOptions);
+    Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            responseObserver.onNext(
+                ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("abc")).build());
+            responseObserver.onCompleted();
+          }
+        });
+
+    IOException e = assertThrows(IOException.class, () -> downloadBlob(context, client, digest));
+    assertThat(e).hasMessageThat().contains("download incomplete");
+    assertThat(e).hasMessageThat().contains("received 3 bytes");
+  }
+
+  @Test
   public void compressedDownloadBlobIsRetriedWithProgress()
       throws IOException, InterruptedException {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
@@ -1495,6 +1516,46 @@ public class GrpcCacheClientTest {
           }
         });
     assertThat(new String(downloadBlob(context, client, digest), UTF_8)).isEqualTo("abcdefg");
+  }
+
+  @Test
+  public void compressedDownloadFailsWhenServerIgnoresReadOffset() throws IOException {
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.setCacheCompression(true);
+    remoteOptions.setCacheCompressionThreshold(0);
+    remoteOptions.setRemoteVerifyDownloads(false);
+    GrpcCacheClient client = newClient(remoteOptions);
+    Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    ByteString compressedPrefix = ByteString.copyFrom(Zstd.compress("abcd".getBytes(UTF_8)));
+    ByteString compressedBlob = ByteString.copyFrom(Zstd.compress("abcdefg".getBytes(UTF_8)));
+    AtomicInteger readCalls = new AtomicInteger();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            int readCall = readCalls.getAndIncrement();
+            if (readCall == 0) {
+              assertThat(request.getReadOffset()).isEqualTo(0);
+              responseObserver.onNext(ReadResponse.newBuilder().setData(compressedPrefix).build());
+              responseObserver.onError(Status.DEADLINE_EXCEEDED.asException());
+              return;
+            }
+            // Simulate a noncompliant compressed ByteStream server that ignores the uncompressed
+            // read offset and replays the blob from the beginning.
+            assertThat(readCall).isEqualTo(1);
+            assertThat(request.getReadOffset()).isEqualTo(4);
+            responseObserver.onNext(ReadResponse.newBuilder().setData(compressedBlob).build());
+            responseObserver.onCompleted();
+          }
+        });
+
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    IOException e =
+        assertThrows(
+            IOException.class, () -> getFromFuture(client.downloadBlob(context, digest, out)));
+    assertThat(e).hasMessageThat().contains("download exceeded expected size");
+    assertThat(out.size()).isAtMost(Math.toIntExact(digest.getSizeBytes()));
+    assertThat(readCalls.get()).isEqualTo(2);
   }
 
   @Test
