@@ -51,7 +51,7 @@ public final class FileContentsProxy {
   }
 
   /**
-   * Returns a partial {@link FileStatus} view of this proxy for a file of the given getSize.
+   * Returns a partial {@link FileStatus} view of this proxy for a file of the given size.
    *
    * <p>Only the metadata a proxy records is populated, so the type predicates all throw {@link
    * UnsupportedOperationException}.

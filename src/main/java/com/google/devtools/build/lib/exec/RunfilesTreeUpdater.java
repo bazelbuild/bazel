@@ -106,7 +106,8 @@ public class RunfilesTreeUpdater {
     Path runfilesDir = execRoot.getRelative(tree.getExecPath());
     Path inputManifest =
         execRoot.getRelative(RunfilesSupport.inputManifestExecPath(tree.getExecPath()));
-    if (!inputManifest.exists()) {
+    var inputManifestStat = inputManifest.statNullable();
+    if (inputManifestStat == null) {
       return;
     }
     Path outputManifest =
@@ -121,14 +122,21 @@ public class RunfilesTreeUpdater {
       // which we must not treat as up to date, but we also don't want to unnecessarily rebuild the
       // runfiles directory all the time. Instead, check for the presence of the first runfile in
       // the manifest. If it is present, we can be certain that the previous mode wasn't SKIP.
-      if (tree.getSymlinksMode() == RunfileSymlinksMode.CREATE
-          && !outputManifest.isSymbolicLink()
-          && Arrays.equals(
-              DigestUtils.getDigestWithManualFallback(outputManifest, xattrProvider),
-              DigestUtils.getDigestWithManualFallback(inputManifest, xattrProvider))
-          && (OS.getCurrent() != OS.WINDOWS
-              || isRunfilesDirectoryPopulated(runfilesDir, outputManifest))) {
-        return;
+      if (tree.getSymlinksMode() == RunfileSymlinksMode.CREATE) {
+        // Not following symlinks means that the stat describes the output manifest itself, which is
+        // only the file we digest below if it isn't a symbolic link - which is checked first.
+        var outputManifestStat = outputManifest.statNullable(Symlinks.NOFOLLOW);
+        if (outputManifestStat != null
+            && !outputManifestStat.isSymbolicLink()
+            && Arrays.equals(
+                DigestUtils.getDigestWithManualFallback(
+                    outputManifest, xattrProvider, outputManifestStat),
+                DigestUtils.getDigestWithManualFallback(
+                    inputManifest, xattrProvider, inputManifestStat))
+            && (OS.getCurrent() != OS.WINDOWS
+                || isRunfilesDirectoryPopulated(runfilesDir, outputManifest))) {
+          return;
+        }
       }
     } catch (IOException e) {
       // Ignore it - we will just try to create runfiles directory.
