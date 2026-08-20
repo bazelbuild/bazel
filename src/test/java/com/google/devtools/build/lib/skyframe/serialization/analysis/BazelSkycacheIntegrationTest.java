@@ -17,12 +17,15 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.LongVersionGetterTestInjection.injectVersionGetterForTesting;
+import static java.util.concurrent.ForkJoinPool.commonPool;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
@@ -35,8 +38,6 @@ import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.versioning.LongVersionGetter;
 import java.io.IOException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -101,6 +102,9 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
   private static class TestServicesSupplier implements RemoteAnalysisCachingServicesSupplier {
     private final ListenableFuture<FingerprintValueStore> fingerprintValueStore;
 
+    /** This is safe and does not leak because the underlying commonPool is never shut down. */
+    private final SafeExecutorOwner commandExecutor = new SafeExecutorOwner(commonPool());
+
     private TestServicesSupplier(FailingFingerprintValueStore failingStore) {
       this.fingerprintValueStore = immediateFuture(failingStore);
     }
@@ -111,8 +115,8 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
     }
 
     @Override
-    public ExecutorService getCommandExecutor() {
-      return ForkJoinPool.commonPool();
+    public SafeExecutor getCommandExecutor() {
+      return commandExecutor;
     }
 
     @Override

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
@@ -246,7 +247,7 @@ public final class SelectedEntrySerializerTest {
       throws Exception {
     var fileOpNodeMemoizingLookup =
         new FileOpNodeMemoizingLookup(
-            new ForkJoinPool(4),
+            new SafeExecutorOwner(new ForkJoinPool(4)),
             graph,
             ImmutableSet.of(),
             /* shouldDiscardMemory= */ false,

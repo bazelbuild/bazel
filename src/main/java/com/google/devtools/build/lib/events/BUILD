@@ -22,9 +22,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -33,6 +34,6 @@ java_library(
     srcs = ["EventBusEventHandler.java"],
     deps = [
         ":events",
-        "//third_party:guava",
+        "//third_party/java/guava:eventbus",
     ],
 )

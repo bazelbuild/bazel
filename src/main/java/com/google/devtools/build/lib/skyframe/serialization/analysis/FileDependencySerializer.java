@@ -45,6 +45,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.BundledFileSystem;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeFutures;
 import com.google.devtools.build.lib.profiler.CounterSeriesCollector;
 import com.google.devtools.build.lib.profiler.CounterSeriesTask;
 import com.google.devtools.build.lib.profiler.CounterSeriesTask.Color;
@@ -96,7 +98,6 @@ import java.util.Collection;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -163,10 +164,11 @@ final class FileDependencySerializer {
   }
 
   @VisibleForTesting public static final int COMPRESSION_NUM_BYTES_THRESHOLD = 580;
+
   private final LongVersionGetter versionGetter;
   private final InMemoryGraph graph;
   private final KeyValueWriter writer;
-  private final Executor executor;
+  private final SafeExecutor executor;
   private final Counters counters;
   @Nullable private final ProfileCollector profileCollector;
 
@@ -191,7 +193,7 @@ final class FileDependencySerializer {
       LongVersionGetter versionGetter,
       InMemoryGraph graph,
       KeyValueWriter writer,
-      Executor executor,
+      SafeExecutor executor,
       @Nullable ProfileCollector profileCollector) {
     this.versionGetter = versionGetter;
     this.graph = graph;
@@ -735,7 +737,7 @@ final class FileDependencySerializer {
       }
 
       ListenableFuture<Long> dirMtsvFuture =
-          Futures.submit(
+          SafeFutures.submit(
               (Callable<Long>)
                   () -> {
                     return versionGetter.getDirectoryListingVersion(realPath.asPath());
@@ -832,7 +834,7 @@ final class FileDependencySerializer {
       return future.completeWith(result);
     }
     return future.completeWith(
-        Futures.whenAllComplete(allFutures).call(dependencyHandler, executor));
+        SafeFutures.call(Futures.whenAllSucceed(allFutures), dependencyHandler, executor));
   }
 
   static OutputStream getCompressedOutputStream(OutputStream outputStream) throws IOException {

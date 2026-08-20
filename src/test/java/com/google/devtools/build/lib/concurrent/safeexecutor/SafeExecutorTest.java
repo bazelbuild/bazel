@@ -152,6 +152,21 @@ public class SafeExecutorTest {
   }
 
   @Test
+  public void safeExecutorOwner_shutdownAndTerminationForTesting() throws Exception {
+    ExecutorService delegate = Executors.newSingleThreadExecutor();
+    SafeExecutorOwner owner = new SafeExecutorOwner(delegate);
+
+    assertThat(owner.isShutdownForTesting()).isFalse();
+    assertThat(owner.isTerminatedForTesting()).isFalse();
+
+    owner.shutdownNow();
+    assertThat(owner.isShutdownForTesting()).isTrue();
+
+    owner.awaitTermination(Duration.ofSeconds(5));
+    assertThat(owner.isTerminatedForTesting()).isTrue();
+  }
+
+  @Test
   public void safeExecutorOwner_addCallback_success() throws Exception {
     ExecutorService delegate = Executors.newSingleThreadExecutor();
     SafeExecutorOwner owner = new SafeExecutorOwner(delegate);

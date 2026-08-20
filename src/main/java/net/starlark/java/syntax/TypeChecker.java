@@ -511,9 +511,13 @@ public final class TypeChecker extends NodeVisitor {
       boolean augmentedAssignment) {
     // TokenKind operator = binop.getOperator();
     switch (operator) {
-      case AND, OR, EQUALS_EQUALS, NOT_EQUALS -> {
+      case EQUALS_EQUALS, NOT_EQUALS -> {
         // Boolean regardless of LHS and RHS.
         return Types.BOOL;
+      }
+      case AND, OR -> {
+        // LHS | RHS
+        return Types.union(xType, yType);
       }
       case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS -> {
         // Boolean or type error.
@@ -611,9 +615,6 @@ public final class TypeChecker extends NodeVisitor {
         return Types.ANY;
       }
 
-      // TODO: #28043 - Some of the checks below can be used to implement
-      // Types.CallableType.assignableFromHook().
-
       // Indices of residual arguments in call.getArguments() and their corresponding types in
       // argTypes. (Micro-optimization to avoid allocating <Argument, StarlarkType> pairs.)
       ArrayList<Integer> residualPositional = new ArrayList<>(0);
@@ -648,11 +649,15 @@ public final class TypeChecker extends NodeVisitor {
           seenMandatoryParameters.add(parameterName);
         }
         if (!StarlarkType.assignableFrom(parameterType, argTypes.get(i), typeContext)) {
+          String parameterDescription =
+              callable instanceof Types.SimpleCallableType
+                  ? "#" + (parameterIndex + 1)
+                  : String.format("'%s'", parameterName);
           errorf(
               call.getArguments().get(i),
-              "in call to '%s()', parameter '%s' got value of type '%s', want '%s'",
+              "in call to '%s()', parameter %s got value of type '%s', want '%s'",
               call.getFunction(),
-              parameterName,
+              parameterDescription,
               argTypes.get(i),
               parameterType);
           return Types.ANY;
@@ -805,21 +810,12 @@ public final class TypeChecker extends NodeVisitor {
       return true;
     } else if (callable.getVarargsType() == null) {
       // callable cannot accept residual positional args
-      if (callable.getNumPositionalParameters() > 0) {
-        errorf(
-            call.getArguments().get(callable.getNumPositionalParameters()),
-            "'%s()' accepts no more than %d positional argument%s but got %d",
-            call.getFunction(),
-            callable.getNumPositionalParameters(),
-            plural(callable.getNumPositionalParameters()),
-            call.getNumPositionalArguments());
-      } else {
-        errorf(
-            call.getArguments().getFirst(),
-            "'%s()' does not accept positional arguments, but got %d",
-            call.getFunction(),
-            call.getNumPositionalArguments());
-      }
+      errorf(
+          call.getArguments().get(callable.getNumPositionalParameters()),
+          "'%s()' %s but got %d",
+          call.getFunction(),
+          describeAcceptsPositionals(callable),
+          call.getNumPositionalArguments());
       return false;
     } else {
       // residual positional args go into callable's varargs
@@ -917,17 +913,49 @@ public final class TypeChecker extends NodeVisitor {
         }
       }
       if (!missingMandatory.isEmpty()) {
-        errorf(
-            call.getLparenLocation(),
-            "'%s()' missing %d required argument%s: %s",
-            call.getFunction(),
-            missingMandatory.size(),
-            plural(missingMandatory.size()),
-            Joiner.on(", ").join(missingMandatory));
+        if (callable instanceof Types.SimpleCallableType) {
+          errorf(
+              call.getLparenLocation(),
+              "'%s()' %s but got %d",
+              call.getFunction(),
+              describeAcceptsPositionals(callable),
+              call.getNumPositionalArguments());
+        } else {
+          errorf(
+              call.getLparenLocation(),
+              "'%s()' missing %d required argument%s: %s",
+              call.getFunction(),
+              missingMandatory.size(),
+              plural(missingMandatory.size()),
+              Joiner.on(", ").join(missingMandatory));
+        }
         return false;
       }
     }
     return true;
+  }
+
+  private static String describeAcceptsPositionals(Types.CallableType callable) {
+    if (callable.getVarargsType() != null) {
+      return String.format(
+          "accepts %d or more positional argument%s",
+          callable.getNumPositionalParameters(), plural(callable.getNumPositionalParameters()));
+    } else if (callable.getNumPositionalParameters() == 0) {
+      return "does not accept positional arguments";
+    } else {
+      boolean allPositionalsMandatory = true;
+      for (int i = 0; i < callable.getNumPositionalParameters(); i++) {
+        if (!callable.isMandatory(i)) {
+          allPositionalsMandatory = false;
+          break;
+        }
+      }
+      return String.format(
+          "accepts %s %d positional argument%s",
+          allPositionalsMandatory ? "exactly" : "no more than",
+          callable.getNumPositionalParameters(),
+          plural(callable.getNumPositionalParameters()));
+    }
   }
 
   private StarlarkType inferComprehension(Comprehension comp) {
@@ -1262,20 +1290,26 @@ public final class TypeChecker extends NodeVisitor {
               typeTable.getType(function),
               "type tagger should have set type for def statement '%s'",
               def);
-      int numOrdinaryParams = callableType.getParameterTypes().size();
-      for (int i = 0; i < numOrdinaryParams; i++) {
-        Parameter param = def.getParameters().get(i);
+      int numNonSpecialParams = callableType.getParameterTypes().size();
+      // Indices of parameters in `def` and their types in `callableType` may be offset:
+      // `def f(a: T, *, b: U)` has 3 parameters, but only 2 parameter types in its callableType.
+      for (int iParam = 0, iType = 0; iType < numNonSpecialParams; iParam++, iType++) {
+        Parameter param = def.getParameters().get(iParam);
+        while (!(param instanceof Parameter.Mandatory || param instanceof Parameter.Optional)) {
+          // Skip special params; they are not in callableType.getParameterTypes().
+          param = def.getParameters().get(++iParam);
+        }
         if (param.getDefaultValue() != null) {
           StarlarkType defaultValueType = infer(param.getDefaultValue());
           if (!StarlarkType.assignableFrom(
-              callableType.getParameterTypeByPos(i), defaultValueType, typeContext)) {
+              callableType.getParameterTypeByPos(iType), defaultValueType, typeContext)) {
             errorf(
                 param.getDefaultValue().getStartLocation(),
                 "%s(): parameter '%s' has default value of type '%s', declares '%s'",
                 def.getIdentifier().getName(),
                 param.getName(),
                 defaultValueType,
-                callableType.getParameterTypeByPos(i));
+                callableType.getParameterTypeByPos(iType));
           }
         }
       }

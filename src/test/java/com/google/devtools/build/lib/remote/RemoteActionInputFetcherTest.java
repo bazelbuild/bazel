@@ -215,6 +215,44 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
     }
   }
 
+  @Test
+  public void rewoundActionOutput_execRootOnOverlayFileSystem_redownloaded() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Artifact a = createRemoteArtifact("file", "hello world", metadata, cas);
+    // When the remote repo contents cache is enabled, the exec root lies on the file system
+    // overlaying the host file system that downloads are written to.
+    RemoteExternalOverlayFileSystem overlayFs =
+        new RemoteExternalOverlayFileSystem(PathFragment.create("/output_base/external"), fs);
+    RemoteActionInputFetcher actionInputFetcher =
+        new RemoteActionInputFetcher(
+            new Reporter(new EventBusEventHandler(eventBus)),
+            "none",
+            "none",
+            newCombinedCache(digestUtil, cas),
+            overlayFs.getPath(execRoot.getPathString()),
+            tempPathGenerator,
+            DUMMY_REMOTE_OUTPUT_CHECKER,
+            ActionOutputDirectoryHelper.createForTesting(),
+            OutputPermissions.READONLY);
+
+    wait(
+        actionInputFetcher.prefetchFilesInterruptibly(
+            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+    assertThat(FileSystemUtils.readContent(a.getPath(), StandardCharsets.UTF_8))
+        .isEqualTo("hello world");
+
+    // Rewinding deletes the output and requires it to be downloaded again.
+    a.getPath().delete();
+    actionInputFetcher.handleRewoundActionOutputs(ImmutableList.of(a));
+
+    wait(
+        actionInputFetcher.prefetchFilesInterruptibly(
+            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+    assertThat(FileSystemUtils.readContent(a.getPath(), StandardCharsets.UTF_8))
+        .isEqualTo("hello world");
+  }
+
   private CombinedCache newCombinedCache(DigestUtil digestUtil, Map<HashCode, byte[]> cas) {
     Map<Digest, byte[]> cacheEntries = Maps.newHashMapWithExpectedSize(cas.size());
     for (Map.Entry<HashCode, byte[]> entry : cas.entrySet()) {

@@ -19,14 +19,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
 java_library(
     name = "safe_request_logging",
     srcs = ["SafeRequestLogging.java"],
-    deps = ["//third_party:guava"],
+    deps = ["//third_party/java/guava:collect"],
 )
 
 java_library(
@@ -48,7 +48,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:flogger",
+        "//third_party/java/flogger",
     ],
 )
 
@@ -65,9 +65,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/protobuf:command_server_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/google/protobuf:any_java_proto",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -93,8 +94,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/protobuf:invocation_policy_java_proto",
-        "//third_party:guava",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/google/protobuf:any_java_proto",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -109,9 +110,11 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:command_line_java_proto",
         "//src/main/protobuf:option_filters_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
@@ -126,8 +129,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:env_var",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -140,8 +143,15 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
+)
+
+java_library(
+    name = "memory_optimizations",
+    srcs = ["MemoryOptimizations.java"],
 )
 
 java_library(
@@ -157,10 +167,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:auto_value",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -176,7 +188,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -190,9 +202,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:auto_value",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -204,7 +218,8 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -235,7 +250,7 @@ java_library(
     srcs = ["InstrumentationOutput.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_result",
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -249,7 +264,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:invocation_policy_java_proto",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -262,8 +277,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/metrics:garbage-collection-metrics-util",
         "//src/main/protobuf:memory_pressure_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:eventbus",
     ],
 )
 
@@ -279,7 +297,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -308,16 +327,19 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/exec:executor_builder",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:caffeine",
-        "//third_party:flogger",
-        "//third_party:guava",
+        "//third_party/java/caffeine",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
     ],
 )
 
 java_library(
     name = "gc_stats_recorder",
     srcs = ["GCStatsRecorder.java"],
-    deps = ["//third_party:guava"],
+    deps = [
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+    ],
 )
 
 java_library(
@@ -326,7 +348,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -346,7 +368,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/pkgcache:package_options",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -382,9 +405,13 @@ java_library(
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:crash_debugging_java_proto",
         "//src/main/protobuf:test_status_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/guava:primitives",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -401,9 +428,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:memory_pressure_java_proto",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -419,9 +447,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -441,7 +471,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:test_status_java_proto",
-        "//third_party:guava",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -451,7 +483,7 @@ java_library(
     deps = [
         ":remote_repo_contents_cache",
         ":repository_remote_executor",
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -462,7 +494,7 @@ java_library(
         ":ui_event_handler",
         "//src/main/java/com/google/devtools/build/lib/analysis:no_build_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:no_build_request_finished_event",
-        "//third_party:guava",
+        "//third_party/java/guava:eventbus",
     ],
 )
 
@@ -472,7 +504,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -489,7 +521,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/protobuf:test_status_java_proto",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
     ],
 )
 
@@ -540,7 +574,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/protobuf:test_status_java_proto",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -551,8 +585,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/protobuf:action_cache_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -570,9 +604,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -590,9 +624,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -621,9 +655,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/protobuf:crash_debugging_java_proto",
         "//src/main/protobuf:test_status_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:primitives",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -637,8 +674,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:memory_pressure_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
     ],
 )
 
@@ -654,7 +691,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -669,8 +707,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/protobuf:test_status_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -695,10 +735,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/protobuf:test_status_java_proto",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java_util",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf/util:time",
     ],
 )
 
@@ -709,7 +750,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -743,12 +784,16 @@ java_library(
         "//src/main/protobuf:execution_graph_java_proto",
         "//src/main/protobuf:execution_graph_writer_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:fastutil",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
-        "@zstd-jni",
+        "//third_party/java/fastutil:int-array-list",
+        "//third_party/java/fastutil:int-arrays",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/zstd_jni",
     ],
 )
 
@@ -773,9 +818,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_aspects_identified_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
         "//src/main/protobuf:test_status_java_proto",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -800,9 +847,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:thread_dumper",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -813,8 +862,9 @@ java_library(
         ":blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -826,8 +876,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/net/starlark/java/syntax",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -838,8 +889,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -878,9 +929,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -902,8 +957,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:execution_finished_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
-        "//third_party:flogger",
-        "//third_party:guava",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
     ],
 )
 
@@ -918,7 +975,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -943,8 +1000,9 @@ java_library(
     srcs = ["SynchronizedOutputStream.java"],
     deps = [
         ":build_event_streamer",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -967,8 +1025,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:test_status_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -1022,6 +1083,7 @@ java_library(
         ":host_jvm_startup_options",
         ":instrumentation_output",
         ":keep_state_after_build_option",
+        ":memory_optimizations",
         ":memory_pressure",
         ":options_supplier",
         ":original_unstructured_command_line_event",
@@ -1145,12 +1207,18 @@ java_library(
         "//src/main/protobuf:command_server_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
-        "//third_party:auto_value",
-        "//third_party:caffeine",
-        "//third_party:error_prone_annotations",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/google/protobuf:any_java_proto",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/caffeine",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )

@@ -360,12 +360,11 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
       skyframeLookupCollector.notifyFetchStarting();
     }
     try {
-      Futures.addCallback(
-          fingerprintValueService.get(fingerprint),
-          new SharedBytesProcessor<>(fingerprint, codec, parent, setter, getOperation),
-          // Switches to another executor to avoid performing serialization work on an an RPC
-          // executor thread.
-          fingerprintValueService.getExecutor());
+      fingerprintValueService
+          .getExecutor()
+          .addCallback(
+              fingerprintValueService.get(fingerprint),
+              new SharedBytesProcessor<>(fingerprint, codec, parent, setter, getOperation));
     } catch (IOException
         // Avoids causing SettableFuture consumers to hang if when there are unexpected exceptions.
         | RuntimeException

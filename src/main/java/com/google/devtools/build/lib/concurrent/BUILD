@@ -26,10 +26,15 @@ java_library(
     ),
     deps = [
         ":thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:primitives",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -41,15 +46,18 @@ java_library(
 java_library(
     name = "settable_future_keyed_value",
     srcs = ["SettableFutureKeyedValue.java"],
-    deps = ["//third_party:guava"],
+    deps = [
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
+    ],
 )
 
 java_library(
     name = "task_deduplicator",
     srcs = ["TaskDeduplicator.java"],
     deps = [
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
     ],
 )

@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static net.starlark.java.syntax.TestUtils.assertContainsError;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.BooleanSubject;
 import java.util.ArrayList;
@@ -233,7 +234,7 @@ public class TypeTaggerTest {
     assertThat(extractType("list")).isEqualTo(Types.list(Types.ANY));
 
     assertExtractTypeFails("list[int, bool]", "list[] accepts exactly 1 argument but got 2");
-    assertExtractTypeFails("list[[int]]", "unexpected expression '[int]'");
+    assertExtractTypeFails("list[[int]]", "in application to list, got '[int]', expected a type");
     assertExtractTypeFails("list[int, ...]", "in application to list, got '...', expected a type");
     assertExtractTypeFails("list[()]", "in application to list, got '()', expected a type");
   }
@@ -292,6 +293,43 @@ public class TypeTaggerTest {
     // Just like for eval-time dict literals, keys must be unique.
     assertExtractTypeFails(
         "struct[{'foo': int, 'foo': bool}]", "dictionary expression has duplicate key: \"foo\"");
+  }
+
+  @Test
+  public void extractType_callable() throws Exception {
+    assertThat(extractType("Callable")).isEqualTo(Types.ANY_CALLABLE);
+    assertThat(extractType("Callable[[], int]"))
+        .isEqualTo(Types.simpleCallable(ImmutableList.of(), false, Types.INT));
+    assertThat(extractType("Callable[[int, bool], str]"))
+        .isEqualTo(Types.simpleCallable(ImmutableList.of(Types.INT, Types.BOOL), false, Types.STR));
+    assertThat(extractType("Callable[[int, bool, ...], str]"))
+        .isEqualTo(Types.simpleCallable(ImmutableList.of(Types.INT, Types.BOOL), true, Types.STR));
+
+    // For the first argument, `...` is syntax sugar for `[...]`.
+    assertThat(extractType("Callable[..., int]"))
+        .isEqualTo(Types.simpleCallable(ImmutableList.of(), true, Types.INT));
+    assertThat(extractType("Callable[[...], int]")).isEqualTo(extractType("Callable[..., int]"));
+
+    // Argument count
+    assertExtractTypeFails("Callable[int]", "Callable[] accepts exactly 2 arguments but got 1");
+    assertExtractTypeFails("Callable[[int]]", "Callable[] accepts exactly 2 arguments but got 1");
+    assertExtractTypeFails("Callable[...]", "Callable[] accepts exactly 2 arguments but got 1");
+    assertExtractTypeFails(
+        "Callable[[int], str, ...]", "Callable[] accepts exactly 2 arguments but got 3");
+    assertExtractTypeFails(
+        "Callable[[int], str, int]", "Callable[] accepts exactly 2 arguments but got 3");
+
+    // Argument type and shape
+    assertExtractTypeFails(
+        "Callable[int, int]",
+        "in application to Callable, got 'int' for argument #1, expected a list or '...'");
+    assertExtractTypeFails(
+        "Callable[[int], ...]",
+        "in application to Callable, got '...' for argument #2, expected a type");
+    assertExtractTypeFails(
+        "Callable[[[int]], int]", "in application to Callable, got '[int]', expected a type");
+    assertExtractTypeFails(
+        "Callable[[..., ...], int]", "in application to Callable, got '...', expected a type");
   }
 
   @Test
@@ -593,7 +631,13 @@ public class TypeTaggerTest {
     }
 
     assertThat(bindingTypes)
-        .containsExactly(Types.INT, Types.ANY, Types.BOOL, Types.STR, Types.ANY, Types.INT)
+        .containsExactly(
+            Types.INT,
+            Types.ANY,
+            Types.homogeneousTuple(Types.BOOL),
+            Types.STR,
+            Types.ANY,
+            Types.dict(Types.STR, Types.INT))
         .inOrder();
   }
 

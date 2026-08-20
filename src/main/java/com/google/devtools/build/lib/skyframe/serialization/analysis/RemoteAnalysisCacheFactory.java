@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.getDone;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
 
@@ -38,6 +39,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie.PathFragmentPrefixTrieException;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeFutures;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -70,7 +73,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
@@ -184,7 +186,7 @@ public final class RemoteAnalysisCacheFactory {
       throw AbruptExitException.fromSerialized(e);
     }
 
-    ExecutorService commandExecutor = servicesSupplier.getCommandExecutor();
+    SafeExecutor commandExecutor = servicesSupplier.getCommandExecutor();
 
     ListenableFuture<ObjectCodecs> objectCodecs =
         createObjectCodecs(env, topLevelOptions, commandExecutor);
@@ -341,8 +343,8 @@ public final class RemoteAnalysisCacheFactory {
   }
 
   private static ListenableFuture<ObjectCodecs> createObjectCodecs(
-      CommandEnvironment env, BuildOptions topLevelOptions, ExecutorService commandExecutor) {
-    return Futures.submit(
+      CommandEnvironment env, BuildOptions topLevelOptions, SafeExecutor commandExecutor) {
+    return SafeFutures.submit(
         () ->
             initAnalysisObjectCodecs(
                 requireNonNull(env.getBlazeWorkspace().getAnalysisObjectCodecRegistrySupplier())
@@ -373,23 +375,23 @@ public final class RemoteAnalysisCacheFactory {
       ListenableFuture<? extends FingerprintValueService> fingerprintValueService,
       ListenableFuture<? extends RemoteAnalysisCacheClient> analysisCacheClient,
       RemoteAnalysisCachingEventListener eventListener,
-      ExecutorService commandExecutor) {
+      SafeExecutor commandExecutor) {
     if (analysisCacheClient == null || fingerprintValueService == null) {
       return immediateFuture(null);
     }
-    return Futures.whenAllSucceed(objectCodecs, fingerprintValueService, analysisCacheClient)
-        .call(
-            () ->
-                new AnalysisCacheInvalidator(
-                    analysisCacheClient.get(),
-                    objectCodecs.get(),
-                    fingerprintValueService.get(),
-                    frontierNodeVersion,
-                    clientId,
-                    eventHandler,
-                    eventListener,
-                    commandExecutor),
-            commandExecutor);
+    return SafeFutures.call(
+        Futures.whenAllSucceed(objectCodecs, fingerprintValueService, analysisCacheClient),
+        () ->
+            new AnalysisCacheInvalidator(
+                getDone(analysisCacheClient),
+                getDone(objectCodecs),
+                getDone(fingerprintValueService),
+                frontierNodeVersion,
+                clientId,
+                eventHandler,
+                eventListener,
+                commandExecutor),
+        commandExecutor);
   }
 
   private static HashCode computeBlazeInstallMD5(

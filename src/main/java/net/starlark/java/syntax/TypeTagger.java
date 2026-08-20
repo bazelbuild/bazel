@@ -243,8 +243,15 @@ public final class TypeTagger extends NodeVisitor {
       }
       case LIST_EXPR -> {
         ListExpression listExpr = (ListExpression) expr;
-        if (listExpr.isTuple() && listExpr.getElements().isEmpty()) {
-          return TypeConstructor.Term.EMPTY_TUPLE;
+        if (listExpr.isTuple()) {
+          if (listExpr.getElements().isEmpty()) {
+            return TypeConstructor.Term.EMPTY_TUPLE;
+          }
+        } else {
+          return new TypeConstructor.Term.TypeList(
+              listExpr.getElements().stream()
+                  .map(elem -> extractTerm(elem, typeParams))
+                  .collect(toImmutableList()));
         }
       }
       case DICT_EXPR -> {
@@ -561,6 +568,11 @@ public final class TypeTagger extends NodeVisitor {
       if (param.getType() != null) {
         setUsesTypeSyntax();
         type = extractType(param.getType());
+        if (param instanceof Parameter.Star) {
+          type = Types.homogeneousTuple(type);
+        } else if (param instanceof Parameter.StarStar) {
+          type = Types.dict(Types.STR, type);
+        }
       }
       setType(param, param.getIdentifier(), type);
     }

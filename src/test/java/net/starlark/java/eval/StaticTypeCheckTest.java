@@ -274,7 +274,7 @@ public final class StaticTypeCheckTest {
     assertValid(
         """
         x: list[int]
-        x.pop(0)
+        y: int = x.pop(0)
         """);
 
     assertInvalid(
@@ -297,7 +297,7 @@ public final class StaticTypeCheckTest {
     assertValid(
         """
         d: dict[str, int]
-        v = d.get("a", 0)
+        v: int = d.get("a", 0)
         d.setdefault("b", 2)
         """);
   }
@@ -372,7 +372,6 @@ public final class StaticTypeCheckTest {
 
   @Test
   public void callbackTypes() throws Exception {
-    /*
     assertValid(
         """
         def negate(x: int) -> int:
@@ -382,10 +381,9 @@ public final class StaticTypeCheckTest {
         max([1, 2, 3], key = lambda x: -x)
         min([-1, -2, -3], key = abs)
         """);
-            */
     assertInvalid(
         "parameter 'key' got value of type 'str', want 'Callable|None'",
-        "x: Any = min([1, 2, 3], key = 'abc')");
+        "x: int = min([1, 2, 3], key = 'abc')");
   }
 
   // No StarlarkBuiltin annotation.

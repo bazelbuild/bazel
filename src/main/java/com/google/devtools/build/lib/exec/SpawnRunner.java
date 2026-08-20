@@ -287,6 +287,11 @@ public interface SpawnRunner {
 
     /** Returns the environment of the Bazel client. */
     ImmutableMap<String, String> getClientEnv();
+
+    /** Returns whether caches for this spawn should be busted. */
+    default boolean bustCaches() {
+      return false;
+    }
   }
 
   /** Partial implementation of {@link SpawnExecutionContext}. */
@@ -298,6 +303,11 @@ public interface SpawnRunner {
         Spawn spawn, ActionExecutionContext actionExecutionContext) {
       this.spawn = checkNotNull(spawn);
       this.actionExecutionContext = checkNotNull(actionExecutionContext);
+    }
+
+    @Override
+    public boolean bustCaches() {
+      return actionExecutionContext.bustCaches();
     }
 
     @Override

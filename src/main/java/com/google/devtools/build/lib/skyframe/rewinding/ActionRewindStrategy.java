@@ -419,8 +419,15 @@ public final class ActionRewindStrategy {
         ArtifactNestedSetKey.addNestedSetPathsToRewindGraph(
             rewindGraph, rootKey, nestedSetKey, lostInputsAndTransitiveOwners, seenNestedSets);
       } else {
-        // This block isn't expected to execute in practice when precise=true. The exception is a
-        // runfiles SymlinkTreeAction on Windows, which takes all artifacts as inputs.
+        // Unreachable when precise == true: The only non-aggregator action that propagates
+        // insensitively and has a non-flat nested set of inputs is a SymlinkTreeAction on Windows,
+        // where it takes all runfiles as inputs. Reaching this branch would require its only
+        // output, the runfiles manifest, to be lost, but the action always runs locally. If this
+        // ever changes and precise/non-precise rewinding can apply to a single rewind graph
+        // simultaneously, both modes would require separate accounting of which nested sets have
+        // been visited.
+        checkState(
+            !precise, "%s unexpectedly triggered a fallback to non-precise rewinding", failedKey);
         ArtifactNestedSetKey.addEntireNestedSetToRewindGraph(rewindGraph, nestedSetKey);
         rewindGraph.putEdge(rootKey, nestedSetKey);
       }

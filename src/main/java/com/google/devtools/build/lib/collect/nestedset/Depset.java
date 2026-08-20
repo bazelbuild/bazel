@@ -179,13 +179,12 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     if (set.isEmpty()) {
       return set.getOrder().emptyDepset();
     }
-    return new Depset(
-        ElementType.getTypeClass(elemClass), NestedSetInterner.internDepset(set, elemClass));
+    return new Depset(ElementType.getTypeClass(elemClass), set);
   }
 
   /**
    * Returns a {@link Depset} that wraps the specified {@link NestedSet}, skipping type
-   * normalization and interning.
+   * normalization.
    *
    * <p>Safe to use only for arguments that previously came from a {@link Depset} (they were
    * unwrapped and are now being rewrapped).
@@ -439,7 +438,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
       }
     }
 
-    return new Depset(type, NestedSetInterner.internDepset(set, type));
+    return new Depset(type, set);
   }
 
   /** An exception thrown when validation fails on the type of elements of a nested set. */
@@ -585,8 +584,9 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     return result;
   }
 
-  // Delegate equality to the underlying NestedSet. Otherwise, it's possible to create multiple
-  // Depset instances wrapping the same NestedSet that aren't equal to each other.
+  // Delegate equality to the underlying NestedSet. There are several places in Java code where we
+  // store NestedSets without the Depset wrapper to save memory. This strategy ensures that when we
+  // re-wrap these NestedSets as Depsets on demand, their Starlark equality behavior is as expected.
 
   @Override
   public int hashCode() {
@@ -595,7 +595,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
 
   @Override
   public boolean equals(Object other) {
-    return other instanceof Depset && set.equals(((Depset) other).set);
+    return this == other || (other instanceof Depset d && set.equals(d.set));
   }
 
   /** The user-facing API to the {@code depset} callable. */

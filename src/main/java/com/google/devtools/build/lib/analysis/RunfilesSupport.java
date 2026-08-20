@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLine.FlatCommandLine;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -95,6 +96,7 @@ public final class RunfilesSupport {
     private final PathFragment execPath;
     private final Runfiles runfiles;
     @Nullable private final Artifact repoMappingManifest;
+    @Nullable private final ArtifactRoot originatingTargetRoot;
 
     /**
      * The cached runfiles mapping. Possible values:
@@ -119,12 +121,14 @@ public final class RunfilesSupport {
         PathFragment execPath,
         Runfiles runfiles,
         @Nullable Artifact repoMappingManifest,
+        @Nullable ArtifactRoot originatingTargetRoot,
         boolean buildRunfileLinks,
         boolean cacheMapping,
         RunfileSymlinksMode runfileSymlinksMode) {
       this.execPath = execPath;
       this.runfiles = runfiles;
       this.repoMappingManifest = repoMappingManifest;
+      this.originatingTargetRoot = originatingTargetRoot;
       this.buildRunfileLinks = buildRunfileLinks;
       this.runfileSymlinksMode = runfileSymlinksMode;
       this.cachedMapping = cacheMapping ? NOT_YET_COMPUTED : null;
@@ -136,6 +140,7 @@ public final class RunfilesSupport {
           execPath,
           runfiles,
           /* repoMappingManifest= */ null,
+          /* originatingTargetRoot= */ null,
           /* buildRunfileLinks= */ false,
           /* cacheMapping= */ false,
           RunfileSymlinksMode.CREATE);
@@ -149,7 +154,7 @@ public final class RunfilesSupport {
     @Override
     public SortedMap<PathFragment, Artifact> getMapping() {
       if (cachedMapping == null) {
-        return runfiles.getRunfilesInputs(repoMappingManifest);
+        return runfiles.getRunfilesInputs(repoMappingManifest, originatingTargetRoot);
       }
 
       SortedMap<PathFragment, Artifact> result = cachedMapping.get();
@@ -163,7 +168,7 @@ public final class RunfilesSupport {
           return result;
         }
 
-        result = runfiles.getRunfilesInputs(repoMappingManifest);
+        result = runfiles.getRunfilesInputs(repoMappingManifest, originatingTargetRoot);
         cachedMapping = new WeakReference<>(result);
         return result;
       }
@@ -324,11 +329,18 @@ public final class RunfilesSupport {
       runfilesManifest = null;
     }
 
+    boolean preferTargetConfigurationRunfiles =
+        ruleContext
+            .getConfiguration()
+            .getOptions()
+            .get(CoreOptions.class)
+            .getPreferDependingConfigurationRunfiles();
     RunfilesTreeImpl runfilesTree =
         new RunfilesTreeImpl(
             runfilesTreeArtifact.getExecPath(),
             runfiles,
             repoMappingManifest,
+            preferTargetConfigurationRunfiles ? runfilesTreeArtifact.getRoot() : null,
             buildRunfileLinks,
             cacheRunfilesMappings(ruleContext),
             runfileSymlinksMode);
@@ -513,7 +525,12 @@ public final class RunfilesSupport {
                 inputManifest,
                 runfiles,
                 repoMappingManifest,
-                context.getConfiguration().remotableSourceManifestActions()));
+                context.getConfiguration().remotableSourceManifestActions(),
+                context
+                    .getConfiguration()
+                    .getOptions()
+                    .get(CoreOptions.class)
+                    .getPreferDependingConfigurationRunfiles()));
 
     if (!createSymlinks) {
       // Just return the manifest if that's all the build calls for.
@@ -553,11 +570,18 @@ public final class RunfilesSupport {
       RuleContext ruleContext, Artifact runfilesTreeArtifact, Runfiles runfiles) {
     // We always want symlinks to be created because that's the point of a symlink tree.
     boolean buildRunfilesLinks = true;
+    boolean preferTargetConfigurationRunfiles =
+        ruleContext
+            .getConfiguration()
+            .getOptions()
+            .get(CoreOptions.class)
+            .getPreferDependingConfigurationRunfiles();
     RunfilesTreeImpl runfilesTree =
         new RunfilesTreeImpl(
             runfilesTreeArtifact.getExecPath(),
             runfiles,
             null,
+            preferTargetConfigurationRunfiles ? runfilesTreeArtifact.getRoot() : null,
             buildRunfilesLinks,
             false,
             ruleContext.getConfiguration().getRunfileSymlinksMode());

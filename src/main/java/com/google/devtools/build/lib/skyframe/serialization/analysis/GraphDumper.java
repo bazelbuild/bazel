@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor.safeDirectExecutor;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -149,7 +149,7 @@ public final class GraphDumper {
 
     var fingerprintValueService =
         new FingerprintValueService(
-            directExecutor(),
+            safeDirectExecutor(),
             fingerprintValueStore,
             new FingerprintValueCache(FingerprintValueCache.SyncMode.NOT_LINKED),
             FingerprintValueService.NONPROD_FINGERPRINTER);
@@ -205,7 +205,7 @@ public final class GraphDumper {
       throws InterruptedException {
 
     FileDependencyDeserializer deserializer =
-        new FileDependencyDeserializer(directExecutor(), fingerprinter);
+        new FileDependencyDeserializer(safeDirectExecutor(), fingerprinter);
 
     GraphDumper dumper = new GraphDumper(store, deserializer);
     dumper.collectRecursive(rootFingerprint);
