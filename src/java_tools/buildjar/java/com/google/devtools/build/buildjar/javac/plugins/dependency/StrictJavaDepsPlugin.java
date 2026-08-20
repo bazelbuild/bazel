@@ -27,7 +27,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.buildjar.JarOwner;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
-import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps;
+import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictDepsMode;
+import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.UnusedDepsMode;
 import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency;
@@ -203,6 +204,57 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   public void finish() {
     implicitDependencyExtractor.accumulate(context, checkingTreeScanner.getSeenClasses());
 
+    if (dependencyModule.getUnusedDeps() != UnusedDepsMode.OFF) {
+      Optional<String> targetLabel =
+          Optional.ofNullable(dependencyModule.getTargetLabel())
+              .map(StrictJavaDepsPlugin::canonicalizeTarget);
+
+      if (targetLabel.isPresent()) {
+        Set<Path> directJars = dependencyModule.directJars();
+        Map<Path, Dependency> explicitDeps = dependencyModule.getExplicitDependenciesMap();
+        Map<Path, Dependency> implicitDeps = dependencyModule.getImplicitDependenciesMap();
+        ImmutableSet<String> declaredDeps = dependencyModule.getTargetDeclaredDeps();
+        if (!declaredDeps.isEmpty()) {
+          Set<String> usedLabels = new HashSet<>();
+          for (Path jar : explicitDeps.keySet()) {
+            JarOwner owner = readJarOwnerFromManifest(NonPlatformJar.forClasspathJar(jar));
+            String jarLabel = owner.label().orElseGet(jar::toString);
+            usedLabels.add(normalizeLabelForComparison(jarLabel));
+          }
+          for (Map.Entry<Path, Dependency> entry : implicitDeps.entrySet()) {
+            if (entry.getValue().getKind() != Dependency.Kind.INCOMPLETE) {
+              Path jar = entry.getKey();
+              JarOwner owner = readJarOwnerFromManifest(NonPlatformJar.forClasspathJar(jar));
+              String jarLabel = owner.label().orElseGet(jar::toString);
+              usedLabels.add(normalizeLabelForComparison(jarLabel));
+            }
+          }
+
+          for (String dep : declaredDeps) {
+            String normalizedDep = normalizeLabelForComparison(dep);
+            if (!usedLabels.contains(normalizedDep)) {
+              String message = String.format(
+                  "[unused-deps] Dependency '%s' is declared as a direct dependency but is not referenced in jdeps.\n"
+                      + "\033[35m\033[1m ** You can use the following buildozer command:\033[0m \n"
+                      + "buildozer 'remove deps %s' %s\n",
+                  dep, canonicalizeTarget(dep), targetLabel.get());
+
+              switch (dependencyModule.getUnusedDeps()) {
+                case ERROR:
+                  log.error(Position.NOPOS, Errors.ProcMessager(message));
+                  break;
+                case WARN:
+                  log.warning(Position.NOPOS, Warnings.ProcMessager(message));
+                  break;
+                case OFF:
+                  break;
+              }
+            }
+          }
+        }
+      }
+    }
+
     for (SjdDiagnostic diagnostic : diagnostics) {
       JavaFileObject prev = log.useSource(diagnostic.source());
       try {
@@ -234,11 +286,41 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
               // suggest private build labels.
               .map(owner -> owner.withLabel(owner.label().map(label -> canonicalizeTarget(label))))
               .collect(toImmutableSet());
-      if (dependencyModule.getStrictJavaDeps() != StrictJavaDeps.OFF) {
+      if (dependencyModule.getStrictJavaDeps() != StrictDepsMode.OFF) {
         errWriter.print(
             dependencyModule.getFixMessage().get(canonicalizedMissing, canonicalizedLabel));
         dependencyModule.setHasMissingTargets();
       }
+    }
+  }
+
+  /**
+   * Reads the target label representing the owner of the given classpath jar file from its manifest.
+   *
+   * @param jar the classpath jar file to read the manifest from
+   * @return the resolved {@link JarOwner} representing the target that built the jar, or a
+   *         fallback representing the jar file path if target metadata is absent or unreadable
+   */
+  private static JarOwner readJarOwnerFromManifest(NonPlatformJar jar) {
+    if (jar.getKind() == FOR_JSPECIFY_FROM_PLATFORM) {
+      return JSPECIFY_JAR_OWNER;
+    }
+    Path jarPath = jar.inClasspath();
+    try (JarFile jarFile = new JarFile(jarPath.toFile())) {
+      Manifest manifest = jarFile.getManifest();
+      if (manifest == null) {
+        return JarOwner.create(jarPath);
+      }
+      Attributes attributes = manifest.getMainAttributes();
+      String label = (String) attributes.get(TARGET_LABEL);
+      if (label == null) {
+        return JarOwner.create(jarPath);
+      }
+      String injectingRuleKind = (String) attributes.get(INJECTING_RULE_KIND);
+      return JarOwner.create(jarPath, label, Optional.ofNullable(injectingRuleKind));
+    } catch (IOException e) {
+      // This jar file pretty much has to exist, we just used it in the compiler. Throw unchecked.
+      throw new UncheckedIOException(e);
     }
   }
 
@@ -300,7 +382,6 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       return seenClasses;
     }
 
-    /** Checks an AST node denoting a class type against direct/transitive dependencies. */
     private void checkTypeLiteral(Symbol sym) {
       if (sym == null || sym.kind != Kinds.Kind.TYP) {
         return;
@@ -314,10 +395,6 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       }
     }
 
-    /**
-     * Marks the provided dependency as a direct/explicit dependency. Additionally, if
-     * strict_java_deps is enabled, it emits a [strict] compiler warning/error.
-     */
     private void collectExplicitDependency(NonPlatformJar jar, Symbol sym) {
       // Does it make sense to emit a warning/error for this pair of (type, owner)?
       // We want to emit only one error/warning per owner.
@@ -371,28 +448,6 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       }
     }
 
-    private JarOwner readJarOwnerFromManifest(NonPlatformJar jar) {
-      if (jar.getKind() == FOR_JSPECIFY_FROM_PLATFORM) {
-        return JSPECIFY_JAR_OWNER;
-      }
-      Path jarPath = jar.inClasspath();
-      try (JarFile jarFile = new JarFile(jarPath.toFile())) {
-        Manifest manifest = jarFile.getManifest();
-        if (manifest == null) {
-          return JarOwner.create(jarPath);
-        }
-        Attributes attributes = manifest.getMainAttributes();
-        String label = (String) attributes.get(TARGET_LABEL);
-        if (label == null) {
-          return JarOwner.create(jarPath);
-        }
-        String injectingRuleKind = (String) attributes.get(INJECTING_RULE_KIND);
-        return JarOwner.create(jarPath, label, Optional.ofNullable(injectingRuleKind));
-      } catch (IOException e) {
-        // This jar file pretty much has to exist, we just used it in the compiler. Throw unchecked.
-        throw new UncheckedIOException(e);
-      }
-    }
 
     @Override
     public Void visitMethod(MethodTree method, Void unused) {
@@ -653,6 +708,27 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       return target.substring(0, colonIndex);
     }
     return target;
+  }
+
+  /**
+   * Normalizes a target label for comparison by stripping any repository name prefix (i.e.
+   * returning the part starting with "//") and canonicalizing the target label format (e.g.,
+   * removing the target name if it matches the package name). This ensures that labels from
+   * different repository contexts or formatting styles can be compared correctly during unused
+   * dependency checking.
+   *
+   * @param label the target label to normalize, which may include a repository name prefix
+   * @return the normalized label, or an empty string if the label is null
+   */
+  private static String normalizeLabelForComparison(String label) {
+    if (label == null) {
+      return "";
+    }
+    int doubleSlashIndex = label.indexOf("//");
+    if (doubleSlashIndex != -1) {
+      label = label.substring(doubleSlashIndex);
+    }
+    return canonicalizeTarget(label);
   }
 
   /** Returns true if the given classSymbol corresponds to one of the sources being compiled. */

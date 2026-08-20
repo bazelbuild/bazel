@@ -165,6 +165,9 @@ public final class JavaLibraryBuildRequest {
     if (optionsParser.getStrictJavaDeps() != null) {
       depsBuilder.setStrictJavaDeps(optionsParser.getStrictJavaDeps());
     }
+    if (optionsParser.getUnusedDeps() != null) {
+      depsBuilder.setUnusedDeps(optionsParser.getUnusedDeps());
+    }
     if (optionsParser.getOutputDepsProtoFile() != null) {
       depsBuilder.setOutputDepsProtoFile(asPath(optionsParser.getOutputDepsProtoFile()));
     }
@@ -177,6 +180,7 @@ public final class JavaLibraryBuildRequest {
     if (optionsParser.getTargetLabel() != null) {
       depsBuilder.setTargetLabel(optionsParser.getTargetLabel());
     }
+    depsBuilder.addTargetDeclaredDeps(optionsParser.getTargetDeclaredDeps());
     this.dependencyModule = depsBuilder.build();
     this.sourceGenDir =
         deriveDirectory(optionsParser.getTargetLabel(), optionsParser.getOutputJar(), "_sources");
