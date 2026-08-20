@@ -662,6 +662,46 @@ class LauncherTest(test_base.TestBase):
     classpath = stdout[stdout.index('-classpath') + 1]
     self.assertRegex(classpath, r'foo-[A-Za-z0-9]+-classpath.(jar|txt)$')
 
+  def testWindowsShBinaryLauncherWithoutRunfilesManifest(self):
+    # Without a runfiles manifest, e.g. in a remotely executed action, the
+    # launcher derives the script's path from its own path, so the script's
+    # path contains backslashes.
+    if not self.IsWindows():
+      return
+    self.AddBazelDep('rules_shell')
+    self.ScratchFile(
+        'bin/BUILD',
+        [
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
+            '  name = "bin_sh",',
+            '  srcs = ["main.sh"],',
+            ')',
+        ],
+    )
+    self.ScratchFile('bin/main.sh', [
+        'echo "helloworld"',
+    ])
+
+    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
+    bazel_bin = stdout[0]
+
+    self.RunBazel(['build', '//bin:bin_sh'])
+
+    launcher = self.CopyFile(
+        os.path.join(bazel_bin, 'bin', 'bin_sh.exe'),
+        'nomanifest/bin_sh.exe',
+        executable=True,
+    )
+    self.CopyFile(
+        os.path.join(bazel_bin, 'bin', 'bin_sh'),
+        'nomanifest/bin_sh.exe.runfiles/_main/bin/bin_sh',
+        executable=True,
+    )
+
+    _, stdout, _ = self.RunProgram([launcher])
+    self.assertEqual('helloworld', ''.join(stdout))
+
   def testWindowsNativeLauncherInNonEnglishPath(self):
     if not self.IsWindows():
       return
