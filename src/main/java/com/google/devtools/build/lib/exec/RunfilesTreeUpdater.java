@@ -125,7 +125,7 @@ public class RunfilesTreeUpdater {
       if (tree.getSymlinksMode() == RunfileSymlinksMode.CREATE) {
         // Not following symlinks means that the stat describes the output manifest itself, which is
         // only the file we digest below if it isn't a symbolic link - which is checked first.
-        var outputManifestStat = outputManifest.statNullable(Symlinks.NOFOLLOW);
+        var outputManifestStat = outputManifest.statIfFound(Symlinks.NOFOLLOW);
         if (outputManifestStat != null
             && !outputManifestStat.isSymbolicLink()
             && Arrays.equals(
