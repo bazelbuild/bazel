@@ -32,6 +32,7 @@ import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
 import com.google.devtools.build.lib.remote.options.RemoteStartupOptions;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils.WorkerInstance;
@@ -119,6 +120,17 @@ public abstract class ChunkedCacheIntegrationTestBase extends BuildIntegrationTe
   private Digest computeDigest(byte[] data) {
     HashCode hash = Hashing.sha256().hashBytes(data);
     return Digest.newBuilder().setHash(hash.toString()).setSizeBytes(data.length).build();
+  }
+
+  private static List<String> readRpcMethodNames(Path logPath) throws IOException {
+    ImmutableList.Builder<String> methodNames = ImmutableList.builder();
+    try (InputStream in = logPath.getInputStream()) {
+      LogEntry entry;
+      while ((entry = LogEntry.parseDelimitedFrom(in)) != null) {
+        methodNames.add(entry.getMethodName());
+      }
+    }
+    return methodNames.build();
   }
 
   @Test
@@ -250,11 +262,72 @@ public abstract class ChunkedCacheIntegrationTestBase extends BuildIntegrationTe
     outputCombined.delete();
     cleanAndRestartServer();
 
-    buildTarget("//:combined");
+    buildTarget("//:data_a", "//:data_b", "//:combined");
 
     assertThat(readFileBytes(outputA)).isEqualTo(contentA);
     assertThat(readFileBytes(outputB)).isEqualTo(contentB);
     assertThat(readFileBytes(outputCombined)).isEqualTo(contentCombined);
+  }
+
+  @Test
+  public void secondInvocation_reusesChunksFromPreviouslyDownloadedOutputs() throws Exception {
+    // Both outputs are identical, so they consist of the same chunks.
+    write(
+        "BUILD",
+        """
+        genrule(
+            name = "first",
+            srcs = [],
+            outs = ["first.bin"],
+            cmd = "dd if=/dev/zero bs=1M count=3 2>/dev/null | tr '\\\\0' 'R' > $@",
+        )
+        genrule(
+            name = "second",
+            srcs = [],
+            outs = ["second.bin"],
+            cmd = "dd if=/dev/zero bs=1M count=3 2>/dev/null | tr '\\\\0' 'R' > $@",
+        )
+        """);
+
+    // Upload synchronously so the action results are cached before the runtime restart below.
+    addOptions("--noremote_cache_async");
+    buildTarget("//:first", "//:second");
+
+    Path firstOutput = getOutputPath("first.bin");
+    Path secondOutput = getOutputPath("second.bin");
+    byte[] content = readFileBytes(firstOutput);
+    assertThat(readFileBytes(secondOutput)).isEqualTo(content);
+
+    // Make both actions remote cache hits whose outputs have to be downloaded again.
+    firstOutput.delete();
+    secondOutput.delete();
+    cleanAndRestartServer();
+
+    Path firstInvocationLog = getOutputBase().getRelative("grpc-log-first-invocation");
+    Path secondInvocationLog = getOutputBase().getRelative("grpc-log-second-invocation");
+
+    addOptions("--remote_grpc_log=" + firstInvocationLog.getPathString());
+    buildTarget("//:first");
+    assertThat(readFileBytes(firstOutput)).isEqualTo(content);
+
+    addOptions("--remote_grpc_log=" + secondInvocationLog.getPathString());
+    buildTarget("//:second");
+    assertThat(readFileBytes(secondOutput)).isEqualTo(content);
+
+    // Start a new command so that the previous one finishes flushing its gRPC log.
+    runtimeWrapper.newCommand();
+
+    String splitBlobMethod = ContentAddressableStorageGrpc.getSplitBlobMethod().getFullMethodName();
+    String readMethod = ByteStreamGrpc.getReadMethod().getFullMethodName();
+
+    List<String> firstInvocationMethods = readRpcMethodNames(firstInvocationLog);
+    assertThat(firstInvocationMethods).contains(splitBlobMethod);
+    assertThat(firstInvocationMethods).contains(readMethod);
+
+    // Every chunk was served from the file downloaded by the first invocation.
+    List<String> secondInvocationMethods = readRpcMethodNames(secondInvocationLog);
+    assertThat(secondInvocationMethods).contains(splitBlobMethod);
+    assertThat(secondInvocationMethods).doesNotContain(readMethod);
   }
 
   @Test
