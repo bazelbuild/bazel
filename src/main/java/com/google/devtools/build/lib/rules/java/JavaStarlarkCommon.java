@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.DepsCheckingMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -67,18 +67,18 @@ public class JavaStarlarkCommon
 
   private final JavaSemantics javaSemantics;
 
-  private static StrictDepsMode getStrictDepsMode(String strictDepsMode) {
+  private static DepsCheckingMode getStrictDepsMode(String strictDepsMode) {
     switch (strictDepsMode) {
       case "OFF":
-        return StrictDepsMode.OFF;
+        return DepsCheckingMode.OFF;
       case "ERROR":
       case "DEFAULT":
-        return StrictDepsMode.ERROR;
+        return DepsCheckingMode.ERROR;
       case "WARN":
-        return StrictDepsMode.WARN;
+        return DepsCheckingMode.WARN;
       default:
         throw new IllegalArgumentException(
-            "StrictDepsMode "
+            "DepsCheckingMode "
                 + strictDepsMode
                 + " not allowed."
                 + " Only OFF and ERROR values are accepted.");

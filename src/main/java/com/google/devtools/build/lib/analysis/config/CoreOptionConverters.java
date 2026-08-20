@@ -307,24 +307,24 @@ public class CoreOptionConverters {
     }
   }
 
-  /** Values for the --strict_*_deps option */
-  public enum StrictDepsMode {
-    /** Silently allow referencing transitive dependencies. */
+  /** Values for dependency checking/handling options */
+  public enum DepsCheckingMode {
+    /** Silently allow the condition. */
     OFF,
-    /** Warn about transitive dependencies being used directly. */
+    /** Warn about the condition. */
     WARN,
-    /** Fail the build when transitive dependencies are used directly. */
+    /** Fail the build on the condition. */
     ERROR,
-    /** Transition to strict by default. */
+    /** Transition to strict/checked by default. */
     STRICT,
     /** When no flag value is specified on the command line. */
     DEFAULT
   }
 
-  /** Converter for the --strict_*_deps option. */
-  public static class StrictDepsConverter extends EnumConverter<StrictDepsMode> {
-    public StrictDepsConverter() {
-      super(StrictDepsMode.class, "strict dependency checking level");
+  /** Converter for the dependency checking/handling option. */
+  public static class DepsCheckingModeConverter extends EnumConverter<DepsCheckingMode> {
+    public DepsCheckingModeConverter() {
+      super(DepsCheckingMode.class, "dependency checking level");
     }
   }
 

@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.DepsCheckingMode;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
@@ -82,7 +82,8 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final JavaClasspathMode javaClasspath;
   private final boolean inmemoryJdepsFiles;
   private final ImmutableList<String> defaultJvmFlags;
-  private final StrictDepsMode strictJavaDeps;
+  private final DepsCheckingMode strictJavaDeps;
+  private final DepsCheckingMode unusedDeps;
   private final String fixDepsTool;
   private final Label proguardBinary;
   private final NamedLabel bytecodeOptimizer;
@@ -116,6 +117,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.inmemoryJdepsFiles = javaOptions.getInmemoryJdepsFiles();
     this.defaultJvmFlags = ImmutableList.copyOf(javaOptions.getJvmOpts());
     this.strictJavaDeps = javaOptions.getStrictJavaDeps();
+    this.unusedDeps = javaOptions.getUnusedDeps();
     this.fixDepsTool = javaOptions.getFixDepsTool();
     this.proguardBinary = javaOptions.getProguard();
     this.runLocalJavaOptimizations = javaOptions.getRunLocalJavaOptimizations();
@@ -176,6 +178,17 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   @Override
   public String getStrictJavaDepsName() {
     return Ascii.toLowerCase(strictJavaDeps.name());
+  }
+
+  /** Returns the name of the unused_deps mode, suitable for Starlark. */
+  @Override
+  public String getUnusedDepsName() {
+    return Ascii.toLowerCase(unusedDeps.name());
+  }
+
+  /** Returns the strictness level for unused dependency checking. */
+  public DepsCheckingMode getUnusedDeps() {
+    return unusedDeps;
   }
 
   /** Returns true iff Java compilation should use ijars. */

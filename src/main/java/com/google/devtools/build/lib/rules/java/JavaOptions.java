@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.DepsCheckingMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelMapConverter;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsConverter;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.DepsCheckingModeConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
@@ -174,14 +174,25 @@ public abstract class JavaOptions extends FragmentOptions {
       name = "experimental_strict_java_deps",
       allowMultiple = false,
       defaultValue = "default",
-      converter = StrictDepsConverter.class,
+      converter = DepsCheckingModeConverter.class,
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
       help =
           "If true, checks that a Java target explicitly declares all directly used "
               + "targets as dependencies.",
       oldName = "strict_java_deps")
-  public abstract StrictDepsMode getStrictJavaDeps();
+  public abstract DepsCheckingMode getStrictJavaDeps();
+
+  @Option(
+      name = "experimental_unused_deps",
+      allowMultiple = false,
+      defaultValue = "off",
+      converter = DepsCheckingModeConverter.class,
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
+      help =
+          "Checks that a Java target does not declare any unused direct dependencies.")
+  public abstract DepsCheckingMode getUnusedDeps();
 
   @Option(
       name = "experimental_fix_deps_tool",

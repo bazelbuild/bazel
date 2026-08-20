@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -40,7 +41,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.DepsCheckingMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider.JspecifyInfo;
@@ -294,6 +297,14 @@ public final class JavaCompilationHelper {
     builder.setCompressJar(true);
     builder.setExtraData(computePerPackageData(ruleContext, javaToolchain));
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
+    builder.setUnusedDeps(getUnusedDepsMode());
+    if (ruleContext.getRule() != null
+        && ruleContext.getRule().isAttrDefined("deps", BuildType.LABEL_LIST)) {
+      for (TransitiveInfoCollection dep :
+          ruleContext.getPrerequisites("deps")) {
+        builder.addTargetDeclaredDep(dep.getLabel().toString());
+      }
+    }
     semantics
         .getFixDepsTool(ruleContext.getRule(), getJavaConfiguration())
         .ifPresent(builder::setFixDepsTool);
@@ -578,5 +589,33 @@ public final class JavaCompilationHelper {
    */
   private ImmutableList<String> getJavacOpts() {
     return customJavacOpts;
+  }
+
+  /**
+   * Resolves the unused dependency checking mode for the current compilation target.
+   *
+   * <p>This checking is restricted to targets in the main repository. If the target is in the
+   * main repository, it resolves the mode by looking at the {@code unused-deps:*} tags on the rule,
+   * falling back to the global configuration from the {@link JavaConfiguration} if no tags are
+   * present.
+   */
+  private DepsCheckingMode getUnusedDepsMode() {
+    // Restrict unused dependency checking to targets in the main repository to avoid
+    // generating warnings or errors for external repositories (e.g. third-party dependencies).
+    if (!ruleContext.getLabel().getRepository().isMain()) {
+      return DepsCheckingMode.OFF;
+    }
+    DepsCheckingMode mode = getJavaConfiguration().getUnusedDeps();
+    if (ruleContext.getRule() != null) {
+      java.util.Set<String> tags = ruleContext.getRule().getRuleTags();
+      if (tags.contains("unused-deps:off")) {
+        return DepsCheckingMode.OFF;
+      } else if (tags.contains("unused-deps:warn")) {
+        return DepsCheckingMode.WARN;
+      } else if (tags.contains("unused-deps:error")) {
+        return DepsCheckingMode.ERROR;
+      }
+    }
+    return mode;
   }
 }

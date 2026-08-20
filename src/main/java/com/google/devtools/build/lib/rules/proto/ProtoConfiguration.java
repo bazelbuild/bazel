@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.proto;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.DepsCheckingMode;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
@@ -105,26 +105,26 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     @Option(
         name = "strict_proto_deps",
         defaultValue = "error",
-        converter = CoreOptionConverters.StrictDepsConverter.class,
+        converter = CoreOptionConverters.DepsCheckingModeConverter.class,
         documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
         effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help =
             "Unless OFF, checks that a proto_library target explicitly declares all directly "
                 + "used targets as dependencies.")
-    public abstract StrictDepsMode getStrictProtoDeps();
+    public abstract DepsCheckingMode getStrictProtoDeps();
 
     @Option(
         name = "strict_public_imports",
         defaultValue = "off",
-        converter = CoreOptionConverters.StrictDepsConverter.class,
+        converter = CoreOptionConverters.DepsCheckingModeConverter.class,
         documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
         effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help =
             "Unless OFF, checks that a proto_library target explicitly declares all targets used "
                 + "in 'import public' as exported.")
-    public abstract StrictDepsMode getStrictPublicImports();
+    public abstract DepsCheckingMode getStrictPublicImports();
 
     @Option(
         name = "cc_proto_library_header_suffixes",

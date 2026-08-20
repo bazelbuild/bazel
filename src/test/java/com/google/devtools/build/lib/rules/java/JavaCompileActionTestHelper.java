@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.devtools.build.buildjar.OptionsParser;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.DepsCheckingMode;
 import java.util.List;
 import java.util.Set;
 
@@ -58,9 +58,14 @@ public final class JavaCompileActionTestHelper {
     return getOptions(javac).getSourceJars();
   }
 
-  public static StrictDepsMode getStrictJavaDepsMode(JavaCompileAction javac) throws Exception {
+  public static DepsCheckingMode getStrictJavaDepsMode(JavaCompileAction javac) throws Exception {
     String strictJavaDeps = getOptions(javac).getStrictJavaDeps();
-    return strictJavaDeps != null ? StrictDepsMode.valueOf(strictJavaDeps) : StrictDepsMode.OFF;
+    return strictJavaDeps != null ? DepsCheckingMode.valueOf(strictJavaDeps) : DepsCheckingMode.OFF;
+  }
+
+  public static DepsCheckingMode getUnusedDepsMode(JavaCompileAction javac) throws Exception {
+    String unusedDeps = getOptions(javac).getUnusedDeps();
+    return unusedDeps != null ? DepsCheckingMode.valueOf(unusedDeps) : DepsCheckingMode.OFF;
   }
 
   public static List<String> getClasspath(JavaCompileAction javac) throws Exception {

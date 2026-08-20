@@ -15,8 +15,14 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.stream;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -151,5 +157,66 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     String type = JavaStarlarkCommon.printableType(JavaInfo.EMPTY_JAVA_INFO_FOR_TESTING);
 
     assertThat(type).isEqualTo("JavaInfo");
+  }
+
+  private void scratchUnusedDepsTestFiles() throws Exception {
+    scratch.file(
+        "foo/rule.bzl",
+        """
+        result = provider()
+
+        def _impl(ctx):
+            return [result(unused_deps = ctx.fragments.java.unused_deps)]
+
+        myrule = rule(
+            implementation = _impl,
+            fragments = ["java"],
+        )
+        """);
+    scratch.file(
+        "foo/BUILD",
+        """
+        load(":rule.bzl", "myrule")
+
+        myrule(name = "myrule")
+        """);
+  }
+
+  @Test
+  public void unusedDepsFlagExposed_default() throws Exception {
+    scratchUnusedDepsTestFiles();
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:myrule");
+    StructImpl info =
+        (StructImpl)
+            configuredTarget.get(
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//foo:rule.bzl")), "result"));
+    assertThat(((String) info.getValue("unused_deps"))).isEqualTo("off");
+  }
+
+  @Test
+  public void unusedDepsFlagExposed_error() throws Exception {
+    scratchUnusedDepsTestFiles();
+    useConfiguration("--experimental_unused_deps=ERROR");
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:myrule");
+    StructImpl info =
+        (StructImpl)
+            configuredTarget.get(
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//foo:rule.bzl")), "result"));
+    assertThat(((String) info.getValue("unused_deps"))).isEqualTo("error");
+  }
+
+  @Test
+  public void unusedDepsFlagExposed_warn() throws Exception {
+    scratchUnusedDepsTestFiles();
+    useConfiguration("--experimental_unused_deps=WARN");
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:myrule");
+    StructImpl info =
+        (StructImpl)
+            configuredTarget.get(
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//foo:rule.bzl")), "result"));
+    assertThat(((String) info.getValue("unused_deps"))).isEqualTo("warn");
   }
 }

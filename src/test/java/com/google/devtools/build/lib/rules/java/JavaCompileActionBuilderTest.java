@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getDirectJars;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getJavacArguments;
 
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.DepsCheckingMode;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
@@ -281,4 +282,163 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
     return getInputs(compileAction, getDirectJars(compileAction)).stream()
         .filter(a -> a.getFilename().endsWith("-hjar.jar"));
   }
+
+  @Test
+  public void testUnusedDeps_defaultOff() throws Exception {
+    scratch.file(
+        "java/com/google/test/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "a",
+            srcs = ["A.java"],
+        )
+        """);
+    JavaCompileAction action =
+        (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
+    assertThat(JavaCompileActionTestHelper.getUnusedDepsMode(action))
+        .isEqualTo(DepsCheckingMode.OFF);
+  }
+
+  @Test
+  public void testUnusedDeps_flag() throws Exception {
+    useConfiguration("--experimental_unused_deps=error");
+    scratch.file(
+        "java/com/google/test/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "a",
+            srcs = ["A.java"],
+        )
+        """);
+    JavaCompileAction action =
+        (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
+    assertThat(JavaCompileActionTestHelper.getUnusedDepsMode(action))
+        .isEqualTo(DepsCheckingMode.ERROR);
+  }
+
+  @Test
+  public void testUnusedDeps_flagWarn() throws Exception {
+    useConfiguration("--experimental_unused_deps=warn");
+    scratch.file(
+        "java/com/google/test/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "a",
+            srcs = ["A.java"],
+        )
+        """);
+    JavaCompileAction action =
+        (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
+    assertThat(JavaCompileActionTestHelper.getUnusedDepsMode(action))
+        .isEqualTo(DepsCheckingMode.WARN);
+  }
+
+  @Test
+  public void testUnusedDeps_tagOptIn() throws Exception {
+    useConfiguration("--experimental_unused_deps=off");
+    scratch.file(
+        "java/com/google/test/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "a",
+            srcs = ["A.java"],
+            tags = ["unused-deps:error"],
+        )
+        """);
+    JavaCompileAction action =
+        (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
+    assertThat(JavaCompileActionTestHelper.getUnusedDepsMode(action))
+        .isEqualTo(DepsCheckingMode.ERROR);
+  }
+
+  @Test
+  public void testUnusedDeps_tagWarn() throws Exception {
+    useConfiguration("--experimental_unused_deps=off");
+    scratch.file(
+        "java/com/google/test/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "a",
+            srcs = ["A.java"],
+            tags = ["unused-deps:warn"],
+        )
+        """);
+    JavaCompileAction action =
+        (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
+    assertThat(JavaCompileActionTestHelper.getUnusedDepsMode(action))
+        .isEqualTo(DepsCheckingMode.WARN);
+  }
+
+  @Test
+  public void testUnusedDeps_tagOptOut() throws Exception {
+    useConfiguration("--experimental_unused_deps=error");
+    scratch.file(
+        "java/com/google/test/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "a",
+            srcs = ["A.java"],
+            tags = ["unused-deps:off"],
+        )
+        """);
+    JavaCompileAction action =
+        (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
+    assertThat(JavaCompileActionTestHelper.getUnusedDepsMode(action))
+        .isEqualTo(DepsCheckingMode.OFF);
+  }
+
+  @Test
+  public void testUnusedDeps_externalRepository() throws Exception {
+    useConfiguration("--experimental_unused_deps=error");
+    scratch.appendFile(
+        "MODULE.bazel",
+        "bazel_dep(name = 'external_repo')",
+        "local_path_override(module_name = 'external_repo', path = 'external_repo')");
+    scratch.file("external_repo/MODULE.bazel", "module(name = 'external_repo')");
+    scratch.file("external_repo/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "lib",
+            srcs = ["Lib.java"],
+        )
+        """);
+    invalidatePackages();
+    JavaCompileAction action =
+        (JavaCompileAction) getGeneratingActionForLabel("@@external_repo+//:liblib.jar");
+    assertThat(JavaCompileActionTestHelper.getUnusedDepsMode(action))
+        .isEqualTo(DepsCheckingMode.OFF);
+  }
+
+  @Test
+  public void testTargetDeclaredDepsPropagated() throws Exception {
+    useConfiguration("--experimental_unused_deps=error");
+    scratch.file(
+        "java/com/google/test/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "b",
+            srcs = ["B.java"],
+        )
+        java_library(
+            name = "a",
+            srcs = ["A.java"],
+            deps = [":b"],
+        )
+        """);
+    JavaCompileAction action =
+        (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
+    List<String> command = new ArrayList<>(getJavacArguments(action));
+    int targetDeclaredDepsIndex = command.indexOf("--target_declared_deps");
+    assertThat(targetDeclaredDepsIndex).isNotEqualTo(-1);
+    assertThat(command.get(targetDeclaredDepsIndex + 1)).endsWith(":b");
+  }
 }
+

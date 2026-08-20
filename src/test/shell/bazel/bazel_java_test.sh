@@ -2531,4 +2531,261 @@ EOF
   expect_log "foo.txt"
 }
 
+function setup_unused_deps_test_files() {
+  local tags="${1:-}"
+  mkdir -p java/unused_a java/unused_b
+  cat << 'EOF' > java/unused_a/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+package(default_visibility=['//visibility:public'])
+java_library(name = "unused_a", srcs = ["A.java"])
+EOF
+  cat << 'EOF' > java/unused_a/A.java
+package unused_a;
+public class A {}
+EOF
+
+  local tags_attr=""
+  if [[ -n "$tags" ]]; then
+    tags_attr="tags = [\"$tags\"],"
+  fi
+
+  cat << EOF > java/unused_b/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+java_library(
+    name = "unused_b",
+    srcs = ["B.java"],
+    deps = ["//java/unused_a"],
+    $tags_attr
+)
+EOF
+  cat << 'EOF' > java/unused_b/B.java
+package unused_b;
+public class B {}
+EOF
+}
+
+function test_unused_deps_default_off() {
+  if [[ "${JAVA_TOOLS_ZIP}" == "released" ]]; then
+    echo "Skipping test: released java_tools does not support --experimental_unused_deps"
+    return 0
+  fi
+  setup_unused_deps_test_files
+  bazel build //java/unused_b:unused_b >& $TEST_log || fail "build should succeed by default"
+}
+
+function test_unused_deps_global_flag_error() {
+  if [[ "${JAVA_TOOLS_ZIP}" == "released" ]]; then
+    echo "Skipping test: released java_tools does not support --experimental_unused_deps"
+    return 0
+  fi
+  setup_unused_deps_test_files
+  bazel build //java/unused_b:unused_b --experimental_unused_deps=error >& $TEST_log && fail "build should fail with unused_deps=error"
+  expect_log "buildozer 'remove deps //java/unused_a' //java/unused_b"
+}
+
+function test_unused_deps_global_flag_warn() {
+  if [[ "${JAVA_TOOLS_ZIP}" == "released" ]]; then
+    echo "Skipping test: released java_tools does not support --experimental_unused_deps"
+    return 0
+  fi
+  setup_unused_deps_test_files
+  bazel build //java/unused_b:unused_b --experimental_unused_deps=warn >& $TEST_log || fail "build should succeed with unused_deps=warn"
+  expect_log "warning: \[unused-deps\] Dependency"
+}
+
+function test_unused_deps_target_tag_opt_out() {
+  if [[ "${JAVA_TOOLS_ZIP}" == "released" ]]; then
+    echo "Skipping test: released java_tools does not support --experimental_unused_deps"
+    return 0
+  fi
+  setup_unused_deps_test_files "unused-deps:off"
+  bazel build //java/unused_b:unused_b --experimental_unused_deps=error >& $TEST_log || fail "build should succeed with unused-deps:off tag"
+}
+
+function test_unused_deps_target_tag_opt_in_error() {
+  if [[ "${JAVA_TOOLS_ZIP}" == "released" ]]; then
+    echo "Skipping test: released java_tools does not support --experimental_unused_deps"
+    return 0
+  fi
+  setup_unused_deps_test_files "unused-deps:error"
+  bazel build //java/unused_b:unused_b --experimental_unused_deps=off >& $TEST_log && fail "build should fail with unused-deps:error tag when global flag is off"
+  expect_log "buildozer 'remove deps //java/unused_a' //java/unused_b"
+}
+
+function test_unused_deps_target_tag_opt_in_warn() {
+  if [[ "${JAVA_TOOLS_ZIP}" == "released" ]]; then
+    echo "Skipping test: released java_tools does not support --experimental_unused_deps"
+    return 0
+  fi
+  setup_unused_deps_test_files "unused-deps:warn"
+  bazel build //java/unused_b:unused_b --experimental_unused_deps=off >& $TEST_log || fail "build should succeed with unused-deps:warn tag"
+  expect_log "warning: \[unused-deps\] Dependency"
+}
+
+function setup_unused_deps_exports_test_files() {
+  mkdir -p java/unused_exp_a java/unused_exp_b java/unused_exp_c
+  
+  cat << 'EOF' > java/unused_exp_c/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+package(default_visibility=['//visibility:public'])
+java_library(name = "unused_exp_c", srcs = ["C.java"])
+EOF
+  cat << 'EOF' > java/unused_exp_c/C.java
+package unused_exp_c;
+public class C {}
+EOF
+
+  cat << 'EOF' > java/unused_exp_b/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+package(default_visibility=['//visibility:public'])
+java_library(
+    name = "unused_exp_b",
+    srcs = ["B.java"],
+    exports = ["//java/unused_exp_c"],
+)
+EOF
+  cat << 'EOF' > java/unused_exp_b/B.java
+package unused_exp_b;
+public class B {}
+EOF
+}
+
+function test_unused_deps_exports_uses_b_not_c() {
+  if [[ "${JAVA_TOOLS_ZIP}" == "released" ]]; then
+    echo "Skipping test: released java_tools does not support --experimental_unused_deps"
+    return 0
+  fi
+  setup_unused_deps_exports_test_files
+  
+  cat << 'EOF' > java/unused_exp_a/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+java_library(
+    name = "unused_exp_a",
+    srcs = ["A.java"],
+    deps = ["//java/unused_exp_b"],
+)
+EOF
+  cat << 'EOF' > java/unused_exp_a/A.java
+package unused_exp_a;
+public class A {
+  public unused_exp_b.B b;
+}
+EOF
+
+  bazel build //java/unused_exp_a:unused_exp_a --experimental_unused_deps=error >& $TEST_log || fail "build should succeed when A uses B directly"
+}
+
+function test_unused_deps_exports_uses_c_not_b() {
+  if [[ "${JAVA_TOOLS_ZIP}" == "released" ]]; then
+    echo "Skipping test: released java_tools does not support --experimental_unused_deps"
+    return 0
+  fi
+  setup_unused_deps_exports_test_files
+  
+  cat << 'EOF' > java/unused_exp_a/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+java_library(
+    name = "unused_exp_a",
+    srcs = ["A.java"],
+    deps = ["//java/unused_exp_b"],
+)
+EOF
+  cat << 'EOF' > java/unused_exp_a/A.java
+package unused_exp_a;
+public class A {
+  public unused_exp_c.C c;
+}
+EOF
+
+  bazel build //java/unused_exp_a:unused_exp_a --experimental_unused_deps=error >& $TEST_log && fail "build should fail when A uses exported C but not B directly"
+  expect_log "buildozer 'remove deps //java/unused_exp_b' //java/unused_exp_a"
+}
+
+function test_unused_deps_exports_uses_neither() {
+  if [[ "${JAVA_TOOLS_ZIP}" == "released" ]]; then
+    echo "Skipping test: released java_tools does not support --experimental_unused_deps"
+    return 0
+  fi
+  setup_unused_deps_exports_test_files
+  
+  cat << 'EOF' > java/unused_exp_a/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+java_library(
+    name = "unused_exp_a",
+    srcs = ["A.java"],
+    deps = ["//java/unused_exp_b"],
+)
+EOF
+  cat << 'EOF' > java/unused_exp_a/A.java
+package unused_exp_a;
+public class A {}
+EOF
+
+  bazel build //java/unused_exp_a:unused_exp_a --experimental_unused_deps=error >& $TEST_log && fail "build should fail when A uses neither B nor C"
+  expect_log "buildozer 'remove deps //java/unused_exp_b' //java/unused_exp_a"
+}
+
+function test_unused_deps_external_repo_normalization() {
+  if [[ "${JAVA_TOOLS_ZIP}" == "released" ]]; then
+    echo "Skipping test: released java_tools does not support --experimental_unused_deps"
+    return 0
+  fi
+
+  cat >> MODULE.bazel <<'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+  name = "other_unused_repo",
+  path = "other_unused_repo",
+)
+EOF
+
+  mkdir -p other_unused_repo
+  touch other_unused_repo/REPO.bazel
+  mkdir -p other_unused_repo/pkg
+
+  cat > other_unused_repo/pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+package(default_visibility=['//visibility:public'])
+java_library(
+    name = "lib",
+    srcs = ["LibClass.java"],
+)
+EOF
+
+  cat > other_unused_repo/pkg/LibClass.java <<'EOF'
+package pkg;
+public class LibClass {}
+EOF
+
+  mkdir -p java/unused_ext
+  cat > java/unused_ext/BUILD <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+java_library(
+    name = "unused_ext",
+    srcs = ["MainClass.java"],
+    deps = ["@other_unused_repo//pkg:lib"],
+)
+EOF
+
+  cat > java/unused_ext/MainClass.java <<'EOF'
+package unused_ext;
+import pkg.LibClass;
+public class MainClass {
+  public LibClass getLib() {
+    return new LibClass();
+  }
+}
+EOF
+
+  bazel build //java/unused_ext:unused_ext --experimental_unused_deps=error >& $TEST_log || fail "build should succeed since external dependency is used"
+
+  cat > java/unused_ext/MainClass.java <<'EOF'
+package unused_ext;
+public class MainClass {}
+EOF
+
+  bazel build //java/unused_ext:unused_ext --experimental_unused_deps=error >& $TEST_log && fail "build should fail since external dependency is not used"
+  expect_log "buildozer 'remove deps @+local_repository+other_unused_repo//pkg:lib' //java/unused_ext"
+}
+
 run_suite "Java integration tests"

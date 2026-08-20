@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.DepsCheckingMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -66,7 +66,7 @@ public class JavaTargetAttributes {
     private final ImmutableSet.Builder<Artifact> additionalOutputs = ImmutableSet.builder();
 
     /** @see {@link #setStrictJavaDeps}. */
-    private StrictDepsMode strictJavaDeps = StrictDepsMode.ERROR;
+    private DepsCheckingMode strictJavaDeps = DepsCheckingMode.ERROR;
 
     private final NestedSetBuilder<Artifact> directJarsBuilder = NestedSetBuilder.naiveLinkOrder();
     private final NestedSetBuilder<Artifact> headerCompilationDirectJarsBuilder =
@@ -167,12 +167,12 @@ public class JavaTargetAttributes {
      * Controls how strict the javac compiler will be in checking correct use of direct
      * dependencies.
      *
-     * <p>Defaults to {@link StrictDepsMode#ERROR}.
+     * <p>Defaults to {@link DepsCheckingMode#ERROR}.
      *
      * @param strictDeps one of WARN, ERROR or OFF
      */
     @CanIgnoreReturnValue
-    public Builder setStrictJavaDeps(StrictDepsMode strictDeps) {
+    public Builder setStrictJavaDeps(DepsCheckingMode strictDeps) {
       Preconditions.checkArgument(!built);
       strictJavaDeps = strictDeps;
       return this;
@@ -313,7 +313,7 @@ public class JavaTargetAttributes {
   private final Label targetLabel;
   @Nullable private final String injectingRuleKind;
 
-  private final StrictDepsMode strictJavaDeps;
+  private final DepsCheckingMode strictJavaDeps;
 
   /** Constructor of JavaTargetAttributes. */
   private JavaTargetAttributes(
@@ -332,7 +332,7 @@ public class JavaTargetAttributes {
       NestedSet<Artifact> compileTimeDependencyArtifacts,
       Label targetLabel,
       @Nullable String injectingRuleKind,
-      StrictDepsMode strictJavaDeps) {
+      DepsCheckingMode strictJavaDeps) {
     this.sourceFiles = sourceFiles;
     this.directJars = directJars;
     this.headerCompilationDirectJars = headerCompilationDirectJars;
@@ -437,7 +437,7 @@ public class JavaTargetAttributes {
     return injectingRuleKind;
   }
 
-  public StrictDepsMode getStrictJavaDeps() {
+  public DepsCheckingMode getStrictJavaDeps() {
     return strictJavaDeps;
   }
 }
