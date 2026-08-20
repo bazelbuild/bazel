@@ -79,6 +79,7 @@ import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.errorprone.annotations.FormatMethod;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -375,9 +376,14 @@ public class ModuleFileFunction implements SkyFunction {
   }
 
   /**
-   * Reads, parses, and compiles all included module files named by {@code horizon}, stores the
-   * result in {@code includeLabelToCompiledModuleFile}, and finally returns the include statements
-   * of these newly compiled module files as a new "horizon".
+   * Reads, parses, and compiles all module files named by {@code horizon} that haven't been
+   * compiled yet, stores the result in {@code includeLabelToCompiledModuleFile}, and finally
+   * returns the include statements of these newly compiled module files as a new "horizon".
+   *
+   * <p>Skipping files that have already been compiled isn't just an optimization: without it, an
+   * {@code include()} cycle would keep the horizon non-empty forever and a "diamond" include
+   * structure would result in a number of compilations exponential in the include depth. Cycles are
+   * reported as an error when the module file is executed, see {@link ModuleThreadContext#include}.
    */
   @Nullable
   private static ImmutableList<IncludeStatement> advanceHorizon(
@@ -388,13 +394,24 @@ public class ModuleFileFunction implements SkyFunction {
       StarlarkSemantics starlarkSemantics,
       BazelStarlarkEnvironment starlarkEnv)
       throws ModuleFileFunctionException, InterruptedException {
+    var seenIncludeLabels = new HashSet<>(includeLabelToCompiledModuleFile.keySet());
+    var pendingBuilder = ImmutableList.<IncludeStatement>builder();
+    for (var includeStatement : horizon) {
+      if (seenIncludeLabels.add(includeStatement.includeLabel())) {
+        pendingBuilder.add(includeStatement);
+      }
+    }
+    ImmutableList<IncludeStatement> pending = pendingBuilder.build();
+    if (pending.isEmpty()) {
+      return ImmutableList.of();
+    }
     // Includes are only allowed in the root module as well as those with non-registry overrides, so
     // their repo name never contains a version.
     var repoContext =
         Label.RepoContext.of(
             moduleKey.getCanonicalRepoNameWithoutVersion(), RepositoryMapping.EMPTY);
-    var includeLabels = new ArrayList<Label>(horizon.size());
-    for (var includeStatement : horizon) {
+    var includeLabels = new ArrayList<Label>(pending.size());
+    for (var includeStatement : pending) {
       if (!includeStatement.includeLabel().startsWith("//")) {
         throw errorf(
             Code.BAD_MODULE,
@@ -440,8 +457,8 @@ public class ModuleFileFunction implements SkyFunction {
             includeLabels.stream()
                 .map(l -> (SkyKey) PackageLookupValue.key(l.getPackageIdentifier()))
                 .collect(toImmutableSet()));
-    var rootedPaths = new ArrayList<RootedPath>(horizon.size());
-    for (int i = 0; i < horizon.size(); i++) {
+    var rootedPaths = new ArrayList<RootedPath>(pending.size());
+    for (int i = 0; i < pending.size(); i++) {
       Label includeLabel = includeLabels.get(i);
       PackageLookupValue pkgLookupValue =
           (PackageLookupValue)
@@ -459,8 +476,8 @@ public class ModuleFileFunction implements SkyFunction {
         throw errorf(
             Code.BAD_MODULE,
             "unable to load package for '%s' included at %s: %s",
-            horizon.get(i).includeLabel(),
-            horizon.get(i).location(),
+            pending.get(i).includeLabel(),
+            pending.get(i).location(),
             message);
       }
       rootedPaths.add(
@@ -470,7 +487,7 @@ public class ModuleFileFunction implements SkyFunction {
         env.getValuesAndExceptions(
             rootedPaths.stream().map(FileValue::key).collect(toImmutableSet()));
     var newHorizon = ImmutableList.<IncludeStatement>builder();
-    for (int i = 0; i < horizon.size(); i++) {
+    for (int i = 0; i < pending.size(); i++) {
       FileValue fileValue = (FileValue) result.get(FileValue.key(rootedPaths.get(i)));
       if (fileValue == null) {
         return null;
@@ -479,8 +496,8 @@ public class ModuleFileFunction implements SkyFunction {
         throw errorf(
             Code.BAD_MODULE,
             "error reading '%s' included at %s: not a regular file",
-            horizon.get(i).includeLabel(),
-            horizon.get(i).location());
+            pending.get(i).includeLabel(),
+            pending.get(i).location());
       }
       byte[] bytes;
       try {
@@ -489,8 +506,8 @@ public class ModuleFileFunction implements SkyFunction {
         throw errorf(
             Code.BAD_MODULE,
             "error reading '%s' included at %s: %s",
-            horizon.get(i).includeLabel(),
-            horizon.get(i).location(),
+            pending.get(i).includeLabel(),
+            pending.get(i).location(),
             e.getMessage());
       }
       try {
@@ -501,7 +518,7 @@ public class ModuleFileFunction implements SkyFunction {
                 starlarkSemantics,
                 starlarkEnv,
                 env.getListener());
-        includeLabelToCompiledModuleFile.put(horizon.get(i).includeLabel(), compiledModuleFile);
+        includeLabelToCompiledModuleFile.put(pending.get(i).includeLabel(), compiledModuleFile);
         newHorizon.addAll(compiledModuleFile.includeStatements());
       } catch (ExternalDepsException e) {
         throw new ModuleFileFunctionException(e, Transience.PERSISTENT);
