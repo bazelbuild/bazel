@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDig
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.SplitBlobResponse;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableMap;
@@ -67,9 +68,11 @@ public class DiskCacheClient {
 
   private static final String AC_DIR = "ac";
   private static final String CAS_DIR = "cas";
+  private static final String SPLIT_BLOB_DIR = "blob_manifests";
   private static final String TMP_DIR = "tmp";
 
   private final ImmutableMap<Store, Path> storeRootMap;
+  private final Path splitBlobRoot;
   private final Path tmpRoot;
 
   // Disk cache operations are almost entirely I/O-bound as digests are only computed as part of
@@ -87,6 +90,7 @@ public class DiskCacheClient {
                 Ascii.toLowerCase(digestUtil.getDigestFunction().getValueDescriptor().getName()));
     this.storeRootMap =
         ImmutableMap.of(Store.AC, fnRoot.getChild(AC_DIR), Store.CAS, fnRoot.getChild(CAS_DIR));
+    this.splitBlobRoot = fnRoot.getChild(SPLIT_BLOB_DIR);
 
     this.tmpRoot = root.getChild(TMP_DIR);
 
@@ -150,9 +154,22 @@ public class DiskCacheClient {
           if (outPath != null) {
             // If the output stream is path-backed, the filesystem may be able to avoid copying the
             // file.
-            FileSystemUtils.copyFile(path, outPath);
+            try {
+              FileSystemUtils.copyFile(path, outPath);
+            } catch (FileNotFoundException e) {
+              if (!path.exists()) {
+                throw new CacheNotFoundException(digest);
+              }
+              throw e;
+            }
           } else {
-            try (InputStream in = path.getInputStream()) {
+            InputStream in;
+            try {
+              in = path.getInputStream();
+            } catch (FileNotFoundException e) {
+              throw new CacheNotFoundException(digest);
+            }
+            try (in) {
               ByteStreams.copy(in, out);
             }
           }
@@ -183,6 +200,21 @@ public class DiskCacheClient {
     if (!refresh(path)) {
       throw new CacheNotFoundException(digest);
     }
+  }
+
+  /** Returns whether all blobs are present, marking present blobs as recently used. */
+  public ListenableFuture<Boolean> areBlobsPresent(Iterable<Digest> digests) {
+    return executorService.submit(
+        () -> {
+          try {
+            for (Digest digest : digests) {
+              checkDigestExists(digest);
+            }
+            return true;
+          } catch (CacheNotFoundException e) {
+            return false;
+          }
+        });
   }
 
   private void checkOutputDirectory(Directory dir) throws IOException {
@@ -263,6 +295,43 @@ public class DiskCacheClient {
         });
   }
 
+  /** Downloads locally cached chunk metadata for a {@code SplitBlob} request. */
+  public ListenableFuture<SplitBlobResponse> downloadSplitBlobManifest(Digest manifestKey) {
+    return executorService.submit(
+        () -> {
+          Path path = toPathInStore(manifestKey.getHash(), splitBlobRoot);
+          if (!refresh(path)) {
+            throw new CacheNotFoundException(manifestKey);
+          }
+          InputStream in;
+          try {
+            in = path.getInputStream();
+          } catch (FileNotFoundException e) {
+            throw new CacheNotFoundException(manifestKey);
+          }
+          try (in) {
+            return SplitBlobResponse.parseFrom(in, ExtensionRegistryLite.getEmptyRegistry());
+          }
+        });
+  }
+
+  /** Caches chunk metadata returned by a {@code SplitBlob} request. */
+  public ListenableFuture<Void> uploadSplitBlobManifest(
+      Digest manifestKey, SplitBlobResponse response) {
+    return executorService.submit(
+        () -> {
+          try (InputStream data = response.toByteString().newInput()) {
+            saveFileInStore(
+                manifestKey,
+                splitBlobRoot,
+                data,
+                /* skipIfPresent= */ false,
+                /* tolerateConcurrentCreation= */ false);
+          }
+          return null;
+        });
+  }
+
   public void close() {
     executorService.close();
   }
@@ -308,16 +377,34 @@ public class DiskCacheClient {
   }
 
   public Path toPath(String hash, Store store) {
+    return toPathInStore(hash, storeRootMap.get(store));
+  }
+
+  private Path toPathInStore(String hash, Path storeRoot) {
     // Create the file in a subfolder to bypass possible folder file count limits.
-    return storeRootMap.get(store).getChild(hash.substring(0, 2)).getChild(hash);
+    return storeRoot.getChild(hash.substring(0, 2)).getChild(hash);
   }
 
   public void saveFile(Digest digest, Store store, InputStream in) throws IOException {
-    Path path = toPath(digest, store);
+    saveFileInStore(
+        digest,
+        storeRootMap.get(store),
+        in,
+        /* skipIfPresent= */ store == Store.CAS,
+        /* tolerateConcurrentCreation= */ true);
+  }
 
+  private void saveFileInStore(
+      Digest digest,
+      Path storeRoot,
+      InputStream in,
+      boolean skipIfPresent,
+      boolean tolerateConcurrentCreation)
+      throws IOException {
+    Path path = toPathInStore(digest.getHash(), storeRoot);
     // CAS entries are content-addressed and thus automatically have the correct content if they
     // exist.
-    if (store == Store.CAS && refresh(path)) {
+    if (skipIfPresent && refresh(path)) {
       return;
     }
 
@@ -334,7 +421,11 @@ public class DiskCacheClient {
         }
       }
       path.getParentDirectory().createDirectoryAndParents();
-      FileSystemUtils.renameToleratingConcurrentCreation(temp, path);
+      if (tolerateConcurrentCreation) {
+        FileSystemUtils.renameToleratingConcurrentCreation(temp, path);
+      } else {
+        temp.renameTo(path);
+      }
     } catch (IOException e) {
       try {
         temp.delete();
