@@ -793,7 +793,9 @@ public class RemoteExecutionService {
             /* inlineOutErr= */ false,
             inlineOutputFiles);
 
-    if (cachedActionResult == null && shouldUseMetadataOnlyRecord(action)) {
+    if (cachedActionResult == null
+        && action.getRemoteActionExecutionContext().getReadCachePolicy().allowRemoteCache()
+        && shouldUseMetadataOnlyRecord(action)) {
       ActionKey metadataActionKey = metadataOnlyActionKey(action);
       RemoteActionExecutionContext metadataContext =
           action

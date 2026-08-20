@@ -109,6 +109,8 @@ function test_metadata_only_action_result_skips_unused_producer() {
   mkdir -p metadata_only
   local -r producer_log="${TEST_TMPDIR}/metadata_only_producer_executions"
   local -r disk_cache="${TEST_TMPDIR}/metadata_only_disk_cache"
+  local -r empty_disk_cache="${TEST_TMPDIR}/metadata_only_empty_disk_cache"
+  local -r grpc_log="${TEST_TMPDIR}/metadata_only_no_remote_reads.grpc.log"
   touch "${producer_log}"
 
   cat > metadata_only/rules.bzl <<EOF
@@ -193,6 +195,20 @@ EOF
       //metadata_only:subject >& "${TEST_log}" \
     || fail "Failed to fall back after downstream cache miss"
   assert_equals 2 "$(wc -l < "${producer_log}" | tr -d ' ')"
+
+  # A configured remote cache may still be used for uploads when remote cache reads are disabled.
+  # The metadata-only fallback must preserve that read policy instead of querying its remote key.
+  bazel clean >& "${TEST_log}"
+  bazel build "${common_options[@]}" \
+      --disk_cache="${empty_disk_cache}" \
+      --remote_cache="grpc://localhost:${worker_port}" \
+      --noremote_accept_cached \
+      --remote_grpc_log="${grpc_log}" \
+      //metadata_only:subject >& "${TEST_log}" \
+    || fail "Failed to build with remote cache reads disabled"
+  if grep -q "ActionCache/GetActionResult" "${grpc_log}"; then
+    fail "Queried the remote action cache with remote cache reads disabled"
+  fi
 }
 
 function test_cc_tree_prefetching_download_minimal() {
