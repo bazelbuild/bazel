@@ -195,8 +195,6 @@ java_library(
 java_test(
     name = "ConfigCommandTest",
     srcs = ["commands/ConfigCommandTest.java"],
-    # TODO(bazel-team): Fails on Windows for unclear reasons.
-    tags = ["no_windows"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/output:configuration_for_output",

@@ -105,9 +105,6 @@ java_test(
 java_test(
     name = "ContextProviderInitializationTest",
     srcs = ["ContextProviderInitializationTest.java"],
-    tags = [
-        "no_windows",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -129,9 +126,6 @@ java_test(
 java_test(
     name = "CorruptedActionCacheTest",
     srcs = ["CorruptedActionCacheTest.java"],
-    tags = [
-        "no_windows",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -144,9 +138,8 @@ java_test(
 java_test(
     name = "DanglingSymlinkTest",
     srcs = ["DanglingSymlinkTest.java"],
-    tags = [
-        "no_windows",
-    ],
+    # Test genrule runs `/bin/ln -sf`, which msys2 cannot use to make a symlink.
+    tags = ["no_windows"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -162,9 +155,9 @@ java_test(
 java_test(
     name = "UnusedInputsFailureIntegrationTest",
     srcs = ["UnusedInputsFailureIntegrationTest.java"],
-    tags = [
-        "no_windows",
-    ],
+    # Asserts on which of two concurrently failing actions is reported first,
+    # which does not hold on Windows.
+    tags = ["no_windows"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -187,9 +180,6 @@ java_test(
     name = "DirectoryArtifactWarningTest",
     srcs = ["DirectoryArtifactWarningTest.java"],
     jvm_flags = ["-DBAZEL_TRACK_SOURCE_DIRECTORIES=0"],
-    tags = [
-        "no_windows",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
@@ -200,9 +190,6 @@ java_test(
 java_test(
     name = "EditDuringBuildTest",
     srcs = ["EditDuringBuildTest.java"],
-    tags = [
-        "no_windows",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
@@ -215,9 +202,6 @@ java_test(
 java_test(
     name = "EnvironmentRestrictedBuildTest",
     srcs = ["EnvironmentRestrictedBuildTest.java"],
-    tags = [
-        "no_windows",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
@@ -232,9 +216,6 @@ java_test(
 java_test(
     name = "GenQueryIntegrationTest",
     srcs = ["GenQueryIntegrationTest.java"],
-    tags = [
-        "no_windows",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -267,9 +248,8 @@ java_test(
 java_test(
     name = "InconsistentFilesystemTest",
     srcs = ["InconsistentFilesystemTest.java"],
-    tags = [
-        "no_windows",
-    ],
+    # Overrides createFileSystem() with a UnixFileSystem subclass.
+    tags = ["no_windows"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
         "//src/main/java/com/google/devtools/build/lib/unix:unix_file_system",
@@ -298,9 +278,6 @@ java_test(
 java_test(
     name = "KeepGoingTest",
     srcs = ["KeepGoingTest.java"],
-    tags = [
-        "no_windows",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -315,9 +292,6 @@ java_test(
 java_test(
     name = "LabelCrossesPackageBoundaryTest",
     srcs = ["LabelCrossesPackageBoundaryTest.java"],
-    tags = [
-        "no_windows",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
@@ -328,9 +302,6 @@ java_test(
 java_test(
     name = "MiscAnalysisTest",
     srcs = ["MiscAnalysisTest.java"],
-    tags = [
-        "no_windows",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
@@ -350,9 +321,6 @@ java_test(
 java_test(
     name = "MissingInputActionTest",
     srcs = ["MissingInputActionTest.java"],
-    tags = [
-        "no_windows",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -371,9 +339,6 @@ java_test(
 java_test(
     name = "NoOutputActionTest",
     srcs = ["NoOutputActionTest.java"],
-    tags = [
-        "no_windows",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
@@ -386,9 +351,6 @@ java_test(
     name = "OutputArtifactConflictTest",
     srcs = ["OutputArtifactConflictTest.java"],
     shard_count = 3,
-    tags = [
-        "no_windows",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -411,9 +373,6 @@ java_test(
 java_test(
     name = "PackageGroupIntegrationTest",
     srcs = ["PackageGroupIntegrationTest.java"],
-    tags = [
-        "no_windows",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
@@ -438,9 +397,8 @@ java_test(
 java_test(
     name = "ProgressReportingTest",
     srcs = ["ProgressReportingTest.java"],
-    tags = [
-        "no_windows",
-    ],
+    # Overrides createFileSystem() with a UnixFileSystem subclass.
+    tags = ["no_windows"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
@@ -458,9 +416,8 @@ java_test(
 java_test(
     name = "QueryIntegrationTest",
     srcs = ["QueryIntegrationTest.java"],
-    tags = [
-        "no_windows",
-    ],
+    # Overrides createFileSystem() with a UnixFileSystem subclass.
+    tags = ["no_windows"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -495,9 +452,6 @@ java_test(
 java_test(
     name = "SymlinkDependencyAnalysisTest",
     srcs = ["SymlinkDependencyAnalysisTest.java"],
-    tags = [
-        "no_windows",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
@@ -529,9 +483,9 @@ java_library(
 java_test(
     name = "TargetCompleteEventTest",
     srcs = ["TargetCompleteEventTest.java"],
-    tags = [
-        "no_windows",
-    ],
+    # outputSymlink points a symlink at a Unix-absolute path, which CreateSymlink
+    # rejects on Windows; artifactsNotRetained runs a shell script directly.
+    tags = ["no_windows"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
@@ -558,9 +512,9 @@ java_test(
     name = "TargetSummaryEventTest",
     srcs = ["TargetSummaryEventTest.java"],
     data = ["//src/test/java/com/google/devtools/build/lib:embedded_scripts"],
-    tags = [
-        "no_windows",
-    ],
+    # Flaky on Windows: getOverallTestStatus() intermittently reports NO_STATUS
+    # instead of the test result. Passed one CI run, failed all 3 attempts the next.
+    tags = ["no_windows"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -665,9 +619,9 @@ java_test(
 java_test(
     name = "SubcommandEventTest",
     srcs = ["SubcommandEventTest.java"],
-    tags = [
-        "no_windows",
-    ],
+    # Re-executes the logged subcommand via a hardcoded /bin/sh, which Windows
+    # resolves to a nonexistent C:\\bin\\sh.
+    tags = ["no_windows"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/shell",
@@ -682,9 +636,6 @@ java_test(
 java_test(
     name = "SkymeldBuildIntegrationTest",
     srcs = ["SkymeldBuildIntegrationTest.java"],
-    tags = [
-        "no_windows",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_complete_event",
@@ -708,9 +659,6 @@ java_test(
 java_test(
     name = "SkymeldOutputServiceBuildIntegrationTest",
     srcs = ["SkymeldOutputServiceBuildIntegrationTest.java"],
-    tags = [
-        "no_windows",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_result",
@@ -728,9 +676,6 @@ java_test(
 java_test(
     name = "BuildResultListenerIntegrationTest",
     srcs = ["BuildResultListenerIntegrationTest.java"],
-    tags = [
-        "no_windows",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
@@ -747,7 +692,6 @@ java_test(
     srcs = [
         "ConvenienceSymlinkTest.java",
     ],
-    tags = ["no_windows"],  # Creates symbolic links.
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/file_write_action_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -797,9 +741,6 @@ java_test(
 java_test(
     name = "ProjectResolutionTest",
     srcs = ["ProjectResolutionTest.java"],
-    tags = [
-        "no_windows",
-    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:project_resolution_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:projects",
