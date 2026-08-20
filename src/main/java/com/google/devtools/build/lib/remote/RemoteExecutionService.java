@@ -68,6 +68,8 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -77,6 +79,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
@@ -115,6 +118,7 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
@@ -1427,6 +1431,10 @@ public class RemoteExecutionService {
     if (hasBazelOutputService) {
       // TODO(chiwang): Stage directories directly
       ((BazelOutputService) outputService).stageArtifacts(finishedDownloads);
+      injectOutputMetadataFromActionResult(
+          action.getSpawn(),
+          checkNotNull(action.getSpawnExecutionContext().getOutputMetadataStore()),
+          metadata);
     } else {
       moveOutputsToFinalLocation(
           Iterables.transform(finishedDownloads, FileMetadata::path), realToTmpPath);
@@ -1478,6 +1486,45 @@ public class RemoteExecutionService {
     }
 
     return null;
+  }
+
+  private void injectOutputMetadataFromActionResult(
+      Spawn spawn, OutputMetadataStore outputMetadataStore, ActionResultMetadata metadata) {
+    for (ActionInput output : spawn.getOutputFiles()) {
+      if (!(output instanceof Artifact artifact) || artifact.isSymlink()) {
+        continue;
+      }
+
+      Path outputPath = execRoot.getRelative(artifact.getExecPath());
+      if (!artifact.isTreeArtifact()) {
+        FileMetadata file = metadata.file(outputPath);
+        if (file != null) {
+          outputMetadataStore.injectFile(artifact, fileArtifactValue(file));
+        }
+        continue;
+      }
+
+      DirectoryMetadata directory = metadata.directory(outputPath);
+      if (directory == null
+          || !directory.symlinks().isEmpty()
+          || outputMetadataStore.requiresArchivedTreeArtifacts()) {
+        continue;
+      }
+
+      SpecialArtifact treeArtifact = (SpecialArtifact) artifact;
+      TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(treeArtifact);
+      for (FileMetadata file : directory.files()) {
+        TreeFileArtifact child =
+            TreeFileArtifact.createTreeOutput(treeArtifact, file.path().relativeTo(outputPath));
+        tree.putChild(child, fileArtifactValue(file));
+      }
+      outputMetadataStore.injectTree(treeArtifact, tree.build());
+    }
+  }
+
+  private static FileArtifactValue fileArtifactValue(FileMetadata file) {
+    return FileArtifactValue.createForNormalFile(
+        DigestUtil.toBinaryDigest(file.digest()), /* proxy= */ null, file.digest().getSizeBytes());
   }
 
   /** An ongoing local execution of a spawn. */

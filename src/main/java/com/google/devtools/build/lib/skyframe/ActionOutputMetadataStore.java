@@ -179,6 +179,11 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
         || (artifact.hasParent() && outputs.contains(artifact.getParent()));
   }
 
+  @Override
+  public boolean requiresArchivedTreeArtifacts() {
+    return archivedTreeArtifactsEnabled;
+  }
+
   @Nullable
   @Override
   public FileArtifactValue getOutputMetadata(Artifact artifact)

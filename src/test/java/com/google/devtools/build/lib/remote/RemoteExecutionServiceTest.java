@@ -14,6 +14,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
@@ -73,6 +74,7 @@ import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
 import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -86,6 +88,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
@@ -1061,6 +1064,88 @@ public class RemoteExecutionServiceTest {
     assertThat(readContent(execRoot.getRelative("outputs/a/dir/subdir/bar"), UTF_8))
         .isEqualTo("bar-contents");
     assertThat(context.isLockOutputFilesCalled()).isTrue();
+  }
+
+  @Test
+  public void downloadOutputs_bazelOutputServiceInjectsActionResultMetadata() throws Exception {
+    Digest outputDigest = cache.addContents(remoteActionExecutionContext, "output-contents");
+    Digest fooDigest = cache.addContents(remoteActionExecutionContext, "foo-contents");
+    Digest barDigest = cache.addContents(remoteActionExecutionContext, "bar-contents");
+    Directory nestedDirectory =
+        Directory.newBuilder()
+            .addFiles(FileNode.newBuilder().setName("bar").setDigest(barDigest))
+            .build();
+    Digest nestedDirectoryDigest = digestUtil.compute(nestedDirectory);
+    Tree tree =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addFiles(FileNode.newBuilder().setName("foo").setDigest(fooDigest))
+                    .addDirectories(
+                        DirectoryNode.newBuilder()
+                            .setName("nested")
+                            .setDigest(nestedDirectoryDigest)))
+            .addChildren(nestedDirectory)
+            .build();
+    Digest treeDigest = cache.addContents(remoteActionExecutionContext, tree.toByteArray());
+    ActionResult actionResult =
+        ActionResult.newBuilder()
+            .addOutputFiles(
+                OutputFile.newBuilder().setPath("outputs/file").setDigest(outputDigest))
+            .addOutputDirectories(
+                OutputDirectory.newBuilder().setPath("outputs/tree").setTreeDigest(treeDigest))
+            .build();
+    RemoteActionResult result =
+        RemoteActionResult.createFromCache(CachedActionResult.remote(actionResult));
+    Spawn spawn = newSpawnFromResult(result);
+    ImmutableMap<PathFragment, Artifact> outputs =
+        spawn.getOutputFiles().stream()
+            .map(Artifact.class::cast)
+            .collect(toImmutableMap(Artifact::getExecPath, identity()));
+    Artifact outputArtifact = checkNotNull(outputs.get(PathFragment.create("outputs/file")));
+    SpecialArtifact treeArtifact =
+        (SpecialArtifact) checkNotNull(outputs.get(PathFragment.create("outputs/tree")));
+    FakeSpawnExecutionContext context = spy(newSpawnExecutionContext(spawn));
+    OutputMetadataStore outputMetadataStore = mock(OutputMetadataStore.class);
+    doReturn(outputMetadataStore).when(context).getOutputMetadataStore();
+    AtomicReference<FileArtifactValue> injectedFile = new AtomicReference<>();
+    doAnswer(
+            invocation -> {
+              assertThat((Artifact) invocation.getArgument(0)).isEqualTo(outputArtifact);
+              injectedFile.set(invocation.getArgument(1));
+              return null;
+            })
+        .when(outputMetadataStore)
+        .injectFile(any(), any());
+    AtomicReference<TreeArtifactValue> injectedTree = new AtomicReference<>();
+    doAnswer(
+            invocation -> {
+              assertThat((SpecialArtifact) invocation.getArgument(0)).isEqualTo(treeArtifact);
+              injectedTree.set(invocation.getArgument(1));
+              return null;
+            })
+        .when(outputMetadataStore)
+        .injectTree(any(), any());
+    BazelOutputService bazelOutputService = mock(BazelOutputService.class);
+    RemoteExecutionService service =
+        newRemoteExecutionService(remoteOptions, bazelOutputService);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+
+    service.downloadOutputs(action, result);
+
+    assertThat(checkNotNull(injectedFile.get()).getDigest()).isEqualTo(toBinaryDigest(outputDigest));
+    TreeArtifactValue treeValue = checkNotNull(injectedTree.get());
+    ImmutableMap<String, FileArtifactValue> children =
+        treeValue.getChildValues().entrySet().stream()
+            .collect(
+                toImmutableMap(
+                    entry -> entry.getKey().getParentRelativePath().getPathString(),
+                    java.util.Map.Entry::getValue));
+    assertThat(children.keySet()).containsExactly("foo", "nested/bar");
+    assertThat(children.get("foo").getDigest()).isEqualTo(toBinaryDigest(fooDigest));
+    assertThat(children.get("nested/bar").getDigest()).isEqualTo(toBinaryDigest(barDigest));
+    assertThat(execRoot.getRelative("outputs/file").exists()).isFalse();
+    assertThat(execRoot.getRelative("outputs/tree").exists()).isFalse();
   }
 
   @Test
@@ -3219,6 +3304,11 @@ public class RemoteExecutionServiceTest {
   }
 
   private RemoteExecutionService newRemoteExecutionService(RemoteOptions remoteOptions) {
+    return newRemoteExecutionService(remoteOptions, outputService);
+  }
+
+  private RemoteExecutionService newRemoteExecutionService(
+      RemoteOptions remoteOptions, OutputService outputService) {
     return new RemoteExecutionService(
         reporter,
         /* verboseFailures= */ true,
