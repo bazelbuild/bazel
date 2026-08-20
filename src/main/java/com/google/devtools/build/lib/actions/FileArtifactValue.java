@@ -356,7 +356,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     if (digest == null) {
       digest =
           DigestUtils.getDigestWithManualFallback(
-              path, xattrProvider, proxy != null ? proxy.toFileIdentity(size) : null);
+              path, xattrProvider, proxy != null ? proxy.toMetadataOnlyFileStatus(size) : null);
     }
     checkState(digest != null, path);
     return createForNormalFile(digest, proxy, size);

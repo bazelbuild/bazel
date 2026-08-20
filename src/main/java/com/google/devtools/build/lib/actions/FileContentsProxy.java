@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import java.io.IOException;
 import java.util.Objects;
@@ -52,13 +51,40 @@ public final class FileContentsProxy {
   }
 
   /**
-   * Returns the identity {@link DigestUtils} keys cached digests on, for a file of the given size.
+   * Returns a partial {@link FileStatus} view of this proxy for a file of the given getSize.
    *
-   * <p>A proxy records exactly the metadata the digest cache is keyed on, so a caller holding one
-   * can look up a cached digest without making {@link DigestUtils} stat the file again.
+   * <p>Only the metadata a proxy records is populated, so the type predicates all throw {@link
+   * UnsupportedOperationException}.
    */
-  public DigestUtils.FileIdentity toFileIdentity(long size) {
-    return new DigestUtils.FileIdentity(nodeId, ctime, mtime, size);
+  public FileStatus toMetadataOnlyFileStatus(long size) {
+    return new MetadataOnlyFileStatus(ctime, mtime, nodeId, size);
+  }
+
+  /**
+   * A {@link FileStatus} populated with the information available in a {@link FileContentsProxy}.
+   */
+  private record MetadataOnlyFileStatus(
+      long getLastChangeTime, long getLastModifiedTime, long getNodeId, long getSize)
+      implements FileStatus {
+    @Override
+    public boolean isFile() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isDirectory() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isSymbolicLink() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isSpecialFile() {
+      throw new UnsupportedOperationException();
+    }
   }
 
   @Override

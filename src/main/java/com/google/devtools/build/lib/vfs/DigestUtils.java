@@ -34,29 +34,27 @@ public class DigestUtils {
   public static final int ESTIMATED_SIZE = 32;
 
   /**
-   * The file metadata that cached digests are keyed on, in an attempt to detect most file changes.
+   * Keys used to cache the values of the digests for files where we don't have fast digests.
+   *
+   * <p>The cache keys are derived from many properties of the file metadata in an attempt to be
+   * able to detect most file changes.
    */
-  public record FileIdentity(long nodeId, long changeTime, long lastModifiedTime, long size) {
-    /** Returns the identity of the file described by {@code status}. */
-    public static FileIdentity of(FileStatus status) throws IOException {
-      return new FileIdentity(
+  private static record CacheKey(
+      PathFragment path, long nodeId, long changeTime, long lastModifiedTime, long size) {
+    /**
+     * Constructs a new cache key.
+     *
+     * @param path path to the file
+     * @param status file status data from which to obtain the cache key properties
+     * @throws IOException if reading the file status data fails
+     */
+    private CacheKey(Path path, FileStatus status) throws IOException {
+      this(
+          path.asFragment(),
           status.getNodeId(),
           status.getLastChangeTime(),
           status.getLastModifiedTime(),
           status.getSize());
-    }
-  }
-
-  /** Keys used to cache the values of the digests for files where we don't have fast digests. */
-  private record CacheKey(
-      PathFragment path, long nodeId, long changeTime, long lastModifiedTime, long size) {
-    private CacheKey(Path path, FileIdentity identity) {
-      this(
-          path.asFragment(),
-          identity.nodeId(),
-          identity.changeTime(),
-          identity.lastModifiedTime(),
-          identity.size());
     }
   }
 
@@ -128,7 +126,7 @@ public class DigestUtils {
    */
   public static byte[] getDigestWithManualFallback(Path path, XattrProvider xattrProvider)
       throws IOException {
-    return getDigestWithManualFallback(path, xattrProvider, (FileIdentity) null);
+    return getDigestWithManualFallback(path, xattrProvider, null);
   }
 
   /**
@@ -145,19 +143,6 @@ public class DigestUtils {
   }
 
   /**
-   * Same as {@link #getDigestWithManualFallback(Path, XattrProvider, FileStatus)}, for callers that
-   * know the file's {@link FileIdentity} without holding a {@link FileStatus}.
-   *
-   * @param path the file path
-   * @param identity the file's identity, if known
-   */
-  public static byte[] getDigestWithManualFallback(
-      Path path, XattrProvider xattrProvider, @Nullable FileIdentity identity) throws IOException {
-    byte[] digest = xattrProvider.getFastDigest(path);
-    return digest != null ? digest : manuallyComputeDigest(path, identity);
-  }
-
-  /**
    * Calculates a digest manually (i.e., assuming that a fast digest can't obtained).
    *
    * <p>Prefer calling {@link #manuallyComputeDigest(Path, FileStatus)} when a recently obtained
@@ -166,7 +151,7 @@ public class DigestUtils {
    * @param path the file path
    */
   public static byte[] manuallyComputeDigest(Path path) throws IOException {
-    return manuallyComputeDigest(path, (FileIdentity) null);
+    return manuallyComputeDigest(path, null);
   }
 
   /**
@@ -178,28 +163,13 @@ public class DigestUtils {
    */
   public static byte[] manuallyComputeDigest(Path path, @Nullable FileStatus status)
       throws IOException {
-    // Only bother deriving the identity if the cache is enabled; it's unused otherwise.
-    return manuallyComputeDigest(
-        path, status != null && globalCache != null ? FileIdentity.of(status) : null);
-  }
-
-  /**
-   * Same as {@link #manuallyComputeDigest(Path)}, but providing the file's {@link FileIdentity} if
-   * it is already known.
-   *
-   * @param path the file path
-   * @param identity the file's identity, if known. When absent and the digest cache is enabled, the
-   *     file has to be stat'ed to obtain it.
-   */
-  public static byte[] manuallyComputeDigest(Path path, @Nullable FileIdentity identity)
-      throws IOException {
     byte[] digest;
 
     // Attempt a cache lookup if the cache is enabled.
     Cache<CacheKey, byte[]> cache = globalCache;
     CacheKey key = null;
     if (cache != null) {
-      key = new CacheKey(path, identity != null ? identity : FileIdentity.of(path.stat()));
+      key = new CacheKey(path, status != null ? status : path.stat());
       digest = cache.getIfPresent(key);
       if (digest != null) {
         return digest;
