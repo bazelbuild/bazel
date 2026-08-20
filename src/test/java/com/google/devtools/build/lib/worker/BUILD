@@ -133,6 +133,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/worker:worker_pool_impl",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_metrics",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_status",
+        "//src/main/java/com/google/devtools/build/lib/worker:worker_protocol",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_spawn_runner",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:worker_protocol_java_proto",

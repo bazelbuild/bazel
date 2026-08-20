@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static net.starlark.java.syntax.TestUtils.assertContainsError;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.BooleanSubject;
 import java.util.ArrayList;
@@ -66,7 +67,7 @@ public class TypeTaggerTest {
     }
 
     @Nullable
-    private Types.CallableType getType(Resolver.Function function) {
+    private Types.GeneralCallableType getType(Resolver.Function function) {
       return typeTable().getType(function);
     }
 
@@ -104,14 +105,14 @@ public class TypeTaggerTest {
 
     /** Returns the type of a {@code def}'s resolved function. */
     @Nullable
-    private Types.CallableType getType(DefStatement def) {
+    private Types.GeneralCallableType getType(DefStatement def) {
       assertThat(def.getResolvedFunction()).isNotNull();
       return getType(def.getResolvedFunction());
     }
 
     /** Returns the type of a {@code lambda}'s resolved function. */
     @Nullable
-    private Types.CallableType getType(LambdaExpression lambda) {
+    private Types.GeneralCallableType getType(LambdaExpression lambda) {
       assertThat(lambda.getResolvedFunction()).isNotNull();
       return getType(lambda.getResolvedFunction());
     }
@@ -233,7 +234,7 @@ public class TypeTaggerTest {
     assertThat(extractType("list")).isEqualTo(Types.list(Types.ANY));
 
     assertExtractTypeFails("list[int, bool]", "list[] accepts exactly 1 argument but got 2");
-    assertExtractTypeFails("list[[int]]", "unexpected expression '[int]'");
+    assertExtractTypeFails("list[[int]]", "in application to list, got '[int]', expected a type");
     assertExtractTypeFails("list[int, ...]", "in application to list, got '...', expected a type");
     assertExtractTypeFails("list[()]", "in application to list, got '()', expected a type");
   }
@@ -292,6 +293,43 @@ public class TypeTaggerTest {
     // Just like for eval-time dict literals, keys must be unique.
     assertExtractTypeFails(
         "struct[{'foo': int, 'foo': bool}]", "dictionary expression has duplicate key: \"foo\"");
+  }
+
+  @Test
+  public void extractType_callable() throws Exception {
+    assertThat(extractType("Callable")).isEqualTo(Types.ANY_CALLABLE);
+    assertThat(extractType("Callable[[], int]"))
+        .isEqualTo(Types.simpleCallable(ImmutableList.of(), false, Types.INT));
+    assertThat(extractType("Callable[[int, bool], str]"))
+        .isEqualTo(Types.simpleCallable(ImmutableList.of(Types.INT, Types.BOOL), false, Types.STR));
+    assertThat(extractType("Callable[[int, bool, ...], str]"))
+        .isEqualTo(Types.simpleCallable(ImmutableList.of(Types.INT, Types.BOOL), true, Types.STR));
+
+    // For the first argument, `...` is syntax sugar for `[...]`.
+    assertThat(extractType("Callable[..., int]"))
+        .isEqualTo(Types.simpleCallable(ImmutableList.of(), true, Types.INT));
+    assertThat(extractType("Callable[[...], int]")).isEqualTo(extractType("Callable[..., int]"));
+
+    // Argument count
+    assertExtractTypeFails("Callable[int]", "Callable[] accepts exactly 2 arguments but got 1");
+    assertExtractTypeFails("Callable[[int]]", "Callable[] accepts exactly 2 arguments but got 1");
+    assertExtractTypeFails("Callable[...]", "Callable[] accepts exactly 2 arguments but got 1");
+    assertExtractTypeFails(
+        "Callable[[int], str, ...]", "Callable[] accepts exactly 2 arguments but got 3");
+    assertExtractTypeFails(
+        "Callable[[int], str, int]", "Callable[] accepts exactly 2 arguments but got 3");
+
+    // Argument type and shape
+    assertExtractTypeFails(
+        "Callable[int, int]",
+        "in application to Callable, got 'int' for argument #1, expected a list or '...'");
+    assertExtractTypeFails(
+        "Callable[[int], ...]",
+        "in application to Callable, got '...' for argument #2, expected a type");
+    assertExtractTypeFails(
+        "Callable[[[int]], int]", "in application to Callable, got '[int]', expected a type");
+    assertExtractTypeFails(
+        "Callable[[..., ...], int]", "in application to Callable, got '...', expected a type");
   }
 
   @Test
@@ -419,7 +457,8 @@ public class TypeTaggerTest {
             def f(a : int, b = 1, *c : bool, d : str = "abc", e, **f : int) -> bool:
                 pass
             """);
-    Types.CallableType type = result.getType(getFirstStatement(DefStatement.class, result.file()));
+    Types.GeneralCallableType type =
+        result.getType(getFirstStatement(DefStatement.class, result.file()));
 
     assertThat(type).isNotNull();
     assertThat(type.getParameterNames()).containsExactly("a", "b", "d", "e").inOrder();
@@ -592,7 +631,13 @@ public class TypeTaggerTest {
     }
 
     assertThat(bindingTypes)
-        .containsExactly(Types.INT, Types.ANY, Types.BOOL, Types.STR, Types.ANY, Types.INT)
+        .containsExactly(
+            Types.INT,
+            Types.ANY,
+            Types.homogeneousTuple(Types.BOOL),
+            Types.STR,
+            Types.ANY,
+            Types.dict(Types.STR, Types.INT))
         .inOrder();
   }
 
@@ -868,7 +913,25 @@ public class TypeTaggerTest {
   }
 
   @Test
-  public void typeAlias_requiresCorrectNumberOfTypeArgs() throws Exception {
+  public void typeAliasWithArgs_mayBeUsedWithoutTypeArgs() throws Exception {
+    // If an alias is invoked with no arguments, the type arguments are set to `Any`.
+    Result result =
+        tagFile(
+            """
+            type optional_list[T] = list[T] | None
+            type dict_or_mapping[K, V] = dict[K, V] | Mapping[K, V]
+
+            x: optional_list
+            y: dict_or_mapping
+            """);
+    assertThat(result.getType("x")).isEqualTo(Types.union(Types.list(Types.ANY), Types.NONE));
+    assertThat(result.getType("y"))
+        .isEqualTo(
+            Types.union(Types.dict(Types.ANY, Types.ANY), Types.mapping(Types.ANY, Types.ANY)));
+  }
+
+  @Test
+  public void typeAlias_requiresCorrectNonzeroNumberOfTypeArgs() throws Exception {
     assertInvalid(
         "'int_or_str' does not accept arguments",
         """
@@ -876,10 +939,10 @@ public class TypeTaggerTest {
         x: int_or_str[int]
         """);
     assertInvalid(
-        "optional_list[] accepts exactly 1 argument but got 0",
+        "optional_list[] accepts exactly 1 argument but got 2",
         """
         type optional_list[T] = list[T] | None
-        x: optional_list
+        x: optional_list[int, float]
         """);
     assertInvalid(
         "optional_dict[] accepts exactly 2 arguments but got 1",

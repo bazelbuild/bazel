@@ -82,13 +82,19 @@ public final class SkyValueRetrieverUtils {
 
     RetrievalResult retrievalResult = null;
     RetrievalContext state = env.getState(stateSupplier).getRetrievalContext();
+    if (state.isInitialQuery()) {
+      state.setStartTimestampNanos(System.nanoTime());
+    }
     try {
       retrievalResult =
           retriever.tryRetrieve(env, new DefaultDependOnFutureShim(env), client, key, state);
-      analysisCachingDeps.recordRetrievalResult(retrievalResult, key);
+      if (retrievalResult instanceof RetrievedValue || retrievalResult instanceof NoCachedData) {
+        analysisCachingDeps.recordRetrievalResult(
+            retrievalResult, key, state.getPhaseDurationMicros());
+      }
     } catch (SerializationException e) {
       // Don't crash the build if deserialization failed. Gracefully fallback to local evaluation.
-      analysisCachingDeps.recordSerializationException(e, key);
+      analysisCachingDeps.recordSerializationException(e, key, state.getPhaseDurationMicros());
       retrievalResult = new NoCachedData(e.getReason());
     } catch (RuntimeException | InterruptedException e) {
       throw e;

@@ -151,6 +151,21 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     if (x instanceof StarlarkList || x instanceof Dict) {
       throw Starlark.errorf("depsets cannot contain items of type '%s'", Starlark.type(x));
     }
+
+    // Ideally, we'd just call Starlark.checkHashable(x). However, as noted above, we currently
+    // allow structs with mutable fields or tuples with mutable elements to be added to a depset
+    // when !strict, and those would fail Starlark.checkHashable check. So we have to duplicate
+    // Starlark.checkHashable's StackOverflowError-catching logic.
+    if (!Starlark.isAcyclic(x)) {
+      try {
+        // Catch stack overflows from self-referential values' hashCode() implementations early;
+        // NestedSet constructor and expand() require a working hashCode() for all elements.
+        var unused = x.hashCode();
+      } catch (StackOverflowError unused) {
+        throw Starlark.errorf(
+            "self-referential or overly nested data structure %s", Starlark.reprForErrors(x));
+      }
+    }
   }
 
   /** Returns a Depset that wraps the specified NestedSet. */
@@ -164,13 +179,12 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     if (set.isEmpty()) {
       return set.getOrder().emptyDepset();
     }
-    return new Depset(
-        ElementType.getTypeClass(elemClass), NestedSetInterner.internDepset(set, elemClass));
+    return new Depset(ElementType.getTypeClass(elemClass), set);
   }
 
   /**
    * Returns a {@link Depset} that wraps the specified {@link NestedSet}, skipping type
-   * normalization and interning.
+   * normalization.
    *
    * <p>Safe to use only for arguments that previously came from a {@link Depset} (they were
    * unwrapped and are now being rewrapped).
@@ -333,6 +347,12 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   }
 
   @Override
+  public boolean isAcyclic() {
+    // Because we invoke hashCode() on each element, which would throw on a self-referential value.
+    return true;
+  }
+
+  @Override
   public void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("depset(");
     printer.printList(set.toList(), "[", ", ", "]", semantics);
@@ -386,7 +406,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
       // (e.g. ConfiguredTarget), but violations are numerous so we must
       // suppress the checkElement call below and reintroduce it as a breaking change.
       // See b/144992997 or github.com/bazelbuild/bazel/issues/10289.
-      checkElement(x, /*strict=*/ strict);
+      checkElement(x, /* strict= */ strict);
 
       Class<?> xt = ElementType.getTypeClass(x.getClass());
       type = checkType(type, xt);
@@ -418,7 +438,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
       }
     }
 
-    return new Depset(type, NestedSetInterner.internDepset(set, type));
+    return new Depset(type, set);
   }
 
   /** An exception thrown when validation fails on the type of elements of a nested set. */
@@ -564,8 +584,9 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     return result;
   }
 
-  // Delegate equality to the underlying NestedSet. Otherwise, it's possible to create multiple
-  // Depset instances wrapping the same NestedSet that aren't equal to each other.
+  // Delegate equality to the underlying NestedSet. There are several places in Java code where we
+  // store NestedSets without the Depset wrapper to save memory. This strategy ensures that when we
+  // re-wrap these NestedSets as Depsets on demand, their Starlark equality behavior is as expected.
 
   @Override
   public int hashCode() {
@@ -574,7 +595,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
 
   @Override
   public boolean equals(Object other) {
-    return other instanceof Depset && set.equals(((Depset) other).set);
+    return this == other || (other instanceof Depset d && set.equals(d.set));
   }
 
   /** The user-facing API to the {@code depset} callable. */

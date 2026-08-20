@@ -21,6 +21,7 @@ java_library(
     deps = [
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:gson",
+        "//third_party:jsr305",
         "@com_google_protobuf//:protobuf_java_util",
     ],
 )

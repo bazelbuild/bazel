@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.Splitter;
 import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.profiler.SystemNetworkStatsService.NetIoCounter;
+import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.devtools.build.lib.util.OS;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -27,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 
 /** Utility class for query system network stats. */
+@ScOnly
 public class SystemNetworkStatsServiceImpl implements SystemNetworkStatsService {
   private static final Splitter SPLITTER = Splitter.on(" ").omitEmptyStrings().trimResults();
 

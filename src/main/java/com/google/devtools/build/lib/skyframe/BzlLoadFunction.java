@@ -78,7 +78,6 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.LoadStatement;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.Program;
@@ -375,13 +374,18 @@ public class BzlLoadFunction implements SkyFunction {
 
   /** Re-initializes the bzl inlining cache, if this instance uses one. No-op otherwise. */
   public void resetInliningCache() {
-    inlineCacheManager.reset(/* resetBuiltins= */ false);
+    if (inlineCacheManager != null) {
+      inlineCacheManager.reset(/* resetBuiltins= */ false);
+    }
   }
 
-  /** Re-initializes the bzl inlining cache, if this instance uses one. No-op otherwise. */
-  @VisibleForTesting
-  public void resetInliningCacheAndBuiltinsForTesting() {
-    inlineCacheManager.reset(/* resetBuiltins= */ true);
+  /**
+   * Re-initializes the bzl inlining cache and builtins, if this instance uses one. No-op otherwise.
+   */
+  public void resetInliningCacheAndBuiltins() {
+    if (inlineCacheManager != null) {
+      inlineCacheManager.reset(/* resetBuiltins= */ true);
+    }
   }
 
   /**
@@ -1410,7 +1414,10 @@ public class BzlLoadFunction implements SkyFunction {
             : Mutability.create("loading", label)) {
       StarlarkThread thread =
           StarlarkThread.create(
-              mu, starlarkSemantics, /* contextDescription= */ "", SymbolGenerator.create(key));
+              mu,
+              starlarkSemantics,
+              /* contextDescription= */ "",
+              BzlLoadThreadOwner.createGenerator(key, module));
       thread.setLoader(loadedModules::get);
       // This is needed so that any calls to `Label()` will have its used repo mapping entries
       // recorded. See #20721 for more details.

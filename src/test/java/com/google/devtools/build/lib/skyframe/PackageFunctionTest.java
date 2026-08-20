@@ -217,7 +217,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
       if (computationMode.equals(ComputationMode.PACKAGE_FROM_PACKAGE_PIECES)) {
         // Targets are owned by package pieces, not by the package-from-pieces.
         assertThat(buildFile.getPackageoid()).isInstanceOf(PackagePiece.ForBuildFile.class);
-        for (Target target : value.getTargets().values()) {
+        for (Target target : value.getTargets()) {
           assertWithMessage("Packageoid of target %s", target.getLabel())
               .that(target.getPackageoid())
               .isNotSameInstanceAs(value);
@@ -281,7 +281,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     scratch.file("pkg/BUILD", "filegroup(name = 'foo')");
     preparePackageLoading(computationMode);
     Packageoid pkg = validPackageoidWithoutErrors("pkg");
-    assertThat(pkg.getTargets()).containsKey("foo");
+    assertThat(pkg.getTargetOrNull("foo")).isNotNull();
   }
 
   @Test
@@ -306,11 +306,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
         """);
     preparePackageLoading(computationMode);
     Packageoid pkg = validPackageoidWithoutErrors("pkg");
-    assertThat(pkg.getTargets()).containsKey("target_in_legacy_macro");
+    assertThat(pkg.getTargetOrNull("target_in_legacy_macro")).isNotNull();
     if (computationMode.equals(ComputationMode.PACKAGE_PIECE_FOR_BUILD_FILE)) {
-      assertThat(pkg.getTargets()).doesNotContainKey("target_in_symbolic_macro");
+      assertThat(pkg.getTargetOrNull("target_in_symbolic_macro")).isNull();
     } else {
-      assertThat(pkg.getTargets()).containsKey("target_in_symbolic_macro");
+      assertThat(pkg.getTargetOrNull("target_in_symbolic_macro")).isNotNull();
     }
   }
 

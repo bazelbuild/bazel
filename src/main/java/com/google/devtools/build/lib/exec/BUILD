@@ -326,6 +326,7 @@ java_library(
         "SpawnProgressEvent.java",
         "SpawnRunner.java",
         "SpawnSchedulingEvent.java",
+        "SpawnUploadingEvent.java",
     ],
     deps = [
         ":tree_deleter",

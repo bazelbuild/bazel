@@ -16,6 +16,7 @@ java_test(
     srcs = ["AnalysisCacheInvalidatorTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
@@ -91,6 +92,7 @@ java_test(
         ":SkycacheIntegrationTestBase",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_status_value",
@@ -130,6 +132,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_op_node_map",
         "//src/main/java/com/google/devtools/build/skyframe",
@@ -169,6 +172,7 @@ java_test(
     srcs = ["FileOpMatchMemoizingLookupTest.java"],
     deps = [
         ":controllable_file_dependencies",
+        "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_dependency_deserializer",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes_validator",
@@ -184,6 +188,7 @@ java_test(
     srcs = ["NestedMatchMemoizingLookupTest.java"],
     deps = [
         ":controllable_file_dependencies",
+        "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_dependency_deserializer",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes_validator",
@@ -198,6 +203,7 @@ java_test(
     name = "VersionedChangesValidatorTest",
     srcs = ["VersionedChangesValidatorTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_dependency_deserializer",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes_validator",
@@ -214,6 +220,7 @@ java_test(
     srcs = ["FileDependencySerializerTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
@@ -240,6 +247,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",

@@ -13,14 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.runtime.BlazeService;
 import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataParams;
 import com.google.devtools.build.lib.util.SerializedAbruptExitException;
 import com.google.devtools.common.options.OptionsProvider;
-import java.util.concurrent.ExecutorService;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nullable;
 
 /**
@@ -88,7 +93,7 @@ public interface RemoteAnalysisCachingServicesSupplier extends BlazeService {
   }
 
   @Nullable
-  ExecutorService getCommandExecutor();
+  SafeExecutor getCommandExecutor();
 
   /**
    * Gets the parameters for querying and updating Skycache metadata.
@@ -97,6 +102,55 @@ public interface RemoteAnalysisCachingServicesSupplier extends BlazeService {
    */
   @Nullable
   default SkycacheMetadataParams getSkycacheMetadataParams() {
+    return null;
+  }
+
+  /** Represents a remote service peer. */
+  public static final class Peer {
+    private final String serviceName;
+    private final String id;
+
+    public Peer(String serviceName, String id) {
+      this.serviceName = requireNonNull(serviceName);
+      this.id = requireNonNull(id);
+    }
+
+    public String serviceName() {
+      return serviceName;
+    }
+
+    public String id() {
+      return id;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof Peer peer)) {
+        return false;
+      }
+      return serviceName.equals(peer.serviceName) && id.equals(peer.id);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(serviceName, id);
+    }
+
+    @Override
+    public String toString() {
+      return "Peer[serviceName=" + serviceName + ", id=" + id + "]";
+    }
+  }
+
+  /**
+   * Returns the map of backend peers and request counts connected during the current command, if
+   * any.
+   */
+  @Nullable
+  default Map<Peer, AtomicLong> getPeers() {
     return null;
   }
 

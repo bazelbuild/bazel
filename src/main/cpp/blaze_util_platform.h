@@ -153,9 +153,9 @@ std::unique_ptr<blaze_util::Path> GetProcessCWD(int pid);
 
 bool IsSharedLibrary(const std::string& filename);
 
-// Returns the absolute path to the user's local JDK install, to be used as
-// the default target javabase and as a fall-back host_javabase. This is not
-// the embedded JDK.
+// Returns the absolute path to the user's local Java install (JDK or JRE),
+// to be used as the default target javabase and as a fall-back
+// host_javabase. This is not the embedded JDK.
 std::string GetSystemJavabase();
 
 // Return the path to the JVM binary relative to a javabase, e.g. "bin/java".

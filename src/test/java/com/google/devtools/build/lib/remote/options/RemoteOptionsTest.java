@@ -95,6 +95,15 @@ public class RemoteOptionsTest {
   }
 
   @Test
+  public void remoteGrpcDownloadIdleTimeout_defaultsTo60Seconds() {
+    // Keep gRPC downloads protected by default with the same timeout used by the HTTP remote
+    // cache. Users can still explicitly set the option to zero to disable it.
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+
+    assertThat(options.getRemoteGrpcDownloadIdleTimeout()).isEqualTo(Duration.ofSeconds(60));
+  }
+
+  @Test
   public void testRemoteGrpcLogWithEmptyString() throws Exception {
     OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
     parser.parse("--remote_grpc_log=test.log", "--remote_grpc_log=");

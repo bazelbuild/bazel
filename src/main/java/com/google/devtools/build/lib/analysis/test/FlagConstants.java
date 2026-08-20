@@ -11,11 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.collect.nestedset;
 
-/**
- * A marker interface for types that are artifacts for the purpose of {@link NestedSet} interning.
- *
- * <p>See the comments in {@link NestedSetInterner} for more details.
- */
-public interface IsArtifactForNestedSet {}
+package com.google.devtools.build.lib.analysis.test;
+
+/** Hardcoded flag values for test configuration that differ between Blaze and Bazel. */
+final class FlagConstants {
+
+  private FlagConstants() {}
+
+  public static final String DEFAULT_EXPERIMENTAL_SPLIT_COVERAGE_POSTPROCESSING = "true";
+  public static final String DEFAULT_EXPERIMENTAL_FETCH_ALL_COVERAGE_OUTPUTS = "true";
+}

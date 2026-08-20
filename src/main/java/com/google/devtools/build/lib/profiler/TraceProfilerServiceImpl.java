@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.PredicateBasedStatRecorder.RecorderAndPredicate;
 import com.google.devtools.build.lib.profiler.TaskData.ActionTaskData;
 import com.google.devtools.build.lib.runtime.BlazeService;
+import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.sun.management.OperatingSystemMXBean;
@@ -61,6 +62,7 @@ import javax.annotation.Nullable;
 /** Blaze internal profiler implementation. */
 @ThreadSafe
 @SuppressWarnings("GoodTime") // This code is very performance sensitive.
+@ScOnly
 public final class TraceProfilerServiceImpl implements TraceProfilerService {
   private static final int HISTOGRAM_BUCKETS = 20;
 
@@ -287,9 +289,18 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
                   ? SlimProfileConfiguration.afterSize(slimProfileSizeLimit)
                   : SlimProfileConfiguration.always())
               : SlimProfileConfiguration.disabled();
+      long profileStartEpochMillis =
+          BlazeClock.createNanosToMillisSinceEpochConverter(clock)
+              .toEpochMillis(execStartTimeNanos);
       writer =
           new JsonTraceFileWriter(
-              stream, execStartTimeNanos, slimProfileConfig, outputBase, buildID, format);
+              stream,
+              execStartTimeNanos,
+              profileStartEpochMillis,
+              slimProfileConfig,
+              outputBase,
+              buildID,
+              format);
       writer.start();
     }
     this.writerRef.set(writer);

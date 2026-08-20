@@ -432,9 +432,9 @@ public abstract class BuildIntegrationTestCase {
   @After
   public final void cleanUp() throws Exception {
     try {
-      doCleanup();
-    } finally {
       getRuntime().getBlazeModules().forEach(BlazeModule::blazeShutdown);
+    } finally {
+      doCleanup();
     }
   }
 

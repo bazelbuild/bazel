@@ -62,6 +62,7 @@ java_library(
         ":lifecycle_event",
         ":stream_event",
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/grpc-java:grpc-jar",

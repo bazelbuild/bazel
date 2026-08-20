@@ -80,16 +80,21 @@ public final class StaticTypeCheckTest {
   private Program compile(String... lines) throws SyntaxError.Exception {
     Preconditions.checkArgument(lines.length > 0);
     ParserInput input = ParserInput.fromLines(lines);
-    StarlarkFile file = StarlarkFile.parse(input, options.build());
+    FileOptions builtOptions = options.build();
+    StarlarkFile file = StarlarkFile.parse(input, builtOptions);
     Program prog = Program.compileFile(file, module);
-    TypeTable typeTable = TypeTagger.tagProgram(prog, module, loader);
-    if (typeTable.ok()) {
-      TypeChecker.checkProgram(prog, typeTable, module);
+    if (builtOptions.resolveTypeSyntax()) {
+      TypeTable typeTable = TypeTagger.tagProgram(prog, module, loader);
+      if (typeTable.ok()) {
+        TypeChecker.checkProgram(prog, typeTable, module);
+      }
+      if (!typeTable.ok()) {
+        throw new SyntaxError.Exception(typeTable.errors());
+      }
+      return prog.withTypeTable(typeTable);
+    } else {
+      return prog;
     }
-    if (!typeTable.ok()) {
-      throw new SyntaxError.Exception(typeTable.errors());
-    }
-    return prog.withTypeTable(typeTable);
   }
 
   private void assertValid(String... lines) {
@@ -155,6 +160,32 @@ public final class StaticTypeCheckTest {
         """
         x: None = 123
         """);
+  }
+
+  @Test
+  public void universalTypeConstructors() {
+    assertValid(
+        """
+        # Type constructors from UNIVERSE_EXTRA_TYPE_CONSTRUCTORS can be used as types ...
+        def f(x: Mapping[str, Any] | Sequence[object]) -> Collection:
+            return x
+
+        f([1, 2, 3])
+        f({"a": 1, "b": "foobar"})
+
+        # ... and also as values (e.g. for isinstance checks)
+        print([Any, object, Collection, Mapping, Sequence])
+        """);
+  }
+
+  @Test
+  public void universalTypeConstructors_disabledAsValues_ifTypeSyntaxResolutionDisabled() {
+    options.resolveTypeSyntax(false);
+
+    for (String name : ImmutableList.of("Any", "object", "Collection", "Mapping", "Sequence")) {
+      assertInvalid(
+          String.format("name '%s' is not defined", name), String.format("print(%s)", name));
+    }
   }
 
   @Test
@@ -243,7 +274,7 @@ public final class StaticTypeCheckTest {
     assertValid(
         """
         x: list[int]
-        x.pop(0)
+        y: int = x.pop(0)
         """);
 
     assertInvalid(
@@ -266,7 +297,7 @@ public final class StaticTypeCheckTest {
     assertValid(
         """
         d: dict[str, int]
-        v = d.get("a", 0)
+        v: int = d.get("a", 0)
         d.setdefault("b", 2)
         """);
   }
@@ -339,6 +370,22 @@ public final class StaticTypeCheckTest {
     assertInvalid("cannot assign type 'str' to 'x' of type 'int'", "x: int = PREDECLARED_STR");
   }
 
+  @Test
+  public void callbackTypes() throws Exception {
+    assertValid(
+        """
+        def negate(x: int) -> int:
+            return -x
+
+        min([1, 2, 3], key = negate)
+        max([1, 2, 3], key = lambda x: -x)
+        min([-1, -2, -3], key = abs)
+        """);
+    assertInvalid(
+        "parameter 'key' got value of type 'str', want 'Callable|None'",
+        "x: int = min([1, 2, 3], key = 'abc')");
+  }
+
   // No StarlarkBuiltin annotation.
   public static final class MyUnannotatedType implements StarlarkValue {}
 
@@ -397,7 +444,7 @@ public final class StaticTypeCheckTest {
         public ImmutableList<StarlarkType> getSupertypes(TypeContext context) {
           return ImmutableList.of(
               // Nullary callable returning int.
-              Types.callable(
+              Types.generalCallable(
                   ImmutableList.of(),
                   ImmutableList.of(),
                   0,

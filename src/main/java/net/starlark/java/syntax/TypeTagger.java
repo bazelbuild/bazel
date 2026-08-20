@@ -243,8 +243,15 @@ public final class TypeTagger extends NodeVisitor {
       }
       case LIST_EXPR -> {
         ListExpression listExpr = (ListExpression) expr;
-        if (listExpr.isTuple() && listExpr.getElements().isEmpty()) {
-          return TypeConstructor.Term.EMPTY_TUPLE;
+        if (listExpr.isTuple()) {
+          if (listExpr.getElements().isEmpty()) {
+            return TypeConstructor.Term.EMPTY_TUPLE;
+          }
+        } else {
+          return new TypeConstructor.Term.TypeList(
+              listExpr.getElements().stream()
+                  .map(elem -> extractTerm(elem, typeParams))
+                  .collect(toImmutableList()));
         }
       }
       case DICT_EXPR -> {
@@ -323,7 +330,7 @@ public final class TypeTagger extends NodeVisitor {
     return result;
   }
 
-  private Types.CallableType createFunctionType(
+  private Types.GeneralCallableType createFunctionType(
       ImmutableList<Parameter> parameters, @Nullable Expression returnTypeExpr) {
     ImmutableList.Builder<String> names = ImmutableList.builder();
     ImmutableList.Builder<StarlarkType> types = ImmutableList.builder();
@@ -375,7 +382,7 @@ public final class TypeTagger extends NodeVisitor {
       returnType = extractType(returnTypeExpr);
     }
 
-    return Types.callable(
+    return Types.generalCallable(
         names.build(),
         types.build(),
         /* numPositionalOnlyParameters= */ 0,
@@ -436,6 +443,28 @@ public final class TypeTagger extends NodeVisitor {
   }
 
   /**
+   * Sets a resolved function's type.
+   *
+   * <p>Throws {@link IllegalArgumentException} if the type is already set.
+   */
+  private static void setType(
+      Resolver.Function resolved, Types.GeneralCallableType type, TypeTable typeTable) {
+    checkNotNull(resolved);
+    @Nullable StarlarkType prevType = typeTable.getType(resolved);
+    if (prevType != null) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Expected type of resolved function %s to be null but was %s",
+              resolved.getName(), prevType));
+    }
+    typeTable.setType(resolved, type);
+  }
+
+  private void setType(Resolver.Function resolved, Types.GeneralCallableType type) {
+    setType(resolved, type, typeTable);
+  }
+
+  /**
    * Sets the type constructor value associated with a given binding, making it available for
    * subsequent type tagging and checking.
    */
@@ -471,28 +500,6 @@ public final class TypeTagger extends NodeVisitor {
       return true;
     }
     return false;
-  }
-
-  /**
-   * Sets a resolved function's type.
-   *
-   * <p>Throws {@link IllegalArgumentException} if the type is already set.
-   */
-  private static void setType(
-      Resolver.Function resolved, Types.CallableType type, TypeTable typeTable) {
-    checkNotNull(resolved);
-    @Nullable StarlarkType prevType = typeTable.getType(resolved);
-    if (prevType != null) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Expected type of resolved function %s to be null but was %s",
-              resolved.getName(), prevType));
-    }
-    typeTable.setType(resolved, type);
-  }
-
-  private void setType(Resolver.Function resolved, Types.CallableType type) {
-    setType(resolved, type, typeTable);
   }
 
   private void visitProgram(Program prog) {
@@ -540,7 +547,7 @@ public final class TypeTagger extends NodeVisitor {
   public void visit(DefStatement def) {
     Resolver.Function resolvedFunction = def.getResolvedFunction();
     functionStack.push(resolvedFunction);
-    Types.CallableType type = createFunctionType(def.getParameters(), def.getReturnType());
+    Types.GeneralCallableType type = createFunctionType(def.getParameters(), def.getReturnType());
     setType(resolvedFunction, type);
     setType(def, def.getIdentifier(), type);
     // Parameter types handled by visit(Parameter).
@@ -561,6 +568,11 @@ public final class TypeTagger extends NodeVisitor {
       if (param.getType() != null) {
         setUsesTypeSyntax();
         type = extractType(param.getType());
+        if (param instanceof Parameter.Star) {
+          type = Types.homogeneousTuple(type);
+        } else if (param instanceof Parameter.StarStar) {
+          type = Types.dict(Types.STR, type);
+        }
       }
       setType(param, param.getIdentifier(), type);
     }
@@ -642,7 +654,7 @@ public final class TypeTagger extends NodeVisitor {
 
   @Override
   public void visit(LambdaExpression lambda) {
-    Types.CallableType type =
+    Types.GeneralCallableType type =
         createFunctionType(lambda.getParameters(), /* returnTypeExpr= */ null);
     setType(lambda.getResolvedFunction(), type);
 

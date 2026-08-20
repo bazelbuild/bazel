@@ -360,12 +360,11 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
       skyframeLookupCollector.notifyFetchStarting();
     }
     try {
-      Futures.addCallback(
-          fingerprintValueService.get(fingerprint),
-          new SharedBytesProcessor<>(fingerprint, codec, parent, setter, getOperation),
-          // Switches to another executor to avoid performing serialization work on an an RPC
-          // executor thread.
-          fingerprintValueService.getExecutor());
+      fingerprintValueService
+          .getExecutor()
+          .addCallback(
+              fingerprintValueService.get(fingerprint),
+              new SharedBytesProcessor<>(fingerprint, codec, parent, setter, getOperation));
     } catch (IOException
         // Avoids causing SettableFuture consumers to hang if when there are unexpected exceptions.
         | RuntimeException
@@ -425,8 +424,9 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
       }
       List<ListenableFuture<?>> innerReadStatusFutures = innerContext.readStatusFutures;
       if (innerReadStatusFutures == null || innerReadStatusFutures.isEmpty()) {
-        Object result = deferred.call();
+        Object result;
         try {
+          result = deferred.call();
           setter.set(parent, result);
         } catch (SerializationException e) {
           getOperation.setException(e);
@@ -533,7 +533,7 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
 
   @Override
   @SuppressWarnings("FutureReturnValueIgnored")
-  Object combineValueWithReadFutures(Object value) {
+  Object combineValueWithReadFutures(Object value) throws SerializationException {
     if (readStatusFutures == null) {
       return unwrapIfDeferredValue(value);
     }
@@ -565,7 +565,7 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
     readStatusFutures.add(readStatus);
   }
 
-  private static Object unwrapIfDeferredValue(Object value) {
+  private static Object unwrapIfDeferredValue(Object value) throws SerializationException {
     if (value instanceof DeferredValue) {
       @SuppressWarnings("unchecked")
       DeferredValue<Object> castValue = (DeferredValue<Object>) value;

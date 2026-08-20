@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2026 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,16 +11,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-// Copyright 2006 Google Inc. All rights reserved.
+package com.google.devtools.build.lib.concurrent.safeexecutor;
 
-package com.google.devtools.build.lib.rules.cpp;
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+/** Task interface extending Runnable to handle both execution and submission failures directly. */
+@SkybridgeInterface
+public interface RejectionHandlingRunnable extends Runnable {
 
-/** "White-box" unit test of cc_import rule. */
-@RunWith(JUnit4.class)
-public class CcImportConfiguredTargetTest extends CcImportBaseConfiguredTargetTest {
-  @Override
-  protected void setIsStarlarkImplementation() {}
+  /**
+   * Invoked when task submission fails (rejection).
+   *
+   * <p>Implementations MUST be non-blocking.
+   */
+  void handleRejection(Throwable t);
 }

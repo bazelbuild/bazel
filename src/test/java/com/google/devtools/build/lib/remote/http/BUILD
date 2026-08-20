@@ -39,7 +39,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:test_runner",  # unuseddeps: keep buildcleaner: keep
         "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker/http",
         "//third_party:auth",
         "//third_party:guava",

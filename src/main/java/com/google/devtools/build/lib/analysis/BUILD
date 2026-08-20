@@ -250,6 +250,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:starlark_exposed_rule_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform:constants",
         "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
@@ -2033,6 +2034,7 @@ java_library(
 java_library(
     name = "test/test_configuration",
     srcs = [
+        "test/FlagConstants.java",
         "test/TestConfiguration.java",
         "test/TestResourcesConverter.java",
     ],

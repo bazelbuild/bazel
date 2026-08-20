@@ -987,8 +987,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertThat(newBConfTarget).isNotSameInstanceAs(oldBConfTarget);
   }
 
-  private int countObjectsPartiallyMatchingRegex(
-      Iterable<? extends Object> elements, String toStringMatching) {
+  private int countObjectsPartiallyMatchingRegex(Iterable<?> elements, String toStringMatching) {
     toStringMatching = ".*" + toStringMatching + ".*";
     int result = 0;
     for (Object o : elements) {

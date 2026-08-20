@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Collections;
 import java.util.Map;
 
 /**
@@ -64,6 +65,7 @@ public interface TypeConstructor {
       permits StarlarkType,
           Term.Ellipsis,
           Term.EmptyTuple,
+          Term.TypeList,
           Term.TypeDict,
           Term.TypeVariable,
           Term.DecomposedTypeApplication,
@@ -111,6 +113,44 @@ public interface TypeConstructor {
       @Override
       public String toString() {
         return "()";
+      }
+    }
+
+    /** A list expression of type terms, e.g. {@code [int, str, ...]}. */
+    public static final class TypeList implements Term {
+      private final ImmutableList<Term> terms;
+      private final boolean isOpen;
+
+      TypeList(ImmutableList<Term> terms) {
+        this.terms = terms;
+        this.isOpen = terms.stream().anyMatch(Term::isOpen);
+      }
+
+      public ImmutableList<Term> getTerms() {
+        return terms;
+      }
+
+      @Override
+      public boolean isOpen() {
+        return isOpen;
+      }
+
+      @Override
+      public TypeList evaluate(ImmutableList<StarlarkType> values) throws Failure {
+        if (!isOpen) {
+          return this;
+        }
+        ImmutableList.Builder<Term> evaluatedTerms =
+            ImmutableList.builderWithExpectedSize(terms.size());
+        for (Term term : terms) {
+          evaluatedTerms.add(term.evaluate(values));
+        }
+        return new TypeList(evaluatedTerms.build());
+      }
+
+      @Override
+      public String toString() {
+        return String.format("[%s]", terms.stream().map(Term::toString).collect(joining(", ")));
       }
     }
 
@@ -327,6 +367,9 @@ public interface TypeConstructor {
 
     @Override
     public StarlarkType createStarlarkType(ImmutableList<Term> argsTuple) throws Failure {
+      if (argsTuple.isEmpty() && arity != 0) {
+        argsTuple = ImmutableList.copyOf(Collections.nCopies(arity, Types.ANY));
+      }
       if (argsTuple.size() != arity) {
         throw new Failure(
             String.format(
@@ -341,21 +384,26 @@ public interface TypeConstructor {
 
   /**
    * Returns the result of applying this constructor to the given type arguments, which cannot be
-   * open terms.
+   * open terms. If invoked with an empty {@code argsTuple}, returns the most permissive type
+   * compatible with this constructor; see {@link #createStarlarkType()}.
    *
    * @throws Failure if the usage of this constructor is invalid (typically due to a mismatch in the
-   *     number or type of arguments)
+   *     number or type of arguments). If {@code argsTuple} is empty, this call must not throw a
+   *     Failure; see {@link #createStarlarkType()}.
    */
   StarlarkType createStarlarkType(ImmutableList<Term> argsTuple) throws Failure;
 
-  /** A type constructor that can be invoked without type arguments. */
-  public interface AllowingNullary extends TypeConstructor {
-    default StarlarkType createStarlarkType() {
-      try {
-        return createStarlarkType(ImmutableList.of());
-      } catch (Failure e) {
-        throw new IllegalStateException(String.format("Not nullary: %s", this), e);
-      }
+  /**
+   * Returns the result of applying this constructor with no type arguments. Expected to return the
+   * most permissive type compatible with this constructor; more precisely, for any type T returned
+   * by this constructor, the type returned by this method can be materialized to T. For example,
+   * {@code list} invoked without arguments is {@code list[Any]}.
+   */
+  default StarlarkType createStarlarkType() {
+    try {
+      return createStarlarkType(ImmutableList.of());
+    } catch (Failure e) {
+      throw new IllegalStateException(String.format("Not nullary: %s", this), e);
     }
   }
 }

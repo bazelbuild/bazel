@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.truth.StringSubject;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.StarlarkType;
-import net.starlark.java.syntax.Types;
 import net.starlark.java.syntax.Types.CallableType;
 import org.junit.Before;
 import org.junit.Test;
@@ -42,12 +41,6 @@ public class DynamicTypeCheckTest {
         StarlarkSemantics.builder()
             .setBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING, true)
             .build());
-
-    // TODO: #27728 - No need to add these mocks to the testing Module in setup() once the
-    // production version of these symbols are available in the actual Starlark universe.
-    ev.update("Collection", TypeConstructorValue.of(Types.COLLECTION_CONSTRUCTOR));
-    ev.update("Sequence", TypeConstructorValue.of(Types.SEQUENCE_CONSTRUCTOR));
-    ev.update("Mapping", TypeConstructorValue.of(Types.MAPPING_CONSTRUCTOR));
   }
 
   @Test

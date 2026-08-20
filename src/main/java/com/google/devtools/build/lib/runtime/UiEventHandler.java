@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
+import com.google.devtools.build.lib.actions.UploadingActionEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
@@ -841,6 +842,13 @@ public final class UiEventHandler implements EventHandler {
   @AllowConcurrentEvents
   public void checkingActionCache(CachingActionEvent event) {
     stateTracker.cachingAction(event);
+    refresh();
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void uploadingAction(UploadingActionEvent event) {
+    stateTracker.uploadingAction(event);
     refresh();
   }
 

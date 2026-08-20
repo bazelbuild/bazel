@@ -72,6 +72,7 @@ java_library(
             "ChunkedCacheRepMaxIntegrationTest.java",
             "ChunkedDiskCacheIntegrationTest.java",
             "DiskCacheIntegrationTest.java",
+            "RemoteCircuitBreakerRecoveryIntegrationTest.java",
         ],
     ),
     deps = [
@@ -107,6 +108,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/events:event_bus_event_handler",
@@ -137,7 +139,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote:remote_action_context_provider",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_action_file_system",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_action_input_fetcher",
+        "//src/main/java/com/google/devtools/build/lib/remote:remote_download_idle_timeout_interceptor",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_execution_cache",
+        "//src/main/java/com/google/devtools/build/lib/remote:remote_external_overlay_file_system",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_grpc_service_config",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_module",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_output_checker",
@@ -344,6 +348,33 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
+    ],
+)
+
+java_test(
+    name = "RemoteCircuitBreakerRecoveryIntegrationTest",
+    size = "large",
+    srcs = ["RemoteCircuitBreakerRecoveryIntegrationTest.java"],
+    tags = ["requires-network"],
+    runtime_deps = [
+        "//third_party/grpc-java:grpc-jar",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
+        "//src/main/java/com/google/devtools/build/lib/remote:remote_module",
+        "//src/main/java/com/google/devtools/build/lib/remote/options",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/runtime:block_waiting_module",
+        "//src/main/java/com/google/devtools/build/lib/runtime:build_summary_stats_module",
+        "//src/main/java/com/google/devtools/build/lib/standalone",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/common/options:options_internal",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/remote/util:integration_test_utils",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 

@@ -106,6 +106,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheFactory;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisMetadataWriter;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.SerializationDependenciesProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -426,7 +427,9 @@ public class BuildTool {
         // Delete dirty nodes to ensure that they do not accumulate indefinitely.
         long versionWindow = request.getViewOptions().getVersionWindowForDirtyNodeGc();
         if (versionWindow != -1) {
-          env.getSkyframeExecutor().deleteOldNodes(versionWindow);
+          env.getSkyframeExecutor()
+              .deleteOldNodes(
+                  versionWindow, request.getViewOptions().getKeepChangePrunableNodesDuringGc());
         }
         // The workspace status actions will not run with certain flags, or if an error occurs early
         // in the build. Ensure that build info is posted on every build.
@@ -1036,6 +1039,9 @@ public class BuildTool {
   private void reportRemoteAnalysisServiceStats(
       @Nullable FingerprintValueService fingerprintValueService,
       @Nullable RemoteAnalysisCacheClient analysisCacheClient) {
+    if (fingerprintValueService != null) {
+      fingerprintValueService.shutdown();
+    }
     FingerprintValueStore.Stats fingerprintValueServiceStats =
         fingerprintValueService == null
             ? FingerprintValueStore.EMPTY_STATS
@@ -1046,6 +1052,9 @@ public class BuildTool {
             : analysisCacheClient.getStats();
     env.getRemoteAnalysisCachingEventListener()
         .recordServiceStats(fingerprintValueServiceStats, remoteAnalysisCacheClientStats);
+    RemoteAnalysisCachingServicesSupplier servicesSupplier =
+        env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
+    env.getRemoteAnalysisCachingEventListener().recordPeers(servicesSupplier.getPeers());
   }
 
   private void reportOnlyBailOutReason(RemoteAnalysisCacheReaderDepsProvider readerDeps)
@@ -1081,8 +1090,11 @@ public class BuildTool {
           dependenciesProvider.getFingerprintValueService(),
           dependenciesProvider.getAnalysisCacheClient());
     }
+    if (dependenciesProvider.mode().isUploadEnabled()) {
+      reportRemoteAnalysisUploadStats();
+    }
     if (dependenciesProvider.mode().isRetrievalEnabled()) {
-      reportRemoteAnalysisCachingStats();
+      reportRemoteAnalysisRetrievalStats();
       env.getSkyframeExecutor()
           .syncRemoteAnalysisCachingState(
               env.getRemoteAnalysisCachingEventListener().getSkyValueVersion(),
@@ -1325,7 +1337,22 @@ public class BuildTool {
     }
   }
 
-  private void reportRemoteAnalysisCachingStats() {
+  private void reportRemoteAnalysisUploadStats() {
+    FingerprintValueStore.Stats stats =
+        env.getRemoteAnalysisCachingEventListener().getFingerprintValueStoreStats();
+
+    env.getReporter()
+        .handle(
+            Event.info(
+                String.format(
+                    "Skycache write: uploaded %s/%s key/value bytes and %s entries (%s batches)",
+                    stats.keyBytesSent(),
+                    stats.valueBytesSent(),
+                    stats.entriesWritten(),
+                    stats.setBatches())));
+  }
+
+  private void reportRemoteAnalysisRetrievalStats() {
     var listener = env.getRemoteAnalysisCachingEventListener();
     var hitsByFunction = listener.getHitsBySkyFunctionName();
     var missesByFunction = listener.getMissesBySkyFunctionName();
@@ -1374,7 +1401,7 @@ public class BuildTool {
         .handle(
             Event.info(
                 String.format(
-                    "Skycache stats: %s received in %s requests, %s/%s cache"
+                    "Skycache read: %s received in %s requests, %s/%s cache"
                         + " hits (%.2f%%) [Breakdown: %s]",
                     formatBytes(bytesReceived),
                     requests,

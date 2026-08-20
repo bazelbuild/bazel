@@ -135,7 +135,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testBadPackageName() throws Exception {
+  public void testBadPackageName() {
     // This is a "shallow" syntactic error: failure to form the
     // PackageIdentifier that is the real argument to loadPackage.
     LabelSyntaxException e =
@@ -401,7 +401,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
             + "conflicts with existing generated file from rule 'rule1'");
     assertThat(pkg.containsErrors()).isTrue();
 
-    assertThat(pkg.getRule("rule2")).isNull();
+    assertThat(pkg.getTargetOrNull("rule2")).isNull();
 
     // Ensure that rule2's "out2" didn't overwrite rule1's:
     assertThat(((OutputFile) pkg.getTarget("out2")).getGeneratingRule())
@@ -451,8 +451,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     assertThat(pkg.getRule("rule1").containsErrors()).isTrue();
 
     // rule2's genrule is never executed.
-    Rule rule2 = pkg.getRule("rule2");
-    assertThat(rule2).isNull();
+    assertThat(pkg.getTargetOrNull("rule2")).isNull();
   }
 
   @Test
@@ -643,22 +642,19 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
     assertGlob(
         pkg,
-        Collections.<String>emptyList(),
+        Collections.emptyList(),
         ImmutableList.of("*.cc", "*/*.cc", "*/*/*.cc"),
         ImmutableList.of("**/*.cc"));
     assertGlob(
-        pkg,
-        Collections.<String>emptyList(),
-        ImmutableList.of("**/*.cc"),
-        ImmutableList.of("**/*.cc"));
+        pkg, Collections.emptyList(), ImmutableList.of("**/*.cc"), ImmutableList.of("**/*.cc"));
     assertGlob(
         pkg,
-        Collections.<String>emptyList(),
+        Collections.emptyList(),
         ImmutableList.of("**/*.cc"),
         ImmutableList.of("*.cc", "*/*.cc", "*/*/*.cc", "*/*/*/*.cc"));
     assertGlob(
         pkg,
-        Collections.<String>emptyList(),
+        Collections.emptyList(),
         ImmutableList.of("**"),
         ImmutableList.of("*", "*/*", "*/*/*", "*/*/*/*"));
     assertGlob(
@@ -704,7 +700,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testGlobNegativeTest() throws Exception {
+  public void testGlobNegativeTest() {
     // Negative test that assertGlob does throw an error when asserting against the wrong values.
     // The AssertionError comes from FoundationTestCase.failFastHandler.
     AssertionError e =
@@ -712,9 +708,9 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
             AssertionError.class,
             () ->
                 assertGlobMatches(
-                    /*result=*/ ImmutableList.of("Wombat1.java", "This_file_doesn_t_exist.java"),
-                    /*includes=*/ ImmutableList.of("W*", "subdir"),
-                    /*excludes=*/ ImmutableList.<String>of(),
+                    /* result= */ ImmutableList.of("Wombat1.java", "This_file_doesn_t_exist.java"),
+                    /* includes= */ ImmutableList.of("W*", "subdir"),
+                    /* excludes= */ ImmutableList.of(),
                     /* excludeDirs= */ true));
     assertThat(e).hasMessageThat().contains("incorrect glob result");
   }
@@ -722,27 +718,27 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testGlobExcludeDirectories() throws Exception {
     assertGlobMatches(
-        /*result=*/ ImmutableList.of("Wombat1.java", "Wombat2.java"),
-        /*includes=*/ ImmutableList.of("W*", "subdir"),
-        /*excludes=*/ ImmutableList.<String>of(),
+        /* result= */ ImmutableList.of("Wombat1.java", "Wombat2.java"),
+        /* includes= */ ImmutableList.of("W*", "subdir"),
+        /* excludes= */ ImmutableList.of(),
         /* excludeDirs= */ true);
   }
 
   @Test
   public void testGlobDoesNotExcludeDirectories() throws Exception {
     assertGlobMatches(
-        /*result=*/ ImmutableList.of("Wombat1.java", "Wombat2.java", "subdir"),
-        /*includes=*/ ImmutableList.of("W*", "subdir"),
-        /*excludes=*/ ImmutableList.<String>of(),
+        /* result= */ ImmutableList.of("Wombat1.java", "Wombat2.java", "subdir"),
+        /* includes= */ ImmutableList.of("W*", "subdir"),
+        /* excludes= */ ImmutableList.of(),
         /* excludeDirs= */ false);
   }
 
   @Test
   public void testGlobWithEmptyExcludedList() throws Exception {
     assertGlobMatches(
-        /*result=*/ ImmutableList.of("Wombat1.java", "Wombat2.java"),
-        /*includes=*/ ImmutableList.of("W*"),
-        /*excludes=*/ Collections.<String>emptyList(),
+        /* result= */ ImmutableList.of("Wombat1.java", "Wombat2.java"),
+        /* includes= */ ImmutableList.of("W*"),
+        /* excludes= */ Collections.emptyList(),
         /* excludeDirs= */ false);
   }
 
@@ -1488,7 +1484,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         """);
 
     Package pkg = loadPackageAndAssertSuccess("pkg");
-    assertThat(pkg.getTargets()).doesNotContainKey("foo");
+    assertThat(pkg.getTargetOrNull("foo")).isNull();
   }
 
   @Test
@@ -1551,7 +1547,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         """);
 
     Package pkg = loadPackageAndAssertSuccess("pkg");
-    assertThat(pkg.getTargets()).doesNotContainKey("input");
+    assertThat(pkg.getTargetOrNull("input")).isNull();
   }
 
   @Test
@@ -1579,7 +1575,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         """);
 
     Package pkg = loadPackageAndAssertSuccess("pkg");
-    assertThat(pkg.getTargets()).containsKey("abc");
+    assertThat(pkg.getTargetOrNull("abc")).isNotNull();
     assertThat(pkg.getMacrosById().keySet()).containsExactly("abc:1", "abc:2", "abc:3");
   }
 
@@ -1702,7 +1698,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
    * Asserts that the target's {@link Target#getActualVisibility actual visibility} contains exactly
    * the given labels.
    */
-  private void assertVisibilityIs(Target target, String... visibilityLabels) {
+  private static void assertVisibilityIs(Target target, String... visibilityLabels) {
     ImmutableList.Builder<Label> labels = ImmutableList.builder();
     for (String item : visibilityLabels) {
       labels.add(Label.parseCanonicalUnchecked(item));

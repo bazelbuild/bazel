@@ -175,13 +175,6 @@ public class ExecutionGraphModule extends BlazeModule {
         help = "Handle edges from filewrite actions to their inputs correctly.")
     public abstract boolean getLogFileWriteEdges();
 
-    @Option(
-        name = "experimental_execution_graph_include_change_pruned_actions",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "false",
-        help = "Whether to include change pruned actions in execution graph.")
-    public abstract boolean getIncludeChangePrunedActions();
   }
 
   /** What level of dependency information to include in the dump. */
@@ -197,13 +190,10 @@ public class ExecutionGraphModule extends BlazeModule {
       super(DependencyInfo.class, "dependency edge strategy");
     }
   }
-
-  private boolean includeChangePrunedActions;
   private ActionDumpWriter writer;
   private CommandEnvironment env;
   private WalkableGraph graph;
-  private NanosToMillisSinceEpochConverter nanosToMillis =
-      BlazeClock.createNanosToMillisSinceEpochConverter();
+  private NanosToMillisSinceEpochConverter nanosToMillis;
   // Only relevant for Skymeld: there may be multiple events and we only count the first one.
   private final AtomicBoolean executionStarted = new AtomicBoolean();
 
@@ -225,13 +215,20 @@ public class ExecutionGraphModule extends BlazeModule {
   }
 
   @VisibleForTesting
-  void setNanosToMillis(NanosToMillisSinceEpochConverter nanosToMillis) {
-    this.nanosToMillis = nanosToMillis;
+  void resetNanosToMillis() {
+    this.nanosToMillis = BlazeClock.createNanosToMillisSinceEpochConverter();
+  }
+
+  @VisibleForTesting
+  NanosToMillisSinceEpochConverter getNanosToMillis() {
+    return nanosToMillis;
   }
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
     this.env = env;
+    // The offset between monotonic and wall clock time may change between commands.
+    resetNanosToMillis();
 
     if (env.getCommand().buildPhase().executes()) {
       ExecutionGraphOptions options =
@@ -254,8 +251,6 @@ public class ExecutionGraphModule extends BlazeModule {
                                 BuildReport.newBuilder().setCode(Code.BUILD_REPORT_WRITE_FAILED))
                             .build())));
       }
-
-      includeChangePrunedActions = options.getIncludeChangePrunedActions();
     }
   }
 
@@ -272,7 +267,7 @@ public class ExecutionGraphModule extends BlazeModule {
   }
 
   private void handleExecutionBegin() {
-    if (includeChangePrunedActions && graph == null) {
+    if (graph == null) {
       graph = SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
     }
     try {

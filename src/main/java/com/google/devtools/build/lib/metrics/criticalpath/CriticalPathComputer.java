@@ -71,10 +71,15 @@ public class CriticalPathComputer {
 
   /** Selects and returns the longer of two components (the first may be {@code null}). */
   private static final BinaryOperator<CriticalPathComponent> SELECT_LONGER_COMPONENT =
-      (a, b) ->
-          a == null || a.getAggregatedElapsedTime().compareTo(b.getAggregatedElapsedTime()) < 0
-              ? b
-              : a;
+      (a, b) -> {
+        if (a == null) {
+          return b;
+        }
+        if (b == null) {
+          return a;
+        }
+        return a.getAggregatedElapsedTime().compareTo(b.getAggregatedElapsedTime()) < 0 ? b : a;
+      };
 
   private final AtomicInteger idGenerator = new AtomicInteger();
   // outputArtifactToComponent is accessed from multiple event handlers.

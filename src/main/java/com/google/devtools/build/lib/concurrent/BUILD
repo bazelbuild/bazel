@@ -7,7 +7,9 @@ package(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:srcs",
+    ],
     visibility = ["//src:__subpackages__"],
 )
 
@@ -24,6 +26,7 @@ java_library(
     ),
     deps = [
         ":thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
         "//third_party:flogger",
         "//third_party:guava",

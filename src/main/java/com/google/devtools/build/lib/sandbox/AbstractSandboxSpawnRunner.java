@@ -68,7 +68,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   private static final int LOCAL_EXEC_ERROR = -1;
 
   private static final String SANDBOX_DEBUG_SUGGESTION =
-      "\n\nUse --sandbox_debug to see verbose messages from the sandbox "
+      "Use --sandbox_debug to see verbose messages from the sandbox "
           + "and retain the sandbox build root for debugging";
 
   private final SandboxOptions sandboxOptions;
@@ -194,12 +194,12 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
           sandbox.getSandboxExecRoot().getPathString(),
           sandbox);
     } else {
+      reporter.handle(Event.info(SANDBOX_DEBUG_SUGGESTION));
       return CommandFailureUtils.describeCommandFailure(
-              verboseFailures,
-              expandParamFiles,
-              sandbox.getSandboxExecRoot().getPathString(),
-              originalSpawn)
-          + SANDBOX_DEBUG_SUGGESTION;
+          verboseFailures,
+          expandParamFiles,
+          sandbox.getSandboxExecRoot().getPathString(),
+          originalSpawn);
     }
   }
 

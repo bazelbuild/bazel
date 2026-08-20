@@ -14,16 +14,17 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.util.concurrent.ForkJoinPool.commonPool;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.errorprone.annotations.ForOverride;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
 import java.util.function.Supplier;
 
 /** A {@link BlazeModule} to store Skyframe serialization lifecycle hooks. */
@@ -94,6 +95,9 @@ public class SerializationModule extends BlazeModule {
     private static final InMemoryRemoteAnalysisCachingServicesSupplier INSTANCE =
         new InMemoryRemoteAnalysisCachingServicesSupplier();
 
+    /** This is safe and does not leak because the underlying commonPool is never shut down. */
+    private static final SafeExecutorOwner commandExecutor = new SafeExecutorOwner(commonPool());
+
     private static final ListenableFuture<FingerprintValueStore>
         // TODO: b/358347099 - use a persistent store
         WRAPPED_STORE_INSTANCE = immediateFuture(new InMemoryFingerprintValueStore());
@@ -104,8 +108,8 @@ public class SerializationModule extends BlazeModule {
     }
 
     @Override
-    public ExecutorService getCommandExecutor() {
-      return ForkJoinPool.commonPool();
+    public SafeExecutor getCommandExecutor() {
+      return commandExecutor;
     }
 
     @Override

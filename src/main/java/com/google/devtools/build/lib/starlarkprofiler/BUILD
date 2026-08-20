@@ -39,6 +39,7 @@ java_library(
     srcs = ["CpuProfilerServiceImpl.java"],
     deps = [
         ":cpu_profiler_service",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/net/starlark/java/eval:cpu_profiler_native_support",
         "//src/main/java/net/starlark/java/eval:cpu_profiler_native_support_impl",

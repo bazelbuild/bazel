@@ -34,6 +34,7 @@ import com.google.protobuf.CodedOutputStream;
 import com.google.protobuf.MessageLite;
 import java.io.IOException;
 import java.io.Serializable;
+import java.lang.reflect.Method;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -691,6 +692,28 @@ public class ObjectCodecRegistry {
     return true;
   }
 
+  @Nullable private static final Method IS_VALUE_METHOD = getIsValueMethod();
+
+  @Nullable
+  private static Method getIsValueMethod() {
+    try {
+      return Class.class.getMethod("isValue");
+    } catch (NoSuchMethodException e) {
+      return null;
+    }
+  }
+
+  private static boolean isValueClass(Class<?> clazz) {
+    if (IS_VALUE_METHOD == null) {
+      return false;
+    }
+    try {
+      return (boolean) IS_VALUE_METHOD.invoke(clazz);
+    } catch (ReflectiveOperationException e) {
+      return false;
+    }
+  }
+
   /** For enums, this method must only be called for the declaring class. */
   @Nullable
   private static CodecDescriptor createDynamicCodecDescriptor(int tag, String className) {
@@ -701,6 +724,9 @@ public class ObjectCodecRegistry {
       }
       if (MessageLite.class.isAssignableFrom(type)) {
         return createCodecDescriptorForProto(tag, type);
+      }
+      if (isValueClass(type)) {
+        return null;
       }
       return new CodecDescriptor(WireType.CodecWireType.UNSTABLE, tag, new DynamicCodec(type));
     } catch (ReflectiveOperationException e) {

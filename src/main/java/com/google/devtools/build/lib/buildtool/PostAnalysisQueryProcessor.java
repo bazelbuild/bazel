@@ -89,7 +89,8 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
     //  reproducible at the level of a single command. Either tolerate, or wipe the analysis graph
     //  beforehand if this option is specified, or add another option to wipe if desired
     //  (SkyframeExecutor#handleAnalysisInvalidatingChange should be sufficient).
-    env.getSkyframeExecutor().deleteOldNodes(/* versionWindowForDirtyGc= */ 0);
+    env.getSkyframeExecutor()
+        .deleteOldNodes(/* versionWindowForDirtyGc= */ 0, /* keepChangePrunableNodes= */ false);
     env.getSkyframeExecutor().applyInvalidation(env.getReporter());
     if (!env.getSkyframeExecutor().tracksStateForIncrementality()) {
       throw new ExitException(
@@ -241,7 +242,10 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
     try {
       callback.start();
       callback.process(aggregateResultsCallback.getResult());
-      callback.close(/* failFast= */ !result.getSuccess());
+      // Under --keep_going, query evaluation completed and partial results were replayed above.
+      // Therefore, close() should not fail fast, allowing output formatters to flush
+      // streams and write closing proto/JSON structures.
+      callback.close(/* failFast= */ !result.getSuccess() && !request.getKeepGoing());
     } catch (IoExceptionInterruptedException e) {
       throw (IOException) e.getCause();
     }
