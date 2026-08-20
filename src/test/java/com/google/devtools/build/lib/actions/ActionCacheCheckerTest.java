@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue.ProxyFileArtifact
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.SerializableTreeArtifactValue;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
+import com.google.devtools.build.lib.actions.cache.MetadataDigestUtils;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissDetail;
@@ -240,6 +241,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             clientEnv,
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -309,6 +311,7 @@ public final class ActionCacheCheckerTest {
       cacheChecker.updateActionCache(
           action,
           token,
+          /* mandatoryInputsDigest= */ null,
           inputMetadataProvider,
           outputMetadataStore,
           clientEnv,
@@ -534,6 +537,7 @@ public final class ActionCacheCheckerTest {
             cacheChecker.getTokenIfNeedToExecute(
                 action,
                 /* resolvedCacheArtifacts= */ null,
+                /* mandatoryInputsDigest= */ null,
                 /* clientEnv= */ ImmutableMap.of(),
                 OutputPermissions.READONLY,
                 /* handler= */ null,
@@ -551,6 +555,35 @@ public final class ActionCacheCheckerTest {
     FileSystemUtils.writeContentAsLatin1(artifact.getPath(), content);
     return new ProxyFileArtifactValue(
         FileArtifactValue.createForTesting(artifact), artifact.getPath());
+  }
+
+  @Test
+  public void mandatoryInputsDigest_seedingEqualsHashingAllInputsAtOnce() {
+    // The action cache avoids re-hashing an input-discovering action's mandatory inputs by storing
+    // their digest and using it as the seed of the full input/output digest, folding in only the
+    // discovered inputs and outputs. Because the underlying combination is commutative and
+    // associative, this must be byte-identical to hashing all inputs and outputs in a single pass.
+    Map<String, FileArtifactValue> mandatory =
+        ImmutableMap.of(
+            "bin/source.cc", createRemoteMetadata("source"),
+            "bin/module.modmap", createRemoteMetadata("modmap"));
+    Map<String, FileArtifactValue> discoveredAndOutputs =
+        ImmutableMap.of(
+            "bin/discovered.pcm", createRemoteMetadata("discovered"),
+            "bin/out.o", createRemoteMetadata("output"));
+    Map<String, FileArtifactValue> all =
+        ImmutableMap.<String, FileArtifactValue>builder()
+            .putAll(mandatory)
+            .putAll(discoveredAndOutputs)
+            .buildOrThrow();
+
+    byte[] mandatoryInputsDigest = MetadataDigestUtils.fromMetadata(mandatory);
+    byte[] proxySeeded =
+        MetadataDigestUtils.fromMetadata(discoveredAndOutputs, mandatoryInputsDigest);
+
+    assertThat(proxySeeded).isEqualTo(MetadataDigestUtils.fromMetadata(all));
+    // Seeding must not mutate the (retained) mandatory inputs digest.
+    assertThat(mandatoryInputsDigest).isEqualTo(MetadataDigestUtils.fromMetadata(mandatory));
   }
 
   private FileArtifactValue createRemoteMetadata(String content) {
@@ -691,6 +724,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -725,6 +759,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -754,6 +789,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -815,6 +851,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1011,6 +1048,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1116,6 +1154,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1176,6 +1215,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1249,6 +1289,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1314,6 +1355,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1358,6 +1400,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1410,6 +1453,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1454,6 +1498,7 @@ public final class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
