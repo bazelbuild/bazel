@@ -874,6 +874,33 @@ EOF
   assert_equals world "$(cat bazel-bin/pkg/some_file2.json)"
 }
 
+function test_dangling_symlink_sandboxed_deterministic_failure() {
+  # Regression test for https://github.com/bazelbuild/bazel/issues/3759
+  cat << 'EOF' > BUILD
+genrule(
+    name = "make-target",
+    outs = ["target"],
+    cmd = "touch $@",
+)
+genrule(
+    name = "make-link",
+    outs = ["link"],
+    cmd = "ln -s target $@",
+)
+EOF
+
+  # 1. Build :link first. It should FAIL because :target doesn't exist in the sandbox.
+  bazel build :link &> $TEST_log && fail "Expected :link to fail when :target is missing" || true
+  expect_log "is a dangling symbolic link"
+
+  # 2. Build :target.
+  bazel build :target &> $TEST_log || fail "Expected :target to build successfully"
+
+  # 3. Build :link again. This should still FAIL because :target is not a declared input.
+  bazel build :link &> $TEST_log && fail "Expected :link to fail even after :target is built" || true
+  expect_log "is a dangling symbolic link"
+}
+
 # The test shouldn't fail if the environment doesn't support running it.
 check_sandbox_allowed || exit 0
 
