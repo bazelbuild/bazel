@@ -4317,4 +4317,68 @@ public class ParallelEvaluatorTest {
     assertThat(result.hasError()).isTrue();
     assertThat(evaluatedValues).hasSize(2); // errorKey and midKey
   }
+
+  @Test
+  public void topLevelKeyBuiltAsDepOfAnotherTopLevelKey_reportedToProgressReceiverOnce()
+      throws InterruptedException {
+    SkyKey parentKey = skyKey("parent");
+    SkyKey childKey = skyKey("child");
+    tester.getOrCreate(childKey).setConstantValue(new StringValue("child"));
+    tester.getOrCreate(parentKey).addDependency(childKey).setComputedValue(CONCATENATE);
+
+    AtomicLongMap<SkyKey> evaluatedCounts = AtomicLongMap.create();
+    revalidationReceiver =
+        new DirtyAndInflightTrackingProgressReceiver(
+            new EvaluationProgressReceiver() {
+              @Override
+              public void evaluated(
+                  SkyKey skyKey,
+                  EvaluationState state,
+                  @Nullable SkyValue newValue,
+                  @Nullable ErrorInfo newError,
+                  @Nullable GroupedDeps directDeps) {
+                evaluatedCounts.incrementAndGet(skyKey);
+              }
+            });
+
+    graph = new InMemoryGraphImpl();
+
+    // The direct executor evaluates parentKey inline, so childKey is deterministically built by the
+    // time the loop reaches it. With a real thread pool this is a race.
+    EvaluationResult<StringValue> result =
+        makeDirectExecutorEvaluator().eval(ImmutableList.of(parentKey, childKey));
+
+    assertThat(result.hasError()).isFalse();
+    assertThat(evaluatedCounts.get(childKey)).isEqualTo(1);
+    assertThat(evaluatedCounts.get(parentKey)).isEqualTo(1);
+
+    // Nodes that were done before the evaluation began are still reported.
+    EvaluationResult<StringValue> secondResult =
+        makeDirectExecutorEvaluator().eval(ImmutableList.of(parentKey, childKey));
+
+    assertThat(secondResult.hasError()).isFalse();
+    assertThat(evaluatedCounts.get(childKey)).isEqualTo(2);
+    assertThat(evaluatedCounts.get(parentKey)).isEqualTo(2);
+  }
+
+  private ParallelEvaluator makeDirectExecutorEvaluator() {
+    return new ParallelEvaluator(
+        graph,
+        graphVersion,
+        Version.minimal(),
+        tester.getSkyFunctionMap(),
+        reportedEvents,
+        new EmittedEventState(),
+        EventFilter.FULL_STORAGE,
+        ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
+        revalidationReceiver,
+        GraphInconsistencyReceiver.THROWING,
+        AbstractQueueVisitor.createWithExecutorService(
+            MoreExecutors.newDirectExecutorService(),
+            AbstractQueueVisitor.ExceptionHandlingMode.KEEP_GOING,
+            ParallelEvaluatorErrorClassifier.instance()),
+        new SimpleCycleDetector(/* storeExactCycles= */ true),
+        UnnecessaryTemporaryStateDropperReceiver.NULL,
+        /* keepGoing= */ Predicates.alwaysFalse());
+  }
 }
