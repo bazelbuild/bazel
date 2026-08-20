@@ -19,22 +19,20 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
-import static com.google.devtools.build.lib.remote.util.RxFutures.toSingle;
-import static com.google.devtools.build.lib.remote.util.RxUtils.mergeBulkTransfer;
-import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult;
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.remote.util.Utils.mergeBulkTransfer;
 import static java.lang.String.format;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -49,19 +47,8 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTreeUploader;
 import com.google.devtools.build.lib.remote.options.RemoteOptions.ChunkingFunctionValue;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.Message;
-import io.reactivex.rxjava3.annotations.NonNull;
-import io.reactivex.rxjava3.core.Completable;
-import io.reactivex.rxjava3.core.CompletableObserver;
-import io.reactivex.rxjava3.core.Flowable;
-import io.reactivex.rxjava3.core.Maybe;
-import io.reactivex.rxjava3.core.Observable;
-import io.reactivex.rxjava3.core.Single;
-import io.reactivex.rxjava3.core.SingleEmitter;
-import io.reactivex.rxjava3.disposables.Disposable;
-import io.reactivex.rxjava3.subjects.AsyncSubject;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -71,7 +58,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /** A {@link CombinedCache} with additional functionality needed for remote execution. */
@@ -164,33 +150,27 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       boolean force,
       @Nullable RemotePathResolver remotePathResolver)
       throws IOException, InterruptedException {
-    Flowable<TransferResult> uploads =
-        createUploadTasks(context, merkleTree, additionalInputs, force, remotePathResolver)
-            .flatMapPublisher(
-                result ->
-                    Flowable.using(
-                        () -> result,
-                        uploadTasks ->
-                            findMissingBlobs(context, uploadTasks)
-                                .flatMapPublisher(this::waitForUploadTasks),
-                        uploadTasks -> {
-                          for (UploadTask uploadTask : uploadTasks) {
-                            Disposable d = uploadTask.disposable.getAndSet(null);
-                            if (d != null) {
-                              d.dispose();
-                            }
-                          }
-                        }));
+    ImmutableList<UploadTask> uploadTasks =
+        createUploadTasks(context, merkleTree, additionalInputs, force, remotePathResolver);
+    if (uploadTasks.isEmpty()) {
+      return;
+    }
 
     try {
-      mergeBulkTransfer(uploads).blockingAwait();
-    } catch (RuntimeException e) {
-      Throwable cause = e.getCause();
-      if (cause != null) {
-        Throwables.throwIfInstanceOf(cause, InterruptedException.class);
-        Throwables.throwIfInstanceOf(cause, IOException.class);
+      var unused =
+          getFromFuture(
+              Futures.transformAsync(
+                  // A failure of this invocation must not cancel the findMissingDigests call: its
+                  // result also completes the deduplicated queries of concurrent invocations.
+                  Futures.nonCancellationPropagating(findMissingBlobs(context, uploadTasks)),
+                  unusedVoid -> waitForUploadTasks(uploadTasks),
+                  directExecutor()));
+    } finally {
+      // Release this invocation's hold on the deduplicated queries and uploads. Those that other
+      // invocations still await keep running.
+      for (UploadTask uploadTask : uploadTasks) {
+        uploadTask.result.cancel(/* mayInterruptIfRunning= */ true);
       }
-      throw e;
     }
   }
 
@@ -313,12 +293,18 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
 
   static class UploadTask {
     Digest digest;
-    AtomicReference<Disposable> disposable;
-    SingleEmitter<Boolean> continuation;
-    Completable completion;
+
+    /**
+     * Set if and only if this invocation is the one that has to query the remote for {@link
+     * #digest}, in which case {@link #findMissingBlobs} completes it with the query result.
+     */
+    @Nullable SettableFuture<Boolean> continuation;
+
+    /** Completes once the digest is known to be present remotely. */
+    ListenableFuture<Void> result;
   }
 
-  private Single<List<UploadTask>> createUploadTasks(
+  private ImmutableList<UploadTask> createUploadTasks(
       RemoteActionExecutionContext context,
       MerkleTree.Uploadable merkleTree,
       Map<Digest, Message> additionalInputs,
@@ -326,138 +312,109 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       @Nullable RemotePathResolver remotePathResolver) {
     var allDigests = Iterables.concat(merkleTree.allDigests(), additionalInputs.keySet());
     if (Iterables.isEmpty(allDigests)) {
-      return Single.just(ImmutableList.of());
+      return ImmutableList.of();
     }
-    return Single.using(
-        () -> Profiler.instance().profile("collect digests"),
-        ignored ->
-            Flowable.fromIterable(allDigests)
-                .flatMapMaybe(
-                    digest ->
-                        maybeCreateUploadTask(
-                            context,
-                            merkleTree,
-                            additionalInputs,
-                            digest,
-                            force,
-                            remotePathResolver))
-                .collect(toImmutableList()),
-        SilentCloseable::close);
+    try (SilentCloseable c = Profiler.instance().profile("collect digests")) {
+      ImmutableList.Builder<UploadTask> uploadTasks = ImmutableList.builder();
+      for (Digest digest : allDigests) {
+        uploadTasks.add(
+            createUploadTask(
+                context, merkleTree, additionalInputs, digest, force, remotePathResolver));
+      }
+      return uploadTasks.build();
+    }
   }
 
-  private Maybe<UploadTask> maybeCreateUploadTask(
+  private UploadTask createUploadTask(
       RemoteActionExecutionContext context,
       MerkleTree.Uploadable merkleTree,
       Map<Digest, Message> additionalInputs,
       Digest digest,
       boolean force,
       @Nullable RemotePathResolver remotePathResolver) {
-    return Maybe.create(
-        emitter -> {
-          AsyncSubject<Void> completion = AsyncSubject.create();
-          UploadTask uploadTask = new UploadTask();
-          uploadTask.digest = digest;
-          uploadTask.disposable = new AtomicReference<>();
-          uploadTask.completion = Completable.fromObservable(completion);
-          Completable upload =
-              findMissingCache
-                  .execute(
-                      digest,
-                      Single.<Boolean>create(
-                          continuation -> {
-                            uploadTask.continuation = continuation;
-                            emitter.onSuccess(uploadTask);
-                          }),
-                      /* onAlreadyRunning= */ () -> emitter.onSuccess(uploadTask),
-                      /* onAlreadyFinished= */ () -> emitter.onSuccess(uploadTask),
-                      force)
-                  .flatMapCompletable(
-                      shouldUpload -> {
-                        if (!shouldUpload) {
-                          return Completable.complete();
-                        }
-                        return toCompletable(
-                                () ->
-                                    uploadBlob(
-                                        context,
-                                        uploadTask.digest,
-                                        merkleTree,
-                                        additionalInputs,
-                                        remotePathResolver,
-                                        force),
-                                directExecutor())
-                            // On success, the digest is now present remotely: replace the cached
-                            // "missing" answer with "present" so late callers (or the next
-                            // ensureInputsPresent invocation) skip both findMissingDigests and
-                            // the upload path. On failure, invalidate so a subsequent caller
-                            // (e.g., after action rewinding) re-queries the remote.
-                            .doOnComplete(() -> findMissingCache.put(digest, false))
-                            .doOnError(t -> findMissingCache.invalidate(digest));
-                      });
-          upload.subscribe(
-              new CompletableObserver() {
-                @Override
-                public void onSubscribe(@NonNull Disposable d) {
-                  uploadTask.disposable.set(d);
-                }
+    var uploadTask = new UploadTask();
+    uploadTask.digest = digest;
+    ListenableFuture<Boolean> isMissing =
+        findMissingCache.execute(
+            digest,
+            // Only invoked if no other invocation has already answered this query or is about to,
+            // which makes the assignment below the signal for findMissingBlobs to include this
+            // digest in the batched query.
+            () -> {
+              var continuation = SettableFuture.<Boolean>create();
+              uploadTask.continuation = continuation;
+              return continuation;
+            },
+            force);
+    uploadTask.result =
+        Futures.transformAsync(
+            isMissing,
+            missing -> {
+              if (!missing) {
+                return immediateVoidFuture();
+              }
+              ListenableFuture<Void> upload =
+                  uploadBlob(
+                      context, digest, merkleTree, additionalInputs, remotePathResolver, force);
+              Futures.addCallback(
+                  upload,
+                  new FutureCallback<Void>() {
+                    @Override
+                    public void onSuccess(Void unused) {
+                      // The digest is now present remotely: replace the cached "missing" answer
+                      // with "present" so late callers (or the next ensureInputsPresent
+                      // invocation) skip both findMissingDigests and the upload path.
+                      findMissingCache.put(digest, false);
+                    }
 
-                @Override
-                public void onComplete() {
-                  completion.onComplete();
-                }
-
-                @Override
-                public void onError(@NonNull Throwable e) {
-                  completion.onError(e);
-                }
-              });
-        });
+                    @Override
+                    public void onFailure(Throwable t) {
+                      // Invalidate so that a subsequent caller (e.g., after action rewinding)
+                      // re-queries the remote.
+                      findMissingCache.invalidate(digest);
+                    }
+                  },
+                  directExecutor());
+              return upload;
+            },
+            directExecutor());
+    return uploadTask;
   }
 
-  private Single<List<UploadTask>> findMissingBlobs(
+  private ListenableFuture<Void> findMissingBlobs(
       RemoteActionExecutionContext context, List<UploadTask> uploadTasks) {
-    return Single.using(
-        () -> Profiler.instance().profile("findMissingDigests"),
-        ignored ->
-            Single.fromObservable(
-                Observable.fromSingle(
-                        toSingle(
-                                () -> {
-                                  ImmutableList<Digest> digestsToQuery =
-                                      uploadTasks.stream()
-                                          .filter(uploadTask -> uploadTask.continuation != null)
-                                          .map(uploadTask -> uploadTask.digest)
-                                          .collect(toImmutableList());
-                                  if (digestsToQuery.isEmpty()) {
-                                    return immediateFuture(ImmutableSet.of());
-                                  }
-                                  return remoteCacheClient.findMissingDigests(
-                                      context, digestsToQuery);
-                                },
-                                directExecutor())
-                            .map(
-                                missingDigests -> {
-                                  for (UploadTask uploadTask : uploadTasks) {
-                                    if (uploadTask.continuation != null) {
-                                      uploadTask.continuation.onSuccess(
-                                          missingDigests.contains(uploadTask.digest));
-                                    }
-                                  }
-                                  return uploadTasks;
-                                }))
-                    // Use AsyncSubject so that if downstream is disposed, the
-                    // findMissingDigests call is not cancelled (because it may be needed by
-                    // other threads).
-                    .subscribeWith(AsyncSubject.create())),
-        SilentCloseable::close);
+    ImmutableList<Digest> digestsToQuery =
+        uploadTasks.stream()
+            .filter(uploadTask -> uploadTask.continuation != null)
+            .map(uploadTask -> uploadTask.digest)
+            .collect(toImmutableList());
+    if (digestsToQuery.isEmpty()) {
+      return immediateVoidFuture();
+    }
+
+    SilentCloseable profiler = Profiler.instance().profile("findMissingDigests");
+    ListenableFuture<Void> result =
+        Futures.transform(
+            remoteCacheClient.findMissingDigests(context, digestsToQuery),
+            missingDigests -> {
+              for (UploadTask uploadTask : uploadTasks) {
+                if (uploadTask.continuation != null) {
+                  uploadTask.continuation.set(missingDigests.contains(uploadTask.digest));
+                }
+              }
+              return null;
+            },
+            directExecutor());
+    result.addListener(profiler::close, directExecutor());
+    return result;
   }
 
-  private Flowable<TransferResult> waitForUploadTasks(List<UploadTask> uploadTasks) {
-    return Flowable.using(
-        () -> Profiler.instance().profile("upload"),
-        ignored ->
-            Flowable.fromIterable(uploadTasks)
-                .flatMapSingle(uploadTask -> toTransferResult(uploadTask.completion)),
-        SilentCloseable::close);
+  private ListenableFuture<Void> waitForUploadTasks(List<UploadTask> uploadTasks) {
+    SilentCloseable profiler = Profiler.instance().profile("upload");
+    ListenableFuture<Void> result =
+        mergeBulkTransfer(
+            uploadTasks.stream().map(uploadTask -> uploadTask.result).collect(toImmutableList()));
+    result.addListener(profiler::close, directExecutor());
+    return result;
   }
 }

@@ -18,17 +18,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
-import static com.google.devtools.build.lib.remote.util.RxFutures.toListenableFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.mergeBulkTransfer;
-import static io.reactivex.rxjava3.core.Completable.concat;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.collect.SetMultimap;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
@@ -62,7 +58,6 @@ import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -83,7 +78,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final Reporter reporter;
-  private final AsyncTaskCache.NoResult<Path> downloadCache = AsyncTaskCache.NoResult.create();
+  private final AsyncTaskCache<Path, Void> downloadCache = AsyncTaskCache.create();
   private final TempPathGenerator tempPathGenerator;
   private final OutputPermissions outputPermissions;
 
@@ -373,7 +368,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     // participate in permission restoration before returning.
     SetMultimap<Path, Path> directoriesByTreeRoot = HashMultimap.create();
 
-    // Using plain futures to avoid RxJava overheads.
     List<ListenableFuture<Void>> transfers = new ArrayList<>(files.size());
     try (var s = Profiler.instance().profile("compose prefetches")) {
       for (var file : files) {
@@ -447,14 +441,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
 
       var symlinks = getSymlinks(input, inputPath, metadata, metadataSupplier);
-      // On Windows, the type of symlink depends on the target file and the target may have to
-      // exist, so we plant symlinks in reverse order and only after any download has completed.
-      var plantSymlinks = concat(Lists.transform(symlinks.reverse(), this::plantSymlink));
 
       if (!canDownloadFile(inputPath, metadata)) {
         // If the artifact is a declared ("unresolved") symlink, it can't be "downloaded", but the
-        // symlink logic above creates it.
-        return toListenableFuture(plantSymlinks);
+        // symlink logic below creates it.
+        return plantSymlinks(symlinks);
       }
 
       if (!symlinks.isEmpty()) {
@@ -470,20 +461,19 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
       @Nullable Path treeRootPath = maybeGetTreeRoot(input, metadataSupplier);
 
-      Completable result =
-          downloadFileNoCheckRx(
-                  action,
-                  input,
-                  inputPath,
-                  treeRootPath,
-                  directoriesByTreeRoot,
-                  input,
-                  metadata,
-                  priority,
-                  reason)
-              .andThen(plantSymlinks);
-
-      return toListenableFuture(result);
+      return Futures.transformAsync(
+          downloadFileNoCheck(
+              action,
+              input,
+              inputPath,
+              treeRootPath,
+              directoriesByTreeRoot,
+              input,
+              metadata,
+              priority,
+              reason),
+          unused -> plantSymlinks(symlinks),
+          directExecutor());
     } catch (IOException | InterruptedException e) {
       return immediateFailedFuture(e);
     }
@@ -614,7 +604,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     return path;
   }
 
-  private Completable downloadFileNoCheckRx(
+  private ListenableFuture<Void> downloadFileNoCheck(
       @Nullable ActionExecutionMetadata action,
       ActionInput input,
       Path path,
@@ -637,7 +627,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         path = maybeResolveSymlink(path);
       }
     } catch (IOException e) {
-      return Completable.error(e);
+      return immediateFailedFuture(e);
     }
 
     // Downloads are written to the actual host file system, not any overlays.
@@ -662,36 +652,45 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
     }
 
-    Completable download =
-        usingTempPath(
-            (tempPath, alreadyDeleted) ->
-                toCompletable(
-                        () ->
-                            doDownloadFile(
-                                action,
-                                reporter,
-                                input,
-                                tempPath.forHostFileSystem(),
-                                metadata,
-                                priority,
-                                reason),
-                        directExecutor())
-                    .doOnComplete(
-                        () -> {
-                          finalizeDownload(
-                              metadata, tempPath.forHostFileSystem(), finalPath, finalTreeRoot);
-                          alreadyDeleted.set(true);
-                        }));
-
     return downloadCache.execute(
         finalPath,
-        Completable.defer(
-            () -> {
-              if (shouldDownloadFile(finalPath, metadata)) {
-                return download;
-              }
-              return Completable.complete();
-            }),
+        // Only invoked if the file hasn't been downloaded yet and no download is in flight, so
+        // that the up-to-dateness check isn't repeated for callers that join an existing one.
+        () -> {
+          try {
+            if (!shouldDownloadFile(finalPath, metadata)) {
+              return immediateVoidFuture();
+            }
+          } catch (IOException e) {
+            return immediateFailedFuture(e);
+          }
+          return usingTempPath(
+              (tempPath, alreadyDeleted) -> {
+                ListenableFuture<Void> download;
+                try {
+                  download =
+                      doDownloadFile(
+                          action,
+                          reporter,
+                          input,
+                          tempPath.forHostFileSystem(),
+                          metadata,
+                          priority,
+                          reason);
+                } catch (IOException e) {
+                  return immediateFailedFuture(e);
+                }
+                return Futures.transformAsync(
+                    download,
+                    unused -> {
+                      finalizeDownload(
+                          metadata, tempPath.forHostFileSystem(), finalPath, finalTreeRoot);
+                      alreadyDeleted.set(true);
+                      return immediateVoidFuture();
+                    },
+                    directExecutor());
+              });
+        },
         forceRefetch(finalPath));
   }
 
@@ -754,7 +753,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private interface TaskWithTempPath {
-    Completable run(Path tempPath, AtomicBoolean alreadyDeleted);
+    ListenableFuture<Void> run(Path tempPath, AtomicBoolean alreadyDeleted);
   }
 
   /**
@@ -763,18 +762,19 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * <p>The temporary path will be deleted once the task is done. Set {@code alreadyDeleted} to
    * signal that deletion is no longer needed.
    */
-  private Completable usingTempPath(TaskWithTempPath task) {
+  private ListenableFuture<Void> usingTempPath(TaskWithTempPath task) {
+    Path tempPath = tempPathGenerator.generateTempPath();
     AtomicBoolean alreadyDeleted = new AtomicBoolean(false);
-    return Completable.using(
-        tempPathGenerator::generateTempPath,
-        (tempPath) -> task.run(tempPath, alreadyDeleted),
-        tempPath -> {
+    ListenableFuture<Void> result = task.run(tempPath, alreadyDeleted);
+    // Clean up only after the task has settled to ensure tempPath won't be touched further.
+    result.addListener(
+        () -> {
           if (!alreadyDeleted.get()) {
             deletePartialDownload(tempPath);
           }
         },
-        // Clean up after the upstream is disposed to ensure tempPath won't be touched further.
-        /* eager= */ false);
+        directExecutor());
+    return result;
   }
 
   private static void deletePartialDownload(Path path) {
@@ -786,23 +786,40 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
   }
 
-  private Completable plantSymlink(Symlink symlink) {
+  /**
+   * Plants the given symlinks on disk.
+   *
+   * <p>On Windows, the type of symlink depends on the target file and the target may have to exist,
+   * so they are planted in reverse order and only after any download has completed.
+   */
+  private ListenableFuture<Void> plantSymlinks(ImmutableList<Symlink> symlinks) {
+    ListenableFuture<Void> result = immediateVoidFuture();
+    for (Symlink symlink : symlinks.reverse()) {
+      result = Futures.transformAsync(result, unused -> plantSymlink(symlink), directExecutor());
+    }
+    return result;
+  }
+
+  private ListenableFuture<Void> plantSymlink(Symlink symlink) {
     Path linkPath = symlink.linkPath().forHostFileSystem();
     return downloadCache.execute(
         linkPath,
-        Completable.defer(
-            () -> {
-              if (!symlink.linkPath().asFragment().startsWith(execRoot.asFragment())) {
-                // If the symlink is a source file in an external repo, its parent directory may not
-                // exist yet.
-                checkNotNull(linkPath.getParentDirectory()).createDirectoryAndParents();
-              }
-              // Delete the link path if it already exists. This is the case for tree artifacts,
-              // whose root directory is created before the action runs.
-              linkPath.delete();
-              linkPath.createSymbolicLink(symlink.targetPath());
-              return Completable.complete();
-            }),
+        () -> {
+          try {
+            if (!symlink.linkPath().asFragment().startsWith(execRoot.asFragment())) {
+              // If the symlink is a source file in an external repo, its parent directory may not
+              // exist yet.
+              checkNotNull(linkPath.getParentDirectory()).createDirectoryAndParents();
+            }
+            // Delete the link path if it already exists. This is the case for tree artifacts,
+            // whose root directory is created before the action runs.
+            linkPath.delete();
+            linkPath.createSymbolicLink(symlink.targetPath());
+          } catch (IOException e) {
+            return immediateFailedFuture(e);
+          }
+          return immediateVoidFuture();
+        },
         forceRefetch(linkPath));
   }
 
@@ -826,7 +843,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   @VisibleForTesting
-  AsyncTaskCache.NoResult<Path> getDownloadCache() {
+  AsyncTaskCache<Path, Void> getDownloadCache() {
     return downloadCache;
   }
 

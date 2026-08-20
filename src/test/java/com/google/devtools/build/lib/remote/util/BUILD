@@ -37,7 +37,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/common:cache_not_found_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/util:async_task_cache",
         "//src/main/java/com/google/devtools/build/lib/remote/util:rx_futures",
-        "//src/main/java/com/google/devtools/build/lib/remote/util:rx_utils",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
