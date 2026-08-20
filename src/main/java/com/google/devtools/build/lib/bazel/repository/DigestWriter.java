@@ -20,6 +20,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.GsonTypeAdapterUtil;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -196,10 +198,13 @@ public class DigestWriter {
     environInputs.forEach(
         (key, value) -> fp.addString(key.toString()).addNullableString(value.orElse(null)));
     fp.addInt(repoDefinition.repoRule().recordedRepoMappingEntries().cellSet().size());
-    repoDefinition
-        .repoRule()
-        .recordedRepoMappingEntries()
-        .cellSet()
+    repoDefinition.repoRule().recordedRepoMappingEntries().cellSet().stream()
+        .sorted(
+            Comparator.comparing(
+                    (Table.Cell<RepositoryName, String, RepositoryName> cell) ->
+                        cell.getRowKey().getName())
+                .thenComparing(Table.Cell::getColumnKey)
+                .thenComparing(cell -> cell.getValue().getName()))
         .forEach(
             entry -> {
               fp.addString(entry.getRowKey().getName());
