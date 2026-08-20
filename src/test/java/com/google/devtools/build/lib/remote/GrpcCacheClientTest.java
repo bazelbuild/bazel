@@ -1271,8 +1271,10 @@ public class GrpcCacheClientTest {
   }
 
   @Test
-  public void downloadBlobIsRetriedWithProgress() throws IOException, InterruptedException {
+  public void downloadBlobResumesAfterProgressWithinRetryBudget()
+      throws IOException, InterruptedException {
     Backoff mockBackoff = Mockito.mock(Backoff.class);
+    when(mockBackoff.nextDelayMillis(any(Exception.class))).thenReturn(0L);
     GrpcCacheClient client = newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);
     final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     serviceRegistry.addService(
@@ -1296,16 +1298,43 @@ public class GrpcCacheClientTest {
           }
         });
     assertThat(new String(downloadBlob(context, client, digest), UTF_8)).isEqualTo("abcdefg");
-    Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis(any(Exception.class));
+    Mockito.verify(mockBackoff).nextDelayMillis(any(Exception.class));
   }
 
   @Test
-  public void downloadBlobIdleTimeoutIsRetriedWithProgress()
-      throws IOException, InterruptedException {
-    // Unexpected failures without progress should stop immediately. The idle-timeout retry below
-    // is allowed only because receiving the prefix resets ProgressiveBackoff.
+  public void downloadBlobProgressDoesNotResetRetryBudget() throws IOException {
     Backoff mockBackoff = Mockito.mock(Backoff.class);
-    when(mockBackoff.nextDelayMillis(any(Exception.class))).thenReturn(-1L);
+    when(mockBackoff.nextDelayMillis(any(Exception.class))).thenReturn(0L, -1L);
+    GrpcCacheClient client = newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);
+    Digest digest = DIGEST_UTIL.computeAsUtf8("abc");
+    AtomicInteger readCalls = new AtomicInteger();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            assertThat(request.getResourceName()).contains(digest.getHash());
+            int offset = Math.toIntExact(request.getReadOffset());
+            assertThat(offset).isEqualTo(readCalls.getAndIncrement());
+            responseObserver.onNext(
+                ReadResponse.newBuilder()
+                    .setData(ByteString.copyFromUtf8("abc").substring(offset, offset + 1))
+                    .build());
+            responseObserver.onError(Status.DEADLINE_EXCEEDED.asException());
+          }
+        });
+
+    IOException e = assertThrows(IOException.class, () -> downloadBlob(context, client, digest));
+
+    assertThat(Status.fromThrowable(e).getCode()).isEqualTo(Status.Code.DEADLINE_EXCEEDED);
+    assertThat(readCalls.get()).isEqualTo(2);
+    Mockito.verify(mockBackoff, Mockito.times(2)).nextDelayMillis(any(Exception.class));
+  }
+
+  @Test
+  public void downloadBlobEmptyResponseResetsIdleTimeoutButNotRetryBudget()
+      throws IOException, InterruptedException {
+    Backoff mockBackoff = Mockito.mock(Backoff.class);
+    when(mockBackoff.nextDelayMillis(any(Exception.class))).thenReturn(0L);
     // Capture the interceptor's timer task so the test controls exactly when the stream becomes
     // idle, without involving a real scheduler or wall-clock delay.
     ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
@@ -1336,18 +1365,17 @@ public class GrpcCacheClientTest {
             int offset = (int) request.getReadOffset();
             int readCall = readCalls.getAndIncrement();
             if (readCall == 0) {
-              // Send a prefix without closing the stream. Only the idle-timeout interceptor can
-              // terminate this attempt and cause GrpcCacheClient to retry.
+              // Send an empty keepalive response without closing the stream. Only the idle-timeout
+              // interceptor can terminate this attempt and cause GrpcCacheClient to retry.
               assertThat(offset).isEqualTo(0);
-              responseObserver.onNext(
-                  ReadResponse.newBuilder().setData(data.substring(0, 1)).build());
+              nanoTime.set(idleTimeout.dividedBy(2).toNanos());
+              responseObserver.onNext(ReadResponse.getDefaultInstance());
               return;
             }
-            // GrpcCacheClient must resume after the byte already written to the output stream.
+            // The keepalive contained no data, so the retry must still start at the beginning.
             assertThat(readCall).isEqualTo(1);
-            assertThat(offset).isEqualTo(1);
-            responseObserver.onNext(
-                ReadResponse.newBuilder().setData(data.substring(offset)).build());
+            assertThat(offset).isEqualTo(0);
+            responseObserver.onNext(ReadResponse.newBuilder().setData(data).build());
             responseObserver.onCompleted();
           }
         });
@@ -1356,14 +1384,20 @@ public class GrpcCacheClientTest {
     ListenableFuture<Void> download = client.downloadBlob(context, digest, out);
     assertThat(timeoutTask.get()).isNotNull();
 
-    // Fire the timeout deterministically rather than sleeping for the 60-second production value.
+    // The response at 30 seconds moved the deadline to 90 seconds, so the original timeout task
+    // only reschedules itself when it runs at 60 seconds.
     nanoTime.set(idleTimeout.toNanos());
+    timeoutTask.get().run();
+    assertThat(download.isDone()).isFalse();
+
+    // Fire the rescheduled task at the refreshed deadline, causing one charged retry.
+    nanoTime.set(idleTimeout.plus(idleTimeout.dividedBy(2)).toNanos());
     timeoutTask.get().run();
 
     getFromFuture(download);
-    assertThat(new String(out.toByteArray(), UTF_8)).isEqualTo("abcdefg");
+    assertThat(out.toString(UTF_8)).isEqualTo("abcdefg");
     assertThat(readCalls.get()).isEqualTo(2);
-    Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis(any(Exception.class));
+    Mockito.verify(mockBackoff).nextDelayMillis(any(Exception.class));
   }
 
   @Test
