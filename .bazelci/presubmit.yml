@@ -131,9 +131,6 @@ tasks:
       - build
       - test
   macos:
-    environment:
-      ANDROID_HOME: ""
-      ANDROID_NDK_HOME: ""
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
