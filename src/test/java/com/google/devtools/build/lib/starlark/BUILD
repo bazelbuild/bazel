@@ -239,6 +239,15 @@ java_test(
 java_test(
     name = "StarlarkRuleClassFunctionsTest",
     srcs = ["StarlarkRuleClassFunctionsTest.java"],
+    jvm_flags = [
+        # Tests of self-referential data structures (e.g. testSelfRefStruct_inDictsAndDepsets)
+        # intentionally trigger stack overflows, which can lead to a segfault unless
+        # StackShadowPages is sufficiently high. At default, in vanilla OpenJDK, StackShadowPages is
+        # 20 on most architectures, which guarantees no segfault; unfortunately, modified JDKs may
+        # set a lower default for performance reasons; at -XX:StackShadowPages=6, we observe
+        # occasional segfaults.
+        "-XX:StackShadowPages=20",
+    ],
     shard_count = 25,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -412,10 +421,12 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_template_expansion_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",

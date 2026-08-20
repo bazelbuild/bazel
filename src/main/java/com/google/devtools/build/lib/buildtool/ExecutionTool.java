@@ -472,7 +472,7 @@ public class ExecutionTool {
               // If this supplier is ever consumed by more than one ActionContextProvider, it can be
               // pulled out of the loop and made a memoizing supplier.
               () -> TopLevelArtifactHelper.findAllTopLevelArtifacts(analysisResult),
-              /* ephemeralCheckIfOutputConsumed= */ null);
+              skyframeExecutor.getEphemeralCheckIfOutputConsumed());
         }
       }
       skyframeExecutor.drainChangedFiles();

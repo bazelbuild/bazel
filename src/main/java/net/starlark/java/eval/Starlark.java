@@ -103,6 +103,12 @@ public final class Starlark {
    */
   public static final ImmutableMap<String, Object> UNIVERSE = makeUniverse();
 
+  /** Universal type constructors whose symbols are not already present in {@link #UNIVERSE}. */
+  public static final ImmutableMap<String, Object> UNIVERSE_EXTRA_TYPE_CONSTRUCTORS =
+      Types.TYPE_UNIVERSE.entrySet().stream()
+          .filter(e -> !UNIVERSE.containsKey(e.getKey()))
+          .collect(toImmutableMap(Map.Entry::getKey, e -> TypeConstructorValue.of(e.getValue())));
+
   /** The Starlark types of the entries in {@link #UNIVERSE}. */
   static final ImmutableMap<String, StarlarkType> UNIVERSAL_SYMBOL_TYPES =
       UNIVERSE.entrySet().stream()

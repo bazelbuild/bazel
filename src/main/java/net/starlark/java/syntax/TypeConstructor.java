@@ -65,6 +65,7 @@ public interface TypeConstructor {
       permits StarlarkType,
           Term.Ellipsis,
           Term.EmptyTuple,
+          Term.TypeList,
           Term.TypeDict,
           Term.TypeVariable,
           Term.DecomposedTypeApplication,
@@ -112,6 +113,44 @@ public interface TypeConstructor {
       @Override
       public String toString() {
         return "()";
+      }
+    }
+
+    /** A list expression of type terms, e.g. {@code [int, str, ...]}. */
+    public static final class TypeList implements Term {
+      private final ImmutableList<Term> terms;
+      private final boolean isOpen;
+
+      TypeList(ImmutableList<Term> terms) {
+        this.terms = terms;
+        this.isOpen = terms.stream().anyMatch(Term::isOpen);
+      }
+
+      public ImmutableList<Term> getTerms() {
+        return terms;
+      }
+
+      @Override
+      public boolean isOpen() {
+        return isOpen;
+      }
+
+      @Override
+      public TypeList evaluate(ImmutableList<StarlarkType> values) throws Failure {
+        if (!isOpen) {
+          return this;
+        }
+        ImmutableList.Builder<Term> evaluatedTerms =
+            ImmutableList.builderWithExpectedSize(terms.size());
+        for (Term term : terms) {
+          evaluatedTerms.add(term.evaluate(values));
+        }
+        return new TypeList(evaluatedTerms.build());
+      }
+
+      @Override
+      public String toString() {
+        return String.format("[%s]", terms.stream().map(Term::toString).collect(joining(", ")));
       }
     }
 

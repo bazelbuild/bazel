@@ -1,3 +1,69 @@
+## Release 10.0.0-pre.20260806.4 (2026-08-14)
+
+```
+Baseline: 4cc61677898c457f289fa06eb528b99ffaa93ca1
+
+Cherry picks:
+
+   + 2685d96916dbc3d097290cfb240e0b4ee77a7ab0:
+     Fix NullPointerException in CriticalPathComputer.
+   + 40d145301469ebf27d679bdb670aaf3eb056f4b1:
+     Fix duplicate execution info entry crash in SpawnIncludeScanner.
+   + 7f5421b25aae980a5b22b33dbe0a0a27f20d3fda:
+     Automated rollback of commit
+     f138e4937c816d6263bf1b9bc3eb6cc89ded7871.
+   + 53428ca4a01e330c29a01e92487abe52177c583a:
+     Close the coverage post-processing `FileOutErr` before deleting
+     its files (https://github.com/bazelbuild/bazel/pull/30662)
+   + 27aaf57930ab5edf6b24101d791712a949f5617a:
+     Pass Host header to curl in remote-ip sandboxing networking test.
+```
+
+Important changes:
+
+  - Honor XDG_CACHE_HOME on Windows in Bazel.
+
+This release contains contributions from many people at Google, as well as Benedict Chacko, Benjamin Peterson, David Zbarsky, Fabian Meumertzheim, jcater, Keith Smiley, Tamir Duberstein.
+
+## Release 10.0.0-pre.20260801.1 (2026-08-10)
+
+```
+Baseline: 14498c82d1af1ee127ac2140f0bfdf0f62d36c60
+
+Cherry picks:
+
+   + 909985a3b9a1f71106e7cba31eb862078e5bdebe:
+     Automated rollback of commit
+     2558ffede4c29cc41c7080eadd3118cb12509517.
+```
+
+Incompatible changes:
+
+  - The Windows shell launcher now again prepends rather than appends
+    the directory containing the shell binary, restoring the behavior
+    of Bazel 8.x. This is technically an incompatible change, but
+    deemed necessary due to the unexpected and widespread
+    implications of the change in 9.0.0. See
+    https://github.com/bazelbuild/bazel/issues/29637 for more context.
+
+New features:
+
+  - The `BAZEL_LLVM_PROFILE_FILE` environment variable can now
+    be used to customize the LLVM profile filename pattern for C++
+    coverage
+    collection (e.g. `--test_env=BAZEL_LLVM_PROFILE_FILE=%p.profraw`).
+    Defaults to `%h-%p-%m.profraw` when unset.
+
+Important changes:
+
+  - --experimental_split_coverage_processing and
+    --experimental_fetch_all_coverage_outputs default to true.
+  - Retry 408 and 429 status codes with HTTP remote caching.
+  - Fixed a bug that could cause `ignore_directories()` to not ignore
+    directories.
+
+This release contains contributions from many people at Google, as well as Akshay Ubale, Benjamin Peterson, Bryce Lampe, Chi Wang, Fabian Meumertzheim, Fabian Meumertzheim, Fabian Meumertzheim, George Gensure, Javier Maestro, Keith Smiley, Matthew Steffen, PikachuHy, Son Luong Ngoc, Tamir Duberstein, Tyler Breisacher, Xdng Yng, Yossi Eliaz, zozo123.
+
 ## Release 10.0.0-pre.20260729.1 (2026-08-04)
 
 ```

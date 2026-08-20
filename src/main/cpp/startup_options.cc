@@ -485,7 +485,7 @@ StartupOptions::GetServerJavabaseAndType() const {
       if (system_javabase.IsEmpty()) {
         BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
             << "Could not find system javabase. Ensure JAVA_HOME is set, or "
-               "javac is on your PATH.";
+               "java is on your PATH.";
       }
       default_server_javabase_ = std::pair<blaze_util::Path, JavabaseType>(
           system_javabase, JavabaseType::SYSTEM);
@@ -651,9 +651,10 @@ static std::string GetSimpleLogHandlerProps(
          "com.google.devtools.build.lib.util.SimpleLogHandler.prefix=" +
          java_log.AsJvmArgument() +
          "\n"
-         "com.google.devtools.build.lib.util.SimpleLogHandler.limit=1024000\n"
-         "com.google.devtools.build.lib.util.SimpleLogHandler.total_limit="
-         "20971520\n"  // 20 MB.
+         "com.google.devtools.build.lib.util."
+         "SimpleLogHandler.rotate_limit_bytes=5242880\n"
+         "com.google.devtools.build.lib.util."
+         "SimpleLogHandler.total_limit_bytes=20971520\n"
          "com.google.devtools.build.lib.util.SimpleLogHandler.formatter=" +
          java_logging_formatter + "\n";
 }

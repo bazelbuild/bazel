@@ -31,6 +31,7 @@ function strip_lines_from_bazel_cc() {
   clean_log=$(\
     sed \
     -e '/^WARNING: ignoring JAVA_TOOL_OPTIONS in environment.$/d' \
+    -e '/^\.\.\. still trying to connect to local B[azel]* server ([1-9][0-9]*) after [1-9][0-9]* seconds \.\.\.\.*$/d' \
     $TEST_log)
 
   echo "$clean_log" > $TEST_log

@@ -135,29 +135,30 @@ string GetSystemJavabase() {
   // if JAVA_HOME is defined, then use it as default.
   string javahome = GetPathEnv("JAVA_HOME");
   if (!javahome.empty()) {
-    string javac = blaze_util::JoinPath(javahome, "bin/javac");
-    if (access(javac.c_str(), X_OK) == 0) {
+    string java = blaze_util::JoinPath(javahome, "bin/java");
+    if (access(java.c_str(), X_OK) == 0) {
       return javahome;
     }
     BAZEL_LOG(WARNING)
-        << "Ignoring JAVA_HOME, because it must point to a JDK, not a JRE.";
+        << "Ignoring JAVA_HOME, because it does not contain a bin/java "
+           "executable.";
   }
 
-  // which javac
-  string javac_dir = Which("javac");
-  if (javac_dir.empty()) {
+  // which java
+  string java_dir = Which("java");
+  if (java_dir.empty()) {
     return "";
   }
 
   // Resolve all symlinks.
   char resolved_path[PATH_MAX];
-  if (realpath(javac_dir.c_str(), resolved_path) == nullptr) {
+  if (realpath(java_dir.c_str(), resolved_path) == nullptr) {
     return "";
   }
-  javac_dir = resolved_path;
+  java_dir = resolved_path;
 
   // dirname dirname
-  return blaze_util::Dirname(blaze_util::Dirname(javac_dir));
+  return blaze_util::Dirname(blaze_util::Dirname(java_dir));
 }
 
 bool ParseProcStat(absl::string_view statline, string* start_time) {

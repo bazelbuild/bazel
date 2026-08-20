@@ -22,10 +22,13 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
+import com.google.common.net.UrlEscapers;
 import com.google.devtools.build.lib.authandtls.Netrc;
 import com.google.devtools.build.lib.authandtls.NetrcCredentials;
 import com.google.devtools.build.lib.authandtls.NetrcParser;
@@ -63,6 +66,32 @@ import net.starlark.java.syntax.Location;
 public class UrlRewriter {
 
   private static final ImmutableSet<String> REWRITABLE_SCHEMES = ImmutableSet.of("http", "https");
+
+  private static final String DIGITS = "\\d+";
+
+  // Matches tokens in replacement strings: ${urlencode($N)}, urlencode($N), ${N}, $N, or \c
+  private static final Pattern REPLACEMENT_TOKEN_PATTERN =
+      Pattern.compile(
+          Pattern.quote("${urlencode($")
+              + DIGITS
+              + Pattern.quote(")}")
+              + "|"
+              + Pattern.quote("urlencode($")
+              + DIGITS
+              + Pattern.quote(")")
+              + "|"
+              + Pattern.quote("${")
+              + DIGITS
+              + Pattern.quote("}")
+              + "|"
+              + Pattern.quote("$")
+              + DIGITS
+              + "|\\\\.");
+
+  static boolean isValidUrlEncodeSyntax(String replacement) {
+    String stripped = REPLACEMENT_TOKEN_PATTERN.matcher(replacement).replaceAll("");
+    return !stripped.contains("urlencode(");
+  }
 
   private final UrlRewriterConfig config;
 
@@ -267,7 +296,7 @@ public class UrlRewriter {
         matchMade = true;
 
         for (String replacement : entry.getValue()) {
-          rewrittenUrls.add(matcher.replaceFirst(replacement));
+          rewrittenUrls.add(evaluateReplacement(matcher, replacement));
         }
       }
     }
@@ -280,6 +309,35 @@ public class UrlRewriter {
         .map(urlString -> prefixWithProtocol(urlString, url.getScheme()))
         .map(plainUrl -> RewrittenURL.create(plainUrl, true))
         .collect(toImmutableList());
+  }
+
+  private static String evaluateReplacement(Matcher matcher, String replacement) {
+    Matcher m = REPLACEMENT_TOKEN_PATTERN.matcher(replacement);
+    StringBuilder sb = new StringBuilder();
+    while (m.find()) {
+      String token = m.group();
+      if (token.contains("urlencode")) {
+        int groupIndex = Integer.parseInt(token.replaceAll("\\D+", ""));
+        String val = Strings.nullToEmpty(matcher.group(groupIndex));
+        m.appendReplacement(sb, Matcher.quoteReplacement(escapeUrlPath(val)));
+      } else if (token.startsWith("$")) {
+        int groupIndex = Integer.parseInt(token.replaceAll("\\D+", ""));
+        String val = Strings.nullToEmpty(matcher.group(groupIndex));
+        m.appendReplacement(sb, Matcher.quoteReplacement(val));
+      } else if (token.startsWith("\\")) {
+        String escapedChar = token.substring(1);
+        m.appendReplacement(sb, Matcher.quoteReplacement(escapedChar));
+      }
+    }
+    m.appendTail(sb);
+    return sb.toString();
+  }
+
+  private static String escapeUrlPath(String path) {
+    return Splitter.on('/')
+        .splitToStream(path)
+        .map(UrlEscapers.urlPathSegmentEscaper()::escape)
+        .collect(Collectors.joining("/"));
   }
 
   /** Prefixes url with protocol if not already prefixed by {@link #REWRITABLE_SCHEMES} */

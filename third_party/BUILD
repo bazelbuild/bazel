@@ -395,6 +395,7 @@ java_library(
         ":error_prone_annotations",
         ":jcip_annotations",
         ":jsr305",
+        "@maven//:com_google_guava_failureaccess",
         "@maven//:com_google_guava_guava",
     ],
 )

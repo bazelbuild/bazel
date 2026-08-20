@@ -134,8 +134,8 @@ public abstract class AuthAndTLSOptions extends OptionsBase {
       help =
           """
           Configures keep-alive pings for outgoing gRPC connections. If this is set, then Bazel
-          sends pings after this much time of no read operations on the connection, but
-          only if there is at least one pending gRPC call. The value 0 disables the keep-alives.
+          sends pings after this much time of no read operations on the connection, even if
+          there are no pending gRPC calls. The value 0 disables the keep-alives.
           """)
   public abstract Duration getGrpcKeepaliveTime();
 

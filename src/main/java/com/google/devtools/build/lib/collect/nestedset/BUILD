@@ -29,7 +29,6 @@ java_library(
         "Order.java",
     ],
     deps = [
-        ":is_artifact_for_nested_set",
         ":nested_sets_should_be_interned_by_equality",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
@@ -38,6 +37,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
+        "//src/main/java/com/google/devtools/build/lib/runtime:memory_optimizations",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:constants",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:fingerprint_value_store",
@@ -56,11 +56,6 @@ java_library(
         "//third_party:jsr305",
         "@com_google_protobuf//:protobuf_java",
     ],
-)
-
-java_library(
-    name = "is_artifact_for_nested_set",
-    srcs = ["IsArtifactForNestedSet.java"],
 )
 
 java_library(

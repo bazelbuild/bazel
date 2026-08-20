@@ -145,6 +145,11 @@ java_library(
 )
 
 java_library(
+    name = "memory_optimizations",
+    srcs = ["MemoryOptimizations.java"],
+)
+
+java_library(
     name = "memory_pressure",
     srcs = [
         "GcThrashingDetector.java",
@@ -1022,6 +1027,7 @@ java_library(
         ":host_jvm_startup_options",
         ":instrumentation_output",
         ":keep_state_after_build_option",
+        ":memory_optimizations",
         ":memory_pressure",
         ":options_supplier",
         ":original_unstructured_command_line_event",

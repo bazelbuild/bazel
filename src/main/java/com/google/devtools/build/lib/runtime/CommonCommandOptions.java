@@ -729,4 +729,15 @@ public abstract class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Whether or not to write the command.log file")
   public abstract boolean getWriteCommandLog();
+
+  @Option(
+      name = "experimental_non_deterministic_memory_optimizations",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "Whether to enable memory optimizations that may be non-deterministic with respect to"
+              + " their efficacy. Enable this to use less memory; disable this for more consistent"
+              + " memory measurements")
+  public abstract boolean getExperimentalNonDeterministicMemoryOptimizations();
 }

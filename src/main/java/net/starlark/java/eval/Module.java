@@ -222,7 +222,11 @@ public final class Module implements Resolver.Module, TypeTagger.LoadableModule 
   @Override
   @Nullable
   public StarlarkType getUniversalSymbolType(String name) {
-    return Starlark.UNIVERSAL_SYMBOL_TYPES.get(name);
+    @Nullable StarlarkType type = Starlark.UNIVERSAL_SYMBOL_TYPES.get(name);
+    if (type == null && Starlark.UNIVERSE_EXTRA_TYPE_CONSTRUCTORS.containsKey(name)) {
+      type = TypeConstructorValue.TYPE;
+    }
+    return type;
   }
 
   /**
@@ -255,7 +259,7 @@ public final class Module implements Resolver.Module, TypeTagger.LoadableModule 
 
   /** Implements the resolver's module interface. */
   @Override
-  public Resolver.Scope resolve(String name) throws Undefined {
+  public Resolver.Scope resolve(String name, boolean resolveTypeSyntax) throws Undefined {
     // global?
     if (globalIndex.containsKey(name)) {
       return Resolver.Scope.GLOBAL;
@@ -275,24 +279,35 @@ public final class Module implements Resolver.Module, TypeTagger.LoadableModule 
     if (Starlark.UNIVERSE.containsKey(name)) {
       return Resolver.Scope.UNIVERSAL;
     }
+    if (resolveTypeSyntax && Starlark.UNIVERSE_EXTRA_TYPE_CONSTRUCTORS.containsKey(name)) {
+      return Resolver.Scope.UNIVERSAL;
+    }
 
     // undefined
     Set<String> candidates = new HashSet<>();
     candidates.addAll(globalIndex.keySet());
     candidates.addAll(predeclared.keySet());
     candidates.addAll(Starlark.UNIVERSE.keySet());
+    if (resolveTypeSyntax) {
+      candidates.addAll(Starlark.UNIVERSE_EXTRA_TYPE_CONSTRUCTORS.keySet());
+    }
     throw new Undefined(String.format("name '%s' is not defined", name), candidates);
   }
 
   @Override
   @Nullable
   public TypeConstructor getTypeConstructor(String name) throws Undefined {
-    Resolver.Scope scope = resolve(name);
+    Resolver.Scope scope = resolve(name, /* resolveTypeSyntax= */ true);
     Object value;
     switch (scope) {
       case GLOBAL -> value = getGlobal(name);
       case PREDECLARED -> value = getPredeclared(name);
-      case UNIVERSAL -> value = Starlark.UNIVERSE.get(name);
+      case UNIVERSAL -> {
+        value = Starlark.UNIVERSE.get(name);
+        if (value == null) {
+          value = Starlark.UNIVERSE_EXTRA_TYPE_CONSTRUCTORS.get(name);
+        }
+      }
       default -> throw new AssertionError(String.format("Unexpected scope: %s", scope));
     }
     return value instanceof TypeConstructor constructorValue ? constructorValue : null;

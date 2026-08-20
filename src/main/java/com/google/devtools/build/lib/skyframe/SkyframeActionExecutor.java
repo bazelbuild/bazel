@@ -246,7 +246,7 @@ public final class SkyframeActionExecutor {
   private boolean rewindingEnabled;
   private int maxRepeatedLostInputs;
   private boolean preciseRewindingEnabled;
-  private boolean bustActionCaches; // Only for Skycache.
+  @Nullable private Label bustActionCachesTarget;
   private boolean invocationRetriesEnabled;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
@@ -349,7 +349,7 @@ public final class SkyframeActionExecutor {
     this.rewindingEnabled = buildRequestOptions.getRewindLostInputs();
     this.preciseRewindingEnabled = buildRequestOptions.getExperimentalPreciseRewinding();
     this.maxRepeatedLostInputs = buildRequestOptions.getMaxRepeatedLostInputs();
-    this.bustActionCaches = buildRequestOptions.getBustActionCachesTarget() != null;
+    this.bustActionCachesTarget = buildRequestOptions.getBustActionCachesTarget();
     this.invocationRetriesEnabled =
         options.getOptions(ExecutionOptions.class).getRemoteRetryOnTransientCacheError() > 0;
     this.outputService = checkNotNull(outputService);
@@ -508,7 +508,7 @@ public final class SkyframeActionExecutor {
     this.buildActionMap = null;
     this.rewoundActions = null;
     this.actionCacheChecker = null;
-    this.bustActionCaches = false;
+    this.bustActionCachesTarget = null;
     this.outputDirectoryHelper = null;
     this.actionConcurrencyMeter.stop();
     this.actionConcurrencyMeter = null;
@@ -538,7 +538,7 @@ public final class SkyframeActionExecutor {
    * is inaccessible.
    */
   public boolean shouldSkipRetrieval(ActionLookupData lookupData) throws InterruptedException {
-    if (bustActionCaches) {
+    if (bustActionCachesTarget != null) {
       // Ideally we'd only return true if the target matches or is an rdep of the cache buster
       // target, but it's not easy to determine that.
       return true;
@@ -723,6 +723,9 @@ public final class SkyframeActionExecutor {
     ArtifactPathResolver artifactPathResolver =
         ArtifactPathResolver.createPathResolver(actionFileSystem, executorEngine.getExecRoot());
     FileOutErr fileOutErr = actionLogBufferPathGenerator.generate(artifactPathResolver);
+    boolean bustActionCache =
+        bustActionCachesTarget != null
+            && bustActionCachesTarget.equals(actionLookupData.getLabel());
     return new ActionExecutionContext(
         executorEngine,
         compositeInputMetadataProvider,
@@ -737,7 +740,8 @@ public final class SkyframeActionExecutor {
         actionFileSystem,
         discoveredModulesPruner,
         syscallCache,
-        threadStateReceiverFactory.apply(actionLookupData));
+        threadStateReceiverFactory.apply(actionLookupData),
+        bustActionCache);
   }
 
   private static void closeContext(
@@ -1141,8 +1145,9 @@ public final class SkyframeActionExecutor {
           }
           env.getListener().post(event);
           var rewoundActionSynchronizer = outputService.getRewoundActionSynchronizer();
+          boolean wasRewound = wasRewound(action);
           try (SilentCloseable outerLock =
-              rewoundActionSynchronizer.enterActionPreparation(action, wasRewound(action))) {
+              rewoundActionSynchronizer.enterActionPreparation(action, wasRewound)) {
             if (actionFileSystemType().shouldDoEagerActionPrep()) {
               try (SilentCloseable d =
                   Profiler.instance().profile(ProfilerTask.INFO, "action.prepare")) {
@@ -1177,7 +1182,7 @@ public final class SkyframeActionExecutor {
 
             try (SilentCloseable innerLock =
                 rewoundActionSynchronizer.enterActionExecution(
-                    action, actionExecutionContext.getInputMetadataProvider())) {
+                    action, wasRewound, actionExecutionContext.getInputMetadataProvider())) {
               return executeAction(env.getListener(), action);
             }
           }
@@ -1871,7 +1876,13 @@ public final class SkyframeActionExecutor {
    */
   private boolean printError(
       String message, ActionAnalysisMetadata action, @Nullable FileOutErr actionOutput) {
-    message = action.describe() + " failed: " + message;
+    String describe = action.describe();
+    Label ownerLabel = action.getOwner().getLabel();
+    if (ownerLabel != null && !describe.contains(ownerLabel.toString())) {
+      message = describe + " (from target " + ownerLabel + ") failed: " + message;
+    } else {
+      message = describe + " failed: " + message;
+    }
     return dumpRecordedOutErr(
         reporter, Event.error(action.getOwner().getLocation(), message), actionOutput);
   }

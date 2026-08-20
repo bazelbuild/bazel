@@ -9,7 +9,9 @@ package(
 filegroup(
     name = "srcs",
     testonly = 0,
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/concurrent/safeexecutor:srcs",
+    ],
     visibility = ["//src:__subpackages__"],
 )
 
@@ -21,6 +23,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent:settable_future_keyed_value",
         "//src/main/java/com/google/devtools/build/lib/concurrent:task_deduplicator",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",

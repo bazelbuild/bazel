@@ -28,6 +28,8 @@ import com.google.common.math.IntMath;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.InvalidationLookupMetrics;
+import com.google.devtools.build.lib.concurrent.safeexecutor.RejectionHandlingRunnable;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -45,7 +47,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -68,7 +69,7 @@ public final class AnalysisCacheInvalidator {
   private final RemoteAnalysisCachingEventListener eventListener;
   private final FrontierNodeVersion currentVersion;
   private final ClientId currentClientId;
-  private final Executor executor;
+  private final SafeExecutor executor;
 
   public AnalysisCacheInvalidator(
       RemoteAnalysisCacheClient analysisCacheClient,
@@ -78,7 +79,7 @@ public final class AnalysisCacheInvalidator {
       ClientId currentClientId,
       ExtendedEventHandler eventHandler,
       RemoteAnalysisCachingEventListener eventListener,
-      Executor executor) {
+      SafeExecutor executor) {
     this.analysisCacheClient = checkNotNull(analysisCacheClient, "analysisCacheClient");
     this.codecs = checkNotNull(objectCodecs, "objectCodecs");
     this.fingerprintService = checkNotNull(fingerprintValueService, "fingerprintValueService");
@@ -251,13 +252,22 @@ public final class AnalysisCacheInvalidator {
       for (int start = 0; start < totalKeys; start += batchSize) {
         final int begin = start;
         final int limit = min(start + batchSize, totalKeys);
+
         executor.execute(
-            () -> {
-              try {
-                for (int i = begin; i < limit; i++) {
-                  futures.set(i, submitInvalidationLookup(keysToLookupList.get(i)));
+            new RejectionHandlingRunnable() {
+              @Override
+              public void run() {
+                try {
+                  for (int i = begin; i < limit; i++) {
+                    futures.set(i, submitInvalidationLookup(keysToLookupList.get(i)));
+                  }
+                } finally {
+                  allSet.countDown();
                 }
-              } finally {
+              }
+
+              @Override
+              public void handleRejection(Throwable t) {
                 allSet.countDown();
               }
             });

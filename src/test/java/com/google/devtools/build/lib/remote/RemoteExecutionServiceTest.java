@@ -2573,6 +2573,31 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void uploadOutputs_uploadFails_deduplicatesWarnings() throws Exception {
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn = newSpawn(ImmutableMap.of(), ImmutableSet.of());
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    SpawnResult spawnResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+    doReturn(Futures.immediateFailedFuture(new IOException("cache down")))
+        .when(cache)
+        .uploadActionResult(any(), any(), any());
+
+    uploadOutputsAndWait(service, action, spawnResult);
+    uploadOutputsAndWait(service, action, spawnResult);
+
+    assertThat(eventHandler.getEvents()).hasSize(1);
+    Event evt = eventHandler.getEvents().get(0);
+    assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);
+    assertThat(evt.getMessage()).contains("cache down");
+  }
+
+  @Test
   public void uploadOutputs_firesUploadEvents() throws Exception {
     Digest digest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("outputs/file"), "content");

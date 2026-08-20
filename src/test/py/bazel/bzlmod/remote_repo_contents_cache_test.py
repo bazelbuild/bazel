@@ -1977,6 +1977,156 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
 
+  def testMemoryPressureRestartDuringCachedFetch(self):
+    # Regression test for a cached repo fetch that is interrupted by memory
+    # pressure (Skyframe drops the fetch's WorkerSkyKeyComputeState, which
+    # cancels the worker thread) and restarted within the same command. The
+    # restarted fetch must not lose the native copies of prefetched files
+    # (REPO.bazel and .bzl files) downloaded by the interrupted attempt.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'churn = use_repo_rule("//:churn.bzl", "churn")',
+            'churn(name = "churn_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    # The many sizable .bzl files make the prefetching phase of the cached
+    # fetch long enough that a memory-pressure state drop reliably lands while
+    # some prefetched files have been downloaded and others haven't.
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("REPO.bazel", "# repo boundary\\n")',
+            '  rctx.file("defs.bzl", "x = 1\\n")',
+            '  for i in range(400):',
+            (
+                '  '
+                '  rctx.file("bulk_%d.bzl" % i,'
+                ' "s = \'%d %s\'\\n" % (i, "a" * 1000000))'
+            ),
+            (
+                '  rctx.file("BUILD",'
+                " \"load(':defs.bzl', 'x')\\nfilegroup(name='target')\")"
+            ),
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    # An uncacheable repo whose fetch allocates lots of garbage to trigger
+    # minor GC events. Together with --skyframe_high_water_mark_threshold=0,
+    # each such event drops all SkyKeyComputeStates, cancelling and restarting
+    # the concurrent cached fetch of my_repo.
+    self.ScratchFile(
+        'churn.bzl',
+        [
+            'def _churn_impl(rctx):',
+            '  rctx.file("BUILD", "filegroup(name=\'churn\')")',
+            '  total = 0',
+            '  for i in range(300):',
+            '    total += len([str(j) for j in range(200000)])',
+            '  print("CHURNED %d" % total)',
+            'churn = repository_rule(_churn_impl)',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # Populate the remote repo contents cache and verify that the repo is
+    # served from it afterwards. addToCache uploads the repo contents
+    # synchronously as part of the fetch, so a single build suffices.
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:target'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:target'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+    # Fetch from the cache while the concurrent fetch of churn_repo triggers
+    # memory-pressure state drops. The drop budget is bounded: with an
+    # unlimited budget, every fetch attempt of churn_repo would be cancelled
+    # by the GC events it itself causes and the build would never finish, and
+    # a fetch attempt whose remote cache lookup is cancelled mid-flight may
+    # legitimately fall back to a full fetch. Since the timing of GC events is
+    # inherently nondeterministic, retry a few times until a run in which the
+    # cached fetch of my_repo was interrupted and still served from the cache.
+    # A restart is only reported as a transient fetch progress update, which
+    # the UI renders into the progress bar. The bar only lists ongoing fetches
+    # in its long form, which requires cursor control, and only emits every
+    # update without a rate limit. A wide terminal keeps the message on a
+    # single line and thus greppable.
+    restart_message = (
+        'Fetching repository @@%s; fetch interrupted due to memory pressure'
+        % os.path.basename(repo_dir)
+    )
+
+    def assert_repo_file(name, expected):
+      path = os.path.join(repo_dir, name)
+      self.assertTrue(os.path.exists(path), '%s is missing' % name)
+      with open(path, 'r') as f:
+        actual = f.read()
+      if actual != expected:
+        # Don't include the full contents in the message, they can be large.
+        self.fail(
+            '%s is corrupt: expected %d bytes, got %d bytes starting with %r'
+            % (name, len(expected), len(actual), actual[:100])
+        )
+
+    for attempt in range(5):
+      self.RunBazel(['clean', '--expunge'])
+      # The drop budget is shared by all fetches in the build below and is used
+      # up by whichever of them allocates first, so an unrelated repo can
+      # exhaust it before my_repo is even fetched. On Windows, test_base
+      # registers a Python toolchain from rules_python, whose fetch reliably
+      # does so. Fetching it without a remote cache materializes it on disk, so
+      # that the build below finds it up to date instead of having to inject it
+      # from the remote repo contents cache into the memory of its own server.
+      self.RunBazel(['fetch', '--repo=@@rules_python+', '--remote_cache='])
+      exit_code, _, stderr = self.RunBazel(
+          [
+              # A small heap makes minor GC events frequent under allocation
+              # pressure.
+              '--host_jvm_args=-Xmx512m',
+              'build',
+              '--skyframe_high_water_mark_threshold=0',
+              '--skyframe_high_water_mark_minor_gc_drops_per_invocation=8',
+              '--skyframe_high_water_mark_full_gc_drops_per_invocation=8',
+              '--curses=yes',
+              '--color=no',
+              '--show_progress_rate_limit=0',
+              '--terminal_columns=500',
+              '@my_repo//:target',
+              '@churn_repo//:churn',
+          ],
+          allow_failure=True,
+      )
+      stderr = '\n'.join(stderr)
+      # An interrupted fetch must never corrupt the repo, in particular not
+      # lose or truncate the native copies of prefetched files.
+      self.assertEqual(exit_code, 0, stderr)
+      assert_repo_file('REPO.bazel', '# repo boundary\n')
+      assert_repo_file('defs.bzl', 'x = 1\n')
+      for i in (0, 399):
+        assert_repo_file(
+            'bulk_%d.bzl' % i, "s = '%d %s'\n" % (i, 'a' * 1000000)
+        )
+      interrupted = restart_message in stderr
+      refetched = 'JUST FETCHED' in stderr
+      print(
+          'poison attempt %d: interrupted=%s refetched=%s'
+          % (attempt, interrupted, refetched)
+      )
+      if interrupted and not refetched:
+        break
+    else:
+      self.fail(
+          'the cached fetch of my_repo was never both interrupted by a'
+          ' memory-pressure compute state drop and served from the cache'
+      )
+
   def doTestMaterializationWithInternalAndExternalSymlinks(
       self, *, expect_symlinks, watch_dep_file=True
   ):

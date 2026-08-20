@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.concurrent;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.collect.ImmutableList;
@@ -23,9 +22,9 @@ import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
-import java.util.concurrent.Executor;
 import javax.annotation.Nullable;
 
 /** Shared API and internal components for request batching. */
@@ -118,7 +117,7 @@ public final class RequestBatching {
 
   static <RequestT, ResponseT>
       BatchExecutionStrategy<RequestT, ResponseT> createBatchExecutionStrategy(
-          Multiplexer<RequestT, ResponseT> multiplexer, Executor responseDistributionExecutor) {
+          Multiplexer<RequestT, ResponseT> multiplexer, SafeExecutor responseDistributionExecutor) {
     return new MultiplexerAdapter<>(multiplexer, responseDistributionExecutor);
   }
 
@@ -214,10 +213,10 @@ public final class RequestBatching {
      * thread. If a callback involves significant processing, the client should offload the work to
      * separate threads to prevent delays in processing subsequent responses.
      */
-    private final Executor responseDistributionExecutor;
+    private final SafeExecutor responseDistributionExecutor;
 
     private MultiplexerAdapter(
-        Multiplexer<RequestT, ResponseT> multiplexer, Executor responseDistributionExecutor) {
+        Multiplexer<RequestT, ResponseT> multiplexer, SafeExecutor responseDistributionExecutor) {
       this.multiplexer = multiplexer;
       this.responseDistributionExecutor = responseDistributionExecutor;
     }
@@ -228,7 +227,7 @@ public final class RequestBatching {
       ListenableFuture<List<ResponseT>> futureResponses =
           multiplexer.execute(Lists.transform(operations, Operation::request));
 
-      addCallback(
+      responseDistributionExecutor.addCallback(
           futureResponses,
           new FutureCallback<List<ResponseT>>() {
             @Override
@@ -253,8 +252,7 @@ public final class RequestBatching {
                 operations.get(i).setResponse(responses.get(i));
               }
             }
-          },
-          responseDistributionExecutor);
+          });
 
       return futureResponses;
     }
