@@ -169,7 +169,9 @@ public abstract class ModuleExtensionUsage {
         .setTags(getTags().stream().map(Tag::trimForEvaluation).collect(toImmutableList()))
         // Reduce the proxies to the only piece of information about them that the extension can
         // observe: whether there are any dev and/or non-dev usages, which is exposed to the root
-        // module's extensions as module_ctx.root_module_has_non_dev_dependency.
+        // module's extensions as module_ctx.root_module_has_non_dev_dependency. Note that this only
+        // encodes new information if the proxy doesn't carry any tags as each of those has its
+        // dev-ness tracked (see #30738).
         // Locations are only used for error reporting and thus don't influence whether the
         // evaluation of the extension is successful and what its result is in case of success.
         // Extension implementation functions do not see the imports, they are only validated
