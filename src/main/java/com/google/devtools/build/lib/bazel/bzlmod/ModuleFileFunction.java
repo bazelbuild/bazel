@@ -246,7 +246,7 @@ public class ModuleFileFunction implements SkyFunction {
     } else {
       moduleThreadContext =
           execNonRegistryModuleFile(
-              moduleKey, starlarkSemantics, env, SymbolGenerator.create(skyKey));
+              moduleKey, state, starlarkSemantics, env, SymbolGenerator.create(skyKey));
       if (moduleThreadContext == null) {
         return null;
       }
@@ -321,7 +321,7 @@ public class ModuleFileFunction implements SkyFunction {
       }
     }
     var moduleThreadContext =
-        execNonRegistryModuleFile(ModuleKey.ROOT, starlarkSemantics, env, symbolGenerator);
+        execNonRegistryModuleFile(ModuleKey.ROOT, state, starlarkSemantics, env, symbolGenerator);
     if (moduleThreadContext == null) {
       return null;
     }
@@ -336,11 +336,11 @@ public class ModuleFileFunction implements SkyFunction {
   @Nullable
   private ModuleThreadContext execNonRegistryModuleFile(
       ModuleKey moduleKey,
+      State state,
       StarlarkSemantics starlarkSemantics,
       Environment env,
       SymbolGenerator<?> symbolGenerator)
       throws ModuleFileFunctionException, InterruptedException {
-    var state = env.getState(State::new);
     Preconditions.checkNotNull(state.compiledModuleFile);
     if (state.horizon == null) {
       state.horizon = state.compiledModuleFile.includeStatements();
