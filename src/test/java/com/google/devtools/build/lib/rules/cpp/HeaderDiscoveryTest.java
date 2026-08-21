@@ -240,6 +240,107 @@ public final class HeaderDiscoveryTest {
   }
 
   @Test
+  public void builtinIncludePrefix_doesNotHideExecRootInput() throws Exception {
+    ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
+    SourceArtifact resolvedArtifact = sourceArtifact("pkg/header.h");
+    PathFragment depPath = PathFragment.create("pkg/header.h");
+    when(artifactResolver.resolveSourceArtifact(eq(depPath), eq(RepositoryName.MAIN)))
+        .thenReturn(resolvedArtifact);
+
+    NestedSet<Artifact> result =
+        HeaderDiscovery.discoverInputsFromDependencies(
+            nonWindowsAction(),
+            ActionsTestUtil.createArtifact(derivedArtifactRoot, derivedRoot.getRelative("foo.cc")),
+            /* shouldValidateInclusions= */ true,
+            ImmutableList.of(execRoot.getRelative("pkg/header.h")),
+            /* permittedSystemIncludePrefixes= */ ImmutableList.of(fs.getPath("/")),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            execRoot,
+            artifactResolver,
+            /* siblingRepositoryLayout= */ false,
+            PathMapper.NOOP);
+
+    assertThat(result.toList()).containsExactly(resolvedArtifact);
+  }
+
+  @Test
+  public void narrowBuiltinIncludePrefix_hidesVendoredSdkInput() throws Exception {
+    ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
+    Path sdk = execRoot.getRelative("external/xcode/SDK");
+
+    NestedSet<Artifact> result =
+        HeaderDiscovery.discoverInputsFromDependencies(
+            nonWindowsAction(),
+            ActionsTestUtil.createArtifact(derivedArtifactRoot, derivedRoot.getRelative("foo.cc")),
+            /* shouldValidateInclusions= */ true,
+            ImmutableList.of(sdk.getRelative("usr/include/header.h")),
+            /* permittedSystemIncludePrefixes= */ ImmutableList.of(fs.getPath("/"), sdk),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            execRoot,
+            artifactResolver,
+            /* siblingRepositoryLayout= */ false,
+            PathMapper.NOOP);
+
+    assertThat(result.toList()).isEmpty();
+    verify(artifactResolver, never()).resolveSourceArtifact(any(), any());
+  }
+
+  @Test
+  public void builtinIncludePrefix_doesNotHideSiblingRepositoryInput() throws Exception {
+    ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
+    PathFragment depPath = PathFragment.create("../sibling/pkg/header.h");
+    SourceArtifact resolvedArtifact =
+        new SourceArtifact(
+            ArtifactRoot.asExternalSourceRoot(
+                Root.fromPath(fs.getPath("/output-base/external/sibling"))),
+            depPath,
+            ArtifactOwner.NULL_OWNER);
+    when(artifactResolver.resolveSourceArtifact(
+            eq(depPath), eq(RepositoryName.createUnvalidated("sibling"))))
+        .thenReturn(resolvedArtifact);
+
+    NestedSet<Artifact> result =
+        HeaderDiscovery.discoverInputsFromDependencies(
+            nonWindowsAction(),
+            ActionsTestUtil.createArtifact(derivedArtifactRoot, derivedRoot.getRelative("foo.cc")),
+            /* shouldValidateInclusions= */ true,
+            ImmutableList.of(fs.getPath("/sibling/pkg/header.h")),
+            /* permittedSystemIncludePrefixes= */ ImmutableList.of(fs.getPath("/")),
+            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            execRoot,
+            artifactResolver,
+            /* siblingRepositoryLayout= */ true,
+            PathMapper.NOOP);
+
+    assertThat(result.toList()).containsExactly(resolvedArtifact);
+  }
+
+  @Test
+  public void windowsPlatform_casedExecRootInputIsNotHiddenByBuiltinIncludePrefix() {
+    ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
+
+    ActionExecutionException thrown =
+        assertThrows(
+            ActionExecutionException.class,
+            () ->
+                HeaderDiscovery.discoverInputsFromDependencies(
+                    windowsAction(),
+                    ActionsTestUtil.createArtifact(
+                        derivedArtifactRoot, derivedRoot.getRelative("foo.cc")),
+                    /* shouldValidateInclusions= */ true,
+                    ImmutableList.of(fs.getPath("/EXECROOT/pkg/header.h")),
+                    /* permittedSystemIncludePrefixes= */ ImmutableList.of(fs.getPath("/")),
+                    NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                    execRoot,
+                    artifactResolver,
+                    /* siblingRepositoryLayout= */ false,
+                    PathMapper.NOOP));
+
+    assertThat(thrown).hasMessageThat().contains("/EXECROOT/pkg/header.h");
+    verify(artifactResolver, never()).resolveSourceArtifactsAsciiCaseInsensitively(any(), any());
+  }
+
+  @Test
   public void windowsPlatform_sourceFileFilteredOut() throws Exception {
     ArtifactResolver artifactResolver = mock(ArtifactResolver.class);
     SourceArtifact sourceFile = sourceArtifact("pkg/foo.cc");
