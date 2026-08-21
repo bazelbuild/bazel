@@ -755,7 +755,7 @@ function test_strip_prefix_errors() {
   commit_hash="$(git -C "$repo_dir" rev-parse HEAD)"
 
   local metadata_prefix=".git/objects"
-  if is_darwin || is_windows; then
+  if [[ -d "$repo_dir/.GIT/OBJECTS" ]]; then
     metadata_prefix=".GIT/OBJECTS"
   fi
 
