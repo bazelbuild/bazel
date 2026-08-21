@@ -615,13 +615,8 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void ruleStackInBuildOutput() throws Exception {
-    /*
-     * See b/151165647 - This needs a non-trivial package name to avoid
-     * including extraneous directories in the generator_location.
-     */
-
     write(
-        "package/inc.bzl",
+        "p/inc.bzl",
         """
         def _impl(ctx): pass
         myrule = rule(implementation = _impl)
@@ -631,39 +626,37 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
           myrule(name='a')
         """);
 
-    write("package/BUILD", "load('inc.bzl', 'f')\n" + "f()");
+    write("p/BUILD", "load('inc.bzl', 'f')\n" + "f()");
 
-    QueryOutput result = getQueryResult("//package:a", "--output=build");
+    QueryOutput result = getQueryResult("//p:a", "--output=build");
     assertSuccessfulExitCode(result);
-    // TODO(b/151165647): fix the heuristic that incorrectly creates generator_location by//
-    //  relativizing package name "p" relative to /foo/tmp/ regardless of segment boundaries.
     // TODO(b/151151653): the output should contain only workspace-relative paths.
     String workspaceDir = getWorkspace().toString();
     String expectedOut =
         "# "
             + workspaceDir
-            + "/package/BUILD:2:2\n"
+            + "/p/BUILD:2:2\n"
             + "myrule(\n"
             + "  name = \"a\",\n"
             + "  generator_name = \"a\",\n"
             + "  generator_function = \"f\",\n"
             + "  generator_location = "
-            + "\"package/BUILD:2:2\",\n"
+            + "\"p/BUILD:2:2\",\n"
             + ")\n"
             + "# Rule a instantiated at (most recent call last):\n"
             + "#   "
             + workspaceDir
-            + "/package/BUILD:2:2   in <toplevel>\n"
+            + "/p/BUILD:2:2   in <toplevel>\n"
             + "#   "
             + workspaceDir
-            + "/package/inc.bzl:4:4 in f\n"
+            + "/p/inc.bzl:4:4 in f\n"
             + "#   "
             + workspaceDir
-            + "/package/inc.bzl:6:9 in g\n"
+            + "/p/inc.bzl:6:9 in g\n"
             + "# Rule myrule defined at (most recent call last):\n"
             + "#   "
             + workspaceDir
-            + "/package/inc.bzl:2:14 in <toplevel>\n\n";
+            + "/p/inc.bzl:2:14 in <toplevel>\n\n";
 
     String out = new String(result.getStdout(), UTF_8);
 
@@ -710,13 +703,8 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
    */
   @Test
   public void ruleStackRegressionTest() throws Exception {
-    /*
-     * See b/151165647 - This needs a non-trivial package name to avoid
-     * including extraneous directories in the generator_location.
-     */
-
     write(
-        "package/inc.bzl",
+        "p/inc.bzl",
         """
         def g(name):
             native.filegroup(name = name)
@@ -726,58 +714,58 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         """);
 
     write(
-        "package/BUILD",
+        "p/BUILD",
         """
         load("inc.bzl", "f")
         f(name = "a")
         f(name = "b")
         """);
-    QueryOutput result = getQueryResult("//package:all", "--output=build");
+    QueryOutput result = getQueryResult("//p:all", "--output=build");
     assertSuccessfulExitCode(result);
 
     String workspaceDir = getWorkspace().toString();
     String expectedOut =
         "# "
             + workspaceDir
-            + "/package/BUILD:2:2\n"
+            + "/p/BUILD:2:2\n"
             + "filegroup(\n"
             + "  name = \"a\",\n"
             + "  generator_name = \"a\",\n"
             + "  generator_function = \"f\",\n"
             + "  generator_location = "
-            + "\"package/BUILD:2:2\",\n"
+            + "\"p/BUILD:2:2\",\n"
             + ")\n"
             + "# Rule a instantiated at (most recent call last):\n"
             + "#   "
             + workspaceDir
-            + "/package/BUILD:2:2    in <toplevel>\n"
+            + "/p/BUILD:2:2    in <toplevel>\n"
             + "#   "
             + workspaceDir
-            + "/package/inc.bzl:5:6  in f\n"
+            + "/p/inc.bzl:5:6  in f\n"
             + "#   "
             + workspaceDir
-            + "/package/inc.bzl:2:21 in g\n"
+            + "/p/inc.bzl:2:21 in g\n"
             + "\n"
             + "# "
             + workspaceDir
-            + "/package/BUILD:3:2\n"
+            + "/p/BUILD:3:2\n"
             + "filegroup(\n"
             + "  name = \"b\",\n"
             + "  generator_name = \"b\",\n"
             + "  generator_function = \"f\",\n"
             + "  generator_location = "
-            + "\"package/BUILD:3:2\",\n"
+            + "\"p/BUILD:3:2\",\n"
             + ")\n"
             + "# Rule b instantiated at (most recent call last):\n"
             + "#   "
             + workspaceDir
-            + "/package/BUILD:3:2    in <toplevel>\n"
+            + "/p/BUILD:3:2    in <toplevel>\n"
             + "#   "
             + workspaceDir
-            + "/package/inc.bzl:5:6  in f\n"
+            + "/p/inc.bzl:5:6  in f\n"
             + "#   "
             + workspaceDir
-            + "/package/inc.bzl:2:21 in g\n\n";
+            + "/p/inc.bzl:2:21 in g\n\n";
 
     String out = new String(result.getStdout(), UTF_8);
     assertThat(out).isEqualTo(expectedOut);
