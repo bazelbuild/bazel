@@ -22,6 +22,9 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.metrics.RemoteCacheCdcEvent;
+import com.google.devtools.build.lib.metrics.RemoteCacheCdcEvent.Outcome;
+import com.google.devtools.build.lib.metrics.RemoteCacheCdcEvent.Upload;
 import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.chunking.ContentDefinedChunker;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -37,6 +40,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.function.Consumer;
 
 /**
  * Uploads blobs in chunks using Content-Defined Chunking.
@@ -61,6 +65,7 @@ public class ChunkedBlobUploader {
   private final ContentDefinedChunker chunker;
   private final ChunkingFunction.Value chunkingFunction;
   private final long chunkingThreshold;
+  private final Consumer<RemoteCacheCdcEvent> metricsSink;
 
   /**
    * Creates a new uploader with the given chunking configuration.
@@ -75,11 +80,21 @@ public class ChunkedBlobUploader {
       CombinedCache combinedCache,
       ChunkingConfig config,
       DigestUtil digestUtil) {
+    this(grpcCacheClient, combinedCache, config, digestUtil, unused -> {});
+  }
+
+  public ChunkedBlobUploader(
+      GrpcCacheClient grpcCacheClient,
+      CombinedCache combinedCache,
+      ChunkingConfig config,
+      DigestUtil digestUtil,
+      Consumer<RemoteCacheCdcEvent> metricsSink) {
     this.grpcCacheClient = grpcCacheClient;
     this.combinedCache = combinedCache;
     this.chunker = config.newChunker(digestUtil);
     this.chunkingFunction = config.chunkingFunction();
     this.chunkingThreshold = config.chunkingThreshold();
+    this.metricsSink = metricsSink;
   }
 
   /** Returns the minimum blob size for chunked upload. */
@@ -94,18 +109,33 @@ public class ChunkedBlobUploader {
    */
   public void uploadChunked(RemoteActionExecutionContext context, Digest blobDigest, Path file)
       throws IOException, InterruptedException {
-    List<Digest> chunkDigests;
-    try (InputStream input = file.getInputStream()) {
-      chunkDigests = chunker.chunkToDigests(input);
-    }
-    if (chunkDigests.isEmpty()) {
-      return;
-    }
+    List<Digest> chunkDigests = List.of();
+    UploadPlan uploadPlan = UploadPlan.EMPTY;
+    boolean success = false;
+    try {
+      try (InputStream input = file.getInputStream()) {
+        chunkDigests = chunker.chunkToDigests(input);
+      }
+      if (chunkDigests.isEmpty()) {
+        success = true;
+        return;
+      }
 
-    ImmutableSet<Digest> missingDigests =
-        getFromFuture(grpcCacheClient.findMissingDigests(context, chunkDigests));
-    uploadMissingChunks(context, missingDigests, chunkDigests, file);
-    getFromFuture(grpcCacheClient.spliceBlob(context, blobDigest, chunkDigests, chunkingFunction));
+      ImmutableSet<Digest> missingDigests =
+          getFromFuture(grpcCacheClient.findMissingDigests(context, chunkDigests));
+      uploadPlan = UploadPlan.create(missingDigests);
+      uploadMissingChunks(context, missingDigests, chunkDigests, file);
+      getFromFuture(grpcCacheClient.spliceBlob(context, blobDigest, chunkDigests, chunkingFunction));
+      success = true;
+    } finally {
+      metricsSink.accept(
+          new Upload(
+              success ? Outcome.SUCCESS : Outcome.FAILURE,
+              blobDigest.getSizeBytes(),
+              chunkDigests.size(),
+              uploadPlan.remoteMissingChunks(),
+              uploadPlan.remoteMissingChunkBytes()));
+    }
   }
 
   private void uploadMissingChunks(
@@ -118,6 +148,16 @@ public class ChunkedBlobUploader {
       return;
     }
     new UploadSession(context, missingDigests, chunkDigests).run(file);
+  }
+
+  private record UploadPlan(long remoteMissingChunks, long remoteMissingChunkBytes) {
+    private static final UploadPlan EMPTY = new UploadPlan(0, 0);
+
+    static UploadPlan create(ImmutableSet<Digest> missingDigests) {
+      return new UploadPlan(
+          missingDigests.size(),
+          missingDigests.stream().mapToLong(Digest::getSizeBytes).sum());
+    }
   }
 
   private final class UploadSession {
