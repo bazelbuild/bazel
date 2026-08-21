@@ -86,6 +86,36 @@ import javax.annotation.Nullable;
 public class GrpcCacheClient extends RemoteCacheClient implements MissingDigestsFinder {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
+  private static final class SizeLimitingOutputStream extends OutputStream {
+    private final CountingOutputStream out;
+    private final Digest digest;
+
+    private SizeLimitingOutputStream(CountingOutputStream out, Digest digest) {
+      this.out = out;
+      this.digest = digest;
+    }
+
+    @Override
+    public void write(int b) throws IOException {
+      checkSize(1);
+      out.write(b);
+    }
+
+    @Override
+    public void write(byte[] b, int off, int len) throws IOException {
+      checkSize(len);
+      out.write(b, off, len);
+    }
+
+    private void checkSize(int bytesToWrite) throws IOException {
+      if (bytesToWrite > digest.getSizeBytes() - out.getCount()) {
+        throw new IOException(
+            "download exceeded expected size for blob %s"
+                .formatted(DigestUtil.toString(digest)));
+      }
+    }
+  }
+
   private final CallCredentialsProvider callCredentialsProvider;
   private final ReferenceCountedChannel channel;
   private final RemoteOptions options;
@@ -482,9 +512,11 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
         getResourceName(
             options.getRemoteInstanceName(), digest, compressed, digestUtil.getDigestFunction());
     SettableFuture<Long> future = SettableFuture.create();
+    // Prevent misbehaving servers from sending more bytes than expected.
+    SizeLimitingOutputStream sizeLimitedOut = new SizeLimitingOutputStream(rawOut, digest);
     OutputStream out;
     try {
-      out = compressed ? new ZstdDecompressingOutputStream(rawOut) : rawOut;
+      out = compressed ? new ZstdDecompressingOutputStream(sizeLimitedOut) : sizeLimitedOut;
     } catch (IOException e) {
       return Futures.immediateFailedFuture(e);
     }
@@ -554,6 +586,12 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
                     out.flush();
                   } finally {
                     releaseOut();
+                  }
+                  long bytesReceived = rawOut.getCount();
+                  if (bytesReceived != digest.getSizeBytes()) {
+                    throw new IOException(
+                        "download incomplete for blob %s: received %d bytes"
+                            .formatted(DigestUtil.toString(digest), bytesReceived));
                   }
                   if (digestSupplier != null) {
                     Utils.verifyBlobContents(digest, digestSupplier.get());
