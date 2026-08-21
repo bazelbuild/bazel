@@ -115,3 +115,8 @@ alias(
     name = "collect-testing",
     actual = "//third_party:guava-testlib",
 )
+
+alias(
+    name = "testlib",
+    actual = "//third_party:guava-testlib",
+)
