@@ -290,3 +290,14 @@ java_library(
         "//third_party/java/guava:collect",
     ],
 )
+
+java_test(
+    name = "SkycacheChannelStateAdvisorTest",
+    size = "small",
+    srcs = ["SkycacheChannelStateAdvisorTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:skycache_channel_state_advisor",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)

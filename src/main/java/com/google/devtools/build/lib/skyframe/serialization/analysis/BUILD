@@ -416,6 +416,7 @@ java_library(
         ":remote_analysis_cache_client",
         ":remote_analysis_cache_mode",
         ":remote_analysis_metadata_writer",
+        ":skycache_channel_state_advisor",
         "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
         "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
@@ -425,6 +426,15 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//third_party/java/guava:concurrent",
         "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "skycache_channel_state_advisor",
+    srcs = ["SkycacheChannelStateAdvisor.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+        "//third_party/java/guava:annotations",
     ],
 )
 
@@ -578,6 +588,7 @@ java_library(
         ":remote_analysis_caching_services_supplier",
         ":remote_analysis_metadata_writer",
         ":serialization_dependencies_provider",
+        ":skycache_channel_state_advisor",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
         "//src/main/java/com/google/devtools/build/lib/events",
