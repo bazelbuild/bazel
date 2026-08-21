@@ -1795,8 +1795,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     StarlarkSemantics starlarkSemantics = getEffectiveStarlarkSemantics(buildLanguageOptions);
     setStarlarkSemantics(starlarkSemantics);
-    setSiblingDirectoryLayout(
-        starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
+    setRepositoryLayout(
+        starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT),
+        starlarkSemantics.getBool(
+            BuildLanguageOptions.INCOMPATIBLE_BAZEL_EXTERNAL_DIRECTORY));
     setPackageLocator(pkgLocator);
     setLazyMacroExpansionPackages(packageOptions.getLazyMacroExpansionPackages());
     setStampSettingMarker();
@@ -1821,8 +1823,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     analysisCacheCleared = false;
   }
 
-  private void setSiblingDirectoryLayout(boolean experimentalSiblingRepositoryLayout) {
-    this.artifactFactory.setSiblingRepositoryLayout(experimentalSiblingRepositoryLayout);
+  private void setRepositoryLayout(
+      boolean experimentalSiblingRepositoryLayout, boolean bazelExternalDirectory) {
+    this.artifactFactory.setRepositoryLayout(
+        experimentalSiblingRepositoryLayout, bazelExternalDirectory);
   }
 
   public StarlarkSemantics getEffectiveStarlarkSemantics(

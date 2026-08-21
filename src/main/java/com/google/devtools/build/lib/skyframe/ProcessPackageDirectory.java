@@ -177,7 +177,9 @@ public final class ProcessPackageDirectory {
             rootedPath,
             repositoryName,
             excludedPaths,
-            starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT)),
+            starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT),
+            starlarkSemantics.getBool(
+                BuildLanguageOptions.INCOMPATIBLE_BAZEL_EXTERNAL_DIRECTORY)),
         /*additionalValuesToAggregate=*/ ImmutableMap.of());
   }
 
@@ -263,7 +265,8 @@ public final class ProcessPackageDirectory {
       RootedPath rootedPath,
       RepositoryName repositoryName,
       IgnoredSubdirectories excludedPaths,
-      boolean siblingRepositoryLayout) {
+      boolean siblingRepositoryLayout,
+      boolean bazelExternalDirectory) {
     Root root = rootedPath.getRoot();
     PathFragment rootRelativePath = rootedPath.getRootRelativePath();
     boolean followSymlinks = shouldFollowSymlinksWhenTraversing(dirListingValue.getDirents());
@@ -283,10 +286,11 @@ public final class ProcessPackageDirectory {
       String basename = dirent.getName();
       PathFragment subdirectory = rootRelativePath.getRelative(basename);
       if (!siblingRepositoryLayout
+          && !bazelExternalDirectory
           && subdirectory.equals(LabelConstants.EXTERNAL_PACKAGE_NAME)
           && repositoryName.isMain()) {
-        // Subpackages under //external in the main repo can be processed only
-        // when --experimental_sibling_repository_layout is set.
+        // Subpackages under //external in the main repo can be processed only when the execroot's
+        // external repository directory no longer occupies that path.
         continue;
       }
 

@@ -667,6 +667,9 @@ public class ActionExecutionFunction implements SkyFunction {
 
       boolean siblingRepositoryLayout =
           starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT);
+      boolean bazelExternalDirectory =
+          starlarkSemantics.getBool(
+              BuildLanguageOptions.INCOMPATIBLE_BAZEL_EXTERNAL_DIRECTORY);
 
       // Create SkyKeys list based on execPaths.
       Map<PathFragment, ContainingPackageLookupValue.Key> depKeys = new HashMap<>();
@@ -675,7 +678,8 @@ public class ActionExecutionFunction implements SkyFunction {
             checkNotNull(path.getParentDirectory(), "Must pass in files, not root directory");
         checkArgument(!parent.isAbsolute(), path);
         Optional<PackageIdentifier> pkgId =
-            PackageIdentifier.discoverFromExecPath(path, true, siblingRepositoryLayout);
+            PackageIdentifier.discoverFromExecPath(
+                path, true, siblingRepositoryLayout, bazelExternalDirectory);
         if (pkgId.isPresent()) {
           ContainingPackageLookupValue.Key depKey = ContainingPackageLookupValue.key(pkgId.get());
           depKeys.put(path, depKey);

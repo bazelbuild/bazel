@@ -81,6 +81,8 @@ public final class BuildConfigurationFunction implements SkyFunction {
               baselineOptions.orElse(null),
               starlarkSemantics.getBool(
                   BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT),
+              starlarkSemantics.getBool(
+                  BuildLanguageOptions.INCOMPATIBLE_BAZEL_EXTERNAL_DIRECTORY),
               platformCpu,
               // Arguments below this are server-global.
               directories,

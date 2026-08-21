@@ -81,21 +81,26 @@ public final class RepositoryName {
    * Extracts the repository name from a PathFragment that was created with {@code
    * PackageIdentifier.getSourceRoot}.
    *
-   * @return a {@code Pair} of the extracted repository name and the path fragment with stripped of
-   *     "external/"-prefix and repository name, or null if none was found or the repository name
-   *     was invalid.
+   * @return a {@code Pair} of the extracted repository name and the path fragment with the external
+   *     repository prefix and repository name stripped, or null if none was found or the repository
+   *     name was invalid.
    */
   @Nullable
   public static Pair<RepositoryName, PathFragment> fromPathFragment(
       PathFragment path, boolean siblingRepositoryLayout) {
+    return fromPathFragment(
+        path, siblingRepositoryLayout, /* bazelExternalDirectory= */ false);
+  }
+
+  @Nullable
+  public static Pair<RepositoryName, PathFragment> fromPathFragment(
+      PathFragment path, boolean siblingRepositoryLayout, boolean bazelExternalDirectory) {
     if (!path.isMultiSegment()) {
       return null;
     }
 
     PathFragment prefix =
-        siblingRepositoryLayout
-            ? LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX
-            : LabelConstants.EXTERNAL_PATH_PREFIX;
+        LabelConstants.getExternalPathPrefix(siblingRepositoryLayout, bazelExternalDirectory);
     if (!path.startsWith(prefix)) {
       return null;
     }
@@ -298,16 +303,21 @@ public final class RepositoryName {
    * (i.e., it is in the main repository), return an empty path fragment.
    *
    * <p>If --experimental_sibling_repository_layout is true, return "$execroot/../repo" (sibling of
-   * __main__), instead of "$execroot/external/repo".
+   * __main__). Otherwise, the prefix is "external" by default and "bazel-external" when
+   * --incompatible_bazel_external_directory is enabled.
    */
   public PathFragment getExecPath(boolean siblingRepositoryLayout) {
+    return getExecPath(siblingRepositoryLayout, /* bazelExternalDirectory= */ false);
+  }
+
+  /** Returns the runfiles/execroot path for this repository under the requested layout. */
+  public PathFragment getExecPath(
+      boolean siblingRepositoryLayout, boolean bazelExternalDirectory) {
     if (isMain()) {
       return PathFragment.EMPTY_FRAGMENT;
     }
     PathFragment prefix =
-        siblingRepositoryLayout
-            ? LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX
-            : LabelConstants.EXTERNAL_PATH_PREFIX;
+        LabelConstants.getExternalPathPrefix(siblingRepositoryLayout, bazelExternalDirectory);
     return prefix.getRelative(getName());
   }
 
