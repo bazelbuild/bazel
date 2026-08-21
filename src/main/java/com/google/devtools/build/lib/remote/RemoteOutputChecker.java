@@ -384,10 +384,12 @@ public class RemoteOutputChecker implements OutputChecker {
       return;
     }
 
-    // If the outputsMode or commandMode is changed, we invalidate completion functions. Otherwise,
-    // some requested outputs might not be correctly downloaded.
+    // Run mode is part of TopLevelArtifactContext, and thus of target and aspect completion keys,
+    // so transitions to and from it do not require manual invalidation.
+    boolean runTransition =
+        lastRemoteOutputChecker.commandMode == CommandMode.RUN || commandMode == CommandMode.RUN;
     if (lastRemoteOutputChecker.outputsMode != outputsMode
-        || lastRemoteOutputChecker.commandMode != commandMode) {
+        || (lastRemoteOutputChecker.commandMode != commandMode && !runTransition)) {
       memoizingEvaluator.delete(
           k -> {
             var functionName = k.functionName();

@@ -68,7 +68,9 @@ public class SuccessfulArtifactFilterTest {
       outputGroups.put(pair.first, NestedSetBuilder.fromNestedSet(pair.second));
     }
     groupProvider = OutputGroupInfo.fromBuilders(outputGroups);
-    ctx = new TopLevelArtifactContext(false, false, ImmutableSortedSet.copyOf(groupProvider));
+    ctx =
+        new TopLevelArtifactContext(
+            false, false, ImmutableSortedSet.copyOf(groupProvider), /* forRunCommand= */ false);
   }
 
   @Test
