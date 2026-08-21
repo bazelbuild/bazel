@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
@@ -41,6 +43,15 @@ public interface InputMetadataProvider {
    */
   @Nullable
   FileArtifactValue getInputMetadata(ActionInput input) throws IOException;
+
+  /**
+   * Returns the {@link TreeArtifactValue} for the given exec path, or null if it does not point at a
+   * tree artifact known to this provider.
+   */
+  @Nullable
+  default TreeArtifactValue getTreeMetadata(PathFragment execPath) {
+    return null;
+  }
 
   /**
    * Returns the {@link RunfilesArtifactValue} for the given {@link ActionInput}, which must be a
