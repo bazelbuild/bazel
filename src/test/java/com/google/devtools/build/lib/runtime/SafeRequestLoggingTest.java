@@ -112,6 +112,22 @@ public class SafeRequestLoggingTest {
   }
 
   @Test
+  public void testGetRequestLogStringStripsCredentialHeaderOptions() {
+    assertThat(
+            SafeRequestLogging.getRequestLogString(
+                ImmutableList.of(
+                    "blaze",
+                    "build",
+                    "--bes_header=Authorization=Bearer123",
+                    "--remote_header",
+                    "Authorization=Bearer456",
+                    "--some_other_flag")))
+        .isEqualTo(
+            "[blaze, build, --bes_header=<REDACTED>, --remote_header, <REDACTED>, "
+                + "--some_other_flag]");
+  }
+
+  @Test
   public void testRedactArgumentsRedactsCredentials() {
     ImmutableList<String> args =
         ImmutableList.of(
