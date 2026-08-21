@@ -3243,6 +3243,45 @@ EOF
   expect_log 'result_err.error_message: ""'
 }
 
+function test_execute_wasm_output_len_exceeds_memory_limit() {
+  setup_starlark_repository
+
+  declare -r exec_wasm="$(rlocation "io_bazel/src/test/shell/bazel/testdata/exec_wasm.wasm")"
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  wasm_module = repository_ctx.load_wasm("$exec_wasm")
+
+  # run_overflow_len reports an output length of i32 max without allocating a
+  # buffer to match it. The host sizes its own buffer from that length, so a
+  # length the module could not have allocated has to be rejected rather than
+  # allocated.
+  result_default = repository_ctx.execute_wasm(wasm_module, "run_overflow_len", input="")
+  print('result_default.output: %r' % (result_default.output,))
+  print('result_default.return_code: %r' % (result_default.return_code,))
+  print('result_default.error_message: %r' % (result_default.error_message,))
+
+  # Again under a smaller limit, so the assertions below show the bound is
+  # derived from memory_limit rather than being a fixed ceiling.
+  result_small = repository_ctx.execute_wasm(
+      wasm_module, "run_overflow_len", input="", memory_limit=1048576)
+  print('result_small.error_message: %r' % (result_small.error_message,))
+
+  # Symlink so a repository is created
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
+
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+
+  # The rejection is reported through error_message, so the build still succeeds.
+  bazel build --experimental_repository_ctx_execute_wasm @foo//:bar >& $TEST_log \
+    || fail "Expected build to succeed"
+
+  expect_log 'result_default.output: ""'
+  expect_log 'result_default.return_code: -1'
+  expect_log 'exceeds the memory limit of 67108864 bytes'
+  expect_log 'exceeds the memory limit of 1048576 bytes'
+}
+
 function test_wasm_compilation() {
   setup_starlark_repository
 
