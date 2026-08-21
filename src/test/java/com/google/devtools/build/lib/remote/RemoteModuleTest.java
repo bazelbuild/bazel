@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.util.io.CommandExtensionReporter.NO_OP_COMMAND_EXTENSION_REPORTER;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -70,6 +71,7 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
@@ -86,6 +88,8 @@ import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.Assert;
 import org.junit.Before;
@@ -136,8 +140,15 @@ public final class RemoteModuleTest {
                   .build())
           .build();
 
+  @FunctionalInterface
+  private interface WorkspaceInitializer {
+    void initialize(Scratch scratch) throws IOException;
+  }
+
   private static CommandEnvironment createTestCommandEnvironment(
-      RemoteModule remoteModule, RemoteOptions remoteOptions)
+      RemoteModule remoteModule,
+      RemoteOptions remoteOptions,
+      WorkspaceInitializer workspaceInitializer)
       throws IOException, AbruptExitException {
     CoreOptions coreOptions = Options.getDefaults(CoreOptions.class);
     CommonCommandOptions commonCommandOptions = Options.getDefaults(CommonCommandOptions.class);
@@ -163,6 +174,8 @@ public final class RemoteModuleTest {
     ServerDirectories serverDirectories =
         new ServerDirectories(
             scratch.dir("install"), scratch.dir("output"), scratch.dir("user_root"));
+    Path workspacePath = scratch.dir("/workspace");
+    workspaceInitializer.initialize(scratch);
 
     BlazeRuntime runtime =
         new BlazeRuntime.Builder()
@@ -186,7 +199,7 @@ public final class RemoteModuleTest {
     BlazeDirectories directories =
         new BlazeDirectories(
             serverDirectories,
-            scratch.dir("/workspace"),
+            workspacePath,
             scratch.dir("/system_javabase"),
             productName);
     BlazeWorkspace workspace = runtime.initWorkspace(directories, BinTools.empty(directories));
@@ -240,16 +253,101 @@ public final class RemoteModuleTest {
         .build();
   }
 
+  private static RemoteOptions parseRemoteOptions(String... args) throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse(args);
+    return parser.getOptions(RemoteOptions.class);
+  }
+
   private RemoteModule remoteModule;
   private RemoteOptions remoteOptions;
+  private Map<String, Map<String, ?>> serviceConfigsByTarget;
 
   @Before
   public void initialize() {
+    serviceConfigsByTarget = new HashMap<>();
     remoteModule = new RemoteModule();
     remoteModule.setChannelFactory(
-        (target, proxy, options, interceptors) ->
-            InProcessChannelBuilder.forName(target).directExecutor().build());
+        (target, proxy, options, interceptors, serviceConfig) -> {
+          serviceConfigsByTarget.put(target, serviceConfig);
+          return InProcessChannelBuilder.forName(target).directExecutor().build();
+        });
     remoteOptions = Options.getDefaults(RemoteOptions.class);
+  }
+
+  @Test
+  public void remoteGrpcServiceConfig_passesRemoteTimeoutConfigToChannelFactory() throws Exception {
+    CapabilitiesImpl cacheCapabilitiesImpl = new CapabilitiesImpl(CACHE_ONLY_CAPS);
+    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, cacheCapabilitiesImpl);
+    cacheServer.start();
+
+    try {
+      remoteOptions =
+          parseRemoteOptions("--remote_cache=" + CACHE_SERVER_NAME, "--remote_timeout=123s");
+
+      beforeCommand();
+
+      assertThat(
+              remoteModule
+                  .getActionContextProvider()
+                  .getCombinedCache()
+                  .getRemoteCacheCapabilities())
+          .isEqualTo(CACHE_ONLY_CAPS.getCacheCapabilities());
+      assertThat(serviceConfigsByTarget.get(CACHE_SERVER_NAME))
+          .isEqualTo(RemoteGrpcServiceConfig.create(Duration.ofSeconds(123)));
+    } finally {
+      cacheServer.shutdownNow();
+      cacheServer.awaitTermination();
+    }
+  }
+
+  @Test
+  public void remoteGrpcServiceConfig_passesUserSuppliedJsonFileToChannelFactory()
+      throws Exception {
+    CapabilitiesImpl cacheCapabilitiesImpl = new CapabilitiesImpl(CACHE_ONLY_CAPS);
+    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, cacheCapabilitiesImpl);
+    cacheServer.start();
+
+    try {
+      remoteOptions =
+          parseRemoteOptions(
+              "--remote_cache=" + CACHE_SERVER_NAME,
+              "--remote_grpc_service_config=service_config.json");
+
+      beforeCommand(
+          scratch ->
+              scratch.file(
+                  "/workspace/service_config.json",
+                  """
+                  {
+                    "methodConfig": [
+                      {
+                        "name": [{"service": "google.bytestream.ByteStream"}],
+                        "timeout": "3.500s"
+                      }
+                    ]
+                  }
+                  """));
+
+      assertThat(
+              remoteModule
+                  .getActionContextProvider()
+                  .getCombinedCache()
+                  .getRemoteCacheCapabilities())
+          .isEqualTo(CACHE_ONLY_CAPS.getCacheCapabilities());
+      assertThat(serviceConfigsByTarget.get(CACHE_SERVER_NAME))
+          .containsExactly(
+              "methodConfig",
+              ImmutableList.of(
+                  ImmutableMap.of(
+                      "name",
+                      ImmutableList.of(ImmutableMap.of("service", "google.bytestream.ByteStream")),
+                      "timeout",
+                      "3.500s")));
+    } finally {
+      cacheServer.shutdownNow();
+      cacheServer.awaitTermination();
+    }
   }
 
   @Test
@@ -633,7 +731,14 @@ public final class RemoteModuleTest {
 
   @CanIgnoreReturnValue
   private CommandEnvironment beforeCommand() throws IOException, AbruptExitException {
-    CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
+    return beforeCommand(scratch -> {});
+  }
+
+  @CanIgnoreReturnValue
+  private CommandEnvironment beforeCommand(WorkspaceInitializer workspaceInitializer)
+      throws IOException, AbruptExitException {
+    CommandEnvironment env =
+        createTestCommandEnvironment(remoteModule, remoteOptions, workspaceInitializer);
     remoteModule.beforeCommand(env);
     env.throwPendingException();
     return env;
