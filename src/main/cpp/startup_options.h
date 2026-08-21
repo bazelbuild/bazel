@@ -262,6 +262,9 @@ class StartupOptions {
   // Value of the java.util.logging.FileHandler.formatter Java property.
   std::string java_logging_formatter;
 
+  // Adds Java logging-related flags for the Bazel server process.
+  void AddServerLoggingArguments(std::vector<std::string> *result) const;
+
   // The hash function to use when computing file digests.
   std::string digest_function;
 

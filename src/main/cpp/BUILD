@@ -146,6 +146,59 @@ cc_binary(
     ],
 )
 
+cc_binary(
+    name = "client_native_image_server",
+    srcs = [
+        "blaze.cc",
+        "blaze.h",
+        "main.cc",
+        "server_process_info.cc",
+        "server_process_info.h",
+    ] + select({
+        "//src/conditions:windows": ["resources.o"],
+        "//conditions:default": [],
+    }),
+    copts = select({
+        "//src/conditions:windows_msvc_like": ["/wd4018"],
+        "//conditions:default": ["-Wno-sign-compare"],
+    }) + ["-DBAZEL_NATIVE_IMAGE_SERVER"],
+    linkopts = select({
+        "//src/conditions:darwin": [
+        ],
+        "//src/conditions:freebsd": [
+            "-lprocstat",
+            "-lm",
+        ],
+        "//src/conditions:openbsd": [
+        ],
+        "//src/conditions:windows": [
+        ],
+        "//conditions:default": [
+            "-lrt",
+            "-ldl",
+        ],
+    }),
+    visibility = ["//src:__pkg__"],
+    deps = [
+        ":archive_utils",
+        ":bazel_startup_options",
+        ":blaze_util",
+        ":command_extension_adder",
+        ":option_processor",
+        ":startup_interceptor",
+        ":startup_options",
+        ":workspace_layout",
+        "//src/main/cpp/util",
+        "//src/main/cpp/util:bazel_log_handler",
+        "//src/main/cpp/util:errors",
+        "//src/main/cpp/util:logging",
+        "//src/main/cpp/util:strings",
+        "//src/main/protobuf:command_server_cc_grpc",
+        "//src/main/protobuf:command_server_cc_proto",
+        "//third_party/ijar:zip",
+    ],
+)
+
 cc_library(
     name = "option_processor",
     srcs = [

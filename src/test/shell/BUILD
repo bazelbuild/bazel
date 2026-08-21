@@ -7,6 +7,7 @@ package(default_visibility = ["//visibility:private"])
 exports_files([
     "bin/bazel",
     "bin/bazel_jdk_minimal",
+    "bin/bazel_native",
     "bin/bazel_nojdk",
     "integration_test_setup.sh",
     "platform_utils.sh",
