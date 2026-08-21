@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.exec.Protos.Platform;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.io.AsynchronousMessageOutputStream;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -552,7 +553,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
                 .setDirectory(
                     ExecLogEntry.Directory.newBuilder()
                         .setPath(input.getExecPathString())
-                        .addAllFiles(expandDirectory(root, inputMetadataProvider))));
+                        .addAllFiles(expandDirectory(input, root, inputMetadataProvider))));
   }
 
   /**
@@ -624,10 +625,52 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   /**
    * Expands a directory.
    *
+   * @param input the input representing the directory
    * @param root the path to the directory
    * @return the list of files transitively contained in the directory
    */
   private List<ExecLogEntry.File> expandDirectory(
+      ActionInput input, Path root, InputMetadataProvider inputMetadataProvider)
+      throws IOException, InterruptedException {
+    if (input instanceof Artifact artifact && artifact.isTreeArtifact()) {
+      TreeArtifactValue treeMetadata =
+          inputMetadataProvider.getTreeMetadata(artifact.getExecPath());
+      if (treeMetadata != null) {
+        // Using the metadata over a filesystem traversal is not just an optimization: an empty tree
+        // artifact may not be materialized on disk.
+        return expandTreeArtifact(treeMetadata, root, inputMetadataProvider);
+      }
+    }
+    return expandDirectoryFromFileSystem(root, inputMetadataProvider);
+  }
+
+  /** Expands a tree artifact into its contents as recorded in its metadata. */
+  private List<ExecLogEntry.File> expandTreeArtifact(
+      TreeArtifactValue treeMetadata, Path root, InputMetadataProvider inputMetadataProvider)
+      throws IOException {
+    var files = new ArrayList<ExecLogEntry.File>(treeMetadata.getChildren().size());
+    for (var child : treeMetadata.getChildren()) {
+      PathFragment parentRelativePath = child.getParentRelativePath();
+      Digest digest =
+          computeDigest(
+              child,
+              root.getRelative(parentRelativePath),
+              inputMetadataProvider,
+              xattrProvider,
+              digestHashFunction,
+              /* includeHashFunctionName= */ false);
+      files.add(
+          ExecLogEntry.File.newBuilder()
+              .setPath(parentRelativePath.getPathString())
+              .setDigest(digest)
+              .build());
+    }
+    files.sort(EXEC_LOG_ENTRY_FILE_COMPARATOR);
+    return files;
+  }
+
+  /** Expands a directory by traversing it on the filesystem. */
+  private List<ExecLogEntry.File> expandDirectoryFromFileSystem(
       Path root, InputMetadataProvider inputMetadataProvider)
       throws IOException, InterruptedException {
     ArrayList<ExecLogEntry.File> files = new ArrayList<>();

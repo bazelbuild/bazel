@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -153,6 +154,12 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     @Override
     public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
       return wrapped.getInputMetadata(input);
+    }
+
+    @Nullable
+    @Override
+    public TreeArtifactValue getTreeMetadata(PathFragment execPath) {
+      return wrapped.getTreeMetadata(execPath);
     }
 
     @Nullable

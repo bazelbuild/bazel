@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import javax.annotation.Nullable;
@@ -37,6 +39,13 @@ public final class DelegatingPairInputMetadataProvider implements InputMetadataP
     return (metadata != null) && (metadata != FileArtifactValue.MISSING_FILE_MARKER)
         ? metadata
         : secondary.getInputMetadata(input);
+  }
+
+  @Override
+  @Nullable
+  public TreeArtifactValue getTreeMetadata(PathFragment execPath) {
+    TreeArtifactValue result = primary.getTreeMetadata(execPath);
+    return result != null ? result : secondary.getTreeMetadata(execPath);
   }
 
   @Override
