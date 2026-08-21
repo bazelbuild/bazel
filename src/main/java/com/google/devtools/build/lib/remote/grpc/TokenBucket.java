@@ -24,6 +24,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import javax.annotation.Nullable;
 
 /** A container for tokens which is used for rate limiting. */
 @ThreadSafe
@@ -53,6 +54,11 @@ public class TokenBucket<T> implements Closeable {
   /** Returns current number of tokens in the bucket. */
   public int size() {
     return tokens.size();
+  }
+
+  @Nullable
+  public T tryAcquireToken() {
+    return tokens.pollFirst();
   }
 
   /**

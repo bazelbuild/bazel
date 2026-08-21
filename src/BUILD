@@ -406,7 +406,6 @@ filegroup(
         "//src/main/java/net/starlark/java:srcs",
         "//src/main/native:srcs",
         "//src/main/protobuf:srcs",
-        "//src/main/res:srcs",
         "//src/main/starlark/builtins_bzl:srcs",
         "//src/main/starlark/docgen:srcs",
         "//src/main/tools:srcs",

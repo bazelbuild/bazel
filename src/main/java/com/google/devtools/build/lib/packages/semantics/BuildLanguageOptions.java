@@ -765,6 +765,19 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleSimplifyUnconditionalSelectsInRuleAttrs;
 
   @Option(
+      name = "incompatible_check_external_repo_source_dir_package_boundary",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, a source directory in an external repository fails the build if it crosses a"
+              + " package boundary into a sub-package, matching the behavior that already applies"
+              + " to source directories in the main repository. If false, such package boundary"
+              + " crossings inside external repositories are not detected.")
+  public boolean incompatibleCheckExternalRepoSourceDirPackageBoundary;
+
+  @Option(
       name = "experimental_enable_starlark_set",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -908,6 +921,9 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, experimentalSiblingRepositoryLayout)
             .setBool(
                 INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS, incompatibleAlwaysCheckDepsetElements)
+            .setBool(
+                INCOMPATIBLE_CHECK_EXTERNAL_REPO_SOURCE_DIR_PACKAGE_BOUNDARY,
+                incompatibleCheckExternalRepoSourceDirPackageBoundary)
             .setBool(INCOMPATIBLE_DISALLOW_EMPTY_GLOB, incompatibleDisallowEmptyGlob)
             .setBool(
                 INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX,
@@ -1090,6 +1106,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_sibling_repository_layout";
   public static final String INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS =
       "+incompatible_always_check_depset_elements";
+  public static final String INCOMPATIBLE_CHECK_EXTERNAL_REPO_SOURCE_DIR_PACKAGE_BOUNDARY =
+      "-incompatible_check_external_repo_source_dir_package_boundary";
 
   // Note that INCOMPATIBLE_DISALLOW_EMPTY_GLOB differs in Google and in OSS Bazel.
   public static final String INCOMPATIBLE_DISALLOW_EMPTY_GLOB = "+incompatible_disallow_empty_glob";

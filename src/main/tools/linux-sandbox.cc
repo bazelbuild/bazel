@@ -58,7 +58,10 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <atomic>
+#include <cinttypes>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -214,6 +217,25 @@ static pid_t SpawnPid1() {
   return child_pid;
 }
 
+static int64_t ReadCgroupsMemoryPeak(
+    const std::vector<std::string>& cgroups_dirs) {
+  int64_t max_value = -1;
+  for (const std::string& dir : cgroups_dirs) {
+    for (const char* fname : {"/memory.peak", "/memory.max_usage_in_bytes"}) {
+      int64_t value = -1;
+      std::string path = dir + fname;
+      FILE* f = fopen(path.c_str(), "r");
+      if (f != nullptr) {
+        if (fscanf(f, "%" SCNd64, &value) == 1) {
+          max_value = std::max(value, max_value);
+        }
+        fclose(f);
+      }
+    }
+  }
+  return max_value;
+}
+
 static int WaitForPid1(const pid_t child_pid) {
   // Wait for the child to exit, obtaining usage information. Restart in the
   // case of a signal interrupting us.
@@ -239,6 +261,10 @@ static int WaitForPid1(const pid_t child_pid) {
 
   // If we're supposed to write stats to a file, do so now.
   if (!opt.stats_path.empty()) {
+    int64_t cgroups_memory_peak = ReadCgroupsMemoryPeak(opt.cgroups_dirs);
+    if (cgroups_memory_peak > 0) {
+      child_rusage.ru_maxrss = cgroups_memory_peak / 1024;
+    }
     WriteStatsToFile(&child_rusage, opt.stats_path);
   }
 

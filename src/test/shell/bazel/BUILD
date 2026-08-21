@@ -1430,7 +1430,7 @@ sh_test(
     srcs = ["resource_compiler_toolchain_test.sh"],
     data = [
         ":test-deps",
-        "//src/main/res:srcs_for_testing",
+        "//tools/res:srcs",
     ],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )

@@ -87,6 +87,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
             options,
             UUID.randomUUID(),
             ImmutableMap.of(),
+            /* repoEnv= */ ImmutableMap.of(),
             QuiescingExecutorsImpl.forTesting(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());

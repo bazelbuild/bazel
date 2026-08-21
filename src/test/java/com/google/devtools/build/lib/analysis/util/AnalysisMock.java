@@ -219,7 +219,6 @@ public abstract class AnalysisMock extends LoadingMock {
   public ImmutableList<PrecomputedValue.Injected> getPrecomputedValues() {
     // PrecomputedValues required by SkyFunctions in getSkyFunctions()
     return ImmutableList.of(
-        PrecomputedValue.injected(PrecomputedValue.REPO_ENV, ImmutableMap.of()),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
         PrecomputedValue.injected(RepoDefinitionFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
         PrecomputedValue.injected(RepositoryDirectoryValue.FETCH_DISABLED, false),

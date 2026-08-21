@@ -340,6 +340,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
         pathPackageLocator,
         UUID.randomUUID(),
         /* clientEnv= */ ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()),
         QuiescingExecutorsImpl.forTesting(),
         FakeOptions.builder().put(packageOptions).put(options).build(),

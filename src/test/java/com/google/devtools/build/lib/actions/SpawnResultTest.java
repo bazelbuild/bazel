@@ -79,4 +79,18 @@ public final class SpawnResultTest {
     assertThat(r.getInMemoryOutput(null)).isEqualTo(null);
     assertThat(r.getInMemoryOutput(ActionInputHelper.fromPath("/does/not/exist"))).isEqualTo(null);
   }
+
+  @Test
+  public void defaultSpawnMetricsIncludesMeasuredMemoryFromResourceUsage() {
+    SpawnResult result =
+        new SpawnResult.Builder()
+            .setStatus(Status.SUCCESS)
+            .setExitCode(0)
+            .setRunnerName("test")
+            .setWallTimeInMs(100)
+            .setMemoryInKb(1000L)
+            .build();
+
+    assertThat(result.getMetrics().measuredMemoryPeak()).isEqualTo(1000L * 1024L);
+  }
 }

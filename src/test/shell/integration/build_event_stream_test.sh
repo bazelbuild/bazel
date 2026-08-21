@@ -908,9 +908,9 @@ function test_aspect_analysis_failure_no_target_summary() {
   expect_log 'last_message: true'
   expect_log_once '^build_tool_logs'
   expect_log_once '^completed '  # target completes due to -k
-  # One "aborted" for failed aspect analysis, another for target_summary_id
-  # announced by "completed" event asserted above
-  expect_log_n 'aborted' 2
+  # One "aborted" for failed aspect analysis, one for the target_configured
+  # event, and one for the target_summary_id announced by "completed" above.
+  expect_log_n '^aborted' 3
   expect_not_log '^target_summary '  # no summary due to analysis failure
 }
 

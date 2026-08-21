@@ -254,7 +254,7 @@ public class RuleTransitionApplier
         targetAndConfigurationData.getTrimmingTransitionFactory();
     if (trimmingTransitionFactory != null) {
       transitionFactory =
-          ComposingTransitionFactory.of(transitionFactory, trimmingTransitionFactory);
+          ComposingTransitionFactory.ofUnchecked(transitionFactory, trimmingTransitionFactory);
     }
     ConfiguredTargetKey preRuleTransitionKey = targetAndConfigurationData.getPreRuleTransitionKey();
     var transitionData =

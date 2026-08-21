@@ -193,6 +193,7 @@ public class StarlarkFileContentHashTests extends BuildViewTestCase {
             parseBuildLanguageOptions(),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
+            /* repoEnv= */ ImmutableMap.of(),
             QuiescingExecutorsImpl.forTesting(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());

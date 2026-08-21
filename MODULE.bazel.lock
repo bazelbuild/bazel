@@ -28,8 +28,8 @@
     "https://bcr.bazel.build/modules/apple_support/1.24.5/MODULE.bazel": "692784f32ee3175cc1ced78f4262a0d4b7110c89793cd0b63f950af2d9cc6bdc",
     "https://bcr.bazel.build/modules/apple_support/1.24.5/source.json": "e81e4f6557a879aaaa104e84255710a02862b9380b12bd72e4a58bff32c70116",
     "https://bcr.bazel.build/modules/apple_support/1.8.1/MODULE.bazel": "500f7aa32c008222e360dc9a158c248c2dbaeb3b6246c19e7269981dbd61e29b",
-    "https://bcr.bazel.build/modules/bazel_ci_rules/1.0.0/MODULE.bazel": "0f92c944b9c466066ed484cfc899cf43fca765df78caca18984c62479f7925eb",
-    "https://bcr.bazel.build/modules/bazel_ci_rules/1.0.0/source.json": "3405a2a7f9f827a44934b01470faeac1b56fb1304955c98ee9fcd03ad2ca5dcc",
+    "https://bcr.bazel.build/modules/bazel_ci_rules/2.0.0/MODULE.bazel": "96dc6d2eac255b530a645cbf9102064ea997cae7b22acbe34fcc976f3dd53cbf",
+    "https://bcr.bazel.build/modules/bazel_ci_rules/2.0.0/source.json": "b6948e739190180af80dd91ceb9e3fb2b0c0160ecbf81177de2130475b54b516",
     "https://bcr.bazel.build/modules/bazel_features/1.0.0/MODULE.bazel": "d7f022dc887efb96e1ee51cec7b2e48d41e36ff59a6e4f216c40e4029e1585bf",
     "https://bcr.bazel.build/modules/bazel_features/1.1.0/MODULE.bazel": "cfd42ff3b815a5f39554d97182657f8c4b9719568eb7fded2b9135f084bf760b",
     "https://bcr.bazel.build/modules/bazel_features/1.1.1/MODULE.bazel": "27b8c79ef57efe08efccbd9dd6ef70d61b4798320b8d3c134fd571f78963dbcd",
@@ -422,6 +422,21 @@
               "urls": [
                 "https://github.com/async-profiler/async-profiler/releases/download/v4.1/async-profiler-4.1-macos.zip"
               ]
+            }
+          }
+        }
+      }
+    },
+    "@@bazel_ci_rules+//:rbe_config.bzl%rbe_config_extension": {
+      "general": {
+        "bzlTransitiveDigest": "9+l/EBrynYwo8/gokt6U/+ZoE2tIACzH5rOoPfI01wE=",
+        "usagesDigest": "Qd2diN4mhPjxkOMfsRywFhb/0ckaxs9BAbp/oY1aJCg=",
+        "recordedInputs": [],
+        "generatedRepoSpecs": {
+          "rbe_ubuntu2404": {
+            "repoRuleId": "@@bazel_ci_rules+//:rbe_config.bzl%_rbe_config",
+            "attributes": {
+              "preset_name": "ubuntu2404"
             }
           }
         }

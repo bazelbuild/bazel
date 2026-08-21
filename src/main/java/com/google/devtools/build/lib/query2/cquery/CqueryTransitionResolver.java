@@ -263,7 +263,7 @@ public class CqueryTransitionResolver {
     boolean isAlias = rule.getAssociatedRule().getName().equals("alias");
     if (trimmingTransitionFactory != null && !isAlias) {
       transitionFactory =
-          ComposingTransitionFactory.of(transitionFactory, trimmingTransitionFactory);
+          ComposingTransitionFactory.ofUnchecked(transitionFactory, trimmingTransitionFactory);
     }
 
     var transitionData = RuleTransitionData.create(rule, /* configConditions= */ null, "");

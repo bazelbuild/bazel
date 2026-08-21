@@ -69,7 +69,7 @@ eof
 package(default_visibility = ["//visibility:public"])
 
 load(
-    "//src/main/res:winsdk_toolchain.bzl",
+    "//tools/res:winsdk_toolchain.bzl",
     "windows_resource_compiler_toolchain",
     "WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE",
 )
@@ -141,7 +141,7 @@ eof
   # Define a windows_resources rule we'll try to build with various exec and
   # target platform combinations.
   cat > "BUILD" <<'eof'
-load("//src/main/res:win_res.bzl", "windows_resources")
+load("//tools/res:win_res.bzl", "windows_resources")
 
 windows_resources(
     name = "res",
@@ -154,10 +154,10 @@ eof
 }
 
 function _symlink_res_toolchain_files() {
-  mkdir -p "src/main/res"
+  mkdir -p "tools/res"
   for f in BUILD win_res.bzl winsdk_configure.bzl winsdk_toolchain.bzl; do
-    real="$(rlocation io_bazel/src/main/res/$f)"
-    ln -sf "$real" "src/main/res/$f"
+    real="$(rlocation io_bazel/tools/res/$f)"
+    ln -sf "$real" "tools/res/$f"
   done
 }
 

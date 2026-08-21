@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis.config.transitions;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -129,18 +128,37 @@ public class ComposingTransitionFactoryTest {
   }
 
   @Test
-  public void compose_split_split() {
-    // Combining two split transition factories is not allowed.
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            ComposingTransitionFactory.of(
-                new StubSplitFactory(FLAG_1, "value1a", "value1b"),
-                new StubSplitFactory(FLAG_2, "value2a", "value2b")));
+  public void compose_split_split() throws Exception {
+    // Two split transitions compose into the cross product of their splits, with composed keys.
+    TransitionFactory<StubData> composed =
+        ComposingTransitionFactory.of(
+            new StubSplitFactory(FLAG_1, "value1a", "value1b"),
+            new StubSplitFactory(FLAG_2, "value2a", "value2b"));
+
+    assertThat(composed).isNotNull();
+    assertThat(composed.isSplit()).isTrue();
+    ConfigurationTransition transition = composed.create(new StubData());
+    Map<String, BuildOptions> results =
+        transition.apply(
+            TransitionUtil.restrict(transition, BuildOptions.builder().build()), eventHandler);
+    assertThat(results.keySet())
+        .containsExactly(
+            "stub_split0,stub_split0",
+            "stub_split0,stub_split1",
+            "stub_split1,stub_split0",
+            "stub_split1,stub_split1");
+    assertThat(results.get("stub_split0,stub_split0").getStarlarkOptions())
+        .containsAtLeast(FLAG_1, "value1a", FLAG_2, "value2a");
+    assertThat(results.get("stub_split0,stub_split1").getStarlarkOptions())
+        .containsAtLeast(FLAG_1, "value1a", FLAG_2, "value2b");
+    assertThat(results.get("stub_split1,stub_split0").getStarlarkOptions())
+        .containsAtLeast(FLAG_1, "value1b", FLAG_2, "value2a");
+    assertThat(results.get("stub_split1,stub_split1").getStarlarkOptions())
+        .containsAtLeast(FLAG_1, "value1b", FLAG_2, "value2b");
   }
 
   @Test
-  public void compose_noTrans_first() {
+  public void compose_noTrans_first() throws Exception {
     TransitionFactory<StubData> patch = new StubPatchFactory(FLAG_1, "value");
     TransitionFactory<StubData> composed =
         ComposingTransitionFactory.of(NoTransition.getFactory(), patch);
@@ -150,7 +168,7 @@ public class ComposingTransitionFactoryTest {
   }
 
   @Test
-  public void compose_noTrans_second() {
+  public void compose_noTrans_second() throws Exception {
     TransitionFactory<StubData> patch = new StubPatchFactory(FLAG_1, "value");
     TransitionFactory<StubData> composed =
         ComposingTransitionFactory.of(patch, NoTransition.getFactory());

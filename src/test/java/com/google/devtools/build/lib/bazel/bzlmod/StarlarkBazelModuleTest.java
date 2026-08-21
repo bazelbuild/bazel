@@ -60,7 +60,8 @@ public class StarlarkBazelModuleTest {
         .setImplementation(() -> "maven")
         .setEnvVariables(ImmutableList.of())
         .setOsDependent(false)
-        .setArchDependent(false);
+        .setArchDependent(false)
+        .setFactsVersion(0);
   }
 
   @Test

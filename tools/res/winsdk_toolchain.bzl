@@ -40,7 +40,8 @@ Usage:
     )
 """
 
-WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE = "@io_bazel//src/main/res:toolchain_type"
+# Label resolves to this file's repo: @io_bazel in source builds, @bazel_tools once embedded
+WINDOWS_RESOURCE_COMPILER_TOOLCHAIN_TYPE = Label("//tools/res:toolchain_type")
 
 WindowsResourceCompilerInfo = provider(
     fields = ["rc_exe"],

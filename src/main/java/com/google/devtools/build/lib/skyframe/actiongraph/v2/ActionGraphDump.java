@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -140,7 +141,9 @@ public class ActionGraphDump {
   }
 
   private void dumpSingleAction(ConfiguredTarget configuredTarget, ActionAnalysisMetadata action)
-      throws CommandLineExpansionException, InterruptedException, IOException,
+      throws CommandLineExpansionException,
+          InterruptedException,
+          IOException,
           TemplateExpansionException {
 
     // Store the content of param files.
@@ -187,7 +190,7 @@ public class ActionGraphDump {
       // TODO(twerth): This handles the fixed environment. We probably want to output the inherited
       // environment as well.
       ImmutableMap<String, String> fixedEnvironment =
-          spawnAction.getEffectiveEnvironment(ImmutableMap.of());
+          spawnAction.getEffectiveEnvironment(ImmutableMap.of(), PathMapper.NOOP);
       for (Map.Entry<String, String> environmentVariable : fixedEnvironment.entrySet()) {
         actionBuilder.addEnvironmentVariables(
             AnalysisProtosV2.KeyValuePair.newBuilder()
@@ -210,7 +213,6 @@ public class ActionGraphDump {
         actionBuilder.setFileContents(contents);
       }
     }
-
 
     if (action instanceof UnresolvedSymlinkAction) {
       actionBuilder.setUnresolvedSymlinkTarget(((UnresolvedSymlinkAction) action).getTarget());
@@ -315,7 +317,9 @@ public class ActionGraphDump {
   }
 
   public void dumpConfiguredTarget(RuleConfiguredTargetValue configuredTargetValue)
-      throws CommandLineExpansionException, InterruptedException, IOException,
+      throws CommandLineExpansionException,
+          InterruptedException,
+          IOException,
           TemplateExpansionException {
     ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
     if (!includeInActionGraph(configuredTarget.getLabel().toString())) {

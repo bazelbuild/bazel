@@ -38,10 +38,14 @@ public class RepositoryMapping {
 
   private final ImmutableMap<String, RepositoryName> entries;
   private final RepositoryName contextRepo;
+  // entries has an expensive hashCode() method that isn't cached.
+  private final int hashCode;
 
-  private RepositoryMapping(Map<String, RepositoryName> entries, RepositoryName contextRepo) {
+  private RepositoryMapping(
+      Map<String, RepositoryName> entries, int entriesHashCode, RepositoryName contextRepo) {
     this.entries = ImmutableMap.copyOf(entries);
     this.contextRepo = contextRepo;
+    this.hashCode = 31 * entriesHashCode + contextRepo.hashCode();
   }
 
   /** Returns all the entries in this repo mapping. */
@@ -67,7 +71,7 @@ public class RepositoryMapping {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(entries, contextRepo);
+    return hashCode;
   }
 
   @Override
@@ -77,8 +81,24 @@ public class RepositoryMapping {
 
   public static RepositoryMapping create(
       ImmutableMap<String, RepositoryName> entries, RepositoryName contextRepo) {
+    return createWithKnownEntriesHashCode(
+        entries, entries.hashCode(), Preconditions.checkNotNull(contextRepo));
+  }
+
+  /**
+   * Use this over {@link #create} if the {@link ImmutableMap#hashCode()} of the entries map is
+   * already known.
+   *
+   * <p>Avoids repeated recomputation for RepositoryMapping instances with identical entries maps.
+   */
+  public static RepositoryMapping createWithKnownEntriesHashCode(
+      ImmutableMap<String, RepositoryName> entries,
+      int entriesHashCode,
+      RepositoryName contextRepo) {
     return new RepositoryMapping(
-        Preconditions.checkNotNull(entries), Preconditions.checkNotNull(contextRepo));
+        Preconditions.checkNotNull(entries),
+        entriesHashCode,
+        Preconditions.checkNotNull(contextRepo));
   }
 
   /**
@@ -87,7 +107,7 @@ public class RepositoryMapping {
    */
   public RepositoryMapping withAdditionalMappings(
       ImmutableMap<String, RepositoryName> additionalMappings) {
-    return new RepositoryMapping(
+    return create(
         ImmutableMap.<String, RepositoryName>builderWithExpectedSize(
                 entries().size() + additionalMappings.size())
             .putAll(additionalMappings)
@@ -141,7 +161,7 @@ public class RepositoryMapping {
       inverse.putIfAbsent(entry.getValue(), entry.getKey());
     }
     var inverseCopy = ImmutableMap.copyOf(inverse);
-    return new RepositoryMapping(entries, contextRepo) {
+    return new RepositoryMapping(entries, entries.hashCode(), contextRepo) {
       @Override
       public Optional<String> getInverse(RepositoryName postMappingName) {
         return Optional.ofNullable(inverseCopy.get(postMappingName));

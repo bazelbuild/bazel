@@ -148,6 +148,11 @@ final class InnateRunnableExtension implements RunnableExtension {
   }
 
   @Override
+  public int getFactsVersion() {
+    return 0;
+  }
+
+  @Override
   public RunModuleExtensionResult run(
       Environment env,
       SingleExtensionUsagesValue usagesValue,

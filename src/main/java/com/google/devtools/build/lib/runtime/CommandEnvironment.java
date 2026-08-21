@@ -682,6 +682,15 @@ public class CommandEnvironment {
     return workspace.getSkyframeExecutor();
   }
 
+  /**
+   * Returns the path of the repo contents cache directory, or {@code null} if the repo contents
+   * cache is disabled.
+   */
+  @Nullable
+  public Path getRepoContentsCachePath() {
+    return getSkyframeExecutor().getRepoContentsCachePath();
+  }
+
   public SkyframeBuildView getSkyframeBuildView() {
     return getSkyframeExecutor().getSkyframeBuildView();
   }
@@ -857,6 +866,7 @@ public class CommandEnvironment {
                 packageLocator,
                 commandId,
                 clientEnv,
+                repoEnv,
                 timestampGranularityMonitor,
                 quiescingExecutors,
                 options,

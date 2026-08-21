@@ -37,13 +37,16 @@ import io.grpc.auth.MoreCallCredentials;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.epoll.Epoll;
+import io.netty.channel.epoll.EpollChannelOption;
 import io.netty.channel.epoll.EpollDomainSocketChannel;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.kqueue.KQueue;
 import io.netty.channel.kqueue.KQueueDomainSocketChannel;
 import io.netty.channel.kqueue.KQueueEventLoopGroup;
+import io.netty.channel.socket.nio.NioChannelOption;
 import io.netty.channel.unix.DomainSocketAddress;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
@@ -58,6 +61,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import javax.annotation.Nullable;
+import jdk.net.ExtendedSocketOptions;
 
 /** Utility methods for using {@link AuthAndTLSOptions} with Google Cloud. */
 public final class GoogleAuthUtils {
@@ -88,11 +92,43 @@ public final class GoogleAuthUtils {
       NettyChannelBuilder builder =
           newNettyChannelBuilder(targetUrl, proxy)
               .executor(executor)
+              // The server is trusted, so the default limit of 4 MiB on inbound messages only
+              // breaks legitimately large messages such as the ActionResult of an action with
+              // many output files (https://github.com/bazelbuild/bazel/issues/29821).
+              .maxInboundMessageSize(Integer.MAX_VALUE)
               .negotiationType(
                   isTlsEnabled(target) ? NegotiationType.TLS : NegotiationType.PLAINTEXT);
       if (options.grpcKeepaliveTime != null && !options.grpcKeepaliveTime.isZero()) {
         builder.keepAliveTime(options.grpcKeepaliveTime.toNanos(), NANOSECONDS);
         builder.keepAliveTimeout(options.grpcKeepaliveTimeout.toNanos(), NANOSECONDS);
+      }
+      boolean isUnixSocketChannel = targetUrl.startsWith("unix:") || !Strings.isNullOrEmpty(proxy);
+      if (options.grpcTcpKeepalive && !isUnixSocketChannel) {
+        builder.withOption(ChannelOption.SO_KEEPALIVE, true);
+        boolean epoll = Epoll.isAvailable();
+        long idleSeconds = options.grpcTcpKeepaliveTime.toSeconds();
+        if (idleSeconds > 0) {
+          builder.withOption(
+              epoll
+                  ? EpollChannelOption.TCP_KEEPIDLE
+                  : NioChannelOption.of(ExtendedSocketOptions.TCP_KEEPIDLE),
+              Math.toIntExact(idleSeconds));
+        }
+        long intervalSeconds = options.grpcTcpKeepaliveInterval.toSeconds();
+        if (intervalSeconds > 0) {
+          builder.withOption(
+              epoll
+                  ? EpollChannelOption.TCP_KEEPINTVL
+                  : NioChannelOption.of(ExtendedSocketOptions.TCP_KEEPINTERVAL),
+              Math.toIntExact(intervalSeconds));
+        }
+        if (options.grpcTcpKeepaliveCount > 0) {
+          builder.withOption(
+              epoll
+                  ? EpollChannelOption.TCP_KEEPCNT
+                  : NioChannelOption.of(ExtendedSocketOptions.TCP_KEEPCOUNT),
+              options.grpcTcpKeepaliveCount);
+        }
       }
       if (interceptors != null) {
         builder.intercept(interceptors);

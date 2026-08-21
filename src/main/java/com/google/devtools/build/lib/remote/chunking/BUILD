@@ -18,7 +18,7 @@ java_library(
         "FastCdcChunker.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/remote/util:digest_utils",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
         "//third_party:guava",
         "//third_party:jsr305",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",

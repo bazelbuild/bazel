@@ -114,6 +114,8 @@ message SpawnMetrics {
   google.protobuf.Duration time_limit = 19;
   // Instant when the spawn started to execute.
   google.protobuf.Timestamp start_time = 20;
+  // Measured peak memory usage in bytes, or 0 if unavailable.
+  int64 measured_memory_peak_bytes = 21;
 }
 
 // Details of an executed spawn.

@@ -709,6 +709,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             parseBuildLanguageOptions(),
             UUID.randomUUID(),
             ImmutableMap.of(),
+            /* repoEnv= */ ImmutableMap.of(),
             QuiescingExecutorsImpl.forTesting(),
             tsgm);
     getSkyframeExecutor().injectExtraPrecomputedValues(analysisMock.getPrecomputedValues());

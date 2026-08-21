@@ -208,7 +208,7 @@ public class MerkleTreeComputerTest {
             new MerkleTreeUploader() {
               @Override
               public ListenableFuture<Void> uploadBlob(
-                  RemoteActionExecutionContext context, Digest digest, byte[] data) {
+                  RemoteActionExecutionContext context, Digest digest, byte[] data, boolean force) {
                 return immediateVoidFuture();
               }
 
@@ -217,7 +217,8 @@ public class MerkleTreeComputerTest {
                   RemoteActionExecutionContext context,
                   RemotePathResolver remotePathResolver,
                   Digest digest,
-                  Path path) {
+                  Path path,
+                  boolean force) {
                 return immediateVoidFuture();
               }
 
@@ -225,7 +226,8 @@ public class MerkleTreeComputerTest {
               public ListenableFuture<Void> uploadVirtualActionInput(
                   RemoteActionExecutionContext context,
                   Digest digest,
-                  VirtualActionInput virtualActionInput) {
+                  VirtualActionInput virtualActionInput,
+                  boolean force) {
                 return immediateVoidFuture();
               }
 

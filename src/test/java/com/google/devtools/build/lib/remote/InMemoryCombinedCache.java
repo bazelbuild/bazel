@@ -74,7 +74,9 @@ class InMemoryCombinedCache extends RemoteExecutionCache {
   Digest addContents(RemoteActionExecutionContext context, byte[] bytes)
       throws IOException, InterruptedException {
     Digest digest = digestUtil.compute(bytes);
-    Utils.getFromFuture(remoteCacheClient.uploadBlob(context, digest, ByteString.copyFrom(bytes)));
+    Utils.getFromFuture(
+        remoteCacheClient.uploadBlob(
+            context, digest, ByteString.copyFrom(bytes), /* force= */ false));
     return digest;
   }
 

@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.buildeventservice;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.CommandContext;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceGrpcClient;
 import com.google.devtools.build.v1.PublishBuildEventGrpc;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
@@ -44,6 +46,16 @@ import org.junit.runners.JUnit4;
 /** Tests {@link BuildEventServiceGrpcClient}. */
 @RunWith(JUnit4.class)
 public class BuildEventServiceGrpcClientTest {
+
+  private static final CommandContext COMMAND_CONTEXT =
+      CommandContext.builder()
+          .setBuildId(UUID.randomUUID().toString())
+          .setInvocationId(UUID.randomUUID().toString())
+          .setAttemptNumber(1)
+          .setKeywords(ImmutableSet.of())
+          .setProjectId(null)
+          .setCheckPrecedingLifecycleEvents(false)
+          .build();
 
   private static final PublishBuildEventGrpc.PublishBuildEventImplBase NOOP_SERVER =
       new PublishBuildEventGrpc.PublishBuildEventImplBase() {
@@ -120,13 +132,9 @@ public class BuildEventServiceGrpcClientTest {
       extraHeaders.put(Metadata.Key.of("metadata-foo", Metadata.ASCII_STRING_MARSHALLER), "bar");
       ClientInterceptor interceptor = MetadataUtils.newAttachHeadersInterceptor(extraHeaders);
       BuildEventServiceGrpcClient grpcClient =
-          new BuildEventServiceGrpcClient(
-              server.getChannel(),
-              null,
-              interceptor,
-              "testing/" + UUID.randomUUID(),
-              UUID.randomUUID());
-      assertThat(grpcClient.openStream(ack -> {}).getStatus().get()).isEqualTo(Status.OK);
+          new BuildEventServiceGrpcClient(server.getChannel(), null, interceptor);
+      assertThat(grpcClient.openStream(COMMAND_CONTEXT, ack -> {}).getStatus().get())
+          .isEqualTo(Status.OK);
       assertThat(seenHeaders).hasSize(1);
       Metadata headers = seenHeaders.get(0);
       assertThat(headers.get(Metadata.Key.of("metadata-foo", Metadata.ASCII_STRING_MARSHALLER)))
@@ -138,13 +146,8 @@ public class BuildEventServiceGrpcClientTest {
   public void immediateSuccess() throws Exception {
     try (TestServer server = startTestServer(NOOP_SERVER.bindService())) {
       assertThat(
-              new BuildEventServiceGrpcClient(
-                      server.getChannel(),
-                      null,
-                      null,
-                      "testing/" + UUID.randomUUID(),
-                      UUID.randomUUID())
-                  .openStream(ack -> {})
+              new BuildEventServiceGrpcClient(server.getChannel(), null, null)
+                  .openStream(COMMAND_CONTEXT, ack -> {})
                   .getStatus()
                   .get())
           .isEqualTo(Status.OK);
@@ -164,13 +167,8 @@ public class BuildEventServiceGrpcClientTest {
               }
             }.bindService())) {
       assertThat(
-              new BuildEventServiceGrpcClient(
-                      server.getChannel(),
-                      null,
-                      null,
-                      "testing/" + UUID.randomUUID(),
-                      UUID.randomUUID())
-                  .openStream(ack -> {})
+              new BuildEventServiceGrpcClient(server.getChannel(), null, null)
+                  .openStream(COMMAND_CONTEXT, ack -> {})
                   .getStatus()
                   .get())
           .isEqualTo(Status.INTERNAL);

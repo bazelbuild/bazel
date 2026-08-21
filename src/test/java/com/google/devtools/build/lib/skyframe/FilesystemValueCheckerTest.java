@@ -1385,7 +1385,7 @@ public final class FilesystemValueCheckerTest {
     DigestHashFunction hashFn = fs.getDigestFunction();
     HashCode hash = hashFn.getHashFunction().hashBytes(data);
     return FileArtifactValue.createForRemoteFileWithMaterializationData(
-        hash.asBytes(), data.length, -1, expirationTime);
+        hash.asBytes(), data.length, -1, expirationTime, /* inMemoryOutput= */ false);
   }
 
   @Test

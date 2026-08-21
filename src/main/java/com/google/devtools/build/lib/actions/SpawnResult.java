@@ -316,10 +316,14 @@ public interface SpawnResult {
       this.executorHostName = builder.executorHostName;
       this.runnerName = builder.runnerName;
       this.runnerSubtype = builder.runnerSubtype;
-      this.spawnMetrics =
+      SpawnMetrics metrics =
           builder.spawnMetrics != null
               ? builder.spawnMetrics
               : SpawnMetrics.forLocalExecution(builder.wallTimeInMs);
+      if (builder.memoryInKb != null) {
+        metrics = metrics.toBuilder().setMeasuredMemoryPeakBytes(builder.memoryInKb * 1024).build();
+      }
+      this.spawnMetrics = metrics;
       this.startTime = builder.startTime;
       this.wallTimeInMs = builder.wallTimeInMs;
       this.userTimeInMs = builder.userTimeInMs;

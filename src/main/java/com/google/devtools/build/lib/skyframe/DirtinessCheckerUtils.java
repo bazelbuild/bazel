@@ -148,7 +148,12 @@ public class DirtinessCheckerUtils {
       if (cacheable) {
         return SkyValueDirtinessChecker.DirtyResult.dirtyWithNewValue(newValue);
       }
-      if (fileType == FileType.EXTERNAL_REPO) {
+      // The hermetic Linux sandbox uses hardlinks to stage inputs, which affects ctimes. Don't
+      // report files as modified and trigger a refetch of the repo just due to that.
+      if (fileType == FileType.EXTERNAL_REPO
+          && !(oldValue instanceof FileStateValue oldFileState
+              && newValue instanceof FileStateValue newFileState
+              && newFileState.equalsIgnoringChangeTime(oldFileState))) {
         var repositoryName = externalFilesHelper.getExternalRepoName(rootedPath);
         if (repositoryName != null) {
           dirtyExternalRepos.putIfAbsent(repositoryName, rootedPath);

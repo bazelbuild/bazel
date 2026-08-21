@@ -82,16 +82,16 @@ public class DynamicConnectionPool implements ConnectionPool {
    * has available connections, and the number of factories is less than {@link #maxConnections}, it
    * will create a new {@link SharedConnectionFactory}.
    */
-  private SharedConnectionFactory nextAvailableFactory() {
+  private Single<SharedConnection> createConnection() {
     if (closed.get()) {
       throw new IllegalStateException("closed");
     }
 
     synchronized (this) {
       for (int times = 0; times < factories.size(); ++times) {
-        SharedConnectionFactory factory = nextFactory();
-        if (factory.numAvailableConnections() > 0) {
-          return factory;
+        Single<SharedConnection> connection = nextFactory().tryCreate();
+        if (connection != null) {
+          return connection;
         }
       }
 
@@ -99,19 +99,15 @@ public class DynamicConnectionPool implements ConnectionPool {
         SharedConnectionFactory factory =
             new SharedConnectionFactory(connectionFactory, maxConcurrencyPerConnection);
         factories.add(factory);
-        return factory;
+        return factory.tryCreate();
       } else {
-        return nextFactory();
+        return nextFactory().create();
       }
     }
   }
 
   @Override
   public Single<SharedConnection> create() {
-    return Single.defer(
-        () -> {
-          SharedConnectionFactory factory = nextAvailableFactory();
-          return factory.create();
-        });
+    return Single.defer(this::createConnection);
   }
 }
