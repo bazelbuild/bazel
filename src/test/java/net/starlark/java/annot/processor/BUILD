@@ -18,9 +18,9 @@ java_test(
     runtime_deps = ["//src/main/java/net/starlark/java/eval"],  # loaded reflectively
     deps = [
         "//src/main/java/net/starlark/java/annot/processor:processor_lib",
-        "//third_party:compile_testing",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/compile_testing",
+        "//third_party/java/guava:io",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )

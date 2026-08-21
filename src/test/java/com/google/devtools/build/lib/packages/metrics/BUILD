@@ -24,11 +24,11 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages/metrics:package_load_metrics_java_proto",
         "//src/main/java/com/google/devtools/build/lib/pkgcache:package_options",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
-        "@com_google_protobuf//:protobuf_java_util",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/protobuf/util:time",
+        "//third_party/java/truth",
     ],
 )
 
@@ -40,8 +40,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages/metrics",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/truth",
     ],
 )

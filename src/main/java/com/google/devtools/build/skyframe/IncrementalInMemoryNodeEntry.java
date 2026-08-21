@@ -381,6 +381,32 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
     return version.lastChanged();
   }
 
+  /**
+   * Returns this node's direct deps from the last evaluation if the node may be resurrected by
+   * change pruning; otherwise returns {@code null}. The node may be kept iff every returned dep is
+   * still present and was not changed more recently than {@link #lastEvaluatedVersion}.
+   */
+  @Nullable
+  final Iterable<SkyKey> lastBuildDepsIfChangePrunable() {
+    var localDirtyBuildingState = dirtyBuildingState;
+    if (localDirtyBuildingState == null
+        || !localDirtyBuildingState.isIncremental()
+        || isChanged()) {
+      return null;
+    }
+    try {
+      return localDirtyBuildingState.getLastBuildDirectDeps().getAllElementsAsIterable();
+    } catch (InterruptedException e) {
+      // An incremental dirty state returns its stored deps without blocking.
+      throw new IllegalStateException(e);
+    }
+  }
+
+  /** Returns the version at which this node was last evaluated; see {@link NodeVersion}. */
+  final Version lastEvaluatedVersion() {
+    return version.lastEvaluated();
+  }
+
   @Override
   public final synchronized ImmutableSet<SkyKey> getAllDirectDepsForIncompleteNode()
       throws InterruptedException {

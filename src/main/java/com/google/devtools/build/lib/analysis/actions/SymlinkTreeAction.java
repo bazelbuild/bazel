@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.RichDataProducingAction;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -58,6 +59,7 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
   // Exactly one of these two fields is non-null.
   @Nullable private final Runfiles runfiles;
   @Nullable private final String workspaceNameForFileset;
+  private final boolean preferTargetConfigurationRunfiles;
 
   /**
    * Creates SymlinkTreeAction instance.
@@ -85,7 +87,8 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
         repoMappingManifest,
         config.getActionEnvironment(),
         config.getRunfileSymlinksMode(),
-        config.getWorkspaceName());
+        config.getWorkspaceName(),
+        config.getOptions().get(CoreOptions.class).getPreferDependingConfigurationRunfiles());
   }
 
   /**
@@ -111,6 +114,28 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
       ActionEnvironment env,
       RunfileSymlinksMode runfileSymlinksMode,
       String workspaceName) {
+    this(
+        owner,
+        inputManifest,
+        runfiles,
+        outputManifest,
+        repoMappingManifest,
+        env,
+        runfileSymlinksMode,
+        workspaceName,
+        /* preferTargetConfigurationRunfiles= */ false);
+  }
+
+  public SymlinkTreeAction(
+      ActionOwner owner,
+      Artifact inputManifest,
+      @Nullable Runfiles runfiles,
+      Artifact outputManifest,
+      @Nullable Artifact repoMappingManifest,
+      ActionEnvironment env,
+      RunfileSymlinksMode runfileSymlinksMode,
+      String workspaceName,
+      boolean preferTargetConfigurationRunfiles) {
     super(
         owner,
         computeInputs(runfileSymlinksMode, runfiles, inputManifest, repoMappingManifest),
@@ -121,6 +146,7 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
     this.runfileSymlinksMode = runfileSymlinksMode;
     this.inputManifest = inputManifest;
     this.repoMappingManifest = repoMappingManifest;
+    this.preferTargetConfigurationRunfiles = preferTargetConfigurationRunfiles;
     if (inputManifest.isFileset()) {
       checkArgument(runfiles == null, "Runfiles present for fileset %s", inputManifest);
       this.runfiles = null;
@@ -205,6 +231,7 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
     fp.addString(GUID);
     fp.addNullableString(workspaceNameForFileset);
     fp.addInt(runfileSymlinksMode.ordinal());
+    fp.addBoolean(preferTargetConfigurationRunfiles);
     env.addTo(fp);
     // We need to ensure that the fingerprints for two different instances of this action are
     // different. Consider the hypothetical scenario where we add a second runfiles object to this
@@ -250,5 +277,9 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
   @Override
   public boolean mayInsensitivelyPropagateInputs() {
     return true;
+  }
+
+  public boolean isPreferTargetConfigurationRunfiles() {
+    return preferTargetConfigurationRunfiles;
   }
 }

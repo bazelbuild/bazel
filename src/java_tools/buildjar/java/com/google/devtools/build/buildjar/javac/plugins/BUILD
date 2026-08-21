@@ -20,7 +20,7 @@ java_library(
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:invalid_command_line_exception",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -41,9 +41,11 @@ java_library(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:JarOwner",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",
         "//src/main/protobuf:deps_java_proto",
-        "//third_party:auto_value",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -61,8 +63,9 @@ java_library(
         ":plugins",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:invalid_command_line_exception",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",
-        "//third_party:error_prone",
-        "//third_party:guava",
+        "//third_party/java/error_prone",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -77,8 +80,8 @@ java_library(
     deps = [
         ":plugins",
         "//src/main/protobuf:java_compilation_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 

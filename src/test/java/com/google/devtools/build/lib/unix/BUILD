@@ -35,12 +35,12 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/vfs:FileSystemTest_lib",
         "//src/test/java/com/google/devtools/build/lib/vfs:SymlinkAwareFileSystemTest",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:testing",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
     ],
 )
 

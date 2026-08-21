@@ -51,9 +51,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
@@ -68,8 +68,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_caching_services_supplier",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:concurrent",
     ],
 )
 
@@ -78,7 +78,8 @@ java_library(
     srcs = ["DependOnFutureShim.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
     ],
 )
 
@@ -88,7 +89,9 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:client_id",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:hash",
+        "//third_party/java/guava:primitives",
     ],
 )
 
@@ -139,15 +142,25 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:bucket",
         "//src/main/java/com/google/devtools/build/lib/util:decimal_bucketer",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:caffeine",
-        "//third_party:error_prone_annotations",
-        "//third_party:fastutil",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/caffeine",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/fastutil:int-to-object-open-hash-map",
+        "//third_party/java/fastutil:object-to-int-open-hash-map",
+        "//third_party/java/fastutil:reference-to-int-open-hash-map",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:hash",
+        "//third_party/java/guava:io",
+        "//third_party/java/guava:primitives",
+        "//third_party/java/guava:reflect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/zstd_jni",
         "//third_party/pprof:profile_java_proto",
-        "@com_google_protobuf//:protobuf_java",
-        "@zstd-jni",
     ],
 )
 
@@ -175,7 +188,10 @@ java_library(
 java_library(
     name = "error_message_helper",
     srcs = ["ErrorMessageHelper.java"],
-    deps = ["//third_party:guava"],
+    deps = [
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
+    ],
 )
 
 java_library(
@@ -185,9 +201,9 @@ java_library(
         ":serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
@@ -198,8 +214,8 @@ java_library(
         ":serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/guava:base",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
@@ -211,8 +227,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/guava:base",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
@@ -223,7 +239,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
-        "//third_party:guava",
+        "//third_party/java/guava:concurrent",
     ],
 )
 
@@ -236,8 +252,9 @@ java_library(
         ":write_status",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
     ],
 )
 
@@ -257,8 +274,9 @@ java_library(
         ":write_status",
         "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//src/main/java/com/google/devtools/build/lib/util:bucket",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -291,8 +309,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_miss_reason_java_proto",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )

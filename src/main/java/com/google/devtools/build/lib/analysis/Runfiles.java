@@ -27,6 +27,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -327,7 +328,18 @@ public final class Runfiles implements RunfilesApi {
    */
   public SortedMap<PathFragment, Artifact> getRunfilesInputs(
       @Nullable Artifact repoMappingManifest) {
-    return getRunfilesInputs(RunfilesConflictReceiver.NO_OP, repoMappingManifest);
+    return getRunfilesInputs(RunfilesConflictReceiver.NO_OP, repoMappingManifest, null);
+  }
+
+  public SortedMap<PathFragment, Artifact> getRunfilesInputs(
+      @Nullable Artifact repoMappingManifest, @Nullable ArtifactRoot originatingTargetRoot) {
+    return getRunfilesInputs(
+        RunfilesConflictReceiver.NO_OP, repoMappingManifest, originatingTargetRoot);
+  }
+
+  SortedMap<PathFragment, Artifact> getRunfilesInputs(
+      RunfilesConflictReceiver receiver, @Nullable Artifact repoMappingManifest) {
+    return getRunfilesInputs(receiver, repoMappingManifest, null);
   }
 
   /**
@@ -337,17 +349,22 @@ public final class Runfiles implements RunfilesApi {
    * @param repoMappingManifest repository mapping manifest to add as a root symlink. This manifest
    *     has to be added automatically for every executable and is thus not part of the Runfiles
    *     advertised by a configured target.
+   * @param originatingTargetRoot the root of the originating target configuration, if available.
+   *     This is used to match runfiles to the configuration of the depending rule in the event of
+   *     conflicts. The configuration of the depending target is preferred.
    * @return Map<PathFragment, Artifact> path fragment to artifact, of normal source tree entries
    *     and elements that live outside the source tree. Null values represent empty input files.
    */
   SortedMap<PathFragment, Artifact> getRunfilesInputs(
-      RunfilesConflictReceiver receiver, @Nullable Artifact repoMappingManifest) {
+      RunfilesConflictReceiver receiver,
+      @Nullable Artifact repoMappingManifest,
+      @Nullable ArtifactRoot originatingTargetRoot) {
     Map<PathFragment, Artifact> manifest = new LinkedHashMap<>();
     for (SymlinkEntry entry : symlinks.toList()) {
-      checkAndPut(manifest, receiver, entry.getPath(), entry.getArtifact());
+      checkAndPut(manifest, receiver, entry.getPath(), entry.getArtifact(), originatingTargetRoot);
     }
     for (Artifact artifact : artifacts.toList()) {
-      checkAndPut(manifest, receiver, artifact.getRunfilesPath(), artifact);
+      checkAndPut(manifest, receiver, artifact.getRunfilesPath(), artifact, originatingTargetRoot);
     }
 
     manifest = filterListForObscuringSymlinks(receiver, manifest);
@@ -382,11 +399,17 @@ public final class Runfiles implements RunfilesApi {
 
     for (SymlinkEntry entry : rootSymlinks.toList()) {
       sawWorkspaceName |= entry.getPath().startsWith(workspaceName);
-      checkAndPut(finalManifest, receiver, entry.getPath(), entry.getArtifact());
+      checkAndPut(
+          finalManifest, receiver, entry.getPath(), entry.getArtifact(), originatingTargetRoot);
     }
 
     if (repoMappingManifest != null) {
-      checkAndPut(finalManifest, receiver, REPO_MAPPING_PATH_FRAGMENT, repoMappingManifest);
+      checkAndPut(
+          finalManifest,
+          receiver,
+          REPO_MAPPING_PATH_FRAGMENT,
+          repoMappingManifest,
+          originatingTargetRoot);
     }
 
     if (!sawWorkspaceName) {
@@ -481,11 +504,22 @@ public final class Runfiles implements RunfilesApi {
       Map<PathFragment, Artifact> map,
       RunfilesConflictReceiver receiver,
       PathFragment path,
-      @Nullable Artifact artifact) {
+      @Nullable Artifact artifact,
+      @Nullable ArtifactRoot originatingTargetRoot) {
     if (artifact != null && artifact.isRunfilesTree()) {
       receiver.nestedRunfilesTree(artifact);
     } else {
-      map.put(path, artifact);
+      Artifact existing = map.put(path, artifact);
+      if (existing != null && originatingTargetRoot != null && artifact != null) {
+        // Found multiple artifacts at the same path. This means the same artifact in multiple
+        // configurations, so prefer the one that is in the same configuration as the overall target
+        // if possible. Using the artifact root is an indirect way to match configurations.
+        boolean existingMatches = existing.getRoot().equals(originatingTargetRoot);
+        boolean newMatches = artifact.getRoot().equals(originatingTargetRoot);
+        if (!newMatches && existingMatches) {
+          map.put(path, existing); // keep the existing artifact
+        }
+      }
     }
   }
 

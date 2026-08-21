@@ -24,9 +24,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -47,9 +47,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -63,7 +63,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:no_config_transition",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )

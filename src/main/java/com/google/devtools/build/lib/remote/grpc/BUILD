@@ -16,10 +16,11 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:netty",
-        "//third_party:rxjava3",
-        "//third_party/grpc-java:grpc-jar",
+        "//third_party/java/grpc:core",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/netty4:transport_native_unix_common",
+        "//third_party/java/rxjava3",
     ],
 )

@@ -23,7 +23,7 @@ java_test(
     ],
     deps = [
         "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
-        "//third_party:junit4",
+        "//third_party/java/junit",
     ],
 )
 
@@ -60,10 +60,11 @@ java_library(
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:stardoc_output_java_proto",
         "//src/test/java/com/google/devtools/build/lib/starlark/util",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 

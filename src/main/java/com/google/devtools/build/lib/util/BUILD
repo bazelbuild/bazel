@@ -25,7 +25,8 @@ java_library(
     srcs = ["DecimalBucketer.java"],
     deps = [
         ":bucket",
-        "//third_party:guava",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -33,8 +34,9 @@ java_library(
     name = "logging",
     srcs = ["LoggingUtil.java"],
     deps = [
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -53,7 +55,7 @@ java_library(
 java_library(
     name = "classpath",
     srcs = ["Classpath.java"],
-    deps = ["//third_party:guava"],
+    deps = ["//third_party/java/guava:reflect"],
 )
 
 java_library(
@@ -72,7 +74,7 @@ java_library(
         ":string_encoding",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
+        "//third_party/java/guava:annotations",
     ],
 )
 
@@ -81,7 +83,7 @@ java_library(
     srcs = ["FileChannels.java"],
     add_exports = ["java.base/sun.nio.ch"],
     deps = [
-        "//third_party:flogger",
+        "//third_party/java/flogger",
     ],
 )
 
@@ -89,7 +91,7 @@ java_library(
     name = "single_line_formatter",
     srcs = ["SingleLineFormatter.java"],
     deps = [
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -101,9 +103,12 @@ java_library(
         ":single_line_formatter",
         ":string_encoding",
         ":util",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:io",
+        "//third_party/java/guava:net",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -136,8 +141,8 @@ java_library(
     srcs = ["DescribableExecutionUnit.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -147,8 +152,8 @@ java_library(
     deps = [
         ":os",
         ":shell_escaper",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -163,9 +168,11 @@ java_library(
         ":os",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -179,8 +186,9 @@ java_library(
         ":describable_execution_unit",
         ":script_util",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -188,8 +196,9 @@ java_library(
     name = "maybe_complete_set",
     srcs = ["MaybeCompleteSet.java"],
     deps = [
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -201,9 +210,10 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_compute_resources",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:primitives",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -214,7 +224,7 @@ java_library(
     ],
     deps = [
         ":resource_converter",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -228,9 +238,9 @@ java_library(
     srcs = ["ObjectGraphTraverser.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/collect:concurrent_identity_set",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -240,7 +250,7 @@ java_library(
     deps = [
         ":object_graph_traverser",
         ":shallow_object_size_computer",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -251,7 +261,7 @@ java_library(
     ],
     deps = [
         ":resource_converter",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -261,7 +271,7 @@ java_library(
         "Pair.java",
     ],
     deps = [
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -314,18 +324,22 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:error_prone_annotations",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
 java_library(
     name = "deterministic_writer",
     srcs = ["DeterministicWriter.java"],
-    deps = ["@com_google_protobuf//:protobuf_java"],
+    deps = ["//third_party/java/protobuf"],
 )
 
 java_library(
@@ -333,7 +347,7 @@ java_library(
     srcs = ["ByteStringDeterministicWriter.java"],
     deps = [
         ":deterministic_writer",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/protobuf",
     ],
 )
 
@@ -342,7 +356,7 @@ java_library(
     srcs = ["ProtoDeterministicWriter.java"],
     deps = [
         ":deterministic_writer",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/protobuf",
     ],
 )
 
@@ -358,8 +372,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -375,7 +390,8 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:io",
     ],
 )
 
@@ -388,8 +404,10 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:escape",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -399,7 +417,7 @@ java_library(
     deps = [
         ":os",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -409,7 +427,11 @@ java_library(
         "StringUtil.java",
         "StringUtilities.java",
     ],
-    deps = ["//third_party:guava"],
+    deps = [
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:escape",
+    ],
 )
 
 java_library(
@@ -420,8 +442,8 @@ java_library(
         ":exit_code",
         ":serialized_abrupt_exit_exception",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
@@ -437,9 +459,9 @@ java_library(
         "ExitCode.java",
     ],
     deps = [
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -447,9 +469,9 @@ java_library(
     name = "custom_exit_code_publisher",
     srcs = ["CustomExitCodePublisher.java"],
     deps = [
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -458,8 +480,8 @@ java_library(
     srcs = ["CustomFailureDetailPublisher.java"],
     deps = [
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -469,9 +491,9 @@ java_library(
     deps = [
         ":exit_code",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf",
     ],
 )
 
@@ -481,15 +503,16 @@ java_library(
     deps = [
         ":detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 
 java_library(
     name = "hash_codes",
     srcs = ["HashCodes.java"],
-    deps = ["//third_party:jsr305"],
+    deps = ["//third_party/java/jsr305_annotations"],
 )
 
 java_library(
@@ -498,8 +521,8 @@ java_library(
     deps = [
         ":TestType",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
-        "//third_party:flogger",
-        "//third_party:guava",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -518,9 +541,11 @@ java_library(
     srcs = ["ConcurrencyMeter.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/clock",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -545,7 +570,7 @@ java_library(
     name = "value_or_exception",
     srcs = ["ValueOrException.java"],
     deps = [
-        "//third_party:guava",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -554,7 +579,7 @@ java_library(
     srcs = ["TempPathGenerator.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -567,6 +592,6 @@ java_library(
     name = "markdown",
     srcs = ["Markdown.java"],
     deps = [
-        "@maven//:org_commonmark_commonmark",
+        "//third_party/java/commonmark",
     ],
 )

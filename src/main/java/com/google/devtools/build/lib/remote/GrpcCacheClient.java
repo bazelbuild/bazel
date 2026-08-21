@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
 import com.google.devtools.build.lib.remote.common.ActionKey;
+import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -212,6 +213,9 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
   /**
    * Queries the server for chunk information about a blob using the SplitBlob RPC.
    *
+   * <p>The returned future fails with a {@link BlobNotSplittableException} if the server does not
+   * implement the RPC or has no chunks for this blob.
+   *
    * @return a future with the split blob response, or null if chunking is not enabled
    */
   @Nullable
@@ -239,9 +243,14 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
             callCredentialsProvider),
         StatusRuntimeException.class,
         (e) ->
-            e.getStatus().getCode() == Code.NOT_FOUND
-                ? Futures.immediateFailedFuture(new CacheNotFoundException(digest))
-                : Futures.immediateFailedFuture(new IOException(e)),
+            switch (e.getStatus().getCode()) {
+              // NOT_FOUND: the server knows how to split blobs, but has no chunks for this one.
+              // UNIMPLEMENTED: the server advertised the parameters of a chunking function in its
+              // capabilities, but does not actually implement SplitBlob.
+              case NOT_FOUND, UNIMPLEMENTED ->
+                  Futures.immediateFailedFuture(new BlobNotSplittableException(digest));
+              default -> Futures.immediateFailedFuture(new IOException(e));
+            },
         directExecutor());
   }
 

@@ -21,9 +21,9 @@ java_test(
     srcs = ["CollectionUtilsTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/collect:collection_utils",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -33,9 +33,9 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/collect:concurrent_identity_set",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -44,9 +44,9 @@ java_test(
     srcs = ["ExtremaTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/collect:extrema",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -55,11 +55,11 @@ java_test(
     srcs = ["ImmutableSharedKeyMapTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/collect:immutable_shared_key_map",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:testing",
+        "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
     ],
 )
 
@@ -68,10 +68,11 @@ java_test(
     srcs = ["ImmutableSortedKeyListMultimapTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/collect:immutable_sorted_key_list_multimap",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:collect-testing",
+        "//third_party/java/guava:testing",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -81,8 +82,8 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/collect:path_fragment_prefix_trie",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -92,10 +93,11 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect:simple_target_pattern_matcher",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
     ],
 )
 

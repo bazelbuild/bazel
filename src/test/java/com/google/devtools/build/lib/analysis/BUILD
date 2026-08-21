@@ -38,9 +38,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -52,9 +52,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -85,9 +85,9 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/rules/java:java-info",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -105,11 +105,11 @@ java_test(
         "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
     ],
 )
 
@@ -129,9 +129,10 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -143,9 +144,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:auto_value",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -159,7 +160,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
+        "//third_party/java/junit",
     ],
 )
 
@@ -175,10 +176,10 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
     ],
 )
 
@@ -194,9 +195,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -208,9 +209,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -229,9 +230,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -240,8 +241,8 @@ java_test(
     srcs = ["AspectDescriptorTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -273,9 +274,10 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -292,10 +294,10 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:testing",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -320,10 +322,10 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//src/test/java/com/google/devtools/build/lib/rules/java:java-info",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
     ],
 )
 
@@ -335,8 +337,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -367,9 +369,9 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -382,8 +384,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -402,9 +404,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -420,9 +422,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -444,9 +446,9 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/skyframe/util:SkyframeExecutorTestUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -463,9 +465,9 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//src/test/java/com/google/devtools/build/lib/skyframe/util:SkyframeExecutorTestUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -474,7 +476,7 @@ java_test(
     srcs = ["DeprecationValidatorTest.java"],
     deps = [
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
+        "//third_party/java/junit",
     ],
 )
 
@@ -492,8 +494,8 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -502,8 +504,8 @@ java_test(
     srcs = ["DuplicateActionTest.java"],
     deps = [
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -513,7 +515,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
+        "//third_party/java/junit",
     ],
 )
 
@@ -525,7 +527,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
+        "//third_party/java/junit",
     ],
 )
 
@@ -534,7 +536,7 @@ java_test(
     srcs = ["JDKJavaLauncherRunfilesSupportTest.java"],
     deps = [
         ":AbstractRunfilesSupportTest",
-        "//third_party:junit4",
+        "//third_party/java/junit",
     ],
 )
 
@@ -548,9 +550,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -569,10 +571,10 @@ java_test(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/truth",
     ],
 )
 
@@ -598,8 +600,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -611,9 +613,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_error_consumer",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -627,8 +629,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -639,9 +641,9 @@ java_test(
         ":LocationFunctionBuilder",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -651,10 +653,10 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/guava:base",
+        "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
     ],
 )
 
@@ -674,9 +676,9 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -693,8 +695,8 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -704,8 +706,8 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -714,10 +716,10 @@ java_test(
     srcs = ["OutputGroupProviderTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
     ],
 )
 
@@ -729,8 +731,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/bazel/bzlmod:util",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -744,9 +746,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -759,9 +761,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:project_files_lookup_function",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -787,10 +789,10 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
     ],
 )
 
@@ -809,9 +811,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:unloaded_toolchain_context_impl",
         "//src/test/java/com/google/devtools/build/lib/analysis/testing",
         "//src/test/java/com/google/devtools/build/lib/rules/platform:testutil",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -836,9 +838,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -855,10 +857,10 @@ java_test(
         "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/bazel/bzlmod:util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
     ],
 )
 
@@ -878,9 +880,9 @@ java_test(
         "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -892,8 +894,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -910,10 +912,10 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -931,8 +933,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -946,9 +948,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -965,9 +967,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -983,12 +985,12 @@ java_test(
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
     ],
 )
 
@@ -1013,9 +1015,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -1031,9 +1033,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -1056,9 +1058,9 @@ java_test(
         "//src/main/java/com/google/devtools/common/options",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -1068,9 +1070,9 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider_map_impl",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
     ],
 )
 
@@ -1089,9 +1091,9 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -1101,8 +1103,8 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -1113,9 +1115,10 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:visibility_provider",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -1125,8 +1128,8 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -1139,8 +1142,8 @@ java_test(
         # "//src/main/java/com/google/devtools/build/lib/analysis:transitive_visibility_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 

@@ -16,14 +16,8 @@ exports_files(
 py_binary(
     name = "wrapper_private",
     srcs = ["wrapper.py"],
-    data = [
-        ":proguard_private",
-    ],
     main = "wrapper.py",
     visibility = ["//visibility:private"],
-    deps = [
-        "@rules_python//python/runfiles",
-    ],
 )
 
 java_binary(

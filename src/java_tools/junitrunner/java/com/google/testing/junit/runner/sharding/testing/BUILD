@@ -14,8 +14,8 @@ java_library(
     deps = [
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/api",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 

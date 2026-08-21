@@ -41,7 +41,8 @@ public final class SymlinkTreeActionTest extends BuildViewTestCase {
   private enum RunfilesActionAttributes {
     RUNFILES,
     FIXED_ENVIRONMENT,
-    VARIABLE_ENVIRONMENT
+    VARIABLE_ENVIRONMENT,
+    PREFER_TARGET_CONFIGURATION_RUNFILES
   }
 
   @Test
@@ -75,7 +76,9 @@ public final class SymlinkTreeActionTest extends BuildViewTestCase {
                           attributesToFlip.contains(RunfilesActionAttributes.FIXED_ENVIRONMENT),
                           attributesToFlip.contains(RunfilesActionAttributes.VARIABLE_ENVIRONMENT)),
                       runfileSymlinksMode,
-                      "workspace"));
+                      "workspace",
+                      attributesToFlip.contains(
+                          RunfilesActionAttributes.PREFER_TARGET_CONFIGURATION_RUNFILES)));
 
       tester =
           tester.combinations(

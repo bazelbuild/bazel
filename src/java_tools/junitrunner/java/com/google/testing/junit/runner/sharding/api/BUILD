@@ -12,7 +12,7 @@ java_library(
     name = "api",
     srcs = glob(["*.java"]),
     deps = [
-        "//third_party:junit4",
+        "//third_party/java/junit:not-testonly",
     ],
 )
 
