@@ -159,16 +159,21 @@ function test_git_repository_add_prefix() {
 }
 
 function test_git_repository_add_prefix_prevent_uproot() {
-      cat >> MODULE.bazel <<EOF
+  local victim_dir="$(bazel info output_base)/external/+git_repository+pluto-victim"
+  mkdir -p "$victim_dir"
+  touch "$victim_dir/sentinel"
+
+  cat >> MODULE.bazel <<EOF
 git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(
     name = "pluto",
     remote = "does-not-matter",
     tag = "1-build",
-    add_prefix = "../uplevel/attempt",
+    add_prefix = "../+git_repository+pluto-victim",
 )
 EOF
   bazel build @pluto >& $TEST_log && fail "Build succeeded"
+  assert_exists "$victim_dir/sentinel"
   expect_log "escaped the base directory"
 }
 
