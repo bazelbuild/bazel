@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
@@ -1373,6 +1374,23 @@ public final class SkyframeActionExecutor {
                 fileOutErr,
                 Code.ACTION_FINALIZATION_FAILURE);
           }
+        }
+
+        try {
+          actionExecutionContext.flushDeferredSpawnCacheStores();
+        } catch (ExecException e) {
+          throw ActionExecutionException.fromExecException(e, action);
+        } catch (IOException e) {
+          throw ActionExecutionException.fromExecException(
+              new EnvironmentalExecException(
+                  e,
+                  FailureDetail.newBuilder()
+                      .setMessage("Exec failed due to IOException")
+                      .setSpawn(
+                          FailureDetails.Spawn.newBuilder()
+                              .setCode(FailureDetails.Spawn.Code.EXEC_IO_EXCEPTION))
+                      .build()),
+              action);
         }
       } catch (ActionExecutionException actionException) {
         // Success in execution but failure in completion.
