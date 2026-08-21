@@ -61,7 +61,7 @@ ExitCode BashBinaryLauncher::Launch() {
   // + 2.
   args.reserve(origin_args.size() + 2);
   args.push_back(L"-c");
-  args.push_back(BashEscapeArg(bash_file) + L" \"$@\"");
+  args.push_back(L"\"$0\" \"$@\"");
   args.push_back(bash_file);
   for (int i = 1; i < origin_args.size(); i++) {
     args.push_back(origin_args[i]);
