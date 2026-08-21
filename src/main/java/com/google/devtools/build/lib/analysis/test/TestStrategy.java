@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat;
+import com.google.devtools.build.lib.exec.FlakyTestAttempts;
 import com.google.devtools.build.lib.exec.StreamedTestOutput;
 import com.google.devtools.build.lib.exec.TestLogHelper;
 import com.google.devtools.build.lib.exec.TestXmlOutputParser;
@@ -280,33 +281,24 @@ public abstract class TestStrategy implements TestActionContext {
    */
   @VisibleForTesting /* protected */
   public int getTestAttempts(TestRunnerAction action) {
-    return action.getTestProperties().isFlaky()
-        ? getTestAttemptsForFlakyTest(action)
-        : getTestAttempts(action, /* defaultTestAttempts= */ 1);
-  }
-
-  private int getTestAttempts(TestRunnerAction action, int defaultTestAttempts) {
     Label testLabel = action.getOwner().getLabel();
-    return getTestAttemptsPerLabel(executionOptions, testLabel, defaultTestAttempts);
+    FlakyTestAttempts attempts = getFlakyTestAttemptsForLabel(executionOptions, testLabel);
+    return attempts.getAttempts(action.getTestProperties().isFlaky());
   }
 
-  public int getTestAttemptsForFlakyTest(TestRunnerAction action) {
-    return getTestAttempts(action, /* defaultTestAttempts= */ 3);
-  }
-
-  private static int getTestAttemptsPerLabel(
-      ExecutionOptions options, Label label, int defaultTestAttempts) {
+  @VisibleForTesting
+  static FlakyTestAttempts getFlakyTestAttemptsForLabel(ExecutionOptions options, Label label) {
     // Check from the last provided, so that the last option provided takes precedence.
     for (PerLabelOptions perLabelAttempts : Lists.reverse(options.getTestAttempts())) {
       if (perLabelAttempts.isIncluded(label)) {
-        String attempts = Iterables.getOnlyElement(perLabelAttempts.getOptions());
-        if ("default".equals(attempts)) {
-          return defaultTestAttempts;
+        try {
+          return FlakyTestAttempts.parse(Iterables.getOnlyElement(perLabelAttempts.getOptions()));
+        } catch (com.google.devtools.common.options.OptionsParsingException e) {
+          throw new IllegalStateException("Invalid --flaky_test_attempts value", e);
         }
-        return Integer.parseInt(attempts);
       }
     }
-    return defaultTestAttempts;
+    return FlakyTestAttempts.DEFAULT;
   }
 
   /*
