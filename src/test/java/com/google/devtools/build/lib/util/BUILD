@@ -104,7 +104,9 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util:bucket",
         "//src/main/java/com/google/devtools/build/lib/util:decimal_bucketer",
+        "//third_party/java/guava:testing",
         "//third_party/java/junit",
+        "//third_party/java/mockito",
         "//third_party/java/truth",
     ],
 )
