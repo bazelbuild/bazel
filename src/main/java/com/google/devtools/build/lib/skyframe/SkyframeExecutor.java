@@ -119,6 +119,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataProducer;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
@@ -947,7 +948,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             topLevelArtifactsMetric,
             actionRewindStrategy,
             bugReporter));
-    map.put(SkyFunctions.TEST_COMPLETION, new TestCompletionFunction());
+    map.put(SkyFunctions.TEST_COMPLETION, new TestCompletionFunction(skyframeActionExecutor));
     map.put(
         Artifact.ARTIFACT,
         new ArtifactFunction(
@@ -2020,9 +2021,33 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     resourceManager.resetResourceUsage();
     try {
       setExecutionProgressReceiver(executionProgressReceiver);
+      Set<ConfiguredTarget> testsToRun = Sets.union(parallelTests, exclusiveTests);
+      TestOptions testOptions = options.getOptions(TestOptions.class);
+      boolean producerKeyedCacheEnabled =
+          testOptions != null && testOptions.getExperimentalProducerKeyedTestCache();
+      ImmutableSet<ActionLookupKey> testLookupKeys =
+          testsToRun.stream()
+              .map(ConfiguredTarget::getLookupKey)
+              .collect(ImmutableSet.toImmutableSet());
+      Collection<ConfiguredTarget> targetsToComplete =
+          producerKeyedCacheEnabled
+              ? targetsToBuild.stream()
+                  .filter(target -> !testLookupKeys.contains(target.getLookupKey()))
+                  .toList()
+              : targetsToBuild;
+      Set<Artifact> artifactsToRequest = artifactsToBuild;
+      if (producerKeyedCacheEnabled) {
+        ImmutableSet.Builder<Artifact> nonTestArtifacts = ImmutableSet.builder();
+        for (Artifact artifact : artifactsToBuild) {
+          if (!(artifact instanceof Artifact.DerivedArtifact derived)
+              || !testLookupKeys.contains(derived.getArtifactOwner())) {
+            nonTestArtifacts.add(artifact);
+          }
+        }
+        artifactsToRequest = nonTestArtifacts.build();
+      }
       Iterable<TargetCompletionValue.TargetCompletionKey> targetKeys =
-          TargetCompletionValue.keys(
-              targetsToBuild, topLevelArtifactContext, Sets.union(parallelTests, exclusiveTests));
+          TargetCompletionValue.keys(targetsToComplete, topLevelArtifactContext, testsToRun);
       Iterable<SkyKey> aspectKeys = AspectCompletionValue.keys(aspects, topLevelArtifactContext);
       Iterable<SkyKey> testKeys =
           TestCompletionValue.keys(
@@ -2035,7 +2060,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               .setExecutionPhase()
               .build();
       return memoizingEvaluator.evaluate(
-          Iterables.concat(Artifact.keys(artifactsToBuild), targetKeys, aspectKeys, testKeys),
+          Iterables.concat(Artifact.keys(artifactsToRequest), targetKeys, aspectKeys, testKeys),
           evaluationContext);
     } finally {
       // Also releases thread locks.

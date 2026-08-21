@@ -25,6 +25,9 @@ import static java.lang.Math.min;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
@@ -78,10 +81,12 @@ import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SpawnActionExecutionException;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -108,6 +113,7 @@ import com.google.devtools.build.lib.skyframe.ActionExecutionState.SharedActionC
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
@@ -224,6 +230,8 @@ public final class SkyframeActionExecutor {
   // get emitted before execution (e.g. ActionStartedEvent, SpawnExecutedEvent) must support
   // receiving more than one of those events per action.
   private Set<OwnerlessArtifactWrapper> rewoundActions;
+  private Set<OwnerlessArtifactWrapper> producerKeyedEarlyCacheHits;
+  private Set<Object> producerKeyedEarlyCompletedTargets;
 
   private ActionOutputDirectoryHelper outputDirectoryHelper;
 
@@ -341,6 +349,8 @@ public final class SkyframeActionExecutor {
     this.buildActionMap = new ConcurrentHashMap<>();
     this.rewoundActions = Sets.newConcurrentHashSet();
     this.hadExecutionError.set(false);
+    this.producerKeyedEarlyCacheHits = Sets.newConcurrentHashSet();
+    this.producerKeyedEarlyCompletedTargets = Sets.newConcurrentHashSet();
     this.actionCacheChecker = checkNotNull(actionCacheChecker);
     // Don't cache possibly stale data from the last build.
     this.options = options;
@@ -411,6 +421,10 @@ public final class SkyframeActionExecutor {
     return executorEngine;
   }
 
+  ActionKeyContext getActionKeyContext() {
+    return actionKeyContext;
+  }
+
   boolean useArchivedTreeArtifacts(ActionAnalysisMetadata action) {
     // Check that the action produces at least one tree artifact to simplify downstream logic: we
     // don't need to take archived tree artifacts into account if the action doesn't produce at
@@ -436,6 +450,24 @@ public final class SkyframeActionExecutor {
 
   boolean publishTargetSummaries() {
     return options.getOptions(BuildEventProtocolOptions.class).getPublishTargetSummary();
+  }
+
+  boolean producerKeyedTestCacheEnabled() {
+    TestOptions testOptions = options.getOptions(TestOptions.class);
+    return testOptions != null && testOptions.getExperimentalProducerKeyedTestCache();
+  }
+
+  boolean wasProducerKeyedEarlyCacheHit(Action action) {
+    return producerKeyedEarlyCacheHits.contains(
+        new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
+  }
+
+  void recordProducerKeyedEarlyCompletedTarget(Object key) {
+    producerKeyedEarlyCompletedTargets.add(key);
+  }
+
+  boolean wasProducerKeyedEarlyCompletedTarget(Object key) {
+    return producerKeyedEarlyCompletedTargets.contains(key);
   }
 
   public boolean rewindingEnabled() {
@@ -507,6 +539,8 @@ public final class SkyframeActionExecutor {
     this.outputService = null;
     this.buildActionMap = null;
     this.rewoundActions = null;
+    this.producerKeyedEarlyCacheHits = null;
+    this.producerKeyedEarlyCompletedTargets = null;
     this.actionCacheChecker = null;
     this.bustActionCachesTarget = null;
     this.outputDirectoryHelper = null;
@@ -873,6 +907,68 @@ public final class SkyframeActionExecutor {
       }
     }
     return token;
+  }
+
+  /** Completes an action whose outputs were restored before its ordinary inputs were collected. */
+  @Nullable
+  ActionExecutionValue completeEarlyActionCacheHit(
+      ExtendedEventHandler eventHandler,
+      Action action,
+      long actionStartTime,
+      TimestampGranularityMonitor tsgm)
+      throws InterruptedException {
+    ArtifactPathResolver pathResolver =
+        ArtifactPathResolver.createPathResolver(
+            /* actionFileSystem= */ null, executorEngine.getExecRoot());
+    ActionOutputMetadataStore outputMetadataStore =
+        ActionOutputMetadataStore.create(
+            useArchivedTreeArtifacts(action),
+            getOutputPermissions(),
+            ImmutableSet.copyOf(action.getOutputs()),
+            getXattrProvider(),
+            tsgm,
+            pathResolver);
+
+    if (action instanceof NotifyOnActionCacheHit notify) {
+      ActionCachedContext context =
+          new ActionCachedContext() {
+            @Override
+            public ExtendedEventHandler getEventHandler() {
+              return selectEventHandler(action);
+            }
+
+            @Override
+            public Path getExecRoot() {
+              return executorEngine.getExecRoot();
+            }
+
+            @Override
+            public ArtifactPathResolver getPathResolver() {
+              return pathResolver;
+            }
+
+            @Override
+            public <T extends ActionContext> T getContext(Class<? extends T> type) {
+              return executorEngine.getContext(type);
+            }
+          };
+      if (!notify.actionCacheHit(context)) {
+        return null;
+      }
+    }
+    if (!checkOutputs(
+        action,
+        outputMetadataStore,
+        /* filesetOutputForMetrics= */ null,
+        /* isActionCacheHitForMetrics= */ true)) {
+      return null;
+    }
+    eventHandler.post(
+        new CachedActionEvent(
+            action, StaticInputMetadataProvider.empty(), actionStartTime, BlazeClock.nanoTime()));
+    producerKeyedEarlyCacheHits.add(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
+    return ActionExecutionValue.create(
+        outputMetadataStore, /* richArtifactData= */ null, action);
   }
 
   void updateActionCache(
