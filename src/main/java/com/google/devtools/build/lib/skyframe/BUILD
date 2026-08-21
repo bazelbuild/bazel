@@ -2773,13 +2773,18 @@ java_library(
 
 java_library(
     name = "bzl_load_value",
-    srcs = ["BzlLoadValue.java"],
+    srcs = [
+        "BzlLoadThreadOwner.java",
+        "BzlLoadValue.java",
+    ],
     deps = [
         ":bzl_compile_value",
         ":starlark_builtins_value",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/packages:bzl_visibility",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
