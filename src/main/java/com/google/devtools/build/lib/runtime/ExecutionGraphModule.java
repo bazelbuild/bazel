@@ -434,7 +434,7 @@ public class ExecutionGraphModule extends BlazeModule {
   @VisibleForTesting
   protected abstract static class ActionDumpWriter implements Runnable {
 
-    private ExecutionGraph.Node actionToNode(
+    private NodeWithCommit actionToNode(
         Action action,
         @Nullable InputMetadataProvider inputMetadataProvider,
         long startMillis,
@@ -454,17 +454,18 @@ public class ExecutionGraphModule extends BlazeModule {
       }
       setFieldsFromOwner(node, action.getOwner());
 
-      maybeAddEdges(
-          node,
-          action.getOutputs(),
-          SpawnInputs.of(action.getInputs()),
-          action,
-          inputMetadataProvider,
-          startMillis,
-          finishMillis - startMillis,
-          index);
+      Runnable commitOutputs =
+          maybeAddEdges(
+              node,
+              action.getOutputs(),
+              SpawnInputs.of(action.getInputs()),
+              action,
+              inputMetadataProvider,
+              startMillis,
+              finishMillis - startMillis,
+              index);
 
-      return node.build();
+      return new NodeWithCommit(node.build(), commitOutputs);
     }
 
     private static void setFieldsFromOwner(ExecutionGraph.Node.Builder node, ActionOwner owner) {
@@ -478,7 +479,7 @@ public class ExecutionGraphModule extends BlazeModule {
       }
     }
 
-    private ExecutionGraph.Node toProto(SpawnExecutedEvent event) {
+    private NodeWithCommit toProto(SpawnExecutedEvent event) {
       ExecutionGraph.Node.Builder nodeBuilder = ExecutionGraph.Node.newBuilder();
       int index = nextIndex.getAndIncrement();
       Spawn spawn = event.getSpawn();
@@ -543,17 +544,25 @@ public class ExecutionGraphModule extends BlazeModule {
 
       // maybeAddEdges can take a while, so do it last and try to give up references to any objects
       // we won't need.
-      maybeAddEdges(
-          nodeBuilder,
-          spawn.getOutputEdgesForExecutionGraph(),
-          inputFiles,
-          spawn.getResourceOwner(),
-          event.getInputMetadataProvider(),
-          startMillis,
-          totalMillis,
-          index);
-      return nodeBuilder.setMetrics(metricsBuilder).build();
+      Runnable commitOutputs =
+          maybeAddEdges(
+              nodeBuilder,
+              spawn.getOutputEdgesForExecutionGraph(),
+              inputFiles,
+              spawn.getResourceOwner(),
+              event.getInputMetadataProvider(),
+              startMillis,
+              totalMillis,
+              index);
+      return new NodeWithCommit(nodeBuilder.setMetrics(metricsBuilder).build(), commitOutputs);
     }
+
+    /**
+     * Holds a serialized node together with a deferred registration that must be applied to
+     * {@code outputToNode} only after the node's bytes have been enqueued, so that no concurrent
+     * thread can record a dependency on this node before it appears in the stream.
+     */
+    private record NodeWithCommit(ExecutionGraph.Node node, Runnable commitOutputs) {}
 
     private static ActionInput getFirstOutput(
         ActionExecutionMetadata metadata, Iterable<? extends ActionInput> outputs) {
@@ -568,7 +577,7 @@ public class ExecutionGraphModule extends BlazeModule {
       return primaryOutput;
     }
 
-    private void maybeAddEdges(
+    private Runnable maybeAddEdges(
         ExecutionGraph.Node.Builder nodeBuilder,
         Iterable<? extends ActionInput> outputs,
         SpawnInputs inputs,
@@ -578,9 +587,10 @@ public class ExecutionGraphModule extends BlazeModule {
         long totalMillis,
         int index) {
       if (depType == DependencyInfo.NONE) {
-        return;
+        return () -> {};
       }
 
+      Runnable commitOutputs = () -> {};
       ActionInput primaryOutput = getFirstOutput(metadata, outputs);
       if (primaryOutput != null) {
         // If primaryOutput is null, then we know that outputs is also empty, and we don't need to
@@ -609,7 +619,7 @@ public class ExecutionGraphModule extends BlazeModule {
             // Special case what could be dynamic execution with
             // `--experimental_local_lockfree_output`, skip adding the dependencies for the second
             // spawn, but report both spawns.
-            return;
+            return () -> {};
           } else {
             // TODO(b/227635546): Remove the bug report once we capture all cases when it can
             //  fire.
@@ -622,12 +632,19 @@ public class ExecutionGraphModule extends BlazeModule {
           }
         }
 
+        // Capture outputs to register after enqueueBytes(), so that no concurrent thread can
+        // observe this node in outputToNode and record a dependency on it before its bytes reach
+        // the write queue (which would produce a forward reference in the stream).
+        ImmutableList<ActionInput> outputsSnapshot = ImmutableList.copyOf(outputs);
         NodeInfo currentAttempt = new NodeInfo(index, startMillis + totalMillis);
-        for (ActionInput output : outputs) {
-          outputToNode.put(output, currentAttempt);
-        }
-        // Some actions, like tests, don't have their primary output in getOutputFiles().
-        outputToNode.put(primaryOutput, currentAttempt);
+        ActionInput primaryOutputFinal = primaryOutput;
+        commitOutputs =
+            () -> {
+              for (ActionInput output : outputsSnapshot) {
+                outputToNode.put(output, currentAttempt);
+              }
+              outputToNode.put(primaryOutputFinal, currentAttempt);
+            };
       }
 
       NestedSetBuilder<Artifact> runfilesArtifactsBuilder = NestedSetBuilder.stableOrder();
@@ -689,6 +706,8 @@ public class ExecutionGraphModule extends BlazeModule {
           previousDepIndex = depIndex;
         }
       }
+
+      return commitOutputs;
     }
 
     private static final class NodeInfo {
@@ -843,12 +862,18 @@ public class ExecutionGraphModule extends BlazeModule {
         // spawns, we can just skip them here.
         return;
       }
-      enqueueBytes(
-          actionToNode(action, inputMetadataProvider, startMillis, finishMillis).toByteArray());
+      NodeWithCommit nodeWithCommit =
+          actionToNode(action, inputMetadataProvider, startMillis, finishMillis);
+      enqueueBytes(nodeWithCommit.node().toByteArray());
+      nodeWithCommit.commitOutputs().run();
     }
 
     void enqueue(SpawnExecutedEvent event) {
-      enqueueBytes(toProto(event).toByteArray());
+      NodeWithCommit nodeWithCommit = toProto(event);
+      enqueueBytes(nodeWithCommit.node().toByteArray());
+      // Register outputs after enqueue so no concurrent thread can record a dep on this node
+      // before its bytes are in the stream (which would produce a forward reference).
+      nodeWithCommit.commitOutputs().run();
     }
 
     void shutdown(BuildToolLogCollection logs) throws InterruptedException {

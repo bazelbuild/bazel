@@ -78,7 +78,15 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
@@ -974,6 +982,141 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
         .inOrder();
   }
 
+
+  /**
+   * Regression test: when two spawns are processed concurrently and B depends on A's output,
+   * B must not appear in the stream before A even if B's enqueueBytes() call races ahead.
+   *
+   * <p>Before the fix, {@code outputToNode.put(A)} happened inside {@code maybeAddEdges()} before
+   * {@code enqueueBytes(A)} was called, so a concurrent thread could see A in {@code outputToNode},
+   * record {@code dependent_index=A.index}, and enqueue B's bytes first — producing a forward
+   * reference that breaks the implicit topological sort.
+   */
+  @Test(timeout = 30_000)
+  public void concurrentSpawns_dependentNodeAppearsAfterDependencyInStream() throws Exception {
+    // Use a large queue so neither spawn blocks during enqueueBytes.
+    int threads = 64;
+    int iterations = 200;
+    ExecutorService executor = Executors.newFixedThreadPool(threads);
+
+    for (int iter = 0; iter < iterations; iter++) {
+      ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+      ExecutionGraphModule iterModule = new ExecutionGraphModule();
+      iterModule.resetNanosToMillis();
+
+      Artifact out1 = createOutputArtifact("foo/out1_" + iter);
+      Artifact out2 = createOutputArtifact("foo/out2_" + iter);
+
+      Spawn spawnA =
+          new SpawnBuilder()
+              .withOwnerPrimaryOutput(out1)
+              .withMnemonic("MnemonicA")
+              .build();
+      Spawn spawnB =
+          new SpawnBuilder()
+              .withOwnerPrimaryOutput(out2)
+              .withInput(out1)
+              .withMnemonic("MnemonicB")
+              .build();
+
+      SpawnResult result = createRemoteSpawnResult(100);
+
+      // startLogging registers the module on a fresh EventBus; use a raw writer instead.
+      ActionDumpWriter writer =
+          new ActionDumpWriter(
+              BugReporter.defaultInstance(),
+              new EventBus(),
+              /* localLockFreeOutputEnabled= */ false,
+              /* logFileWriteEdges= */ false,
+              buffer,
+              DependencyInfo.ALL,
+              /* queueSize= */ -1,
+              /* queuedBytesLimit= */ -1) {
+            @Override
+            protected void updateLogs(BuildToolLogCollection logs) {}
+          };
+      iterModule.setWriter(writer);
+
+      // Use a latch so both threads start enqueue() as simultaneously as possible,
+      // maximising the chance of the race occurring without the fix.
+      CountDownLatch ready = new CountDownLatch(2);
+      CountDownLatch go = new CountDownLatch(1);
+
+      Instant t0 = Instant.ofEpochMilli(0);
+      Instant t1 = Instant.ofEpochMilli(100);
+
+      Future<?> futureA =
+          executor.submit(
+              () -> {
+                ready.countDown();
+                try {
+                  go.await();
+                } catch (InterruptedException e) {
+                  Thread.currentThread().interrupt();
+                  return;
+                }
+                writer.enqueue(
+                    new SpawnExecutedEvent(
+                        spawnA,
+                        new FakeActionInputFileCache(),
+                        null,
+                        new TestFileOutErr(),
+                        result,
+                        t0,
+                        /* spawnIdentifier= */ "a"));
+              });
+
+      Future<?> futureB =
+          executor.submit(
+              () -> {
+                ready.countDown();
+                try {
+                  go.await();
+                } catch (InterruptedException e) {
+                  Thread.currentThread().interrupt();
+                  return;
+                }
+                writer.enqueue(
+                    new SpawnExecutedEvent(
+                        spawnB,
+                        new FakeActionInputFileCache(),
+                        null,
+                        new TestFileOutErr(),
+                        result,
+                        t1,
+                        /* spawnIdentifier= */ "b"));
+              });
+
+      ready.await();
+      go.countDown();
+      futureA.get(10, TimeUnit.SECONDS);
+      futureB.get(10, TimeUnit.SECONDS);
+      writer.shutdown(/* logs= */ null);
+
+      ImmutableList<ExecutionGraph.Node> nodes = parse(buffer);
+      assertThat(nodes).hasSize(2);
+
+      // Build index→stream-position map and verify every dependent_index refers to a node that
+      // appears *before* the referencing node in the stream.
+      Map<Integer, Integer> indexToStreamPos = new HashMap<>();
+      for (int i = 0; i < nodes.size(); i++) {
+        indexToStreamPos.put(nodes.get(i).getIndex(), i);
+      }
+      Set<Integer> allIndices = indexToStreamPos.keySet();
+      for (int pos = 0; pos < nodes.size(); pos++) {
+        ExecutionGraph.Node node = nodes.get(pos);
+        for (int depIndex : node.getDependentIndexList()) {
+          assertThat(allIndices).contains(depIndex);
+          assertThat(indexToStreamPos.get(depIndex))
+              .isLessThan(pos); // dependency must precede dependent
+        }
+      }
+    }
+
+    executor.shutdown();
+    assertThat(executor.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
+  }
+
   private class FakeOwnerWithPrimaryOutput extends FakeOwner {
 
     private final String primaryOutput;
@@ -1043,4 +1186,5 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
         .setTargetLabel(action.getOwner().getLabel().toString())
         .setMnemonic(action.getMnemonic());
   }
+
 }
