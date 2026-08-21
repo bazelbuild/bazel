@@ -51,6 +51,12 @@
    <li><code>no-remote-cache-upload</code> keyword disables upload part of remote caching of a spawn.
      it does not disable remote execution.
   </li>
+  <li><code>no-remote-cache-output-upload</code> keyword allows a locally executed action to cache
+    its output metadata remotely without uploading its output files. This can avoid rerunning the
+    action when all consuming actions are remote cache hits. It requires
+    <code class='flag'>--remote_download_minimal</code>; if a consumer needs an omitted output,
+    action rewinding must be enabled so Bazel can rerun the action locally.
+  </li>
     <li><code>local</code> keyword precludes the action or test from being remotely cached,
     remotely executed, or run inside the sandbox.
     For genrules and tests, marking the rule with the <code>local = True</code>
