@@ -555,6 +555,7 @@ java_library(
     ],
     deps = [
         ":exec_exception",
+        ":execution_requirements",
         ":localhost_compute_resources",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",

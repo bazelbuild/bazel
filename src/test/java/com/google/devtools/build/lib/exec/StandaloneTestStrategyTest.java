@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.MoreCollectors;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -710,6 +711,61 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(outErr.getErrorPath().exists()).isFalse();
     assertThat(called).hasSize(2);
     assertThat(called).containsNoDuplicates();
+  }
+
+  @Test
+  public void xmlGeneratingSpawnDoesNotInheritTestResourceDeclarations() throws Exception {
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
+    Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    TestedStandaloneTestStrategy standaloneTestStrategy =
+        new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
+
+    // The test declares a large resource footprint both via tags and via exec_properties; the
+    // test.xml generator must not be charged for either.
+    scratch.file("standalone/simple_test.sh", "this does not get executed, it is mocked out");
+    scratch.file(
+        "standalone/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "simple_test",
+            size = "small",
+            srcs = ["simple_test.sh"],
+            tags = ["resources:cpu:4"],
+            exec_properties = {"resources:memory": "8000"},
+        )
+        """);
+    TestRunnerAction testRunnerAction = getTestAction("//standalone:simple_test");
+
+    List<Spawn> spawns = new ArrayList<>();
+    when(spawnStrategy.exec(any(), any()))
+        .thenAnswer(
+            (invocation) -> {
+              spawns.add(invocation.getArgument(0));
+              return ImmutableList.of(PASSED_TEST_SPAWN);
+            });
+
+    ActionExecutionContext actionExecutionContext =
+        new FakeActionExecutionContext(
+            createTempOutErr(tmpDirRoot), inputMetadataFor(testRunnerAction), spawnStrategy);
+
+    execute(testRunnerAction, actionExecutionContext, standaloneTestStrategy);
+
+    assertThat(spawns).hasSize(2);
+    Spawn testSpawn = spawns.get(0);
+    Spawn xmlGeneratingSpawn = spawns.get(1);
+    assertThat(xmlGeneratingSpawn.getOutputFiles()).containsExactly(testRunnerAction.getTestXml());
+
+    // The test spawn honours the declared resources...
+    assertThat(testSpawn.getLocalResources().getCpuUsage()).isEqualTo(4.0);
+    assertThat(testSpawn.getLocalResources().getMemoryMb()).isEqualTo(8000.0);
+
+    // ...but the injected test.xml generator keeps its own modest, fixed footprint. Both
+    // declarations still reach it as execution info, so strategy selection is unaffected.
+    assertThat(xmlGeneratingSpawn.getLocalResources())
+        .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
+    assertThat(xmlGeneratingSpawn.getExecutionInfo()).containsKey("resources:cpu:4");
   }
 
   @Test
