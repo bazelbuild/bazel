@@ -65,6 +65,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/windows",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:execution_statistics_java_proto",
         "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker/http",
         "//third_party/google/bytestream:bytestream_grpc",
         "//third_party/google/bytestream:bytestream_java_proto",

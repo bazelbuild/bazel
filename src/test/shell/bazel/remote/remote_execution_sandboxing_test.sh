@@ -101,6 +101,40 @@ function test_genrule() {
     || fail "Hermetic genrule failed: examples/genrule:simple"
 }
 
+function test_genrule_reports_measured_memory() {
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --execution_log_json_file=output.json \
+      examples/genrule:simple &> $TEST_log \
+    || fail "Hermetic genrule failed: examples/genrule:simple"
+
+  # The sandbox measures peak memory and the remote worker propagates it to the client through the
+  # action's auxiliary metadata, so the execution log should record a non-zero measured peak memory
+  # for the remotely executed spawn. Proto3 JSON omits zero-valued fields, so the presence of the
+  # field confirms a non-zero value was recorded.
+  grep '"measuredMemoryPeakBytes"' output.json \
+    || fail "execution log does not contain measured peak memory for remotely executed spawn"
+}
+
+function test_genrule_reports_measured_memory_via_configured_source() {
+  # Read peak memory through the generic, field-number-based source instead of the built-in
+  # recognition. The worker emits tools.protos.ExecutionStatistics, whose resource_usage is field 1
+  # and maxrss (kilobytes) is field 5.
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --experimental_remote_measured_memory_source=type.googleapis.com/tools.protos.ExecutionStatistics:1.5:kb \
+      --execution_log_json_file=output.json \
+      examples/genrule:simple &> $TEST_log \
+    || fail "Hermetic genrule failed: examples/genrule:simple"
+
+  grep '"measuredMemoryPeakBytes"' output.json \
+    || fail "configured measured-memory source did not record peak memory for remote spawn"
+}
+
 function test_genrule_can_write_to_path() {
   bazel build \
       --spawn_strategy=remote \
