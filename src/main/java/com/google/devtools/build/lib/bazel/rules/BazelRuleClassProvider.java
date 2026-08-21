@@ -195,11 +195,14 @@ public class BazelRuleClassProvider {
         }
 
         if (!BuildConfigurationValue.runfilesEnabled(options.get(CoreOptions.class))) {
-          // Setting this environment variable is for telling the binary running
-          // in a Bazel action when to use runfiles library or runfiles tree.
-          // The downside is that it will discard cache for all actions once
-          // --enable_runfiles changes, but this also prevents wrong caching result if a binary
-          // behaves differently with and without runfiles tree.
+          // The legacy way of telling a binary running in a Bazel action to look up its runfiles in
+          // the manifest rather than in the runfiles directory. This is flawed because it is purely
+          // based on analysis time information (--enable_runfiles) and thus doesn't account for the
+          // runfiles directory being materialized by the sandbox or by remote execution.
+          // Runfiles libraries should instead check for the presence of the _repo_mapping file,
+          // which is an ordinary runfile and thus only present in a fully materialized runfiles
+          // directory.
+          // TODO: Remove this once all runfiles libraries check for _repo_mapping.
           env.put("RUNFILES_MANIFEST_ONLY", "1");
         }
 
