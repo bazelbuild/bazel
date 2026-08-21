@@ -527,7 +527,6 @@ EOF
 
   # Verify the build succeeds
   bazel build -s \
-    --modify_execution_info=CppCompile=+supports-path-mapping \
     "//$pkg:main" 2>"$TEST_log" || fail "Expected success"
 
   # Verify that all paths are stripped as expected.
@@ -536,6 +535,13 @@ EOF
   assert_paths_stripped "$TEST_log" "$pkg/lib1/_objs/lib1/lib1."
   assert_paths_stripped "$TEST_log" "$pkg/lib2/_objs/lib2/lib2."
   assert_paths_stripped "$TEST_log" "$pkg/_objs/main/main."
+
+  local aquery_output="${TEST_TMPDIR}/${FUNCNAME[0]}.aquery"
+  bazel aquery --output=text \
+    --modify_execution_info=CppCompile=-supports-path-mapping \
+    "mnemonic(CppCompile, //$pkg:main)" > "$aquery_output" 2>"$TEST_log" \
+    || fail "Expected success"
+  assert_not_contains "supports-path-mapping" "$aquery_output"
 }
 
 ##############################################################################
@@ -645,7 +651,6 @@ EOF
 
   bazel clean
   bazel build -s \
-    --modify_execution_info=CppCompile=+supports-path-mapping \
     "//$pkg:main" 2>"$TEST_log" \
     || fail "Expected success"
 
