@@ -62,6 +62,18 @@ public interface DefaultInfoApi extends StructApi {
   Depset getFiles();
 
   @StarlarkMethod(
+      name = "executable",
+      doc =
+          "The executable <a href='../builtins/File.html'><code>File</code></a> associated with"
+              + " this provider, or <code>None</code> if no executable is available. This field is"
+              + " available on a <code>DefaultInfo</code> returned directly by a rule"
+              + " implementation, including through <code>ctx.super()</code>.",
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  FileApi getExecutable();
+
+  @StarlarkMethod(
       name = "files_to_run",
       doc =
           "A <a href='../providers/FilesToRunProvider.html'><code>FilesToRunProvider</code></a>"
