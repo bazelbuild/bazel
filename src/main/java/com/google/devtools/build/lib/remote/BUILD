@@ -32,6 +32,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party/google/bytestream:bytestream_grpc",
+        "//third_party/google/rpc:status_java_proto",
+        "//third_party/java/flogger",
         "//third_party/java/gson",
         "//third_party/java/guava:collect",
         "@remoteapis//:build_bazel_remote_asset_v1_remote_asset_java_grpc",
