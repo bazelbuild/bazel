@@ -17,7 +17,10 @@ filegroup(
 java_library(
     name = "bucket",
     srcs = ["Bucket.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+        "//third_party/java/jsr305_annotations",
+    ],
 )
 
 java_library(
@@ -34,6 +37,8 @@ java_library(
     name = "logging",
     srcs = ["LoggingUtil.java"],
     deps = [
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
         "//third_party/java/guava:concurrent",
         "//third_party/java/jsr305_annotations",
@@ -50,12 +55,16 @@ java_library(
 java_library(
     name = "os",
     srcs = ["OS.java"],
+    deps = ["//third_party/java/jsr305_annotations"],
 )
 
 java_library(
     name = "classpath",
     srcs = ["Classpath.java"],
-    deps = ["//third_party/java/guava:reflect"],
+    deps = [
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:reflect",
+    ],
 )
 
 java_library(
@@ -570,6 +579,7 @@ java_library(
     name = "value_or_exception",
     srcs = ["ValueOrException.java"],
     deps = [
+        "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:base",
     ],
 )
