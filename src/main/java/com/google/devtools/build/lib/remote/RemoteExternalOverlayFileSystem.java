@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.util.concurrent.Futures.immediateCancelledFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
@@ -29,10 +28,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.TaskDeduplicator;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -72,9 +74,7 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -91,8 +91,9 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   private final int externalDirectorySegmentCount;
   private final FileSystem nativeFs;
   private final RemoteExternalFileSystem externalFs;
-  private final ConcurrentHashMap<String, Future<Void>> materializations =
-      new ConcurrentHashMap<>();
+  private final TaskDeduplicator<String, Void> materializations = new TaskDeduplicator<>();
+  // The names of the repos whose contents have been fully materialized to nativeFs.
+  private final Set<String> materializedRepos = ConcurrentHashMap.newKeySet();
   // As long as a repo name appears as a key in this map, the repo contents are available in
   // externalFs.
   private final ConcurrentHashMap<String, String> markerFileContents = new ConcurrentHashMap<>();
@@ -106,7 +107,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   @Nullable private String commandId;
   @Nullable private MemoizingEvaluator evaluator;
   @Nullable private Duration remoteCacheTtl;
-  @Nullable private ExecutorService materializationExecutor;
+  @Nullable private ListeningExecutorService materializationExecutor;
 
   public RemoteExternalOverlayFileSystem(PathFragment externalDirectory, FileSystem nativeFs) {
     super(nativeFs.getDigestFunction());
@@ -142,8 +143,9 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     this.evaluator = evaluator;
     this.remoteCacheTtl = remoteCacheTtl;
     this.materializationExecutor =
-        Executors.newThreadPerTaskExecutor(
-            Thread.ofVirtual().name("remote-repo-materialization-", 0).factory());
+        MoreExecutors.listeningDecorator(
+            Executors.newThreadPerTaskExecutor(
+                Thread.ofVirtual().name("remote-repo-materialization-", 0).factory()));
   }
 
   public void afterCommand() {
@@ -166,14 +168,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     // be refetched to recover files that the remote cache has lost. This wouldn't be safe to do
     // eagerly as ongoing repo rule evaluations may still refer to the in-memory content and
     // refetching is not atomic.
-    materializations.forEach(
-        1,
-        (repoName, materializationState) ->
-            materializationState.state() == Future.State.SUCCESS
-                    || reposWithLostFiles.contains(repoName)
-                ? repoName
-                : null,
-        this::evictInMemoryRepo);
+    materializedRepos.forEach(this::evictInMemoryRepo);
+    reposWithLostFiles.forEach(this::evictInMemoryRepo);
     invalidateRepoDirectories(evaluator, reposWithLostFiles);
     reposWithLostFiles.clear();
     this.evaluator = null;
@@ -186,7 +182,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     } catch (IOException e) {
       throw new IllegalStateException("In-memory file system is not expected to throw", e);
     }
-    materializations.remove(repoName);
+    materializedRepos.remove(repoName);
     markerFileContents.remove(repoName);
   }
 
@@ -210,6 +206,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       throws IOException, InterruptedException {
     var repoDir = externalDirectory.getChild(repo.getName());
     deleteTree(repoDir);
+    materializedRepos.remove(repo.getName());
     var unused = delete(externalDirectory.getChild(repo.getMarkerFileName()));
     var childMap =
         remoteContents.getChildrenList().stream()
@@ -315,9 +312,9 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     }
     var unused =
         getFromFuture(
-            materializations.computeIfAbsent(
+            materializations.executeIfNew(
                 repo.getName(),
-                unusedRepoName ->
+                () ->
                     materializationExecutor.submit(
                         () -> {
                           doMaterialize(repo, reporter);
@@ -329,6 +326,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       throws IOException, InterruptedException {
     reporter.handle(Event.debug("Materializing remote repo %s".formatted(repo)));
     materializeSubtree(externalDirectory.getChild(repo.getName()));
+    materializedRepos.add(repo.getName());
 
     // After the repo has been copied, atomically materialize the marker file. This ensures that the
     // repo doesn't have to be refetched after the next server restart.
@@ -341,6 +339,11 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   }
 
   private void prefetch(Iterable<PathFragment> paths) throws IOException, InterruptedException {
+    // These paths may have been prefetched and then deleted again earlier in this invocation, e.g.
+    // by an injection whose fetch was subsequently restarted due to memory pressure. The
+    // prefetcher's download cache would otherwise consider them downloaded already and not even
+    // verify they exist on the local file system.
+    inputPrefetcher.invalidateDownloads(paths);
     var unused =
         getFromFuture(
             inputPrefetcher.prefetchFilesInterruptibly(
@@ -469,16 +472,14 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     if (path.startsWith(externalDirectory) && !path.equals(externalDirectory)) {
       String repoName = path.getSegment(externalDirectorySegmentCount);
       var hasBeenInjected = markerFileContents.containsKey(repoName);
-      var hasBeenMaterialized =
-          materializations.getOrDefault(repoName, immediateCancelledFuture()).state()
-              == Future.State.SUCCESS;
+      var hasBeenMaterialized = materializedRepos.contains(repoName);
       if (hasBeenInjected && !hasBeenMaterialized) {
         // The repo may have been deleted due to refetching. Clean up in-memory state if that is the
         // case.
         if (externalFs.getPath(externalDirectory.getChild(repoName)).exists()) {
           return externalFs;
         }
-        materializations.remove(repoName);
+        materializedRepos.remove(repoName);
         markerFileContents.remove(repoName);
       }
       // Fall back to the native file system if the repo has been materialized, deleted, or never

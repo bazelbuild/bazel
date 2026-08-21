@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.bazel.repository.RepoRule;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RequireRepoExtensionMetadataMode;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule.StarlarkRepoRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -159,7 +160,8 @@ final class InnateRunnableExtension implements RunnableExtension {
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
       RepositoryMapping mainRepositoryMapping,
-      Facts facts)
+      Facts facts,
+      RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode)
       throws InterruptedException, ExternalDepsException {
     Object exported = loadedBzl.getModule().getGlobal(ruleName);
     if (exported == null) {

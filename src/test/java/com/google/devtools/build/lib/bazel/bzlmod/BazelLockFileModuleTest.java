@@ -15,10 +15,14 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import java.util.Optional;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Starlark;
@@ -110,5 +114,16 @@ public class BazelLockFileModuleTest {
                 oldExtensionInfos, newExtensionInfos, id -> true, /* reproducible= */ false))
         .isEqualTo(
             ImmutableMap.of(extensionId, ImmutableMap.of(evalFactors, nonReproducibleResult)));
+  }
+
+  @Test
+  public void updateLockfileWritesJsonWithTrailingNewline() throws Exception {
+    Path workspaceRoot = new Scratch().dir("/workspace");
+
+    BazelLockFileModule.updateLockfile(workspaceRoot, BazelLockFileValue.EMPTY_LOCKFILE);
+
+    assertThat(FileSystemUtils.readContent(workspaceRoot.getRelative("MODULE.bazel.lock"), UTF_8))
+        .isEqualTo(
+            GsonTypeAdapterUtil.LOCKFILE_GSON.toJson(BazelLockFileValue.EMPTY_LOCKFILE) + "\n");
   }
 }

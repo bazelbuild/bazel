@@ -801,6 +801,17 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         forceRefetch(linkPath));
   }
 
+  /**
+   * Forgets about completed downloads of the given paths so that the next prefetch of each of them
+   * verifies it against the local file system instead of assuming that it is still in place.
+   */
+  public void invalidateDownloads(Iterable<PathFragment> execPaths) {
+    for (PathFragment path : execPaths) {
+      // Downloads are written to the actual host file system, not any overlays.
+      downloadCache.invalidate(execRoot.getRelative(path).forHostFileSystem());
+    }
+  }
+
   public ImmutableSet<Path> downloadedFiles() {
     return downloadCache.getFinishedTasks();
   }
