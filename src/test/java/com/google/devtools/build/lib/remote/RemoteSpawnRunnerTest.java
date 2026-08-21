@@ -98,7 +98,6 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
-import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -731,47 +730,6 @@ public class RemoteSpawnRunnerTest {
     RemoteExecutionService service = runner.getRemoteExecutionService();
     Digest logDigest = digestUtil.computeAsUtf8("bla");
     Path logPath = logDir.getRelative(SIMPLE_ACTION_ID).getRelative("logname");
-    ExecuteResponse resp =
-        ExecuteResponse.newBuilder()
-            .putServerLogs(
-                "logname", LogFile.newBuilder().setHumanReadable(true).setDigest(logDigest).build())
-            .setResult(ActionResult.newBuilder().setExitCode(31).build())
-            .build();
-    when(executor.executeRemotely(
-            any(RemoteActionExecutionContext.class),
-            any(ExecuteRequest.class),
-            any(OperationObserver.class)))
-        .thenReturn(resp);
-    SettableFuture<Void> completed = SettableFuture.create();
-    completed.set(null);
-    when(cache.downloadFile(any(RemoteActionExecutionContext.class), eq(logPath), eq(logDigest)))
-        .thenReturn(completed);
-
-    Spawn spawn = newSimpleSpawn();
-    SpawnExecutionContext policy = getSpawnContext(spawn);
-
-    SpawnResult res = runner.exec(spawn, policy);
-    assertThat(res.status()).isEqualTo(Status.NON_ZERO_EXIT);
-
-    verify(executor)
-        .executeRemotely(
-            any(RemoteActionExecutionContext.class),
-            any(ExecuteRequest.class),
-            any(OperationObserver.class));
-    verify(service).maybeDownloadServerLogs(any(), eq(resp), eq(logDir));
-    verify(cache).downloadFile(any(RemoteActionExecutionContext.class), eq(logPath), eq(logDigest));
-  }
-
-  @Test
-  public void testHumanReadableServerLogsSavedForFailingActionWithSiblingRepositoryLayout()
-      throws Exception {
-    RemoteSpawnRunner runner = newSpawnRunner(new SiblingRepositoryLayoutResolver(execRoot));
-    RemoteExecutionService service = runner.getRemoteExecutionService();
-    Digest logDigest = digestUtil.computeAsUtf8("bla");
-    Path logPath =
-        logDir
-            .getRelative("e0a5a3561464123504c1240b3587779cdfd6adee20f72aa136e388ecfd570c12")
-            .getRelative("logname");
     ExecuteResponse resp =
         ExecuteResponse.newBuilder()
             .putServerLogs(
@@ -1932,10 +1890,6 @@ public class RemoteSpawnRunnerTest {
 
   private RemoteSpawnRunner newSpawnRunner() {
     return newSpawnRunner(executor, RemotePathResolver.createDefault(execRoot));
-  }
-
-  private RemoteSpawnRunner newSpawnRunner(RemotePathResolver remotePathResolver) {
-    return newSpawnRunner(executor, remotePathResolver);
   }
 
   private RemoteSpawnRunner newSpawnRunner(

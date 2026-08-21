@@ -232,11 +232,10 @@ message ExecLogEntry {
     // WORKSPACE.
     string workspace_runfiles_directory = 2;
 
-    // Whether --experimental_sibling_repository_layout is enabled.
-    bool sibling_repository_layout = 3;
-
     // The ID of the invocation.
     string id = 4;
+
+    reserved 3;
   }
 
   // An input or output file.

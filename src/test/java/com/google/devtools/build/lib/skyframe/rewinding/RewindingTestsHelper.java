@@ -64,7 +64,6 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions.JobsConverter
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase.RecordingBugReporter;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.exec.SpawnExecException;
@@ -1456,23 +1455,23 @@ public class RewindingTestsHelper {
     testCase.write(
         "tree/tree.bzl",
         """
-        def _tree_impl(ctx):
-            tree_artifact = ctx.actions.declare_directory(ctx.attr.name + "_dir.cc")
-            ctx.actions.run_shell(
-                mnemonic = "TreeGenerator",
-                inputs = ctx.files.srcs,
-                outputs = [tree_artifact],
-                command = "if [ -f tree/control.txt ]; then cat tree/control.txt | while read f; do touch $1/$f; done; else touch $1/file1.cc && touch $1/file2.cc; fi",
-                arguments = [tree_artifact.path],
-                execution_requirements = {"no-cache": "1"},
-            )
-            return DefaultInfo(files = depset(direct = [tree_artifact]))
+def _tree_impl(ctx):
+    tree_artifact = ctx.actions.declare_directory(ctx.attr.name + "_dir.cc")
+    ctx.actions.run_shell(
+        mnemonic = "TreeGenerator",
+        inputs = ctx.files.srcs,
+        outputs = [tree_artifact],
+        command = "if [ -f tree/control.txt ]; then cat tree/control.txt | while read f; do touch $1/$f; done; else touch $1/file1.cc && touch $1/file2.cc; fi",
+        arguments = [tree_artifact.path],
+        execution_requirements = {"no-cache": "1"},
+    )
+    return DefaultInfo(files = depset(direct = [tree_artifact]))
 
-        tree = rule(
-            implementation = _tree_impl,
-            attrs = {"srcs": attr.label_list(allow_files = True)},
-        )
-        """);
+tree = rule(
+    implementation = _tree_impl,
+    attrs = {"srcs": attr.label_list(allow_files = True)},
+)
+""");
 
     testCase.write(
         "tree/BUILD",
@@ -3687,7 +3686,7 @@ public class RewindingTestsHelper {
     }
     return testCase
         .getTargetConfigurationFromLastBuildResult()
-        .getOutputDirectory(RepositoryName.MAIN)
+        .getOutputDirectory()
         .getExecPath()
         .getRelative(rootRelativePath)
         .getPathString();

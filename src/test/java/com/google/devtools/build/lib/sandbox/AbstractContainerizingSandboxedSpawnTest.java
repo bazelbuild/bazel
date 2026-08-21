@@ -216,7 +216,7 @@ public class AbstractContainerizingSandboxedSpawnTest {
   }
 
   @Test
-  public void createFileSystem_uplevelReference_createsSiblingDirectory() throws Exception {
+  public void createFileSystem_fileInUplevelReference_fails() {
     SandboxInputs sandboxInputs =
         createSandboxInputs(
             /*files=*/ ImmutableList.of("../a/b"), /*symlinks=*/ ImmutableList.of());
@@ -225,10 +225,7 @@ public class AbstractContainerizingSandboxedSpawnTest {
     AbstractContainerizingSandboxedSpawn sandboxedSpawn =
         createContainerizingSandboxedSpawn(sandboxInputs, sandboxOutputs);
 
-    sandboxedSpawn.createFileSystem();
-
-    assertThat(listDirectory(sandboxExecRoot.getParentDirectory()))
-        .containsExactly(directory("a"), file("a/b"), directory("execroot"));
+    assertThrows(IllegalArgumentException.class, sandboxedSpawn::createFileSystem);
   }
 
   @Test

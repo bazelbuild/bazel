@@ -329,23 +329,23 @@ public class RuleContext extends TargetContext
 
   @Override
   public ArtifactRoot getBinDirectory() {
-    return getConfiguration().getBinDirectory(getLabel().getRepository());
+    return getConfiguration().getBinDirectory();
   }
 
   public ArtifactRoot getGenfilesDirectory() {
-    return getConfiguration().getGenfilesDirectory(getLabel().getRepository());
+    return getConfiguration().getGenfilesDirectory();
   }
 
   public ArtifactRoot getTestLogsDirectory() {
-    return getConfiguration().getTestLogsDirectory(getLabel().getRepository());
+    return getConfiguration().getTestLogsDirectory();
   }
 
   public PathFragment getBinFragment() {
-    return getConfiguration().getBinFragment(getLabel().getRepository());
+    return getConfiguration().getBinFragment();
   }
 
   public PathFragment getGenfilesFragment() {
-    return getConfiguration().getGenfilesFragment(getLabel().getRepository());
+    return getConfiguration().getGenfilesFragment();
   }
 
   public Rule getRule() {
@@ -659,8 +659,8 @@ public class RuleContext extends TargetContext
   @Override
   public ArtifactRoot getBinOrGenfilesDirectory() {
     return rule.outputsToBindir()
-        ? getConfiguration().getBinDirectory(getLabel().getRepository())
-        : getConfiguration().getGenfilesDirectory(getLabel().getRepository());
+        ? getConfiguration().getBinDirectory()
+        : getConfiguration().getGenfilesDirectory();
   }
 
   /**
@@ -672,8 +672,7 @@ public class RuleContext extends TargetContext
   }
 
   public Artifact getBinArtifact(PathFragment relative) {
-    return getPackageRelativeArtifact(
-        relative, getConfiguration().getBinDirectory(getLabel().getRepository()));
+    return getPackageRelativeArtifact(relative, getConfiguration().getBinDirectory());
   }
 
   /**
@@ -685,8 +684,7 @@ public class RuleContext extends TargetContext
   }
 
   public Artifact getGenfilesArtifact(PathFragment relative) {
-    return getPackageRelativeArtifact(
-        relative, getConfiguration().getGenfilesDirectory(getLabel().getRepository()));
+    return getPackageRelativeArtifact(relative, getConfiguration().getGenfilesDirectory());
   }
 
   @Override
@@ -710,9 +708,7 @@ public class RuleContext extends TargetContext
 
   @Override
   public PathFragment getPackageDirectory() {
-    return getLabel()
-        .getPackageIdentifier()
-        .getPackagePath(getConfiguration().isSiblingRepositoryLayout());
+    return getLabel().getPackageIdentifier().getPackagePath();
   }
 
   /**
@@ -1262,8 +1258,7 @@ public class RuleContext extends TargetContext
    */
   @Override
   public PathFragment getUniqueDirectory(PathFragment fragment) {
-    return AnalysisUtils.getUniqueDirectory(
-        getLabel(), fragment, getConfiguration().isSiblingRepositoryLayout());
+    return AnalysisUtils.getUniqueDirectory(getLabel(), fragment);
   }
 
   /**
@@ -1353,7 +1348,7 @@ public class RuleContext extends TargetContext
   @Override
   public Artifact.DerivedArtifact getRelatedArtifact(PathFragment pathFragment, String extension) {
     PathFragment file = FileSystemUtils.replaceExtension(pathFragment, extension);
-    return getDerivedArtifact(file, getConfiguration().getBinDirectory(getLabel().getRepository()));
+    return getDerivedArtifact(file, getConfiguration().getBinDirectory());
   }
 
   /** Returns true if the target for this context is a test target. */

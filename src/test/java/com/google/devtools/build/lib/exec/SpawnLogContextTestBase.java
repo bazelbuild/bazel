@@ -120,8 +120,6 @@ public abstract class SpawnLogContextTestBase {
   protected BuildConfigurationValue configuration;
   protected StoredEventHandler storedEventHandler;
 
-  @TestParameter public boolean siblingRepositoryLayout;
-
   @Before
   public void setup() throws InvalidConfigurationException, OptionsParsingException {
     BuildOptions defaultBuildOptions = BuildOptions.of(ImmutableList.of(CoreOptions.class));
@@ -129,7 +127,6 @@ public abstract class SpawnLogContextTestBase {
         BuildConfigurationValue.createForTesting(
             defaultBuildOptions,
             "k8-fastbuild",
-            siblingRepositoryLayout,
             new BlazeDirectories(
                 new ServerDirectories(outputBase, outputBase, outputBase),
                 /* workspace= */ null,
@@ -157,14 +154,14 @@ public abstract class SpawnLogContextTestBase {
               }
             },
             new FragmentFactory());
-    outputDir = configuration.getBinDirectory(RepositoryName.MAIN);
+    outputDir = configuration.getBinDirectory();
     execRoot = configuration.getDirectories().getExecRoot(WORKSPACE_NAME);
     rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
 
     externalSourceRoot =
         ArtifactRoot.asExternalSourceRoot(
             Root.fromPath(externalRoot.getChild(externalRepo.getName())));
-    externalOutputDir = configuration.getBinDirectory(externalRepo);
+    externalOutputDir = configuration.getBinDirectory();
     storedEventHandler = new StoredEventHandler();
   }
 
@@ -568,18 +565,14 @@ public abstract class SpawnLogContextTestBase {
         PackageIdentifier.create(externalRepo, PathFragment.create("pkg"));
     Artifact externalSourceArtifact =
         ActionsTestUtil.createArtifact(
-            externalSourceRoot,
-            someRepoPkg.getExecPath(siblingRepositoryLayout).getChild("lib.py").getPathString());
+            externalSourceRoot, someRepoPkg.getExecPath().getChild("lib.py").getPathString());
     writeFile(externalSourceArtifact, "external_source");
     PackageIdentifier someRepoOtherPkg =
         PackageIdentifier.create(externalRepo, PathFragment.create("other/pkg"));
     Artifact externalGenArtifact =
         ActionsTestUtil.createArtifact(
             externalOutputDir,
-            someRepoOtherPkg
-                .getPackagePath(siblingRepositoryLayout)
-                .getChild("gen.py")
-                .getPathString());
+            someRepoOtherPkg.getPackagePath().getChild("gen.py").getPathString());
     writeFile(externalGenArtifact, "external_gen");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
@@ -688,21 +681,14 @@ public abstract class SpawnLogContextTestBase {
         PackageIdentifier.create(externalRepo, PathFragment.create("pkg"));
     Artifact externalSourceArtifact =
         ActionsTestUtil.createArtifact(
-            externalSourceRoot,
-            someRepoPkg
-                .getExecPath(siblingRepositoryLayout)
-                .getChild("source.txt")
-                .getPathString());
+            externalSourceRoot, someRepoPkg.getExecPath().getChild("source.txt").getPathString());
     writeFile(externalSourceArtifact, "external_source");
     PackageIdentifier someRepoOtherPkg =
         PackageIdentifier.create(externalRepo, PathFragment.create("other/pkg"));
     Artifact externalGenArtifact =
         ActionsTestUtil.createArtifact(
             externalOutputDir,
-            someRepoOtherPkg
-                .getPackagePath(siblingRepositoryLayout)
-                .getChild("gen.txt")
-                .getPathString());
+            someRepoOtherPkg.getPackagePath().getChild("gen.txt").getPathString());
     writeFile(externalGenArtifact, "external_gen");
 
     Artifact symlinkSourceTarget = ActionsTestUtil.createArtifact(rootDir, "pkg/target.txt");
@@ -822,21 +808,14 @@ public abstract class SpawnLogContextTestBase {
         PackageIdentifier.create(externalRepo, PathFragment.create("pkg"));
     Artifact externalSourceArtifact =
         ActionsTestUtil.createArtifact(
-            externalSourceRoot,
-            someRepoPkg
-                .getExecPath(siblingRepositoryLayout)
-                .getChild("source.txt")
-                .getPathString());
+            externalSourceRoot, someRepoPkg.getExecPath().getChild("source.txt").getPathString());
     writeFile(externalSourceArtifact, "external_source");
     PackageIdentifier someRepoOtherPkg =
         PackageIdentifier.create(externalRepo, PathFragment.create("other/pkg"));
     Artifact externalGenArtifact =
         ActionsTestUtil.createArtifact(
             externalOutputDir,
-            someRepoOtherPkg
-                .getPackagePath(siblingRepositoryLayout)
-                .getChild("gen.txt")
-                .getPathString());
+            someRepoOtherPkg.getPackagePath().getChild("gen.txt").getPathString());
     writeFile(externalGenArtifact, "external_gen");
 
     Artifact symlinkTarget = ActionsTestUtil.createArtifact(outputDir, "pkg/root_target.txt");
@@ -933,16 +912,11 @@ public abstract class SpawnLogContextTestBase {
         PackageIdentifier.create(externalRepo, PathFragment.create("pkg"));
     Artifact externalSourceArtifact =
         ActionsTestUtil.createArtifact(
-            externalSourceRoot,
-            someRepoPkg.getExecPath(siblingRepositoryLayout).getChild("file.txt").getPathString());
+            externalSourceRoot, someRepoPkg.getExecPath().getChild("file.txt").getPathString());
     writeFile(externalSourceArtifact, "external_source");
     Artifact externalGenArtifact =
         ActionsTestUtil.createArtifact(
-            externalOutputDir,
-            someRepoPkg
-                .getPackagePath(siblingRepositoryLayout)
-                .getChild("file.txt")
-                .getPathString());
+            externalOutputDir, someRepoPkg.getPackagePath().getChild("file.txt").getPathString());
     writeFile(externalGenArtifact, "external_gen");
 
     Artifact runfilesArtifact =
@@ -1006,21 +980,14 @@ public abstract class SpawnLogContextTestBase {
         PackageIdentifier.create(externalRepo, PathFragment.create("pkg"));
     Artifact externalSourceArtifact =
         ActionsTestUtil.createArtifact(
-            externalSourceRoot,
-            someRepoPkg
-                .getExecPath(siblingRepositoryLayout)
-                .getChild("source.txt")
-                .getPathString());
+            externalSourceRoot, someRepoPkg.getExecPath().getChild("source.txt").getPathString());
     writeFile(externalSourceArtifact, "external_source");
     PackageIdentifier someRepoOtherPkg =
         PackageIdentifier.create(externalRepo, PathFragment.create("other/pkg"));
     Artifact externalGenArtifact =
         ActionsTestUtil.createArtifact(
             externalOutputDir,
-            someRepoOtherPkg
-                .getPackagePath(siblingRepositoryLayout)
-                .getChild("gen.txt")
-                .getPathString());
+            someRepoOtherPkg.getPackagePath().getChild("gen.txt").getPathString());
     writeFile(externalGenArtifact, "external_gen");
 
     Artifact symlinkSourceArtifact = ActionsTestUtil.createArtifact(rootDir, "pkg/not_source.txt");
@@ -2252,8 +2219,7 @@ public abstract class SpawnLogContextTestBase {
               runfilesTree,
               builder,
               inputMetadataProvider,
-              PathMapper.NOOP,
-              PathFragment.EMPTY_FRAGMENT);
+              PathMapper.NOOP);
     }
 
     for (ActionInput actionInput : actionInputs) {

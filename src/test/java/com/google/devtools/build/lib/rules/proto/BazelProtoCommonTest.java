@@ -93,7 +93,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
 
     scratch.file(
         "foo/generate.bzl",
-"""
+        """
 load("@com_google_protobuf//bazel/common:proto_info.bzl", "ProtoInfo")
 load("@com_google_protobuf//bazel/common:proto_common.bzl", "proto_common")
 load("@com_google_protobuf//bazel/common:proto_lang_toolchain_info.bzl", "ProtoLangToolchainInfo")
@@ -168,20 +168,13 @@ compile_rule = rule(_impl,
    */
   @Test
   @TestParameters({
-    "{sibling: false, generated: false, expectedFlags:" + " ['-Iexternal/foo\\+']}",
-    "{sibling: false, generated: true, expectedFlags:"
-        + " ['-Ibl?azel?-out/k8-fastbuild/bin/external/foo\\+']}",
-    "{sibling: true, generated: false,expectedFlags:" + " ['-I../foo\\+']}",
-    "{sibling: true, generated: true, expectedFlags:"
-        + " ['-Ibl?azel?-out/foo\\+/k8-fastbuild/bin']}",
+    "{generated: false, expectedFlags:" + " ['-Iexternal/foo\\+']}",
+    "{generated: true, expectedFlags:" + " ['-Ibl?azel?-out/k8-fastbuild/bin/external/foo\\+']}",
   })
-  public void protoCommonCompile_externalProtoLibrary(
-      boolean sibling, boolean generated, List<String> expectedFlags) throws Exception {
+  public void protoCommonCompile_externalProtoLibrary(boolean generated, List<String> expectedFlags)
+      throws Exception {
     if (!analysisMock.isThisBazel()) {
       return;
-    }
-    if (sibling) {
-      setBuildLanguageOptions("--experimental_sibling_repository_layout");
     }
     scratch.appendFile(
         "MODULE.bazel",

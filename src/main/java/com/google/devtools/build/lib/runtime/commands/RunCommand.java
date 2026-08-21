@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.PathPrettyPrinter;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecRequestEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.RunBuildCompleteEvent;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -320,7 +319,7 @@ public class RunCommand implements BlazeCommand {
                   env,
                   /* testLogDir= */ builtTargets
                       .configuration
-                      .getTestLogsDirectory(RepositoryName.MAIN)
+                      .getTestLogsDirectory()
                       .getExecPathString(),
                   runCommandLine.isTestTarget())
               : ImmutableList.of();

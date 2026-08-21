@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
@@ -84,7 +83,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
     scratch.appendFile(
         "tools/proto/toolchains/BUILD",
-"""
+        """
 load('@com_google_protobuf//bazel/toolchains:proto_lang_toolchain.bzl', 'proto_lang_toolchain')
 package(default_visibility = ["//visibility:public"])
 
@@ -193,7 +192,7 @@ proto_lang_toolchain(
         )
         """);
 
-    String genfilesDir = targetConfig.getGenfilesFragment(RepositoryName.MAIN).getPathString();
+    String genfilesDir = targetConfig.getGenfilesFragment().getPathString();
 
     List<String> args =
         getGeneratingSpawnAction(getConfiguredTarget("//x:lite_pb2"), "x/protolib-lite-src.jar")
@@ -296,7 +295,7 @@ proto_lang_toolchain(
         proto_library(name = "alpha")
         """);
 
-    String genfilesDir = targetConfig.getGenfilesFragment(RepositoryName.MAIN).getPathString();
+    String genfilesDir = targetConfig.getGenfilesFragment().getPathString();
 
     ConfiguredTarget litepb2 = getConfiguredTarget("//cross:lite_pb2");
 

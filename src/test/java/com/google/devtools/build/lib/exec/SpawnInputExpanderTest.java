@@ -77,8 +77,7 @@ public final class SpawnInputExpanderTest {
         runfilesTree,
         inputMap,
         new FakeActionInputFileCache(),
-        PathMapper.NOOP,
-        PathFragment.EMPTY_FRAGMENT);
+        PathMapper.NOOP);
 
     assertThat(inputMap)
         .containsExactly(PathFragment.create("runfiles/workspace/dir/file"), artifact);
@@ -100,8 +99,7 @@ public final class SpawnInputExpanderTest {
         runfilesTree,
         inputMap,
         fakeActionInputFileCache,
-        PathMapper.NOOP,
-        PathFragment.EMPTY_FRAGMENT);
+        PathMapper.NOOP);
 
     assertThat(inputMap)
         .containsExactly(
@@ -122,8 +120,7 @@ public final class SpawnInputExpanderTest {
         runfilesTree,
         inputMap,
         new FakeActionInputFileCache(),
-        PathMapper.NOOP,
-        PathFragment.EMPTY_FRAGMENT);
+        PathMapper.NOOP);
     assertThat(inputMap)
         .containsExactly(PathFragment.create("runfiles/workspace/dir/file"), artifact);
   }
@@ -147,8 +144,7 @@ public final class SpawnInputExpanderTest {
         runfilesTree,
         inputMap,
         new FakeActionInputFileCache(),
-        PathMapper.NOOP,
-        PathFragment.EMPTY_FRAGMENT);
+        PathMapper.NOOP);
     assertThat(inputMap)
         .containsExactly(
             PathFragment.create("runfiles/workspace/dir/file"), artifact1,
@@ -175,8 +171,7 @@ public final class SpawnInputExpanderTest {
         runfilesTree,
         inputMap,
         new FakeActionInputFileCache(),
-        execPath -> PathFragment.create(execPath.getPathString().replace("k8-opt/", "")),
-        PathFragment.EMPTY_FRAGMENT);
+        execPath -> PathFragment.create(execPath.getPathString().replace("k8-opt/", "")));
 
     assertThat(inputMap)
         .containsExactly(
@@ -203,8 +198,7 @@ public final class SpawnInputExpanderTest {
         runfilesTree,
         inputMap,
         new FakeActionInputFileCache(),
-        PathMapper.NOOP,
-        PathFragment.EMPTY_FRAGMENT);
+        PathMapper.NOOP);
 
     assertThat(inputMap)
         .containsExactly(PathFragment.create("runfiles/workspace/symlink"), artifact);
@@ -227,8 +221,7 @@ public final class SpawnInputExpanderTest {
         runfilesTree,
         inputMap,
         new FakeActionInputFileCache(),
-        PathMapper.NOOP,
-        PathFragment.EMPTY_FRAGMENT);
+        PathMapper.NOOP);
 
     assertThat(inputMap)
         .containsExactly(
@@ -265,8 +258,7 @@ public final class SpawnInputExpanderTest {
         runfilesTree,
         inputMap,
         fakeActionInputFileCache,
-        PathMapper.NOOP,
-        PathFragment.EMPTY_FRAGMENT);
+        PathMapper.NOOP);
 
     assertThat(inputMap)
         .containsExactly(
@@ -314,7 +306,7 @@ public final class SpawnInputExpanderTest {
         };
 
     expander.addSingleRunfilesTreeToInputs(
-        runfilesTree, inputMap, fakeActionInputFileCache, pathMapper, PathFragment.EMPTY_FRAGMENT);
+        runfilesTree, inputMap, fakeActionInputFileCache, pathMapper);
 
     assertThat(inputMap)
         .containsExactly(
@@ -345,8 +337,7 @@ public final class SpawnInputExpanderTest {
         runfilesTree,
         inputMap,
         fakeActionInputFileCache,
-        PathMapper.NOOP,
-        PathFragment.EMPTY_FRAGMENT);
+        PathMapper.NOOP);
 
     assertThat(inputMap)
         .containsExactly(
@@ -380,8 +371,7 @@ public final class SpawnInputExpanderTest {
         runfilesTree,
         inputMap,
         fakeActionInputFileCache,
-        PathMapper.NOOP,
-        PathFragment.EMPTY_FRAGMENT);
+        PathMapper.NOOP);
 
     assertThat(inputMap)
         .containsExactly(
@@ -408,7 +398,7 @@ public final class SpawnInputExpanderTest {
 
     Spawn spawn = new SpawnBuilder("/bin/echo", "Hello World").withInput(treeArtifact).build();
     Map<PathFragment, ActionInput> inputMappings =
-        expander.getInputMapping(spawn, fakeActionInputFileCache, PathFragment.EMPTY_FRAGMENT);
+        expander.getInputMapping(spawn, fakeActionInputFileCache);
 
     assertThat(inputMappings).hasSize(2);
     assertThat(inputMappings).containsEntry(PathFragment.create("out/treeArtifact/file1"), file1);
@@ -444,7 +434,7 @@ public final class SpawnInputExpanderTest {
     ImmutableMap<Artifact, FilesetOutputTree> filesetMappings =
         ImmutableMap.of(createFileset("out"), FilesetOutputTree.EMPTY);
 
-    SpawnInputExpander.addFilesetManifests(filesetMappings, inputMap, PathFragment.EMPTY_FRAGMENT);
+    SpawnInputExpander.addFilesetManifests(filesetMappings, inputMap);
 
     assertThat(inputMap).isEmpty();
   }
@@ -460,7 +450,7 @@ public final class SpawnInputExpanderTest {
             FilesetOutputTree.create(
                 ImmutableList.of(link1, link2), /* treeArtifacts= */ ImmutableMap.of()));
 
-    SpawnInputExpander.addFilesetManifests(filesetMappings, inputMap, PathFragment.EMPTY_FRAGMENT);
+    SpawnInputExpander.addFilesetManifests(filesetMappings, inputMap);
 
     assertThat(inputMap)
         .containsExactly(
