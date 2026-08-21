@@ -2582,42 +2582,82 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testExecutableFromDifferentRuleIsForbidden() throws Exception {
-    scratch.file(
-        "pkg/BUILD",
-        """
-        filegroup(name = 'tryme',
-                  srcs = [':tryme.sh'],
-                  visibility = ['//visibility:public'],
-        )
-        """);
-
+  public void testExecutableFromDifferentRuleIsAllowed() throws Exception {
     scratch.file(
         "src/rulez.bzl",
         """
-        def  _impl(ctx):
-           return [DefaultInfo(executable = ctx.executable.runme,
-                               files = depset([ctx.executable.runme]),
-                  )]
-        r = rule(_impl,
-                 executable = True,
-                 attrs = {
-                    'runme' : attr.label(executable = True, mandatory = True, cfg = 'exec'),
-                 }
+        def _dep_impl(ctx):
+            executable = ctx.actions.declare_file(ctx.label.name + '.sh')
+            ctx.actions.write(executable, '#!/bin/sh', is_executable = True)
+            return [DefaultInfo(executable = executable)]
+
+        dep = rule(_dep_impl, executable = True)
+
+        def _impl(ctx):
+            executable = ctx.executable.runme
+            return [DefaultInfo(executable = executable, files = depset([executable]))]
+
+        r = rule(
+            _impl,
+            executable = True,
+            attrs = {
+                'runme': attr.label(executable = True, mandatory = True, cfg = 'target'),
+            },
         )
         """);
 
     scratch.file(
         "src/BUILD",
         """
-        load(':rulez.bzl', 'r')
-        r(name = 'r_tools', runme = '//pkg:tryme')
+        load(':rulez.bzl', 'dep', 'r')
+        dep(name = 'dep')
+        r(name = 'r_tools', runme = ':dep')
         """);
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//src:r_tools");
+    assertThat(configuredTarget).isNotNull();
+    assertThat(getExecutable(configuredTarget).getRootRelativePathString())
+        .isEqualTo("src/dep.sh");
+  }
+
+  @Test
+  public void testExecutableFromDifferentConfigurationIsForbidden() throws Exception {
+    scratch.file(
+        "src/rulez.bzl",
+        """
+        def _dep_impl(ctx):
+            executable = ctx.actions.declare_file(ctx.label.name + '.sh')
+            ctx.actions.write(executable, '#!/bin/sh', is_executable = True)
+            return [DefaultInfo(executable = executable)]
+
+        dep = rule(_dep_impl, executable = True)
+
+        def _impl(ctx):
+            executable = ctx.executable.runme
+            return [DefaultInfo(executable = executable, files = depset([executable]))]
+
+        r = rule(
+            _impl,
+            executable = True,
+            attrs = {
+                'runme': attr.label(executable = True, mandatory = True, cfg = 'exec'),
+            },
+        )
+        """);
+
+    scratch.file(
+        "src/BUILD",
+        """
+        load(':rulez.bzl', 'dep', 'r')
+        dep(name = 'dep')
+        r(name = 'r_tools', runme = ':dep')
+        """);
+
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//src:r_tools");
+    assertThat(getConfiguredTarget("//src:r_tools")).isNull();
     assertContainsEvent(
-        "/workspace/src/rulez.bzl:2:23: 'executable' provided by an executable"
-            + " rule 'r' should be created by the same rule.");
+        "'executable' provided by rule 'r' must be a generated file from the same"
+            + " configuration.");
   }
 
   @Test

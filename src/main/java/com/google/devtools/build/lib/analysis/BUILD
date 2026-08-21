@@ -168,6 +168,7 @@ java_library(
         ":options_diff_predicate",
         ":platform_configuration",
         ":provider_collection",
+        ":provider_map",
         ":repo_mapping_manifest_action",
         ":required_config_fragments_provider",
         ":resolved_toolchain_context",
@@ -1116,10 +1117,22 @@ java_library(
 )
 
 java_library(
+    name = "provider_map",
+    srcs = ["ProviderMap.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
+        "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
     name = "transitive_info_collection",
     srcs = ["TransitiveInfoCollection.java"],
     deps = [
         ":provider_collection",
+        ":provider_map",
         ":transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",

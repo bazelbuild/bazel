@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.ProviderMap;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -240,6 +241,11 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
   @Override
   public Dict<String, Object> getProvidersDictForQuery() {
     return actual.getProvidersDictForQuery();
+  }
+
+  @Override
+  public ProviderMap providers() {
+    return actual.providers();
   }
 
   @Override
