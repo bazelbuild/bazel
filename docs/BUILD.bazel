@@ -19,7 +19,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]),
     visibility = [
-        "//:__pkg__",  # Scheuklappen: keep
+        "//__pkg__",  # Scheuklappen: keep
         "//scripts/docs:__pkg__",  # Scheuklappen: keep
     ],
 )
