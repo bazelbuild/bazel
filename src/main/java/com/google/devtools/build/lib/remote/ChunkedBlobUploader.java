@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 
@@ -84,6 +85,11 @@ public class ChunkedBlobUploader {
   /** Returns the minimum blob size for chunked upload. */
   public long getChunkingThreshold() {
     return chunkingThreshold;
+  }
+
+  public void uploadChunked(RemoteActionExecutionContext context, Digest blobDigest, Path file)
+      throws IOException, InterruptedException {
+    uploadChunked(context, blobDigest, file, /* force= */ false);
   }
 
   /**
@@ -159,7 +165,7 @@ public class ChunkedBlobUploader {
           if (inFlightUploads.size() >= MAX_IN_FLIGHT_CHUNK_UPLOADS) {
             awaitCompletedUpload();
           }
-          startUpload(file, chunkOffset, chunkDigest);
+          startUpload(file, chunkOffset, chunkDigest, force);
         }
         while (!inFlightUploads.isEmpty()) {
           awaitCompletedUpload();
@@ -173,7 +179,7 @@ public class ChunkedBlobUploader {
       return missingDigests.contains(chunkDigest) && scheduledDigests.add(chunkDigest);
     }
 
-    private void startUpload(Path file, long chunkOffset, Digest chunkDigest) {
+    private void startUpload(Path file, long chunkOffset, Digest chunkDigest, boolean force) {
       ListenableFuture<Void> upload =
           combinedCache.uploadBlob(
               context, chunkDigest, new ChunkBlob(file, chunkOffset, chunkDigest), force);

@@ -381,6 +381,20 @@ public class CombinedCache extends AbstractReferenceCounted {
     return diskCacheClient.uploadBlob(digest, blob);
   }
 
+  /* must not interact with casUploadCache */
+  protected ListenableFuture<Void> uploadOrChunkFile(
+      RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
+    return Futures.transformAsync(
+        chunking,
+        chunking -> {
+          if (chunking.supported() && digest.getSizeBytes() > chunking.config().chunkingThreshold()) {
+            return uploadChunked(chunking, context, digest, file, force);
+          }
+          return remoteCacheClient.uploadFile(context, digest, file, force);
+        },
+        directExecutor());
+  }
+
   private ListenableFuture<Void> uploadFileToRemote(
       RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
     if (digest.getSizeBytes() == 0) {
@@ -460,17 +474,6 @@ public class CombinedCache extends AbstractReferenceCounted {
           chunking.uploader().uploadChunked(context, digest, file, force);
           return null;
         });
-  }
-
-  /**
-   * Uploads a blob to the cache from a repeatable stream supplier.
-   *
-   * <p>The supplier may be opened more than once, including concurrently when both disk and remote
-   * cache writes are enabled.
-   */
-  public ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, Blob blob) {
-    return uploadBlob(context, digest, blob, /* force= */ false);
   }
 
   /**
