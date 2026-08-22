@@ -223,7 +223,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
             // the interim.
             throw new CacheNotFoundException(digest, execPath);
           }
-          return remoteCacheClient.uploadFile(context, digest, path, force);
+          return uploadOrChunkFile(context, digest, path, force);
         },
         directExecutor());
   }

@@ -631,7 +631,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
                 + "/"
                 + digest.getSizeBytes());
     verify(combinedCache, never()).uploadFile(any(), any(), any());
-    verify(combinedCache, never()).uploadBlob(any(), any(), any(Blob.class));
+    verify(combinedCache, never()).uploadBlob(any(), any(), any(Blob.class), any(Boolean.class));
   }
 
   @Test
