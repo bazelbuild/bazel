@@ -212,7 +212,7 @@ public class ChunkedTransferBenchmark {
           .thenReturn(Futures.immediateFuture(ImmutableSet.copyOf(chunkDigests)));
       when(grpcCacheClient.spliceBlob(any(), any(Digest.class), any(), any()))
           .thenReturn(Futures.immediateVoidFuture());
-      when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class)))
+      when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class), /* force= */ false))
           .thenAnswer(
               invocation ->
                   delayedFuture(null, delayMillis, jitterMillis, latencyJitter, scheduler));

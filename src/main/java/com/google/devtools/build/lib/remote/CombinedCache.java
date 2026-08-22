@@ -386,6 +386,20 @@ public class CombinedCache extends AbstractReferenceCounted {
         .call(() -> null, directExecutor());
   }
 
+  /* must not interact with casUploadCache */
+  protected ListenableFuture<Void> uploadOrChunkFile(
+      RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
+    return Futures.transformAsync(
+        chunking,
+        chunking -> {
+          if (chunking.supported() && digest.getSizeBytes() > chunking.config().chunkingThreshold()) {
+            return uploadChunked(chunking, context, digest, file, force);
+          }
+          return remoteCacheClient.uploadFile(context, digest, file, force);
+        },
+        directExecutor());
+  }
+
   /**
    * Upload a local file to the remote cache.
    *
@@ -414,7 +428,7 @@ public class CombinedCache extends AbstractReferenceCounted {
           chunking -> {
             if (chunking.supported() && digest.getSizeBytes() > chunking.config().chunkingThreshold()) {
               return remoteCacheClient.dedupUpload(
-                  digest, () -> uploadChunked(chunking, context, digest, file), /* force= */ false);
+                  digest, () -> uploadChunked(chunking, context, digest, file, /* force= */ false), /* force= */ false);
             }
             return remoteCacheClient.uploadFile(context, digest, file, /* force= */ false);
           },
@@ -426,10 +440,10 @@ public class CombinedCache extends AbstractReferenceCounted {
   }
 
   private ListenableFuture<Void> uploadChunked(
-      Chunking chunking, RemoteActionExecutionContext context, Digest digest, Path file) {
+      Chunking chunking, RemoteActionExecutionContext context, Digest digest, Path file, boolean force) {
     return virtualThreadExecutor.submit(
         () -> {
-          chunking.uploader().uploadChunked(context, digest, file);
+          chunking.uploader().uploadChunked(context, digest, file, force);
           return null;
         });
   }
@@ -441,7 +455,7 @@ public class CombinedCache extends AbstractReferenceCounted {
    * cache writes are enabled.
    */
   public ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, Blob blob) {
+      RemoteActionExecutionContext context, Digest digest, Blob blob, boolean force) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
     }
@@ -453,7 +467,7 @@ public class CombinedCache extends AbstractReferenceCounted {
 
     ListenableFuture<Void> remoteCacheFuture = Futures.immediateVoidFuture();
     if (remoteCacheClient != null && context.getWriteCachePolicy().allowRemoteCache()) {
-      remoteCacheFuture = remoteCacheClient.uploadBlob(context, digest, blob, /* force= */ false);
+      remoteCacheFuture = remoteCacheClient.uploadBlob(context, digest, blob, force);
     }
 
     return Futures.whenAllSucceed(diskCacheFuture, remoteCacheFuture)

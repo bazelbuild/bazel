@@ -103,7 +103,7 @@ final class CasServer extends ContentAddressableStorageImplBase {
       BatchUpdateBlobsResponse.Response.Builder resp = batchResponse.addResponsesBuilder();
       try {
         Digest digest = cache.digestUtil().compute(r.getData().toByteArray());
-        getFromFuture(cache.uploadBlob(context, digest, (Blob) r.getData()::newInput));
+        getFromFuture(cache.uploadBlob(context, digest, (Blob) r.getData()::newInput, /* force= */ false));
         if (!r.getDigest().equals(digest)) {
           String err =
               "Upload digest " + r.getDigest() + " did not match data digest: " + digest;

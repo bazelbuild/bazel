@@ -661,7 +661,7 @@ public class UploadManifest {
           new IOException("FindMissingBlobs call returned an unknown digest: " + digest));
     }
 
-    return combinedCache.uploadBlob(context, digest, (Blob) blob::newInput);
+    return combinedCache.uploadBlob(context, digest, (Blob) blob::newInput, /* force= */ false);
   }
 
   @CanIgnoreReturnValue

@@ -119,7 +119,7 @@ public class ChunkedBlobUploaderTest {
               List<Digest> digests = invocation.getArgument(1);
               return immediateFuture(ImmutableSet.copyOf(digests));
             });
-    when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class)))
+    when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class), any(Boolean.class)))
         .thenReturn(immediateVoidFuture());
     when(grpcCacheClient.spliceBlob(any(), any(), any(), any())).thenReturn(immediateVoidFuture());
 
@@ -146,7 +146,7 @@ public class ChunkedBlobUploaderTest {
 
     uploader.uploadChunked(context, blobDigest, file);
 
-    verify(combinedCache, never()).uploadBlob(any(), any(Digest.class), any(Blob.class));
+    verify(combinedCache, never()).uploadBlob(any(), any(Digest.class), any(Blob.class), any(Boolean.class));
     verify(grpcCacheClient).spliceBlob(any(), eq(blobDigest), any(), any());
   }
 
@@ -190,7 +190,7 @@ public class ChunkedBlobUploaderTest {
     when(grpcCacheClient.findMissingDigests(any(), any()))
         .thenReturn(immediateFuture(ImmutableSet.copyOf(digestsToReportMissing)));
     Map<Digest, ByteString> actualUploads = new HashMap<>();
-    when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class)))
+    when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class), any(Boolean.class)))
         .thenAnswer(
             invocation -> {
               Digest d = invocation.getArgument(1);
@@ -250,7 +250,7 @@ public class ChunkedBlobUploaderTest {
     CountDownLatch firstWindowRequested = new CountDownLatch(MAX_IN_FLIGHT_CHUNK_UPLOADS);
     CountDownLatch overflowUploadRequested = new CountDownLatch(1);
 
-    when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class)))
+    when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class), any(Boolean.class)))
         .thenAnswer(
             invocation -> {
               Digest digest = invocation.getArgument(1);
@@ -326,7 +326,7 @@ public class ChunkedBlobUploaderTest {
     SettableFuture<Void> failedUpload = SettableFuture.create();
     SettableFuture<Void> cancelledUpload = SettableFuture.create();
     CountDownLatch uploadsStarted = new CountDownLatch(2);
-    when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class)))
+    when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class), any(Boolean.class)))
         .thenAnswer(
             invocation -> {
               Digest digest = invocation.getArgument(1);
@@ -384,7 +384,7 @@ public class ChunkedBlobUploaderTest {
 
     SettableFuture<Void> cancelledUpload = SettableFuture.create();
     cancelledUpload.cancel(/* mayInterruptIfRunning= */ true);
-    when(combinedCache.uploadBlob(any(), eq(firstChunkDigest), any(Blob.class)))
+    when(combinedCache.uploadBlob(any(), eq(firstChunkDigest), any(Blob.class), any(Boolean.class)))
         .thenReturn(cancelledUpload);
 
     assertThrows(
@@ -416,7 +416,7 @@ public class ChunkedBlobUploaderTest {
 
     SettableFuture<Void> failedUpload = SettableFuture.create();
     failedUpload.setException(new IOException("upload failed"));
-    when(combinedCache.uploadBlob(any(), eq(chunkDigests.get(0)), any(Blob.class)))
+    when(combinedCache.uploadBlob(any(), eq(chunkDigests.get(0)), any(Blob.class), any(Boolean.class)))
         .thenReturn(failedUpload);
 
     Thread uploadThread =
@@ -459,7 +459,7 @@ public class ChunkedBlobUploaderTest {
         .thenReturn(new ByteArrayInputStream(data), new ByteArrayInputStream(new byte[0]));
     when(grpcCacheClient.findMissingDigests(any(), any()))
         .thenReturn(immediateFuture(ImmutableSet.of(secondChunkDigest)));
-    when(combinedCache.uploadBlob(any(), eq(secondChunkDigest), any(Blob.class)))
+    when(combinedCache.uploadBlob(any(), eq(secondChunkDigest), any(Blob.class), any(Boolean.class)))
         .thenAnswer(
             invocation -> {
               Blob blob = invocation.getArgument(2);

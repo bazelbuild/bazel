@@ -281,7 +281,7 @@ public class CombinedCacheTest {
     Path file = execRoot.getRelative("file");
 
     getFromFuture(
-        combinedCache.uploadBlob(remoteActionExecutionContext, emptyDigest, (Blob) ByteString.EMPTY::newInput));
+        combinedCache.uploadBlob(remoteActionExecutionContext, emptyDigest, (Blob) ByteString.EMPTY::newInput, /* force= */ false));
     assertThat(
             getFromFuture(
                 combinedCache.findMissingDigests(

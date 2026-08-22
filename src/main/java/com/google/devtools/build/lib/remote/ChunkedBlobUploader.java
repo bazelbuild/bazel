@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
@@ -86,12 +87,17 @@ public class ChunkedBlobUploader {
     return chunkingThreshold;
   }
 
+  public void uploadChunked(RemoteActionExecutionContext context, Digest blobDigest, Path file)
+      throws IOException, InterruptedException {
+    uploadChunked(context, blobDigest, file, /* force= */ false);
+  }
+
   /**
    * Uploads a blob in content-defined chunks. The file is chunked with the configured chunking
    * function, missing chunks are uploaded, and {@code SpliceBlob} is called to register the blob as
    * the concatenation of its chunks.
    */
-  public void uploadChunked(RemoteActionExecutionContext context, Digest blobDigest, Path file)
+  public void uploadChunked(RemoteActionExecutionContext context, Digest blobDigest, Path file, boolean force)
       throws IOException, InterruptedException {
     List<Digest> chunkDigests;
     try (InputStream input = file.getInputStream()) {
@@ -103,7 +109,7 @@ public class ChunkedBlobUploader {
 
     ImmutableSet<Digest> missingDigests =
         getFromFuture(remoteCacheClient.findMissingDigests(context, chunkDigests));
-    uploadMissingChunks(context, missingDigests, chunkDigests, file);
+    uploadMissingChunks(context, missingDigests, chunkDigests, file, force);
     getFromFuture(remoteCacheClient.spliceBlob(context, blobDigest, chunkDigests, chunkingFunction));
   }
 
@@ -111,12 +117,13 @@ public class ChunkedBlobUploader {
       RemoteActionExecutionContext context,
       ImmutableSet<Digest> missingDigests,
       List<Digest> chunkDigests,
-      Path file)
+      Path file,
+      boolean force)
       throws IOException, InterruptedException {
     if (missingDigests.isEmpty()) {
       return;
     }
-    new UploadSession(context, missingDigests, chunkDigests).run(file);
+    new UploadSession(context, missingDigests, chunkDigests, force).run(file);
   }
 
   private final class UploadSession {
@@ -128,14 +135,17 @@ public class ChunkedBlobUploader {
     private final RemoteActionExecutionContext context;
     private final ImmutableSet<Digest> missingDigests;
     private final List<Digest> chunkDigests;
+    private final boolean force;
 
     UploadSession(
         RemoteActionExecutionContext context,
         ImmutableSet<Digest> missingDigests,
-        List<Digest> chunkDigests) {
+        List<Digest> chunkDigests,
+        boolean force) {
       this.context = context;
       this.missingDigests = missingDigests;
       this.chunkDigests = chunkDigests;
+      this.force = force;
     }
 
     void run(Path file) throws IOException, InterruptedException {
@@ -151,7 +161,7 @@ public class ChunkedBlobUploader {
           if (inFlightUploads.size() >= MAX_IN_FLIGHT_CHUNK_UPLOADS) {
             awaitCompletedUpload();
           }
-          startUpload(file, chunkOffset, chunkDigest);
+          startUpload(file, chunkOffset, chunkDigest, force);
         }
         while (!inFlightUploads.isEmpty()) {
           awaitCompletedUpload();
@@ -165,10 +175,10 @@ public class ChunkedBlobUploader {
       return missingDigests.contains(chunkDigest) && scheduledDigests.add(chunkDigest);
     }
 
-    private void startUpload(Path file, long chunkOffset, Digest chunkDigest) {
+    private void startUpload(Path file, long chunkOffset, Digest chunkDigest, boolean force) {
       ListenableFuture<Void> upload =
           combinedCache.uploadBlob(
-              context, chunkDigest, new ChunkBlob(file, chunkOffset, chunkDigest));
+              context, chunkDigest, new ChunkBlob(file, chunkOffset, chunkDigest), force);
       inFlightUploads.add(upload);
       upload.addListener(() -> completedUploads.add(upload), directExecutor());
     }
