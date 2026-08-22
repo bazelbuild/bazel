@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 
 import com.google.common.collect.ImmutableList;
@@ -23,6 +22,7 @@ import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.CompletableEmitter;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
+import io.reactivex.rxjava3.core.SingleEmitter;
 import io.reactivex.rxjava3.core.SingleObserver;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.functions.Action;
@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -81,6 +82,11 @@ public final class AsyncTaskCache<KeyT, ValueT> {
 
   @GuardedBy("lock")
   private Map<KeyT, Execution> inProgress = new HashMap<>();
+
+  // Terminal notifications run without holding lock. Keep shutdown from reporting termination
+  // until notifications that have already been detached from an execution finish delivery.
+  @GuardedBy("lock")
+  private int notificationsInProgress = 0;
 
   public static <KeyT, ValueT> AsyncTaskCache<KeyT, ValueT> create() {
     return new AsyncTaskCache<>();
@@ -139,7 +145,7 @@ public final class AsyncTaskCache<KeyT, ValueT> {
     return 0;
   }
 
-  class Execution extends Single<ValueT> implements SingleObserver<ValueT> {
+  class Execution implements SingleObserver<ValueT> {
     private final KeyT key;
     private final Single<ValueT> upstream;
 
@@ -150,7 +156,7 @@ public final class AsyncTaskCache<KeyT, ValueT> {
     private Disposable upstreamDisposable;
 
     @GuardedBy("lock")
-    private final List<SingleObserver<? super ValueT>> observers = new ArrayList<>();
+    private final List<Subscriber> subscribers = new ArrayList<>();
 
     private final AsyncSubject<ValueT> completion = AsyncSubject.create();
 
@@ -161,118 +167,166 @@ public final class AsyncTaskCache<KeyT, ValueT> {
 
     int getSubscriberCount() {
       synchronized (lock) {
-        return observers.size();
+        return subscribers.size();
       }
     }
 
-    @Override
-    protected void subscribeActual(@NonNull SingleObserver<? super ValueT> observer) {
+    Subscriber addSubscriber(SingleEmitter<ValueT> emitter) {
       synchronized (lock) {
-        checkState(!terminated, "terminated");
-
-        boolean shouldSubscribe = observers.isEmpty();
-
-        observers.add(observer);
-
-        observer.onSubscribe(new ExecutionDisposable(this, observer));
-
-        if (shouldSubscribe) {
-          upstream.subscribe(this);
-        }
+        Subscriber subscriber = new Subscriber(this, emitter);
+        subscribers.add(subscriber);
+        return subscriber;
       }
+    }
+
+    void start() {
+      upstream.subscribe(this);
     }
 
     @Override
     public void onSubscribe(@NonNull Disposable d) {
+      boolean dispose;
       synchronized (lock) {
-        upstreamDisposable = d;
-
-        if (terminated) {
-          d.dispose();
+        dispose = terminated;
+        if (!dispose) {
+          upstreamDisposable = d;
         }
+      }
+      if (dispose) {
+        d.dispose();
       }
     }
 
     @Override
     public void onSuccess(@NonNull ValueT value) {
+      TerminalNotification notification;
       synchronized (lock) {
-        if (!terminated) {
-          inProgress.remove(key);
-          finished.put(key, value);
-          terminated = true;
-
-          for (SingleObserver<? super ValueT> observer : ImmutableList.copyOf(observers)) {
-            observer.onSuccess(value);
-          }
-
-          completion.onNext(value);
-          completion.onComplete();
-
-          maybeNotifyTermination();
-        }
+        notification = terminateLocked(value, null, false);
+      }
+      if (notification != null) {
+        notification.deliver();
       }
     }
 
     @Override
     public void onError(@NonNull Throwable error) {
+      TerminalNotification notification;
       synchronized (lock) {
-        if (!terminated) {
-          inProgress.remove(key);
-          terminated = true;
-
-          for (SingleObserver<? super ValueT> observer : ImmutableList.copyOf(observers)) {
-            observer.onError(error);
-          }
-
-          completion.onError(error);
-
-          maybeNotifyTermination();
-        }
+        notification = terminateLocked(null, error, false);
+      }
+      if (notification != null) {
+        notification.deliver();
       }
     }
 
-    void remove(SingleObserver<? super ValueT> observer) {
+    void remove(Subscriber subscriber) {
+      TerminalNotification notification = null;
       synchronized (lock) {
-        observers.remove(observer);
-
-        if (observers.isEmpty() && !terminated) {
-          inProgress.remove(key);
-          terminated = true;
-
-          if (upstreamDisposable != null) {
-            upstreamDisposable.dispose();
-          }
+        subscribers.remove(subscriber);
+        if (subscribers.isEmpty() && !terminated) {
+          notification = terminateLocked(null, new CancellationException("cancelled"), true);
         }
+      }
+      if (notification != null) {
+        notification.deliver();
       }
     }
 
     void cancel() {
+      TerminalNotification notification;
       synchronized (lock) {
-        if (!terminated) {
-          if (upstreamDisposable != null) {
-            upstreamDisposable.dispose();
+        notification = terminateLocked(null, new CancellationException("cancelled"), true);
+      }
+      if (notification != null) {
+        notification.deliver();
+      }
+    }
+
+    @GuardedBy("lock")
+    @Nullable
+    private TerminalNotification terminateLocked(
+        @Nullable ValueT value, @Nullable Throwable error, boolean disposeUpstream) {
+      if (terminated) {
+        return null;
+      }
+
+      inProgress.remove(key, this);
+      if (error == null) {
+        finished.put(key, value);
+      }
+      terminated = true;
+
+      ImmutableList<Subscriber> subscribersToNotify = ImmutableList.copyOf(subscribers);
+      subscribers.clear();
+      notificationsInProgress++;
+
+      return new TerminalNotification(
+          value, error, subscribersToNotify, disposeUpstream ? upstreamDisposable : null);
+    }
+
+    /**
+     * A terminal state transition captured under {@link #lock} and delivered after releasing it.
+     */
+    class TerminalNotification {
+      @Nullable private final ValueT value;
+      @Nullable private final Throwable error;
+      private final ImmutableList<Subscriber> subscribersToNotify;
+      @Nullable private final Disposable disposableToDispose;
+
+      TerminalNotification(
+          @Nullable ValueT value,
+          @Nullable Throwable error,
+          ImmutableList<Subscriber> subscribersToNotify,
+          @Nullable Disposable disposableToDispose) {
+        this.value = value;
+        this.error = error;
+        this.subscribersToNotify = subscribersToNotify;
+        this.disposableToDispose = disposableToDispose;
+      }
+
+      void deliver() {
+        try {
+          if (disposableToDispose != null) {
+            disposableToDispose.dispose();
           }
 
-          onError(new CancellationException("cancelled"));
+          if (error == null) {
+            for (Subscriber subscriber : subscribersToNotify) {
+              if (!subscriber.isDisposed()) {
+                subscriber.emitter.onSuccess(value);
+              }
+            }
+            completion.onNext(value);
+            completion.onComplete();
+          } else {
+            for (Subscriber subscriber : subscribersToNotify) {
+              if (!subscriber.isDisposed()) {
+                subscriber.emitter.tryOnError(error);
+              }
+            }
+            completion.onError(error);
+          }
+        } finally {
+          notificationFinished();
         }
       }
     }
   }
 
-  class ExecutionDisposable implements Disposable {
+  class Subscriber implements Disposable {
     final Execution execution;
-    final SingleObserver<? super ValueT> observer;
-    AtomicBoolean isDisposed = new AtomicBoolean(false);
+    final SingleEmitter<ValueT> emitter;
+    private final AtomicBoolean isDisposed = new AtomicBoolean(false);
 
-    ExecutionDisposable(Execution execution, SingleObserver<? super ValueT> observer) {
+    Subscriber(Execution execution, SingleEmitter<ValueT> emitter) {
       this.execution = execution;
-      this.observer = observer;
+      this.emitter = emitter;
     }
 
     @Override
     public void dispose() {
       if (isDisposed.compareAndSet(false, true)) {
-        execution.remove(observer);
+        execution.remove(this);
       }
     }
 
@@ -312,56 +366,55 @@ public final class AsyncTaskCache<KeyT, ValueT> {
       boolean force) {
     return Single.create(
         emitter -> {
+          boolean rejected = false;
+          boolean alreadyFinished = false;
+          boolean alreadyRunning = false;
+          boolean startExecution = false;
+          @Nullable ValueT cached = null;
+          @Nullable Execution execution = null;
+          @Nullable Subscriber subscriber = null;
+
           synchronized (lock) {
             if (state != STATE_ACTIVE) {
-              emitter.tryOnError(new CancellationException("already shutdown"));
-              return;
-            }
-
-            if (!force) {
-              ValueT cached = finished.get(key);
-              if (cached != null) {
-                onAlreadyFinished.run();
-                emitter.onSuccess(cached);
-                return;
+              rejected = true;
+            } else {
+              if (!force) {
+                cached = finished.get(key);
+                alreadyFinished = cached != null;
+              } else {
+                finished.remove(key);
               }
-            } else {
-              finished.remove(key);
+
+              if (!alreadyFinished) {
+                execution = inProgress.get(key);
+                alreadyRunning = execution != null;
+                if (!alreadyRunning) {
+                  execution = new Execution(key, task);
+                  inProgress.put(key, execution);
+                  startExecution = true;
+                }
+
+                subscriber = execution.addSubscriber(emitter);
+              }
             }
+          }
 
-            Execution execution = inProgress.get(key);
-            if (execution != null) {
-              onAlreadyRunning.run();
-            } else {
-              execution = new Execution(key, task);
-              inProgress.put(key, execution);
-            }
+          if (rejected) {
+            emitter.tryOnError(new CancellationException("already shutdown"));
+            return;
+          }
+          if (alreadyFinished) {
+            onAlreadyFinished.run();
+            emitter.onSuccess(cached);
+            return;
+          }
 
-            // We must subscribe the execution within the scope of lock to avoid race condition
-            // that:
-            //    1. Two callers get the same execution instance
-            //    2. One decides to dispose the execution, since no more observers, the execution
-            // will change to the terminate state
-            //    3. Another one try to subscribe, will get "terminated" error.
-            execution.subscribe(
-                new SingleObserver<ValueT>() {
-                  @Override
-                  public void onSubscribe(@NonNull Disposable d) {
-                    emitter.setDisposable(d);
-                  }
-
-                  @Override
-                  public void onSuccess(@NonNull ValueT valueT) {
-                    emitter.onSuccess(valueT);
-                  }
-
-                  @Override
-                  public void onError(@NonNull Throwable e) {
-                    // Don't report via RxJava's global error handler if the emitter has been
-                    // disposed.
-                    emitter.tryOnError(e);
-                  }
-                });
+          emitter.setDisposable(subscriber);
+          if (alreadyRunning) {
+            onAlreadyRunning.run();
+          }
+          if (startExecution) {
+            execution.start();
           }
         });
   }
@@ -371,12 +424,14 @@ public final class AsyncTaskCache<KeyT, ValueT> {
    * cancelled with {@link CancellationException}.
    */
   public void shutdown() {
+    ImmutableList<CompletableEmitter> terminationSubscribers;
     synchronized (lock) {
       if (state == STATE_ACTIVE) {
         state = STATE_SHUTDOWN;
-        maybeNotifyTermination();
       }
+      terminationSubscribers = maybeTransitionToTerminated();
     }
+    notifyTerminationSubscribers(terminationSubscribers);
   }
 
   /**
@@ -417,25 +472,24 @@ public final class AsyncTaskCache<KeyT, ValueT> {
     Completable completable =
         Completable.create(
             emitter -> {
+              boolean complete;
               synchronized (lock) {
-                if (state == STATE_TERMINATED) {
-                  // Reduce retained size in case references to the cache are held after shutdown.
-                  terminationSubscriber.trimToSize();
-                  inProgress = new HashMap<>();
-                  finished.clear();
-                  emitter.onComplete();
-                } else {
+                complete = state == STATE_TERMINATED;
+                if (!complete) {
                   terminationSubscriber.add(emitter);
-
-                  emitter.setCancellable(
-                      () -> {
-                        synchronized (lock) {
-                          if (state != STATE_TERMINATED) {
-                            terminationSubscriber.remove(emitter);
-                          }
-                        }
-                      });
                 }
+              }
+              if (complete) {
+                emitter.onComplete();
+              } else {
+                emitter.setCancellable(
+                    () -> {
+                      synchronized (lock) {
+                        if (state != STATE_TERMINATED) {
+                          terminationSubscriber.remove(emitter);
+                        }
+                      }
+                    });
               }
             });
 
@@ -458,12 +512,13 @@ public final class AsyncTaskCache<KeyT, ValueT> {
   public void shutdownNow() {
     shutdown();
 
+    ImmutableList<Execution> executions;
     synchronized (lock) {
-      if (state == STATE_SHUTDOWN) {
-        for (Execution execution : ImmutableList.copyOf(inProgress.values())) {
-          execution.cancel();
-        }
-      }
+      executions =
+          state == STATE_SHUTDOWN ? ImmutableList.copyOf(inProgress.values()) : ImmutableList.of();
+    }
+    for (Execution execution : executions) {
+      execution.cancel();
     }
   }
 
@@ -487,15 +542,32 @@ public final class AsyncTaskCache<KeyT, ValueT> {
     }
   }
 
-  @GuardedBy("lock")
-  private void maybeNotifyTermination() {
-    if (state == STATE_SHUTDOWN && inProgress.isEmpty()) {
-      state = STATE_TERMINATED;
+  private void notificationFinished() {
+    ImmutableList<CompletableEmitter> terminationSubscribers;
+    synchronized (lock) {
+      notificationsInProgress--;
+      terminationSubscribers = maybeTransitionToTerminated();
+    }
+    notifyTerminationSubscribers(terminationSubscribers);
+  }
 
-      for (CompletableEmitter emitter : terminationSubscriber) {
-        emitter.onComplete();
-      }
+  @GuardedBy("lock")
+  private ImmutableList<CompletableEmitter> maybeTransitionToTerminated() {
+    if (state == STATE_SHUTDOWN && inProgress.isEmpty() && notificationsInProgress == 0) {
+      state = STATE_TERMINATED;
+      ImmutableList<CompletableEmitter> subscribers = ImmutableList.copyOf(terminationSubscriber);
       terminationSubscriber.clear();
+      terminationSubscriber.trimToSize();
+      inProgress = new HashMap<>();
+      finished.clear();
+      return subscribers;
+    }
+    return ImmutableList.of();
+  }
+
+  private static void notifyTerminationSubscribers(ImmutableList<CompletableEmitter> subscribers) {
+    for (CompletableEmitter emitter : subscribers) {
+      emitter.onComplete();
     }
   }
 

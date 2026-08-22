@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote.util;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.util.concurrent.SettableFuture;
 import io.reactivex.rxjava3.core.Completable;
@@ -290,6 +291,116 @@ public class AsyncTaskCacheTest {
     assertThat(cache.getFinishedTasks()).containsExactly("key1");
   }
 
+  @Test
+  public void execute_blockedObserver_doesNotBlockOtherKey() throws Exception {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    AtomicReference<SingleEmitter<String>> emitterRef1 = new AtomicReference<>();
+    AtomicReference<SingleEmitter<String>> emitterRef2 = new AtomicReference<>();
+    Semaphore observer1Started = new Semaphore(0);
+    Semaphore releaseObserver1 = new Semaphore(0);
+    ExecutorService executorService = Executors.newFixedThreadPool(2);
+
+    TestObserver<String> observer1 =
+        cache
+            .executeIfNot("key1", Single.create(emitterRef1::set))
+            .doOnSuccess(
+                unused -> {
+                  observer1Started.release();
+                  releaseObserver1.acquireUninterruptibly();
+                })
+            .test();
+    TestObserver<String> observer2 =
+        cache.executeIfNot("key2", Single.create(emitterRef2::set)).test();
+
+    Future<?> completion1 = executorService.submit(() -> emitterRef1.get().onSuccess("value1"));
+    try {
+      assertThat(observer1Started.tryAcquire(5, SECONDS)).isTrue();
+
+      Future<?> completion2 = executorService.submit(() -> emitterRef2.get().onSuccess("value2"));
+      completion2.get(5, SECONDS);
+      observer2.assertValue("value2");
+    } finally {
+      releaseObserver1.release();
+      completion1.get(5, SECONDS);
+      observer1.assertValue("value1");
+      executorService.shutdownNow();
+    }
+  }
+
+  @Test
+  public void execute_blockedCancellation_doesNotBlockOtherKey() throws Exception {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    AtomicReference<SingleEmitter<String>> emitterRef1 = new AtomicReference<>();
+    AtomicReference<SingleEmitter<String>> emitterRef2 = new AtomicReference<>();
+    Semaphore cancellation1Started = new Semaphore(0);
+    Semaphore releaseCancellation1 = new Semaphore(0);
+    ExecutorService executorService = Executors.newFixedThreadPool(2);
+
+    TestObserver<String> observer1 =
+        cache.executeIfNot("key1", Single.create(emitterRef1::set)).test();
+    emitterRef1
+        .get()
+        .setCancellable(
+            () -> {
+              cancellation1Started.release();
+              releaseCancellation1.acquireUninterruptibly();
+            });
+    TestObserver<String> observer2 =
+        cache.executeIfNot("key2", Single.create(emitterRef2::set)).test();
+
+    Future<?> cancellation1 = executorService.submit(observer1::dispose);
+    try {
+      assertThat(cancellation1Started.tryAcquire(5, SECONDS)).isTrue();
+
+      Future<?> completion2 = executorService.submit(() -> emitterRef2.get().onSuccess("value2"));
+      completion2.get(5, SECONDS);
+      observer2.assertValue("value2");
+    } finally {
+      releaseCancellation1.release();
+      cancellation1.get(5, SECONDS);
+      executorService.shutdownNow();
+    }
+  }
+
+  @Test
+  public void execute_blockedAlreadyFinishedCallback_doesNotBlockOtherKey() throws Exception {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    AtomicReference<SingleEmitter<String>> emitterRef2 = new AtomicReference<>();
+    Semaphore callback1Started = new Semaphore(0);
+    Semaphore releaseCallback1 = new Semaphore(0);
+    ExecutorService executorService = Executors.newFixedThreadPool(2);
+
+    cache.executeIfNot("key1", Single.just("value1")).test().assertValue("value1");
+    TestObserver<String> observer2 =
+        cache.executeIfNot("key2", Single.create(emitterRef2::set)).test();
+
+    Future<?> cacheHit1 =
+        executorService.submit(
+            () ->
+                cache
+                    .execute(
+                        "key1",
+                        Single.just("unused"),
+                        () -> {},
+                        () -> {
+                          callback1Started.release();
+                          releaseCallback1.acquireUninterruptibly();
+                        },
+                        false)
+                    .blockingGet());
+    try {
+      assertThat(callback1Started.tryAcquire(5, SECONDS)).isTrue();
+
+      Future<?> completion2 = executorService.submit(() -> emitterRef2.get().onSuccess("value2"));
+      completion2.get(5, SECONDS);
+      observer2.assertValue("value2");
+    } finally {
+      releaseCallback1.release();
+      cacheHit1.get(5, SECONDS);
+      executorService.shutdownNow();
+    }
+  }
+
   private Completable newTask(ExecutorService executorService) {
     return RxFutures.toCompletable(
         () -> {
@@ -466,6 +577,42 @@ public class AsyncTaskCacheTest {
 
     assertThat(cache.getInProgressTasks()).isEmpty();
     assertThat(cache.getFinishedTasks()).isEmpty();
+  }
+
+  @Test
+  public void awaitTermination_blockedObserver_waitsForNotification() throws Exception {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    AtomicReference<SingleEmitter<String>> emitterRef = new AtomicReference<>();
+    Semaphore observerStarted = new Semaphore(0);
+    Semaphore releaseObserver = new Semaphore(0);
+    ExecutorService executorService = Executors.newSingleThreadExecutor();
+
+    TestObserver<String> observer =
+        cache
+            .executeIfNot("key", Single.create(emitterRef::set))
+            .doOnSuccess(
+                unused -> {
+                  observerStarted.release();
+                  releaseObserver.acquireUninterruptibly();
+                })
+            .test();
+    Future<?> completion = executorService.submit(() -> emitterRef.get().onSuccess("value"));
+    try {
+      assertThat(observerStarted.tryAcquire(5, SECONDS)).isTrue();
+
+      cache.shutdown();
+
+      assertThat(cache.isShutdown()).isTrue();
+      assertThat(cache.isTerminated()).isFalse();
+    } finally {
+      releaseObserver.release();
+      completion.get(5, SECONDS);
+      executorService.shutdownNow();
+    }
+
+    cache.awaitTermination();
+    assertThat(cache.isTerminated()).isTrue();
+    observer.assertValue("value");
   }
 
   @Test
