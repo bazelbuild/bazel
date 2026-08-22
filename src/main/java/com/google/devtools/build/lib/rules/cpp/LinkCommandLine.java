@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.TreeArtifactExpander;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import java.util.Optional;
@@ -105,14 +106,18 @@ public final class LinkCommandLine extends AbstractCommandLine {
                 .getStringValue(LINKER_PARAM_FILE, pathMapper);
         argv.addAll(
             featureConfiguration
-                .getCommandLine(actionName, variables, inputMetadataProvider, pathMapper)
+                .getCommandLine(
+                    actionName,
+                    variables,
+                    TreeArtifactExpander.of(inputMetadataProvider),
+                    pathMapper)
                 .stream()
                 .filter(s -> !s.contains(linkerParamFile))
                 .collect(toImmutableList()));
       } else {
         argv.addAll(
             featureConfiguration.getCommandLine(
-                actionName, variables, inputMetadataProvider, pathMapper));
+                actionName, variables, TreeArtifactExpander.of(inputMetadataProvider), pathMapper));
       }
     } catch (ExpansionException e) {
       throw new CommandLineExpansionException(e.getMessage());
@@ -134,7 +139,8 @@ public final class LinkCommandLine extends AbstractCommandLine {
       try {
         Optional<String> formatString =
             featureConfiguration
-                .getCommandLine(actionName, variables, null, PathMapper.NOOP)
+                .getCommandLine(
+                    actionName, variables, /* treeArtifactExpander= */ null, PathMapper.NOOP)
                 .stream()
                 .filter(s -> s.contains("LINKER_PARAM_FILE_PLACEHOLDER"))
                 .findAny();

@@ -1647,6 +1647,15 @@ def _impl(ctx):
     if should_add_requirements:
         action_configs.append(_cpp_compile_with_requirements_action_config)
 
+    # A tool that is a generated file has an exec path in the output tree and is thus subject to
+    # path mapping, unlike the tool paths used by the action configs above.
+    if ctx.file.generated_tool:
+        action_configs.append(action_config(
+            action_name = ACTION_NAMES.cpp_compile,
+            enabled = True,
+            tools = [tool(tool = ctx.file.generated_tool)],
+        ))
+
     make_variables = [
         make_variable(name = name, value = value)
         for name, value in ctx.attr.make_variables.items()
@@ -1718,6 +1727,7 @@ cc_toolchain_config = rule(
         "tool_paths": attr.string_dict(),
         "cxx_builtin_include_directories": attr.string_list(),
         "make_variables": attr.string_dict(),
+        "generated_tool": attr.label(allow_single_file = True),
     },
     provides = [CcToolchainConfigInfo],
     executable = True,
