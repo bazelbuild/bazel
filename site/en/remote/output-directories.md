@@ -59,8 +59,8 @@ The solution that's currently implemented:
   default install base and output base directories. For example:
   `bazel --output_user_root=/tmp/bazel build x/y:z`.
 
-The symlinks for "bazel-&lt;workspace-name&gt;", "bazel-out", "bazel-testlogs",
-and "bazel-bin" are put in the workspace directory; these symlinks point to some
+The symlinks for "bazel-out", "bazel-testlogs", and "bazel-bin" are put in the
+workspace directory; these symlinks point to some
 directories inside a target-specific directory inside the output directory.
 These symlinks are only for the user's convenience, as Bazel itself does not
 use them. Also, this is done only if the workspace root is writable.
@@ -71,7 +71,6 @@ The directories are laid out as follows:
 
 <pre>
 &lt;workspace-name&gt;/                         <== The workspace root
-  bazel-my-project => <..._main>          <== Symlink to execRoot
   bazel-out => <...bazel-out>             <== Convenience symlink to outputPath
   bazel-bin => <...bin>                   <== Convenience symlink to most recent written bin dir $(BINDIR)
   bazel-testlogs => <...testlogs>         <== Convenience symlink to the test logs directory
