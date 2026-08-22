@@ -82,7 +82,7 @@ public class SafeRequestLogging {
     buf.append('[');
     String sep = "";
     Matcher m = suppressFromLog.matcher("");
-    for (String s : requestStrings) {
+    for (String s : redactArguments(requestStrings)) {
       buf.append(sep);
       m.reset(s);
       if (m.lookingAt()) {

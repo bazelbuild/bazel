@@ -23,6 +23,6 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//third_party:junit4",
+        "//third_party/java/junit",
     ],
 )

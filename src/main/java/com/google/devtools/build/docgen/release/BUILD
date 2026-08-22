@@ -23,7 +23,7 @@ java_binary(
     visibility = ["//scripts/docs:__pkg__"],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:flogger",
-        "@maven//:org_yaml_snakeyaml",
+        "//third_party/java/flogger",
+        "//third_party/java/snakeyaml",
     ],
 )

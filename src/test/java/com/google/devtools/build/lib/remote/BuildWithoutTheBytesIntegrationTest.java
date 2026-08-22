@@ -426,7 +426,8 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
-  public void remoteCacheEvictBlobs_whenPrefetchingInput_exitWithCode39() throws Exception {
+  public void remoteCacheEvictBlobs_whenPrefetchingInput(@TestParameter boolean actionRewinding)
+      throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write(
         "a/BUILD",
@@ -468,67 +469,26 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Act: Evict blobs from remote cache and do an incremental build
     evictAllBlobs();
     write("a/bar.in", "updated bar");
-    var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
 
-    // Assert: Exit code is 39
-    assertThat(error).hasMessageThat().contains("Lost inputs no longer available remotely");
-    assertThat(error).hasMessageThat().contains("a/foo.out");
-    assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
-    assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
+    if (actionRewinding) {
+      // Assert: the lost input's generating action is rewound and the build succeeds
+      enableActionRewinding();
+      buildTarget("//a:bar");
+      assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
+    } else {
+      // Assert: the build fails with exit code 39
+      disableActionRewinding();
+      var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+      assertThat(error).hasMessageThat().contains("Lost inputs no longer available remotely");
+      assertThat(error).hasMessageThat().contains("a/foo.out");
+      assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
+      assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
+    }
   }
 
   @Test
-  public void remoteCacheEvictBlobs_whenPrefetchingInput_succeedsWithActionRewinding()
-      throws Exception {
-    // Arrange: Prepare workspace and populate remote cache
-    write(
-        "a/BUILD",
-        """
-        genrule(
-            name = "foo",
-            srcs = ["foo.in"],
-            outs = ["foo.out"],
-            cmd = "cat $(SRCS) > $@",
-        )
-
-        genrule(
-            name = "bar",
-            srcs = [
-                "foo.out",
-                "bar.in",
-            ],
-            outs = ["bar.out"],
-            cmd = "cat $(SRCS) > $@",
-            tags = ["no-remote-exec"],
-        )
-        """);
-    write("a/foo.in", "foo");
-    write("a/bar.in", "bar");
-
-    // Populate remote cache
-    buildTarget("//a:bar");
-    getOutputPath("a/foo.out").delete();
-    getOutputPath("a/bar.out").delete();
-    getOutputBase().getRelative("action_cache").deleteTreesBelow();
-    restartServer();
-
-    // Clean build, foo.out isn't downloaded
-    buildTarget("//a:bar");
-    assertOutputDoesNotExist("a/foo.out");
-
-    // Act: Evict blobs from remote cache and do an incremental build
-    evictAllBlobs();
-    write("a/bar.in", "updated bar");
-    enableActionRewinding();
-    buildTarget("//a:bar");
-
-    // Assert: target was successfully built
-    assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
-  }
-
-  @Test
-  public void remoteCacheEvictBlobs_whenPrefetchingSymlinkedInput_exitWithCode39()
-      throws Exception {
+  public void remoteCacheEvictBlobs_whenPrefetchingSymlinkedInput(
+      @TestParameter boolean actionRewinding) throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     writeSymlinkRule();
     write(
@@ -580,75 +540,26 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Act: Evict blobs from remote cache and do an incremental build
     evictAllBlobs();
     write("a/bar.in", "updated bar");
-    var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
 
-    // Assert: Exit code is 39
-    assertThat(error).hasMessageThat().contains("Lost inputs no longer available remotely");
-    assertThat(error).hasMessageThat().contains("a/symlinked_foo");
-    assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
-    assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
+    if (actionRewinding) {
+      // Assert: the lost input's generating action is rewound and the build succeeds
+      enableActionRewinding();
+      buildTarget("//a:bar");
+      assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
+    } else {
+      // Assert: the build fails with exit code 39
+      disableActionRewinding();
+      var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+      assertThat(error).hasMessageThat().contains("Lost inputs no longer available remotely");
+      assertThat(error).hasMessageThat().contains("a/symlinked_foo");
+      assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
+      assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
+    }
   }
 
   @Test
-  public void remoteCacheEvictBlobs_whenPrefetchingSymlinkedInput_succeedsWithActionRewinding()
+  public void remoteCacheEvictBlobs_whenUploadingInput(@TestParameter boolean actionRewinding)
       throws Exception {
-    writeSymlinkRule();
-    write(
-        "a/BUILD",
-        """
-        load("//:symlink.bzl", "symlink")
-
-        genrule(
-            name = "foo",
-            srcs = ["foo.in"],
-            outs = ["foo.out"],
-            cmd = "cat $(SRCS) > $@",
-        )
-
-        symlink(
-            name = "symlinked_foo",
-            target_artifact = ":foo.out",
-        )
-
-        genrule(
-            name = "bar",
-            srcs = [
-                ":symlinked_foo",
-                "bar.in",
-            ],
-            outs = ["bar.out"],
-            cmd = "cat $(SRCS) > $@",
-            tags = ["no-remote-exec"],
-        )
-        """);
-    write("a/foo.in", "foo");
-    write("a/bar.in", "bar");
-
-    // Populate remote cache
-    buildTarget("//a:bar");
-    getOnlyElement(getArtifacts("//a:symlinked_foo")).getPath().delete();
-    getOutputPath("a/foo.out").delete();
-    getOutputPath("a/bar.out").delete();
-    getOutputBase().getRelative("action_cache").deleteTreesBelow();
-    restartServer();
-
-    // Clean build, foo.out isn't downloaded
-    buildTarget("//a:bar");
-    assertOutputDoesNotExist("a/foo.out");
-    assertOutputsDoNotExist("//a:symlinked_foo");
-
-    // Act: Evict blobs from remote cache and do an incremental build
-    evictAllBlobs();
-    write("a/bar.in", "updated bar");
-    enableActionRewinding();
-    buildTarget("//a:bar");
-
-    // Assert: target was successfully built
-    assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
-  }
-
-  @Test
-  public void remoteCacheEvictBlobs_whenUploadingInput_exitWithCode39() throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write(
         "a/BUILD",
@@ -691,66 +602,24 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Act: Evict blobs from remote cache and do an incremental build
     evictAllBlobs();
     write("a/bar.in", "updated bar");
-    var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
 
-    // Assert: Exit code is 39
-    assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
-    assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
+    if (actionRewinding) {
+      // Assert: the lost input's generating action is rewound and the build succeeds
+      enableActionRewinding();
+      buildTarget("//a:bar");
+      assertOutputsDoNotExist("//a:bar");
+      assertOnlyOutputRemoteContent("//a:bar", "bar.out", "foo\nupdated bar\n");
+    } else {
+      // Assert: the build fails with exit code 39
+      disableActionRewinding();
+      var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+      assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
+      assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
+    }
   }
 
   @Test
-  public void remoteCacheEvictBlobs_whenUploadingInput_succeedsWithActionRewinding()
-      throws Exception {
-    // Arrange: Prepare workspace and populate remote cache
-    write(
-        "a/BUILD",
-        """
-        genrule(
-            name = "foo",
-            srcs = ["foo.in"],
-            outs = ["foo.out"],
-            cmd = "cat $(SRCS) > $@",
-        )
-
-        genrule(
-            name = "bar",
-            srcs = [
-                "foo.out",
-                "bar.in",
-            ],
-            outs = ["bar.out"],
-            cmd = "cat $(SRCS) > $@",
-        )
-        """);
-    write("a/foo.in", "foo");
-    write("a/bar.in", "bar");
-
-    // Populate remote cache
-    setDownloadAll();
-    buildTarget("//a:bar");
-    waitDownloads();
-    getOutputPath("a/foo.out").delete();
-    getOutputPath("a/bar.out").delete();
-    getOutputBase().getRelative("action_cache").deleteTreesBelow();
-    restartServer();
-
-    // Clean build, foo.out isn't downloaded
-    buildTarget("//a:bar");
-    assertOutputDoesNotExist("a/foo.out");
-
-    // Act: Evict blobs from remote cache and do an incremental build
-    evictAllBlobs();
-    write("a/bar.in", "updated bar");
-    enableActionRewinding();
-    buildTarget("//a:bar");
-
-    // Assert: target was successfully built
-    assertOutputsDoNotExist("//a:bar");
-    assertOnlyOutputRemoteContent("//a:bar", "bar.out", "foo\nupdated bar\n");
-  }
-
-  @Test
-  public void remoteCacheEvictBlobs_whenUploadingInputFile_incrementalBuildCanContinue()
+  public void remoteCacheEvictBlobs_whenUploadingInputFile(@TestParameter boolean actionRewinding)
       throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write(
@@ -791,10 +660,16 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Evict blobs from remote cache
     evictAllBlobs();
 
-    // trigger build error
     write("a/bar.in", "updated bar");
-    // Build failed because of remote cache eviction
-    assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    if (actionRewinding) {
+      // The lost input's generating action is rewound within the next build.
+      enableActionRewinding();
+    } else {
+      // The build fails because of remote cache eviction, but an incremental build without
+      // "clean" or "shutdown" can continue.
+      disableActionRewinding();
+      assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    }
 
     // Act: Do an incremental build without "clean" or "shutdown"
     buildTarget("//a:bar");
@@ -805,7 +680,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
-  public void remoteCacheEvictBlobs_whenUploadingInputTree_incrementalBuildCanContinue()
+  public void remoteCacheEvictBlobs_whenUploadingInputTree(@TestParameter boolean actionRewinding)
       throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write("BUILD");
@@ -847,64 +722,20 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Evict blobs from remote cache
     evictAllBlobs();
 
-    // trigger build error
     write("a/bar.in", "updated bar");
-    // Build failed because of remote cache eviction
-    assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    if (actionRewinding) {
+      // The lost input's generating action is rewound within the next build.
+      enableActionRewinding();
+    } else {
+      // The build fails because of remote cache eviction, but an incremental build without
+      // "clean" or "shutdown" can continue.
+      disableActionRewinding();
+      assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    }
 
     // Act: Do an incremental build without "clean" or "shutdown"
     buildTarget("//a:bar");
     waitDownloads();
-
-    // Assert: target was successfully built
-    assertValidOutputFile("a/bar.out", "file-inside\nupdated bar\n");
-  }
-
-  @Test
-  public void remoteCacheEvictBlobs_whenUploadingInputTree_succeedsWithActionRewinding()
-      throws Exception {
-    // Arrange: Prepare workspace and populate remote cache
-    write("BUILD");
-    writeOutputDirRule();
-    write(
-        "a/BUILD",
-        """
-        load("//:output_dir.bzl", "output_dir")
-
-        output_dir(
-            name = "foo.out",
-            content_map = {"file-inside": "hello world"},
-        )
-
-        genrule(
-            name = "bar",
-            srcs = [
-                "foo.out",
-                "bar.in",
-            ],
-            outs = ["bar.out"],
-            cmd = "( ls $(location :foo.out); cat $(location :bar.in) ) > $@",
-        )
-        """);
-    write("a/bar.in", "bar");
-
-    // Populate remote cache
-    buildTarget("//a:bar");
-    getOutputPath("a/foo.out").deleteTreesBelow();
-    getOutputPath("a/bar.out").delete();
-    getOutputBase().getRelative("action_cache").deleteTreesBelow();
-    restartServer();
-
-    // Clean build, foo.out isn't downloaded
-    setDownloadToplevel();
-    buildTarget("//a:bar");
-    assertOutputDoesNotExist("a/foo.out/file-inside");
-
-    // Act: Do an incremental build without "clean" or "shutdown" after clearing the cache
-    evictAllBlobs();
-    write("a/bar.in", "updated bar");
-    enableActionRewinding();
-    buildTarget("//a:bar");
 
     // Assert: target was successfully built
     assertValidOutputFile("a/bar.out", "file-inside\nupdated bar\n");
@@ -1061,6 +892,8 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
   @Test
   public void leaseExtension() throws Exception {
+    // The lease service is only used when action rewinding is disabled.
+    disableActionRewinding();
     // Test that Bazel will extend the leases for remote output by sending FindMissingBlobs calls
     // periodically to remote server. The test assumes remote server will set mtime of referenced
     // blobs to `now`.
@@ -1331,7 +1164,8 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
-  public void remoteFilesExpiredBetweenBuilds_buildRewound() throws Exception {
+  public void remoteFilesExpiredBetweenBuilds(@TestParameter boolean actionRewinding)
+      throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write(
         "a/BUILD",
@@ -1373,14 +1207,20 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Evict blobs from remote cache
     evictAllBlobs();
 
-    // Act: Do an incremental build, which is expected to fail with the exit code
-    // that, in a non-integration test setup, would retry the invocation
-    // automatically. Then simulate the retry.
+    // Act: Do an incremental build.
     write("a/bar.in", "updated bar");
     addOptions("--strategy_regexp=.*bar=local");
-    var e = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
-    assertThat(e.getDetailedExitCode().getFailureDetail().getSpawn().getCode())
-        .isEqualTo(FailureDetails.Spawn.Code.REMOTE_CACHE_EVICTED);
+    if (actionRewinding) {
+      // The expired input's generating action is rewound within the same build.
+      enableActionRewinding();
+    } else {
+      // The build fails with the exit code that, in a non-integration test setup, would retry
+      // the invocation automatically. Simulate the retry.
+      disableActionRewinding();
+      var e = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+      assertThat(e.getDetailedExitCode().getFailureDetail().getSpawn().getCode())
+          .isEqualTo(FailureDetails.Spawn.Code.REMOTE_CACHE_EVICTED);
+    }
 
     buildTarget("//a:bar");
     waitDownloads();
@@ -1390,7 +1230,8 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
-  public void remoteTreeFilesExpiredBetweenBuilds_buildRewound() throws Exception {
+  public void remoteTreeFilesExpiredBetweenBuilds(@TestParameter boolean actionRewinding)
+      throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write("BUILD");
     writeOutputDirRule();
@@ -1433,14 +1274,20 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Evict blobs from remote cache
     evictAllBlobs();
 
-    // Act: Do an incremental build, which is expected to fail with the exit code
-    // that, in a non-integration test setup, would retry the invocation
-    // automatically. Then simulate the retry.
+    // Act: Do an incremental build.
     write("a/bar.in", "updated bar");
     addOptions("--strategy_regexp=.*bar=local");
-    var e = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
-    assertThat(e.getDetailedExitCode().getFailureDetail().getSpawn().getCode())
-        .isEqualTo(FailureDetails.Spawn.Code.REMOTE_CACHE_EVICTED);
+    if (actionRewinding) {
+      // The expired input's generating action is rewound within the same build.
+      enableActionRewinding();
+    } else {
+      // The build fails with the exit code that, in a non-integration test setup, would retry
+      // the invocation automatically. Simulate the retry.
+      disableActionRewinding();
+      var e = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+      assertThat(e.getDetailedExitCode().getFailureDetail().getSpawn().getCode())
+          .isEqualTo(FailureDetails.Spawn.Code.REMOTE_CACHE_EVICTED);
+    }
 
     buildTarget("//a:bar");
     waitDownloads();

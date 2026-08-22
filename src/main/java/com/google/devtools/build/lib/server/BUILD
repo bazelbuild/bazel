@@ -25,7 +25,7 @@ java_library(
     name = "terminal_size_monitor",
     srcs = ["TerminalSizeMonitor.java"],
     deps = [
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -38,9 +38,10 @@ java_library(
         ":terminal_size_monitor",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/protobuf:command_server_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -54,8 +55,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/platform:system_memory_pressure_monitor",
         "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//third_party:flogger",
-        "//third_party:guava",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -64,8 +66,10 @@ java_library(
     srcs = ["IdleTaskManager.java"],
     deps = [
         ":idle_task",
-        "//third_party:flogger",
-        "//third_party:guava",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
     ],
 )
 
@@ -78,11 +82,19 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/protobuf:command_server_java_grpc",
         "//src/main/protobuf:command_server_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:netty",
-        "//third_party/grpc-java:grpc-jar",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/grpc:context",
+        "//third_party/java/grpc:core",
+        "//third_party/java/grpc:netty",
+        "//third_party/java/grpc:stub",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/netty4:transport_native_epoll",
+        "//third_party/java/netty4:transport_native_unix_common",
+        "//third_party/java/protobuf",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
@@ -140,10 +152,14 @@ java_library(
         "//src/main/protobuf:command_server_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/google/protobuf:any_java_proto",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
@@ -155,8 +171,10 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:flogger",
-        "//third_party:guava",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
     ],
 )
 
@@ -168,9 +186,9 @@ java_library(
     deps = [
         ":pid_file_watcher",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -184,7 +202,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
         "//src/main/java/com/google/devtools/build/lib/util:string",
-        "//third_party:flogger",
+        "//third_party/java/flogger",
     ],
 )
 
@@ -198,6 +216,6 @@ java_library(
         ":idle_task",
         "//src/main/java/com/google/devtools/build/lib/util:file_system_lock",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
+        "//third_party/java/guava:annotations",
     ],
 )
