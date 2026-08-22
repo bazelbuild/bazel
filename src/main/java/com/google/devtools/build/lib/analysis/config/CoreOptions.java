@@ -467,9 +467,6 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
           `=name`, which unsets the variable of that name. This option can be used
           multiple times; for options given for the same variable, the latest wins,
           options for different variables accumulate.
-
-          Note that unless `--incompatible_repo_env_ignores_action_env` is true, all `name=value`
-          pairs will be available to repository rules.
           """)
   public abstract List<EnvVar> getActionEnvironment();
 

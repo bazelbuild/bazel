@@ -2948,7 +2948,6 @@ dummy_repository = use_repo_rule('//:repo.bzl', 'dummy_repository')
 dummy_repository(name = 'foo', build_file = '@@//:BUILD.dummy')
 EOF
 
-  add_to_bazelrc "common --incompatible_repo_env_ignores_action_env"
   add_to_bazelrc "common --experimental_strict_repo_env"
 
   bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
@@ -2986,7 +2985,6 @@ dummy_repository = use_repo_rule('//:repo.bzl', 'dummy_repository')
 dummy_repository(name = 'foo', build_file = '@@//:BUILD.dummy')
 EOF
 
-  add_to_bazelrc "common --incompatible_repo_env_ignores_action_env"
   add_to_bazelrc "common --noexperimental_strict_repo_env"
 
   bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
@@ -3012,47 +3010,6 @@ EOF
   PREDECLARED_KEY=val5 MY_VAR=val6 bazel query --action_env=PREDECLARED_KEY=val3 --action_env=MY_VAR=val4 @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
   expect_log "PREDECLARED_KEY=val5"
   expect_log "MY_VAR=val6"
-}
-
-function test_environ_incrementally_without_client_env_with_action_env() {
-  cat > repo.bzl <<EOF
-def _impl(rctx):
-  rctx.symlink(rctx.attr.build_file, 'BUILD')
-  print('PREDECLARED_KEY=%s' % rctx.os.environ.get('PREDECLARED_KEY'))
-  print('MY_VAR=%s' % rctx.getenv('MY_VAR'))
-dummy_repository = repository_rule(
-  implementation = _impl,
-  attrs = {'build_file': attr.label()},
-  environ = ['PREDECLARED_KEY'],
-)
-EOF
-  cat > BUILD.dummy <<EOF
-filegroup(name='dummy', srcs=['BUILD'])
-EOF
-  touch BUILD
-  cat > $(setup_module_dot_bazel) <<EOF
-dummy_repository = use_repo_rule('//:repo.bzl', 'dummy_repository')
-dummy_repository(name = 'foo', build_file = '@@//:BUILD.dummy')
-EOF
-
-  add_to_bazelrc "common --noincompatible_repo_env_ignores_action_env"
-  add_to_bazelrc "common --experimental_strict_repo_env"
-
-  bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
-  expect_log "PREDECLARED_KEY=None"
-  expect_log "MY_VAR=None"
-
-  PREDECLARED_KEY=val1 MY_VAR=val2 bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
-  expect_not_log "PREDECLARED_KEY"
-  expect_not_log "MY_VAR"
-
-  PREDECLARED_KEY=val1 MY_VAR=val2 bazel query --action_env=PREDECLARED_KEY=val3 @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
-  expect_log "PREDECLARED_KEY=val3"
-  expect_log "MY_VAR=None"
-
-  PREDECLARED_KEY=val1 MY_VAR=val2 bazel query --action_env=PREDECLARED_KEY=val3 --action_env=MY_VAR=val4 @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
-  expect_log "PREDECLARED_KEY=val3"
-  expect_log "MY_VAR=val4"
 }
 
 function test_environ_build_query_build() {

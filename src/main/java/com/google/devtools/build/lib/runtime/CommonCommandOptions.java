@@ -629,19 +629,6 @@ public abstract class CommonCommandOptions extends OptionsBase {
   public abstract List<EnvVar> getRepositoryEnvironment();
 
   @Option(
-      name = "incompatible_repo_env_ignores_action_env",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          """
-          If true, `--action_env=NAME=VALUE` will no longer affect repository rule \
-          and module extension environments.
-          """)
-  public abstract boolean getRepoEnvIgnoresActionEnv();
-
-  @Option(
       name = "experimental_strict_repo_env",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -651,9 +638,6 @@ public abstract class CommonCommandOptions extends OptionsBase {
           """
           If true, repository rules and module extensions will only inherit `PATH`, `PATHEXT`
           (on Windows), and environment variables explicitly specified by `--repo_env`.
-
-          Note that unless `--incompatible_repo_env_ignores_action_env` is true,
-          `--action_env=NAME=VALUE` will also be included.
           """)
   public abstract boolean getUseStrictRepoEnv();
 
