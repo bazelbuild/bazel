@@ -114,6 +114,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
+import com.google.devtools.build.lib.remote.util.Utils.UndownloadedOutErrMetadata;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
@@ -168,6 +169,9 @@ import javax.annotation.Nullable;
 public class RemoteExecutionService {
   private static final Comparator<String> PROTO_STRING_COMPARATOR =
       comparing(StringEncoding::unicodeToInternal);
+
+  // Mirrors TestRunnerAction.MNEMONIC, which isn't visible from this package.
+  private static final String TEST_RUNNER_MNEMONIC = "TestRunner";
 
   private final Reporter reporter;
   private final boolean verboseFailures;
@@ -1237,6 +1241,42 @@ public class RemoteExecutionService {
         files.buildOrThrow(), ImmutableMap.copyOf(symlinkMap), directories.buildOrThrow());
   }
 
+  private boolean shouldDownloadOutErr(RemoteAction action, RemoteActionResult result) {
+    if (TEST_RUNNER_MNEMONIC.equals(action.getSpawn().getMnemonic())) {
+      // Test actions always have their stdout and stderr downloaded (for `test.xml` generation).
+      return true;
+    }
+    if (!result.success()) {
+      // Failed actions always have their stdout and stderr downloaded.
+      return true;
+    }
+    return switch (remoteOptions.getRemoteOutErrMode()) {
+      case ALL -> true;
+      case UNCACHED -> !result.cacheHit();
+      case FAILED -> false;
+    };
+  }
+
+  /**
+   * Returns metadata for the stdout and stderr that {@link #downloadOutputs} left in the CAS, so
+   * that consumers such as the build event stream can still reference them.
+   */
+  public UndownloadedOutErrMetadata getUndownloadedOutErrMetadata(
+      RemoteAction action, RemoteActionResult result) {
+    if (shouldDownloadOutErr(action, result)) {
+      return UndownloadedOutErrMetadata.EMPTY;
+    }
+    ActionResult actionResult = result.actionResult;
+    return new UndownloadedOutErrMetadata(
+        actionResult.hasStdoutDigest() ? remoteFileMetadata(actionResult.getStdoutDigest()) : null,
+        actionResult.hasStderrDigest() ? remoteFileMetadata(actionResult.getStderrDigest()) : null);
+  }
+
+  private static FileArtifactValue remoteFileMetadata(Digest digest) {
+    return FileArtifactValue.createForRemoteFile(
+        DigestUtil.toBinaryDigest(digest), digest.getSizeBytes(), /* locationIndex= */ 0);
+  }
+
   /**
    * Downloads the outputs of a remotely executed action and injects their metadata.
    *
@@ -1385,13 +1425,14 @@ public class RemoteExecutionService {
     }
 
     FileOutErr outErr = action.getSpawnExecutionContext().getFileOutErr();
-
-    // Always download the action stdout/stderr.
     FileOutErr tmpOutErr = outErr.childOutErr();
-    List<ListenableFuture<Void>> outErrDownloads =
-        combinedCache.downloadOutErr(context, result.actionResult, tmpOutErr);
-    for (ListenableFuture<Void> future : outErrDownloads) {
-      downloadsBuilder.add(transform(future, (v) -> null, directExecutor()));
+
+    if (shouldDownloadOutErr(action, result)) {
+      List<ListenableFuture<Void>> outErrDownloads =
+          combinedCache.downloadOutErr(context, result.actionResult, tmpOutErr);
+      for (ListenableFuture<Void> future : outErrDownloads) {
+        downloadsBuilder.add(transform(future, (v) -> null, directExecutor()));
+      }
     }
 
     ImmutableList<ListenableFuture<FileMetadata>> downloads = downloadsBuilder.build();

@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -130,6 +131,7 @@ public final class Utils {
       boolean cacheHit,
       String runnerName,
       @Nullable InMemoryOutput inMemoryOutput,
+      UndownloadedOutErrMetadata undownloadedOutErrMetadata,
       Timestamp executionStartTimestamp,
       Timestamp executionCompletedTimestamp,
       SpawnMetrics spawnMetrics,
@@ -150,7 +152,9 @@ public final class Utils {
                         .toMillis())
             .setSpawnMetrics(spawnMetrics)
             .setRemote(true)
-            .setDigest(digestUtil.asSpawnLogProto(actionKey));
+            .setDigest(digestUtil.asSpawnLogProto(actionKey))
+            .setRemoteStdoutMetadata(undownloadedOutErrMetadata.stdout())
+            .setRemoteStderrMetadata(undownloadedOutErrMetadata.stderr());
     if (exitCode != 0) {
       builder.setFailureDetail(
           FailureDetail.newBuilder()
@@ -453,6 +457,19 @@ public final class Utils {
     public ByteString getContents() {
       return contents;
     }
+  }
+
+  /**
+   * Metadata for an action's stdout and stderr that were left in the CAS because {@code
+   * --remote_download_stdouterr} suppressed their download.
+   *
+   * <p>A field is null if the corresponding stream was downloaded, was empty, or was inlined into
+   * the action result rather than stored in the CAS.
+   */
+  public record UndownloadedOutErrMetadata(
+      @Nullable FileArtifactValue stdout, @Nullable FileArtifactValue stderr) {
+    public static final UndownloadedOutErrMetadata EMPTY =
+        new UndownloadedOutErrMetadata(null, null);
   }
 
   /**
