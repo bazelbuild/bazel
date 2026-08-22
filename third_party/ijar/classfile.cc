@@ -1310,7 +1310,11 @@ struct RecordAttribute : Attribute {
   }
 
   void Write(u1 *&p) {
-    u1 *tmp = new u1[attribute_length_];
+    size_t total_size = 2;
+    for (size_t i = 0; i < components_.size(); ++i) {
+      total_size += components_[i]->serialized_size_;
+    }
+    u1 *tmp = new u1[total_size];
     u1 *start = tmp;
     put_u2be(tmp, components_.size());
     for (size_t i = 0; i < components_.size(); ++i) {
@@ -1320,6 +1324,7 @@ struct RecordAttribute : Attribute {
     WriteProlog(p, length);
     memcpy(p, start, length);
     p += length;
+    delete[] start;
   }
 
   struct RecordComponentInfo : HasAttrs {
@@ -1330,14 +1335,17 @@ struct RecordAttribute : Attribute {
     }
     static RecordComponentInfo *Read(const u1 *&p) {
       RecordComponentInfo *value = new RecordComponentInfo;
+      const u1 *start = p;
       value->name_ = constant(get_u2be(p));
       value->descriptor_ = constant(get_u2be(p));
       value->ReadAttrs(p);
+      value->serialized_size_ = p - start;
       return value;
     }
 
     Constant *name_;
     Constant *descriptor_;
+    size_t serialized_size_ = 0;
   };
 
   u4 attribute_length_;
