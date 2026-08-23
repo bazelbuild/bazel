@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.runtime.commands.HelpCommand;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -1382,6 +1383,117 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void downloadToplevel_afterHelpWithDownloadAll_doesNotReevaluateRemoteOutputs()
+      throws Exception {
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location :foo) > $@ && echo bar >> $@',",
+        ")");
+
+    // Leave both outputs represented only by remote metadata.
+    buildTarget("//:foobar");
+    assertOutputsDoNotExist("//:foo");
+    assertOutputsDoNotExist("//:foobar");
+
+    // Install a previous checker with download-all, without running a build or materializing any
+    // outputs.
+    setDownloadAll();
+    runtimeWrapper.newCommand(HelpCommand.class);
+    runtimeWrapper.executeCustomCommand();
+
+    setDownloadToplevel();
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:foobar");
+
+    assertOutputDoesNotExist("out/foo.txt");
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+    assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(0);
+  }
+
+  @Test
+  public void downloadToplevel_afterDownloadAllBuildOfAnotherTarget_doesNotReexecuteActions()
+      throws Exception {
+    writeAppWithLibs();
+    setDownloadToplevel();
+    buildTarget("//:app");
+    assertValidOutputFile("out/app.txt", "lib0\nlib1\nlib2\n");
+    assertOutputsDoNotExist("//:lib0");
+    assertOutputsDoNotExist("//:lib1");
+    assertOutputsDoNotExist("//:lib2");
+
+    // Build an unrelated target with a broader download policy, as e.g. an IDE project generator
+    // does, then run an incremental build without changes.
+    setDownloadAll();
+    buildTarget("//:tool");
+    setDownloadToplevel();
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:app");
+
+    // The intermediate outputs are still trusted, so their actions hit the action cache instead of
+    // being re-executed remotely.
+    assertOutputsDoNotExist("//:lib0");
+    assertValidOutputFile("out/app.txt", "lib0\nlib1\nlib2\n");
+    assertThat(actionEventCollector.getActionExecutedEvents()).isEmpty();
+  }
+
+  @Test
+  public void downloadToplevel_afterDownloadAllBuildOfAnotherTarget_onlyModifiedActionsRerun()
+      throws Exception {
+    writeAppWithLibs();
+    setDownloadToplevel();
+    buildTarget("//:app");
+    assertValidOutputFile("out/app.txt", "lib0\nlib1\nlib2\n");
+    setDownloadAll();
+    buildTarget("//:tool");
+
+    setDownloadToplevel();
+    write("lib0.in", "modified");
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:app");
+
+    // Only the actions depending on the modified source are re-executed.
+    assertOutputsDoNotExist("//:lib1");
+    assertOutputsDoNotExist("//:lib2");
+    assertValidOutputFile("out/app.txt", "modified\nlib1\nlib2\n");
+    assertThat(actionEventCollector.getActionExecutedEvents()).hasSize(2);
+  }
+
+  @Test
+  public void downloadMinimal_afterDownloadAllBuildOfAnotherTarget_doesNotReexecuteActions()
+      throws Exception {
+    writeAppWithLibs();
+    buildTarget("//:app");
+    assertOutputsDoNotExist("//:app");
+    assertOutputsDoNotExist("//:lib0");
+
+    // Build an unrelated target with a broader download policy, then run an incremental build
+    // without changes.
+    setDownloadAll();
+    buildTarget("//:tool");
+    addOptions("--remote_download_outputs=minimal");
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:app");
+
+    // Nothing is downloaded and no action is re-executed.
+    assertOutputsDoNotExist("//:app");
+    assertOutputsDoNotExist("//:lib0");
+    assertThat(actionEventCollector.getActionExecutedEvents()).isEmpty();
+  }
+
+  @Test
   public void incrementalBuild_fileOutputIsPrefetched_noRuns() throws Exception {
     // We need to download the intermediate output
     if (!hasAccessToRemoteOutputs()) {
@@ -1974,6 +2086,43 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
             },
         )
         """);
+  }
+
+  protected void writeAppWithLibs() throws IOException {
+    write("lib0.in", "lib0");
+    write("lib1.in", "lib1");
+    write("lib2.in", "lib2");
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'lib0',",
+        "  srcs = ['lib0.in'],",
+        "  outs = ['out/lib0.txt'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")",
+        "genrule(",
+        "  name = 'lib1',",
+        "  srcs = ['lib1.in'],",
+        "  outs = ['out/lib1.txt'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")",
+        "genrule(",
+        "  name = 'lib2',",
+        "  srcs = ['lib2.in'],",
+        "  outs = ['out/lib2.txt'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")",
+        "genrule(",
+        "  name = 'app',",
+        "  srcs = [':lib0', ':lib1', ':lib2'],",
+        "  outs = ['out/app.txt'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")",
+        "genrule(",
+        "  name = 'tool',",
+        "  outs = ['out/tool.txt'],",
+        "  cmd = 'echo tool > $@',",
+        ")");
   }
 
   protected void writeCopyAspectRule(boolean aggregate) throws IOException {
