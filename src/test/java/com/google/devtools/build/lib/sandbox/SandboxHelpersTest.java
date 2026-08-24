@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxContents;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -50,7 +51,9 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
@@ -300,6 +303,69 @@ public class SandboxHelpersTest {
     assertThat(execRoot.getRelative("justSomeDir/thatIsDoomed").exists()).isFalse();
     assertThat(execRoot.getRelative("out").exists()).isTrue();
     assertThat(execRoot.getRelative("out/dir").exists()).isFalse();
+  }
+
+  @Test
+  public void createContentMap_withOnlyEmptyInput_tracksContainingDirectories() {
+    PathFragment emptyInput = PathFragment.create("api/__init__.py");
+    Map<PathFragment, Path> files = new HashMap<>();
+    files.put(emptyInput, null);
+    SandboxInputs inputs = new SandboxInputs(files, ImmutableMap.of(), ImmutableMap.of());
+
+    SandboxContents sandboxContents =
+        SandboxHelpers.createContentMap(execRoot, inputs, SandboxOutputs.getEmptyInstance());
+
+    SandboxContents workDirContents = sandboxContents.dirMap().get(execRoot.getBaseName());
+    assertThat(workDirContents).isNotNull();
+    SandboxContents apiContents = workDirContents.dirMap().get("api");
+    assertThat(apiContents).isNotNull();
+    assertThat(apiContents.fileMap()).containsEntry("__init__.py", null);
+  }
+
+  @Test
+  public void cleanExisting_withInMemoryContents_tracksEmptyInputs(
+      @TestParameter boolean keepEmptyInput) throws Exception {
+    PathFragment emptyInput = PathFragment.create("api/__init__.py");
+    PathFragment sharedInput = PathFragment.create("api/shared.py");
+    Path sharedSource = scratch.file("/inputs/shared.py", "shared");
+    Path emptyFile = scratch.file("/execroot/api/__init__.py");
+    execRoot.getRelative(sharedInput).createSymbolicLink(sharedSource.asFragment());
+
+    Map<PathFragment, Path> previousFiles = new HashMap<>();
+    previousFiles.put(emptyInput, null);
+    previousFiles.put(sharedInput, sharedSource);
+    SandboxInputs previousInputs =
+        new SandboxInputs(previousFiles, ImmutableMap.of(), ImmutableMap.of());
+    SandboxContents sandboxContents =
+        SandboxHelpers.createContentMap(
+            execRoot, previousInputs, SandboxOutputs.getEmptyInstance());
+
+    Map<PathFragment, Path> currentFiles = new HashMap<>(previousFiles);
+    if (!keepEmptyInput) {
+      currentFiles.remove(emptyInput);
+    }
+    SandboxInputs currentInputs =
+        new SandboxInputs(currentFiles, ImmutableMap.of(), ImmutableMap.of());
+    Set<PathFragment> inputsToCreate = new LinkedHashSet<>();
+    Set<PathFragment> dirsToCreate = new LinkedHashSet<>();
+    SandboxHelpers.populateInputsAndDirsToCreate(
+        ImmutableSet.of(),
+        inputsToCreate,
+        dirsToCreate,
+        currentFiles.keySet(),
+        SandboxOutputs.getEmptyInstance());
+
+    SandboxHelpers.cleanExisting(
+        execRoot.getParentDirectory(),
+        currentInputs,
+        inputsToCreate,
+        dirsToCreate,
+        execRoot,
+        treeDeleter,
+        sandboxContents);
+
+    assertThat(emptyFile.exists()).isEqualTo(keepEmptyInput);
+    assertThat(inputsToCreate).isEmpty();
   }
 
   @Test
