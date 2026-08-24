@@ -47,7 +47,6 @@ STORAGE_WRITE_PERMISSIONS = {
     "storage.buckets.update",
     "storage.buckets.delete",
     "storage.objects.create",
-    "storage.objects.update",
     "storage.objects.delete",
 }
 PROJECT_IMAGE_PERMISSIONS = [
@@ -95,7 +94,17 @@ STORAGE_TARGETS = [
 ]
 PERMISSION_ONLY_STORAGE_TARGETS = [
     ("positive_control", "bazel-untrusted-buildkite-artifacts", False),
-    ("continuous_release", "bazel-builds", True),
+    ("central_registry", "bcr.bazel.build", True),
+    ("worker_bootstrap", "bazel-git-mirror", True),
+    ("trusted_worker_bootstrap", "bazel-ci", True),
+    ("dependency_mirror", "bazel-mirror", True),
+    ("terraform_state", "bazel-buildkite-tf-state", True),
+    ("trusted_credential_ciphertexts", "bazel-trusted-encrypted-secrets", True),
+    ("trusted_ci_artifacts", "bazel-trusted-buildkite-artifacts", True),
+    ("credential_ciphertexts", "bazel-encrypted-secrets", True),
+    ("release_image_backend", "artifacts.bazel-public.appspot.com", True),
+    ("release", "bazel", True),
+    ("apt_release", "bazel-apt", True),
 ]
 RELEASE_PIPELINES = [
     ("bazelRelease", "bazel-release"),
