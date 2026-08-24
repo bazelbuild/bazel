@@ -219,6 +219,47 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
     assertThat(stderr).contains("See temp at blaze-bin/bad_clib/_objs/bad_clib/badlib.pic.ii\n");
   }
 
+  @Test
+  public void testFailedDependencyActionAttributionAndShowResult() throws Exception {
+    write(
+        "test/BUILD",
+        "genrule(name='top1', srcs=['dep'], outs=['top1.out'],"
+            + " cmd='/bin/cp test/in $(location top1.out)')\n"
+            + "genrule(name='top2', srcs=['dep'], outs=['top2.out'],"
+            + " cmd='/bin/cp test/in $(location top2.out)')\n"
+            + "genrule(name='dep', srcs=[], outs=['dep.out'],"
+            + " cmd='exit 42')\n");
+    write("test/in", "(input)");
+
+    addOptions("--keep_going", "--show_result=1");
+    build(true, GENRULE_ERROR, "//test:top1", "//test:top2");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).contains("Target //test:top1 failed to build\n");
+    assertThat(stderr).contains("Target //test:top2 failed to build\n");
+    assertThat(stderr).contains("  due to action in //test:dep\n");
+  }
+
+  @Test
+  public void testFailedTargetNotSuppressedBySuccessfulTargetBudget() throws Exception {
+    write(
+        "mix/BUILD",
+        "genrule(name='succ1', srcs=['in'], outs=['succ1.out'], cmd='/bin/cp $(location in)"
+            + " $(location succ1.out)')\n"
+            + "genrule(name='succ2', srcs=['in'], outs=['succ2.out'], cmd='/bin/cp $(location in)"
+            + " $(location succ2.out)')\n"
+            + "genrule(name='fail', srcs=[], outs=['fail.out'], cmd='exit 42')\n");
+    write("mix/in", "(input)");
+
+    addOptions("--keep_going", "--show_result=1");
+    build(true, GENRULE_ERROR, "//mix:succ1", "//mix:succ2", "//mix:fail");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).contains("Target //mix:fail failed to build\n");
+    assertThat(stderr).doesNotContain("Target //mix:succ1 up-to-date:\n");
+    assertThat(stderr).doesNotContain("Target //mix:succ2 up-to-date:\n");
+  }
+
   // Concrete implementations of this abstract test:
 
   /** Tests with 1 job. */

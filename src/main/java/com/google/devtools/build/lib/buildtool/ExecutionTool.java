@@ -591,7 +591,8 @@ public class ExecutionTool {
           buildResult,
           buildResultListener.getAnalyzedTargets(),
           buildResultListener.getSkippedTargets(),
-          buildResultListener.getAnalyzedAspects());
+          buildResultListener.getAnalyzedAspects(),
+          buildResultListener.getTargetRootCauses());
     }
 
     if (explanationHandler != null) {
@@ -669,7 +670,7 @@ public class ExecutionTool {
                           .setCode(FailureDetails.SymlinkForest.Code.CREATION_FAILED))
                   .build()),
           e);
-      }
+    }
   }
 
   private static void logDeleteTreeFailure(
