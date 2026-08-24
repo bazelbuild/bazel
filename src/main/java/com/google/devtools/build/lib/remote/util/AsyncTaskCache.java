@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.remote.util;
 
 import static com.google.common.util.concurrent.Futures.immediateCancelledFuture;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
@@ -49,13 +49,16 @@ import javax.annotation.concurrent.ThreadSafe;
  * progress and new tasks.
  *
  * <p>This class holds no lock of its own: all mutual exclusion is provided by {@link
- * TaskDeduplicator} and {@link ConcurrentHashMap}, and no caller-provided code ever runs in a
- * critical section. Two ordering invariants make that safe:
+ * TaskDeduplicator} and {@link ConcurrentHashMap}. The only caller-provided code that runs in a
+ * critical section is the task supplier, which executes in the deduplicator's per-key section and
+ * must therefore be short. Two ordering invariants make this safe:
  *
  * <ol>
- *   <li>A task's result is published to {@link #finished} and the task is unregistered from {@link
- *       #inProgress} strictly before the future handed to callers completes, so a caller that
- *       observes a task as no longer running also observes its result.
+ *   <li>A task that completes successfully publishes its result to {@link #finished} and is
+ *       unregistered from {@link #inProgress} strictly before the future handed to callers
+ *       completes, so a caller that observes a task as no longer running also observes its result.
+ *       (A task superseded by a forced re-execution deliberately publishes nothing: re-running it
+ *       is always safe, whereas caching its stale result would not be.)
  *   <li>A task is only removed from the deduplicator after the future returned by {@link
  *       #registerTask} completes, so a caller that finds no in-flight task for a key and misses the
  *       cache lookup in {@link #execute} is guaranteed to see the cached result when it re-checks
@@ -73,7 +76,29 @@ public final class AsyncTaskCache<KeyT, ValueT> {
   private static final Object NULL_VALUE = new Object();
 
   /** A task that has been started, but whose result has not been published yet. */
-  private record InProgressTask<KeyT, ValueT>(KeyT key, ListenableFuture<ValueT> future) {}
+  private static final class InProgressTask<KeyT, ValueT> {
+    private final KeyT key;
+    private final ListenableFuture<ValueT> future;
+
+    /**
+     * Set when a forced re-execution detaches this task from the deduplicator; a superseded task's
+     * result may be stale and must not remain published.
+     */
+    private volatile boolean superseded;
+
+    InProgressTask(KeyT key, ListenableFuture<ValueT> future) {
+      this.key = key;
+      this.future = future;
+    }
+
+    KeyT key() {
+      return key;
+    }
+
+    ListenableFuture<ValueT> future() {
+      return future;
+    }
+  }
 
   private final TaskDeduplicator<KeyT, ValueT> deduplicator = new TaskDeduplicator<>();
   private final ConcurrentHashMap<KeyT, Object> finished = new ConcurrentHashMap<>();
@@ -96,7 +121,6 @@ public final class AsyncTaskCache<KeyT, ValueT> {
   }
 
   /** Returns the number of callers awaiting an in progress task for {@code key}. */
-  @VisibleForTesting
   public int getSubscriberCount(KeyT key) {
     return deduplicator.getActiveUseCount(key);
   }
@@ -122,8 +146,7 @@ public final class AsyncTaskCache<KeyT, ValueT> {
    *
    * @see #execute(Object, Supplier, boolean)
    */
-  public ListenableFuture<ValueT> executeIfNot(
-      KeyT key, Supplier<ListenableFuture<ValueT>> task) {
+  public ListenableFuture<ValueT> executeIfNot(KeyT key, Supplier<ListenableFuture<ValueT>> task) {
     return execute(key, task, /* force= */ false);
   }
 
@@ -136,11 +159,12 @@ public final class AsyncTaskCache<KeyT, ValueT> {
    * @param key identifies the task.
    * @param task supplies the future for a new execution of the task. It is invoked at most once,
    *     and only if a new execution is actually started, which makes it usable to detect that case.
-   *     It runs while holding exclusive access to {@code key}, so it must be short, must not block
-   *     on other tasks, and must report failures through the returned future rather than by
-   *     throwing.
-   * @param force start a new execution even if the task has already finished or is currently
-   *     running.
+   *     It runs while holding exclusive access to {@code key}, so it must be short and must not
+   *     block on other tasks. An unchecked exception it throws is delivered through the returned
+   *     future.
+   * @param force disregard both a cached result and an in-flight execution and execute the task
+   *     anew. Concurrent forced calls may share a single new execution, which is guaranteed to have
+   *     started only after each of them detached the old one.
    * @return a future which completes once the task is finished, or propagates its error.
    */
   public ListenableFuture<ValueT> execute(
@@ -150,6 +174,18 @@ public final class AsyncTaskCache<KeyT, ValueT> {
     }
 
     if (force) {
+      // Detach any in-flight execution first: detaching synchronizes with its registration, so
+      // the sweep below finds it in the in-progress set unless it has already completed, in which
+      // case its published result is visible to the remove below. A superseded execution keeps
+      // running for its existing callers, but its potentially stale result must not remain
+      // published: since it is marked before the cached result is removed, it either observes the
+      // mark when publishing or has already published a result that the remove drops.
+      deduplicator.detach(key);
+      for (InProgressTask<KeyT, ValueT> inProgressTask : inProgress) {
+        if (inProgressTask.key().equals(key)) {
+          inProgressTask.superseded = true;
+        }
+      }
       finished.remove(key);
     } else {
       Object cached = finished.get(key);
@@ -158,7 +194,6 @@ public final class AsyncTaskCache<KeyT, ValueT> {
       }
     }
 
-    var isNew = new boolean[1];
     Supplier<ListenableFuture<ValueT>> newExecution =
         () -> {
           if (!force) {
@@ -171,28 +206,39 @@ public final class AsyncTaskCache<KeyT, ValueT> {
               return immediateFuture(unwrap(cached));
             }
           }
-          isNew[0] = true;
-          return registerTask(key, task.get());
+          ListenableFuture<ValueT> taskFuture;
+          try {
+            taskFuture = task.get();
+          } catch (RuntimeException e) {
+            // Deliver synchronous failures through the returned future so that callers only have
+            // to handle a single failure channel.
+            taskFuture = immediateFailedFuture(e);
+          }
+          ListenableFuture<ValueT> result = registerTask(key, taskFuture);
+          if (state.get() != STATE_ACTIVE) {
+            // Raced with a shutdown, whose cancellation sweep may have missed the task registered
+            // just now. Cancel the underlying task directly, which takes effect even if other
+            // callers have already joined it, and drop any result it may have published after
+            // termination cleared the cache.
+            taskFuture.cancel(/* mayInterruptIfRunning= */ true);
+            finished.remove(key);
+            return immediateCancelledFuture();
+          }
+          return result;
         };
 
-    ListenableFuture<ValueT> future =
-        force
-            ? deduplicator.executeUnconditionally(key, newExecution)
-            : deduplicator.executeIfNew(key, newExecution);
-
-    if (isNew[0] && state.get() != STATE_ACTIVE) {
-      // Raced with a shutdown. The task exists only because of this call, so cancelling the future
-      // returned to this (so far only) caller also cancels the task itself.
-      future.cancel(/* mayInterruptIfRunning= */ true);
-    }
-    return future;
+    // With force, the explicit detach above has already made room for a new execution; a caller
+    // that loses the race to start it joins an execution that began after the detach, which is
+    // just as fresh.
+    return deduplicator.executeIfNew(key, newExecution);
   }
 
   /**
-   * Tracks {@code task} as in progress and publishes its result to {@link #finished} on success.
+   * Tracks {@code task} as in progress and, unless a forced re-execution supersedes it in the
+   * meantime, publishes its result to {@link #finished} on success.
    *
-   * <p>The returned future completes only after both have happened, which is what establishes the
-   * ordering invariants documented on this class.
+   * <p>On success, the returned future completes only after the result has been published and the
+   * task unregistered, which establishes the first ordering invariant documented on this class.
    */
   private ListenableFuture<ValueT> registerTask(KeyT key, ListenableFuture<ValueT> task) {
     var inProgressTask = new InProgressTask<>(key, task);
@@ -201,14 +247,25 @@ public final class AsyncTaskCache<KeyT, ValueT> {
         Futures.transform(
             task,
             value -> {
-              finished.put(key, wrap(value));
+              if (!inProgressTask.superseded) {
+                Object wrapped = wrap(value);
+                finished.put(key, wrapped);
+                if (inProgressTask.superseded) {
+                  // A forced re-execution superseded this one between the check above and the
+                  // put, so this result may be stale. The value-conditioned remove keeps a
+                  // distinct result already published by the forced execution; removing an equal
+                  // one merely costs a re-execution on the next call.
+                  finished.remove(key, wrapped);
+                }
+              }
               inProgress.remove(inProgressTask);
               return value;
             },
             directExecutor());
     result.addListener(
         () -> {
-          // No-op unless the task failed or was cancelled, in which case its result is not cached.
+          // Only removes anything if the task failed or was cancelled; the transform above has
+          // already unregistered a successful task.
           inProgress.remove(inProgressTask);
           maybeTerminate();
         },

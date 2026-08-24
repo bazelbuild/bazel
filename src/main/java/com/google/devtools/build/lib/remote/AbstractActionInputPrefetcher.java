@@ -468,7 +468,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               inputPath,
               treeRootPath,
               directoriesByTreeRoot,
-              input,
               metadata,
               priority,
               reason),
@@ -610,7 +609,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Path path,
       @Nullable Path treeRoot,
       SetMultimap<Path, Path> directoriesByTreeRoot,
-      ActionInput actionInput,
       FileArtifactValue metadata,
       Priority priority,
       Reason reason) {
@@ -636,7 +634,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     @Nullable
     Path finalTreeRoot =
         treeRoot != null
-                && actionInput instanceof Artifact artifact
+                && input instanceof Artifact artifact
                 && artifact.isChildOfDeclaredDirectory()
             ? treeRoot.forHostFileSystem()
             : null;
@@ -654,8 +652,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
     return downloadCache.execute(
         finalPath,
-        // Only invoked if the file hasn't been downloaded yet and no download is in flight, so
-        // that the up-to-dateness check isn't repeated for callers that join an existing one.
+        // Only invoked if no download for this path has finished or is in flight, so that the
+        // up-to-dateness check isn't repeated for callers that join an existing one.
         () -> {
           try {
             if (!shouldDownloadFile(finalPath, metadata)) {
@@ -789,8 +787,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   /**
    * Plants the given symlinks on disk.
    *
-   * <p>On Windows, the type of symlink depends on the target file and the target may have to exist,
-   * so they are planted in reverse order and only after any download has completed.
+   * <p>On Windows, the type of a symlink depends on its target file, which may also have to exist,
+   * so the symlinks are planted in reverse order and callers must sequence this after any download
+   * of the target.
    */
   private ListenableFuture<Void> plantSymlinks(ImmutableList<Symlink> symlinks) {
     ListenableFuture<Void> result = immediateVoidFuture();

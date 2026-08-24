@@ -119,6 +119,47 @@ public class AsyncTaskCacheTest {
   }
 
   @Test
+  public void executeForcibly_supersededTaskCompletesLate_staleResultNotCached() throws Exception {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    SettableFuture<String> staleTask = SettableFuture.create();
+    ListenableFuture<String> staleFuture = cache.executeIfNot("key1", () -> staleTask);
+    ListenableFuture<String> freshFuture =
+        cache.execute("key1", () -> immediateFuture("fresh"), /* force= */ true);
+    assertThat(freshFuture.get()).isEqualTo("fresh");
+
+    // The superseded execution completes only after the forced one.
+    staleTask.set("stale");
+    assertThat(staleFuture.get()).isEqualTo("stale");
+
+    // Its potentially stale result must not be cached over the fresh one.
+    ListenableFuture<String> future =
+        cache.executeIfNot(
+            "key1",
+            () -> {
+              throw new AssertionError("should not be executed");
+            });
+    assertThat(future.get()).isEqualTo("fresh");
+  }
+
+  @Test
+  public void execute_supplierThrows_failedFuture() {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    var error = new IllegalStateException("error");
+
+    ListenableFuture<String> future =
+        cache.executeIfNot(
+            "key1",
+            () -> {
+              throw error;
+            });
+
+    var e = assertThrows(ExecutionException.class, future::get);
+    assertThat(e).hasCauseThat().isSameInstanceAs(error);
+    assertThat(cache.getInProgressTasks()).isEmpty();
+    assertThat(cache.getFinishedTasks()).isEmpty();
+  }
+
+  @Test
   public void execute_taskFinished_noReExecution() throws Exception {
     AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
     AtomicInteger executionTimes = new AtomicInteger(0);
@@ -180,9 +221,7 @@ public class AsyncTaskCacheTest {
     AtomicInteger executionTimes = new AtomicInteger(0);
     var unused =
         cache
-            .executeIfNot(
-                "key1",
-                () -> immediateFuture("value" + executionTimes.incrementAndGet()))
+            .executeIfNot("key1", () -> immediateFuture("value" + executionTimes.incrementAndGet()))
             .get();
 
     cache.invalidate("key1");
@@ -191,8 +230,7 @@ public class AsyncTaskCacheTest {
     assertThat(
             cache
                 .executeIfNot(
-                    "key1",
-                    () -> immediateFuture("value" + executionTimes.incrementAndGet()))
+                    "key1", () -> immediateFuture("value" + executionTimes.incrementAndGet()))
                 .get())
         .isEqualTo("value2");
   }
@@ -323,15 +361,13 @@ public class AsyncTaskCacheTest {
   @Test
   public void execute_pendingShutdown_getCancellationError() {
     AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
-    ListenableFuture<String> inProgress =
-        cache.executeIfNot("key1", () -> SettableFuture.create());
+    ListenableFuture<String> inProgress = cache.executeIfNot("key1", () -> SettableFuture.create());
     cache.shutdown();
     assertThat(cache.isShutdown()).isTrue();
     assertThat(cache.isTerminated()).isFalse();
     assertThat(inProgress.isDone()).isFalse();
 
-    ListenableFuture<String> future =
-        cache.executeIfNot("key2", () -> immediateFuture("value2"));
+    ListenableFuture<String> future = cache.executeIfNot("key2", () -> immediateFuture("value2"));
 
     assertThat(future.isCancelled()).isTrue();
     assertThrows(CancellationException.class, future::get);
@@ -425,8 +461,7 @@ public class AsyncTaskCacheTest {
           () -> {
             try {
               ListenableFuture<Void> future =
-                  cache.execute(
-                      "key" + random.nextInt(maxKey), () -> newTask(taskExecutor), force);
+                  cache.execute("key" + random.nextInt(maxKey), () -> newTask(taskExecutor), force);
               if (!future.isDone() && random.nextBoolean()) {
                 future.cancel(true);
               } else {

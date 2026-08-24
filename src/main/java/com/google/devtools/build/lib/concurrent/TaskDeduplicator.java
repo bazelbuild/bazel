@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.concurrent;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CheckReturnValue;
@@ -84,15 +83,27 @@ public final class TaskDeduplicator<K, V> {
   @CheckReturnValue
   public ListenableFuture<V> executeUnconditionally(
       K key, Supplier<ListenableFuture<V>> taskSupplier) {
-    inFlightTasks.remove(key);
+    detach(key);
     return executeIfNew(key, taskSupplier);
+  }
+
+  /**
+   * Detaches any ongoing execution of the task for the given key, so that a subsequent call to
+   * {@link #executeIfNew} starts a new execution instead of joining it. The detached execution
+   * keeps running for the callers that already joined it.
+   *
+   * <p>This method synchronizes with the registration of the detached execution: state written by
+   * its registering thread before the registration is visible to the caller once this method
+   * returns.
+   */
+  public void detach(K key) {
+    inFlightTasks.remove(key);
   }
 
   /**
    * Returns the number of callers that are currently awaiting an ongoing execution of the task for
    * the given key, or 0 if there is none.
    */
-  @VisibleForTesting
   public int getActiveUseCount(K key) {
     var future = inFlightTasks.get(key);
     return future != null ? future.getActiveUseCount() : 0;

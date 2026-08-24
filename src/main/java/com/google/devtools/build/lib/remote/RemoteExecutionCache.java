@@ -27,6 +27,7 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.FutureCallback;
@@ -54,6 +55,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -150,13 +152,16 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       boolean force,
       @Nullable RemotePathResolver remotePathResolver)
       throws IOException, InterruptedException {
-    ImmutableList<UploadTask> uploadTasks =
-        createUploadTasks(context, merkleTree, additionalInputs, force, remotePathResolver);
-    if (uploadTasks.isEmpty()) {
-      return;
-    }
-
+    // Tasks are created inside the try block below so that a failure partway through creation
+    // still releases the holds acquired for the tasks created so far.
+    List<UploadTask> uploadTasks = new ArrayList<>();
     try {
+      createUploadTasks(
+          context, merkleTree, additionalInputs, force, remotePathResolver, uploadTasks);
+      if (uploadTasks.isEmpty()) {
+        return;
+      }
+
       var unused =
           getFromFuture(
               Futures.transformAsync(
@@ -304,24 +309,27 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
     ListenableFuture<Void> result;
   }
 
-  private ImmutableList<UploadTask> createUploadTasks(
+  /**
+   * Appends the created tasks to {@code uploadTasks} as they are created, so that the caller can
+   * release the holds of the tasks created so far even if creation fails partway through.
+   */
+  private void createUploadTasks(
       RemoteActionExecutionContext context,
       MerkleTree.Uploadable merkleTree,
       Map<Digest, Message> additionalInputs,
       boolean force,
-      @Nullable RemotePathResolver remotePathResolver) {
+      @Nullable RemotePathResolver remotePathResolver,
+      List<UploadTask> uploadTasks) {
     var allDigests = Iterables.concat(merkleTree.allDigests(), additionalInputs.keySet());
     if (Iterables.isEmpty(allDigests)) {
-      return ImmutableList.of();
+      return;
     }
     try (SilentCloseable c = Profiler.instance().profile("collect digests")) {
-      ImmutableList.Builder<UploadTask> uploadTasks = ImmutableList.builder();
       for (Digest digest : allDigests) {
         uploadTasks.add(
             createUploadTask(
                 context, merkleTree, additionalInputs, digest, force, remotePathResolver));
       }
-      return uploadTasks.build();
     }
   }
 
@@ -393,18 +401,42 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
     }
 
     SilentCloseable profiler = Profiler.instance().profile("findMissingDigests");
+    ListenableFuture<ImmutableSet<Digest>> missingDigests;
+    try {
+      missingDigests = remoteCacheClient.findMissingDigests(context, digestsToQuery);
+    } catch (RuntimeException e) {
+      missingDigests = immediateFailedFuture(e);
+    }
     ListenableFuture<Void> result =
         Futures.transform(
-            remoteCacheClient.findMissingDigests(context, digestsToQuery),
-            missingDigests -> {
+            missingDigests,
+            missing -> {
               for (UploadTask uploadTask : uploadTasks) {
                 if (uploadTask.continuation != null) {
-                  uploadTask.continuation.set(missingDigests.contains(uploadTask.digest));
+                  uploadTask.continuation.set(missing.contains(uploadTask.digest));
                 }
               }
               return null;
             },
             directExecutor());
+    // Complete the continuations even if the query fails: concurrent invocations that have joined
+    // the deduplicated queries would otherwise wait on them forever.
+    Futures.addCallback(
+        missingDigests,
+        new FutureCallback<ImmutableSet<Digest>>() {
+          @Override
+          public void onSuccess(ImmutableSet<Digest> unused) {}
+
+          @Override
+          public void onFailure(Throwable t) {
+            for (UploadTask uploadTask : uploadTasks) {
+              if (uploadTask.continuation != null) {
+                uploadTask.continuation.setException(t);
+              }
+            }
+          }
+        },
+        directExecutor());
     result.addListener(profiler::close, directExecutor());
     return result;
   }
