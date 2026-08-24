@@ -1,3 +1,4 @@
+//tools/test:posix_tw
 //tools/test:tw
 //tools/test:tw_lib
 //tools/test:xml

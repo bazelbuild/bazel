@@ -146,6 +146,25 @@ public class BaseRuleClasses {
         CoverageConfiguration.class, defaultValue, COLLECT_COVERAGE_SCRIPT_RESOLVER);
   }
 
+  @SerializationConstant @VisibleForSerialization
+  static final Resolver<TestConfiguration, Label>
+      NATIVE_POSIX_TEST_WRAPPER_CONFIGURATION_RESOLVER =
+          (rule, attributes, configuration) -> {
+            if (!configuration.incompatibleUseNativePosixTestWrapper()) {
+              return null;
+            }
+            Label existingWrapper = attributes.get("$test_wrapper", BuildType.LABEL);
+            return Label.createUnvalidated(
+                existingWrapper.getPackageIdentifier(), "native_posix_test_wrapper");
+          };
+
+  public static LabelLateBoundDefault<TestConfiguration> nativePosixTestWrapperAttribute() {
+    return LabelLateBoundDefault.fromTargetConfiguration(
+        TestConfiguration.class,
+        /* defaultValue= */ null,
+        NATIVE_POSIX_TEST_WRAPPER_CONFIGURATION_RESOLVER);
+  }
+
   public static final String DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE =
       "//tools/test:coverage_report_generator";
 
