@@ -15,7 +15,7 @@ java_library(
     name = "zstd",
     srcs = glob(["*.java"]),
     deps = [
-        "//third_party:guava",
-        "@zstd-jni",
+        "//third_party/java/guava:base",
+        "//third_party/java/zstd_jni",
     ],
 )

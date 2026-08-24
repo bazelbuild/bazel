@@ -463,12 +463,13 @@ bool IsSharedLibrary(const string& filename) {
 string GetSystemJavabase() {
   string javahome(GetPathEnv("JAVA_HOME"));
   if (!javahome.empty()) {
-    string javac = blaze_util::JoinPath(javahome, "bin/javac.exe");
-    if (blaze_util::PathExists(javac.c_str())) {
+    string java = blaze_util::JoinPath(javahome, "bin/java.exe");
+    if (blaze_util::PathExists(java.c_str())) {
       return javahome;
     }
     BAZEL_LOG(WARNING)
-        << "Ignoring JAVA_HOME, because it must point to a JDK, not a JRE.";
+        << "Ignoring JAVA_HOME, because it does not contain a bin/java.exe "
+           "executable.";
   }
 
   return "";

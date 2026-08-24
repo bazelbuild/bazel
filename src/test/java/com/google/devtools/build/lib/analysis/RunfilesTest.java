@@ -355,4 +355,56 @@ public final class RunfilesTest extends FoundationTestCase {
         .containsExactly(
             PathFragment.create("my-artifact-empty"), PathFragment.create("my-symlink-empty"));
   }
+
+  @Test
+  public void testGetRunfilesInputsPreferOriginatingTargetConfiguration() throws Exception {
+
+    ArtifactRoot targetConfigRoot =
+        ArtifactRoot.asDerivedRoot(
+            scratch.resolve("/execroot"), ArtifactRoot.RootType.OUTPUT, "bin");
+    ArtifactRoot otherConfigRoot =
+        ArtifactRoot.asDerivedRoot(
+            scratch.resolve("/execroot"), ArtifactRoot.RootType.OUTPUT, "bin-other");
+    ArtifactRoot anotherConfigRoot =
+        ArtifactRoot.asDerivedRoot(
+            scratch.resolve("/execroot"), ArtifactRoot.RootType.OUTPUT, "bin-another");
+
+    Artifact targetConfigArtifact = ActionsTestUtil.createArtifact(targetConfigRoot, "artifact");
+    Artifact otherConfigArtifact = ActionsTestUtil.createArtifact(otherConfigRoot, "artifact");
+    Artifact anotherConfigArtifact = ActionsTestUtil.createArtifact(anotherConfigRoot, "artifact");
+
+    // Case 1: The preferred artifact is added last in the builder
+    Runfiles runfilesLast =
+        new Runfiles.Builder("TESTING")
+            .addArtifact(otherConfigArtifact)
+            .addArtifact(targetConfigArtifact)
+            .build();
+    assertThat(
+            runfilesLast.getRunfilesInputs(
+                warningPrefixConflictReceiver(), /* repoMappingManifest= */ null, targetConfigRoot))
+        .containsEntry(PathFragment.create("TESTING/artifact"), targetConfigArtifact);
+
+    // Case 2: The preferred artifact is added first in the builder
+    Runfiles runfilesFirst =
+        new Runfiles.Builder("TESTING")
+            .addArtifact(targetConfigArtifact)
+            .addArtifact(otherConfigArtifact)
+            .build();
+    assertThat(
+            runfilesFirst.getRunfilesInputs(
+                warningPrefixConflictReceiver(), /* repoMappingManifest= */ null, targetConfigRoot))
+        .containsEntry(PathFragment.create("TESTING/artifact"), targetConfigArtifact);
+
+    // Case 3: Neither artifact has the same artifact root as the originating target, and the last
+    // one should be kept
+    Runfiles runfilesNeither =
+        new Runfiles.Builder("TESTING")
+            .addArtifact(otherConfigArtifact)
+            .addArtifact(anotherConfigArtifact)
+            .build();
+    assertThat(
+            runfilesNeither.getRunfilesInputs(
+                warningPrefixConflictReceiver(), /* repoMappingManifest= */ null, targetConfigRoot))
+        .containsEntry(PathFragment.create("TESTING/artifact"), anotherConfigArtifact);
+  }
 }

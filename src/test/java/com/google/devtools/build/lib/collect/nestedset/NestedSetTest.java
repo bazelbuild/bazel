@@ -656,36 +656,46 @@ public final class NestedSetTest {
   }
 
   @Test
-  public void interning_nestedSetOfString_isInterned() {
+  public void interning_multiElementNestedSetOfString_childrenArrayIsInterned() {
     NestedSet<String> nestedSetA = nestedSetBuilder("cat", "dog").build();
     NestedSet<String> nestedSetB = nestedSetBuilder("cat", "dog").build();
-    assertThat(nestedSetB).isSameInstanceAs(nestedSetA);
+    assertThat(nestedSetB.getChildren()).isSameInstanceAs(nestedSetA.getChildren());
+    assertThat(nestedSetB).isNotSameInstanceAs(nestedSetA);
     NestedSetInterner.clear();
     NestedSet<String> nestedSetC = nestedSetBuilder("cat", "dog").build();
-    assertThat(nestedSetC).isNotSameInstanceAs(nestedSetA);
+    assertThat(nestedSetC.getChildren()).isNotSameInstanceAs(nestedSetA.getChildren());
   }
 
   @Test
-  public void interning_nestedSetOfInteger_isNotInterned() {
+  public void interning_singletonNestedSetOfString_isNotInterned() {
+    NestedSet<String> singletonA = nestedSetBuilder("cat").build();
+    NestedSet<String> singletonB = nestedSetBuilder("cat").build();
+    assertThat(singletonB).isNotSameInstanceAs(singletonA);
+  }
+
+  @Test
+  public void interning_multiElementNestedSetOfInteger_isNotInterned() {
     NestedSet<Integer> nestedSetA = nestedSetBuilder(1, 2).build();
     NestedSet<Integer> nestedSetB = nestedSetBuilder(1, 2).build();
-    assertThat(nestedSetA).isNotSameInstanceAs(nestedSetB);
+    assertThat(nestedSetA.getChildren()).isNotSameInstanceAs(nestedSetB.getChildren());
   }
 
   @Test
-  public void interning_nestedSetOfArtifact_isInternedByArtifactIdentity() {
-    Artifact firstInstanceArtifactA = ActionsTestUtil.createArtifact(artifactRoot, "a");
-    Artifact secondInstanceArtifactA = ActionsTestUtil.createArtifact(artifactRoot, "a");
-    Artifact artifactB = ActionsTestUtil.createArtifact(artifactRoot, "b");
+  public void
+      interning_multiElementNestedSetOfArtifact_childrenArrayIsInternedByArtifactIdentity() {
+    Artifact a1 = ActionsTestUtil.createArtifact(artifactRoot, "a");
+    Artifact a2 = ActionsTestUtil.createArtifact(artifactRoot, "a");
+    Artifact b = ActionsTestUtil.createArtifact(artifactRoot, "b");
 
-    NestedSet<Artifact> firstInstanceNestedSetA = nestedSetBuilder(firstInstanceArtifactA).build();
-    assertThat(nestedSetBuilder(firstInstanceArtifactA).build())
-        .isSameInstanceAs(firstInstanceNestedSetA);
-    assertThat(nestedSetBuilder(secondInstanceArtifactA).build())
-        .isNotSameInstanceAs(firstInstanceNestedSetA);
-    assertThat(nestedSetBuilder(artifactB).build()).isNotSameInstanceAs(firstInstanceNestedSetA);
+    NestedSet<Artifact> a1bFirst = nestedSetBuilder(a1, b).build();
+    NestedSet<Artifact> a1bSecond = nestedSetBuilder(a1, b).build();
+    NestedSet<Artifact> a2b = nestedSetBuilder(a2, b).build();
+    assertThat(a1bSecond.getChildren()).isSameInstanceAs(a1bFirst.getChildren());
+    assertThat(a1bSecond).isNotSameInstanceAs(a1bFirst);
+    assertThat(a2b.getChildren()).isNotSameInstanceAs(a1bFirst.getChildren());
+    assertThat(a2b.toList().getFirst()).isSameInstanceAs(a2);
     NestedSetInterner.clear();
-    assertThat(nestedSetBuilder(firstInstanceArtifactA).build())
-        .isNotSameInstanceAs(firstInstanceNestedSetA);
+    assertThat(nestedSetBuilder(a1, b).build().getChildren())
+        .isNotSameInstanceAs(a1bFirst.getChildren());
   }
 }

@@ -19,10 +19,10 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options/processor:options_preprocessor_lib",
-        "//third_party:compile_testing",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/compile_testing",
+        "//third_party/java/guava:io",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -33,10 +33,10 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options/processor:options_preprocessor_lib",
-        "//third_party:compile_testing",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/compile_testing",
+        "//third_party/java/guava:io",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 

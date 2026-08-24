@@ -391,7 +391,7 @@ public abstract class BuildRequestOptions extends OptionsBase {
 
   @Option(
       name = "rewind_lost_inputs",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.EXECUTION},
       help = "Whether to use action rewinding to recover from lost inputs.")

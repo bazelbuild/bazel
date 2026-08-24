@@ -23,8 +23,9 @@ java_test(
     test_class = "com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorTest",
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )

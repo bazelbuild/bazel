@@ -12,9 +12,9 @@ java_library(
     srcs = glob(["*.java"]),
     visibility = ["//visibility:public"],
     deps = [
-        "//third_party:error_prone_annotations",
-        "//third_party:jsr305",
-        "//third_party:junit4",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit:not-testonly",
     ],
 )
 
@@ -26,7 +26,7 @@ java_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -37,7 +37,7 @@ java_library(
         "TestNameProvider.java",
     ],
     deps = [
-        "//third_party:junit4",
+        "//third_party/java/junit:not-testonly",
     ],
 )
 
@@ -49,7 +49,7 @@ java_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//third_party:junit4",
+        "//third_party/java/junit:not-testonly-android",
     ],
 )
 

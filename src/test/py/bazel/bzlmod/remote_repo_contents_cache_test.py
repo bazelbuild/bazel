@@ -2077,6 +2077,14 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
 
     for attempt in range(5):
       self.RunBazel(['clean', '--expunge'])
+      # The drop budget is shared by all fetches in the build below and is used
+      # up by whichever of them allocates first, so an unrelated repo can
+      # exhaust it before my_repo is even fetched. On Windows, test_base
+      # registers a Python toolchain from rules_python, whose fetch reliably
+      # does so. Fetching it without a remote cache materializes it on disk, so
+      # that the build below finds it up to date instead of having to inject it
+      # from the remote repo contents cache into the memory of its own server.
+      self.RunBazel(['fetch', '--repo=@@rules_python+', '--remote_cache='])
       exit_code, _, stderr = self.RunBazel(
           [
               # A small heap makes minor GC events frequent under allocation

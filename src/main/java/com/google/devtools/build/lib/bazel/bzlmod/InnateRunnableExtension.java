@@ -189,6 +189,10 @@ final class InnateRunnableExtension implements RunnableExtension {
     RepoRule repoRule = ((StarlarkRepoRule) exported).getRepoRule();
 
     var generatedRepoSpecs = ImmutableMap.<String, RepoSpec>builderWithExpectedSize(tags.size());
+    LabelConverter labelConverter =
+        new LabelConverter(
+            extensionId.bzlFileLabel().getPackageIdentifier(),
+            usagesValue.getRepoMappings().get(moduleKey));
     // Instantiate the repos one by one.
     for (Tag tag : tags) {
       Dict<String, Object> kwargs = tag.getAttributeValues().attributes();
@@ -196,10 +200,6 @@ final class InnateRunnableExtension implements RunnableExtension {
       String name = (String) kwargs.get("name");
       ImmutableList<StarlarkThread.CallStackEntry> fakeCallStack =
           ImmutableList.of(StarlarkThread.callStackEntry("<toplevel>", tag.getLocation()));
-      LabelConverter labelConverter =
-          new LabelConverter(
-              extensionId.bzlFileLabel().getPackageIdentifier(),
-              usagesValue.getRepoMappings().get(moduleKey));
       generatedRepoSpecs.put(
           name,
           repoRule.instantiate(

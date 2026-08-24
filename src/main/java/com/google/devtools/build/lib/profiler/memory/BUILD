@@ -29,7 +29,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party/allocation_instrumenter",
+        "//third_party/java/allocation_instrumenter",
     ],
 )
 
@@ -38,7 +38,7 @@ java_library(
     srcs = ["CurrentRuleTracker.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -53,11 +53,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
-        "//third_party:caffeine",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/allocation_instrumenter",
+        "//third_party/java/allocation_instrumenter:sampler",
+        "//third_party/java/caffeine",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
         "//third_party/pprof:profile_java_proto",
     ],
 )

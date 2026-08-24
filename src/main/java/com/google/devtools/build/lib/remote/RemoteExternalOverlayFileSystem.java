@@ -848,7 +848,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     }
 
     @Override
-    public synchronized InputStream getInputStream(PathFragment path) throws IOException {
+    public InputStream getInputStream(PathFragment path) throws IOException {
       // Symlinks are never prefetched to the native file system themselves, only the regular file
       // they resolve to, so follow them before reading a prefetched file. Either end of the chain
       // can be what makes the read eligible: a symlink named `helper.bzl` pointing at `helper.txt`

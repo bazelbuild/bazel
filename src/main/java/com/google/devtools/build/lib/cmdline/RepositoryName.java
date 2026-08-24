@@ -14,14 +14,12 @@
 
 package com.google.devtools.build.lib.cmdline;
 
-import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
@@ -35,7 +33,6 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.Objects;
-import java.util.concurrent.CompletionException;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -44,13 +41,15 @@ import net.starlark.java.eval.Starlark;
 /** The canonical name of an external repository. */
 public final class RepositoryName {
 
-  @SerializationConstant
-  public static final RepositoryName BAZEL_TOOLS = new RepositoryName("bazel_tools");
-
-  @SerializationConstant public static final RepositoryName MAIN = new RepositoryName("");
+  private static final Interner<RepositoryName> interner = BlazeInterners.newWeakInterner();
 
   @SerializationConstant
-  public static final RepositoryName BUILTINS = new RepositoryName("_builtins");
+  public static final RepositoryName BAZEL_TOOLS = createUnvalidated("bazel_tools");
+
+  @SerializationConstant public static final RepositoryName MAIN = createUnvalidated("");
+
+  @SerializationConstant
+  public static final RepositoryName BUILTINS = createUnvalidated("_builtins");
 
   private static final Pattern VALID_REPO_NAME = Pattern.compile("[\\w\\-.+]*");
 
@@ -63,48 +62,19 @@ public final class RepositoryName {
    */
   public static final Pattern VALID_MODULE_NAME = Pattern.compile("[a-z]([a-z0-9._-]*[a-z0-9])?");
 
-  private static final LoadingCache<String, RepositoryName> repositoryNameCache =
-      Caffeine.newBuilder()
-          .weakValues()
-          .build(
-              name -> {
-                validate(name);
-                return new RepositoryName(name.intern());
-              });
-
   /**
    * Makes sure that name is a valid repository name and creates a new RepositoryName using it.
    *
    * @throws LabelSyntaxException if the name is invalid
    */
   public static RepositoryName create(String name) throws LabelSyntaxException {
-    if (name.isEmpty()) {
-      return MAIN;
-    }
-    if (name.equals(BUILTINS.name)) {
-      return BUILTINS;
-    }
-    try {
-      return repositoryNameCache.get(name);
-    } catch (CompletionException e) {
-      throwIfInstanceOf(e.getCause(), LabelSyntaxException.class);
-      throwIfUnchecked(e.getCause());
-      throw e;
-    }
+    validate(name);
+    return createUnvalidated(name);
   }
 
   /** Creates a RepositoryName from a known-valid string. */
   public static RepositoryName createUnvalidated(String name) {
-    if (name.isEmpty()) {
-      // NOTE(wyv): Without this `if` clause, a lot of Google-internal integration tests would start
-      //   failing. This suggests to me that something is comparing RepositoryName objects using
-      //   reference equality instead of #equals().
-      return MAIN;
-    }
-    if (name.equals(BUILTINS.name)) {
-      return BUILTINS;
-    }
-    return repositoryNameCache.get(name);
+    return interner.intern(new RepositoryName(name));
   }
 
   /**
@@ -397,10 +367,13 @@ public final class RepositoryName {
     @Override
     public RepositoryName deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      return new RepositoryName(
-          context.deserializeLeaf(codedIn, stringCodec()),
-          context.deserializeLeaf(codedIn, this),
-          context.deserializeLeaf(codedIn, stringCodec()));
+      String name = context.deserializeLeaf(codedIn, stringCodec());
+      RepositoryName contextRepoIfNotVisible = context.deserializeLeaf(codedIn, this);
+      String didYouMeanSuffix = context.deserializeLeaf(codedIn, stringCodec());
+      RepositoryName repositoryName = createUnvalidated(name);
+      return contextRepoIfNotVisible == null
+          ? repositoryName
+          : repositoryName.toNonVisible(contextRepoIfNotVisible, didYouMeanSuffix);
     }
   }
 }

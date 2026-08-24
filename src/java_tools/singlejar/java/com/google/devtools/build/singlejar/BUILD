@@ -36,6 +36,6 @@ java_library(
     ],
     deps = [
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )
