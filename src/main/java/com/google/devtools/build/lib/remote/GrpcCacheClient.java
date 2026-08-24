@@ -488,11 +488,12 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
     } catch (IOException e) {
       return Futures.immediateFailedFuture(e);
     }
+    long readOffset = rawOut.getCount();
     bsAsyncStub(context, channel)
         .read(
             ReadRequest.newBuilder()
                 .setResourceName(resourceName)
-                .setReadOffset(rawOut.getCount())
+                .setReadOffset(readOffset)
                 .build(),
             new ClientResponseObserver<ReadRequest, ReadResponse>() {
               private volatile ClientCallStreamObserver<ReadRequest> requestStream;
@@ -512,6 +513,18 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
               @Override
               public void onNext(ReadResponse readResponse) {
                 ByteString data = readResponse.getData();
+                if (!compressed && rawOut.getCount() + data.size() > digest.getSizeBytes()) {
+                  String msg =
+                      String.format(
+                          "Received more bytes than expected for digest '%s/%d'. "
+                              + "Server may have ignored read_offset.",
+                          digest.getHash(), digest.getSizeBytes());
+                  if (requestStream != null) {
+                    requestStream.cancel(msg, null);
+                  }
+                  future.setException(new IOException(msg));
+                  return;
+                }
                 try {
                   data.writeTo(out);
                 } catch (IOException e) {
