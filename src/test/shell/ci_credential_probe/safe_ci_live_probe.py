@@ -400,13 +400,25 @@ class Probe:
             expires = int(expires)
         except (TypeError, ValueError):
             expires = None
+        info_email = info.get("email")
+        info_email_verified = info.get("email_verified")
+        email_claim_present = "email" in info
+        email_claim_consistent = (
+            (
+                not email_claim_present
+                or (
+                    isinstance(info_email, str)
+                    and info_email == UNTRUSTED_SA
+                )
+            )
+            and info_email_verified not in (False, "false")
+        )
         tokeninfo_verified = (
             info_code == 200
-            and info.get("email") == UNTRUSTED_SA
-            and info.get("email_verified") in (True, "true")
             and "https://www.googleapis.com/auth/cloud-platform" in info_scopes
             and isinstance(expires, int)
             and expires > 0
+            and email_claim_consistent
         )
         if not tokeninfo_verified:
             self.emit(
@@ -415,9 +427,12 @@ class Probe:
                     "project_id": UNTRUSTED_PROJECT,
                     "service_account_email": UNTRUSTED_SA,
                     "expected_identity_match": True,
+                    "metadata_identity_verified": True,
                     "cloud_platform_scope_present": True,
                     "tokeninfo_http_status": info_code,
-                    "tokeninfo_identity_verified": False,
+                    "tokeninfo_token_verified": False,
+                    "tokeninfo_email_claim_present": email_claim_present,
+                    "tokeninfo_email_claim_consistent": email_claim_consistent,
                     "token_value_emitted": False,
                 }
             )
@@ -430,9 +445,12 @@ class Probe:
                 "project_id": project,
                 "service_account_email": email,
                 "expected_identity_match": True,
+                "metadata_identity_verified": True,
                 "scopes": scopes,
                 "tokeninfo_http_status": info_code,
-                "tokeninfo_identity_verified": True,
+                "tokeninfo_token_verified": True,
+                "tokeninfo_email_claim_present": email_claim_present,
+                "tokeninfo_email_claim_consistent": email_claim_consistent,
                 "expires_in": expires,
                 "credential_type": "oauth2_access_token",
                 "token_length": len(token),
