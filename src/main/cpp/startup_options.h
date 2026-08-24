@@ -169,6 +169,10 @@ class StartupOptions {
 
   bool autodetect_server_javabase;
 
+  // Whether to automatically detect and use system root certificates (cacerts)
+  // for the server JVM if no custom trust store is specified in host_jvm_args.
+  bool use_system_cacerts;
+
   std::vector<std::string> host_jvm_args;
 
   std::string extra_classpath;

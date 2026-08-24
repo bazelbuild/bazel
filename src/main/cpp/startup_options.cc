@@ -18,6 +18,13 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <map>
+#include <string>
+#include <utility>
+#include <vector>
+#ifndef _WIN32
+#include <sys/stat.h>
+#endif
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
@@ -73,6 +80,7 @@ StartupOptions::StartupOptions(const string& product_name,
       block_for_lock(true),
       host_jvm_debug(false),
       autodetect_server_javabase(true),
+      use_system_cacerts(true),
       batch(false),
       batch_cpu_scheduling(false),
       io_nice_level(-1),
@@ -129,6 +137,7 @@ StartupOptions::StartupOptions(const string& product_name,
   RegisterNullaryStartupFlag("host_jvm_debug", &host_jvm_debug);
   RegisterNullaryStartupFlag("autodetect_server_javabase",
                              &autodetect_server_javabase);
+  RegisterNullaryStartupFlag("use_system_cacerts", &use_system_cacerts);
   RegisterNullaryStartupFlag("idle_server_tasks", &idle_server_tasks);
   RegisterNullaryStartupFlag("shutdown_on_low_sys_mem",
                              &shutdown_on_low_sys_mem);
@@ -637,6 +646,58 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
   if (use_compact_headers) {
     result->push_back("-XX:+UnlockExperimentalVMOptions");
     result->push_back("-XX:+UseCompactObjectHeaders");
+  }
+
+  if (use_system_cacerts) {
+    bool has_custom_truststore = false;
+    bool has_custom_truststore_password = false;
+    for (const auto& opt : user_options) {
+      if (blaze_util::starts_with(opt, "-Djavax.net.ssl.trustStore=") ||
+          blaze_util::starts_with(opt, "-Djavax.net.ssl.trustStoreType=")) {
+        has_custom_truststore = true;
+      }
+      if (blaze_util::starts_with(opt, "-Djavax.net.ssl.trustStorePassword=")) {
+        has_custom_truststore_password = true;
+      }
+    }
+    if (!has_custom_truststore) {
+#if defined(__linux__) || defined(__FreeBSD__)
+      static const char* kSystemCacertsPaths[] = {
+          "/etc/ssl/certs/java/cacerts",
+          "/etc/pki/java/cacerts",
+          "/etc/pki/ca-trust/extracted/java/cacerts",
+          "/etc/ssl/certs/cacerts",
+      };
+      for (const char* path : kSystemCacertsPaths) {
+        struct stat st;
+        if (blaze_util::CanReadFile(path) && stat(path, &st) == 0 &&
+            S_ISREG(st.st_mode) && st.st_size > 4096) {
+          result->push_back(string("-Djavax.net.ssl.trustStore=") + path);
+          if (!has_custom_truststore_password) {
+            result->push_back("-Djavax.net.ssl.trustStorePassword=changeit");
+          }
+          break;
+        }
+      }
+#elif defined(__APPLE__)
+      string home = GetHomeDir();
+      if (!home.empty()) {
+        static const char* kKeychainPaths[] = {
+            "Library/Keychains/login.keychain-db",
+            "Library/Keychains/login.keychain",
+        };
+        for (const char* kp : kKeychainPaths) {
+          string p = blaze_util::JoinPath(home, kp);
+          if (blaze_util::CanReadFile(p)) {
+            result->push_back("-Djavax.net.ssl.trustStoreType=KeychainStore");
+            break;
+          }
+        }
+      }
+#elif defined(_WIN32)
+      result->push_back("-Djavax.net.ssl.trustStoreType=WINDOWS-ROOT");
+#endif
+    }
   }
 
   return AddJVMMemoryArguments(server_javabase, result, user_options, error);

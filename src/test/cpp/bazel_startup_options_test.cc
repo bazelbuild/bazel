@@ -297,6 +297,7 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectValidNullaryOption(options, "home_rc");
   ExpectValidNullaryOption(options, "host_jvm_debug");
   ExpectValidNullaryOption(options, "autodetect_server_javabase");
+  ExpectValidNullaryOption(options, "use_system_cacerts");
   ExpectValidNullaryOption(options, "ignore_all_rc_files");
   ExpectValidNullaryOption(options, "shutdown_on_low_sys_mem");
   ExpectValidNullaryOption(options, "system_rc");
