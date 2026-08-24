@@ -436,8 +436,139 @@ class Probe:
                 "value_emitted": False,
             }
         )
-        if code != 200 or "graphql" not in scopes:
+        if code != 200:
+            token = None
             return
+
+        organizations_code, organizations = self.request_json(
+            "GET", f"{self.base['buildkite']}/v2/organizations", headers
+        )
+        organization_slugs = sorted(
+            {
+                item["slug"]
+                for item in organizations[:100]
+                if isinstance(organizations, list)
+                and isinstance(item, dict)
+                and isinstance(item.get("slug"), str)
+                and re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", item["slug"])
+            }
+        ) if isinstance(organizations, list) else []
+        trusted_visible = organizations_code == 200 and "bazel-trusted" in organization_slugs
+        self.emit(
+            {
+                "kind": "buildkite_organizations",
+                "source": purpose,
+                "http_status": organizations_code,
+                "slugs": organization_slugs,
+                "bazel_trusted_visible": trusted_visible,
+                "value_emitted": False,
+            }
+        )
+        if not trusted_visible:
+            self.emit(
+                {
+                    "kind": "buildkite_release_boundary",
+                    "source": purpose,
+                    "status": (
+                        "blocked_cross_organization"
+                        if organizations_code == 200
+                        else "organization_introspection_failed"
+                    ),
+                    "write_builds_scope": "write_builds" in scopes,
+                    "bazel_trusted_visible": False,
+                    "exact_release_pipeline_visible": False,
+                    "full_access_oracle_proven": False,
+                    "release_control_established": False,
+                    "read_only_requests": True,
+                }
+            )
+            token = None
+            return
+
+        rest_results = []
+        full_access_proven = False
+        exact_release_visible = False
+        for _alias, slug in RELEASE_PIPELINES:
+            endpoint = f"{self.base['buildkite']}/v2/organizations/bazel-trusted/pipelines/{slug}"
+            pipeline_code, pipeline = self.request_json("GET", endpoint, headers)
+            exact = (
+                pipeline_code == 200
+                and isinstance(pipeline, dict)
+                and pipeline.get("slug") == slug
+                and pipeline.get("url")
+                == f"https://api.buildkite.com/v2/organizations/bazel-trusted/pipelines/{slug}"
+                and pipeline.get("archived_at") is None
+            )
+            exact_release_visible = exact_release_visible or exact
+            webhook_code = None
+            if exact:
+                webhook_code, _ = self.request_json("GET", f"{endpoint}/github-webhooks", headers)
+            full_access = exact and webhook_code == 200 and "write_builds" in scopes
+            full_access_proven = full_access_proven or full_access
+            visibility = pipeline.get("visibility") if exact else None
+            if visibility not in {"public", "private"}:
+                visibility = None
+            rest_results.append(
+                {
+                    "pipeline": slug,
+                    "pipeline_http_status": pipeline_code,
+                    "identity_valid": exact,
+                    "visibility": visibility,
+                    "full_access_oracle_http_status": webhook_code,
+                    "full_access_oracle_proven": full_access,
+                }
+            )
+            if full_access:
+                break
+        self.emit(
+            {
+                "kind": "buildkite_release_pipeline_rest",
+                "source": purpose,
+                "pipelines": rest_results,
+                "full_access_oracle_proven": full_access_proven,
+                "read_only_requests": True,
+            }
+        )
+        if full_access_proven:
+            self.proof = "buildkite_release_pipeline_full_access"
+            self.emit(
+                {
+                    "kind": "buildkite_release_boundary",
+                    "source": purpose,
+                    "status": "trusted_release_pipeline_full_access",
+                    "write_builds_scope": True,
+                    "bazel_trusted_visible": True,
+                    "exact_release_pipeline_visible": True,
+                    "full_access_oracle_proven": True,
+                    "release_control_established": True,
+                    "read_only_requests": True,
+                }
+            )
+            token = None
+            return
+
+        if "graphql" not in scopes:
+            self.emit(
+                {
+                    "kind": "buildkite_release_boundary",
+                    "source": purpose,
+                    "status": (
+                        "candidate_release_pipeline_visible"
+                        if exact_release_visible
+                        else "blocked_no_release_pipeline_visibility"
+                    ),
+                    "write_builds_scope": "write_builds" in scopes,
+                    "bazel_trusted_visible": True,
+                    "exact_release_pipeline_visible": exact_release_visible,
+                    "full_access_oracle_proven": False,
+                    "graphql_scope_present": False,
+                    "release_control_established": False,
+                    "read_only_requests": True,
+                }
+            )
+            token = None
+            return
+
         fields = " ".join(
             f'{alias}:pipeline(slug:"bazel-trusted/{slug}"){{slug organization{{slug}} permissions{{buildCreate{{allowed code}} pipelineUpdate{{allowed code}}}}}}'
             for alias, slug in RELEASE_PIPELINES
@@ -448,6 +579,8 @@ class Probe:
         errors = isinstance(response, dict) and bool(response.get("errors"))
         data = response.get("data") if gql_code == 200 and isinstance(response, dict) and not errors else {}
         results = []
+        release_build_control = False
+        pipeline_update_control = False
         for alias, expected in RELEASE_PIPELINES:
             item = data.get(alias) if isinstance(data, dict) and isinstance(data.get(alias), dict) else {}
             org = item.get("organization") if isinstance(item.get("organization"), dict) else {}
@@ -455,13 +588,17 @@ class Probe:
             valid = item.get("slug") == expected and org.get("slug") == "bazel-trusted"
             build = permissions.get("buildCreate") if isinstance(permissions.get("buildCreate"), dict) else {}
             update = permissions.get("pipelineUpdate") if isinstance(permissions.get("pipelineUpdate"), dict) else {}
-            build_allowed = valid and build.get("allowed") is True
-            update_allowed = valid and update.get("allowed") is True
+            build_allowed = valid and "write_builds" in scopes and build.get("allowed") is True
+            update_allowed = valid and "write_pipelines" in scopes and update.get("allowed") is True
+            release_build_control = release_build_control or build_allowed
+            pipeline_update_control = pipeline_update_control or update_allowed
             results.append(
                 {"pipeline": expected, "identity_valid": valid, "build_create": build_allowed, "pipeline_update": update_allowed}
             )
-            if update_allowed:
-                self.proof = "buildkite_pipeline_update"
+        if release_build_control:
+            self.proof = "buildkite_release_build_create"
+        if pipeline_update_control:
+            self.proof = "buildkite_pipeline_update"
         self.emit(
             {
                 "kind": "buildkite_pipeline_permissions",
@@ -469,8 +606,31 @@ class Probe:
                 "http_status": gql_code,
                 "top_level_errors_present": errors,
                 "pipelines": results if not errors else [],
-                "pipeline_control_proven": self.proof == "buildkite_pipeline_update",
+                "release_build_control_proven": release_build_control,
+                "pipeline_control_proven": pipeline_update_control,
                 "read_only_query": True,
+            }
+        )
+        self.emit(
+            {
+                "kind": "buildkite_release_boundary",
+                "source": purpose,
+                "status": (
+                    "trusted_pipeline_update"
+                    if pipeline_update_control
+                    else (
+                        "trusted_release_build_create"
+                        if release_build_control
+                        else "visible_but_no_effective_release_permission"
+                    )
+                ),
+                "write_builds_scope": "write_builds" in scopes,
+                "bazel_trusted_visible": True,
+                "exact_release_pipeline_visible": exact_release_visible,
+                "full_access_oracle_proven": False,
+                "graphql_scope_present": True,
+                "release_control_established": release_build_control or pipeline_update_control,
+                "read_only_requests": True,
             }
         )
         token = None
