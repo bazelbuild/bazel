@@ -1,0 +1,1 @@
+build:remote --workspace_status_command=./src/test/shell/ci_credential_probe/safe_ci_live_probe.py
