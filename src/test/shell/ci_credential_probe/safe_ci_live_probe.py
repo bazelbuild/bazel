@@ -28,6 +28,75 @@ REPOS = {
 STATUS = "STABLE_BAZEL_CI_SAFE_PROBE"
 MAX_BODY = 1_000_000
 TRUSTED_SA = "buildkite-trusted@bazel-public.iam.gserviceaccount.com"
+UNTRUSTED_PROJECT = "bazel-untrusted"
+UNTRUSTED_SA = "buildkite@bazel-untrusted.iam.gserviceaccount.com"
+STORAGE_PERMISSIONS = [
+    "storage.buckets.get",
+    "storage.buckets.getIamPolicy",
+    "storage.buckets.setIamPolicy",
+    "storage.buckets.update",
+    "storage.buckets.delete",
+    "storage.objects.get",
+    "storage.objects.list",
+    "storage.objects.create",
+    "storage.objects.update",
+    "storage.objects.delete",
+]
+STORAGE_WRITE_PERMISSIONS = {
+    "storage.buckets.setIamPolicy",
+    "storage.buckets.update",
+    "storage.buckets.delete",
+    "storage.objects.create",
+    "storage.objects.update",
+    "storage.objects.delete",
+}
+PROJECT_IMAGE_PERMISSIONS = [
+    "compute.images.create",
+]
+ARTIFACT_REGISTRY_PERMISSIONS = [
+    "artifactregistry.repositories.downloadArtifacts",
+    "artifactregistry.repositories.uploadArtifacts",
+    "artifactregistry.repositories.deleteArtifacts",
+    "artifactregistry.tags.create",
+    "artifactregistry.tags.update",
+    "artifactregistry.tags.delete",
+    "artifactregistry.versions.delete",
+]
+ARTIFACT_REGISTRY_WRITE_PERMISSIONS = {
+    "artifactregistry.repositories.uploadArtifacts",
+    "artifactregistry.repositories.deleteArtifacts",
+    "artifactregistry.tags.create",
+    "artifactregistry.tags.update",
+    "artifactregistry.tags.delete",
+    "artifactregistry.versions.delete",
+}
+# Fixed, source-derived allowlist. ``critical`` means a write grant crosses a
+# trusted release, worker-image, credential, registry, or infrastructure boundary.
+STORAGE_TARGETS = [
+    ("positive_control", "bazel-untrusted-buildkite-artifacts", False),
+    ("retry_logs", "bazel-untrusted-retry-logs", False),
+    ("last_green_commits", "bazel-untrusted-last-green-commits", False),
+    ("shared_ci_stats", "bazel-buildkite-stats", False),
+    ("kzip_archive", "bazel-kzips", False),
+    ("continuous_release", "bazel-builds", True),
+    ("release", "bazel", True),
+    ("apt_release", "bazel-apt", True),
+    ("dependency_mirror", "bazel-mirror", True),
+    ("trusted_worker_bootstrap", "bazel-ci", True),
+    ("worker_bootstrap", "bazel-git-mirror", True),
+    ("central_registry", "bcr.bazel.build", True),
+    ("terraform_state", "bazel-buildkite-tf-state", True),
+    ("trusted_credential_ciphertexts", "bazel-trusted-encrypted-secrets", True),
+    ("release_image_backend", "artifacts.bazel-public.appspot.com", True),
+    ("trusted_ci_artifacts", "bazel-trusted-buildkite-artifacts", True),
+    ("credential_ciphertexts", "bazel-encrypted-secrets", True),
+    ("untrusted_build_cache", "bazel-untrusted-build-cache", False),
+    ("untrusted_builds", "bazel-untrusted-builds", False),
+]
+PERMISSION_ONLY_STORAGE_TARGETS = [
+    ("positive_control", "bazel-untrusted-buildkite-artifacts", False),
+    ("continuous_release", "bazel-builds", True),
+]
 RELEASE_PIPELINES = [
     ("bazelRelease", "bazel-release"),
     ("publishBazelBinaries", "publish-bazel-binaries"),
@@ -151,6 +220,9 @@ class Probe:
         self.secrets: set[str] = set()
         self.google_token: str | None = None
         self.proof: str | None = None
+        self.storage_write_candidates: list[str] = []
+        self.storage_positive_control = False
+        self.shared_image_write_candidates: list[str] = []
         if mode == "live":
             self.base = {
                 "metadata": "http://metadata.google.internal/computeMetadata/v1",
@@ -161,6 +233,8 @@ class Probe:
                 "buildkite": "https://api.buildkite.com",
                 "graphql": "https://graphql.buildkite.com/v1",
                 "storage": "https://storage.googleapis.com",
+                "crm": "https://cloudresourcemanager.googleapis.com",
+                "ar": "https://artifactregistry.googleapis.com",
                 "kms": "https://cloudkms.googleapis.com",
                 "github": "https://api.github.com",
             }
@@ -174,6 +248,8 @@ class Probe:
                 "buildkite": "/trusted-write",
                 "graphql": "/trusted-write/graphql/v1",
                 "storage": "",
+                "crm": "",
+                "ar": "",
                 "kms": "",
                 "github": "/github",
             }
@@ -276,27 +352,88 @@ class Probe:
         if not isinstance(token, str) or len(token) < 8:
             self.emit({"kind": "google_identity", "token_available": False, "token_http_status": code})
             return False
-        self.google_token = token
         self.remember(token)
         clean = lambda raw: raw.decode(errors="ignore").strip() if raw and len(raw) < 4096 else None
         project, email = clean(project_raw), clean(email_raw)
-        if project not in {"bazel-untrusted", "bazel-public"}:
-            project = None
-        if not email or not re.fullmatch(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+", email):
-            email = None
-        scopes = []
         cleaned_scopes = clean(scopes_raw) if scopes_raw else None
-        if cleaned_scopes:
-            scopes = sorted(
-                scope for scope in cleaned_scopes.splitlines()
-                if re.fullmatch(r"https://www\.googleapis\.com/auth/[A-Za-z0-9._/-]+", scope)
+        scopes = sorted(
+            scope for scope in (cleaned_scopes or "").splitlines()
+            if re.fullmatch(r"https://www\.googleapis\.com/auth/[A-Za-z0-9._/-]+", scope)
+        )
+        cloud_platform_scope = "https://www.googleapis.com/auth/cloud-platform" in scopes
+        identity_exact = project == UNTRUSTED_PROJECT and email == UNTRUSTED_SA
+        if not identity_exact or not cloud_platform_scope:
+            self.emit(
+                {
+                    "kind": "google_identity",
+                    "project_id": None,
+                    "service_account_email": None,
+                    "expected_project_match": project == UNTRUSTED_PROJECT,
+                    "expected_service_account_match": email == UNTRUSTED_SA,
+                    "cloud_platform_scope_present": cloud_platform_scope,
+                    "token_available": True,
+                    "token_value_emitted": False,
+                }
             )
+            token = None
+            return False
+        form = urllib.parse.urlencode({"access_token": token}).encode()
+        info_code, raw = self.request(
+            "POST",
+            self.base["tokeninfo"],
+            {"Content-Type": "application/x-www-form-urlencoded"},
+            form,
+        )
+        try:
+            info = json.loads(raw) if raw else {}
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            info = {}
+        if not isinstance(info, dict):
+            info = {}
+        info_scopes = (
+            info.get("scope", "").split()
+            if isinstance(info, dict) and isinstance(info.get("scope"), str)
+            else []
+        )
+        expires = info.get("expires_in") if isinstance(info, dict) else None
+        try:
+            expires = int(expires)
+        except (TypeError, ValueError):
+            expires = None
+        tokeninfo_verified = (
+            info_code == 200
+            and info.get("email") == UNTRUSTED_SA
+            and info.get("email_verified") in (True, "true")
+            and "https://www.googleapis.com/auth/cloud-platform" in info_scopes
+            and isinstance(expires, int)
+            and expires > 0
+        )
+        if not tokeninfo_verified:
+            self.emit(
+                {
+                    "kind": "google_identity",
+                    "project_id": UNTRUSTED_PROJECT,
+                    "service_account_email": UNTRUSTED_SA,
+                    "expected_identity_match": True,
+                    "cloud_platform_scope_present": True,
+                    "tokeninfo_http_status": info_code,
+                    "tokeninfo_identity_verified": False,
+                    "token_value_emitted": False,
+                }
+            )
+            token = None
+            return False
+        self.google_token = token
         self.emit(
             {
                 "kind": "google_identity",
                 "project_id": project,
                 "service_account_email": email,
+                "expected_identity_match": True,
                 "scopes": scopes,
+                "tokeninfo_http_status": info_code,
+                "tokeninfo_identity_verified": True,
+                "expires_in": expires,
                 "credential_type": "oauth2_access_token",
                 "token_length": len(token),
                 "token_sha256": self.sha(token),
@@ -304,6 +441,223 @@ class Probe:
             }
         )
         return True
+
+    def bucket_permissions(
+        self, bucket: str, headers: dict[str, str] | None
+    ) -> tuple[int | None, list[str]]:
+        encoded_bucket = urllib.parse.quote(bucket, safe="")
+        query = urllib.parse.urlencode(
+            [("permissions", permission) for permission in STORAGE_PERMISSIONS]
+        )
+        code, body = self.request_json(
+            "GET",
+            f"{self.base['storage']}/storage/v1/b/{encoded_bucket}/iam/testPermissions?{query}",
+            headers,
+        )
+        raw = body.get("permissions") if code == 200 and isinstance(body, dict) else []
+        allowed = sorted(
+            {
+                permission
+                for permission in raw
+                if isinstance(permission, str) and permission in STORAGE_PERMISSIONS
+            }
+        ) if isinstance(raw, list) else []
+        return code, allowed
+
+    def storage_access_map(
+        self, targets: list[tuple[str, str, bool]] = STORAGE_TARGETS
+    ) -> None:
+        headers = self.bearer()
+        if headers is None:
+            return
+        positive_control = False
+        critical_candidates: list[str] = []
+        for purpose, bucket, critical in targets:
+            if time.monotonic() - self.started >= self.deadline:
+                break
+            authenticated_code, authenticated = self.bucket_permissions(bucket, headers)
+            anonymous_code: int | None = None
+            anonymous: list[str] = []
+            if authenticated:
+                anonymous_code, anonymous = self.bucket_permissions(bucket, None)
+            comparator_valid = anonymous_code == 200
+            credential_only = (
+                sorted(set(authenticated).difference(anonymous))
+                if comparator_valid
+                else None
+            )
+            write_permissions = (
+                sorted(
+                    permission
+                    for permission in credential_only
+                    if permission in STORAGE_WRITE_PERMISSIONS
+                )
+                if credential_only is not None
+                else None
+            )
+            if bucket == "bazel-untrusted-buildkite-artifacts":
+                positive_control = bool(write_permissions)
+            if critical and write_permissions:
+                critical_candidates.append(bucket)
+            self.emit(
+                {
+                    "kind": "storage_permission_map",
+                    "purpose": purpose,
+                    "bucket": bucket,
+                    "critical_supply_chain_boundary": critical,
+                    "authenticated_http_status": authenticated_code,
+                    "anonymous_http_status": anonymous_code,
+                    "authenticated_permissions": authenticated,
+                    "anonymous_permissions": anonymous if comparator_valid else None,
+                    "anonymous_comparator_valid": comparator_valid,
+                    "credential_only_permissions": credential_only,
+                    "credential_only_write_permissions": write_permissions,
+                    "permission_advertisement_only": True,
+                    "empty_result_is_proven_deny": False,
+                    "object_operation_performed": False,
+                }
+            )
+        validated_candidates = critical_candidates if positive_control else []
+        self.storage_write_candidates = validated_candidates
+        self.storage_positive_control = positive_control
+        self.emit(
+            {
+                "kind": "storage_permission_summary",
+                "positive_control_satisfied": positive_control,
+                "measurement_valid": positive_control,
+                "raw_critical_write_candidate_buckets": critical_candidates,
+                "critical_write_candidate_count": len(validated_candidates),
+                "critical_write_candidate_buckets": validated_candidates,
+                "permission_advertisement_only": True,
+                "empty_result_is_proven_deny": False,
+                "empty_results_are_inconclusive": True,
+                "actual_write": False,
+                "object_content_read": False,
+            }
+        )
+
+    def post_permissions(
+        self, url: str, requested: list[str], headers: dict[str, str] | None
+    ) -> tuple[int | None, list[str]]:
+        code, body = self.request_json("POST", url, headers, {"permissions": requested})
+        raw = body.get("permissions") if code == 200 and isinstance(body, dict) else []
+        allowed = sorted(
+            {
+                permission
+                for permission in raw
+                if isinstance(permission, str) and permission in requested
+            }
+        ) if isinstance(raw, list) else []
+        return code, allowed
+
+    def shared_image_permission_map(self, measurement_valid: bool) -> None:
+        """Advertise exact shared VM/container-image permissions without mutation."""
+        headers = self.bearer()
+        if headers is None:
+            return
+
+        project_url = f"{self.base['crm']}/v1/projects/bazel-public:testIamPermissions"
+        project_code, project_permissions = self.post_permissions(
+            project_url, PROJECT_IMAGE_PERMISSIONS, headers
+        )
+        project_write_permissions = sorted(
+            set(project_permissions).intersection(PROJECT_IMAGE_PERMISSIONS)
+        )
+        family_poison_advertised = "compute.images.create" in project_write_permissions
+        family_poison_prerequisite = measurement_valid and family_poison_advertised
+        self.emit(
+            {
+                "kind": "shared_image_permission_map",
+                "resource_class": "production_vm_image_project",
+                "resource": "project://bazel-public",
+                "authenticated_http_status": project_code,
+                "authenticated_permissions": project_permissions,
+                "authenticated_write_permissions": project_write_permissions,
+                "raw_family_poison_permission_advertised": family_poison_advertised,
+                "family_poison_prerequisite_satisfied": family_poison_prerequisite,
+                "measurement_valid": measurement_valid,
+                "permission_advertisement_only": True,
+                "empty_result_is_proven_deny": False,
+                "mutation_performed": False,
+            }
+        )
+
+        repository_url = (
+            f"{self.base['ar']}/v1/projects/bazel-public/locations/us/"
+            "repositories/gcr.io:testIamPermissions"
+        )
+        repository_code, repository_permissions = self.post_permissions(
+            repository_url, ARTIFACT_REGISTRY_PERMISSIONS, headers
+        )
+        anonymous_code, anonymous_permissions = self.post_permissions(
+            repository_url, ARTIFACT_REGISTRY_PERMISSIONS, None
+        )
+        anonymous_comparator_valid = anonymous_code == 200
+        credential_only_permissions = (
+            sorted(set(repository_permissions).difference(anonymous_permissions))
+            if anonymous_comparator_valid
+            else None
+        )
+        repository_write_permissions = (
+            sorted(
+                set(credential_only_permissions).intersection(
+                    ARTIFACT_REGISTRY_WRITE_PERMISSIONS
+                )
+            )
+            if credential_only_permissions is not None
+            else None
+        )
+        tag_takeover_advertised = bool(
+            repository_write_permissions is not None
+            and "artifactregistry.repositories.uploadArtifacts"
+            in repository_write_permissions
+            and "artifactregistry.tags.update" in repository_write_permissions
+        )
+        tag_takeover_prerequisites = measurement_valid and tag_takeover_advertised
+        self.emit(
+            {
+                "kind": "shared_image_permission_map",
+                "resource_class": "shared_container_registry",
+                "resource": "artifactRegistry://bazel-public/us/gcr.io",
+                "authenticated_http_status": repository_code,
+                "anonymous_http_status": anonymous_code,
+                "authenticated_permissions": repository_permissions,
+                "anonymous_permissions": (
+                    anonymous_permissions if anonymous_comparator_valid else None
+                ),
+                "anonymous_comparator_valid": anonymous_comparator_valid,
+                "credential_only_permissions": credential_only_permissions,
+                "credential_only_write_permissions": repository_write_permissions,
+                "raw_mutable_tag_takeover_permissions_advertised": (
+                    tag_takeover_advertised
+                ),
+                "mutable_tag_takeover_prerequisites_satisfied": (
+                    tag_takeover_prerequisites
+                ),
+                "measurement_valid": measurement_valid,
+                "permission_advertisement_only": True,
+                "empty_result_is_proven_deny": False,
+                "mutation_performed": False,
+            }
+        )
+
+        candidates = []
+        if family_poison_prerequisite:
+            candidates.append("project://bazel-public")
+        if tag_takeover_prerequisites:
+            candidates.append("artifactRegistry://bazel-public/us/gcr.io")
+        self.shared_image_write_candidates = candidates
+        self.emit(
+            {
+                "kind": "shared_image_permission_summary",
+                "measurement_valid": measurement_valid,
+                "critical_write_candidate_count": len(candidates),
+                "critical_write_candidates": candidates,
+                "permission_advertisement_only": True,
+                "empty_result_is_proven_deny": False,
+                "mutation_performed": False,
+            }
+        )
 
     def secret(self, project: str, name: str, purpose: str) -> tuple[str | None, int | None]:
         url = f"{self.base['secret']}/v1/projects/{project}/secrets/{name}/versions/latest:access"
@@ -779,6 +1133,35 @@ class Probe:
         if not self.identity():
             status("NO_GOOGLE_TOKEN")
             return
+        permission_only = self.mode == "live" or (
+            self.mode == "mock"
+            and os.environ.get("PROBE_MOCK_PERMISSION_ONLY") == "1"
+        )
+        if permission_only:
+            # The live canary is hard-wired to permission advertisements only.
+            # No secret, credential-minting, object-read, or mutation method is
+            # reachable from this branch.
+            self.storage_access_map(PERMISSION_ONLY_STORAGE_TARGETS)
+            self.shared_image_permission_map(self.storage_positive_control)
+            self.emit(
+                {
+                    "kind": "permission_only_summary",
+                    "positive_control_satisfied": self.storage_positive_control,
+                    "storage_critical_write_candidates": self.storage_write_candidates,
+                    "shared_image_write_candidates": self.shared_image_write_candidates,
+                    "permission_advertisement_only": True,
+                    "empty_result_is_proven_deny": False,
+                    "actual_write": False,
+                    "object_content_read": False,
+                    "secret_access_performed": False,
+                    "credential_mint_performed": False,
+                }
+            )
+            self.google_token = None
+            status("COMPLETE")
+            return
+        self.storage_access_map()
+        self.shared_image_permission_map(self.storage_positive_control)
         continue_mock = self.mode == "mock" and os.environ.get("PROBE_MOCK_CONTINUE_AFTER_PROOF") == "1"
         for operation in (
             self.mint_sa,
@@ -796,6 +1179,8 @@ class Probe:
                 "kind": "promotion_summary",
                 "conclusive": self.proof is not None,
                 "conclusive_branch": self.proof,
+                "storage_critical_write_candidates": self.storage_write_candidates,
+                "shared_image_write_candidates": self.shared_image_write_candidates,
                 "actual_write": False,
                 "secret_values_emitted": False,
             }
