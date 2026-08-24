@@ -24,7 +24,7 @@ bazel_dep(name = "googletest", version = "1.17.0.bcr.2", repo_name = "com_google
 bazel_dep(name = "grpc-java", version = "1.71.0")
 bazel_dep(name = "grpc", version = "1.76.0.bcr.1", repo_name = "com_github_grpc_grpc")
 bazel_dep(name = "platforms", version = "1.1.0")
-bazel_dep(name = "protobuf", version = "35.1", repo_name = "com_google_protobuf")
+bazel_dep(name = "protobuf", version = "36.0", repo_name = "com_google_protobuf")
 bazel_dep(name = "re2", version = "2025-11-05.bcr.1")
 bazel_dep(name = "rules_go", version = "0.59.0")
 bazel_dep(name = "rules_graalvm", version = "0.11.1")
@@ -116,13 +116,12 @@ single_version_override(
 # 3. Pull in the removal of the memoizedIsInitialized field for messages with no
 # required fields early. This reduces the memory usage of Bazel and avoids
 # spread in memory usage between Bazel and Blaze.
-# https://github.com/protocolbuffers/protobuf/blob/adf9e8b80fd10398b82e16c4ea72f2d2cffb0e9b/src/google/protobuf/compiler/java/full/message.cc#L884C1-L899C6
 single_version_override(
     module_name = "protobuf",
     patch_strip = 1,
-    # Patch is based on 35.1
+    # Patch is based on 36.0
     patches = ["//third_party:protobuf.patch"],
-    version = "35.1",
+    version = "36.0",
 )
 
 # Remove once the following PRs are available in a grpc-java release.
