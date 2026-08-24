@@ -543,6 +543,13 @@ public final class AsyncTaskCache<KeyT, ValueT> {
       return cache.getFinishedTasks();
     }
 
+    /**
+     * @see AsyncTaskCache#invalidate
+     */
+    public void invalidate(KeyT key) {
+      cache.invalidate(key);
+    }
+
     /** Returns a set of keys for tasks which is still executing. */
     public ImmutableSet<KeyT> getInProgressTasks() {
       return cache.getInProgressTasks();

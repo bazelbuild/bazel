@@ -34,7 +34,9 @@ import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.InterimModuleBu
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
+import com.google.devtools.build.lib.bazel.repository.RepoMetadataRequirements;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.cache.LocalRepoContentsCache;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -182,6 +184,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     RepositoryDirectoryValue.FORCE_FETCH.set(
         differencer, RepositoryDirectoryValue.FORCE_FETCH_DISABLED);
     RepositoryDirectoryValue.VENDOR_DIRECTORY.set(differencer, Optional.empty());
+    RepoMetadataRequirements.REQUIRE_REPO_EXTENSION_METADATA.set(
+        differencer, RepositoryOptions.RequireRepoExtensionMetadataMode.FALSE);
 
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, packageLocator.get());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
@@ -479,6 +483,89 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().toString()).contains("bad include label");
+  }
+
+  @Test
+  public void testRootModule_include_bad_selfCycle() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "include('//java:java.MODULE.bazel')");
+    scratch.overwriteFile(rootDirectory.getRelative("java/BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("java/java.MODULE.bazel").getPathString(),
+        "include('//java:java.MODULE.bazel')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent(
+        "include() cycle detected: //java:java.MODULE.bazel -> //java:java.MODULE.bazel");
+  }
+
+  @Test
+  public void testRootModule_include_bad_indirectCycle() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "include('//java:java.MODULE.bazel')");
+    scratch.overwriteFile(rootDirectory.getRelative("java/BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("java/java.MODULE.bazel").getPathString(),
+        "include('//python:python.MODULE.bazel')");
+    scratch.overwriteFile(rootDirectory.getRelative("python/BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("python/python.MODULE.bazel").getPathString(),
+        "include('//java:java.MODULE.bazel')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent(
+        "include() cycle detected: //java:java.MODULE.bazel -> //python:python.MODULE.bazel ->"
+            + " //java:java.MODULE.bazel");
+  }
+
+  @Test
+  public void testRootModule_include_sameFileMultipleTimes() throws Exception {
+    // The same file can be reached via multiple include() paths; it is then executed once per path,
+    // just as if its contents had been inlined at each call site.
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "include('//java:java.MODULE.bazel')",
+        "include('//python:python.MODULE.bazel')");
+    scratch.overwriteFile(rootDirectory.getRelative("java/BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("java/java.MODULE.bazel").getPathString(),
+        "include('//common:common.MODULE.bazel')");
+    scratch.overwriteFile(rootDirectory.getRelative("python/BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("python/python.MODULE.bazel").getPathString(),
+        "include('//common:common.MODULE.bazel')");
+    scratch.overwriteFile(rootDirectory.getRelative("common/BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("common/common.MODULE.bazel").getPathString(),
+        "register_toolchains('//:common-toolchain')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).module().getToolchainsToRegister())
+        .containsExactly("//:common-toolchain", "//:common-toolchain");
   }
 
   @Test
