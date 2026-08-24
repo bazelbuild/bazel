@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.unix.ProcMeminfoParser;
+import com.google.devtools.build.lib.util.OS;
 import com.sun.management.OperatingSystemMXBean;
+import java.io.IOException;
 import java.lang.management.ManagementFactory;
 
 /** A provider that collects the load of a machine for the resource manager. */
@@ -39,5 +42,28 @@ public class MachineLoadProvider {
     double cpuLoad = osBean.getCpuLoad();
     int numProcessors = Runtime.getRuntime().availableProcessors();
     return cpuLoad * numProcessors;
+  }
+
+  /** Returns current memory usage of the machine in MB. */
+  public double getCurrentMemoryUsageMb() {
+    long systemMemoryUsageMb = -1;
+    if (OS.getCurrent() == OS.LINUX) {
+      // On Linux we get a better estimate by using /proc/meminfo. See
+      // https://www.linuxatemyram.com/ for more info on buffer caches.
+      try {
+        ProcMeminfoParser procMeminfoParser = new ProcMeminfoParser("/proc/meminfo");
+        systemMemoryUsageMb =
+            (procMeminfoParser.getTotalKb() - procMeminfoParser.getFreeRamKb()) / 1024;
+      } catch (IOException e) {
+        // Silently ignore and fallback.
+      }
+    }
+    if (systemMemoryUsageMb < 0) {
+      // In case we aren't running on Linux or reading /proc/meminfo failed, fall back to
+      // the OS bean.
+      systemMemoryUsageMb =
+          (osBean.getTotalMemorySize() - osBean.getFreeMemorySize()) / (1024 * 1024);
+    }
+    return systemMemoryUsageMb;
   }
 }

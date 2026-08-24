@@ -991,11 +991,12 @@ public class ExecutionTool {
             options.getLocalResources(),
             options.usingLocalTestJobs() ? options.getLocalTestJobs() : Integer.MAX_VALUE));
 
-    resourceMgr.initializeCpuLoadFunctionality(
+    resourceMgr.initializeLoadFunctionality(
         MachineLoadProvider.instance(),
         options.getExperimentalCpuLoadScheduling(),
+        options.getExperimentalMemoryLoadScheduling(),
         options.getExperimentalCpuLoadSchedulingWindowSize());
-    resourceMgr.scheduleCpuLoadWindowUpdate();
+    resourceMgr.scheduleLoadWindowUpdate();
 
     resourceMgr.setAllowOneActionOnResourceUnavailable(
         options.getAllowOneActionOnResourceUnavailable());

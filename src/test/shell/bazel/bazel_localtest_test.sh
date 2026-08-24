@@ -51,4 +51,34 @@ EOF
   bazel test //dir:all &> $TEST_log || fail "expected success"
 }
 
+function test_experimental_load_scheduling() {
+  add_rules_shell "MODULE.bazel"
+  mkdir -p dir
+  cat > emptyfile
+
+  cat <<EOF > dir/test_local.sh
+#!/bin/sh
+test -e "$(pwd)/emptyfile" && exit 0 || true
+echo "no $(pwd)/emptyfile in standalone mode"
+exit 1
+EOF
+
+  chmod +x dir/test_local.sh
+
+  cat <<EOF > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+  name = "localtest",
+  srcs = [ "test_local.sh" ],
+  size = "small",
+  local = 1
+)
+EOF
+
+  bazel test --experimental_memory_load_scheduling //dir:all &> $TEST_log || fail "expected success with --experimental_memory_load_scheduling"
+  bazel test --experimental_cpu_load_scheduling //dir:all &> $TEST_log || fail "expected success with --experimental_cpu_load_scheduling"
+  bazel test --experimental_memory_load_scheduling --experimental_cpu_load_scheduling //dir:all &> $TEST_log || fail "expected success with both memory and cpu load scheduling"
+}
+
 run_suite "test tests"
