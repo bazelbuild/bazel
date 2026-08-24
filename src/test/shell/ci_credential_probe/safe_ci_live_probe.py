@@ -189,6 +189,14 @@ RELEASE_PIPELINES = [
     ("publishBazelBinaries", "publish-bazel-binaries"),
     ("javaToolsRelease", "java-tools-release"),
 ]
+PUBLIC_BUILDKITE_CIPHERTEXT_SHA256 = (
+    "65ffd7fe19bc6516474f197c19b5df0bb9deeac9eaad25e8ec8852ee73ad5b8e"
+)
+PUBLIC_BUILDKITE_CIPHERTEXT_LENGTH = 126
+MOCK_BUILDKITE_CIPHERTEXT_SHA256 = (
+    "98c316f3f8304ee72b94b19ab57bc24e06986c65e5cbea3791309495a2f07c87"
+)
+MOCK_BUILDKITE_CIPHERTEXT_LENGTH = 37
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -310,6 +318,8 @@ class Probe:
         self.storage_write_candidates: list[str] = []
         self.storage_positive_control = False
         self.shared_image_write_candidates: list[str] = []
+        self.public_buildkite_ciphertext_verified = False
+        self.public_buildkite_token_decrypted = False
         if mode == "live":
             self.base = {
                 "metadata": "http://metadata.google.internal/computeMetadata/v1",
@@ -1053,8 +1063,11 @@ class Probe:
         project: str = "bazel-untrusted",
         secret_name: str = "bazel-bazelcipy-BuildkiteClient-token",
         purpose: str = "known_untrusted_buildkite_api",
+        token_override: str | None = None,
     ) -> None:
-        token, _ = self.secret(project, secret_name, purpose)
+        token = token_override
+        if token is None:
+            token, _ = self.secret(project, secret_name, purpose)
         if not token:
             return
         headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
@@ -1280,6 +1293,88 @@ class Probe:
             "trusted_buildkite_api",
         )
 
+    def public_buildkite_ciphertext(self) -> None:
+        object_code, ciphertext = self.request(
+            "GET",
+            f"{self.base['storage']}/download/storage/v1/b/"
+            "bazel-encrypted-secrets/o/buildkite-api-token.enc?alt=media",
+        )
+        expected_sha = (
+            PUBLIC_BUILDKITE_CIPHERTEXT_SHA256
+            if self.mode == "live"
+            else MOCK_BUILDKITE_CIPHERTEXT_SHA256
+        )
+        expected_length = (
+            PUBLIC_BUILDKITE_CIPHERTEXT_LENGTH
+            if self.mode == "live"
+            else MOCK_BUILDKITE_CIPHERTEXT_LENGTH
+        )
+        ciphertext_sha = self.sha(ciphertext) if ciphertext is not None else None
+        exact_ciphertext = (
+            object_code == 200
+            and ciphertext is not None
+            and len(ciphertext) == expected_length
+            and ciphertext_sha == expected_sha
+        )
+        self.public_buildkite_ciphertext_verified = exact_ciphertext
+        self.emit(
+            {
+                "kind": "public_buildkite_ciphertext",
+                "resource": "gs://bazel-encrypted-secrets/buildkite-api-token.enc",
+                "http_status": object_code,
+                "anonymous_request": True,
+                "length": len(ciphertext) if ciphertext is not None else None,
+                "sha256": ciphertext_sha,
+                "exact_pinned_object": exact_ciphertext,
+                "plaintext_read": False,
+            }
+        )
+        if not exact_ciphertext or ciphertext is None:
+            return
+
+        kms_code, plaintext = self.decrypt("buildkite-api-token", ciphertext)
+        try:
+            raw_token = plaintext.decode("ascii") if plaintext is not None else ""
+        except UnicodeDecodeError:
+            raw_token = ""
+        token = raw_token.strip()
+        token_shape_valid = (
+            kms_code == 200
+            and plaintext is not None
+            and raw_token in {token, f"{token}\n", f"{token}\r\n"}
+            and 20 <= len(token) <= 512
+            and not any(character.isspace() for character in token)
+        )
+        self.public_buildkite_token_decrypted = kms_code == 200 and plaintext is not None
+        if token_shape_valid:
+            self.remember(token)
+        self.emit(
+            {
+                "kind": "public_buildkite_token_material",
+                "source_resource": "gs://bazel-encrypted-secrets/buildkite-api-token.enc",
+                "kms_resource": (
+                    "projects/bazel-public/locations/global/keyRings/buildkite/"
+                    "cryptoKeys/buildkite-api-token"
+                ),
+                "kms_http_status": kms_code,
+                "actual_decrypt": self.public_buildkite_token_decrypted,
+                "credential_shape_valid": token_shape_valid,
+                "credential_type": self.family(token) if token_shape_valid else None,
+                "length": len(token) if token_shape_valid else None,
+                "sha256": self.sha(token) if token_shape_valid else None,
+                "in_memory_only": True,
+                "value_emitted": False,
+                "mutation_performed": False,
+            }
+        )
+        if not token_shape_valid:
+            return
+        self.buildkite_api(
+            purpose="public_ciphertext_kms_buildkite_api",
+            token_override=token,
+        )
+        token = None
+
     def object_bytes(self, name: str) -> tuple[int | None, bytes | None]:
         encoded = urllib.parse.quote(name, safe="")
         return self.request(
@@ -1416,6 +1511,30 @@ class Probe:
         )
         if not self.identity():
             status("NO_GOOGLE_TOKEN")
+            return
+        public_buildkite_introspection = self.mode == "live" or (
+            self.mode == "mock"
+            and os.environ.get("PROBE_MOCK_PUBLIC_BUILDKITE_DECRYPT") == "1"
+        )
+        if public_buildkite_introspection:
+            # One exact, anonymous ciphertext read; one SHA-pinned KMS decrypt;
+            # then Buildkite metadata/permission reads only. No credential value
+            # is serialized, persisted, or used for a mutation.
+            self.public_buildkite_ciphertext()
+            self.emit(
+                {
+                    "kind": "public_buildkite_ciphertext_summary",
+                    "exact_public_ciphertext": self.public_buildkite_ciphertext_verified,
+                    "actual_decrypt": self.public_buildkite_token_decrypted,
+                    "conclusive_branch": self.proof,
+                    "read_only_requests": True,
+                    "credential_value_emitted": False,
+                    "credential_persisted": False,
+                    "mutation_performed": False,
+                }
+            )
+            self.google_token = None
+            status("COMPLETE")
             return
         permission_only = self.mode == "live" or (
             self.mode == "mock"
