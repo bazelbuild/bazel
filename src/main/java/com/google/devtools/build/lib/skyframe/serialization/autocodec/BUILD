@@ -23,7 +23,9 @@ java_library(
         # Generated classes have the following dependencies.
         ":registered-singleton",
         ":runtime-helpers",
+        "//third_party/java/guava:collect",
         "//third_party/java/protobuf",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
     ],
@@ -134,6 +136,7 @@ java_library(
         ":runtime-helpers",
         ":serialization-processing-exception",
         ":type-operations",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
         "//src/main/java/com/google/devtools/build/lib/util:string",
