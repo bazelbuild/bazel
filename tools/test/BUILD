@@ -76,15 +76,36 @@ cc_binary(
     deps = [":tw_lib"],
 )
 
-# Test wrapper binary to run tests on Windows.
-# See https://github.com/bazelbuild/bazel/issues/5508
+cc_binary(
+    name = "posix_tw",
+    srcs = ["posix/tw_main.cc"],
+    target_compatible_with = select({
+        "@bazel_tools//src/conditions:darwin": [],
+        "@bazel_tools//src/conditions:linux": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    visibility = ["//visibility:private"],
+    deps = [":tw_lib"],
+)
+
+# Shared test wrapper implementation for Windows, Linux, and macOS.
 cc_library(
     name = "tw_lib",
-    srcs = select({
+    srcs = ["test_wrapper_common.cc"] + select({
+        "@bazel_tools//src/conditions:darwin": [
+            "posix/tw.cc",
+            "posix/tw_outputs.cc",
+        ],
+        "@bazel_tools//src/conditions:linux": [
+            "posix/tw.cc",
+            "posix/tw_outputs.cc",
+        ],
         "@bazel_tools//src/conditions:windows": ["windows/tw.cc"],
         "//conditions:default": ["empty_test_wrapper.cc"],
     }),
-    hdrs = select({
+    hdrs = ["test_wrapper_common.h"] + select({
+        "@bazel_tools//src/conditions:darwin": ["posix/tw_outputs.h"],
+        "@bazel_tools//src/conditions:linux": ["posix/tw_outputs.h"],
         "@bazel_tools//src/conditions:windows": ["windows/tw.h"],
         "//conditions:default": [],
     }),
@@ -95,13 +116,14 @@ cc_library(
         "//conditions:default": [],
     }),
     visibility = ["//visibility:private"],
-    deps = select({
+    deps = [
+        "//src/main/cpp/util:filesystem",
+        "//third_party/ijar:zip",
+    ] + select({
         "@bazel_tools//src/conditions:windows": [
-            "//src/main/cpp/util:filesystem",
             "//src/main/cpp/util:strings",
             "//src/main/native/windows:lib-file",
             "//src/main/native/windows:lib-process",
-            "//third_party/ijar:zip",
             "@rules_cc//cc/runfiles",
         ],
         "//conditions:default": [],
@@ -111,18 +133,20 @@ cc_library(
 cc_test(
     name = "tw_test",
     srcs = select({
+        "@bazel_tools//src/conditions:darwin": ["posix/tw_test.cc"],
+        "@bazel_tools//src/conditions:linux": ["posix/tw_test.cc"],
         "@bazel_tools//src/conditions:windows": ["windows/tw_test.cc"],
         "//conditions:default": ["empty_test.cc"],
     }),
     deps = [
         ":tw_lib",
         "//src/main/cpp/util:filesystem",
-        "//src/test/cpp/util:windows_test_util",
+        "//third_party/ijar:zip",
         "@com_google_googletest//:gtest_main",
     ] + select({
         "@bazel_tools//src/conditions:windows": [
             "//src/main/native/windows:lib-file",
-            "//third_party/ijar:zip",
+            "//src/test/cpp/util:windows_test_util",
         ],
         "//conditions:default": [],
     }),
@@ -142,8 +166,22 @@ filegroup(
         "default_test_toolchain.bzl",
         "extensions.bzl",
         "generate-xml.sh",
+        "posix/tw.cc",
+        "posix/tw_main.cc",
+        "posix/tw_outputs.cc",
+        "posix/tw_outputs.h",
         "test-setup.sh",
+        "test_wrapper_common.cc",
+        "test_wrapper_common.h",
     ] + select({
+        "@bazel_tools//src/conditions:darwin": [
+            "dummy.sh",
+            "posix_tw",
+        ],
+        "@bazel_tools//src/conditions:linux": [
+            "dummy.sh",
+            "posix_tw",
+        ],
         "@bazel_tools//src/conditions:windows": [
             "tw",
             "xml",

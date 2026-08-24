@@ -952,8 +952,8 @@ bool CreateUndeclaredOutputsManifestContent(const std::vector<FileInfo>& files,
         return false;
       }
 
-      stm << acp_path << "\t" << e.Size() << "\t" << GetMimeType(acp_path)
-          << "\n";
+      stm << FormatUndeclaredOutputManifestEntry(acp_path, e.Size(),
+                                                 GetMimeType(acp_path));
     }
   }
   *result = stm.str();
@@ -1876,64 +1876,6 @@ DWORD IFStreamImpl::Peek(DWORD n, uint8_t* out) const {
 }
 
 }  // namespace
-
-void ZipEntryPaths::Create(const std::string& root,
-                           const std::vector<std::string>& relative_paths) {
-  size_ = relative_paths.size();
-
-  size_t total_size = 0;
-  for (const auto& e : relative_paths) {
-    // Increase total size for absolute paths by <root> + "/" + <path> +
-    // null-terminator.
-    total_size += root.size() + 1 + e.size() + 1;
-  }
-
-  // Store all absolute paths in one continuous char array.
-  abs_paths_.reset(new char[total_size]);
-
-  // Store pointers in two arrays. The pointers point into `abs_path`.
-  // We'll pass these paths to devtools_ijar::ZipBuilder::EstimateSize that
-  // expects an array of char pointers. The last element must be NULL, so
-  // allocate one extra pointer.
-  abs_path_ptrs_.reset(new char*[relative_paths.size() + 1]);
-  entry_path_ptrs_.reset(new char*[relative_paths.size() + 1]);
-
-  char* p = abs_paths_.get();
-  // Create all full paths (root + '/' + relative_paths[i] + '\0').
-  //
-  // If `root` is "c:/foo", then store the following:
-  //
-  // - Store each absolute path consecutively in `abs_paths_` (via `p`).
-  //   Store paths with forward slashes and not backslashes, because we use them
-  //   as zip entry paths, as well as paths we open with CreateFileA (which can
-  //   convert these paths internally to Windows-style).
-  //   Example: "c:/foo/bar.txt\0c:/foo/sub/baz.txt\0"
-  //
-  // - Store pointers in `abs_path_ptrs_`, pointing to the start of each
-  //   string inside `abs_paths_`.
-  //   Example: "c:/foo/bar.txt\0c:/foo/sub/baz.txt\0"
-  //             ^ here          ^ here
-  //
-  // - Store pointers in `entry_path_ptrs_`, pointing to the start of each
-  //   zip entry path inside `abs_paths_`, which is the part of each path
-  //   that's relative to `root`.
-  //   Example: "c:/foo/bar.txt\0c:/foo/sub/baz.txt\0"
-  //                    ^ here          ^ here
-  //
-  // - Because the ZipBuilder requires that the file paths and zip entry paths
-  //   are null-terminated arrays, we insert an extra null at their ends.
-  for (size_t i = 0; i < relative_paths.size(); ++i) {
-    abs_path_ptrs_.get()[i] = p;
-    strncpy(p, root.c_str(), root.size());
-    p += root.size();
-    *p++ = '/';
-    entry_path_ptrs_.get()[i] = p;
-    strncpy(p, relative_paths[i].c_str(), relative_paths[i].size() + 1);
-    p += relative_paths[i].size() + 1;
-  }
-  abs_path_ptrs_.get()[relative_paths.size()] = nullptr;
-  entry_path_ptrs_.get()[relative_paths.size()] = nullptr;
-}
 
 int TestWrapperMain(int argc, wchar_t** argv) {
   Path executable, exec_root, srcdir, tmpdir, test_outerr, xml_log;

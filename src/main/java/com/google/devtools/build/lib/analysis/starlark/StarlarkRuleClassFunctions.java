@@ -297,6 +297,13 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                     .singleArtifact()
                     .value(labelCache.get(toolsRepository + "//tools/test:test_wrapper")))
             .add(
+                attr(":native_posix_test_wrapper", LABEL)
+                    .cfg(
+                        ExecutionTransitionFactory.createFactory(
+                            DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
+                    .singleArtifact()
+                    .value(BaseRuleClasses.nativePosixTestWrapperAttribute()))
+            .add(
                 attr("$xml_writer", LABEL)
                     .cfg(
                         ExecutionTransitionFactory.createFactory(

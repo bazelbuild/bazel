@@ -1,3 +1,5 @@
+load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load(":default_test_toolchain.bzl", "bool_flag", "empty_toolchain")
 
@@ -123,6 +125,59 @@ filegroup(
     srcs = select({
         "@bazel_tools//src/conditions:windows": ["tw.exe"],
         "//conditions:default": ["dummy.sh"],
+    }),
+)
+
+config_setting(
+    name = "matches_host_constraints",
+    constraint_values = HOST_CONSTRAINTS,
+    visibility = ["//visibility:private"],
+)
+
+cc_binary(
+    name = "compiled_posix_test_wrapper",
+    srcs = [
+        "posix/tw.cc",
+        "posix/tw_main.cc",
+        "posix/tw_outputs.cc",
+        "posix/tw_outputs.h",
+        "test_wrapper_common.cc",
+        "test_wrapper_common.h",
+    ],
+    target_compatible_with = select({
+        "@bazel_tools//src/conditions:darwin": [],
+        "@bazel_tools//src/conditions:linux": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/main/cpp/util:filesystem",
+        "//third_party/ijar:zip",
+    ],
+)
+
+filegroup(
+    name = "native_posix_test_wrapper_binary",
+    srcs = select({
+        ":matches_host_constraints": glob(
+            ["posix_tw*"],
+            allow_empty = True,
+        ),
+        "//conditions:default": [":compiled_posix_test_wrapper"],
+    }),
+    visibility = ["//visibility:private"],
+)
+
+filegroup(
+    name = "native_posix_test_wrapper",
+    srcs = select({
+        "@bazel_tools//src/conditions:darwin": [
+            ":native_posix_test_wrapper_binary",
+        ],
+        "@bazel_tools//src/conditions:linux": [
+            ":native_posix_test_wrapper_binary",
+        ],
+        "//conditions:default": [":test_wrapper"],
     }),
 )
 

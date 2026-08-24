@@ -378,6 +378,17 @@ launcher_flag_alias(
         )
 
         filegroup(
+            name = "native_posix_test_wrapper",
+            srcs = select({
+                "@platforms//os:linux": ["native_posix_test_wrapper_bin"],
+                "@platforms//os:macos": ["native_posix_test_wrapper_bin"],
+                "@platforms//os:osx": ["native_posix_test_wrapper_bin"],
+                "//conditions:default": [":test_wrapper"],
+            }),
+            visibility = ["//visibility:public"],
+        )
+
+        filegroup(
             name = "xml_writer",
             srcs = ["xml_writer_bin"],
         )

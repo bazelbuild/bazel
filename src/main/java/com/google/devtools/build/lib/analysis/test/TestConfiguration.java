@@ -359,6 +359,21 @@ public class TestConfiguration extends Fragment {
     public abstract boolean getIncompatibleExclusiveTestSandboxed();
 
     @Option(
+        name = "incompatible_use_native_posix_test_wrapper",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.TESTING,
+        effectTags = {
+          OptionEffectTag.CHANGES_INPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.TEST_RUNNER
+        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help =
+            "Use the native C++ test wrapper on Linux and macOS instead of test-setup.sh. "
+                + "See https://github.com/bazelbuild/bazel/issues/15838.")
+    public abstract boolean getIncompatibleUseNativePosixTestWrapper();
+
+    @Option(
         name = "experimental_split_coverage_postprocessing",
         defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_SPLIT_COVERAGE_POSTPROCESSING,
         documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
@@ -484,6 +499,10 @@ public class TestConfiguration extends Fragment {
 
   public boolean incompatibleExclusiveTestSandboxed() {
     return options.getIncompatibleExclusiveTestSandboxed();
+  }
+
+  public boolean incompatibleUseNativePosixTestWrapper() {
+    return options.getIncompatibleUseNativePosixTestWrapper();
   }
 
   public boolean splitCoveragePostProcessing() {

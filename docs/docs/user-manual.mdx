@@ -1496,6 +1496,15 @@ speed gains.
 
 ### Options for `bazel test` {#bazel-test-options}
 
+#### `--[no]incompatible_use_native_posix_test_wrapper` {#incompatible-use-native-posix-test-wrapper}
+
+This option is disabled by default. Enable it to run Linux and macOS tests with
+a native test wrapper instead of `test-setup.sh`. Windows continues to use its
+existing native test wrapper. A C++ toolchain for the execution platform may be
+needed when that platform differs from the host. On Linux and macOS, tests using
+a nondefault test execution group or an execution platform without an
+operating-system constraint continue to use `test-setup.sh`.
+
 #### `--cache_test_results=(yes|no|auto)` (`-t`) {#cache-test-results}
 
 If this option is set to 'auto' (the default) then Bazel will only rerun a test if any of the

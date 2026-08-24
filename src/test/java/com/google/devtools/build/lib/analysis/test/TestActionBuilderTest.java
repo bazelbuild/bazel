@@ -892,6 +892,105 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testNativePosixTestWrapperDisabledByDefault() throws Exception {
+    useNativePosixTestWrapperExecutionPlatform("linux");
+
+    ConfiguredTarget testTarget = getConfiguredTarget("//tests:small_test_2");
+    TestRunnerAction testAction =
+        (TestRunnerAction)
+            getGeneratingAction(Iterables.getOnlyElement(getTestStatusArtifacts(testTarget)));
+
+    assertThat(getPrerequisites(testTarget, ":native_posix_test_wrapper")).isEmpty();
+    assertThat(testAction.getTestSetupScript().getFilename()).isEqualTo("test-setup.sh");
+    assertThat(testAction.getShExecutableMaybe()).isNotNull();
+  }
+
+  @Test
+  public void testNativePosixTestWrapperEnabled(
+      @TestParameter({"linux", "macos"}) String executionOs,
+      @TestParameter boolean trimTestConfiguration)
+      throws Exception {
+    useNativePosixTestWrapperExecutionPlatform(
+        executionOs,
+        "--incompatible_use_native_posix_test_wrapper",
+        "--trim_test_configuration=" + trimTestConfiguration);
+
+    ConfiguredTarget testTarget = getConfiguredTarget("//tests:small_test_2");
+    TestRunnerAction testAction =
+        (TestRunnerAction)
+            getGeneratingAction(Iterables.getOnlyElement(getTestStatusArtifacts(testTarget)));
+
+    assertThat(getPrerequisites(testTarget, ":native_posix_test_wrapper")).hasSize(1);
+    assertThat(testAction.getTestSetupScript().getFilename())
+        .isEqualTo("native_posix_test_wrapper_bin");
+    assertThat(testAction.getTestXmlGeneratorScript().getFilename())
+        .isEqualTo("test-xml-generator.sh");
+    assertThat(testAction.getShExecutableMaybe()).isNull();
+    assertThat(
+            testAction.getInputs().toList().stream()
+                .map(Artifact::getFilename)
+                .collect(toImmutableList()))
+        .doesNotContain("test-setup.sh");
+  }
+
+  @Test
+  public void testNativePosixTestWrapperDoesNotReplaceWindowsWrapper(
+      @TestParameter boolean useNativePosixTestWrapper) throws Exception {
+    useNativePosixTestWrapperExecutionPlatform(
+        "windows", "--incompatible_use_native_posix_test_wrapper=" + useNativePosixTestWrapper);
+
+    ConfiguredTarget testTarget = getConfiguredTarget("//tests:small_test_2");
+    TestRunnerAction testAction =
+        (TestRunnerAction)
+            getGeneratingAction(Iterables.getOnlyElement(getTestStatusArtifacts(testTarget)));
+
+    assertThat(testAction.getTestSetupScript().getFilename()).isEqualTo("test_wrapper_bin");
+    assertThat(testAction.getTestXmlGeneratorScript().getFilename()).isEqualTo("xml_writer_bin");
+    assertThat(testAction.getShExecutableMaybe()).isNull();
+  }
+
+  @Test
+  public void testNativePosixTestWrapperFallsBackWithoutOsConstraint() throws Exception {
+    useNativePosixTestWrapperExecutionPlatform(
+        "", "--incompatible_use_native_posix_test_wrapper");
+
+    ConfiguredTarget testTarget = getConfiguredTarget("//tests:small_test_2");
+    TestRunnerAction testAction =
+        (TestRunnerAction)
+            getGeneratingAction(Iterables.getOnlyElement(getTestStatusArtifacts(testTarget)));
+
+    assertThat(getPrerequisiteArtifacts(testTarget, ":native_posix_test_wrapper"))
+        .containsExactly(
+            Iterables.getOnlyElement(getPrerequisiteArtifacts(testTarget, "$test_wrapper")));
+    assertThat(testAction.getTestSetupScript().getFilename())
+        .isEqualTo(OS.getCurrent() == OS.WINDOWS ? "test_wrapper_bin" : "test-setup.sh");
+  }
+
+  private void useNativePosixTestWrapperExecutionPlatform(
+      String executionOs, String... additionalOptions) throws Exception {
+    scratch.file(
+        "test_platform/BUILD",
+        """
+        platform(
+            name = "execution_platform",
+            constraint_values = [%s],
+        )
+        """
+            .formatted(
+                executionOs.isEmpty()
+                    ? ""
+                    : "\"" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:" + executionOs + "\""));
+    ImmutableList<String> options =
+        ImmutableList.<String>builder()
+            .add("--platforms=//test_platform:execution_platform")
+            .add("--host_platform=//test_platform:execution_platform")
+            .add("--extra_execution_platforms=//test_platform:execution_platform")
+            .add(additionalOptions)
+            .build();
+    useConfiguration(options.toArray(new String[0]));
+  }
+
+  @Test
   public void testRunUnderConfiguredForTestExecPlatform() throws Exception {
     scratch.file(
         "some_test.bzl",
@@ -1067,7 +1166,8 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCommandLineBuiltForTestExecutionOS_withExecutionInfo() throws Exception {
+  public void testCommandLineBuiltForTestExecutionOS_withExecutionInfo(
+      @TestParameter boolean useNativePosixTestWrapper) throws Exception {
     scratch.file(
         "some_test.bzl",
         """
@@ -1130,13 +1230,16 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         """
             .formatted(TestConstants.CONSTRAINTS_PACKAGE_ROOT));
     useConfiguration(
+        "--incompatible_use_native_posix_test_wrapper=" + useNativePosixTestWrapper,
         "--platforms=//:windows",
         "--host_platform=//:windows",
         "--extra_execution_platforms=//:windows,//:linux,//:macos");
 
-    Action testAction = getGeneratingAction(getTestStatusArtifacts("//:some_test").get(0));
-    assertThat(((TestRunnerAction) testAction).getExecutionSettings().getExecutionOs())
-        .isEqualTo(OS.LINUX);
+    TestRunnerAction testAction =
+        (TestRunnerAction) getGeneratingAction(getTestStatusArtifacts("//:some_test").get(0));
+    assertThat(testAction.getExecutionSettings().getExecutionOs()).isEqualTo(OS.LINUX);
+    assertThat(testAction.getTestSetupScript().getFilename()).isEqualTo("test-setup.sh");
+    assertThat(testAction.getShExecutableMaybe()).isNotNull();
   }
 
   private ImmutableList<Artifact.DerivedArtifact> getTestStatusArtifacts(
