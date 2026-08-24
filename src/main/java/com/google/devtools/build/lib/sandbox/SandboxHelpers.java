@@ -342,7 +342,7 @@ public final class SandboxHelpers {
       throws IOException, InterruptedException {
     Path execroot = workDir.getParentDirectory();
     Preconditions.checkNotNull(stashContents);
-    for (var dirent : stashContents.symlinkMap().entrySet()) {
+    for (var dirent : stashContents.fileMap().entrySet()) {
       if (Thread.interrupted()) {
         throw new InterruptedException();
       }
@@ -350,7 +350,12 @@ public final class SandboxHelpers {
       PathFragment pathRelativeToWorkDir = getPathRelativeToWorkDir(absPath, workDir, execroot);
       Optional<PathFragment> targetPath =
           getExpectedSymlinkTargetPath(pathRelativeToWorkDir, inputs);
-      if (targetPath.isPresent() && dirent.getValue().equals(targetPath.get())) {
+      boolean shouldKeep =
+          dirent.getValue() == null
+              ? inputs.getFiles().containsKey(pathRelativeToWorkDir)
+                  && inputs.getFiles().get(pathRelativeToWorkDir) == null
+              : targetPath.isPresent() && dirent.getValue().equals(targetPath.get());
+      if (shouldKeep) {
         Preconditions.checkState(inputsToCreate.remove(pathRelativeToWorkDir));
       } else {
         absPath.delete();
@@ -780,11 +785,11 @@ public final class SandboxHelpers {
    *
    * <p>The map keys are individual path segments.
    *
-   * @param symlinkMap maps names of known symlinks to their target path
+   * @param fileMap maps names of known symlinks to their target paths and empty files to null
    * @param dirMap maps names of known subdirectories to their contents
    */
   public record SandboxContents(
-      Map<String, PathFragment> symlinkMap, Map<String, SandboxContents> dirMap) {
+      Map<String, PathFragment> fileMap, Map<String, SandboxContents> dirMap) {
     public SandboxContents() {
       this(CompactHashMap.create(), CompactHashMap.create());
     }
@@ -801,15 +806,14 @@ public final class SandboxHelpers {
       Path workDir, SandboxInputs inputs, SandboxOutputs outputs) {
     Map<PathFragment, SandboxContents> contentsMap = CompactHashMap.create();
     for (Map.Entry<PathFragment, Path> entry : inputs.getFiles().entrySet()) {
-      if (entry.getValue() == null) {
-        continue;
-      }
       PathFragment parent = entry.getKey().getParentDirectory();
       boolean parentWasPresent = !addParent(contentsMap, parent);
       contentsMap
           .get(parent)
-          .symlinkMap()
-          .put(entry.getKey().getBaseName(), entry.getValue().asFragment());
+          .fileMap()
+          .put(
+              entry.getKey().getBaseName(),
+              entry.getValue() == null ? null : entry.getValue().asFragment());
       addAllParents(contentsMap, parentWasPresent, parent);
     }
     for (Map.Entry<PathFragment, PathFragment> entry : inputs.getSymlinks().entrySet()) {
@@ -818,7 +822,7 @@ public final class SandboxHelpers {
       }
       PathFragment parent = entry.getKey().getParentDirectory();
       boolean parentWasPresent = !addParent(contentsMap, parent);
-      contentsMap.get(parent).symlinkMap().put(entry.getKey().getBaseName(), entry.getValue());
+      contentsMap.get(parent).fileMap().put(entry.getKey().getBaseName(), entry.getValue());
       addAllParents(contentsMap, parentWasPresent, parent);
     }
 
@@ -858,7 +862,7 @@ public final class SandboxHelpers {
         }
         Path absPath = root.getChild(dirent.getName());
         if (dirent.getType().equals(SYMLINK)) {
-          if (stashContents.symlinkMap().containsKey(dirent.getName())
+          if (stashContents.fileMap().get(dirent.getName()) != null
               && absPath.stat().getLastChangeTime() <= timestamp) {
             filesAndSymlinksToKeep.add(dirent.getName());
           } else {
@@ -877,7 +881,7 @@ public final class SandboxHelpers {
         }
       }
       stashContents.dirMap().keySet().retainAll(dirsToKeep);
-      stashContents.symlinkMap().keySet().retainAll(filesAndSymlinksToKeep);
+      stashContents.fileMap().keySet().retainAll(filesAndSymlinksToKeep);
     } else {
       for (var entry : stashContents.dirMap().entrySet()) {
         Path absPath = root.getChild(entry.getKey());
