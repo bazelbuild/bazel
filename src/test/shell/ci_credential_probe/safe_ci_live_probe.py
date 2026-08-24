@@ -69,6 +69,95 @@ ARTIFACT_REGISTRY_WRITE_PERMISSIONS = {
     "artifactregistry.tags.delete",
     "artifactregistry.versions.delete",
 }
+SECRET_PERMISSIONS = [
+    "secretmanager.versions.access",
+    "secretmanager.versions.add",
+    "secretmanager.versions.destroy",
+    "secretmanager.versions.disable",
+    "secretmanager.versions.enable",
+    "secretmanager.versions.get",
+    "secretmanager.versions.list",
+    "secretmanager.secrets.get",
+    "secretmanager.secrets.update",
+    "secretmanager.secrets.delete",
+    "secretmanager.secrets.getIamPolicy",
+    "secretmanager.secrets.setIamPolicy",
+]
+SECRET_SENSITIVE_PERMISSIONS = {
+    "secretmanager.versions.access",
+    "secretmanager.versions.add",
+    "secretmanager.versions.destroy",
+    "secretmanager.versions.disable",
+    "secretmanager.versions.enable",
+    "secretmanager.secrets.update",
+    "secretmanager.secrets.delete",
+    "secretmanager.secrets.setIamPolicy",
+}
+SECRET_TARGETS = [
+    ("positive_control", "bazel-untrusted", "bazel-bazelcipy-BuildkiteClient-token", False),
+    ("own_agent_registration", "bazel-untrusted", "bazel-buildkite-agent-token", False),
+    ("testing_agent_registration", "bazel-untrusted", "bazel-testing-buildkite-agent-token", True),
+    ("testing_buildkite_api", "bazel-untrusted", "bazel-testing-bazelcipy-BuildkiteClient-token", True),
+    ("trusted_agent_registration", "bazel-public", "bazel-trusted-buildkite-agent-token", True),
+    ("trusted_buildkite_api", "bazel-public", "bazel-trusted-bazelcipy-BuildkiteClient-token", True),
+]
+KMS_PERMISSIONS = [
+    "cloudkms.cryptoKeyVersions.useToDecrypt",
+    "cloudkms.cryptoKeyVersions.useToEncrypt",
+    "cloudkms.cryptoKeyVersions.destroy",
+    "cloudkms.cryptoKeyVersions.get",
+    "cloudkms.cryptoKeyVersions.list",
+    "cloudkms.cryptoKeyVersions.update",
+    "cloudkms.cryptoKeys.get",
+    "cloudkms.cryptoKeys.update",
+    "cloudkms.cryptoKeys.getIamPolicy",
+    "cloudkms.cryptoKeys.setIamPolicy",
+]
+KMS_SENSITIVE_PERMISSIONS = {
+    "cloudkms.cryptoKeyVersions.useToDecrypt",
+    "cloudkms.cryptoKeyVersions.useToEncrypt",
+    "cloudkms.cryptoKeyVersions.destroy",
+    "cloudkms.cryptoKeyVersions.update",
+    "cloudkms.cryptoKeys.update",
+    "cloudkms.cryptoKeys.setIamPolicy",
+}
+KMS_TARGETS = [
+    ("positive_control", "bazel-untrusted", "buildkite-untrusted-api-token", False),
+    ("testing_analytics", "bazel-untrusted", "buildkite-testing-api-token", True),
+    ("trusted_analytics", "bazel-public", "buildkite-trusted-api-token", True),
+    ("trusted_buildkite_api", "bazel-public", "buildkite-api-token", True),
+    ("github_release", "bazel-public", "github-trusted-token", True),
+    ("chocolatey_release", "bazel-public", "choco-trusted-token", True),
+    ("release_signing", "bazel-public", "bazel-release-key", True),
+]
+SERVICE_ACCOUNT_PERMISSIONS = [
+    "iam.serviceAccounts.getAccessToken",
+    "iam.serviceAccounts.getOpenIdToken",
+    "iam.serviceAccounts.signBlob",
+    "iam.serviceAccounts.signJwt",
+    "iam.serviceAccounts.actAs",
+    "iam.serviceAccounts.implicitDelegation",
+    "iam.serviceAccounts.get",
+    "iam.serviceAccounts.update",
+    "iam.serviceAccounts.delete",
+    "iam.serviceAccounts.getIamPolicy",
+    "iam.serviceAccounts.setIamPolicy",
+]
+SERVICE_ACCOUNT_SENSITIVE_PERMISSIONS = {
+    "iam.serviceAccounts.getAccessToken",
+    "iam.serviceAccounts.getOpenIdToken",
+    "iam.serviceAccounts.signBlob",
+    "iam.serviceAccounts.signJwt",
+    "iam.serviceAccounts.actAs",
+    "iam.serviceAccounts.implicitDelegation",
+    "iam.serviceAccounts.update",
+    "iam.serviceAccounts.delete",
+    "iam.serviceAccounts.setIamPolicy",
+}
+SERVICE_ACCOUNT_TARGETS = [
+    ("trusted_worker", "buildkite-trusted@bazel-public.iam.gserviceaccount.com"),
+    ("trusted_agent_metrics", "buildkite-agent-metrics@bazel-public.iam.gserviceaccount.com"),
+]
 # Fixed, source-derived allowlist. ``critical`` means a write grant crosses a
 # trusted release, worker-image, credential, registry, or infrastructure boundary.
 STORAGE_TARGETS = [
@@ -94,17 +183,6 @@ STORAGE_TARGETS = [
 ]
 PERMISSION_ONLY_STORAGE_TARGETS = [
     ("positive_control", "bazel-untrusted-buildkite-artifacts", False),
-    ("central_registry", "bcr.bazel.build", True),
-    ("worker_bootstrap", "bazel-git-mirror", True),
-    ("trusted_worker_bootstrap", "bazel-ci", True),
-    ("dependency_mirror", "bazel-mirror", True),
-    ("terraform_state", "bazel-buildkite-tf-state", True),
-    ("trusted_credential_ciphertexts", "bazel-trusted-encrypted-secrets", True),
-    ("trusted_ci_artifacts", "bazel-trusted-buildkite-artifacts", True),
-    ("credential_ciphertexts", "bazel-encrypted-secrets", True),
-    ("release_image_backend", "artifacts.bazel-public.appspot.com", True),
-    ("release", "bazel", True),
-    ("apt_release", "bazel-apt", True),
 ]
 RELEASE_PIPELINES = [
     ("bazelRelease", "bazel-release"),
@@ -576,6 +654,185 @@ class Probe:
             }
         ) if isinstance(raw, list) else []
         return code, allowed
+
+    def compared_post_permissions(
+        self, url: str, requested: list[str]
+    ) -> dict[str, Any]:
+        authenticated_code, authenticated = self.post_permissions(
+            url, requested, self.bearer()
+        )
+        anonymous_code: int | None = None
+        anonymous: list[str] | None = None
+        anonymous_blocked = False
+        if authenticated:
+            anonymous_code, anonymous_result = self.post_permissions(url, requested, None)
+            anonymous_blocked = anonymous_code in {401, 403}
+            anonymous = anonymous_result if anonymous_code == 200 else [] if anonymous_blocked else None
+        comparator_valid = anonymous is not None
+        credential_only = (
+            sorted(set(authenticated).difference(anonymous))
+            if comparator_valid and anonymous is not None
+            else None
+        )
+        return {
+            "authenticated_http_status": authenticated_code,
+            "authenticated_permissions": authenticated,
+            "anonymous_http_status": anonymous_code,
+            "anonymous_permissions": anonymous,
+            "anonymous_blocked": anonymous_blocked,
+            "anonymous_comparator_valid": comparator_valid,
+            "credential_only_permissions": credential_only,
+        }
+
+    def credential_permission_map(self, measurement_valid: bool) -> dict[str, Any]:
+        """Advertise credential and delegation permissions without reading or minting."""
+        if self.bearer() is None:
+            return {}
+
+        secret_control = False
+        raw_secret_candidates: list[str] = []
+        for purpose, project, name, critical in SECRET_TARGETS:
+            if time.monotonic() - self.started >= self.deadline:
+                break
+            resource = f"projects/{project}/secrets/{name}"
+            encoded = "/".join(urllib.parse.quote(part, safe="@.-") for part in resource.split("/"))
+            result = self.compared_post_permissions(
+                f"{self.base['secret']}/v1/{encoded}:testIamPermissions",
+                SECRET_PERMISSIONS,
+            )
+            credential_only = result["credential_only_permissions"]
+            sensitive = (
+                sorted(set(credential_only).intersection(SECRET_SENSITIVE_PERMISSIONS))
+                if isinstance(credential_only, list)
+                else None
+            )
+            if purpose == "positive_control":
+                secret_control = bool(
+                    sensitive
+                    and "secretmanager.versions.access" in sensitive
+                )
+            if critical and sensitive:
+                raw_secret_candidates.append(resource)
+            self.emit(
+                {
+                    "kind": "secret_permission_map",
+                    "purpose": purpose,
+                    "resource": resource,
+                    "critical_credential_boundary": critical,
+                    **result,
+                    "credential_only_sensitive_permissions": sensitive,
+                    "permission_advertisement_only": True,
+                    "secret_value_read": False,
+                    "mutation_performed": False,
+                }
+            )
+
+        secret_measurement_valid = measurement_valid and secret_control
+        secret_candidates = raw_secret_candidates if secret_measurement_valid else []
+
+        kms_control = False
+        raw_kms_candidates: list[str] = []
+        for purpose, project, name, critical in KMS_TARGETS:
+            if time.monotonic() - self.started >= self.deadline:
+                break
+            resource = (
+                f"projects/{project}/locations/global/keyRings/buildkite/cryptoKeys/{name}"
+            )
+            result = self.compared_post_permissions(
+                f"{self.base['kms']}/v1/{resource}:testIamPermissions",
+                KMS_PERMISSIONS,
+            )
+            credential_only = result["credential_only_permissions"]
+            sensitive = (
+                sorted(set(credential_only).intersection(KMS_SENSITIVE_PERMISSIONS))
+                if isinstance(credential_only, list)
+                else None
+            )
+            if purpose == "positive_control":
+                kms_control = bool(
+                    sensitive
+                    and "cloudkms.cryptoKeyVersions.useToDecrypt" in sensitive
+                )
+            if critical and sensitive:
+                raw_kms_candidates.append(resource)
+            self.emit(
+                {
+                    "kind": "kms_permission_map",
+                    "purpose": purpose,
+                    "resource": resource,
+                    "critical_credential_boundary": critical,
+                    **result,
+                    "credential_only_sensitive_permissions": sensitive,
+                    "permission_advertisement_only": True,
+                    "decrypt_performed": False,
+                    "mutation_performed": False,
+                }
+            )
+
+        kms_measurement_valid = measurement_valid and kms_control
+        kms_candidates = raw_kms_candidates if kms_measurement_valid else []
+
+        raw_service_account_candidates: list[str] = []
+        for purpose, email in SERVICE_ACCOUNT_TARGETS:
+            if time.monotonic() - self.started >= self.deadline:
+                break
+            encoded_email = urllib.parse.quote(email, safe="@.-")
+            result = self.compared_post_permissions(
+                f"{self.base['iam']}/v1/projects/-/serviceAccounts/{encoded_email}:testIamPermissions",
+                SERVICE_ACCOUNT_PERMISSIONS,
+            )
+            credential_only = result["credential_only_permissions"]
+            sensitive = (
+                sorted(
+                    set(credential_only).intersection(
+                        SERVICE_ACCOUNT_SENSITIVE_PERMISSIONS
+                    )
+                )
+                if isinstance(credential_only, list)
+                else None
+            )
+            if sensitive:
+                raw_service_account_candidates.append(email)
+            self.emit(
+                {
+                    "kind": "service_account_permission_map",
+                    "purpose": purpose,
+                    "resource": f"serviceAccount://{email}",
+                    "critical_credential_boundary": True,
+                    **result,
+                    "credential_only_sensitive_permissions": sensitive,
+                    "permission_advertisement_only": True,
+                    "credential_mint_performed": False,
+                    "signing_performed": False,
+                    "mutation_performed": False,
+                }
+            )
+
+        service_account_candidates = (
+            raw_service_account_candidates if measurement_valid else []
+        )
+        summary = {
+            "kind": "credential_permission_summary",
+            "storage_positive_control_satisfied": measurement_valid,
+            "secret_positive_control_satisfied": secret_control,
+            "kms_positive_control_satisfied": kms_control,
+            "secret_measurement_valid": secret_measurement_valid,
+            "kms_measurement_valid": kms_measurement_valid,
+            "service_account_measurement_valid": measurement_valid,
+            "raw_secret_candidates": raw_secret_candidates,
+            "raw_kms_candidates": raw_kms_candidates,
+            "raw_service_account_candidates": raw_service_account_candidates,
+            "secret_candidates": secret_candidates,
+            "kms_candidates": kms_candidates,
+            "service_account_candidates": service_account_candidates,
+            "permission_advertisement_only": True,
+            "secret_value_read": False,
+            "decrypt_performed": False,
+            "credential_mint_performed": False,
+            "mutation_performed": False,
+        }
+        self.emit(summary)
+        return summary
 
     def shared_image_permission_map(self, measurement_valid: bool) -> None:
         """Advertise exact shared VM/container-image permissions without mutation."""
@@ -1169,13 +1426,19 @@ class Probe:
             # No secret, credential-minting, object-read, or mutation method is
             # reachable from this branch.
             self.storage_access_map(PERMISSION_ONLY_STORAGE_TARGETS)
-            self.shared_image_permission_map(self.storage_positive_control)
+            credential_summary = self.credential_permission_map(
+                self.storage_positive_control
+            )
             self.emit(
                 {
                     "kind": "permission_only_summary",
                     "positive_control_satisfied": self.storage_positive_control,
                     "storage_critical_write_candidates": self.storage_write_candidates,
-                    "shared_image_write_candidates": self.shared_image_write_candidates,
+                    "secret_candidates": credential_summary.get("secret_candidates", []),
+                    "kms_candidates": credential_summary.get("kms_candidates", []),
+                    "service_account_candidates": credential_summary.get(
+                        "service_account_candidates", []
+                    ),
                     "permission_advertisement_only": True,
                     "empty_result_is_proven_deny": False,
                     "actual_write": False,
