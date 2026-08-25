@@ -134,7 +134,8 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
 
   private final AtomicBoolean closed = new AtomicBoolean();
 
-  boolean shouldVerifyDownloads() {
+  @Override
+  public boolean shouldVerifyDownloads() {
     return options.getRemoteVerifyDownloads();
   }
 
@@ -388,6 +389,11 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
   @Override
   public ServerCapabilities getServerCapabilities() throws IOException {
     return channel.getServerCapabilities();
+  }
+
+  @Override
+  public ListenableFuture<ServerCapabilities> serverCapabilities() {
+    return channel.serverCapabilities();
   }
 
   @Override
