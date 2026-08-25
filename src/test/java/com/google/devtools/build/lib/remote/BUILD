@@ -311,6 +311,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/protobuf:remote_execution_log_java_proto",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/remote/util:integration_test_utils",
         "//third_party:guava",

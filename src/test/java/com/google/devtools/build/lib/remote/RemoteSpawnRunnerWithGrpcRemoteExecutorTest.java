@@ -340,7 +340,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             /* diskCacheClient= */ null,
             /* symlinkTemplate= */ null,
             DIGEST_UTIL,
-            /* chunkingEnabled= */ false);
+            /* chunkingEnabled= */ false,
+            new ChunkLocationMap());
     RemoteExecutionService remoteExecutionService =
         new RemoteExecutionService(
             reporter,

@@ -925,7 +925,8 @@ public class CombinedCacheTest {
             /* diskCacheClient= */ null,
             /* symlinkTemplate= */ null,
             digestUtil,
-            /* chunkingEnabled= */ true);
+            /* chunkingEnabled= */ true,
+            new ChunkLocationMap());
     byte[] data = new byte[8192];
     Path file = execRoot.getRelative("chunked-output");
     try (var out = file.getOutputStream()) {
@@ -1124,7 +1125,8 @@ public class CombinedCacheTest {
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
         digestUtil,
-        /* chunkingEnabled= */ true);
+        /* chunkingEnabled= */ true,
+        new ChunkLocationMap());
   }
 
   private InMemoryCombinedCache newCombinedCache() {
@@ -1142,7 +1144,8 @@ public class CombinedCacheTest {
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
         digestUtil,
-        /* chunkingEnabled= */ false);
+        /* chunkingEnabled= */ false,
+        new ChunkLocationMap());
   }
 
   private RemoteExecutionCache newRemoteExecutionCache(RemoteCacheClient remoteCacheClient) {
@@ -1151,7 +1154,8 @@ public class CombinedCacheTest {
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
         digestUtil,
-        /* chunkingEnabled= */ false);
+        /* chunkingEnabled= */ false,
+        new ChunkLocationMap());
   }
 
   private static ServerCapabilities chunkingCapabilities() {

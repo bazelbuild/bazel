@@ -144,7 +144,9 @@ public class ChunkedTransferBenchmark {
       when(grpcCacheClient.splitBlob(any(), any(Digest.class)))
           .thenReturn(Futures.immediateFuture(splitBlobResponse));
 
-      downloader = new ChunkedBlobDownloader(grpcCacheClient, combinedCache, DIGEST_UTIL);
+      downloader =
+          new ChunkedBlobDownloader(
+              grpcCacheClient, combinedCache, DIGEST_UTIL, new ChunkLocationMap());
     }
 
     @TearDown(Level.Trial)

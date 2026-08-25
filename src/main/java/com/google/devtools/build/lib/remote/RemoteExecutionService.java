@@ -848,6 +848,7 @@ public class RemoteExecutionService {
               internalToUnicode(remotePathResolver.localPathToOutputPath(file.path())),
               remotePathResolver.localPathToExecPath(file.path().asFragment()),
               tmpPath,
+              /* finalPath= */ file.path(),
               file.digest(),
               new CombinedCache.DownloadProgressReporter(
                   progressStatusListener,

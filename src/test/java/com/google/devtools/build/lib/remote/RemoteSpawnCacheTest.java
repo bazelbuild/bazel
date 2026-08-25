@@ -464,7 +464,8 @@ public class RemoteSpawnCacheTest {
                   diskCacheClient,
                   /* symlinkTemplate= */ null,
                   digestUtil,
-                  /* chunkingEnabled= */ false));
+                  /* chunkingEnabled= */ false,
+                  new ChunkLocationMap()));
 
       var remoteSpawnCache = remoteSpawnCacheWithOptions(remoteOptions);
       for (String requirement :
@@ -506,7 +507,8 @@ public class RemoteSpawnCacheTest {
                 /* diskCacheClient= */ null,
                 /* symlinkTemplate= */ null,
                 digestUtil,
-                /* chunkingEnabled= */ false));
+                /* chunkingEnabled= */ false,
+                new ChunkLocationMap()));
     RemoteSpawnCache remoteSpawnCache = remoteSpawnCacheWithOptions(remoteCacheOptions);
     for (String requirement :
         ImmutableList.of(
@@ -554,7 +556,8 @@ public class RemoteSpawnCacheTest {
                 diskCacheClient,
                 /* symlinkTemplate= */ null,
                 digestUtil,
-                /* chunkingEnabled= */ false));
+                /* chunkingEnabled= */ false,
+                new ChunkLocationMap()));
 
     for (String requirement :
         ImmutableList.of(ExecutionRequirements.NO_CACHE, ExecutionRequirements.LOCAL)) {

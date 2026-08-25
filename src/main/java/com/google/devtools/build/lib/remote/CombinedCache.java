@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -108,6 +109,7 @@ public class CombinedCache extends AbstractReferenceCounted {
   @Nullable protected final String symlinkTemplate;
   protected final DigestUtil digestUtil;
   private final boolean chunkingEnabled;
+  private final ChunkLocationMap chunkLocationMap;
 
   // Delays the initialization of the chunking support logic until first use to avoid blocking on
   // a server capabilities check at construction time.
@@ -128,7 +130,9 @@ public class CombinedCache extends AbstractReferenceCounted {
         synchronized (this) {
           config = ChunkingConfig.fromServerCapabilities(getRemoteServerCapabilities());
           if (config != null) {
-            downloader = new ChunkedBlobDownloader(grpcClient, CombinedCache.this, digestUtil);
+            downloader =
+                new ChunkedBlobDownloader(
+                    grpcClient, CombinedCache.this, digestUtil, chunkLocationMap);
             uploader = new ChunkedBlobUploader(grpcClient, CombinedCache.this, config, digestUtil);
           }
           initialized = true;
@@ -157,7 +161,8 @@ public class CombinedCache extends AbstractReferenceCounted {
       @Nullable DiskCacheClient diskCacheClient,
       @Nullable String symlinkTemplate,
       DigestUtil digestUtil,
-      boolean chunkingEnabled) {
+      boolean chunkingEnabled,
+      ChunkLocationMap chunkLocationMap) {
     checkArgument(
         remoteCacheClient != null || diskCacheClient != null,
         "remoteCacheClient and diskCacheClient cannot be null at the same time");
@@ -166,6 +171,7 @@ public class CombinedCache extends AbstractReferenceCounted {
     this.symlinkTemplate = symlinkTemplate;
     this.digestUtil = digestUtil;
     this.chunkingEnabled = chunkingEnabled;
+    this.chunkLocationMap = chunkLocationMap;
   }
 
   public CacheCapabilities getRemoteCacheCapabilities() throws IOException {
@@ -679,15 +685,25 @@ public class CombinedCache extends AbstractReferenceCounted {
     }
   }
 
+  /**
+   * Downloads a file (that is not a directory) into {@code localPath}.
+   *
+   * @param localPath the path to write the file to
+   * @param finalPath the path the content will remain at after the command, e.g. when {@code
+   *     localPath} is a temporary staging path, or {@code null} if that is {@code localPath}
+   *     itself. Used to remember where chunks of the file can be found so that later chunked
+   *     downloads can read them from local disk instead of the remote cache.
+   */
   public ListenableFuture<Void> downloadFile(
       RemoteActionExecutionContext context,
       String outputPath,
       @Nullable PathFragment execPath,
       Path localPath,
+      @Nullable Path finalPath,
       Digest digest,
       DownloadProgressReporter reporter)
       throws IOException {
-    ListenableFuture<Void> f = downloadFile(context, localPath, digest, reporter);
+    ListenableFuture<Void> f = downloadFile(context, localPath, finalPath, digest, reporter);
     return Futures.catchingAsync(
         f,
         Throwable.class,
@@ -707,9 +723,9 @@ public class CombinedCache extends AbstractReferenceCounted {
   /**
    * Downloads a file (that is not a directory). The content is fetched from the digest.
    *
-   * <p>Use {@link #downloadFile(RemoteActionExecutionContext, String, PathFragment, Path, Digest,
-   * DownloadProgressReporter)} instead for build outputs as it provides progress information and
-   * correctly handles unexpected cache misses.
+   * <p>Use {@link #downloadFile(RemoteActionExecutionContext, String, PathFragment, Path, Path,
+   * Digest, DownloadProgressReporter)} instead for build outputs as it provides progress
+   * information and correctly handles unexpected cache misses.
    */
   public ListenableFuture<Void> downloadFile(
       RemoteActionExecutionContext context, Path path, Digest digest) throws IOException {
@@ -718,6 +734,7 @@ public class CombinedCache extends AbstractReferenceCounted {
         path.getPathString(),
         /* execPath= */ null,
         path,
+        /* finalPath= */ null,
         digest,
         new DownloadProgressReporter(NO_ACTION, "", 0));
   }
@@ -726,6 +743,7 @@ public class CombinedCache extends AbstractReferenceCounted {
   private ListenableFuture<Void> downloadFile(
       RemoteActionExecutionContext context,
       Path path,
+      @Nullable Path finalPath,
       Digest digest,
       DownloadProgressReporter reporter)
       throws IOException {
@@ -749,7 +767,9 @@ public class CombinedCache extends AbstractReferenceCounted {
     }
 
     reporter.started();
-    OutputStream out = new ReportingOutputStream(new LazyFileOutputStream(path), reporter);
+    OutputStream out =
+        new ReportingOutputStream(
+            new LazyFileOutputStream(path), reporter, firstNonNull(finalPath, path));
 
     ListenableFuture<Void> f = downloadBlob(context, digest, out);
     f.addListener(
@@ -879,10 +899,12 @@ public class CombinedCache extends AbstractReferenceCounted {
 
     private final OutputStream out;
     private final DownloadProgressReporter reporter;
+    private final Path finalPath;
 
-    ReportingOutputStream(OutputStream out, DownloadProgressReporter reporter) {
+    ReportingOutputStream(OutputStream out, DownloadProgressReporter reporter, Path finalPath) {
       this.out = out;
       this.reporter = reporter;
+      this.finalPath = finalPath;
     }
 
     @Override
@@ -917,6 +939,11 @@ public class CombinedCache extends AbstractReferenceCounted {
     @Override
     public Path maybeGetPath() {
       return out instanceof MaybePathBacked maybePathBacked ? maybePathBacked.maybeGetPath() : null;
+    }
+
+    @Override
+    public Path maybeGetFinalPath() {
+      return finalPath;
     }
   }
 }

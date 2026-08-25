@@ -23,21 +23,28 @@ import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.SplitBlobResponse;
+import com.google.common.primitives.Bytes;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -61,11 +68,20 @@ public class ChunkedBlobDownloaderTest {
   @Mock private RemoteActionExecutionContext context;
 
   private ChunkedBlobDownloader downloader;
+  private Path tmpDir;
 
   @Before
-  public void setUp() {
+  public void setUp() throws Exception {
     when(grpcCacheClient.shouldVerifyDownloads()).thenReturn(true);
-    downloader = new ChunkedBlobDownloader(grpcCacheClient, combinedCache, DIGEST_UTIL);
+    downloader =
+        new ChunkedBlobDownloader(
+            grpcCacheClient, combinedCache, DIGEST_UTIL, new ChunkLocationMap());
+    tmpDir = TestUtils.createUniqueTmpDir(null);
+  }
+
+  @After
+  public void tearDown() throws Exception {
+    tmpDir.deleteTree();
   }
 
   @Test
@@ -166,6 +182,41 @@ public class ChunkedBlobDownloaderTest {
     verify(combinedCache).downloadBlob(any(), eq(chunk1Digest));
     verify(combinedCache).downloadBlob(any(), eq(chunk2Digest));
     verify(combinedCache).downloadBlob(any(), eq(chunk3Digest));
+  }
+
+  @Test
+  public void downloadChunked_readsSharedChunkFromPreviouslyDownloadedFile() throws Exception {
+    SharedChunkBlobs blobs = stubTwoBlobsSharingAChunk();
+
+    Path firstFile = tmpDir.getChild("first-output");
+    try (LazyFileOutputStream firstOut = new LazyFileOutputStream(firstFile)) {
+      downloader.downloadChunked(context, blobs.firstBlob(), firstOut);
+    }
+    assertThat(FileSystemUtils.readContent(firstFile)).isEqualTo(blobs.firstContent());
+
+    ByteArrayOutputStream secondOut = new ByteArrayOutputStream();
+    downloader.downloadChunked(context, blobs.secondBlob(), secondOut);
+
+    assertThat(secondOut.toByteArray()).isEqualTo(blobs.secondContent());
+    verify(combinedCache, times(1)).downloadBlob(any(), eq(blobs.sharedChunk()));
+  }
+
+  @Test
+  public void downloadChunked_stagedDownload_reusesChunksAfterMoveToFinalPath() throws Exception {
+    SharedChunkBlobs blobs = stubTwoBlobsSharingAChunk();
+
+    Path stagingFile = tmpDir.getChild("staging-tmp");
+    Path finalFile = tmpDir.getChild("final-output");
+    try (OutputStream firstOut = new StagedOutputStream(stagingFile, finalFile)) {
+      downloader.downloadChunked(context, blobs.firstBlob(), firstOut);
+    }
+    stagingFile.renameTo(finalFile);
+
+    ByteArrayOutputStream secondOut = new ByteArrayOutputStream();
+    downloader.downloadChunked(context, blobs.secondBlob(), secondOut);
+
+    assertThat(secondOut.toByteArray()).isEqualTo(blobs.secondContent());
+    verify(combinedCache, times(1)).downloadBlob(any(), eq(blobs.sharedChunk()));
   }
 
   @Test
@@ -507,5 +558,66 @@ public class ChunkedBlobDownloaderTest {
 
     assertThat(downloadThread.isAlive()).isFalse();
     assertThat(cancelledDownload.isCancelled()).isTrue();
+  }
+
+  @SuppressWarnings("ArrayRecordComponent")
+  private record SharedChunkBlobs(
+      Digest sharedChunk,
+      Digest firstBlob,
+      byte[] firstContent,
+      Digest secondBlob,
+      byte[] secondContent) {}
+
+  /** Stubs SplitBlob and all chunk downloads for two blobs that share their first chunk. */
+  private SharedChunkBlobs stubTwoBlobsSharingAChunk() {
+    byte[] shared = new byte[] {1, 2, 3};
+    byte[] firstTail = new byte[] {4, 5, 6};
+    byte[] secondTail = new byte[] {7, 8, 9};
+    Digest sharedDigest = DIGEST_UTIL.compute(shared);
+    Digest firstTailDigest = DIGEST_UTIL.compute(firstTail);
+    Digest secondTailDigest = DIGEST_UTIL.compute(secondTail);
+    byte[] firstContent = Bytes.concat(shared, firstTail);
+    byte[] secondContent = Bytes.concat(shared, secondTail);
+    Digest firstBlobDigest = DIGEST_UTIL.compute(firstContent);
+    Digest secondBlobDigest = DIGEST_UTIL.compute(secondContent);
+
+    when(grpcCacheClient.splitBlob(any(), eq(firstBlobDigest)))
+        .thenReturn(
+            Futures.immediateFuture(
+                SplitBlobResponse.newBuilder()
+                    .addChunkDigests(sharedDigest)
+                    .addChunkDigests(firstTailDigest)
+                    .build()));
+    when(grpcCacheClient.splitBlob(any(), eq(secondBlobDigest)))
+        .thenReturn(
+            Futures.immediateFuture(
+                SplitBlobResponse.newBuilder()
+                    .addChunkDigests(sharedDigest)
+                    .addChunkDigests(secondTailDigest)
+                    .build()));
+    when(combinedCache.downloadBlob(any(), eq(sharedDigest)))
+        .thenReturn(Futures.immediateFuture(shared));
+    when(combinedCache.downloadBlob(any(), eq(firstTailDigest)))
+        .thenReturn(Futures.immediateFuture(firstTail));
+    when(combinedCache.downloadBlob(any(), eq(secondTailDigest)))
+        .thenReturn(Futures.immediateFuture(secondTail));
+
+    return new SharedChunkBlobs(
+        sharedDigest, firstBlobDigest, firstContent, secondBlobDigest, secondContent);
+  }
+
+  /** Writes to a staging path while declaring the final path the content will be moved to. */
+  private static final class StagedOutputStream extends LazyFileOutputStream {
+    private final Path finalPath;
+
+    StagedOutputStream(Path stagingPath, Path finalPath) {
+      super(stagingPath);
+      this.finalPath = finalPath;
+    }
+
+    @Override
+    public Path maybeGetFinalPath() {
+      return finalPath;
+    }
   }
 }

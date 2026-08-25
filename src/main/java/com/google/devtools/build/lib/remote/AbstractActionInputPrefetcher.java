@@ -295,12 +295,14 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * Downloads file to the given path via its metadata.
    *
    * @param tempPath the temporary path which the input should be written to.
+   * @param finalPath the path the downloaded file will be moved to once the download completes.
    */
   protected abstract ListenableFuture<Void> doDownloadFile(
       @Nullable ActionExecutionMetadata action,
       Reporter reporter,
       ActionInput input,
       Path tempPath,
+      Path finalPath,
       FileArtifactValue metadata,
       Priority priority,
       Reason reason)
@@ -673,6 +675,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                                 reporter,
                                 input,
                                 tempPath.forHostFileSystem(),
+                                finalPath,
                                 metadata,
                                 priority,
                                 reason),
