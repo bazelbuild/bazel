@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnProgressEvent;
 import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.common.ActionKey;
+import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.MaybePathBacked;
@@ -108,6 +110,7 @@ public class CombinedCache extends AbstractReferenceCounted {
   @Nullable protected final String symlinkTemplate;
   protected final DigestUtil digestUtil;
   @Nullable private final ChunkingFunctionValue chunkingFunction;
+  private final ChunkLocationMap chunkLocationMap;
 
   // Delays the initialization of the chunking support logic until first use to avoid blocking on
   // a server capabilities check at construction time.
@@ -138,7 +141,8 @@ public class CombinedCache extends AbstractReferenceCounted {
               };
           if (config != null) {
             downloader =
-                new ChunkedBlobDownloader(grpcClient, CombinedCache.this, config, digestUtil);
+                new ChunkedBlobDownloader(
+                    grpcClient, CombinedCache.this, config, digestUtil, chunkLocationMap);
             uploader = new ChunkedBlobUploader(grpcClient, CombinedCache.this, config, digestUtil);
           }
           initialized = true;
@@ -167,7 +171,8 @@ public class CombinedCache extends AbstractReferenceCounted {
       @Nullable DiskCacheClient diskCacheClient,
       @Nullable String symlinkTemplate,
       DigestUtil digestUtil,
-      @Nullable ChunkingFunctionValue chunkingFunction) {
+      @Nullable ChunkingFunctionValue chunkingFunction,
+      ChunkLocationMap chunkLocationMap) {
     checkArgument(
         remoteCacheClient != null || diskCacheClient != null,
         "remoteCacheClient and diskCacheClient cannot be null at the same time");
@@ -176,6 +181,7 @@ public class CombinedCache extends AbstractReferenceCounted {
     this.symlinkTemplate = symlinkTemplate;
     this.digestUtil = digestUtil;
     this.chunkingFunction = chunkingFunction;
+    this.chunkLocationMap = chunkLocationMap;
   }
 
   public CacheCapabilities getRemoteCacheCapabilities() throws IOException {
@@ -554,9 +560,14 @@ public class CombinedCache extends AbstractReferenceCounted {
                 chunking.downloader().downloadChunked(context, digest, out);
                 return null;
               });
+      // Only a failure to split the blob is recoverable by downloading it as a whole. Once the
+      // server has described the blob as a sequence of chunks, the download is committed to that
+      // path: chunks are written to `out` as they arrive, so restarting would append the blob to
+      // the chunks already written. A missing chunk is reported as a missing blob instead, letting
+      // the usual lost input handling regenerate it.
       return Futures.catchingAsync(
           chunkedDownloadFuture,
-          CacheNotFoundException.class,
+          BlobNotSplittableException.class,
           (e) -> regularDownloadBlobFromRemote(context, digest, out),
           directExecutor());
     }
@@ -677,15 +688,25 @@ public class CombinedCache extends AbstractReferenceCounted {
     }
   }
 
+  /**
+   * Downloads a file (that is not a directory) into {@code localPath}.
+   *
+   * @param localPath the path to write the file to
+   * @param finalPath the path the content will remain at after the command, e.g. when {@code
+   *     localPath} is a temporary staging path, or {@code null} if that is {@code localPath}
+   *     itself. Used to remember where chunks of the file can be found so that later chunked
+   *     downloads can read them from local disk instead of the remote cache.
+   */
   public ListenableFuture<Void> downloadFile(
       RemoteActionExecutionContext context,
       String outputPath,
       @Nullable PathFragment execPath,
       Path localPath,
+      @Nullable Path finalPath,
       Digest digest,
       DownloadProgressReporter reporter)
       throws IOException {
-    ListenableFuture<Void> f = downloadFile(context, localPath, digest, reporter);
+    ListenableFuture<Void> f = downloadFile(context, localPath, finalPath, digest, reporter);
     return Futures.catchingAsync(
         f,
         Throwable.class,
@@ -705,9 +726,9 @@ public class CombinedCache extends AbstractReferenceCounted {
   /**
    * Downloads a file (that is not a directory). The content is fetched from the digest.
    *
-   * <p>Use {@link #downloadFile(RemoteActionExecutionContext, String, PathFragment, Path, Digest,
-   * DownloadProgressReporter)} instead for build outputs as it provides progress information and
-   * correctly handles unexpected cache misses.
+   * <p>Use {@link #downloadFile(RemoteActionExecutionContext, String, PathFragment, Path, Path,
+   * Digest, DownloadProgressReporter)} instead for build outputs as it provides progress
+   * information and correctly handles unexpected cache misses.
    */
   public ListenableFuture<Void> downloadFile(
       RemoteActionExecutionContext context, Path path, Digest digest) throws IOException {
@@ -716,6 +737,7 @@ public class CombinedCache extends AbstractReferenceCounted {
         path.getPathString(),
         /* execPath= */ null,
         path,
+        /* finalPath= */ null,
         digest,
         new DownloadProgressReporter(NO_ACTION, "", 0));
   }
@@ -724,6 +746,7 @@ public class CombinedCache extends AbstractReferenceCounted {
   private ListenableFuture<Void> downloadFile(
       RemoteActionExecutionContext context,
       Path path,
+      @Nullable Path finalPath,
       Digest digest,
       DownloadProgressReporter reporter)
       throws IOException {
@@ -747,7 +770,9 @@ public class CombinedCache extends AbstractReferenceCounted {
     }
 
     reporter.started();
-    OutputStream out = new ReportingOutputStream(new LazyFileOutputStream(path), reporter);
+    OutputStream out =
+        new ReportingOutputStream(
+            new LazyFileOutputStream(path), reporter, firstNonNull(finalPath, path));
 
     ListenableFuture<Void> f = downloadBlob(context, digest, out);
     f.addListener(
@@ -877,10 +902,12 @@ public class CombinedCache extends AbstractReferenceCounted {
 
     private final OutputStream out;
     private final DownloadProgressReporter reporter;
+    private final Path finalPath;
 
-    ReportingOutputStream(OutputStream out, DownloadProgressReporter reporter) {
+    ReportingOutputStream(OutputStream out, DownloadProgressReporter reporter, Path finalPath) {
       this.out = out;
       this.reporter = reporter;
+      this.finalPath = finalPath;
     }
 
     @Override
@@ -915,6 +942,11 @@ public class CombinedCache extends AbstractReferenceCounted {
     @Override
     public Path maybeGetPath() {
       return out instanceof MaybePathBacked maybePathBacked ? maybePathBacked.maybeGetPath() : null;
+    }
+
+    @Override
+    public Path maybeGetFinalPath() {
+      return finalPath;
     }
   }
 }

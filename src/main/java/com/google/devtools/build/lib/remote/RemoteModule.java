@@ -143,6 +143,7 @@ public final class RemoteModule extends BlazeModule {
       MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
 
   private final Set<Digest> knownMissingCasDigests = Sets.newConcurrentHashSet();
+  private final ChunkLocationMap chunkLocationMap = new ChunkLocationMap();
   private boolean useRemoteRepoContentsCache;
 
   @Nullable private PathFragment outputBase;
@@ -304,7 +305,8 @@ public final class RemoteModule extends BlazeModule {
             combinedCacheClient.diskCacheClient(),
             Strings.emptyToNull(remoteOptions.getRemoteDownloadSymlinkTemplate()),
             digestUtil,
-            remoteOptions.getEffectiveChunkingFunction());
+            remoteOptions.getEffectiveChunkingFunction(),
+            chunkLocationMap);
     actionContextProvider =
         RemoteActionContextProvider.createForRemoteCaching(
             env,
@@ -420,6 +422,7 @@ public final class RemoteModule extends BlazeModule {
     Preconditions.checkState(outputService == null, "remoteOutputService must be null");
 
     if ("clean".equals(env.getCommandName())) {
+      chunkLocationMap.clear();
       knownMissingCasDigests.clear();
     }
 
@@ -886,7 +889,8 @@ public final class RemoteModule extends BlazeModule {
               diskCacheClient,
               Strings.emptyToNull(remoteOptions.getRemoteDownloadSymlinkTemplate()),
               digestUtil,
-              remoteOptions.getEffectiveChunkingFunction());
+              remoteOptions.getEffectiveChunkingFunction(),
+              chunkLocationMap);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteExecution(
               env,
@@ -919,7 +923,8 @@ public final class RemoteModule extends BlazeModule {
               diskCacheClient,
               Strings.emptyToNull(remoteOptions.getRemoteDownloadSymlinkTemplate()),
               digestUtil,
-              remoteOptions.getEffectiveChunkingFunction());
+              remoteOptions.getEffectiveChunkingFunction(),
+              chunkLocationMap);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteCaching(
               env,

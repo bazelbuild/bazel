@@ -20,6 +20,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
-        "//third_party:truth",
+        "//third_party/java/truth",
     ],
 )

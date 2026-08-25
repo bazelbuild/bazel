@@ -402,6 +402,16 @@ public abstract class ExecutionOptions extends OptionsBase {
   public abstract Duration getExperimentalCpuLoadSchedulingWindowSize();
 
   @Option(
+      name = "experimental_memory_load_scheduling",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Enables the experimental local execution scheduling based on memory load, not estimation"
+              + " of actions one by one.")
+  public abstract boolean getExperimentalMemoryLoadScheduling();
+
+  @Option(
       name = "local_test_jobs",
       defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.TESTING,

@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper.BasicActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
@@ -98,6 +97,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -165,9 +165,12 @@ public final class MerkleTreeComputer {
       Executors.newThreadPerTaskExecutor(
           Thread.ofVirtual().name("merkle-tree-upload-", 0).factory());
 
-  private static final Cache<FileArtifactValue, MerkleTree.RootOnly> persistentToolSubTreeCache =
+  // Keyed on FileArtifactValue-like object describing the contents of the subtree. Since weak keys
+  // imply identity comparison, the key type can't be just FileArtifactValue as not every aggregate
+  // input has a FileArtifactValue that is retained alongside its contents.
+  private static final Cache<Object, MerkleTree.RootOnly> persistentToolSubTreeCache =
       Caffeine.newBuilder().weakKeys().build();
-  private static final Cache<FileArtifactValue, MerkleTree.RootOnly> persistentNonToolSubTreeCache =
+  private static final Cache<Object, MerkleTree.RootOnly> persistentNonToolSubTreeCache =
       Caffeine.newBuilder().weakKeys().build();
 
   // @GuardedBy("MerkleTreeComputer.class") for writes, reads use double-checked locking.
@@ -180,8 +183,9 @@ public final class MerkleTreeComputer {
   private final String workspaceName;
   private final Digest emptyDigest;
   private final MerkleTree.Uploadable emptyTree;
-  private final TaskDeduplicator<InFlightCacheKey, MerkleTree.RootOnly> inFlightComputations =
-      new TaskDeduplicator<>();
+  private final TaskDeduplicator<InFlightCacheKey, InFlightAttributes, MerkleTree.RootOnly>
+      inFlightComputations = new TaskDeduplicator<>();
+  private final AtomicLong inFlightComputationSequence = new AtomicLong();
 
   public MerkleTreeComputer(
       DigestUtil digestUtil,
@@ -201,7 +205,14 @@ public final class MerkleTreeComputer {
             new MerkleTree.RootOnly.BlobsUploaded(emptyDigest, 0, 0), ImmutableSortedMap.of());
   }
 
-  /** Specifies which blobs should be retained in the Merkle tree. */
+  /**
+   * Specifies which blobs should be retained in the Merkle tree.
+   *
+   * <p>The constants are ordered from the weakest to the strongest policy: the result of a
+   * computation performed with a given policy also satisfies every preceding one. Deduplication of
+   * ongoing sub-Merkle tree computations relies on this order to decide whether an ongoing
+   * computation can be joined.
+   */
   public enum BlobPolicy {
     /**
      * No blobs are retained and the returned MerkleTree is a {@link MerkleTree.RootOnly}.
@@ -234,7 +245,8 @@ public final class MerkleTreeComputer {
    * The key type for the cache used to deduplicate ongoing computations and possibly uploading of
    * sub-Merkle trees.
    *
-   * @param metadata the metadata of the aggregate {@link ActionInput} that forms the subtree
+   * @param cacheKey the value describing the contents of the aggregate {@link ActionInput} that
+   *     forms the subtree, compared by value
    * @param isTool whether the subtree consists of tool inputs
    * @param uploadBlobs whether the blobs in this tree will be uploaded
    * @param unmappedExecPath the exec path of the aggregate input, included only when path mapping
@@ -243,10 +255,40 @@ public final class MerkleTreeComputer {
    *     input depends on the unmapped path)
    */
   private record InFlightCacheKey(
-      FileArtifactValue metadata,
+      Object cacheKey,
       boolean isTool,
       boolean uploadBlobs,
       @Nullable PathFragment unmappedExecPath) {}
+
+  /**
+   * Describes what an ongoing sub-Merkle tree computation produces, which determines whether other
+   * computations can join it.
+   *
+   * @param blobPolicy the policy the computation was started with
+   * @param sequenceNumber a number assigned before the computation is registered, so that a
+   *     computation started before a given call to {@link #computeIfAbsent} has a lower number than
+   *     the one that call assigns to itself
+   */
+  private record InFlightAttributes(BlobPolicy blobPolicy, long sequenceNumber) {}
+
+  /**
+   * Whether an ongoing computation with the attributes {@code ongoing} produces a result that also
+   * satisfies a call with the attributes {@code requested}.
+   */
+  private static boolean canJoin(InFlightAttributes ongoing, InFlightAttributes requested) {
+    // BlobPolicy constants are ordered from the weakest to the strongest policy, so an ongoing
+    // computation is reusable if its policy retains at least as much as the requested one. In
+    // particular, a KEEP_AND_REUPLOAD computation never joins a KEEP one, which wouldn't reupload
+    // the blobs that the remote cache lost.
+    if (ongoing.blobPolicy().compareTo(requested.blobPolicy()) < 0) {
+      return false;
+    }
+    // A KEEP_AND_REUPLOAD computation additionally has to reupload the blobs after the request
+    // discovered that they are missing. An ongoing computation that started earlier may already
+    // have uploaded them before they were lost, so only a later one will do.
+    return requested.blobPolicy() != BlobPolicy.KEEP_AND_REUPLOAD
+        || ongoing.sequenceNumber() > requested.sequenceNumber();
+  }
 
   /**
    * Builds a Merkle tree for the inputs of a {@link Spawn}.
@@ -837,6 +879,9 @@ public final class MerkleTreeComputer {
     // mappedExecPath and isToolInput must not be used below as they aren't part of the cache key -
     // use isTool instead.
     return computeIfAbsent(
+        // The metadata is a field of the RunfilesArtifactValue and thus just as suitable as a weak
+        // key, but hashes and compares in constant time, whereas RunfilesArtifactValue does so in
+        // time linear in the size of the runfiles tree.
         runfilesArtifactValue.getMetadata(),
         // Runfiles metadata already encodes the exec path of the root.
         /* unmappedExecPath= */ null,
@@ -872,7 +917,9 @@ public final class MerkleTreeComputer {
     // mappedExecPath and isToolInput must not be used below as they aren't part of the cache key -
     // use isTool instead.
     return computeIfAbsent(
-        treeArtifactValue.getMetadata(),
+        // This must not be replaced by treeArtifactValue.getMetadata() as the latter returns a new
+        // instance on every call and is thus unusable as an identity-compared weak key.
+        treeArtifactValue,
         unmappedExecPath,
         () ->
             Lists.transform(
@@ -897,12 +944,17 @@ public final class MerkleTreeComputer {
   /**
    * Performs a cached computation of the sub-Merkle tree for the given aggregate input.
    *
+   * @param cacheKey a value that fully describes the contents of the aggregate input and is
+   *     retained for as long as those contents are current. The persistent caches use it as a weak
+   *     and thus identity-compared key, which only works if it is a retained instance. The
+   *     in-flight cache compares it by value, so among the eligible values prefer the one with the
+   *     cheapest {@link #hashCode} and {@link #equals}.
    * @param unmappedExecPath the exec path of the aggregate input before path mapping to be added to
    *     the cache key, null if this aggregate input is not subject to path mapping or the metadata
    *     already includes the path
    */
   private ListenableFuture<MerkleTree.RootOnly> computeIfAbsent(
-      FileArtifactValue metadata,
+      Object cacheKey,
       @Nullable PathFragment unmappedExecPath,
       SortedInputsSupplier sortedInputsSupplier,
       boolean isTool,
@@ -913,15 +965,18 @@ public final class MerkleTreeComputer {
       BlobPolicy blobPolicy) {
     var persistentCache = isTool ? persistentToolSubTreeCache : persistentNonToolSubTreeCache;
     if (blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD) {
-      persistentCache.invalidate(metadata);
+      persistentCache.invalidate(cacheKey);
     } else {
-      var cachedRoot = persistentCache.getIfPresent(metadata);
+      var cachedRoot = persistentCache.getIfPresent(cacheKey);
       if (cachedRoot != null
           && (blobPolicy == BlobPolicy.DISCARD
               || cachedRoot instanceof MerkleTree.RootOnly.BlobsUploaded)) {
         return immediateFuture(cachedRoot);
       }
     }
+    // Uploading computations are kept under a separate key so that a DISCARD computation never
+    // joins one: its future only completes after the upload, whereas building the tree again only
+    // costs local work.
     var uploadBlobs = blobPolicy != BlobPolicy.DISCARD;
     // When the upload of a path mapped tree artifact is shared between two actions that each have
     // that tree artifact as an input under a different unmmapped exec path, CacheNotFoundExceptions
@@ -931,27 +986,16 @@ public final class MerkleTreeComputer {
     // BulkTransferException.getLostArtifacts has been considered, but is far more complex and only
     // relevant for the uncommon no-DISCARD case.
     var key =
-        new InFlightCacheKey(metadata, isTool, uploadBlobs, uploadBlobs ? unmappedExecPath : null);
+        new InFlightCacheKey(cacheKey, isTool, uploadBlobs, uploadBlobs ? unmappedExecPath : null);
     AsyncCallable<MerkleTree.RootOnly> buildMerkleTreeTask =
         () -> {
-          // There is a window in which a concurrent call may have removed the in-flight cache entry
-          // while this one had already passed the check above. Recheck the persistent cache to
-          // avoid unnecessary work.
-          var cachedRoot = persistentCache.getIfPresent(metadata);
+          // A concurrent computation may have completed and populated the persistent cache after
+          // this one had already passed the check above. Recheck it to avoid unnecessary work.
+          var cachedRoot = persistentCache.getIfPresent(cacheKey);
           if (cachedRoot != null
               && (blobPolicy == BlobPolicy.DISCARD
                   || cachedRoot instanceof MerkleTree.RootOnly.BlobsUploaded)) {
             return immediateFuture(cachedRoot);
-          }
-          // An ongoing computation with blobs can be reused for one that doesn't require them.
-          if (blobPolicy == BlobPolicy.DISCARD) {
-            var inFlightComputation =
-                inFlightComputations.maybeJoinExecution(
-                    new InFlightCacheKey(
-                        metadata, isTool, /* uploadBlobs= */ true, unmappedExecPath));
-            if (inFlightComputation != null) {
-              return inFlightComputation;
-            }
           }
           ListenableFuture<MerkleTree> merkleTreeFuture;
           try {
@@ -995,7 +1039,7 @@ public final class MerkleTreeComputer {
                 persistentCache
                     .asMap()
                     .compute(
-                        metadata,
+                        cacheKey,
                         (unused, oldRoot) -> {
                           // Don't downgrade the cached root from one indicating that its blobs have
                           // been uploaded.
@@ -1009,11 +1053,15 @@ public final class MerkleTreeComputer {
         };
     Supplier<ListenableFuture<MerkleTree.RootOnly>> buildMerkleTreeTaskSupplier =
         () -> Futures.submitAsync(buildMerkleTreeTask, MERKLE_TREE_BUILD_POOL);
-    if (blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD) {
-      return inFlightComputations.executeUnconditionally(key, buildMerkleTreeTaskSupplier);
-    } else {
-      return inFlightComputations.executeIfNew(key, buildMerkleTreeTaskSupplier);
-    }
+    // The sequence number is claimed before the computation is registered, so every computation
+    // that is already ongoing at this point has a lower one.
+    var attributes =
+        new InFlightAttributes(blobPolicy, inFlightComputationSequence.getAndIncrement());
+    return inFlightComputations.execute(
+        key,
+        attributes,
+        /* canJoin= */ ongoing -> canJoin(ongoing, attributes),
+        buildMerkleTreeTaskSupplier);
   }
 
   private static <T> T getFromFuture(Future<T> future) throws IOException, InterruptedException {

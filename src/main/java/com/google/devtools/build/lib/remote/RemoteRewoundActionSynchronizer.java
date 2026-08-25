@@ -40,14 +40,14 @@ import javax.annotation.Nullable;
  * by actual files on disk and requires synchronization to ensure that action outputs aren't deleted
  * while they are being read.
  */
-final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer {
+public final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer {
   /** A task with a cancellation callback. */
   public interface Cancellable {
     void cancel() throws InterruptedException;
   }
 
-  private final RemoteActionInputFetcher actionInputFetcher;
-  private final ConcurrentHashMap<ActionExecutionMetadata, Cancellable> outputUploadTasks =
+  private final AbstractActionInputPrefetcher actionInputFetcher;
+  private final ConcurrentHashMap<ActionLookupData, Cancellable> outputUploadTasks =
       new ConcurrentHashMap<>();
 
   // A single coarse lock is used to synchronize rewound actions (writers) and both rewound and
@@ -74,7 +74,7 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
   // are no longer needed.
   @Nullable private volatile LoadingCache<ActionLookupData, ReadWriteLock> fineLocks;
 
-  public RemoteRewoundActionSynchronizer(RemoteActionInputFetcher actionInputFetcher) {
+  public RemoteRewoundActionSynchronizer(AbstractActionInputPrefetcher actionInputFetcher) {
     this.actionInputFetcher = actionInputFetcher;
   }
 
@@ -92,33 +92,40 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
   * Nodes are given by the currently active Skyframe action execution threads, each of which is
     identified with the action it is (or will be) executing. Actions are in one-to-one
     correspondence with the ActionLookupData that is used as the key in the fine locks map.
-  * For each pair of actions A_1 and A_2, there is an edge from A_1 to A_2 labeled with XY(A_3)
-    if A_1 is waiting for the X lock of A_3 and A_2 currently holds the Y lock of A_3, where X and
-    Y are either R (for read) or W (for write). The resulting graph may have parallel edges with
-    distinct labels.
+  * For each pair of actions A_1 and A_2, there is an edge from A_1 to A_2 labeled with XY(K)
+    if A_1 is waiting for the X lock of the key K and A_2 currently holds the Y lock of K, where X
+    and Y are either R (for read) or W (for write). The resulting graph may have parallel edges
+    with distinct labels.
 
-  Let C be any directed cycle in the graph representing a deadlock, let A_1 -[XY(A_3)]-> A_2 be an
+  Say that an action A "covers" a key K if A is the action identified by K, or if K identifies an
+  ActionTemplate and A is one of its expanded actions. By construction of outputKeyFor, the write
+  lock of K is only ever acquired by actions covering K, and every action covers exactly one key.
+
+  Let C be any directed cycle in the graph representing a deadlock, let A_1 -[XY(K)]-> A_2 be an
   edge in C and consider the following cases for the pair XY:
 
   * RR: Since a read-write lock whose read lock is held by at least one thread doesn't
         block any other thread from acquiring its read lock, this case doesn't occur.
-  * WW: The write lock of A_3 is only ever (attempted to be) acquired by A_3 itself when it is
-        rewound, which means that the edge would necessarily be of the shape A_3 -[WW(A_3)]-> A_3.
-        But this isn't possible since the write lock for an action is only acquired in one place (
-        enterActionPreparationForRewinding) and not recursively.
-  * WR: In this case, A_1 attempts to acquire a write lock, which only happens when A_1 is a
-        rewound action about to prepare for its (re-)execution. This means that the edge is
-        necessarily of the shape A_1 -[WR(A_1)]-> A_2. While a rewound action is waiting for its
-        own write lock in enterActionPreparation, it doesn't hold any locks since
-        enterActionExecution hasn't been called yet in SkyframeActionExecutor and all past
-        executions of the action have released all their locks due to use of try-with-resources.
-        This means that A_1 can't have any incoming edges in the wait-for graph, which is a
-        contradiction to the assumption that it is contained in the directed cycle C.
+  * WW and WR: In both cases, A_1 attempts to acquire a write lock, which only happens when A_1 is
+        a rewound action about to prepare for its (re-)execution. While a rewound action is waiting
+        for a write lock in enterActionPreparation, it doesn't hold any locks: enterActionExecution
+        hasn't been called yet in SkyframeActionExecutor, it only ever acquires the single write
+        lock it is waiting for, and all past executions of the action have released all their locks
+        due to use of try-with-resources. This means that A_1 can't have any incoming edges in the
+        wait-for graph, which is a contradiction to the assumption that it is contained in the
+        directed cycle C.
 
-   We conclude that XY = RW. Since the write lock of A_3 is only ever acquired by A_3 itself, all
-   edges in C are of the form A_1 -[RW(A_2)]-> A_2. But by construction of inputKeysFor, the
-   action A_1 is attempting to acquire the read locks of all its inputs' generating actions, and
-   thus the action A_1 depends on one of the outputs of A_2 (*).
+   We conclude that XY = RW, so all edges in C are of the form A_1 -[RW(K)]-> A_2 with A_2 covering
+   K. Since every node of C also has an incoming edge, every node of C holds a write lock and thus
+   covers the key of that lock.
+
+   By construction of inputKeysFor, A_1 is waiting for R(K) because it has an input guarded by K,
+   which is either an output of the action identified by K, or a file in a tree artifact declared
+   by the ActionTemplate identified by K. In the latter case, if the input is an individual file
+   rather than the tree artifact itself, then A_1 is an expanded action of that template and thus
+   covers K - but A_1 covers exactly one key, namely the one of the write lock it holds, which A_2
+   holds instead. So A_1 depends on the tree artifact in its entirety and thus on all actions
+   covering K, in particular on A_2 (*).
 
    Applied to all edges of C, we conclude that there is a corresponding directed cycle in the
    action graph, which is a contradiction since Bazel disallows dependency cycles.
@@ -127,6 +134,12 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
    * The proof would not go through at (*) if fineLocks were replaced by a Striped lock structure
      with a fixed number of locks. In fact, this gives rise to a deadlock if the number of stripes
      is at least 2, but low enough that distinct generating actions hash to the same stripe.
+   * It is crucial that an action only ever acquires a single write lock: a rewound action holding
+     one write lock while waiting for another could deadlock with a reader acquiring the same two
+     locks in the opposite order, and readers acquire their locks in an arbitrary order.
+   * A rewound action must skip the read lock of the key guarding its own outputs, which it already
+     holds the write lock of: the locks aren't reentrant, so an expanded action consuming the
+     outputs of another action from the same expansion would otherwise deadlock with itself.
    */
 
   @Override
@@ -199,7 +212,7 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
    * their prefetching state.
    */
   private void prepareOutputsForRewinding(Action action) throws InterruptedException {
-    Cancellable task = outputUploadTasks.remove(action);
+    Cancellable task = outputUploadTasks.remove(actionKeyFor(action));
     if (task != null) {
       task.cancel();
     }
@@ -207,12 +220,18 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
   }
 
   @Override
-  public SilentCloseable enterActionExecution(Action action, InputMetadataProvider metadataProvider)
+  public SilentCloseable enterActionExecution(
+      Action action, boolean wasRewound, InputMetadataProvider metadataProvider)
       throws InterruptedException {
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.ACTION_LOCK, "action.enterActionExecution")) {
       return lockArtifactsForConsumption(
-          () -> action.getInputs().toList().iterator(), metadataProvider);
+          action.getInputs().toList(),
+          metadataProvider,
+          // A rewound action already holds the write lock on the key guarding its outputs and the
+          // locks aren't reentrant. Actions generated by an ActionTemplate can consume the outputs
+          // of other actions from the same expansion, which are guarded by the same key.
+          wasRewound ? outputKeyFor(action) : null);
     }
   }
 
@@ -226,7 +245,8 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
     try (SilentCloseable c =
         Profiler.instance()
             .profile(ProfilerTask.ACTION_LOCK, "action.enterProcessOutputsAndGetLostArtifacts")) {
-      return lockArtifactsForConsumption(importantOutputs, fullMetadataProvider);
+      return lockArtifactsForConsumption(
+          importantOutputs, fullMetadataProvider, /* writeLockedKey= */ null);
     }
   }
 
@@ -238,7 +258,7 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
     // We don't expect to have multiple output upload tasks for the same action registered at the
     // same time.
     outputUploadTasks.merge(
-        action,
+        actionKeyFor(action),
         task,
         (oldTask, newTask) -> {
           throw new IllegalStateException(
@@ -248,7 +268,9 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
   }
 
   private SilentCloseable lockArtifactsForConsumption(
-      Iterable<Artifact> artifacts, InputMetadataProvider metadataProvider)
+      Iterable<Artifact> artifacts,
+      InputMetadataProvider metadataProvider,
+      @Nullable ActionLookupData writeLockedKey)
       throws InterruptedException {
     var localCoarseLock = coarseLock;
     if (localCoarseLock != null) {
@@ -271,7 +293,7 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
       localCoarseLock.readLock().unlock();
     }
     var allReadWriteLocks =
-        localFineLocks.getAll(inputKeysFor(artifacts, metadataProvider)).values();
+        localFineLocks.getAll(inputKeysFor(artifacts, metadataProvider, writeLockedKey)).values();
     var locksToUnlockBuilder =
         ImmutableList.<Lock>builderWithExpectedSize(allReadWriteLocks.size());
     try {
@@ -291,7 +313,9 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
   }
 
   private static Iterable<ActionLookupData> inputKeysFor(
-      Iterable<Artifact> artifacts, InputMetadataProvider metadataProvider) {
+      Iterable<Artifact> artifacts,
+      InputMetadataProvider metadataProvider,
+      @Nullable ActionLookupData writeLockedKey) {
     var allArtifacts =
         Iterables.concat(
             artifacts,
@@ -299,12 +323,44 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
                 Iterables.transform(
                     metadataProvider.getRunfilesTrees(),
                     runfilesTree -> runfilesTree.getArtifacts().toList())));
-    return Iterables.transform(
-        Iterables.filter(allArtifacts, artifact -> artifact instanceof DerivedArtifact),
-        artifact -> ((DerivedArtifact) artifact).getGeneratingActionKey());
+    var result =
+        Iterables.transform(
+            Iterables.filter(allArtifacts, artifact -> artifact instanceof DerivedArtifact),
+            artifact -> lockKeyFor((DerivedArtifact) artifact));
+    if (writeLockedKey == null) {
+      return result;
+    }
+    return Iterables.filter(result, key -> !key.equals(writeLockedKey));
   }
 
-  private static ActionLookupData outputKeyFor(Action action) {
+  /** Returns the key that uniquely identifies the given action. */
+  private static ActionLookupData actionKeyFor(ActionExecutionMetadata action) {
     return ((DerivedArtifact) action.getPrimaryOutput()).getGeneratingActionKey();
+  }
+
+  /**
+   * Returns the key of the lock that guards the given artifact, which is the generating action key
+   * of the outermost tree artifact containing it, or its own if it isn't contained in one.
+   *
+   * <p>This is the artifact's own generating action key except for the outputs of an {@link
+   * com.google.devtools.build.lib.actions.ActionTemplate} expansion, which are guarded by the key
+   * of the template: they are only ever consumed as part of a tree artifact the template declares,
+   * either by actions outside the expansion, which depend on that tree artifact, or by other
+   * actions of the same expansion, which depend on individual files in it.
+   */
+  private static ActionLookupData lockKeyFor(DerivedArtifact artifact) {
+    var outermost = artifact;
+    for (var parent = artifact.getParent(); parent != null; parent = parent.getParent()) {
+      outermost = parent;
+    }
+    return outermost.getGeneratingActionKey();
+  }
+
+  /**
+   * Returns the key of the lock that guards the outputs of the given action, which is the key its
+   * consumers acquire the read lock of.
+   */
+  private static ActionLookupData outputKeyFor(Action action) {
+    return lockKeyFor((DerivedArtifact) action.getPrimaryOutput());
   }
 }

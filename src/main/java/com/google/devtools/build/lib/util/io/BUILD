@@ -51,9 +51,15 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:io",
+        "//third_party/java/guava:math",
+        "//third_party/java/guava:primitives",
+        "//third_party/java/protobuf",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
@@ -61,10 +67,11 @@ java_library(
     name = "io-proto",
     srcs = IO_PROTO_SRCS,
     deps = [
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
-        "@com_google_protobuf//:protobuf_java_util",
+        "//third_party/google/protobuf:any_java_proto",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf",
+        "//third_party/java/protobuf/util:json",
     ],
 )
 
@@ -73,7 +80,8 @@ java_library(
     srcs = OUT_ERR_SRCS,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//third_party:flogger",
-        "//third_party:guava",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
     ],
 )

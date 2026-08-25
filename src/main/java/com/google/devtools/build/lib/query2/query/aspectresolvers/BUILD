@@ -19,6 +19,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
