@@ -26,6 +26,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
@@ -280,7 +281,7 @@ public class CombinedCacheTest {
     Path file = execRoot.getRelative("file");
 
     getFromFuture(
-        combinedCache.uploadBlob(remoteActionExecutionContext, emptyDigest, ByteString.EMPTY));
+        combinedCache.uploadBlob(remoteActionExecutionContext, emptyDigest, (Blob) ByteString.EMPTY::newInput));
     assertThat(
             getFromFuture(
                 combinedCache.findMissingDigests(
@@ -892,17 +893,7 @@ public class CombinedCacheTest {
 
   @Test
   public void uploadFile_chunkedUpload_deduplicatesRemoteUpload() throws Exception {
-    // Spy on a real GrpcCacheClient so that final methods on the RemoteCacheClient base class
-    // (e.g. dedupUpload, uploadFile) execute their real implementations against a properly
-    // initialized casUploadCache.
-    GrpcCacheClient grpcCacheClient =
-        spy(
-            new GrpcCacheClient(
-                mock(ReferenceCountedChannel.class),
-                mock(CallCredentialsProvider.class),
-                Options.getDefaults(RemoteOptions.class),
-                mock(RemoteRetrier.class),
-                digestUtil));
+    GrpcCacheClient grpcCacheClient = newChunkingGrpcCacheClient();
     doAnswer(unused -> chunkingCapabilities()).when(grpcCacheClient).getServerCapabilities();
     doAnswer(unused -> immediateFuture(ImmutableSet.of()))
         .when(grpcCacheClient)
@@ -1106,16 +1097,15 @@ public class CombinedCacheTest {
   }
 
   private GrpcCacheClient newChunkingGrpcCacheClient() throws IOException {
-    GrpcCacheClient grpcCacheClient =
-        spy(
-            new GrpcCacheClient(
-                mock(ReferenceCountedChannel.class),
-                mock(CallCredentialsProvider.class),
-                Options.getDefaults(RemoteOptions.class),
-                mock(RemoteRetrier.class),
-                digestUtil));
-    doAnswer(unused -> chunkingCapabilities()).when(grpcCacheClient).getServerCapabilities();
-    return grpcCacheClient;
+    ReferenceCountedChannel channel = mock(ReferenceCountedChannel.class);
+    when(channel.serverCapabilities()).thenReturn(Futures.immediateFuture(chunkingCapabilities()));
+    return spy(
+        new GrpcCacheClient(
+            channel,
+            mock(CallCredentialsProvider.class),
+            Options.getDefaults(RemoteOptions.class),
+            mock(RemoteRetrier.class),
+            digestUtil));
   }
 
   private CombinedCache newChunkingCombinedCache(GrpcCacheClient grpcCacheClient) {

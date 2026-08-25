@@ -114,6 +114,11 @@ public class ReferenceCountedChannel implements ReferenceCounted {
     return caps;
   }
 
+  public ListenableFuture<ServerCapabilities> serverCapabilities() {
+    return RxFutures.toListenableFuture(
+          withChannelConnection(ChannelConnectionWithServerCapabilities::getServerCapabilities));
+  }
+
   public boolean isShutdown() {
     return dynamicConnectionPool.isClosed();
   }

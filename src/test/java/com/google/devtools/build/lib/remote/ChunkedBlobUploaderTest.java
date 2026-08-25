@@ -84,19 +84,21 @@ public class ChunkedBlobUploaderTest {
 
   @Before
   public void setUp() throws Exception {
+    when(combinedCache.digestUtil()).thenReturn(DIGEST_UTIL);
+
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/execroot");
     execRoot.createDirectoryAndParents();
 
     FastCdcChunkingConfig config = new FastCdcChunkingConfig(1024, 2, 0);
-    uploader = new ChunkedBlobUploader(grpcCacheClient, combinedCache, config, DIGEST_UTIL);
+    uploader = new ChunkedBlobUploader(grpcCacheClient, combinedCache, config);
   }
 
   @Test
   public void getChunkingThreshold_returnsConfiguredValue() {
     FastCdcChunkingConfig config = new FastCdcChunkingConfig(512, 2, 0);
     ChunkedBlobUploader uploader =
-        new ChunkedBlobUploader(grpcCacheClient, combinedCache, config, DIGEST_UTIL);
+        new ChunkedBlobUploader(grpcCacheClient, combinedCache, config);
 
     assertThat(uploader.getChunkingThreshold()).isEqualTo(512 * 4);
   }
