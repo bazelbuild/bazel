@@ -24,8 +24,10 @@ import static org.junit.Assume.assumeFalse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
+import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
@@ -34,6 +36,7 @@ import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewoundEvent;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.OS;
@@ -46,6 +49,7 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import org.junit.Test;
 
 /** Base class for integration tests for BwoB. */
@@ -2240,6 +2244,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
       disableActionRewinding();
       addOptions("--strategy_regexp=.*bar=local");
       var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+      assertThat(error).hasMessageThat().contains("Lost inputs no longer available remotely");
       assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
       assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
     }
@@ -2517,6 +2522,132 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     // Assert: all runfiles were downloaded
     assertValidOutputFile("a/bar.out", "file-inside\nbar\n");
     assertValidOutputFile("a/foo.out/file-inside", "hello world");
+  }
+
+  @Test
+  public void actionRewinding_concurrentConsumersOfRewoundAction() throws Exception {
+    enableActionRewinding();
+
+    // Arrange: Prepare workspace where action 'foo' generates two outputs:
+    // 'foo1.out' (consumed by bar1) and 'foo2.out' (consumed concurrently by bar2).
+    write(
+        "a/BUILD",
+        """
+        genrule(
+            name = "foo",
+            outs = [
+                "foo1.out",
+                "foo2.out",
+            ],
+            cmd = "seq 1 500 > $(location foo1.out); seq 1 500 > $(location foo2.out)",
+        )
+
+        genrule(
+            name = "bar1",
+            srcs = ["foo1.out"],
+            outs = ["bar1.out"],
+            cmd = "cat $(location foo1.out) > $@",
+        )
+
+        genrule(
+            name = "bar2",
+            srcs = [
+                "foo2.out",
+                "bar2.in",
+            ],
+            outs = ["bar2.out"],
+            cmd = "while [ ! -f a/bar2.marker ]; do cat $(location foo2.out) > /dev/null || exit 1; sleep 0.02; done; cat $(location foo2.out) $(location bar2.in) > $@",
+        )
+        """);
+    write("a/bar2.in", "bar2");
+
+    // Clean build: build foo remotely so intermediate outputs foo1.out and foo2.out are in CAS
+    buildTarget("//a:foo");
+    assertOutputDoesNotExist("a/foo1.out");
+    assertOutputDoesNotExist("a/foo2.out");
+
+    // Act: Run bar1 and bar2 concurrently.
+    // When bar2 starts executing (and prefetches foo2.out), evict blobs from CAS.
+    // bar1 starts after eviction, sees foo1.out missing from CAS, and triggers action rewinding
+    // for foo.
+    // When foo is rewound, foo's preparation deletes foo2.out from disk while bar2 is reading it.
+    // Without synchronization, bar2 fails on missing foo2.out.
+    addOptions("--strategy_regexp=.*bar=local", "--jobs=4");
+
+    CountDownLatch bar2Started = new CountDownLatch(1);
+    CountDownLatch evictionFinished = new CountDownLatch(1);
+    CountDownLatch bar1Rewound = new CountDownLatch(1);
+    Path markerPath = getWorkspace().getRelative("a/bar2.marker");
+
+    runtimeWrapper.registerSubscriber(
+        new Object() {
+          @Subscribe
+          @AllowConcurrentEvents
+          public void actionStarted(ActionStartedEvent event) {
+            String label = event.getAction().getOwner().getLabel().toString();
+            if (label.equals("//a:bar2")) {
+              bar2Started.countDown();
+            } else if (label.equals("//a:bar1")) {
+              try {
+                // Ensure bar2 has started and eviction has completed before bar1 attempts
+                // prefetching
+                bar2Started.await();
+                evictionFinished.await();
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+              }
+            }
+          }
+
+          @Subscribe
+          @AllowConcurrentEvents
+          public void actionRewound(ActionRewoundEvent event) {
+            if (event
+                .getFailedRewoundAction()
+                .getOwner()
+                .getLabel()
+                .toString()
+                .equals("//a:bar1")) {
+              bar1Rewound.countDown();
+              try {
+                FileSystemUtils.createEmptyFile(markerPath);
+              } catch (IOException e) {
+                throw new RuntimeException(e);
+              }
+            }
+          }
+        });
+
+    new Thread(
+            () -> {
+              try {
+                bar2Started.await();
+                evictAllBlobs();
+                evictionFinished.countDown();
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+              } catch (Exception e) {
+                throw new RuntimeException(e);
+              }
+            })
+        .start();
+
+    try {
+      buildTarget("//a:bar1", "//a:bar2");
+    } finally {
+      // Assert test preconditions: ensure eviction completed, bar2 was actively running,
+      // and action rewinding was legitimately triggered for bar1.
+      assertThat(evictionFinished.getCount()).isEqualTo(0);
+      assertThat(bar2Started.getCount()).isEqualTo(0);
+      assertThat(bar1Rewound.getCount()).isEqualTo(0);
+    }
+    waitDownloads();
+
+    // Assert: Both targets succeed
+    assertThat(getOutputPath("a/bar1.out").exists()).isTrue();
+    assertThat(getOutputPath("a/bar2.out").exists()).isTrue();
   }
 
   protected void restartServer() throws Exception {

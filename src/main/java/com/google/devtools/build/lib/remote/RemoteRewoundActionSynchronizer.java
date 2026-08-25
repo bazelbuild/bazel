@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.remote;
 
-
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
@@ -41,13 +40,13 @@ import javax.annotation.Nullable;
  * by actual files on disk and requires synchronization to ensure that action outputs aren't deleted
  * while they are being read.
  */
-final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer {
+public final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer {
   /** A task with a cancellation callback. */
   public interface Cancellable {
     void cancel() throws InterruptedException;
   }
 
-  private final RemoteActionInputFetcher actionInputFetcher;
+  private final AbstractActionInputPrefetcher actionInputFetcher;
   private final ConcurrentHashMap<ActionLookupData, Cancellable> outputUploadTasks =
       new ConcurrentHashMap<>();
 
@@ -75,7 +74,7 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
   // are no longer needed.
   @Nullable private volatile LoadingCache<ActionLookupData, ReadWriteLock> fineLocks;
 
-  public RemoteRewoundActionSynchronizer(RemoteActionInputFetcher actionInputFetcher) {
+  public RemoteRewoundActionSynchronizer(AbstractActionInputPrefetcher actionInputFetcher) {
     this.actionInputFetcher = actionInputFetcher;
   }
 

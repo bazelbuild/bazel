@@ -304,12 +304,10 @@ java_library(
     deps = [
         ":abstract_action_input_prefetcher",
         ":combined_cache",
-        ":concurrent_artifact_path_trie",
         ":remote_output_checker",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_prefetcher",
         "//src/main/java/com/google/devtools/build/lib/actions:action_output_directory_helper",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:virtual_action_input",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -319,7 +317,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
         "//src/main/java/com/google/devtools/build/lib/util:temp_path_generator",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party/java/guava:base",
         "//third_party/java/guava:concurrent",
         "//third_party/java/jsr305_annotations",
@@ -956,6 +953,7 @@ java_library(
     name = "abstract_action_input_prefetcher",
     srcs = ["AbstractActionInputPrefetcher.java"],
     deps = [
+        ":concurrent_artifact_path_trie",
         ":remote_output_checker",
         ":subtree_materializer",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -1035,7 +1033,7 @@ java_library(
     name = "remote_rewound_action_synchronizer",
     srcs = ["RemoteRewoundActionSynchronizer.java"],
     deps = [
-        ":remote_action_input_fetcher",
+        ":abstract_action_input_prefetcher",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",

@@ -55,6 +55,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   @ClassRule @Rule public static final WorkerInstance worker = IntegrationTestUtils.createWorker();
 
   @TestParameter public boolean useDiskCache;
+  private Path diskCacheDir;
 
   @Override
   protected ImmutableList<Class<? extends OptionsBase>> getStartupOptionClasses() {
@@ -89,7 +90,8 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     }
 
     if (useDiskCache) {
-      addOptions("--disk_cache=" + UUID.randomUUID());
+      diskCacheDir = getWorkspace().getRelative(UUID.randomUUID().toString());
+      addOptions("--disk_cache=" + diskCacheDir.getPathString());
     }
   }
 
@@ -142,8 +144,15 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   @Override
   protected void evictAllBlobs() throws Exception {
     worker.reset();
-    if (useDiskCache) {
-      addOptions("--disk_cache=" + UUID.randomUUID());
+    if (useDiskCache && diskCacheDir != null) {
+      Path casDir = diskCacheDir.getRelative("cas");
+      if (casDir.exists()) {
+        casDir.deleteTreesBelow();
+      }
+      Path acDir = diskCacheDir.getRelative("ac");
+      if (acDir.exists()) {
+        acDir.deleteTreesBelow();
+      }
     }
   }
 
@@ -425,7 +434,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     assertOutputsDoNotExist("//a:hello");
   }
 
-
   @Test
   public void leaseExtension() throws Exception {
     // The lease service is only used when action rewinding is disabled.
@@ -698,7 +706,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     getOutputPath("out").delete();
     buildTarget("//:gen");
   }
-
 
   @Test
   public void remoteFilesExpiredBetweenBuilds(@TestParameter boolean actionRewinding)
