@@ -115,6 +115,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
       Reporter reporter,
       ActionInput input,
       Path tempPath,
+      Path finalPath,
       FileArtifactValue metadata,
       Priority priority,
       Reason reason)
@@ -146,6 +147,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
             input.getExecPathString(),
             input.getExecPath(),
             tempPath.forHostFileSystem(),
+            finalPath,
             digest,
             new CombinedCache.DownloadProgressReporter(
                 progress -> {
