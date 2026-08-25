@@ -19,6 +19,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.shell.Consumers.OutErrConsumers;
 import com.google.devtools.build.lib.testutil.TestThread;
@@ -27,6 +28,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -175,6 +177,45 @@ public class ConsumersTest {
     canceller.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
 
     assertThat(outErr.getAccumulatedOut().size()).isEqualTo(sizeWhenCancelReturned.get());
+  }
+
+  @Test
+  public void testCancelUsesOneTimeoutForBothSinks() throws Exception {
+    Semaphore sinksBlocked = new Semaphore(0);
+    Semaphore sinksMayFinish = new Semaphore(0);
+    InputStream blockingOut = blockingInput(sinksBlocked, sinksMayFinish);
+    InputStream blockingErr = blockingInput(sinksBlocked, sinksMayFinish);
+    OutErrConsumers outErr = Consumers.createAccumulatingConsumers();
+    outErr.registerInputs(blockingOut, blockingErr, false);
+    sinksBlocked.acquire(2);
+
+    Stopwatch cancellationTime = Stopwatch.createStarted();
+    try {
+      outErr.cancel(Duration.ofSeconds(1));
+    } finally {
+      sinksMayFinish.release(2);
+    }
+
+    // Each sink ignores its interrupt and stays blocked, but they share one cancellation deadline
+    // rather than each consuming the full timeout sequentially.
+    assertThat(cancellationTime.elapsed().toMillis()).isLessThan(1500);
+    outErr.waitForCompletion();
+  }
+
+  private static InputStream blockingInput(Semaphore blocked, Semaphore mayFinish) {
+    return new InputStream() {
+      @Override
+      public int read() {
+        throw new UnsupportedOperationException("expected only array reads");
+      }
+
+      @Override
+      public int read(byte[] b, int off, int len) {
+        blocked.release();
+        mayFinish.acquireUninterruptibly();
+        return -1;
+      }
+    };
   }
 
   /**

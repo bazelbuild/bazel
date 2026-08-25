@@ -113,18 +113,18 @@ abstract class Branch implements Callable<ImmutableList<SpawnResult>> {
     // Cancel the future first so that when the interrupt arrives in the branch, its cancellation
     // is already observable through isCancelled() (e.g. by the StopConcurrentSpawns callbacks).
     boolean cancelled = future.cancel(false);
-    task.cancel();
+    task.requestCancellation();
     return cancelled;
   }
 
   /**
-   * Waits until this branch no longer executes, cancelling it if it has not started.
+   * Waits until a previous cancellation request has stopped this branch.
    *
    * <p>Once this method returns, the branch has finished its own cleanup (e.g. terminating
    * subprocesses) and no longer accesses the spawn's outputs.
    */
   void awaitStopped() throws InterruptedException {
-    task.cancelAndAwait();
+    task.awaitCompletion();
   }
 
   /**

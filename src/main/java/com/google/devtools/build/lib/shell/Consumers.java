@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.shell;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -55,6 +56,13 @@ final class Consumers {
   }
 
   static class OutErrConsumers {
+    /**
+     * How long cancellation waits for both sinks to stop after interrupting them. The sinks only
+     * react to the end or failure of their input streams, not necessarily to the interrupt, so the
+     * wait is bounded to avoid hanging on streams kept open by an orphaned grandchild process.
+     */
+    private static final Duration CANCEL_QUIESCENCE_TIMEOUT = Duration.ofSeconds(5);
+
     private final OutputConsumer out;
     private final OutputConsumer err;
 
@@ -69,8 +77,24 @@ final class Consumers {
     }
 
     void cancel() {
-      out.cancel();
-      err.cancel();
+      cancel(CANCEL_QUIESCENCE_TIMEOUT);
+    }
+
+    @VisibleForTesting
+    void cancel(Duration timeout) {
+      Preconditions.checkArgument(!timeout.isNegative(), "negative timeout: %s", timeout);
+      long deadlineNanos = System.nanoTime() + timeout.toNanos();
+
+      // Interrupt both sinks before awaiting either one: otherwise, a sink that does not quiesce
+      // consumes the entire timeout before cancellation is even requested from the other sink.
+      out.requestCancellation();
+      err.requestCancellation();
+      out.awaitCompletionUninterruptibly(remainingUntil(deadlineNanos));
+      err.awaitCompletionUninterruptibly(remainingUntil(deadlineNanos));
+    }
+
+    private static Duration remainingUntil(long deadlineNanos) {
+      return Duration.ofNanos(Math.max(0, deadlineNanos - System.nanoTime()));
     }
 
     void waitForCompletion() throws IOException {
@@ -114,7 +138,9 @@ final class Consumers {
 
     void registerInput(InputStream in, boolean closeConsumer);
 
-    void cancel();
+    void requestCancellation();
+
+    boolean awaitCompletionUninterruptibly(Duration timeout);
 
     void waitForCompletion() throws IOException;
   }
@@ -173,14 +199,6 @@ final class Consumers {
    */
   private abstract static class FutureConsumption implements OutputConsumer {
 
-    /**
-     * How long {@link #cancel} waits for the sink to stop after interrupting it. The sink only
-     * reacts to the end or failure of its input stream, not to the interrupt, so the wait is
-     * bounded to avoid hanging on a stream that is kept open indefinitely, e.g. by an orphaned
-     * grandchild process that inherited it.
-     */
-    private static final Duration CANCEL_QUIESCENCE_TIMEOUT = Duration.ofSeconds(5);
-
     private CancellableTask<RuntimeException> task;
     private Future<?> future;
 
@@ -194,10 +212,15 @@ final class Consumers {
     protected abstract Runnable createConsumingAndClosingSink(InputStream in, boolean close);
 
     @Override
-    public void cancel() {
+    public void requestCancellation() {
+      task.requestCancellation();
+    }
+
+    @Override
+    public boolean awaitCompletionUninterruptibly(Duration timeout) {
       // Waiting until the sink no longer runs allows callers to read the accumulated output and
       // reuse the streams they provided without racing a sink that is still writing to them.
-      boolean unused = task.cancelAndAwaitUninterruptibly(CANCEL_QUIESCENCE_TIMEOUT);
+      return task.awaitCompletionUninterruptibly(timeout);
     }
 
     @Override

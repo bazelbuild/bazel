@@ -27,9 +27,9 @@ import javax.annotation.Nullable;
  * it ends: on the task thread after the body has run (even if it threw), or on the thread of the
  * canceler that prevented the task from starting. Once the completion action begins, cancellation
  * does not interrupt it. Quiescence includes the completion action: a normal return from {@link
- * #runIfNotCancelled}, {@link #awaitCompletion}, {@link #awaitCompletionUninterruptibly}, or {@link
- * #cancelAndAwait} guarantees that both the body and the completion action have finished. {@link
- * #requestCancellation} only initiates cancellation and does not provide this guarantee.
+ * #runIfNotCancelled}, {@link #awaitCompletion}, or one of the cancel-and-await methods guarantees
+ * that both the body and the completion action have finished. {@link #requestCancellation} only
+ * initiates cancellation and does not provide this guarantee.
  *
  * <p>This class serves as a replacement for {@link java.util.concurrent.Future} when canceled
  * non-pure tasks may still interfere with other tasks until they have completed. Since {@link
