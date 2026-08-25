@@ -120,4 +120,32 @@ public class WorkspaceStatusActionTest {
     Map<String, String> result = WorkspaceStatusAction.parseValues(file);
     assertThat(result).containsExactly("KEY", "value with spaces");
   }
+
+  @Test
+  public void parseValues_crlf_keyValue() throws Exception {
+    Path file = writeFile("status.txt", "KEY value\r\n");
+    Map<String, String> result = WorkspaceStatusAction.parseValues(file);
+    assertThat(result).containsExactly("KEY", "value");
+  }
+
+  @Test
+  public void parseValues_crlf_keyOnly() throws Exception {
+    Path file = writeFile("status.txt", "KEY_ONLY\r\n");
+    Map<String, String> result = WorkspaceStatusAction.parseValues(file);
+    assertThat(result).containsExactly("KEY_ONLY", "");
+  }
+
+  @Test
+  public void parseValues_crlf_emptyLinesSkipped() throws Exception {
+    Path file = writeFile("status.txt", "KEY value\r\n\r\nOTHER other\r\n");
+    Map<String, String> result = WorkspaceStatusAction.parseValues(file);
+    assertThat(result).containsExactly("KEY", "value", "OTHER", "other");
+  }
+
+  @Test
+  public void parseValues_crlf_mixed() throws Exception {
+    Path file = writeFile("status.txt", "KEY_ONLY\r\nKEY value\r\n");
+    Map<String, String> result = WorkspaceStatusAction.parseValues(file);
+    assertThat(result).containsExactly("KEY_ONLY", "", "KEY", "value");
+  }
 }

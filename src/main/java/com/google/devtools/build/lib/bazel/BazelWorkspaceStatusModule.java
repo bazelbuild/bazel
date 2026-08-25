@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -141,10 +142,8 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     @VisibleForTesting
     static Map<String, String> parseWorkspaceStatus(String input) {
       TreeMap<String, String> result = new TreeMap<>();
-      for (String line : Splitter.on('\n').split(input)) {
-        if (line.isEmpty()) {
-          continue;
-        }
+      for (String line :
+          Splitter.on('\n').trimResults(CharMatcher.is('\r')).omitEmptyStrings().split(input)) {
         String[] splitLine = line.split(" ", 2);
         result.put(splitLine[0], splitLine.length >= 2 ? splitLine[1].trim() : "");
       }

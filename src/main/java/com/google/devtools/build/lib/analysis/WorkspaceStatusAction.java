@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -129,6 +130,7 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     Splitter lineSplitter = Splitter.on(' ').limit(2);
     for (String line :
         Splitter.on('\n')
+            .trimResults(CharMatcher.is('\r'))
             .omitEmptyStrings()
             .split(new String(FileSystemUtils.readContentAsLatin1(file)))) {
       List<String> items = lineSplitter.splitToList(line);

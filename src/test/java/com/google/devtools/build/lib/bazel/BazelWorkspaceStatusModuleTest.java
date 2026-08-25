@@ -53,13 +53,11 @@ public class BazelWorkspaceStatusModuleTest {
 
   @Test
   public void parseWorkspaceStatus_keyOnlyAtEof_noTrailingNewline() {
-    // Critical bug fix: input.trim() was stripping trailing space, making "KEY " look like "KEY"
     assertThat(parse("KEY_ONLY")).containsExactly("KEY_ONLY", "");
   }
 
   @Test
   public void parseWorkspaceStatus_keyWithSpaceAtEof_noTrailingNewline() {
-    // Critical bug fix: "KEY " at EOF with no newline was being discarded
     assertThat(parse("KEY ")).containsExactly("KEY", "");
   }
 
@@ -97,7 +95,27 @@ public class BazelWorkspaceStatusModuleTest {
 
   @Test
   public void parseWorkspaceStatus_valueTrimsTrailingWhitespace() {
-    // Values are trimmed of trailing whitespace
-    assertThat(parse("KEY value  \n")).containsExactly("KEY", "value");
+    assertThat(parse("KEY value \n")).containsExactly("KEY", "value");
+  }
+
+  @Test
+  public void parseWorkspaceStatus_crlf_keyValue() {
+    assertThat(parse("KEY value\r\n")).containsExactly("KEY", "value");
+  }
+
+  @Test
+  public void parseWorkspaceStatus_crlf_keyOnly() {
+    assertThat(parse("KEY_ONLY\r\n")).containsExactly("KEY_ONLY", "");
+  }
+
+  @Test
+  public void parseWorkspaceStatus_crlf_emptyLinesSkipped() {
+    assertThat(parse("KEY value\r\n\r\nOTHER other\r\n"))
+        .containsExactly("KEY", "value", "OTHER", "other");
+  }
+
+  @Test
+  public void parseWorkspaceStatus_crlf_mixed() {
+    assertThat(parse("KEY_ONLY\r\nKEY value\r\n")).containsExactly("KEY_ONLY", "", "KEY", "value");
   }
 }
