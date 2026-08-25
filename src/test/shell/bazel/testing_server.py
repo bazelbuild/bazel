@@ -17,6 +17,7 @@
 # pylint: disable=g-import-not-at-top,g-importing-member
 import argparse
 import base64
+import errno
 import json
 
 try:
@@ -177,7 +178,13 @@ def main(argv):
           httpd = TCPServerV6(('::', port), Handler)
         else:
           httpd = TCPServer(('', port), Handler)
-      except socket.error:
+      except socket.error as e:
+        # A port collision is the only bind failure worth retrying with a
+        # different port. Retrying a permanent failure - e.g. the requested
+        # address not existing in this network namespace - would loop forever
+        # and hang the caller waiting for the 'started' line below.
+        if e.errno != errno.EADDRINUSE:
+          raise
         port = None
     sys.stdout.write('%d\nstarted\n' % (port,))
     sys.stdout.flush()

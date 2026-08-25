@@ -138,6 +138,54 @@ genrule(
 )
 EOF
 
+  # A non-loopback address of this machine allows validating that the sandbox
+  # blocks all network access beyond loopback - the same boundary that keeps
+  # out the Internet - without requiring actual Internet connectivity in the
+  # test environment: the server behind nc_port listens on the wildcard
+  # address and is thus also reachable via this address, but only if the
+  # sandbox does not block non-loopback traffic.
+  non_loopback_ip="$(python3 -c 'import socket
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+try:
+  s.connect(("10.255.255.255", 1))
+  print(s.getsockname()[0])
+except OSError:
+  pass')"
+  if [[ "${non_loopback_ip}" == 127.* ]]; then
+    non_loopback_ip=
+  fi
+
+  if [[ -n "${non_loopback_ip}" ]]; then
+    cat <<EOF >>pkg/BUILD
+genrule(
+  name = "non-loopback",
+  outs = [ "non-loopback.txt" ],
+  cmd = "curl --connect-timeout 5 -fo \$@ ${non_loopback_ip}:${nc_port}",
+  tags = [ ${tags} ],
+)
+
+genrule(
+  name = "bind-non-loopback",
+  outs = [ "bind-non-loopback.txt" ],
+  # Unlike the loopback binds above, this bind can legitimately fail - a network
+  # namespace has no such address - so stop waiting once the server is gone and
+  # cap the wait, rather than hanging until the test times out.
+  cmd = "python3 $python_server --bind_address=${non_loopback_ip} always $(pwd)/file_to_serve >bind-non-loopback-port.txt & "
+      + "pid=\$\$!; "
+      + "for _ in \$\$(seq 1 30); do "
+      + "grep -q started bind-non-loopback-port.txt && break; "
+      + "kill -0 \$\$pid 2>/dev/null || break; sleep 1; done; "
+      + "port=\$\$(head -n 1 bind-non-loopback-port.txt); "
+      + "curl -fo \$@ ${non_loopback_ip}:\$\$port; "
+      + "kill \$\$pid",
+  tags = [ ${tags} ],
+)
+EOF
+  else
+    echo "Not registering tests for non-loopback network sandboxing;" \
+      "could not determine a non-loopback address of this machine"
+  fi
+
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     local hostname="${REMOTE_NETWORK_ADDRESS%:*}"
     local remote_ip
@@ -205,6 +253,29 @@ function check_network_not_ok() {
     || fail "'${target}' produced output but was expected to fail"
 }
 
+# Checks that the given target, which must have been created by a previous call
+# to setup_network_tests and which uses a non-loopback address of this machine,
+# behaves as expected in a scenario in which the sandbox blocks networking.
+#
+# The macOS sandbox cannot express "loopback only": the host part of an SBPL
+# "ip" filter may only be "*" or "localhost", and "localhost" matches every
+# address assigned to the local machine rather than just 127.0.0.1 and ::1.
+# Blocked spawns can therefore still reach this machine through its non-loopback
+# addresses. The linux-sandbox instead runs the spawn in a network namespace
+# that only has a loopback interface, so the address does not exist there at
+# all. Neither sandbox lets a blocked spawn reach any *other* host, which is
+# what the remote-ip and remote-name checks verify when REMOTE_NETWORK_ADDRESS
+# is set.
+function check_non_loopback_blocked() {
+  local target="${1}"; shift
+
+  if is_linux; then
+    check_network_not_ok "${target}" "${@}"
+  else
+    check_network_ok "${target}" "${@}"
+  fi
+}
+
 function test_sandbox_network_access() {
   setup_network_tests '"some-tag"'
 
@@ -215,6 +286,10 @@ function test_sandbox_network_access() {
   check_network_ok bind-ipv6
   check_network_ok bind-localhost
   check_network_ok bind-unix-socket
+  if [[ -n "${non_loopback_ip}" ]]; then
+    check_network_ok non-loopback
+    check_network_ok bind-non-loopback
+  fi
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     check_network_ok remote-ip
     check_network_ok remote-name
@@ -225,8 +300,9 @@ function test_sandbox_block_network_access() {
   setup_network_tests '"some-tag"'
 
   if is_linux; then
-    # TODO(jmmv): The linux-sandbox claims to allow localhost connectivity
-    # within the network namespace... but that doesn't seem to be the case.
+    # The server behind nc_port runs outside the sandbox and is thus not
+    # reachable from the linux-sandbox's network namespace. Connectivity within
+    # the namespace itself does work, as the loopback check below shows.
     check_network_not_ok localhost --experimental_sandbox_default_allow_network=false
   else
     check_network_ok localhost --experimental_sandbox_default_allow_network=false
@@ -238,6 +314,10 @@ function test_sandbox_block_network_access() {
   check_network_ok bind-ipv6 --experimental_sandbox_default_allow_network=false
   check_network_ok bind-localhost --experimental_sandbox_default_allow_network=false
   check_network_ok bind-unix-socket --experimental_sandbox_default_allow_network=false
+  if [[ -n "${non_loopback_ip}" ]]; then
+    check_non_loopback_blocked non-loopback --experimental_sandbox_default_allow_network=false
+    check_non_loopback_blocked bind-non-loopback --experimental_sandbox_default_allow_network=false
+  fi
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     check_network_not_ok remote-ip --experimental_sandbox_default_allow_network=false
     check_network_not_ok remote-name --experimental_sandbox_default_allow_network=false
@@ -258,6 +338,10 @@ EOF
   check_network_ok bind-ipv6
   check_network_ok bind-localhost
   check_network_ok bind-unix-socket
+  if [[ -n "${non_loopback_ip}" ]]; then
+    check_network_ok non-loopback
+    check_network_ok bind-non-loopback
+  fi
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     check_network_ok remote-ip
     check_network_ok remote-name
@@ -274,6 +358,10 @@ function test_sandbox_network_access_with_requires_network() {
   check_network_ok bind-ipv6 --experimental_sandbox_default_allow_network=false
   check_network_ok bind-localhost --experimental_sandbox_default_allow_network=false
   check_network_ok bind-unix-socket --experimental_sandbox_default_allow_network=false
+  if [[ -n "${non_loopback_ip}" ]]; then
+    check_network_ok non-loopback --experimental_sandbox_default_allow_network=false
+    check_network_ok bind-non-loopback --experimental_sandbox_default_allow_network=false
+  fi
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     check_network_ok remote-ip --experimental_sandbox_default_allow_network=false
     check_network_ok remote-name --experimental_sandbox_default_allow_network=false
@@ -284,8 +372,9 @@ function test_sandbox_network_access_with_block_network() {
   setup_network_tests '"block-network"'
 
   if is_linux; then
-    # TODO(jmmv): The linux-sandbox claims to allow localhost connectivity
-    # within the network namespace... but that doesn't seem to be the case.
+    # The server behind nc_port runs outside the sandbox and is thus not
+    # reachable from the linux-sandbox's network namespace. Connectivity within
+    # the namespace itself does work, as the loopback check below shows.
     check_network_not_ok localhost --experimental_sandbox_default_allow_network=true
   else
     check_network_ok localhost --experimental_sandbox_default_allow_network=true
@@ -296,6 +385,10 @@ function test_sandbox_network_access_with_block_network() {
   check_network_ok bind-ipv6 --experimental_sandbox_default_allow_network=true
   check_network_ok bind-localhost --experimental_sandbox_default_allow_network=true
   check_network_ok bind-unix-socket --experimental_sandbox_default_allow_network=true
+  if [[ -n "${non_loopback_ip}" ]]; then
+    check_non_loopback_blocked non-loopback --experimental_sandbox_default_allow_network=true
+    check_non_loopback_blocked bind-non-loopback --experimental_sandbox_default_allow_network=true
+  fi
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     check_network_not_ok remote-ip --experimental_sandbox_default_allow_network=true
     check_network_not_ok remote-name --experimental_sandbox_default_allow_network=true
