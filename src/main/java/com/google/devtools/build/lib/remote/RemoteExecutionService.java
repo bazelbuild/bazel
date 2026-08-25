@@ -1834,7 +1834,7 @@ public class RemoteExecutionService {
    * waits for uploads that are still in flight.
    *
    * <p>{@link CancellableTask} ensures that the completion callback runs exactly once and that
-   * {@link #cancel} only returns once the upload no longer accesses the action's outputs.
+   * cancellation only completes once the upload no longer accesses the action's outputs.
    */
   @VisibleForTesting
   final class OutputUploadTask implements RemoteRewoundActionSynchronizer.Cancellable {
@@ -1875,12 +1875,12 @@ public class RemoteExecutionService {
         backgroundTaskExecutor.execute(this::run);
       } catch (RejectedExecutionException e) {
         // The upload will never run. Cancelling it runs the completion callback if no cancellation
-        // got there first. There is no need to await quiescence: the upload body can't be running
-        // as the executor rejected it, and while a concurrent cancellation that won the claim may
-        // still be running the completion callback, it runs it to conclusion on its own thread and
-        // nothing on this failure path depends on the callback's effects.
+        // got there first. A concurrent cancellation may still be running the callback, whose
+        // effects are part of the upload's completion contract, so wait for it before propagating
+        // the rejection.
         try {
-          upload.cancel();
+          upload.requestCancellation();
+          upload.awaitCompletionUninterruptibly();
         } finally {
           unregisterHandle.run();
         }
@@ -1899,8 +1899,13 @@ public class RemoteExecutionService {
     }
 
     @Override
-    public void cancel() throws InterruptedException {
-      upload.cancelAndAwait();
+    public void requestCancellation() {
+      upload.requestCancellation();
+    }
+
+    @Override
+    public void awaitCompletion() throws InterruptedException {
+      upload.awaitCompletion();
     }
   }
 

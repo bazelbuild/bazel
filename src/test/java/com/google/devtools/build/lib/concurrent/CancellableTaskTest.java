@@ -45,11 +45,11 @@ public final class CancellableTaskTest {
         task.cancelAndAwait();
       }
     },
-    CANCEL_THEN_AWAIT {
+    REQUEST_THEN_AWAIT {
       @Override
       void cancel(CancellableTask<?> task) throws InterruptedException {
-        task.cancel();
-        task.cancelAndAwait();
+        task.requestCancellation();
+        task.awaitCompletion();
       }
     };
 
@@ -445,12 +445,12 @@ public final class CancellableTaskTest {
   }
 
   @Test
-  public void cancel_beforeRun_preventsStartAndRunsCompletion() throws Exception {
+  public void requestCancellation_beforeRun_preventsStartAndRunsCompletion() throws Exception {
     var ran = new AtomicBoolean();
     var completionRuns = new AtomicInteger();
     var task = new CancellableTask<>(() -> ran.set(true), completionRuns::incrementAndGet);
 
-    task.cancel();
+    task.requestCancellation();
 
     assertThat(completionRuns.get()).isEqualTo(1);
     assertThat(task.runIfNotCancelled()).isFalse();
@@ -459,7 +459,7 @@ public final class CancellableTaskTest {
   }
 
   @Test
-  public void cancel_duringRun_interruptsWithoutAwaiting() throws Exception {
+  public void requestCancellation_duringRun_interruptsWithoutAwaiting() throws Exception {
     var taskStarted = new Semaphore(0);
     var taskInterrupted = new Semaphore(0);
     var taskMayFinish = new Semaphore(0);
@@ -479,11 +479,55 @@ public final class CancellableTaskTest {
     assertThat(taskStarted.tryAcquire(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
 
     // Returns while the body is still running: it only finishes after the release below.
-    task.cancel();
+    task.requestCancellation();
 
     assertThat(taskInterrupted.tryAcquire(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
     taskMayFinish.release();
     runner.joinAndAssertState(WAIT_TIMEOUT_MILLISECONDS);
+  }
+
+  @Test
+  public void requestCancellation_thenAwaitCompletion_doesNotInterruptTaskAgain() throws Exception {
+    var taskStarted = new Semaphore(0);
+    var cleanupStarted = new Semaphore(0);
+    var cleanupMayFinish = new Semaphore(0);
+    var interruptionCount = new AtomicInteger();
+    var task =
+        new CancellableTask<>(
+            () -> {
+              taskStarted.release();
+              try {
+                new Semaphore(0).acquire();
+              } catch (InterruptedException e) {
+                interruptionCount.incrementAndGet();
+              }
+              cleanupStarted.release();
+              try {
+                cleanupMayFinish.acquire();
+              } catch (InterruptedException e) {
+                interruptionCount.incrementAndGet();
+              }
+            });
+    var runner = new TestThread(() -> assertThat(task.runIfNotCancelled()).isTrue());
+    runner.start();
+    assertThat(taskStarted.tryAcquire(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+
+    task.requestCancellation();
+    assertThat(cleanupStarted.tryAcquire(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+    var waiter = new TestThread(task::awaitCompletion);
+    waiter.start();
+    try {
+      // Awaiting a previously requested cancellation must not send another interrupt that could
+      // abort the task's cleanup.
+      assertThat(waiter.isAlive()).isTrue();
+      assertThat(interruptionCount.get()).isEqualTo(1);
+    } finally {
+      cleanupMayFinish.release();
+    }
+
+    runner.joinAndAssertState(WAIT_TIMEOUT_MILLISECONDS);
+    waiter.joinAndAssertState(WAIT_TIMEOUT_MILLISECONDS);
+    assertThat(interruptionCount.get()).isEqualTo(1);
   }
 
   @Test

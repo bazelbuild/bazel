@@ -14,6 +14,10 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -30,6 +34,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.InOrder;
 
 /** Tests for {@link RemoteRewoundActionSynchronizer}. */
 @RunWith(JUnit4.class)
@@ -54,8 +59,29 @@ public final class RemoteRewoundActionSynchronizerTest {
     rewind(action);
     rewind(action);
 
-    verify(first, times(1)).cancel();
-    verify(second, times(1)).cancel();
+    verify(first, times(1)).requestCancellation();
+    verify(first, times(1)).awaitCompletion();
+    verify(second, times(1)).requestCancellation();
+    verify(second, times(1)).awaitCompletion();
+  }
+
+  @Test
+  public void rewind_interruptedWhileAwaiting_cancelsAndAwaitsEveryTask() throws Exception {
+    Action action = newAction();
+    var first = mock(RemoteRewoundActionSynchronizer.Cancellable.class);
+    var second = mock(RemoteRewoundActionSynchronizer.Cancellable.class);
+    doThrow(new InterruptedException()).doNothing().when(first).awaitCompletion();
+    var unusedFirst = synchronizer.registerOutputUploadTask(action, first);
+    var unusedSecond = synchronizer.registerOutputUploadTask(action, second);
+
+    assertThrows(InterruptedException.class, () -> rewind(action));
+
+    InOrder order = inOrder(first, second);
+    order.verify(first).requestCancellation();
+    order.verify(second).requestCancellation();
+    order.verify(first, times(2)).awaitCompletion();
+    order.verify(second).awaitCompletion();
+    verify(actionInputFetcher, never()).handleRewoundActionOutputs(any());
   }
 
   @Test
@@ -67,7 +93,8 @@ public final class RemoteRewoundActionSynchronizerTest {
     unregister.run();
     rewind(action);
 
-    verify(task, never()).cancel();
+    verify(task, never()).requestCancellation();
+    verify(task, never()).awaitCompletion();
     assertThat(synchronizer.hasRegisteredOutputUploadTasks(action)).isFalse();
   }
 
@@ -83,8 +110,10 @@ public final class RemoteRewoundActionSynchronizerTest {
     unregisterPredecessor.run();
     rewind(action);
 
-    verify(predecessor, times(1)).cancel();
-    verify(replacement, times(1)).cancel();
+    verify(predecessor, times(1)).requestCancellation();
+    verify(predecessor, times(1)).awaitCompletion();
+    verify(replacement, times(1)).requestCancellation();
+    verify(replacement, times(1)).awaitCompletion();
   }
 
   @Test
@@ -122,9 +151,12 @@ public final class RemoteRewoundActionSynchronizerTest {
     private final AtomicInteger cancellations = new AtomicInteger();
 
     @Override
-    public void cancel() {
+    public void requestCancellation() {
       cancellations.incrementAndGet();
     }
+
+    @Override
+    public void awaitCompletion() {}
 
     @Override
     public boolean equals(Object obj) {

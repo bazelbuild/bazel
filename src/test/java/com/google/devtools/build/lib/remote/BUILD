@@ -214,6 +214,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/remote/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party/google/bytestream:bytestream_grpc",
         "//third_party/google/bytestream:bytestream_java_proto",

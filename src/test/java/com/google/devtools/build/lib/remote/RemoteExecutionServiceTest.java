@@ -21,6 +21,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.actions.ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS;
 import static com.google.devtools.build.lib.remote.util.DigestUtil.toBinaryDigest;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_MILLISECONDS;
 import static com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
@@ -129,6 +130,7 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.TempPathGenerator;
@@ -2582,6 +2584,53 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void outputUploadTask_backgroundExecutorRejects_awaitsConcurrentCompletion()
+      throws Exception {
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn = newSpawn(ImmutableMap.of(), ImmutableSet.of());
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    SpawnResult spawnResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+    var completionStarted = new Semaphore(0);
+    var completionMayFinish = new Semaphore(0);
+    var task =
+        service.new OutputUploadTask(
+            action,
+            spawnResult,
+            () -> {
+              completionStarted.release();
+              completionMayFinish.acquireUninterruptibly();
+            });
+    var canceller = new TestThread(task::requestCancellation);
+    canceller.start();
+    assertThat(completionStarted.tryAcquire(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+    service.shutdownBackgroundTaskExecutorForTesting();
+
+    var startAttempted = new Semaphore(0);
+    var starter =
+        new TestThread(
+            () -> {
+              startAttempted.release();
+              assertThrows(RejectedExecutionException.class, task::start);
+            });
+    starter.start();
+    assertThat(startAttempted.tryAcquire(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+    try {
+      assertThat(starter.isAlive()).isTrue();
+    } finally {
+      completionMayFinish.release();
+    }
+
+    canceller.joinAndAssertState(WAIT_TIMEOUT_MILLISECONDS);
+    starter.joinAndAssertState(WAIT_TIMEOUT_MILLISECONDS);
+  }
+
+  @Test
   public void outputUploadTask_completes_unregistersItself() throws Exception {
     var synchronizer = new RemoteRewoundActionSynchronizer(mock(RemoteActionInputFetcher.class));
     RemoteOutputService remoteOutputService = mock(RemoteOutputService.class);
@@ -2648,8 +2697,10 @@ public class RemoteExecutionServiceTest {
     AtomicInteger completionCalls = new AtomicInteger();
     var task = service.new OutputUploadTask(action, spawnResult, completionCalls::incrementAndGet);
 
-    task.cancel();
-    task.cancel();
+    task.requestCancellation();
+    task.awaitCompletion();
+    task.requestCancellation();
+    task.awaitCompletion();
     service.shutdownBackgroundTaskExecutorForTesting();
 
     assertThrows(RejectedExecutionException.class, task::start);
