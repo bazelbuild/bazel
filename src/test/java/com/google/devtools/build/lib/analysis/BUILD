@@ -1148,6 +1148,18 @@ java_test(
     ],
 )
 
+java_test(
+    name = "WorkspaceStatusActionTest",
+    srcs = ["WorkspaceStatusActionTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:workspace_status_action",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
 test_suite(
     name = "AllAnalysisTests",
 )
