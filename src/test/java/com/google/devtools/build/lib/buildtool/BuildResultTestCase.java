@@ -83,6 +83,37 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void testWithOnlyInternalOutputGroups() throws Exception {
+    write(
+        "foo/BUILD",
+        """
+        load("//test_defs:foo_binary.bzl", "foo_binary")
+
+        genrule(
+            name = "gen",
+            outs = ["gen.out"],
+            cmd = "touch $@",
+        )
+
+        foo_binary(
+            name = "foo",
+            srcs = ["foo.sh"],
+            data = [":gen"],
+        )
+        """);
+    write("foo/foo.sh", "echo foo").setExecutable(true);
+
+    // Subtracting the default output group leaves the internal output group carrying the runfiles,
+    // which are built but never shown.
+    addOptions("--output_groups=-default");
+    build(false, "no-error", "//foo");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr)
+        .contains("Target //foo:foo up-to-date (nothing to build except internal output groups)\n");
+  }
+
+  @Test
   public void testNoKeepGoingResult() throws Exception {
     write("test/BUILD",
         "genrule(name='A', srcs=['A2'], outs=['A.out']," +
