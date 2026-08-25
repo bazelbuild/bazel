@@ -421,21 +421,6 @@ public class CombinedCache extends AbstractReferenceCounted {
   }
 
   /**
-   * Uploads a sequence of bytes to the cache.
-   *
-   * <p>Trying to upload the same BLOB multiple times concurrently, results in only one upload being
-   * performed.
-   *
-   * @param context the context for the action.
-   * @param digest the digest of the BLOB.
-   * @param data the BLOB to upload.
-   */
-  public ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, ByteString data) {
-    return uploadBlob(context, digest, (Blob) data::newInput);
-  }
-
-  /**
    * Uploads a blob to the cache from a repeatable stream supplier.
    *
    * <p>The supplier may be opened more than once, including concurrently when both disk and remote

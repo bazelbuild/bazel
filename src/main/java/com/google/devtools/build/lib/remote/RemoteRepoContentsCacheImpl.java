@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.remote.common.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
@@ -345,7 +346,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     // The command is shared by all action results and small enough that FindMissingBlobs is not
     // worthwhile. The REAPI spec requires the command to be uploaded before an action result that
     // references it.
-    waitForBulkTransfer(ImmutableSet.of(cache.uploadBlob(context, commandDigest, COMMAND_BYTES)));
+    waitForBulkTransfer(ImmutableSet.of(cache.uploadBlob(context, commandDigest, (Blob) COMMAND_BYTES::newInput, /* force= */ false)));
 
     String rollingHash = predeclaredInputHash;
     var batches = RepoRecordedInput.WithValue.splitIntoBatches(recordedInputValues);
@@ -416,8 +417,8 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
           var actionResult =
               ActionResult.newBuilder().setExitCode(0).setStdoutDigest(stdoutDigest).build();
           return whenAllSucceed(
-                  cache.uploadBlob(context, actionKey.digest(), action.toByteString()),
-                  cache.uploadBlob(context, stdoutDigest, ByteString.copyFrom(stdoutBytes)))
+                  cache.uploadBlob(context, actionKey.digest(), (Blob) action.toByteString()::newInput, /* force= */ false),
+                  cache.uploadBlob(context, stdoutDigest, (Blob) ByteString.copyFrom(stdoutBytes)::newInput, /* force= */ false))
               .callAsync(
                   () -> cache.uploadActionResult(context, actionKey, actionResult),
                   directExecutor());
