@@ -53,11 +53,14 @@ import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 import org.junit.After;
@@ -466,4 +469,44 @@ public class SandboxHelpersTest {
         .containsExactly("hello", "pathmapper")
         .inOrder();
   }
+
+  @Test
+  public void asynchronousTreeDeleter_shutdown_waitsForPendingDeletions() throws Exception {
+    CountDownLatch deletionStarted = new CountDownLatch(1);
+    CountDownLatch allowDeletionToComplete = new CountDownLatch(1);
+
+    FileSystem customFs =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          @Override
+          public boolean delete(PathFragment path) throws IOException {
+            deletionStarted.countDown();
+            try {
+              allowDeletionToComplete.await();
+            } catch (InterruptedException e) {
+              throw new IOException(e);
+            }
+            return super.delete(path);
+          }
+        };
+
+    Scratch customScratch = new Scratch(customFs);
+    Path trashBase = customScratch.dir("/trash");
+    Path dir = customScratch.dir("/dir");
+    customScratch.file("/dir/file.txt");
+
+    AsynchronousTreeDeleter deleter = new AsynchronousTreeDeleter(trashBase);
+    deleter.deleteTree(dir);
+
+    // Wait until background thread starts deleting
+    deletionStarted.await();
+
+    ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+    executorToCleanup = executor;
+    var unused = executor.schedule(allowDeletionToComplete::countDown, 100, TimeUnit.MILLISECONDS);
+
+    deleter.shutdown();
+
+    assertThat(trashBase.getDirectoryEntries()).isEmpty();
+  }
 }
+
