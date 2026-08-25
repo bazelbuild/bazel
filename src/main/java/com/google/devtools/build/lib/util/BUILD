@@ -533,6 +533,7 @@ java_library(
         ":abrupt_exit_exception",
         ":detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 

@@ -132,8 +132,9 @@ public final class FetchCommand implements BlazeCommand {
         result = fetchAll(env, threadsOption, fetchOptions.getConfigure());
       }
     } catch (InterruptedException e) {
-      return createFailedBlazeCommandResult(
-          env.getReporter(), "Fetch interrupted: " + e.getMessage());
+      String message =
+          e.getMessage() != null ? "Fetch interrupted: " + e.getMessage() : "Fetch interrupted";
+      return createFailedBlazeCommandResult(env.getReporter(), message);
     }
 
     env.getEventBus()
@@ -181,9 +182,11 @@ public final class FetchCommand implements BlazeCommand {
                 ImmutableSet.of(BazelFetchAllValue.key(configureEnabled)), evaluationContext);
     if (evaluationResult.hasError()) {
       Exception e = evaluationResult.getError().getException();
-      return createFailedBlazeCommandResult(
-          env.getReporter(),
-          e != null ? e.getMessage() : "Unexpected error during fetching all external deps.");
+      String errorMessage =
+          e != null && e.getMessage() != null
+              ? e.getMessage()
+              : "Unexpected error during fetching all external deps.";
+      return createFailedBlazeCommandResult(env.getReporter(), errorMessage);
     }
 
     env.getReporter().handle(Event.info("All external dependencies fetched successfully."));
@@ -200,7 +203,9 @@ public final class FetchCommand implements BlazeCommand {
       return createFailedBlazeCommandResult(
           env.getReporter(), "Invalid repo name: " + e.getMessage(), e.getDetailedExitCode());
     } catch (RepositoryFetcherException e) {
-      return createFailedBlazeCommandResult(env.getReporter(), e.getMessage());
+      String errorMessage =
+          e.getMessage() != null ? e.getMessage() : "Unexpected error during repository fetching.";
+      return createFailedBlazeCommandResult(env.getReporter(), errorMessage);
     }
 
     String notFoundRepos =
