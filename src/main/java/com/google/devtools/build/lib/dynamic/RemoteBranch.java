@@ -114,12 +114,6 @@ class RemoteBranch extends Branch {
       throw new IllegalStateException("prepareFuture not called");
     }
     try {
-      if (!starting.compareAndSet(true, false)) {
-        // If we ever get here, it's because we were cancelled early and the listener
-        // ran first. Just make sure that's the case.
-        checkState(Thread.interrupted());
-        throw new InterruptedException();
-      }
       return runRemotely(
           spawn,
           context,
@@ -140,7 +134,7 @@ class RemoteBranch extends Branch {
       // This exception can be thrown due to races in stopBranch(), in which case
       // the branch that lost the race may not have been cancelled yet. Cancel it here
       // to prevent the listener from cross-cancelling.
-      future.cancel(true);
+      cancelSelf();
       throw e;
     } catch (
         @SuppressWarnings("InterruptedExceptionSwallowed")
@@ -151,8 +145,6 @@ class RemoteBranch extends Branch {
             spawn.getResourceOwner().prettyPrint(), e.getClass().getSimpleName(), e.getMessage());
       }
       throw e;
-    } finally {
-      done.release();
     }
   }
 

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.DynamicStrategyRegistry.DynamicMode
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.concurrent.CancellableTask;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -33,9 +34,8 @@ import java.io.IOException;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 
 /**
  * Wraps the execution of a function that is supposed to execute a spawn via a strategy and only
@@ -45,10 +45,16 @@ abstract class Branch implements Callable<ImmutableList<SpawnResult>> {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
-   * True if this branch is still starting up, i.e. didn't get to the inner part of {@link
-   * #callImpl(ActionExecutionContext)} yet.
+   * The execution of this branch. Cancelling it before it starts prevents it from ever running,
+   * and after cancellation the other branch can wait until it no longer executes and thus has
+   * finished its own cleanup (e.g. terminating subprocesses).
    */
-  protected final AtomicBoolean starting = new AtomicBoolean(true);
+  private final CancellableTask<InterruptedException> task = new CancellableTask<>(this::runBranch);
+
+  /** The results of {@link #runBranch}, which are only accessed by the thread that ran it. */
+  @Nullable private ImmutableList<SpawnResult> results;
+
+  @Nullable private ExecException execException;
 
   /** The {@link Spawn} this branch is running. */
   protected final Spawn spawn;
@@ -64,13 +70,6 @@ abstract class Branch implements Callable<ImmutableList<SpawnResult>> {
    * This object is shared between the local and remote branch of an action.
    */
   protected final AtomicReference<DynamicMode> strategyThatCancelled;
-
-  /**
-   * Semaphore that indicates whether this branch is done, i.e. either completed or cancelled. This
-   * is needed to wait for the branch to finish its own cleanup (e.g. terminating subprocesses) once
-   * it has been cancelled.
-   */
-  protected final Semaphore done = new Semaphore(0);
 
   protected final DynamicExecutionOptions options;
   protected final ActionExecutionContext context;
@@ -98,19 +97,44 @@ abstract class Branch implements Callable<ImmutableList<SpawnResult>> {
     return future.isDone();
   }
 
-  /** Returns the {@code Semaphore} indicating whether this branch is done. */
-  Semaphore getDoneSemaphore() {
-    return done;
-  }
-
   /** Returns whether this branch has already been cancelled. */
   boolean isCancelled() {
     return future.isCancelled();
   }
 
-  /** Cancels this branch. Equivalent to {@code Future.cancel(true)}. */
+  /**
+   * Cancels this branch, preventing it from starting or interrupting it if it is already running.
+   *
+   * <p>Does not wait for a running branch to stop executing, use {@link #awaitStopped} for that.
+   *
+   * @return whether this call cancelled the branch's future
+   */
   boolean cancel() {
-    return future.cancel(true);
+    // Cancel the future first so that when the interrupt arrives in the branch, its cancellation
+    // is already observable through isCancelled() (e.g. by the StopConcurrentSpawns callbacks).
+    boolean cancelled = future.cancel(false);
+    task.cancel();
+    return cancelled;
+  }
+
+  /**
+   * Waits until this branch no longer executes, cancelling it if it has not started.
+   *
+   * <p>Once this method returns, the branch has finished its own cleanup (e.g. terminating
+   * subprocesses) and no longer accesses the spawn's outputs.
+   */
+  void awaitStopped() throws InterruptedException {
+    task.cancelAndAwait();
+  }
+
+  /**
+   * Marks this branch as cancelled without interrupting it.
+   *
+   * <p>Unlike {@link #cancel}, this may be called by the branch itself, which cannot cancel its
+   * own task.
+   */
+  protected void cancelSelf() {
+    var unused = future.cancel(false);
   }
 
   /** Gets the results from this branch, when available. Behaves like {@link Future#get()} */
@@ -141,11 +165,6 @@ abstract class Branch implements Callable<ImmutableList<SpawnResult>> {
     this.otherBranch = otherBranch;
     future.addListener(
         () -> {
-          if (starting.compareAndSet(true, false)) {
-            // If the current branch got cancelled before even starting, we release its semaphore
-            // for it.
-            done.release();
-          }
           // If the current branch succeeds, there is no need to keep the other branch running.
           // If the current branch fails, cancel the other branch as well. However, that one may
           // in turn cancel us, thus causing an interruption. Don't consider that a failure as
@@ -213,7 +232,8 @@ abstract class Branch implements Callable<ImmutableList<SpawnResult>> {
       throws InterruptedException, ExecException;
 
   /**
-   * Executes the {@link #callImpl} hook and handles stdout/stderr.
+   * Executes the {@link #callImpl} hook and handles stdout/stderr, unless the branch was cancelled
+   * before it started running.
    *
    * @return the spawn results if execution was successful
    * @throws InterruptedException if the branch was cancelled or an interrupt was caught
@@ -221,14 +241,22 @@ abstract class Branch implements Callable<ImmutableList<SpawnResult>> {
    */
   @Override
   public final ImmutableList<SpawnResult> call() throws InterruptedException, ExecException {
+    if (!task.runIfNotCancelled()) {
+      throw new InterruptedException(getMode() + " branch was cancelled before it started");
+    }
+    if (execException != null) {
+      throw execException;
+    }
+    return checkNotNull(results);
+  }
+
+  private void runBranch() throws InterruptedException {
     FileOutErr fileOutErr = getSuffixedFileOutErr(context.getFileOutErr(), "." + getMode().name());
 
-    ImmutableList<SpawnResult> results = null;
-    ExecException exception = null;
     try {
       results = callImpl(context.withFileOutErr(fileOutErr));
     } catch (ExecException e) {
-      exception = e;
+      execException = e;
     } finally {
       try {
         fileOutErr.close();
@@ -238,12 +266,5 @@ abstract class Branch implements Callable<ImmutableList<SpawnResult>> {
     }
 
     moveFileOutErr(fileOutErr, context.getFileOutErr());
-
-    if (exception != null) {
-      throw exception;
-    } else {
-      checkNotNull(results);
-      return results;
-    }
   }
 }

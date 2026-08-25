@@ -614,6 +614,34 @@ public class DynamicSpawnStrategyUnitTest {
   }
 
   @Test
+  public void call_cancelledBeforeRunning_throwsInterruptedException() throws Exception {
+    Spawn spawn =
+        new SpawnBuilder()
+            .withOwnerPrimaryOutput(new SourceArtifact(rootDir, PathFragment.create("/foo"), null))
+            .build();
+    SandboxedSpawnStrategy local = createMockSpawnStrategy();
+    SandboxedSpawnStrategy remote = createMockSpawnStrategy();
+    ActionExecutionContext actionExecutionContext = createMockActionExecutionContext(local, remote);
+    AtomicReference<DynamicMode> strategyThatCancelled = new AtomicReference<>();
+    DynamicExecutionOptions options = Options.getDefaults(DynamicExecutionOptions.class);
+    LocalBranch localBranch =
+        new LocalBranch(
+            actionExecutionContext, spawn, strategyThatCancelled, options, null, null, null);
+    RemoteBranch remoteBranch =
+        new RemoteBranch(actionExecutionContext, spawn, strategyThatCancelled, options, null, null);
+    localBranch.prepareFuture(remoteBranch);
+    remoteBranch.prepareFuture(localBranch);
+    localBranch.cancel();
+
+    // The executor may start running a branch before Branch#execute links the executor's future to
+    // the branch's own future, in which case a concurrent cancellation of the branch does not
+    // interrupt the thread running it. The branch must still exit with the InterruptedException
+    // that signals a cancelled branch instead of crashing.
+    assertThrows(InterruptedException.class, localBranch::call);
+    verify(local, never()).exec(any(), any(), any());
+  }
+
+  @Test
   public void exec_runAnywhereSpawn_localCantExec_runsRemote() throws Exception {
     Spawn spawn = new SpawnBuilder().withOwnerPrimaryOutput(output1).build();
     Spawn postProcessingSpawn = createMockSpawn();
