@@ -65,7 +65,6 @@ java_test(
     srcs = ["ModuleInfoExtractorTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:extractionexception",
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:labelrenderer",
