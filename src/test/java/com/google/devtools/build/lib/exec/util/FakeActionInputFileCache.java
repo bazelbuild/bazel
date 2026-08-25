@@ -19,6 +19,8 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,6 +33,7 @@ public final class FakeActionInputFileCache implements InputMetadataProvider {
   private static final byte[] EMPTY_DIGEST = new byte[0];
 
   private final Map<ActionInput, FileArtifactValue> inputs = new HashMap<>();
+  private final Map<PathFragment, TreeArtifactValue> treeArtifacts = new HashMap<>();
   private final Map<ActionInput, RunfilesArtifactValue> runfilesInputs = new HashMap<>();
   private final List<RunfilesTree> runfilesTrees = new ArrayList<>();
 
@@ -38,6 +41,10 @@ public final class FakeActionInputFileCache implements InputMetadataProvider {
 
   public void put(ActionInput artifact, FileArtifactValue metadata) {
     inputs.put(artifact, metadata);
+  }
+
+  public void putTreeArtifact(ActionInput artifact, TreeArtifactValue metadata) {
+    treeArtifacts.put(artifact.getExecPath(), metadata);
   }
 
   public void putRunfilesTree(ActionInput middleman, RunfilesTree runfilesTree) {
@@ -57,6 +64,12 @@ public final class FakeActionInputFileCache implements InputMetadataProvider {
   @Nullable
   public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
     return inputs.get(input);
+  }
+
+  @Override
+  @Nullable
+  public TreeArtifactValue getTreeMetadata(PathFragment execPath) {
+    return treeArtifacts.get(execPath);
   }
 
   @Override

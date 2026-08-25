@@ -541,6 +541,7 @@ java_library(
     name = "action_input_metadata_provider",
     srcs = ["ActionInputMetadataProvider.java"],
     deps = [
+        ":tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",

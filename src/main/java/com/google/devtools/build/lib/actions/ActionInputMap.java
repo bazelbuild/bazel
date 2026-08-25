@@ -299,6 +299,7 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
    * artifact exists.
    */
   @Nullable
+  @Override
   public TreeArtifactValue getTreeMetadata(PathFragment execPath) {
     int index = getIndex(execPath.getPathString());
     if (index < 0) {
