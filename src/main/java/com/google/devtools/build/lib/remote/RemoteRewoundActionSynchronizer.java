@@ -45,13 +45,13 @@ import javax.annotation.Nullable;
  * while they are being read.
  */
 public final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer {
-  /** A task with a cancellation callback. */
+  /** A task whose cancellation can be requested separately from awaiting its completion. */
   public interface Cancellable {
-    /**
-     * Cancels the task and only returns once it no longer accesses the outputs of the action it
-     * belongs to.
-     */
-    void cancel() throws InterruptedException;
+    /** Requests cancellation without awaiting the task's completion. */
+    void requestCancellation();
+
+    /** Waits until the task no longer accesses the outputs of the action it belongs to. */
+    void awaitCompletion() throws InterruptedException;
   }
 
   private final AbstractActionInputPrefetcher actionInputFetcher;
@@ -225,8 +225,35 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   private void prepareOutputsForRewinding(Action action) throws InterruptedException {
     ImmutableList<Cancellable> tasks = outputUploadTasks.remove(actionKeyFor(action));
     if (tasks != null) {
+      // Request cancellation from every task before awaiting any one of them so that an
+      // interruption while awaiting cannot leave later tasks running without cancellation.
       for (Cancellable task : tasks) {
-        task.cancel();
+        task.requestCancellation();
+      }
+
+      InterruptedException interruption = null;
+      for (Cancellable task : tasks) {
+        while (true) {
+          try {
+            task.awaitCompletion();
+            break;
+          } catch (InterruptedException e) {
+            // The tasks have already been removed from the registry, so abandoning one here would
+            // let a retry delete outputs it still accesses. Finish awaiting every task and only
+            // then propagate the interruption.
+            if (interruption == null) {
+              interruption = e;
+            }
+          }
+        }
+      }
+      if (Thread.interrupted()) {
+        if (interruption == null) {
+          interruption = new InterruptedException();
+        }
+      }
+      if (interruption != null) {
+        throw interruption;
       }
     }
     actionInputFetcher.handleRewoundActionOutputs(action.getOutputs());

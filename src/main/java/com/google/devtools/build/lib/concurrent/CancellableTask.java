@@ -25,8 +25,10 @@ import javax.annotation.Nullable;
  * <p>An optional completion action runs exactly once when the task's lifecycle ends, no matter how
  * it ends: on the task thread after the body has run (even if it threw), or on the thread of the
  * canceler that prevented the task from starting. Once the completion action begins, cancellation
- * does not interrupt it. Quiescence includes the completion action: any execution or cancellation
- * that returns normally guarantees that both the body and the completion action have finished.
+ * does not interrupt it. Quiescence includes the completion action: a normal return from {@link
+ * #runIfNotCancelled}, {@link #awaitCompletion}, {@link #awaitCompletionUninterruptibly}, or {@link
+ * #cancelAndAwait} guarantees that both the body and the completion action have finished. {@link
+ * #requestCancellation} only initiates cancellation and does not provide this guarantee.
  *
  * <p>This class serves as a replacement for {@link java.util.concurrent.Future} when canceled
  * non-pure tasks may still interfere with other tasks until they have completed. Since {@link
@@ -124,44 +126,16 @@ public final class CancellableTask<E extends Exception> {
   }
 
   /**
-   * Cancels the task without waiting for it to quiesce.
+   * Requests cancellation without waiting for the task to quiesce.
    *
    * <p>If the task has not started, this prevents it from starting and runs the completion action
    * on its behalf before returning. Otherwise, it interrupts the thread executing the task body,
-   * which may still be executing when this method returns.
+   * which may still be executing when this method returns. Call {@link #awaitCompletion} afterward
+   * if quiescence is required without requesting cancellation a second time.
    *
    * @throws IllegalStateException if called from the task body or completion action
    */
-  public void cancel() {
-    var unused = cancelTask();
-  }
-
-  /**
-   * Cancels the task and waits until it no longer executes.
-   *
-   * <p>If the task has not started, this prevents it from starting and runs the completion action
-   * on its behalf. Otherwise, it interrupts the thread executing the task body and waits for the
-   * body and completion action to finish. Once the completion action begins, cancellation waits for
-   * it without interrupting its thread. Unlike {@link java.util.concurrent.Future#cancel}, a normal
-   * return therefore guarantees that the task has quiesced.
-   *
-   * @throws IllegalStateException if called from the task body or completion action, neither of
-   *     which can await the task
-   */
-  public void cancelAndAwait() throws InterruptedException {
-    if (cancelTask()) {
-      return;
-    }
-    done.await();
-  }
-
-  /**
-   * Cancels the task, interrupting the thread executing its body if it is running.
-   *
-   * @return whether this call prevented the task from starting and ran the completion action
-   * @throws IllegalStateException if called from the task body or completion action
-   */
-  private boolean cancelTask() {
+  public void requestCancellation() {
     boolean preventedStart;
     synchronized (this) {
       preventedStart =
@@ -190,12 +164,60 @@ public final class CancellableTask<E extends Exception> {
           };
     }
     if (preventedStart) {
-      // The task will never run, so run the completion action on its behalf. Release concurrent
-      // cancelers only afterward so that they, too, only return once it has finished.
+      // The task will never run, so run the completion action on its behalf. Signal completion only
+      // afterward so that concurrent awaiters only return once it has finished.
       runCompletion();
-      return true;
     }
-    return false;
+  }
+
+  /**
+   * Waits until the task body and completion action have finished without requesting cancellation.
+   *
+   * <p>If neither execution nor cancellation has started, this waits until one of them does.
+   *
+   * @throws IllegalStateException if called from the task body or completion action, neither of
+   *     which can await the task
+   */
+  public void awaitCompletion() throws InterruptedException {
+    checkCanAwait();
+    done.await();
+  }
+
+  /**
+   * An uninterruptible variant of {@link #awaitCompletion} that restores the interrupt bit before
+   * returning.
+   *
+   * @throws IllegalStateException if called from the task body or completion action, neither of
+   *     which can await the task
+   */
+  public void awaitCompletionUninterruptibly() {
+    checkCanAwait();
+    Uninterruptibles.awaitUninterruptibly(done);
+  }
+
+  /**
+   * Cancels the task and waits until it no longer executes.
+   *
+   * <p>If the task has not started, this prevents it from starting and runs the completion action
+   * on its behalf. Otherwise, it interrupts the thread executing the task body and waits for the
+   * body and completion action to finish. Once the completion action begins, cancellation waits for
+   * it without interrupting its thread. Unlike {@link java.util.concurrent.Future#cancel}, a normal
+   * return therefore guarantees that the task has quiesced.
+   *
+   * @throws IllegalStateException if called from the task body or completion action, neither of
+   *     which can await the task
+   */
+  public void cancelAndAwait() throws InterruptedException {
+    requestCancellation();
+    awaitCompletion();
+  }
+
+  private void checkCanAwait() {
+    synchronized (this) {
+      if (executingThread == Thread.currentThread()) {
+        throw new IllegalStateException("task cannot await itself");
+      }
+    }
   }
 
   /** Runs the completion action and publishes terminal state even if the action throws. */
