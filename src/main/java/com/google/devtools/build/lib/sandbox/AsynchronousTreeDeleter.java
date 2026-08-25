@@ -123,6 +123,13 @@ public class AsynchronousTreeDeleter implements TreeDeleter {
     if (service != null) {
       logger.atInfo().log("Finishing %d pending async tree deletions", service.getTaskCount());
       service.shutdown();
+      try {
+        service.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
+      } catch (InterruptedException e) {
+        logger.atWarning().withCause(e).log(
+            "Interrupted while waiting for async tree deletions to finish");
+        Thread.currentThread().interrupt();
+      }
       service = null;
     }
   }
