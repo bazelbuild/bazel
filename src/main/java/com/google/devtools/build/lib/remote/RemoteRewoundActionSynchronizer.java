@@ -149,7 +149,10 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
     if (localCoarseLock != null) {
       // This is the first time a rewound action has attempted to prepare for its execution.
       // Switch to using the fine locks under the protection of the coarse write lock.
-      localCoarseLock.writeLock().lockInterruptibly();
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.ACTION_LOCK, "action.prepareFirstRewinding")) {
+        localCoarseLock.writeLock().lockInterruptibly();
+      }
       try {
         // Check again under the lock to avoid a race between multiple rewound actions attempting
         // to prepare for execution at the same time.
@@ -166,6 +169,8 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
                   // (https://github.com/openjdk/jdk/blob/b349f661ea5f14b258191134714a7e712c90ef3e/src/java.base/share/classes/java/util/concurrent/locks/StampedLock.java#L1039),
                   // TODO: Investigate the effect of fair locks on build wall time.
                   .build((ActionLookupData unused) -> new StampedLock().asReadWriteLock());
+          // Must be assigned after fineLocks as lockArtifactsForConsumption relies on a null
+          // coarseLock implying a non-null fineLocks.
           coarseLock = null;
         }
       } finally {
@@ -174,8 +179,18 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
     }
 
     var writeLock = fineLocks.get(outputKeyFor(action)).writeLock();
-    writeLock.lockInterruptibly();
-    prepareOutputsForRewinding(action);
+    try (SilentCloseable c =
+        Profiler.instance()
+            .profile(ProfilerTask.ACTION_LOCK, "action.awaitRewoundActionConsumers")) {
+      writeLock.lockInterruptibly();
+    }
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.INFO, "action.prepareOutputsForRewinding")) {
+      prepareOutputsForRewinding(action);
+    } catch (Throwable t) {
+      writeLock.unlock();
+      throw t;
+    }
     return writeLock::unlock;
   }
 
@@ -265,7 +280,7 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
         readLock.lockInterruptibly();
         locksToUnlockBuilder.add(readLock);
       }
-    } catch (InterruptedException e) {
+    } catch (Throwable e) {
       for (var readLock : locksToUnlockBuilder.build()) {
         readLock.unlock();
       }
