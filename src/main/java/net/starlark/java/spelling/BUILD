@@ -22,6 +22,6 @@ java_library(
         "//src/main/java/net/starlark/java:starlark",
     ],
     deps = [
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )

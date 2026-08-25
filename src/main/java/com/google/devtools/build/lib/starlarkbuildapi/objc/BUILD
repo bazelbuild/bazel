@@ -23,7 +23,7 @@ java_library(
     name = "objc",
     srcs = glob(["*.java"]),
     deps = [
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",

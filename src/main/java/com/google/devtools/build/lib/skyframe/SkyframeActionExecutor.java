@@ -1145,8 +1145,9 @@ public final class SkyframeActionExecutor {
           }
           env.getListener().post(event);
           var rewoundActionSynchronizer = outputService.getRewoundActionSynchronizer();
+          boolean wasRewound = wasRewound(action);
           try (SilentCloseable outerLock =
-              rewoundActionSynchronizer.enterActionPreparation(action, wasRewound(action))) {
+              rewoundActionSynchronizer.enterActionPreparation(action, wasRewound)) {
             if (actionFileSystemType().shouldDoEagerActionPrep()) {
               try (SilentCloseable d =
                   Profiler.instance().profile(ProfilerTask.INFO, "action.prepare")) {
@@ -1181,7 +1182,7 @@ public final class SkyframeActionExecutor {
 
             try (SilentCloseable innerLock =
                 rewoundActionSynchronizer.enterActionExecution(
-                    action, actionExecutionContext.getInputMetadataProvider())) {
+                    action, wasRewound, actionExecutionContext.getInputMetadataProvider())) {
               return executeAction(env.getListener(), action);
             }
           }

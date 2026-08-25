@@ -19,6 +19,9 @@ import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
+import com.google.devtools.build.lib.causes.Cause;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
@@ -48,6 +51,8 @@ public class BuildResultListener {
   // Also includes test targets.
   private final Set<ConfiguredTargetKey> builtTargets = ConcurrentHashMap.newKeySet();
   private final Set<AspectKey> builtAspects = ConcurrentHashMap.newKeySet();
+  private final Map<ConfiguredTargetKey, NestedSet<Cause>> targetRootCauses =
+      new ConcurrentHashMap<>();
 
   @Subscribe
   @AllowConcurrentEvents
@@ -107,5 +112,17 @@ public class BuildResultListener {
 
   public ImmutableSet<AspectKey> getBuiltAspects() {
     return ImmutableSet.copyOf(builtAspects);
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void targetComplete(TargetCompleteEvent event) {
+    if (event.failed()) {
+      targetRootCauses.put(event.getConfiguredTargetKey(), event.getRootCauses());
+    }
+  }
+
+  public ImmutableMap<ConfiguredTargetKey, NestedSet<Cause>> getTargetRootCauses() {
+    return ImmutableMap.copyOf(targetRootCauses);
   }
 }

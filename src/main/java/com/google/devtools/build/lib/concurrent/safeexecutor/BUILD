@@ -23,8 +23,10 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
-        "//third_party:error_prone_annotations",
-        "//third_party:flogger",
-        "//third_party:guava",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
     ],
 )

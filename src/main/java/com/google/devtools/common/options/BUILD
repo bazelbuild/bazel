@@ -26,10 +26,12 @@ java_library(
     deps = [
         ":options_internal",
         "//src/main/protobuf:invocation_policy_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf",
     ],
 )
 
@@ -58,10 +60,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/util/regex:regex_util",
         "//src/main/java/net/starlark/java/spelling",
-        "//third_party:auto_value",
-        "//third_party:caffeine",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/caffeine",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:primitives",
+        "//third_party/java/guava:reflect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -71,6 +77,8 @@ java_library(
     deps = [
         ":options_internal",
         "//src/main/java/com/google/devtools/build/lib/util:markdown",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:escape",
     ],
 )

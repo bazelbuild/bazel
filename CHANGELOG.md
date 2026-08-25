@@ -1,3 +1,26 @@
+## Release 10.0.0-pre.20260811.3 (2026-08-20)
+
+```
+Baseline: 882d6f366dfdb92f031492755ba11185948bd987
+
+Cherry picks:
+
+   + 56cf7a548564f342b6c6f78191780b0f03401e18:
+     Disable non-deterministic interning / memory optimizations when
+     Skycache serialization is needed.
+   + 31d34c8a8cd7cc3481094dcefaa5411a804a7540:
+     Fix non-fatal error in StarlarkProvider.export()
+```
+
+Important changes:
+
+  - Fix `sh_binary` on Windows to pass user arguments as positional
+    parameters to bash instead of concatenating them.
+  - Fixes a possible crash on Windows Arm64 related to JNI strings
+  - Added urlencode($1) support to --downloader_config rewrite rules.
+
+This release contains contributions from many people at Google, as well as Andrew Hewitson, dependabot[bot], Fabian Meumertzheim, Keith Smiley.
+
 ## Release 10.0.0-pre.20260806.4 (2026-08-14)
 
 ```

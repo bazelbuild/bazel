@@ -75,8 +75,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -120,8 +123,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -149,8 +154,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/guava:primitives",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -171,8 +179,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/windows",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -226,7 +234,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/module",
         "//src/main/java/com/google/devtools/build/lib/starlarkprofiler:cpu_profiler_module",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_module",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -247,9 +255,10 @@ java_library(
     name = "bazel_version",
     srcs = ["BazelVersion.java"],
     deps = [
-        "//third_party:auto_value",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -267,6 +276,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
         "//src/main/java/com/google/devtools/build/lib/unix:process_utils_service_impl",
         "//src/main/java/com/google/devtools/build/lib/util:server_log_path_service_impl",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )

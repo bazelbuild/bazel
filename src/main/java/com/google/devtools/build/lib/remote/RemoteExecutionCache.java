@@ -131,13 +131,15 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       @Nullable DiskCacheClient diskCacheClient,
       @Nullable String symlinkTemplate,
       DigestUtil digestUtil,
-      @Nullable ChunkingFunctionValue chunkingFunction) {
+      @Nullable ChunkingFunctionValue chunkingFunction,
+      ChunkLocationMap chunkLocationMap) {
     super(
         checkNotNull(remoteCacheClient),
         diskCacheClient,
         symlinkTemplate,
         digestUtil,
-        chunkingFunction);
+        chunkingFunction,
+        chunkLocationMap);
   }
 
   @VisibleForTesting

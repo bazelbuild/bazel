@@ -20,8 +20,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:bazel_java_semantics",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 

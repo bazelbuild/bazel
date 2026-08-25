@@ -28,11 +28,12 @@ java_library(
         "//src/main/protobuf:stardoc_output_java_proto",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/bazel/bzlmod:util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@com_google_protobuf//:protobuf_java",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/protobuf",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
+        "//third_party/java/truth/extensions:proto",
     ],
 )
 

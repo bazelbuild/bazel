@@ -736,7 +736,11 @@ public final class ResourceManagerTest {
 
   @Test
   public void testCPULoadScheduling_cantAcquireWhileWindowFull() throws Exception {
-    manager.initializeCpuLoadFunctionality(machineLoadProvider, true, Duration.ofSeconds(5));
+    manager.initializeLoadFunctionality(
+        machineLoadProvider,
+        /* cpuLoadScheduling= */ true,
+        /* memoryLoadScheduling= */ false,
+        Duration.ofSeconds(5));
     // Acquire 1 CPU
     acquire(0, 1, 0);
     // Set load only for 0.1 CPU
@@ -757,7 +761,11 @@ public final class ResourceManagerTest {
 
   @Test
   public void testCPULoadScheduling_cantAcquireWhileCpuLoaded() throws Exception {
-    manager.initializeCpuLoadFunctionality(machineLoadProvider, true, Duration.ofSeconds(5));
+    manager.initializeLoadFunctionality(
+        machineLoadProvider,
+        /* cpuLoadScheduling= */ true,
+        /* memoryLoadScheduling= */ false,
+        Duration.ofSeconds(5));
     // Acquire 1 CPU
     acquire(0, 1, 0);
     when(machineLoadProvider.getCurrentCpuUsage()).thenReturn(0.9);
@@ -779,7 +787,11 @@ public final class ResourceManagerTest {
 
   @Test
   public void testCPULoadScheduling_success() throws Exception {
-    manager.initializeCpuLoadFunctionality(machineLoadProvider, true, Duration.ofSeconds(5));
+    manager.initializeLoadFunctionality(
+        machineLoadProvider,
+        /* cpuLoadScheduling= */ true,
+        /* memoryLoadScheduling= */ false,
+        Duration.ofSeconds(5));
     // Acquire 1 CPU
     acquire(0, 1, 0);
     // Set load only for 0.1 CPU
@@ -798,6 +810,55 @@ public final class ResourceManagerTest {
   }
 
   @Test
+  public void testMemoryLoadScheduling_success() throws Exception {
+    manager.initializeLoadFunctionality(
+        machineLoadProvider,
+        /* cpuLoadScheduling= */ false,
+        /* memoryLoadScheduling= */ true,
+        Duration.ofSeconds(5));
+    // Acquire 100 memory
+    acquire(100, 0, 0);
+    // Set load for 100 memory
+    when(machineLoadProvider.getCurrentMemoryUsageMb()).thenReturn(100.0);
+    TestThread thread =
+        new TestThread(
+            () -> {
+              ResourceHandle handle = acquire(100, 0, 0);
+              release(handle);
+            });
+    manager.windowUpdate();
+
+    thread.start();
+
+    thread.joinAndAssertState(10000);
+  }
+
+  @Test
+  public void testMemoryLoadScheduling_cantAcquireWhileMemoryLoaded() throws Exception {
+    manager.initializeLoadFunctionality(
+        machineLoadProvider,
+        /* cpuLoadScheduling= */ false,
+        /* memoryLoadScheduling= */ true,
+        Duration.ofSeconds(5));
+    // Acquire 100 memory
+    acquire(100, 0, 0);
+    when(machineLoadProvider.getCurrentMemoryUsageMb()).thenReturn(950.0);
+    TestThread thread =
+        new TestThread(
+            () -> {
+              ResourceHandle handle = acquire(100, 0, 0);
+              release(handle);
+            });
+    manager.windowUpdate();
+
+    thread.start();
+
+    // Can't allocate because memory load is too high (950 + 100 > 1000).
+    AssertionError e = assertThrows(AssertionError.class, () -> thread.joinAndAssertState(1000));
+    assertThat(e).hasCauseThat().hasMessageThat().contains("is still alive");
+  }
+
+  @Test
   public void testScaledCpuRequestSucceeds() throws Exception {
     ResourceHandle handle = acquire(0, 1.5, 0);
     release(handle);
@@ -805,7 +866,11 @@ public final class ResourceManagerTest {
 
   @Test
   public void testCPULoadScheduling_unavailableCpuFailsWithoutAllowOneAction() throws Exception {
-    manager.initializeCpuLoadFunctionality(machineLoadProvider, true, Duration.ofSeconds(5));
+    manager.initializeLoadFunctionality(
+        machineLoadProvider,
+        /* cpuLoadScheduling= */ true,
+        /* memoryLoadScheduling= */ false,
+        Duration.ofSeconds(5));
     when(machineLoadProvider.getCurrentCpuUsage()).thenReturn(1.0);
 
     for (double[] cpu : new double[][] {{-1, 1}, {0, 1}, {1, 2}}) {
@@ -879,7 +944,11 @@ public final class ResourceManagerTest {
 
   @Test
   public void testCPULoadScheduling_cantAcquireX3Cpu() throws Exception {
-    manager.initializeCpuLoadFunctionality(machineLoadProvider, true, Duration.ofSeconds(5));
+    manager.initializeLoadFunctionality(
+        machineLoadProvider,
+        /* cpuLoadScheduling= */ true,
+        /* memoryLoadScheduling= */ false,
+        Duration.ofSeconds(5));
     // Set load only for 0.1 CPU
     when(machineLoadProvider.getCurrentCpuUsage()).thenReturn(0.1);
     for (int i = 0; i < 3; i++) {

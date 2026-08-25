@@ -25,11 +25,12 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/metrics:memory-use-recorder",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
         "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/truth",
     ],
 )
 
@@ -60,9 +61,11 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_status",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+        "//third_party/java/truth/extensions:proto",
     ],
 )
 
@@ -80,10 +83,10 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups/controller:v2",
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups/proto:cgroups_info_java_proto",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/truth",
     ],
 )
 
@@ -96,9 +99,9 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/metrics:resource_collector",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/truth",
     ],
 )

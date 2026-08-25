@@ -44,7 +44,7 @@ java_library(
         ":workspace_log_java_proto",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/net/starlark/java/syntax",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/protobuf",
     ],
 )
 
@@ -63,7 +63,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
     ],
 )
 

@@ -19,7 +19,7 @@ java_library(
         "JarHelper.java",
     ],
     deps = [
-        "//third_party:error_prone_annotations",
+        "//third_party/java/error_prone:annotations",
     ],
 )
 

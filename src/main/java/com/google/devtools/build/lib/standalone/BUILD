@@ -39,6 +39,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:process_wrapper",
         "//src/main/java/com/google/devtools/build/lib/runtime:test_summary_options",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )

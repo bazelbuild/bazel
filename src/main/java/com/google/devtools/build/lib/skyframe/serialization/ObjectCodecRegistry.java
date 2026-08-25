@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Streams;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.ByteStreams;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.CodedOutputStream;
@@ -54,6 +55,8 @@ import javax.annotation.Nullable;
  * representation if desired.
  */
 public class ObjectCodecRegistry {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   /** Creates a new, empty builder. */
   public static Builder newBuilder() {
     return new Builder();
@@ -730,8 +733,7 @@ public class ObjectCodecRegistry {
       }
       return new CodecDescriptor(WireType.CodecWireType.UNSTABLE, tag, new DynamicCodec(type));
     } catch (ReflectiveOperationException e) {
-      new SerializationException("Could not create codec for type: " + className, e)
-          .printStackTrace();
+      logger.atWarning().withCause(e).log("Could not create codec for type: %s", className);
       return null;
     }
   }
