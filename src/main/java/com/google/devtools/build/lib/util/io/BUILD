@@ -80,8 +80,8 @@ java_library(
     srcs = OUT_ERR_SRCS,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//third_party/java/flogger",
-        "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
     ],
 )

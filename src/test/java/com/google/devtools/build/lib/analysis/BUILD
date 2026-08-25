@@ -319,6 +319,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/bazel/bzlmod:util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//src/test/java/com/google/devtools/build/lib/rules/java:java-info",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
@@ -1142,6 +1143,18 @@ java_test(
         # "//src/main/java/com/google/devtools/build/lib/analysis:transitive_visibility_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "WorkspaceStatusActionTest",
+    srcs = ["WorkspaceStatusActionTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:workspace_status_action",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//third_party/java/junit",
         "//third_party/java/truth",
     ],

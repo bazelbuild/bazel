@@ -1032,6 +1032,8 @@ java_library(
         ":top_level_status_events",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/causes",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//third_party/java/guava:collect",
         "//third_party/java/guava:eventbus",

@@ -57,6 +57,7 @@ java_library(
     srcs = ["TaskDeduplicator.java"],
     deps = [
         "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:annotations",
         "//third_party/java/guava:concurrent",
         "//third_party/java/jsr305_annotations",
     ],

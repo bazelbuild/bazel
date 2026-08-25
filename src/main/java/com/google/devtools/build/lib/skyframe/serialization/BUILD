@@ -307,6 +307,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_op_node_map",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:lookup_result",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:skycache_channel_state_advisor",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_miss_reason_java_proto",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party/java/guava:annotations",

@@ -354,6 +354,51 @@ public final class ProfilerTest {
   }
 
   @Test
+  public void testResourceCollectorCollectsOnStop() throws Exception {
+    record TestTask(String laneName, String seriesName, CounterSeriesTask.Color color)
+        implements CounterSeriesTask {}
+
+    AtomicInteger collectCount = new AtomicInteger(0);
+    CounterSeriesCollector customCollector =
+        (deltaNanos, consumer) -> {
+          collectCount.incrementAndGet();
+          consumer.accept(new TestTask("Test Series", "test_metric", null), 42.0);
+        };
+
+    profiler.registerCounterSeriesCollector(customCollector);
+    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+    profiler.start(
+        getAllProfilerTasks(),
+        buffer,
+        JSON_TRACE_FILE_FORMAT,
+        "dummy_output_base",
+        UUID.randomUUID(),
+        true,
+        clock,
+        clock.nanoTime(),
+        /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration= */ false,
+        /* collectTaskHistograms= */ true);
+
+    // Stop after short delay without waiting for COLLECT_SLEEP_INTERVAL (200ms).
+    Thread.sleep(10);
+    profiler.stop();
+
+    JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
+    ImmutableList<TraceEvent> events =
+        jsonProfile.getTraceEvents().stream()
+            .filter(e -> e.name().equals("Test Series"))
+            .collect(toImmutableList());
+
+    assertThat(collectCount.get()).isAtLeast(1);
+    assertThat(events).isNotEmpty();
+    assertThat(events.get(0).args()).containsKey("test_metric");
+  }
+
+  @Test
   public void testProfilerRecordingOnlySlowestEvents() throws Exception {
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 
