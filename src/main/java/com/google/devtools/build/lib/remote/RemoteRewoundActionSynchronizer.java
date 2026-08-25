@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
@@ -29,6 +31,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.vfs.OutputService.RewoundActionSynchronizer;
+import com.google.errorprone.annotations.CheckReturnValue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -42,13 +45,20 @@ import javax.annotation.Nullable;
  * while they are being read.
  */
 final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer {
-  /** A task with a cancellation callback. */
+  /** A task whose cancellation can be requested separately from awaiting its completion. */
   public interface Cancellable {
-    void cancel() throws InterruptedException;
+    /** Requests cancellation without awaiting the task's completion. */
+    void requestCancellation();
+
+    /** Waits until the task no longer accesses the outputs of the action it belongs to. */
+    void awaitCompletion() throws InterruptedException;
   }
 
   private final RemoteActionInputFetcher actionInputFetcher;
-  private final ConcurrentHashMap<ActionLookupData, Cancellable> outputUploadTasks =
+
+  // An action generally has at most one such task in flight, but nothing prevents an action from
+  // executing multiple spawns whose outputs are uploaded concurrently.
+  private final ConcurrentHashMap<ActionLookupData, ImmutableList<Cancellable>> outputUploadTasks =
       new ConcurrentHashMap<>();
 
   // A single coarse lock is used to synchronize rewound actions (writers) and both rewound and
@@ -213,9 +223,38 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
    * their prefetching state.
    */
   private void prepareOutputsForRewinding(Action action) throws InterruptedException {
-    Cancellable task = outputUploadTasks.remove(actionKeyFor(action));
-    if (task != null) {
-      task.cancel();
+    ImmutableList<Cancellable> tasks = outputUploadTasks.remove(actionKeyFor(action));
+    if (tasks != null) {
+      // Request cancellation from every task before awaiting any one of them so that an
+      // interruption while awaiting cannot leave later tasks running without cancellation.
+      for (Cancellable task : tasks) {
+        task.requestCancellation();
+      }
+
+      InterruptedException interruption = null;
+      for (Cancellable task : tasks) {
+        while (true) {
+          try {
+            task.awaitCompletion();
+            break;
+          } catch (InterruptedException e) {
+            // The tasks have already been removed from the registry, so abandoning one here would
+            // let a retry delete outputs it still accesses. Finish awaiting every task and only
+            // then propagate the interruption.
+            if (interruption == null) {
+              interruption = e;
+            }
+          }
+        }
+      }
+      if (Thread.interrupted()) {
+        if (interruption == null) {
+          interruption = new InterruptedException();
+        }
+      }
+      if (interruption != null) {
+        throw interruption;
+      }
     }
     actionInputFetcher.handleRewoundActionOutputs(action.getOutputs());
   }
@@ -254,17 +293,37 @@ final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer
   /**
    * Registers a cancellation callback for an upload of action outputs that may still be running
    * after the action has completed.
+   *
+   * <p>The returned callback must be run once the upload has completed so that the task doesn't
+   * remain registered (and thus retained) for the rest of the build.
+   *
+   * @return a callback that unregisters this exact task
    */
-  public void registerOutputUploadTask(ActionExecutionMetadata action, Cancellable task) {
-    // We don't expect to have multiple output upload tasks for the same action registered at the
-    // same time.
+  @CheckReturnValue
+  public Runnable registerOutputUploadTask(ActionExecutionMetadata action, Cancellable task) {
+    ActionLookupData key = actionKeyFor(action);
+    // merge is atomic with respect to the removal of the entry in prepareOutputsForRewinding.
     outputUploadTasks.merge(
-        actionKeyFor(action),
-        task,
-        (oldTask, newTask) -> {
-          throw new IllegalStateException(
-              "Attempted to register multiple output upload tasks for %s: %s and %s"
-                  .formatted(action, oldTask, newTask));
+        key,
+        ImmutableList.of(task),
+        (oldTasks, newTasks) ->
+            ImmutableList.<Cancellable>builder().addAll(oldTasks).addAll(newTasks).build());
+    return () -> unregisterOutputUploadTask(key, task);
+  }
+
+  @VisibleForTesting
+  boolean hasRegisteredOutputUploadTasks(ActionExecutionMetadata action) {
+    return outputUploadTasks.containsKey(actionKeyFor(action));
+  }
+
+  private void unregisterOutputUploadTask(ActionLookupData key, Cancellable task) {
+    outputUploadTasks.computeIfPresent(
+        key,
+        (unusedKey, tasks) -> {
+          // Identity comparison: a task is only ever registered once, and a task registered by a
+          // re-execution of the action must not be unregistered by its predecessor.
+          var remainingTasks = tasks.stream().filter(t -> t != task).collect(toImmutableList());
+          return remainingTasks.isEmpty() ? null : remainingTasks;
         });
   }
 

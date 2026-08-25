@@ -710,7 +710,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
                       cancellingStrategy, cancellingStrategy.other()));
             }
           }
-          otherBranch.getDoneSemaphore().acquire();
+          otherBranch.awaitStopped();
         }
       } else {
         throw new DynamicInterruptedException(
