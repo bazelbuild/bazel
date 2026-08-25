@@ -154,16 +154,19 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       // unconditionally.
       return;
     }
+
+    // Uninterruptibly await the termination of all ongoing materializations to prevent cleanup
+    // below from interfering with a user's interrupt of the build.
+    materializationExecutor.shutdownNow();
+    materializationExecutor.close();
+
     this.cache = null;
     this.inputPrefetcher = null;
     this.reporter = null;
     this.buildRequestId = null;
     this.commandId = null;
     this.remoteCacheTtl = null;
-    // Materializations happen synchronously and upon request by other repo rules, so there is no
-    // reason to await their orderly completion in afterCommand.
-    materializationExecutor.shutdownNow();
-    materializationExecutor = null;
+    this.materializationExecutor = null;
     // Clean up the in-memory contents of materialized repos to save memory, or those that need to
     // be refetched to recover files that the remote cache has lost. This wouldn't be safe to do
     // eagerly as ongoing repo rule evaluations may still refer to the in-memory content and
