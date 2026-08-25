@@ -139,6 +139,9 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],

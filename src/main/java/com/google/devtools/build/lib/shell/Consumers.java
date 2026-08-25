@@ -16,11 +16,13 @@ package com.google.devtools.build.lib.shell;
 import com.google.common.base.Preconditions;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Uninterruptibles;
+import com.google.devtools.build.lib.concurrent.CancellableTask;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.time.Duration;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -171,19 +173,31 @@ final class Consumers {
    */
   private abstract static class FutureConsumption implements OutputConsumer {
 
+    /**
+     * How long {@link #cancel} waits for the sink to stop after interrupting it. The sink only
+     * reacts to the end or failure of its input stream, not to the interrupt, so the wait is
+     * bounded to avoid hanging on a stream that is kept open indefinitely, e.g. by an orphaned
+     * grandchild process that inherited it.
+     */
+    private static final Duration CANCEL_QUIESCENCE_TIMEOUT = Duration.ofSeconds(5);
+
+    private CancellableTask<RuntimeException> task;
     private Future<?> future;
 
     @Override
     public void registerInput(InputStream in, boolean closeConsumer){
       Runnable sink = createConsumingAndClosingSink(in, closeConsumer);
-      future = pool.submit(sink);
+      task = new CancellableTask<>(sink::run);
+      future = pool.submit(task::runIfNotCancelled);
     }
 
     protected abstract Runnable createConsumingAndClosingSink(InputStream in, boolean close);
 
     @Override
     public void cancel() {
-      future.cancel(true);
+      // Waiting until the sink no longer runs allows callers to read the accumulated output and
+      // reuse the streams they provided without racing a sink that is still writing to them.
+      boolean unused = task.cancelAndAwaitUninterruptibly(CANCEL_QUIESCENCE_TIMEOUT);
     }
 
     @Override

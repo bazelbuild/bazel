@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.concurrent;
 
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import javax.annotation.Nullable;
@@ -196,6 +197,19 @@ public final class CancellableTask<E extends Exception> {
   }
 
   /**
+   * An uninterruptible, bounded variant of {@link #awaitCompletion} that restores the interrupt bit
+   * before returning.
+   *
+   * @return whether the task has completed
+   * @throws IllegalStateException if called from the task body or completion action, neither of
+   *     which can await the task
+   */
+  public boolean awaitCompletionUninterruptibly(Duration timeout) {
+    checkCanAwait();
+    return Uninterruptibles.awaitUninterruptibly(done, timeout);
+  }
+
+  /**
    * Cancels the task and waits until it no longer executes.
    *
    * <p>If the task has not started, this prevents it from starting and runs the completion action
@@ -210,6 +224,19 @@ public final class CancellableTask<E extends Exception> {
   public void cancelAndAwait() throws InterruptedException {
     requestCancellation();
     awaitCompletion();
+  }
+
+  /**
+   * An uninterruptible variant of {@link #cancelAndAwait} that waits at most the given timeout for
+   * the task to quiesce and restores the interrupt bit before returning.
+   *
+   * @return whether the task has quiesced
+   * @throws IllegalStateException if called from the task body or completion action, neither of
+   *     which can await the task
+   */
+  public boolean cancelAndAwaitUninterruptibly(Duration timeout) {
+    requestCancellation();
+    return awaitCompletionUninterruptibly(timeout);
   }
 
   private void checkCanAwait() {

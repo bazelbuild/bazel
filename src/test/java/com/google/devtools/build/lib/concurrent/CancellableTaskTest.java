@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.concurrent;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_DURATION;
 import static com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_MILLISECONDS;
 import static com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Semaphore;
@@ -50,6 +52,12 @@ public final class CancellableTaskTest {
       void cancel(CancellableTask<?> task) throws InterruptedException {
         task.requestCancellation();
         task.awaitCompletion();
+      }
+    },
+    UNINTERRUPTIBLE {
+      @Override
+      void cancel(CancellableTask<?> task) {
+        assertThat(task.cancelAndAwaitUninterruptibly(WAIT_TIMEOUT_DURATION)).isTrue();
       }
     };
 
@@ -531,6 +539,28 @@ public final class CancellableTaskTest {
   }
 
   @Test
+  public void cancelUninterruptibly_timesOutWhileTaskRuns() throws Exception {
+    var taskStarted = new Semaphore(0);
+    var taskMayFinish = new Semaphore(0);
+    var task =
+        new CancellableTask<>(
+            () -> {
+              taskStarted.release();
+              taskMayFinish.acquireUninterruptibly();
+            });
+    var runner = new TestThread(() -> assertThat(task.runIfNotCancelled()).isTrue());
+    runner.start();
+    assertThat(taskStarted.tryAcquire(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+
+    // The body ignores the interrupt and keeps running, so the bounded wait times out.
+    assertThat(task.cancelAndAwaitUninterruptibly(Duration.ofMillis(1))).isFalse();
+
+    taskMayFinish.release();
+    assertThat(task.cancelAndAwaitUninterruptibly(WAIT_TIMEOUT_DURATION)).isTrue();
+    runner.joinAndAssertState(WAIT_TIMEOUT_MILLISECONDS);
+  }
+
+  @Test
   public void cancelAndAwait_interruptedWhileAwaiting_retryInterruptsAgainAndAwaits()
       throws Exception {
     var taskStarted = new Semaphore(0);
@@ -583,6 +613,63 @@ public final class CancellableTaskTest {
     runner.joinAndAssertState(WAIT_TIMEOUT_MILLISECONDS);
     canceller.joinAndAssertState(WAIT_TIMEOUT_MILLISECONDS);
     assertThat(interruptionCount.get()).isEqualTo(2);
+  }
+
+  @Test
+  public void cancelUninterruptibly_interruptedWhileAwaiting_interruptsTaskOnlyOnce()
+      throws Exception {
+    var taskStarted = new Semaphore(0);
+    var taskMayFinish = new Semaphore(0);
+    var taskInterruptions = new Semaphore(0);
+    var interruptionCount = new AtomicInteger();
+    var task =
+        new CancellableTask<>(
+            () -> {
+              taskStarted.release();
+              while (true) {
+                try {
+                  taskMayFinish.acquire();
+                  return;
+                } catch (InterruptedException e) {
+                  interruptionCount.incrementAndGet();
+                  taskInterruptions.release();
+                }
+              }
+            });
+    var runner = new TestThread(() -> assertThat(task.runIfNotCancelled()).isTrue());
+    runner.start();
+    assertThat(taskStarted.tryAcquire(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+
+    var canceller =
+        new TestThread(
+            () -> {
+              assertThat(task.cancelAndAwaitUninterruptibly(WAIT_TIMEOUT_DURATION)).isTrue();
+              assertThat(Thread.interrupted()).isTrue();
+            });
+    canceller.start();
+    assertThat(taskInterruptions.tryAcquire(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+
+    canceller.interrupt();
+    try {
+      assertThat(taskInterruptions.tryAcquire(100, MILLISECONDS)).isFalse();
+      assertThat(interruptionCount.get()).isEqualTo(1);
+    } finally {
+      taskMayFinish.release();
+    }
+
+    runner.joinAndAssertState(WAIT_TIMEOUT_MILLISECONDS);
+    canceller.joinAndAssertState(WAIT_TIMEOUT_MILLISECONDS);
+    assertThat(interruptionCount.get()).isEqualTo(1);
+  }
+
+  @Test
+  public void cancelUninterruptibly_whileInterrupted_restoresInterruptBit() {
+    var task = new CancellableTask<>(() -> {});
+    Thread.currentThread().interrupt();
+
+    assertThat(task.cancelAndAwaitUninterruptibly(WAIT_TIMEOUT_DURATION)).isTrue();
+
+    assertThat(Thread.interrupted()).isTrue();
   }
 
   @Test
