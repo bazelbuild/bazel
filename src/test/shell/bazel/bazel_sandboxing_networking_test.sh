@@ -429,16 +429,14 @@ EOF
     || fail "test should have passed"
 }
 
-function test_hostname_inside_sandbox_is_localhost_when_using_sandbox_fake_hostname_flag() {
-  if ! is_linux; then
-    echo "Skipping test: fake hostnames not supported in this system" 1>&2
-    return 0
-  fi
-
+# --sandbox_fake_hostname is only implemented by the linux-sandbox. Everywhere
+# else the flag is silently accepted and does nothing, so compare against the
+# hostname that the very same test observes without the flag.
+function test_sandbox_fake_hostname_flag() {
   add_rules_java "MODULE.bazel"
   setup_javatest_support
   mkdir -p src/test/java/com/example
-  cat > src/test/java/com/example/HostNameIsLocalhostTest.java <<'EOF'
+  cat > src/test/java/com/example/FakeHostNameTest.java <<'EOF'
 package com.example;
 
 import static org.junit.Assert.*;
@@ -447,25 +445,45 @@ import org.junit.Test;
 import java.net.*;
 import java.io.*;
 
-public class HostNameIsLocalhostTest {
+public class FakeHostNameTest {
   @Test
-  public void testHostNameIsLocalhost() throws Exception {
+  public void testGetHostName() throws Exception {
     // This will throw an exception, if the local hostname cannot be resolved via DNS.
-    assertEquals("localhost", InetAddress.getLocalHost().getHostName());
+    String hostName = InetAddress.getLocalHost().getHostName();
+    assertNotNull(hostName);
+    System.out.println("HOSTNAME=[" + hostName + "]");
   }
 }
 EOF
   cat > src/test/java/com/example/BUILD <<'EOF'
 load("@rules_java//java:java_test.bzl", "java_test")
 java_test(
-  name = "HostNameIsLocalhostTest",
-  srcs = ["HostNameIsLocalhostTest.java"],
+  name = "FakeHostNameTest",
+  srcs = ["FakeHostNameTest.java"],
   deps = ['//third_party:junit4'],
 )
 EOF
 
-  bazel test --sandbox_fake_hostname --test_output=streamed src/test/java/com/example:HostNameIsLocalhostTest &> $TEST_log \
-    || fail "test should have passed"
+  # Both runs must actually execute the test, not replay a cached result.
+  bazel test --nocache_test_results --test_output=streamed \
+    src/test/java/com/example:FakeHostNameTest &> $TEST_log \
+    || fail "test should have passed without --sandbox_fake_hostname"
+  local real_hostname
+  real_hostname="$(sed -n 's/.*HOSTNAME=\[\([^]]*\)\].*/\1/p' $TEST_log | head -n 1)"
+  [[ -n "${real_hostname}" ]] \
+    || fail "could not determine the hostname seen inside the sandbox"
+
+  bazel test --sandbox_fake_hostname --nocache_test_results --test_output=streamed \
+    src/test/java/com/example:FakeHostNameTest &> $TEST_log \
+    || fail "test should have passed with --sandbox_fake_hostname"
+  local faked_hostname
+  faked_hostname="$(sed -n 's/.*HOSTNAME=\[\([^]]*\)\].*/\1/p' $TEST_log | head -n 1)"
+
+  if is_linux; then
+    assert_equals "localhost" "${faked_hostname}"
+  else
+    assert_equals "${real_hostname}" "${faked_hostname}"
+  fi
 }
 
 # The test shouldn't fail if the environment doesn't support running it.
