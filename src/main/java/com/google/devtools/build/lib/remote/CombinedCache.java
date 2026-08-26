@@ -110,9 +110,7 @@ public class CombinedCache extends AbstractReferenceCounted {
   @Nullable protected final String symlinkTemplate;
   private final DigestUtil digestUtil;
 
-  // Delays the initialization of the chunking support logic until first use to avoid blocking on
-  // a server capabilities check at construction time.
-  private static final class Chunking {
+  static final class Chunking {
     private final ChunkingConfig config;
     private final ChunkedBlobDownloader downloader;
     private final ChunkedBlobUploader uploader;
@@ -196,6 +194,22 @@ public class CombinedCache extends AbstractReferenceCounted {
     this.symlinkTemplate = symlinkTemplate;
     this.digestUtil = digestUtil;
     this.chunking = createChunking(remoteCacheClient, chunkingFunction, chunkLocationMap, this);
+  }
+
+  public CombinedCache(
+      @Nullable RemoteCacheClient remoteCacheClient,
+      @Nullable DiskCacheClient diskCacheClient,
+      @Nullable String symlinkTemplate,
+      DigestUtil digestUtil,
+      ListenableFuture<Chunking> chunking) {
+    checkArgument(
+        remoteCacheClient != null || diskCacheClient != null,
+        "remoteCacheClient and diskCacheClient cannot be null at the same time");
+    this.remoteCacheClient = remoteCacheClient;
+    this.diskCacheClient = diskCacheClient;
+    this.symlinkTemplate = symlinkTemplate;
+    this.digestUtil = digestUtil;
+    this.chunking = chunking;
   }
 
   public DigestUtil digestUtil() {

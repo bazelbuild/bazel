@@ -25,6 +25,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -61,6 +62,7 @@ import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
+import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -95,6 +97,7 @@ import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.Map;
+import java.util.Random;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
@@ -113,6 +116,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 /** Tests for {@link CombinedCache}. */
@@ -137,6 +141,7 @@ public class CombinedCacheTest {
   private FakeActionInputFileCache fakeFileCache;
 
   private ListeningScheduledExecutorService retryService;
+  @Mock private ByteStreamUploader uploader;
 
   @Before
   public void setUp() throws Exception {
@@ -873,6 +878,47 @@ public class CombinedCacheTest {
   }
 
   @Test
+  public void ensureInputsPresent_chunksInputsOverThreshold() throws Exception {
+    when(uploader.uploadBlobAsync(any(), any(), any())).thenReturn(immediateFuture(null));
+    GrpcCacheClient grpcCacheClient = newChunkingGrpcCacheClient();
+    CombinedCache.Chunking chunking = mock(CombinedCache.Chunking.class);
+    when(chunking.supported()).thenReturn(true);
+    ChunkingConfig config = ChunkingConfig.fromServerCapabilities(grpcCacheClient.serverCapabilities().get());
+    when(chunking.config()).thenReturn(config);
+    ChunkedBlobUploader uploader = mock(ChunkedBlobUploader.class);
+    when(chunking.uploader()).thenReturn(uploader);
+    RemoteExecutionCache remoteCache = spy(new RemoteExecutionCache(
+        grpcCacheClient,
+        /* diskCacheClient= */ null,
+        /* symlinkTemplate= */ null,
+        digestUtil,
+        immediateFuture(chunking)));
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
+
+    Path path = execRoot.getRelative("foo");
+    // exceed chunking threshold
+    byte[] blob = new byte[2 * (int) config.chunkingThreshold()];
+    new Random().nextBytes(blob);
+    FileSystemUtils.writeContent(path, blob);
+    SortedMap<PathFragment, Path> inputs = new TreeMap<>();
+    inputs.put(PathFragment.create("foo"), path);
+    doAnswer(unused -> immediateFuture(ImmutableSet.of(digestUtil.compute(path))))
+        .when(grpcCacheClient)
+        .findMissingDigests(any(), any());
+    var merkleTree = merkleTreeComputer.buildForFiles(inputs);
+
+    remoteCache.ensureInputsPresent(
+        remoteActionExecutionContext,
+        merkleTree,
+        ImmutableMap.of(),
+        /* force= */ false,
+        /* remotePathResolver= */ null);
+
+    // could verify individual chunks, or the call itself
+    verify(uploader, times(1)).uploadChunked(eq(remoteActionExecutionContext), any(), any(), any(Boolean.class));
+  }
+
+  @Test
   public void shutdownNow_cancelInProgressUploads() throws Exception {
     RemoteCacheClient remoteCacheClient = spy(new InMemoryCacheClient());
     // Return a future that never completes
@@ -1105,7 +1151,8 @@ public class CombinedCacheTest {
             mock(CallCredentialsProvider.class),
             Options.getDefaults(RemoteOptions.class),
             mock(RemoteRetrier.class),
-            digestUtil));
+            digestUtil,
+            uploader));
   }
 
   private CombinedCache newChunkingCombinedCache(GrpcCacheClient grpcCacheClient) {
