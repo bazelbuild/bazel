@@ -85,6 +85,56 @@ genrule(
       + "port=\$\$(head -n 1 port.txt); "
       + "curl -fo \$@ localhost:\$\$port; "
       + "kill \$\$pid",
+  tags = [ ${tags} ],
+)
+
+genrule(
+  name = "bind-ipv4",
+  outs = [ "bind-ipv4.txt" ],
+  cmd = "python3 $python_server --bind_address=127.0.0.1 always $(pwd)/file_to_serve >bind-ipv4-port.txt & "
+      + "pid=\$\$!; "
+      + "while ! grep started bind-ipv4-port.txt; do sleep 1; done; "
+      + "port=\$\$(head -n 1 bind-ipv4-port.txt); "
+      + "curl -fo \$@ 127.0.0.1:\$\$port; "
+      + "kill \$\$pid",
+  tags = [ ${tags} ],
+)
+
+genrule(
+  name = "bind-ipv6",
+  outs = [ "bind-ipv6.txt" ],
+  cmd = "python3 $python_server --bind_address=::1 always $(pwd)/file_to_serve >bind-ipv6-port.txt & "
+      + "pid=\$\$!; "
+      + "while ! grep started bind-ipv6-port.txt; do sleep 1; done; "
+      + "port=\$\$(head -n 1 bind-ipv6-port.txt); "
+      + "curl -g -fo \$@ 'http://[::1]:'\$\$port; "
+      + "kill \$\$pid",
+  tags = [ ${tags} ],
+)
+
+genrule(
+  name = "bind-localhost",
+  outs = [ "bind-localhost.txt" ],
+  cmd = "python3 $python_server --bind_address=localhost always $(pwd)/file_to_serve >bind-localhost-port.txt & "
+      + "pid=\$\$!; "
+      + "while ! grep started bind-localhost-port.txt; do sleep 1; done; "
+      + "port=\$\$(head -n 1 bind-localhost-port.txt); "
+      + "curl -fo \$@ localhost:\$\$port; "
+      + "kill \$\$pid",
+  tags = [ ${tags} ],
+)
+
+genrule(
+  name = "bind-unix-socket",
+  outs = [ "bind-unix-socket.txt" ],
+  # The socket is bound at a relative path to stay below the sun_path length
+  # limit, which the absolute path of the sandboxed execroot can exceed.
+  cmd = "python3 $python_server --unix_socket=server.sock always $(pwd)/file_to_serve & "
+      + "pid=\$\$!; "
+      + "while ! [ -S server.sock ]; do sleep 1; done; "
+      + "curl --unix-socket server.sock -fo \$@ irrelevant-url; "
+      + "kill \$\$pid",
+  tags = [ ${tags} ],
 )
 EOF
 
@@ -161,6 +211,10 @@ function test_sandbox_network_access() {
   check_network_ok localhost
   check_network_ok unix-socket
   check_network_ok loopback
+  check_network_ok bind-ipv4
+  check_network_ok bind-ipv6
+  check_network_ok bind-localhost
+  check_network_ok bind-unix-socket
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     check_network_ok remote-ip
     check_network_ok remote-name
@@ -180,6 +234,10 @@ function test_sandbox_block_network_access() {
 
   check_network_ok unix-socket --experimental_sandbox_default_allow_network=false
   check_network_ok loopback --experimental_sandbox_default_allow_network=false
+  check_network_ok bind-ipv4 --experimental_sandbox_default_allow_network=false
+  check_network_ok bind-ipv6 --experimental_sandbox_default_allow_network=false
+  check_network_ok bind-localhost --experimental_sandbox_default_allow_network=false
+  check_network_ok bind-unix-socket --experimental_sandbox_default_allow_network=false
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     check_network_not_ok remote-ip --experimental_sandbox_default_allow_network=false
     check_network_not_ok remote-name --experimental_sandbox_default_allow_network=false
@@ -196,6 +254,10 @@ EOF
   check_network_ok localhost
   check_network_ok unix-socket
   check_network_ok loopback
+  check_network_ok bind-ipv4
+  check_network_ok bind-ipv6
+  check_network_ok bind-localhost
+  check_network_ok bind-unix-socket
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     check_network_ok remote-ip
     check_network_ok remote-name
@@ -208,6 +270,10 @@ function test_sandbox_network_access_with_requires_network() {
   check_network_ok localhost --experimental_sandbox_default_allow_network=false
   check_network_ok unix-socket --experimental_sandbox_default_allow_network=false
   check_network_ok loopback --experimental_sandbox_default_allow_network=false
+  check_network_ok bind-ipv4 --experimental_sandbox_default_allow_network=false
+  check_network_ok bind-ipv6 --experimental_sandbox_default_allow_network=false
+  check_network_ok bind-localhost --experimental_sandbox_default_allow_network=false
+  check_network_ok bind-unix-socket --experimental_sandbox_default_allow_network=false
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     check_network_ok remote-ip --experimental_sandbox_default_allow_network=false
     check_network_ok remote-name --experimental_sandbox_default_allow_network=false
@@ -226,6 +292,10 @@ function test_sandbox_network_access_with_block_network() {
   fi
   check_network_ok unix-socket --experimental_sandbox_default_allow_network=true
   check_network_ok loopback --experimental_sandbox_default_allow_network=true
+  check_network_ok bind-ipv4 --experimental_sandbox_default_allow_network=true
+  check_network_ok bind-ipv6 --experimental_sandbox_default_allow_network=true
+  check_network_ok bind-localhost --experimental_sandbox_default_allow_network=true
+  check_network_ok bind-unix-socket --experimental_sandbox_default_allow_network=true
   if [[ -n "${REMOTE_NETWORK_ADDRESS}" ]]; then
     check_network_not_ok remote-ip --experimental_sandbox_default_allow_network=true
     check_network_not_ok remote-name --experimental_sandbox_default_allow_network=true

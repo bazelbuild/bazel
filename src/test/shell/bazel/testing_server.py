@@ -134,6 +134,7 @@ class Handler(BaseHTTPRequestHandler):
 def main(argv):
   parser = argparse.ArgumentParser()
   parser.add_argument('--unix_socket', action='store')
+  parser.add_argument('--bind_address', action='store')
   parser.add_argument('--dump_headers', action='store')
 
   parser.add_argument('mode', type=str, nargs='?')
@@ -165,7 +166,12 @@ def main(argv):
     while port is None:
       try:
         port = random.randrange(32760, 59760)
-        if socket.has_dualstack_ipv6():
+        if args.bind_address:
+          if ':' in args.bind_address:
+            httpd = TCPServerV6((args.bind_address, port), Handler)
+          else:
+            httpd = TCPServer((args.bind_address, port), Handler)
+        elif socket.has_dualstack_ipv6():
           httpd = TCPServerDualStack(('::', port), Handler)
         elif socket.has_ipv6:
           httpd = TCPServerV6(('::', port), Handler)
