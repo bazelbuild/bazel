@@ -17,8 +17,6 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
-import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
-import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
 import com.google.devtools.build.lib.skyframe.TestCompletionValue.TestCompletionKey;
 import com.google.devtools.build.lib.skyframe.TopLevelActionLookupKeyWrapper;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -52,8 +50,7 @@ public final class RewindingInconsistencyUtils {
         || key instanceof ArtifactNestedSetKey
         || key instanceof ActionTemplateExpansionKey
         || key instanceof Artifact
-        || key instanceof TargetCompletionKey
-        || key instanceof TestCompletionKey
-        || key instanceof AspectCompletionKey;
+        || key instanceof TopLevelActionLookupKeyWrapper
+        || key instanceof TestCompletionKey;
   }
 }

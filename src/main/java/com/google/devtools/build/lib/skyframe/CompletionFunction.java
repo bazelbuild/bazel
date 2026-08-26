@@ -305,27 +305,42 @@ public final class CompletionFunction<
       return null;
     }
 
-    if (toplevelOutputDownloadPolicy.isPresent()
-        && env.getValue(ToplevelOutputsDownloadValue.key(key, toplevelOutputDownloadPolicy.get()))
+    if (toplevelOutputDownloadPolicy.isPresent()) {
+      // Top-level outputs are downloaded by ToplevelOutputsDownloadFunction, which also handles
+      // lost outputs by initiating action rewinding.
+      try {
+        if (env.getValueOrThrow(
+                ToplevelOutputsDownloadValue.key(key, toplevelOutputDownloadPolicy.get()),
+                TopLevelOutputException.class)
             == null) {
-      return null;
-    }
-
-    RewindPlanResult rewindPlanResult =
-        informImportantOutputHandler(
-            key,
-            value,
-            env,
-            importantArtifacts,
-            rootCauses,
-            ctx,
-            artifactsToBuild,
-            builtArtifacts,
-            inputMap);
-    if (rewindPlanResult != null) {
-      // Either initiates action rewinding to generate lost inputs or requests a Skyframe restart to
-      // wait for missing analysis dependencies.
-      return rewindPlanResult.toNullIfMissingDependenciesElseReset();
+          return null;
+        }
+      } catch (TopLevelOutputException e) {
+        Label label = key.actionLookupKey().getLabel();
+        LabelCause cause = new LabelCause(label, e.getDetailedExitCode());
+        rootCauses = NestedSetBuilder.fromNestedSet(rootCauses).add(cause).build();
+        env.getListener().handle(completor.getRootCauseError(key, value, cause, env));
+        skyframeActionExecutor.recordExecutionError();
+        postFailedEvent(key, value, rootCauses, ctx, artifactsToBuild, builtArtifacts, env);
+        throw new CompletionFunctionException(e);
+      }
+    } else {
+      RewindPlanResult rewindPlanResult =
+          informImportantOutputHandler(
+              key,
+              value,
+              env,
+              importantArtifacts,
+              rootCauses,
+              ctx,
+              artifactsToBuild,
+              builtArtifacts,
+              inputMap);
+      if (rewindPlanResult != null) {
+        // Either initiates action rewinding to generate lost inputs or requests a Skyframe restart
+        // to wait for missing analysis dependencies.
+        return rewindPlanResult.toNullIfMissingDependenciesElseReset();
+      }
     }
 
     Postable event = completor.createSucceeded(key, value, ctx, artifactsToBuild, env);

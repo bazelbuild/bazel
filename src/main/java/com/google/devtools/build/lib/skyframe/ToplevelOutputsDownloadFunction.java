@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -26,20 +27,27 @@ import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.ImportantOutputException;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.TopLevelOutputException;
 import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -54,14 +62,18 @@ import javax.annotation.Nullable;
  */
 final class ToplevelOutputsDownloadFunction implements SkyFunction {
   private final SkyframeActionExecutor skyframeActionExecutor;
+  private final ActionRewindStrategy actionRewindStrategy;
 
-  ToplevelOutputsDownloadFunction(SkyframeActionExecutor skyframeActionExecutor) {
+  ToplevelOutputsDownloadFunction(
+      SkyframeActionExecutor skyframeActionExecutor, ActionRewindStrategy actionRewindStrategy) {
     this.skyframeActionExecutor = skyframeActionExecutor;
+    this.actionRewindStrategy = actionRewindStrategy;
   }
 
   @Nullable
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+  public SkyValue compute(SkyKey skyKey, Environment env)
+      throws ToplevelOutputsDownloadFunctionException, InterruptedException {
     var key = (ToplevelOutputsDownloadValue.Key) skyKey;
     var importantOutputHandler =
         skyframeActionExecutor.getActionContextRegistry().getContext(ImportantOutputHandler.class);
@@ -82,6 +94,7 @@ final class ToplevelOutputsDownloadFunction implements SkyFunction {
     SkyframeLookupResult inputDeps = env.getValuesAndExceptions(Artifact.keys(allArtifacts));
 
     ActionInputMap inputMap = new ActionInputMap(allArtifacts.size());
+    Set<Artifact> builtArtifacts = new HashSet<>();
     for (Artifact input : allArtifacts) {
       try {
         SkyValue artifactValue =
@@ -92,6 +105,7 @@ final class ToplevelOutputsDownloadFunction implements SkyFunction {
           // the completion function depending on this node, which requests the same artifacts.
           continue;
         }
+        builtArtifacts.add(input);
         ActionInputMapHelper.addToMap(
             inputMap, input, artifactValue, MetadataConsumerForMetrics.NO_OP);
       } catch (ActionExecutionException | SourceArtifactException e) {
@@ -107,26 +121,61 @@ final class ToplevelOutputsDownloadFunction implements SkyFunction {
             ? allArtifacts
             : artifactsToBuild.getImportantArtifacts().toSet();
     InputMetadataProvider metadataProvider = new ActionInputMetadataProvider(inputMap);
+    LostArtifacts lostOutputs;
     try (var ignored =
         GoogleAutoProfilerUtils.profiledAndLogged(
             "Downloading top-level outputs for " + key.actionLookupKey().getLabel(),
             ProfilerTask.INFO,
             ImportantOutputHandler.LOG_THRESHOLD)) {
-      LostArtifacts unusedLostOutputs =
+      lostOutputs =
           importantOutputHandler.processOutputsAndGetLostArtifacts(
               key.topLevelArtifactContext().expandFilesets()
                   ? importantArtifacts
                   : Iterables.filter(importantArtifacts, artifact -> !artifact.isFileset()),
               metadataProvider);
-      // Lost outputs and download failures are currently detected and handled (via action
-      // rewinding or build failure) by the completion function's own call into the important
-      // output handler, which runs after this node has been evaluated.
     } catch (ImportantOutputException e) {
-      // Handled by the completion function's own call into the important output handler.
+      throw new ToplevelOutputsDownloadFunctionException(
+          new TopLevelOutputException(e.getMessage(), e.getDetailedExitCode()));
+    }
+
+    if (!lostOutputs.isEmpty()) {
+      Iterable<Artifact> artifactsRelevantForRewinding = importantArtifacts;
+      if (importantOutputHandler.requiresHiddenOutputMetadata()) {
+        var hiddenTopLevelArtifacts =
+            artifactsToBuild.getAllArtifactsByOutputGroup().get(OutputGroupInfo.HIDDEN_TOP_LEVEL);
+        if (hiddenTopLevelArtifacts != null) {
+          artifactsRelevantForRewinding =
+              Iterables.concat(
+                  artifactsRelevantForRewinding, hiddenTopLevelArtifacts.getArtifacts().toList());
+        }
+      }
+      try {
+        // Initiates action rewinding to regenerate the lost outputs, or requests a Skyframe
+        // restart to wait for missing analysis dependencies.
+        return actionRewindStrategy
+            .prepareRewindPlanForLostTopLevelOutputs(
+                key,
+                ImmutableSet.copyOf(Artifact.keys(artifactsRelevantForRewinding)),
+                lostOutputs.byDigest(),
+                metadataProvider,
+                builtArtifacts,
+                env)
+            .toNullIfMissingDependenciesElseReset();
+      } catch (ActionRewindException e) {
+        throw new ToplevelOutputsDownloadFunctionException(
+            new TopLevelOutputException(e.getMessage(), e.getDetailedExitCode()));
+      }
     }
 
     return new ToplevelOutputsDownloadValue(
         collectMaterializedOutputs(importantArtifacts, metadataProvider));
+  }
+
+  private static final class ToplevelOutputsDownloadFunctionException
+      extends SkyFunctionException {
+    ToplevelOutputsDownloadFunctionException(TopLevelOutputException e) {
+      super(e, Transience.TRANSIENT);
+    }
   }
 
   /**

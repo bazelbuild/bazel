@@ -955,7 +955,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             bugReporter));
     map.put(
         SkyFunctions.TOPLEVEL_OUTPUTS_DOWNLOAD,
-        new ToplevelOutputsDownloadFunction(skyframeActionExecutor));
+        new ToplevelOutputsDownloadFunction(skyframeActionExecutor, actionRewindStrategy));
     map.put(SkyFunctions.TEST_COMPLETION, new TestCompletionFunction());
     map.put(
         Artifact.ARTIFACT,
