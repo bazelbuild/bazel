@@ -767,12 +767,6 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
 
   @Nullable
   @Override
-  public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
-    return fsForPath(path).statNullable(path, followSymlinks);
-  }
-
-  @Nullable
-  @Override
   public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
     return fsForPath(path).statIfFound(path, followSymlinks);
   }

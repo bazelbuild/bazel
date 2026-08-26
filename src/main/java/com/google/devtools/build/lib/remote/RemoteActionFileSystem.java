@@ -648,15 +648,6 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
         path, followSymlinks ? FollowMode.FOLLOW_ALL : FollowMode.FOLLOW_PARENT, StatSources.ALL);
   }
 
-  @Nullable
-  @Override
-  public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
-    try {
-      return statIfFound(path, followSymlinks);
-    } catch (IOException e) {
-      return null;
-    }
-  }
 
   /**
    * Internal stat implementation.

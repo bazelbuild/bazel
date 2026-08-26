@@ -253,7 +253,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
           public FileStatus statIfFound(PathFragment path, boolean followSymlinks)
               throws IOException {
             final FileStatus stat = super.statIfFound(path, followSymlinks);
-            if (path.toString().endsWith("/out/foo")) {
+            if (stat != null && path.toString().endsWith("/out/foo")) {
               return new FileStatus() {
                 private final FileStatus original = stat;
 
