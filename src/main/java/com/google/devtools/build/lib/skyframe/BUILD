@@ -1623,6 +1623,7 @@ java_library(
         ":directory_listing_state_value",
         ":sky_functions",
         ":sky_value_dirtiness_checker",
+        ":toplevel_outputs_download_value",
         ":tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
