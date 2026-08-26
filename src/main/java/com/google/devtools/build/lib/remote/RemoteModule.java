@@ -98,6 +98,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
+import com.google.devtools.build.lib.skyframe.ToplevelOutputsDownloadValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -424,6 +425,8 @@ public final class RemoteModule extends BlazeModule {
       knownMissingCasDigests.clear();
     }
 
+    env.getSkyframeExecutor().setToplevelOutputDownloadPolicy(Optional.empty());
+
     var cacheAvailable = setup(env);
     if (!cacheAvailable) {
       if (env.getDirectories().getOutputBase().getFileSystem()
@@ -589,6 +592,14 @@ public final class RemoteModule extends BlazeModule {
             patternsToDownloadBuilder.build(),
             lastRemoteOutputChecker);
     remoteOutputChecker.maybeInvalidateSkyframeValues(env.getSkyframeExecutor().getEvaluator());
+
+    // Top-level outputs that are only available as remote metadata are downloaded by
+    // ToplevelOutputsDownloadFunction, whose results are only reusable across invocations with
+    // the same download policy. Without Skymeld, no important output handler is registered and the
+    // function no-ops, but a policy change must still invalidate the completion functions.
+    env.getSkyframeExecutor()
+        .setToplevelOutputDownloadPolicy(
+            Optional.of(computeToplevelOutputDownloadPolicy(env.getCommandName(), remoteOptions)));
 
     env.getEventBus().register(this);
     String invocationId = env.getCommandId().toString();
@@ -1207,6 +1218,18 @@ public final class RemoteModule extends BlazeModule {
               actionInputFetcher,
               Preconditions.checkNotNull(outputService).getRewoundActionSynchronizer()));
     }
+  }
+
+  private static ToplevelOutputsDownloadValue.DownloadPolicy
+      computeToplevelOutputDownloadPolicy(String commandName, RemoteOptions remoteOptions) {
+    ImmutableList.Builder<String> downloadRegexes = ImmutableList.builder();
+    if (remoteOptions.getRemoteOutputsMode() != RemoteOutputsMode.ALL) {
+      for (RegexPatternOption patternOption : remoteOptions.getRemoteDownloadRegex()) {
+        downloadRegexes.add(patternOption.regexPattern().pattern());
+      }
+    }
+    return new ToplevelOutputsDownloadValue.DownloadPolicy(
+        remoteOptions.getRemoteOutputsMode().name(), commandName, downloadRegexes.build());
   }
 
   private TempPathGenerator getTempPathGenerator(CommandEnvironment env)

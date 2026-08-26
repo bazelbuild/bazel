@@ -32,6 +32,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -97,6 +98,14 @@ public final class PrecomputedValue implements SkyValue {
 
   public static final Precomputed<Boolean> REMOTE_EXECUTION_ENABLED =
       new Precomputed<>("remote_execution_enabled");
+
+  /**
+   * The current invocation's policy for downloading top-level outputs that are only available as
+   * remote metadata, or {@link Optional#empty()} if top-level outputs are not downloaded via
+   * {@link ToplevelOutputsDownloadFunction}.
+   */
+  public static final Precomputed<Optional<ToplevelOutputsDownloadValue.DownloadPolicy>>
+      TOPLEVEL_OUTPUT_DOWNLOAD_POLICY = new Precomputed<>("toplevel_output_download_policy");
 
   public static final Precomputed<LazyMacroExpansionPackages> LAZY_MACRO_EXPANSION_PACKAGES =
       new Precomputed<>("lazy_macro_expansion_packages");
