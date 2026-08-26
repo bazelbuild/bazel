@@ -131,6 +131,7 @@ filegroup(
 )
 
 # TODO(cushon): Delete this alias in the fullness of time.
+"""
 alias(
     name = "proguard_whitelister",
     actual = ":proguard_allowlister",
@@ -155,6 +156,7 @@ py_test(
         ":proguard_allowlister",
     ],
 )
+"""
 
 #### Aliases to rules_java to keep backward-compatibility (begin) ####
 
