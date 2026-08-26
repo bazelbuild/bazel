@@ -19,6 +19,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
-        "//third_party:mockito",
+        "//third_party/java/mockito",
     ],
 )

@@ -690,6 +690,11 @@ public class CppCompileAction extends AbstractAction
               .setSystemIncludeDirs(systemIncludeDirs)
               .setCmdlineIncludes(getCmdlineIncludes(options))
               .setIsValidUndeclaredHeader(getValidUndeclaredHeaderPredicate())
+              // Register generated prunable/toolchain headers as declared so the include scanner
+              // can resolve them; it never stats output-directory paths. Keep in sync with the
+              // matching call in the rediscovery path below. See
+              // IncludeScanningHeaderData.Builder#addDeclaredHeaders.
+              .addDeclaredHeaders(additionalPrunableHeaders)
               .build();
       additionalInputs = findUsedHeaders(actionExecutionContext, includeScanningHeaderData);
       if (additionalInputs == null) {
@@ -1958,6 +1963,11 @@ public class CppCompileAction extends AbstractAction
               includeScanningHeaderData
                   .setSystemIncludeDirs(getSystemIncludeDirs())
                   .setCmdlineIncludes(getCmdlineIncludes(getCompilerOptions()))
+                  // Register generated prunable/toolchain headers as declared so the include
+                  // scanner can resolve them; it never stats output-directory paths. Keep in sync
+                  // with the matching call in discoverInputs above. See
+                  // IncludeScanningHeaderData.Builder#addDeclaredHeaders.
+                  .addDeclaredHeaders(additionalPrunableHeaders)
                   .build());
       if (usedHeaders == null) {
         return null;

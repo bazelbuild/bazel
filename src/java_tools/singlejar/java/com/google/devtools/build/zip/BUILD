@@ -26,8 +26,8 @@ java_library(
     srcs = glob(["*.java"]),
     visibility = ["//visibility:public"],
     deps = [
-        "//third_party:apache_commons_compress",
-        "//third_party:jsr305",
+        "//third_party/java/apache_commons_compress:tar",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 

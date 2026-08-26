@@ -19,8 +19,8 @@ java_test(
     srcs = ["RegExTestCaseFilterTest.java"],
     deps = [
         "//src/java_tools/junitrunner/java/com/google/testing/junit/junit4:runner",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )

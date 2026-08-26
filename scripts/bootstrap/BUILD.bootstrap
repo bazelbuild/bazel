@@ -20,8 +20,8 @@ default_java_toolchain(
     ],
     oneversion = None,  # avoid remote_java_tools dependency
     singlejar = "//src/tools/singlejar:singlejar",
-    source_version = "21",
+    source_version = "25",
     tags = ["manual"],
-    target_version = "21",
+    target_version = "25",
     visibility = ["//visibility:public"],
 )

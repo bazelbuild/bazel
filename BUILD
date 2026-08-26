@@ -344,7 +344,7 @@ REMOTE_PLATFORMS = ("rbe_ubuntu2404",)
     for language_version in set([
         MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION,
         MINIMUM_JAVA_RUNTIME_VERSION,
-        21,
+        25,
     ])
 ]
 # LINT.ThenChange(//.bazelrc)

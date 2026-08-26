@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.concurrent.safeexecutor.RejectionHandlingRunnable;
 import com.google.protobuf.ByteString;
 
 /**
@@ -23,7 +24,7 @@ import com.google.protobuf.ByteString;
  */
 @SuppressWarnings("ShouldNotSubclass") // actual implementations derive from AbstractFuture
 public interface AsyncSerializationTask
-    extends ListenableFuture<SerializationResult<ByteString>>, Runnable {
+    extends ListenableFuture<SerializationResult<ByteString>>, RejectionHandlingRunnable {
   /**
    * Registers a {@link WriteStatus} to trigger the commit of the profiling samples.
    *

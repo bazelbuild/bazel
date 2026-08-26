@@ -30,6 +30,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -305,7 +306,7 @@ public abstract class ActionInputPrefetcherTestBase {
             action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
 
     verify(prefetcher, never())
-        .doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any());
+        .doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any(), any());
     assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath());
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
   }
@@ -323,10 +324,63 @@ public abstract class ActionInputPrefetcherTestBase {
         prefetcher.prefetchFilesInterruptibly(
             action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
 
-    verify(prefetcher).doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any());
+    verify(prefetcher).doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any(), any());
     assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath());
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
     assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world remote");
+  }
+
+  @Test
+  public void invalidateDownloads_redownloadsFileDeletedAfterDownload() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Artifact invalidated = createRemoteArtifact("file1", "hello world", metadata, cas);
+    Artifact notInvalidated = createRemoteArtifact("file2", "fizz buzz", metadata, cas);
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+    assertThat(FileSystemUtils.readContent(invalidated.getPath(), UTF_8)).isEqualTo("hello world");
+
+    // Both files are deleted behind the prefetcher's back, but only one of them is invalidated.
+    invalidated.getPath().delete();
+    notInvalidated.getPath().delete();
+    prefetcher.invalidateDownloads(ImmutableList.of(invalidated.getExecPath()));
+
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+
+    assertThat(FileSystemUtils.readContent(invalidated.getPath(), UTF_8)).isEqualTo("hello world");
+    // Downloads that weren't invalidated are still assumed to be in place.
+    assertThat(notInvalidated.getPath().exists()).isFalse();
+  }
+
+  @Test
+  public void invalidateDownloads_intactFileNotRedownloaded() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Artifact a = createRemoteArtifact("file", "hello world", metadata, cas);
+    AbstractActionInputPrefetcher prefetcher = spy(createPrefetcher(cas));
+
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+    assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world");
+
+    reset(fs);
+    prefetcher.invalidateDownloads(ImmutableList.of(a.getExecPath()));
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+
+    // The second prefetch checks the file against the file system rather than assuming that it is
+    // still in place, but doesn't download it again as it is intact.
+    verify(fs).statIfFound(a.getPath().asFragment(), /* followSymlinks= */ true);
+    verify(prefetcher, times(1))
+        .doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any(), any());
+    assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world");
   }
 
   @Test
@@ -1113,7 +1167,7 @@ public abstract class ActionInputPrefetcherTestBase {
     doAnswer(
             invocation -> {
               Path path = invocation.getArgument(3);
-              FileArtifactValue metadata = invocation.getArgument(4);
+              FileArtifactValue metadata = invocation.getArgument(5);
               byte[] content = cas.get(HashCode.fromBytes(metadata.getDigest()));
               if (content == null) {
                 return Futures.immediateFailedFuture(new IOException("Not found"));
@@ -1122,7 +1176,7 @@ public abstract class ActionInputPrefetcherTestBase {
               return resultSupplier.get();
             })
         .when(prefetcher)
-        .doDownloadFile(any(), any(), any(), any(), any(), any(), any());
+        .doDownloadFile(any(), any(), any(), any(), any(), any(), any(), any());
   }
 
   private void assertReadableNonWritableAndExecutable(Path path) throws IOException {

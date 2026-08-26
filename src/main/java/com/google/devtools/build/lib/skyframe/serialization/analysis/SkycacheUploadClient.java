@@ -130,7 +130,7 @@ public final class SkycacheUploadClient {
   }
 
   public void waitForCompletion() throws InterruptedException, ExecutionException {
-    writeStatuses.notifyAllStarted();
+    writeStatuses.finishRegistration();
     ImmutableList<Throwable> errors = writeStatuses.get();
     if (errors.isEmpty()) {
       return;

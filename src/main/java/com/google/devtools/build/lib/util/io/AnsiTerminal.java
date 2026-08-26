@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.util.io;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import java.io.IOException;
 import java.io.OutputStream;
 
@@ -139,9 +140,8 @@ public class AnsiTerminal {
   }
 
   /** Set the terminal title. */
-  @SuppressWarnings("DefaultCharset")
   public void setTitle(String title) throws IOException {
-    writeBytes(osc, setTermTitle, title.getBytes(), st);
+    writeBytes(osc, setTermTitle, StringUnsafe.getInternalStringBytes(title), st);
   }
 
   /**
@@ -149,9 +149,8 @@ public class AnsiTerminal {
    *
    * @param text the text to write
    */
-  @SuppressWarnings("DefaultCharset")
   public void writeString(String text) throws IOException {
-    out.write(text.getBytes());
+    out.write(StringUnsafe.getInternalStringBytes(text));
   }
 
   /**

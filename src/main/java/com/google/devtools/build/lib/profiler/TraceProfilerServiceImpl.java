@@ -289,9 +289,18 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
                   ? SlimProfileConfiguration.afterSize(slimProfileSizeLimit)
                   : SlimProfileConfiguration.always())
               : SlimProfileConfiguration.disabled();
+      long profileStartEpochMillis =
+          BlazeClock.createNanosToMillisSinceEpochConverter(clock)
+              .toEpochMillis(execStartTimeNanos);
       writer =
           new JsonTraceFileWriter(
-              stream, execStartTimeNanos, slimProfileConfig, outputBase, buildID, format);
+              stream,
+              execStartTimeNanos,
+              profileStartEpochMillis,
+              slimProfileConfig,
+              outputBase,
+              buildID,
+              format);
       writer.start();
     }
     this.writerRef.set(writer);

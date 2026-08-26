@@ -92,7 +92,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   private final int externalDirectorySegmentCount;
   private final FileSystem nativeFs;
   private final RemoteExternalFileSystem externalFs;
-  private final TaskDeduplicator<String, Void> materializations = new TaskDeduplicator<>();
+  private final TaskDeduplicator<String, Void, Void> materializations = new TaskDeduplicator<>();
   // The names of the repos whose contents have been fully materialized to nativeFs.
   private final Set<String> materializedRepos = ConcurrentHashMap.newKeySet();
   // As long as a repo name appears as a key in this map, the repo contents are available in
@@ -154,16 +154,19 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       // unconditionally.
       return;
     }
+
+    // Uninterruptibly await the termination of all ongoing materializations to prevent cleanup
+    // below from interfering with a user's interrupt of the build.
+    materializationExecutor.shutdownNow();
+    materializationExecutor.close();
+
     this.cache = null;
     this.inputPrefetcher = null;
     this.reporter = null;
     this.buildRequestId = null;
     this.commandId = null;
     this.remoteCacheTtl = null;
-    // Materializations happen synchronously and upon request by other repo rules, so there is no
-    // reason to await their orderly completion in afterCommand.
-    materializationExecutor.shutdownNow();
-    materializationExecutor = null;
+    this.materializationExecutor = null;
     // Clean up the in-memory contents of materialized repos to save memory, or those that need to
     // be refetched to recover files that the remote cache has lost. This wouldn't be safe to do
     // eagerly as ongoing repo rule evaluations may still refer to the in-memory content and
@@ -395,8 +398,10 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     }
     var unused =
         getFromFuture(
-            materializations.executeIfNew(
+            materializations.execute(
                 repo.getName(),
+                /* attributes= */ null,
+                /* canJoin= */ unusedAttributes -> true,
                 () ->
                     materializationExecutor.submit(
                         () -> {
@@ -422,6 +427,11 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   }
 
   private void prefetch(Iterable<PathFragment> paths) throws IOException, InterruptedException {
+    // These paths may have been prefetched and then deleted again earlier in this invocation, e.g.
+    // by an injection whose fetch was subsequently restarted due to memory pressure. The
+    // prefetcher's download cache would otherwise consider them downloaded already and not even
+    // verify they exist on the local file system.
+    inputPrefetcher.invalidateDownloads(paths);
     var unused =
         getFromFuture(
             inputPrefetcher.prefetchFilesInterruptibly(
@@ -843,7 +853,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     }
 
     @Override
-    public synchronized InputStream getInputStream(PathFragment path) throws IOException {
+    public InputStream getInputStream(PathFragment path) throws IOException {
       // Symlinks are never prefetched to the native file system themselves, only the regular file
       // they resolve to, so follow them before reading a prefetched file. Either end of the chain
       // can be what makes the read eligible: a symlink named `helper.bzl` pointing at `helper.txt`

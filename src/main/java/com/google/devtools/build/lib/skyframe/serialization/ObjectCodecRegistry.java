@@ -28,12 +28,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Streams;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.ByteStreams;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.CodedOutputStream;
 import com.google.protobuf.MessageLite;
 import java.io.IOException;
 import java.io.Serializable;
+import java.lang.reflect.Method;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -53,6 +55,8 @@ import javax.annotation.Nullable;
  * representation if desired.
  */
 public class ObjectCodecRegistry {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   /** Creates a new, empty builder. */
   public static Builder newBuilder() {
     return new Builder();
@@ -691,6 +695,28 @@ public class ObjectCodecRegistry {
     return true;
   }
 
+  @Nullable private static final Method IS_VALUE_METHOD = getIsValueMethod();
+
+  @Nullable
+  private static Method getIsValueMethod() {
+    try {
+      return Class.class.getMethod("isValue");
+    } catch (NoSuchMethodException e) {
+      return null;
+    }
+  }
+
+  private static boolean isValueClass(Class<?> clazz) {
+    if (IS_VALUE_METHOD == null) {
+      return false;
+    }
+    try {
+      return (boolean) IS_VALUE_METHOD.invoke(clazz);
+    } catch (ReflectiveOperationException e) {
+      return false;
+    }
+  }
+
   /** For enums, this method must only be called for the declaring class. */
   @Nullable
   private static CodecDescriptor createDynamicCodecDescriptor(int tag, String className) {
@@ -702,10 +728,12 @@ public class ObjectCodecRegistry {
       if (MessageLite.class.isAssignableFrom(type)) {
         return createCodecDescriptorForProto(tag, type);
       }
+      if (isValueClass(type)) {
+        return null;
+      }
       return new CodecDescriptor(WireType.CodecWireType.UNSTABLE, tag, new DynamicCodec(type));
     } catch (ReflectiveOperationException e) {
-      new SerializationException("Could not create codec for type: " + className, e)
-          .printStackTrace();
+      logger.atWarning().withCause(e).log("Could not create codec for type: %s", className);
       return null;
     }
   }

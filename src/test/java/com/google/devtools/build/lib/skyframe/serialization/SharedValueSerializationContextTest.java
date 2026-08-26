@@ -312,7 +312,7 @@ public final class SharedValueSerializationContextTest {
     var codecs =
         new ObjectCodecs(
             ObjectCodecRegistry.newBuilder().add(new FaultySharedValueExampleCodec()).build());
-    var subject1 = new SharedValueExample(10);
+    var subject1 = new SharedValueExample(new Object());
     var thrown1 =
         assertThrows(
             SerializationException.class,
@@ -344,7 +344,7 @@ public final class SharedValueSerializationContextTest {
   }
 
   /** Test data for {@link #errorInSharedPut}. */
-  private record SharedValueExample(Integer sharedData) {}
+  private record SharedValueExample(Object sharedData) {}
 
   private static class FaultySharedValueExampleCodec
       extends DeferredObjectCodec<SharedValueExample> {
@@ -373,12 +373,12 @@ public final class SharedValueSerializationContextTest {
     }
   }
 
-  private static class FaultySerializationCodec extends DeferredObjectCodec<Integer> {
+  private static class FaultySerializationCodec extends DeferredObjectCodec<Object> {
     private static final FaultySerializationCodec INSTANCE = new FaultySerializationCodec();
 
     @Override
-    public Class<Integer> getEncodedClass() {
-      return Integer.class;
+    public Class<Object> getEncodedClass() {
+      return Object.class;
     }
 
     @Override
@@ -387,13 +387,13 @@ public final class SharedValueSerializationContextTest {
     }
 
     @Override
-    public void serialize(SerializationContext context, Integer obj, CodedOutputStream codedOut)
+    public void serialize(SerializationContext context, Object obj, CodedOutputStream codedOut)
         throws SerializationException {
       throw new SerializationException("injected error");
     }
 
     @Override
-    public DeferredValue<Integer> deserializeDeferred(
+    public DeferredValue<Object> deserializeDeferred(
         AsyncDeserializationContext context, CodedInputStream codedIn) {
       throw new AssertionError("not reachable");
     }

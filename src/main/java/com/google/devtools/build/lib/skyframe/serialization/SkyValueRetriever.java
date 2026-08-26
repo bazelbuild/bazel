@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeseriali
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpNodeMemoizingLookup;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.LookupResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheChannelStateAdvisor;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
@@ -43,23 +44,19 @@ public final class SkyValueRetriever {
   private final ObjectCodecs codecs;
   private final FrontierNodeVersion frontierNodeVersion;
   @Nullable private final FileOpNodeMemoizingLookup fileOpNodes;
-
-  public SkyValueRetriever(
-      FingerprintValueService fingerprintValueService,
-      ObjectCodecs codecs,
-      FrontierNodeVersion frontierNodeVersion) {
-    this(fingerprintValueService, codecs, frontierNodeVersion, null);
-  }
+  private final SkycacheChannelStateAdvisor channelStateAdvisor;
 
   public SkyValueRetriever(
       FingerprintValueService fingerprintValueService,
       ObjectCodecs codecs,
       FrontierNodeVersion frontierNodeVersion,
-      @Nullable FileOpNodeMemoizingLookup fileOpNodes) {
+      @Nullable FileOpNodeMemoizingLookup fileOpNodes,
+      SkycacheChannelStateAdvisor channelStateAdvisor) {
     this.fingerprintValueService = fingerprintValueService;
     this.codecs = codecs;
     this.frontierNodeVersion = frontierNodeVersion;
     this.fileOpNodes = fileOpNodes;
+    this.channelStateAdvisor = Preconditions.checkNotNull(channelStateAdvisor);
   }
 
   /**
@@ -295,6 +292,12 @@ public final class SkyValueRetriever {
       while (true) {
         switch (serializationState) {
           case InitialQuery unused -> {
+            if (channelStateAdvisor.isSaturated()) {
+              var result = new NoCachedData(MissReason.MISS_REASON_CACHE_SATURATED);
+              serializationState = retrievalContext.transitionTo(result);
+              return result;
+            }
+
             PackedFingerprint cacheKey =
                 FingerprintValueService.computeFingerprint(
                     this.fingerprintValueService, this.codecs, key, this.frontierNodeVersion);

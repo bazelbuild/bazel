@@ -21,6 +21,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.util.DecimalBucketer;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.ByteString;
@@ -42,7 +44,7 @@ public final class FingerprintValueService implements KeyValueWriter {
   public static final Fingerprinter NONPROD_FINGERPRINTER =
       input -> PackedFingerprint.fromBytes(murmur3_128().hashBytes(input).asBytes());
 
-  private final Executor executor;
+  private final SafeExecutor executor;
   private final FingerprintValueStore store;
   private final FingerprintValueCache cache;
 
@@ -87,11 +89,14 @@ public final class FingerprintValueService implements KeyValueWriter {
   private static FingerprintValueService createForTesting(
       FingerprintValueStore store, FingerprintValueCache.SyncMode mode) {
     return new FingerprintValueService(
-        newSingleThreadExecutor(), store, new FingerprintValueCache(mode), NONPROD_FINGERPRINTER);
+        new SafeExecutorOwner(newSingleThreadExecutor()),
+        store,
+        new FingerprintValueCache(mode),
+        NONPROD_FINGERPRINTER);
   }
 
   public FingerprintValueService(
-      Executor executor,
+      SafeExecutor executor,
       FingerprintValueStore store,
       FingerprintValueCache cache,
       Fingerprinter fingerprinter) {
@@ -235,7 +240,7 @@ public final class FingerprintValueService implements KeyValueWriter {
    * <p>Technically, this should be plumbed separately but for the time being, {@link
    * FingerprintValueService} is a convenient container for the {@link Executor}.
    */
-  public Executor getExecutor() {
+  public SafeExecutor getExecutor() {
     return executor;
   }
 

@@ -18,7 +18,7 @@ java_library(
     testonly = 0,  # TODO(bazel-team): make it testonly
     srcs = glob(["runner/*.java"]),
     deps = [
-        "//third_party:junit4",
+        "//third_party/java/junit:not-testonly",
     ],
 )
 

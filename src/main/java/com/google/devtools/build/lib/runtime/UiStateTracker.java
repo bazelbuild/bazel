@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.primitives.Booleans.trueFirst;
 import static java.util.Comparator.comparing;
+import static java.util.Comparator.comparingLong;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Comparators;
@@ -1192,7 +1193,7 @@ class UiStateTracker {
       throws IOException {
     ArrayList<Map.Entry<String, DownloadData>> runningDownloadsSnapshot =
         new ArrayList<>(runningDownloads.entrySet());
-    runningDownloadsSnapshot.sort(comparing(entry -> entry.getValue().nanoStartTime()));
+    runningDownloadsSnapshot.sort(comparingLong(entry -> entry.getValue().nanoStartTime()));
     int count = 0;
     long nanoTime = clock.nanoTime();
     int downloadCount = runningDownloadsSnapshot.size();
