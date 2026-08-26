@@ -409,8 +409,10 @@ public interface SpawnRunner {
    *     entries
    * @param treeDeleter scheduler for tree deletions
    * @throws IOException if there are problems deleting the entries
+   * @throws InterruptedException if the cleanup is interrupted
    */
-  default void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter) throws IOException {}
+  default void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter)
+      throws IOException, InterruptedException {}
 
   /**
    * Returns a {@link SpawnResult.Builder} prepopulated with the runner name and the spawn digest.

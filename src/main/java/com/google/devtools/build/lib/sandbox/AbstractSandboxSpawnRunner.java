@@ -451,12 +451,17 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   }
 
   @Override
-  public void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter) throws IOException {
+  public void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter)
+      throws IOException, InterruptedException {
     Path root = sandboxBase.getChild(getName());
     if (root.exists()) {
       for (Path child : root.getDirectoryEntries()) {
+        if (Thread.currentThread().isInterrupted()) {
+          throw new InterruptedException();
+        }
         treeDeleter.deleteTree(child);
       }
+      root.delete();
     }
   }
 }
