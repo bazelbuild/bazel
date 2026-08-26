@@ -59,7 +59,7 @@ public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
       name = "experimental_remote_analysis_cache_max_in_flight_read_requests",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      defaultValue = "125000",
+      defaultValue = "500000",
       converter = NonNegativeIntegerConverter.class,
       help =
           "Maximum number of concurrent in-flight read requests across Skycache stores before"
