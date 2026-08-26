@@ -277,10 +277,15 @@ public abstract class CommonCommandOptions extends OptionsBase {
       name = "build_request_id",
       defaultValue = "",
       converter = PrefixedUUIDConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.BAZEL_MONITORING, OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      metadataTags = {OptionMetadataTag.HIDDEN},
-      help = "Unique string identifier for the build being run.")
+      help =
+          """
+          Unique string identifier that groups together a set of invocations that are conceptually
+          part of the same overall build request. The value is sent over the BES transport envelope
+          (as `StreamId.build_id`) and remote execution protocol (as
+          `RequestMetadata.correlated_invocations_id`).
+          """)
   public abstract String getBuildRequestId();
 
   @Option(
@@ -729,4 +734,15 @@ public abstract class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Whether or not to write the command.log file")
   public abstract boolean getWriteCommandLog();
+
+  @Option(
+      name = "experimental_non_deterministic_memory_optimizations",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "Whether to enable memory optimizations that may be non-deterministic with respect to"
+              + " their efficacy. Enable this to use less memory; disable this for more consistent"
+              + " memory measurements")
+  public abstract boolean getExperimentalNonDeterministicMemoryOptimizations();
 }

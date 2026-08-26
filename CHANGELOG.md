@@ -1,3 +1,53 @@
+## Release 10.0.0-pre.20260811.3 (2026-08-20)
+
+```
+Baseline: 882d6f366dfdb92f031492755ba11185948bd987
+
+Cherry picks:
+
+   + 56cf7a548564f342b6c6f78191780b0f03401e18:
+     Disable non-deterministic interning / memory optimizations when
+     Skycache serialization is needed.
+   + 31d34c8a8cd7cc3481094dcefaa5411a804a7540:
+     Fix non-fatal error in StarlarkProvider.export()
+```
+
+Important changes:
+
+  - Fix `sh_binary` on Windows to pass user arguments as positional
+    parameters to bash instead of concatenating them.
+  - Fixes a possible crash on Windows Arm64 related to JNI strings
+  - Added urlencode($1) support to --downloader_config rewrite rules.
+
+This release contains contributions from many people at Google, as well as Andrew Hewitson, dependabot[bot], Fabian Meumertzheim, Keith Smiley.
+
+## Release 10.0.0-pre.20260806.4 (2026-08-14)
+
+```
+Baseline: 4cc61677898c457f289fa06eb528b99ffaa93ca1
+
+Cherry picks:
+
+   + 2685d96916dbc3d097290cfb240e0b4ee77a7ab0:
+     Fix NullPointerException in CriticalPathComputer.
+   + 40d145301469ebf27d679bdb670aaf3eb056f4b1:
+     Fix duplicate execution info entry crash in SpawnIncludeScanner.
+   + 7f5421b25aae980a5b22b33dbe0a0a27f20d3fda:
+     Automated rollback of commit
+     f138e4937c816d6263bf1b9bc3eb6cc89ded7871.
+   + 53428ca4a01e330c29a01e92487abe52177c583a:
+     Close the coverage post-processing `FileOutErr` before deleting
+     its files (https://github.com/bazelbuild/bazel/pull/30662)
+   + 27aaf57930ab5edf6b24101d791712a949f5617a:
+     Pass Host header to curl in remote-ip sandboxing networking test.
+```
+
+Important changes:
+
+  - Honor XDG_CACHE_HOME on Windows in Bazel.
+
+This release contains contributions from many people at Google, as well as Benedict Chacko, Benjamin Peterson, David Zbarsky, Fabian Meumertzheim, jcater, Keith Smiley, Tamir Duberstein.
+
 ## Release 10.0.0-pre.20260801.1 (2026-08-10)
 
 ```

@@ -83,6 +83,37 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void testWithOnlyInternalOutputGroups() throws Exception {
+    write(
+        "foo/BUILD",
+        """
+        load("//test_defs:foo_binary.bzl", "foo_binary")
+
+        genrule(
+            name = "gen",
+            outs = ["gen.out"],
+            cmd = "touch $@",
+        )
+
+        foo_binary(
+            name = "foo",
+            srcs = ["foo.sh"],
+            data = [":gen"],
+        )
+        """);
+    write("foo/foo.sh", "echo foo").setExecutable(true);
+
+    // Subtracting the default output group leaves the internal output group carrying the runfiles,
+    // which are built but never shown.
+    addOptions("--output_groups=-default");
+    build(false, "no-error", "//foo");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr)
+        .contains("Target //foo:foo up-to-date (nothing to build except internal output groups)\n");
+  }
+
+  @Test
   public void testNoKeepGoingResult() throws Exception {
     write("test/BUILD",
         "genrule(name='A', srcs=['A2'], outs=['A.out']," +
@@ -217,6 +248,47 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
     String stderr = recOutErr.errAsLatin1();
     assertThat(stderr).contains("Target //bad_clib:bad_clib failed to build");
     assertThat(stderr).contains("See temp at blaze-bin/bad_clib/_objs/bad_clib/badlib.pic.ii\n");
+  }
+
+  @Test
+  public void testFailedDependencyActionAttributionAndShowResult() throws Exception {
+    write(
+        "test/BUILD",
+        "genrule(name='top1', srcs=['dep'], outs=['top1.out'],"
+            + " cmd='/bin/cp test/in $(location top1.out)')\n"
+            + "genrule(name='top2', srcs=['dep'], outs=['top2.out'],"
+            + " cmd='/bin/cp test/in $(location top2.out)')\n"
+            + "genrule(name='dep', srcs=[], outs=['dep.out'],"
+            + " cmd='exit 42')\n");
+    write("test/in", "(input)");
+
+    addOptions("--keep_going", "--show_result=1");
+    build(true, GENRULE_ERROR, "//test:top1", "//test:top2");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).contains("Target //test:top1 failed to build\n");
+    assertThat(stderr).contains("Target //test:top2 failed to build\n");
+    assertThat(stderr).contains("  due to action in //test:dep\n");
+  }
+
+  @Test
+  public void testFailedTargetNotSuppressedBySuccessfulTargetBudget() throws Exception {
+    write(
+        "mix/BUILD",
+        "genrule(name='succ1', srcs=['in'], outs=['succ1.out'], cmd='/bin/cp $(location in)"
+            + " $(location succ1.out)')\n"
+            + "genrule(name='succ2', srcs=['in'], outs=['succ2.out'], cmd='/bin/cp $(location in)"
+            + " $(location succ2.out)')\n"
+            + "genrule(name='fail', srcs=[], outs=['fail.out'], cmd='exit 42')\n");
+    write("mix/in", "(input)");
+
+    addOptions("--keep_going", "--show_result=1");
+    build(true, GENRULE_ERROR, "//mix:succ1", "//mix:succ2", "//mix:fail");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).contains("Target //mix:fail failed to build\n");
+    assertThat(stderr).doesNotContain("Target //mix:succ1 up-to-date:\n");
+    assertThat(stderr).doesNotContain("Target //mix:succ2 up-to-date:\n");
   }
 
   // Concrete implementations of this abstract test:

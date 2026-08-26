@@ -21,9 +21,9 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/info",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/truth",
     ],
 )
 
@@ -33,8 +33,8 @@ java_test(
     srcs = ["JavaHomeInfoItemTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/info",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -48,8 +48,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/info",
         "//src/main/protobuf:command_server_java_proto",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/junit",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/truth",
     ],
 )

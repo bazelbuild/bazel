@@ -260,7 +260,7 @@ public abstract sealed class NestedSet<E> {
       if (n < children.length) {
         children = Arrays.copyOf(children, n); // shrink to save space
       }
-      finalChildren = children;
+      finalChildren = NestedSetInterner.intern(children);
     }
 
     return shallow

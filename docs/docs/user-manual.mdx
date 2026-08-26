@@ -1262,6 +1262,61 @@ echo "STABLE_USER_NAME $USER"
 Pass this program's path with `--workspace_status_command`, and the stable status file
 will include the STABLE lines and the volatile status file will include the rest of the lines.
 
+#### Using workspace status in your build
+
+The status key-value pairs can be used in your build through Starlark actions
+and templates. Many binary or 'top-level' rules, and other rules like
+`genrule`, support the `stamp` attribute, which can embed workspace status
+information into the compiled binaries.
+
+For example, when using `cc_binary` with `stamp = 1`, Bazel will automatically
+make the workspace status available to the build. You can then access these
+values through template files:
+
+```python
+# In your BUILD file
+cc_binary(
+    name = "my_binary",
+    srcs = ["main.cc"],
+    stamp = 1,  # Enable stamping to include workspace status
+)
+
+# For custom use of workspace status, you can use ctx.actions.declare_file
+# and read the status files from ctx.workspace_status
+```
+
+For Java projects, you can use the `bazel_java_build_info` rule to generate
+Java source files with workspace status information:
+
+```python
+load("@bazel_tools//tools/build_defs/build_info:bazel_java_build_info.bzl", "bazel_java_build_info")
+
+bazel_java_build_info(
+    name = "build_info",
+    stamp = 1,
+)
+
+java_binary(
+    name = "my_app",
+    srcs = ["Main.java", ":build_info"],
+    main_class = "com.example.Main",
+)
+```
+
+This will generate a Java source file containing the workspace status values
+as string constants, which you can then use in your Java code:
+
+```java
+// In your Java code
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("Build label: " + BuildInfo.BUILD_LABEL);
+        System.out.println("Build host: " + BuildInfo.BUILD_HOST);
+        System.out.println("Build user: " + BuildInfo.BUILD_USER);
+    }
+}
+```
+
 #### `--[no]stamp` {#stamp}
 
 This option, in conjunction with the `stamp` rule attribute, controls whether to

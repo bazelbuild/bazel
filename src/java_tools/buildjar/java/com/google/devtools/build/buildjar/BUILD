@@ -35,8 +35,9 @@ java_library(
     deps =
         [
             ":javac_options",
-            "//third_party:guava",
-            "//third_party:jsr305",
+            "//third_party/java/guava:base",
+            "//third_party/java/guava:collect",
+            "//third_party/java/jsr305_annotations",
         ],
 )
 
@@ -64,10 +65,11 @@ java_library(
         ":javac_options",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",
-        "//third_party:auto_value",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
@@ -102,11 +104,14 @@ java_library(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:processing",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",
         "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
-        "//third_party:error_prone",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:io",
         "//third_party/java/jacoco:core",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -121,8 +126,10 @@ java_library(
     srcs = JAVAC_OPTIONS_SRCS,
     visibility = ["//visibility:public"],
     deps = [
-        "//third_party:auto_value",
-        "//third_party:guava",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:primitives",
     ],
 )
 
@@ -135,9 +142,9 @@ java_library(
     name = "JarOwner",
     srcs = ["JarOwner.java"],
     deps = [
-        "//third_party:auto_value",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -157,7 +164,9 @@ java_library(
         "//src/main/protobuf:deps_java_proto",
         "//src/main/protobuf:java_compilation_java_proto",
         "//src/main/protobuf:worker_protocol_java_proto",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:io",
     ],
 )
 

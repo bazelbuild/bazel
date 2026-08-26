@@ -41,6 +41,6 @@ java_library(
     srcs = ["TestUnixGlobPathDiscriminator.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:error_prone_annotations",
+        "//third_party/java/error_prone:annotations",
     ],
 )

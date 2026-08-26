@@ -40,7 +40,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:test/instrumented_files_info",
         "//src/main/java/com/google/devtools/build/lib/rules/core",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -52,7 +52,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/protobuf:test_status_java_proto",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -88,8 +88,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 

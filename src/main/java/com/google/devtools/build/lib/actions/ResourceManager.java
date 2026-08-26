@@ -248,10 +248,14 @@ public class ResourceManager implements ResourceEstimator {
 
   // Enables experimental action scheduling using CPU load of a machine.
   private boolean cpuLoadScheduling;
+  // Enables experimental action scheduling using memory load of a machine.
+  private boolean memoryLoadScheduling;
   // The size of window for running actions.
   private Duration windowSize = Duration.ofSeconds(5);
   // Estimation of CPU usage by actions started during the window.
   private double windowEstimationCpu;
+  // Estimation of memory usage by actions started during the window.
+  private double windowEstimationMemory;
   // Set of request ids which resource acquiring started during the window.
   private final Set<Integer> windowRequestIds = new HashSet<>();
   // Executor for periodic window update.
@@ -263,10 +267,14 @@ public class ResourceManager implements ResourceEstimator {
   // Collects the information about the load of a machine.
   private MachineLoadProvider machineLoadProvider;
 
-  public void initializeCpuLoadFunctionality(
-      MachineLoadProvider machineLoadProvider, boolean cpuLoadScheduling, Duration windowSize) {
+  public void initializeLoadFunctionality(
+      MachineLoadProvider machineLoadProvider,
+      boolean cpuLoadScheduling,
+      boolean memoryLoadScheduling,
+      Duration windowSize) {
     this.machineLoadProvider = machineLoadProvider;
     this.cpuLoadScheduling = cpuLoadScheduling;
+    this.memoryLoadScheduling = memoryLoadScheduling;
     this.windowSize = windowSize;
   }
 
@@ -289,6 +297,7 @@ public class ResourceManager implements ResourceEstimator {
   synchronized void windowUpdate() throws IOException, InterruptedException {
     windowRequestIds.clear();
     windowEstimationCpu = 0.0;
+    windowEstimationMemory = 0.0;
     processAllWaitingRequests();
   }
 
@@ -315,6 +324,7 @@ public class ResourceManager implements ResourceEstimator {
 
     windowRequestIds.clear();
     windowEstimationCpu = 0.0;
+    windowEstimationMemory = 0.0;
     runningActions = 0;
   }
 
@@ -330,12 +340,12 @@ public class ResourceManager implements ResourceEstimator {
     logger.atInfo().log("Set available resources: %s", resources);
   }
 
-  public synchronized void scheduleCpuLoadWindowUpdate() {
+  public synchronized void scheduleLoadWindowUpdate() {
     if (windowUpdateFuture != null) {
       windowUpdateFuture.cancel(true);
     }
 
-    if (cpuLoadScheduling) {
+    if (cpuLoadScheduling || memoryLoadScheduling) {
       windowUpdateFuture =
           windowUpdateExecutor.scheduleAtFixedRate(
               new WindowUpdateRunner("window-update"), 0, windowSize.toMillis(), MILLISECONDS);
@@ -436,6 +446,7 @@ public class ResourceManager implements ResourceEstimator {
 
     windowRequestIds.add(request.getId());
     windowEstimationCpu += resources.getResources().getOrDefault(ResourceSet.CPU, 0.0);
+    windowEstimationMemory += resources.getResources().getOrDefault(ResourceSet.MEMORY, 0.0);
     usedLocalTestCount += resources.getLocalTestCount();
     if (resources.getWorkerKey() != null) {
       return this.workerPool.borrowWorker(resources.getWorkerKey());
@@ -565,6 +576,7 @@ public class ResourceManager implements ResourceEstimator {
 
     if (windowRequestIds.remove(request.getId())) {
       windowEstimationCpu -= resources.getResources().getOrDefault(ResourceSet.CPU, 0.0);
+      windowEstimationMemory -= resources.getResources().getOrDefault(ResourceSet.MEMORY, 0.0);
     }
     runningActions--;
 
@@ -690,6 +702,12 @@ public class ResourceManager implements ResourceEstimator {
         }
         continue;
       }
+      if (key.equals(ResourceSet.MEMORY)) {
+        if (!isMemoryAvailable(resource)) {
+          return false;
+        }
+        continue;
+      }
       // Use only MIN_NECESSARY_RATIO of the resource value to check for
       // allocation. This is necessary to account for the fact that most of the
       // requested resource sets use pessimistic estimations. Note that this
@@ -721,6 +739,26 @@ public class ResourceManager implements ResourceEstimator {
       if (runningActions >= MAX_ACTIONS_PER_CPU * availableResources.get(ResourceSet.CPU)) {
         return false;
       }
+      return isAvailable(available, windowEstimation + currentUsage, requested);
+    }
+
+    return isAvailable(available, used, requested);
+  }
+
+  synchronized boolean isMemoryAvailable(Map.Entry<String, Double> resource) {
+    String key = resource.getKey();
+
+    double requested =
+        resource.getValue() * MIN_NECESSARY_RATIO.getOrDefault(key, DEFAULT_MIN_NECESSARY_RATIO);
+    double available = availableResources.get(key);
+    double used = usedResources.getOrDefault(key, 0.0);
+
+    if (memoryLoadScheduling) {
+      double currentUsage = machineLoadProvider.getCurrentMemoryUsageMb();
+      if (currentUsage < 0) {
+        return isAvailable(available, used, requested);
+      }
+      double windowEstimation = windowEstimationMemory;
       return isAvailable(available, windowEstimation + currentUsage, requested);
     }
 

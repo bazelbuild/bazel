@@ -26,9 +26,9 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options/testing",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 

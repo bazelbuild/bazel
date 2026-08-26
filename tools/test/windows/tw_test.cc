@@ -418,6 +418,7 @@ TEST_F(TestWrapperWindowsTest, TestCreateUndeclaredOutputsAnnotations) {
   EXPECT_TRUE(CreateDirectoryW((root + L"\\foo").c_str(), nullptr));
   EXPECT_TRUE(CreateDirectoryW((root + L"\\bar.part").c_str(), nullptr));
   EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\a.part", "Hello a"));
+  EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\a.pb", "Proto a"));
   EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\b.txt", "Hello b"));
   EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\c.part", "Hello c"));
   EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\foo\\d.part", "Hello d"));

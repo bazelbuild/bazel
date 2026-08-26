@@ -26,8 +26,8 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -43,8 +43,9 @@ java_library(
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:stardoc_output_java_proto",
         "//src/tools/starlark/java/com/google/devtools/starlark/common",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -64,8 +65,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:stardoc_output_java_proto",
-        "//third_party:auto_value",
-        "//third_party:guava",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -91,7 +94,9 @@ java_library(
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:stardoc_output_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )

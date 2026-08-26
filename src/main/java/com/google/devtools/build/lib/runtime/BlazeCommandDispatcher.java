@@ -430,6 +430,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           commandName.equals("query") || commandAnnotation.buildPhase().analyzes();
       tracerEnabled = commandSupportsProfile || commonOptions.getProfilePath() != null;
     }
+    MemoryOptimizations.allowNonDeterministicEfficacy.set(
+        commonOptions.getExperimentalNonDeterministicMemoryOptimizations());
 
     // TODO(ulfjack): Move the profiler initialization as early in the startup sequence as possible.
     // Profiler setup and shutdown must always happen in pairs. Shutdown is currently performed in
