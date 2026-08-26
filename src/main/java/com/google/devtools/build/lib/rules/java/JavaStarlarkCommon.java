@@ -20,8 +20,12 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.analysis.starlark.Args;
+import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -51,6 +55,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -201,7 +206,8 @@ public class JavaStarlarkCommon
       boolean enableJSpecify,
       boolean enableDirectClasspath,
       Sequence<?> additionalInputs,
-      Sequence<?> additionalOutputs)
+      Sequence<?> additionalOutputs,
+      Sequence<?> extraArgs)
       throws EvalException,
           TypeException,
           RuleErrorException,
@@ -217,6 +223,11 @@ public class JavaStarlarkCommon
             .nativeHeader(nativeHeader == Starlark.NONE ? null : (Artifact) nativeHeader)
             .manifestProto(manifestProto)
             .build();
+    ImmutableList.Builder<CommandLine> extraCommandLineArgs = ImmutableList.builder();
+    for (Args args : Sequence.cast(extraArgs, Args.class, "extra_args")) {
+      extraCommandLineArgs.add(
+          args.build(ctx.getRuleContext().getAnalysisEnvironment()::getMainRepoMapping));
+    }
     JavaTargetAttributes.Builder attributesBuilder =
         new JavaTargetAttributes.Builder()
             .addSourceJars(Sequence.cast(sourceJars, Artifact.class, "source_jars"))
@@ -261,6 +272,7 @@ public class JavaStarlarkCommon
         Depset.cast(javaBuilderJvmFlags, String.class, "javabuilder_jvm_flags"));
     compilationHelper.enableJspecify(enableJSpecify);
     compilationHelper.enableDirectClasspath(enableDirectClasspath);
+    compilationHelper.setExtraCommandLineArgs(extraCommandLineArgs.build());
     compilationHelper.createCompileAction(outputs);
   }
 

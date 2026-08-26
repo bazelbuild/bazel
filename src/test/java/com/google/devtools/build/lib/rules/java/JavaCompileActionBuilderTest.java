@@ -426,4 +426,64 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
     cacheMiss.setFilename(artifact.getExecPathString());
     return new BulkTransferException(cacheMiss);
   }
+
+  @Test
+  public void testExtraArgsPropagated() throws Exception {
+    scratch.file("third_party/bazel_rules/rules_java/BUILD");
+    scratch.file(
+        "third_party/bazel_rules/rules_java/rule.bzl",
+        """
+        load("@rules_java//java:defs.bzl", "JavaPluginInfo", rules_java_common = "java_common")
+
+        def _my_rule_impl(ctx):
+            output = ctx.outputs.jar
+            manifest = ctx.actions.declare_file(ctx.label.name + ".manifest")
+            internal_common = java_common.internal_DO_NOT_USE()
+            args = ctx.actions.args()
+            args.add("--foo=bar")
+            internal_common.create_compilation_action(
+                ctx,
+                ctx.attr._java_toolchain[rules_java_common.JavaToolchainInfo],
+                output,
+                manifest,
+                JavaPluginInfo(runtime_deps = []),
+                depset(),
+                depset(),
+                depset(),
+                depset(),
+                depset(),
+                depset(),
+                "ERROR",
+                ctx.label,
+                extra_args = [args],
+            )
+            return [DefaultInfo(files = depset([output]))]
+
+        my_rule = rule(
+            implementation = _my_rule_impl,
+            outputs = {
+                "jar": "%{name}.jar",
+            },
+            attrs = {
+                "_java_toolchain": attr.label(default = "@bazel_tools//tools/jdk:current_java_toolchain"),
+            },
+            fragments = ["java"],
+            toolchains = ["@bazel_tools//tools/jdk:toolchain_type"],
+        )
+        """);
+    scratch.file(
+        "java/com/google/test/BUILD",
+        """
+        load("//third_party/bazel_rules/rules_java:rule.bzl", "my_rule")
+
+        my_rule(
+            name = "a",
+        )
+        """);
+
+    JavaCompileAction compileAction =
+        (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:a.jar");
+    List<String> command = getJavacArguments(compileAction);
+    assertThat(command).contains("--foo=bar");
+  }
 }
