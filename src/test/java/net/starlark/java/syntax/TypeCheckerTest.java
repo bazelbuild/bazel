@@ -1693,8 +1693,7 @@ public final class TypeCheckerTest {
 
     // Simple callable types (produced by `Callable` application)
     assertTypeGivenDecls("f(42)", Types.ANY, "f: Callable");
-    assertTypeGivenDecls("f(42)", Types.BOOL, "f: Callable[[int], bool]");
-    assertTypeGivenDecls("f(1, 2.5, 3, x=[])", Types.STR, "f: Callable[[int, float, ...], str]");
+    assertTypeGivenDecls("f(42, 2.5)", Types.BOOL, "f: Callable[[int, float], bool]");
     assertTypeGivenDecls("f(1, 2.5, 3, x=[])", Types.STR, "f: Callable[..., str]");
 
     // Omitted return type is Any
@@ -1809,12 +1808,6 @@ public final class TypeCheckerTest {
         "'f()' accepts exactly 2 positional arguments but got 1",
         """
         f: Callable[[int, int], int]
-        f(42)
-        """);
-    assertInvalid(
-        "'f()' accepts 2 or more positional arguments but got 1",
-        """
-        f: Callable[[int, int, ...], int]
         f(42)
         """);
     assertInvalid(
