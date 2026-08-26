@@ -127,6 +127,24 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   public void setContentsProxy(FileContentsProxy proxy) {}
 
   /**
+   * Returns whether the remote file this metadata refers to was materialized in the local
+   * filesystem as a requested top-level output without its generating action being reexecuted.
+   *
+   * <p>Such a file requires special handling in incremental builds: since the metadata tracked for
+   * it remains remote, a local deletion of the file can only be detected by consulting this flag.
+   */
+  public boolean wasMaterializedAsToplevelOutput() {
+    return false;
+  }
+
+  /**
+   * Records whether the remote file this metadata refers to was materialized in the local
+   * filesystem as a requested top-level output without its generating action being reexecuted. If
+   * this metadata does not support recording this, does nothing.
+   */
+  public void setMaterializedAsToplevelOutput(boolean materializedAsToplevelOutput) {}
+
+  /**
    * Returns whether this metadata describes an in-memory output (e.g. a file kept in memory by
    * {@code --experimental_inmemory_dotd_files} or {@code --experimental_inmemory_jdeps_files}) that
    * is never written to the local filesystem.
@@ -807,6 +825,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
       extends RemoteFileArtifactValue {
     private long expirationTime;
     @Nullable private FileContentsProxy proxy;
+    private boolean materializedAsToplevelOutput;
     private final boolean inMemoryOutput;
 
     private RemoteFileArtifactValueWithMaterializationData(
@@ -862,6 +881,16 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     }
 
     @Override
+    public boolean wasMaterializedAsToplevelOutput() {
+      return materializedAsToplevelOutput;
+    }
+
+    @Override
+    public void setMaterializedAsToplevelOutput(boolean materializedAsToplevelOutput) {
+      this.materializedAsToplevelOutput = materializedAsToplevelOutput;
+    }
+
+    @Override
     public boolean isInMemoryOutput() {
       return inMemoryOutput;
     }
@@ -893,6 +922,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
           .add("locationIndex", getLocationIndex())
           .add("expirationTime", fromEpochMilli(expirationTime))
           .add("proxy", proxy)
+          .add("materializedAsToplevelOutput", materializedAsToplevelOutput)
           .add("inMemoryOutput", inMemoryOutput)
           .toString();
     }
@@ -952,6 +982,16 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     @Override
     public void setContentsProxy(FileContentsProxy proxy) {
       delegate.setContentsProxy(proxy);
+    }
+
+    @Override
+    public boolean wasMaterializedAsToplevelOutput() {
+      return delegate.wasMaterializedAsToplevelOutput();
+    }
+
+    @Override
+    public void setMaterializedAsToplevelOutput(boolean materializedAsToplevelOutput) {
+      delegate.setMaterializedAsToplevelOutput(materializedAsToplevelOutput);
     }
 
     @Override
@@ -1321,6 +1361,16 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     @Override
     public void setContentsProxy(FileContentsProxy proxy) {
       delegate.setContentsProxy(proxy);
+    }
+
+    @Override
+    public boolean wasMaterializedAsToplevelOutput() {
+      return delegate.wasMaterializedAsToplevelOutput();
+    }
+
+    @Override
+    public void setMaterializedAsToplevelOutput(boolean materializedAsToplevelOutput) {
+      delegate.setMaterializedAsToplevelOutput(materializedAsToplevelOutput);
     }
 
     @Override

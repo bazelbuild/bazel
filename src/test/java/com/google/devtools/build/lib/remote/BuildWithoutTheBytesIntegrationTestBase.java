@@ -213,6 +213,133 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void downloadToplevel_outputDeletedAfterUnrelatedBuild_toplevelOutputIsRestored()
+      throws Exception {
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "genrule(",
+        "  name = 'bar',",
+        "  outs = ['out/bar.txt'],",
+        "  cmd = 'echo bar > $@',",
+        ")");
+
+    // The default minimal build leaves out/foo.txt represented only by remote metadata. The
+    // subsequent toplevel build materializes it via the completion function without reexecuting
+    // the generating action, so the metadata tracked for it in Skyframe remains remote.
+    buildTarget("//:foo");
+    assertOutputsDoNotExist("//:foo");
+    setDownloadToplevel();
+    buildTarget("//:foo");
+    waitDownloads();
+    assertValidOutputFile("out/foo.txt", "foo\n");
+
+    // An intervening build of an unrelated target discards the previous invocation's record of
+    // which outputs it wanted locally.
+    buildTarget("//:bar");
+    waitDownloads();
+    assertValidOutputFile("out/bar.txt", "bar\n");
+
+    // Delete the top-level output of the earlier build and request it again.
+    getOutputPath("out/foo.txt").delete();
+    buildTarget("//:foo");
+    waitDownloads();
+
+    assertValidOutputFile("out/foo.txt", "foo\n");
+  }
+
+  @Test
+  public void downloadToplevel_formerToplevelOutputDeleted_restoreAttemptedOnlyOnce()
+      throws Exception {
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location :foo) > $@ && echo bar >> $@',",
+        ")");
+
+    // Materialize out/foo.txt via the completion function so that the metadata tracked for it in
+    // Skyframe remains remote, then build a target for which it is merely an intermediate output.
+    buildTarget("//:foo");
+    assertOutputsDoNotExist("//:foo");
+    setDownloadToplevel();
+    buildTarget("//:foo");
+    waitDownloads();
+    assertValidOutputFile("out/foo.txt", "foo\n");
+    buildTarget("//:foobar");
+    waitDownloads();
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+
+    getOutputPath("out/foo.txt").delete();
+
+    // The first incremental build reevaluates the generating action so that the current download
+    // policy can decide whether to restore the file, but doesn't materialize it as it is no
+    // longer a top-level output.
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:foobar");
+    waitDownloads();
+    assertOutputDoesNotExist("out/foo.txt");
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+    assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(1);
+
+    // Subsequent incremental builds trust the still-missing output and evaluate nothing.
+    actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:foobar");
+    waitDownloads();
+    assertOutputDoesNotExist("out/foo.txt");
+    assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(0);
+  }
+
+  @Test
+  public void downloadToplevel_afterDownloadAllBuild_deletedToplevelOutputIsRestored()
+      throws Exception {
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location :foo) > $@ && echo bar >> $@',",
+        ")");
+
+    setDownloadAll();
+    buildTarget("//:foobar");
+    assertValidOutputFile("out/foo.txt", "foo\n");
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+
+    // Delete both a top-level and an intermediate output, then build with a narrower download
+    // policy.
+    getOutputPath("out/foo.txt").delete();
+    getOutputPath("out/foobar.txt").delete();
+
+    setDownloadToplevel();
+    buildTarget("//:foobar");
+    waitDownloads();
+
+    // The top-level output must be restored; the intermediate output is not needed locally.
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+    assertOutputDoesNotExist("out/foo.txt");
+  }
+
+  @Test
   public void downloadOutputsWithRegex_changeRegex_downloadNewMatches() throws Exception {
     // Arrange: Do a clean build
     write(

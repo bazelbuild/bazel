@@ -135,14 +135,15 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
       Iterable<Artifact> importantArtifacts, InputMetadataProvider metadataProvider)
       throws IOException, InterruptedException {
     var futures = new ArrayList<ListenableFuture<Void>>();
+    var ensuredOutputMetadata = new ArrayList<FileArtifactValue>();
 
     for (var artifact : importantArtifacts) {
-      downloadArtifact(metadataProvider, artifact, futures);
+      downloadArtifact(metadataProvider, artifact, futures, ensuredOutputMetadata);
     }
 
     for (var runfileTree : metadataProvider.getRunfilesTrees()) {
       for (var artifact : runfileTree.getArtifacts().toList()) {
-        downloadArtifact(metadataProvider, artifact, futures);
+        downloadArtifact(metadataProvider, artifact, futures, ensuredOutputMetadata);
       }
     }
 
@@ -156,12 +157,21 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
       Throwables.throwIfUnchecked(e.getCause());
       throw new IllegalStateException(e.getCause());
     }
+
+    // These outputs are now present in the local filesystem, but their generating actions were not
+    // reexecuted, so the metadata tracked for them in Skyframe remains remote. Record the
+    // materialization on the metadata so that if such a file is deleted locally, a later
+    // invocation reruns the generating action to restore it.
+    for (var metadata : ensuredOutputMetadata) {
+      metadata.setMaterializedAsToplevelOutput(true);
+    }
   }
 
   private void downloadArtifact(
       InputMetadataProvider metadataProvider,
       Artifact artifact,
-      List<ListenableFuture<Void>> futures)
+      List<ListenableFuture<Void>> futures,
+      List<FileArtifactValue> ensuredOutputMetadata)
       throws IOException, InterruptedException {
     if (!RemoteOutputChecker.mayBeRemote(artifact)) {
       return;
@@ -200,6 +210,7 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
       }
 
       if (remoteOutputChecker.shouldDownloadOutput(artifact, metadata)) {
+        ensuredOutputMetadata.add(metadata);
         futures.add(
             actionInputPrefetcher.prefetchFiles(
                 artifact instanceof DerivedArtifact derivedArtifact
