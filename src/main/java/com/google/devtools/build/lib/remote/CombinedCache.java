@@ -110,7 +110,7 @@ public class CombinedCache extends AbstractReferenceCounted {
   @Nullable protected final String symlinkTemplate;
   private final DigestUtil digestUtil;
 
-  private static final class Chunking {
+  static final class Chunking {
     @Nullable private final ChunkingConfig config;
     @Nullable private final ChunkedBlobDownloader downloader;
     @Nullable private final ChunkedBlobUploader uploader;
@@ -194,6 +194,22 @@ public class CombinedCache extends AbstractReferenceCounted {
     this.symlinkTemplate = symlinkTemplate;
     this.digestUtil = digestUtil;
     this.chunking = createChunking(remoteCacheClient, chunkingFunction, chunkLocationMap, this);
+  }
+
+  public CombinedCache(
+      @Nullable RemoteCacheClient remoteCacheClient,
+      @Nullable DiskCacheClient diskCacheClient,
+      @Nullable String symlinkTemplate,
+      DigestUtil digestUtil,
+      ListenableFuture<Chunking> chunking) {
+    checkArgument(
+        remoteCacheClient != null || diskCacheClient != null,
+        "remoteCacheClient and diskCacheClient cannot be null at the same time");
+    this.remoteCacheClient = remoteCacheClient;
+    this.diskCacheClient = diskCacheClient;
+    this.symlinkTemplate = symlinkTemplate;
+    this.digestUtil = digestUtil;
+    this.chunking = chunking;
   }
 
   public DigestUtil digestUtil() {
