@@ -279,7 +279,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     if (digest == null) {
       digest = path.getDigest();
     }
-    return !Arrays.equals(digest, metadata.getDigest());
+    if (!Arrays.equals(digest, metadata.getDigest())) {
+      return true;
+    }
+    // The file contents have been verified to be up to date. Record the contents proxy when
+    // supported, just like after a fresh download, to make future modification checks cheaper.
+    metadata.setContentsProxy(FileContentsProxy.create(stat));
+    return false;
   }
 
   protected abstract boolean canDownloadFile(Path path, FileArtifactValue metadata);
