@@ -346,7 +346,7 @@ public class StandaloneTestStrategy extends TestStrategy {
   }
 
   private static void writeOutFile(Path inFilePath, Path outFilePath) throws IOException {
-    FileStatus stat = inFilePath.statNullable();
+    FileStatus stat = inFilePath.statIfFound();
     if (stat != null) {
       try {
         if (stat.getSize() > 0) {

@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
+import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -894,13 +895,21 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
   }
 
   private Dirent maybeFollowSymlinkForDirent(
-      PathFragment dirPath, Dirent entry, boolean followSymlinks) {
+      PathFragment dirPath, Dirent entry, boolean followSymlinks) throws IOException {
     if (!followSymlinks || !entry.getType().equals(Dirent.Type.SYMLINK)) {
       return entry;
     }
     PathFragment path = dirPath.getChild(entry.getName());
-    FileStatus st = statNullable(path, /* followSymlinks= */ true);
-    return new Dirent(entry.getName(), direntFromStat(st));
+    Dirent.Type type = Dirent.Type.UNKNOWN;
+    try {
+      FileStatus stat = statIfFound(path, /* followSymlinks= */ true);
+      if (stat != null) {
+        type = direntFromStat(stat);
+      }
+    } catch (FileSymlinkLoopException e) {
+      // Intentionally ignored - report looping symlinks as UNKNOWN.
+    }
+    return new Dirent(entry.getName(), type);
   }
 
   @Override

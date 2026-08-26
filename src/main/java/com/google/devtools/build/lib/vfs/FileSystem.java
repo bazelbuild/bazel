@@ -621,8 +621,15 @@ public abstract class FileSystem {
     Collection<String> children = getDirectoryEntries(path);
     List<Dirent> dirents = Lists.newArrayListWithCapacity(children.size());
     for (String child : children) {
-      PathFragment childPath = path.getChild(child);
-      Dirent.Type type = direntFromStat(statNullable(childPath, followSymlinks));
+      Dirent.Type type = Dirent.Type.UNKNOWN;
+      try {
+        FileStatus stat = statIfFound(path.getChild(child), followSymlinks);
+        if (stat != null) {
+          type = direntFromStat(stat);
+        }
+      } catch (FileSymlinkLoopException e) {
+        // Intentionally ignored - report looping symlinks as UNKNOWN.
+      }
       dirents.add(new Dirent(child, type));
     }
     return dirents;
