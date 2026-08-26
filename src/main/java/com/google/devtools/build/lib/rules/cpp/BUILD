@@ -32,8 +32,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/guava:collect",
+        "//third_party/java/protobuf",
     ],
 )
 
@@ -116,11 +116,15 @@ java_library(
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:caffeine",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/caffeine",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:hash",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
@@ -131,7 +135,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )

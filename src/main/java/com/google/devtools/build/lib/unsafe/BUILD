@@ -22,5 +22,5 @@ java_library(
     add_opens = [
         "java.base/java.lang",
     ],
-    deps = ["//third_party:guava"],
+    deps = ["//third_party/java/guava:base"],
 )

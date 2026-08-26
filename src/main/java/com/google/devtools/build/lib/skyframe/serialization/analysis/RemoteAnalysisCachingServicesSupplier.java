@@ -95,6 +95,10 @@ public interface RemoteAnalysisCachingServicesSupplier extends BlazeService {
   @Nullable
   SafeExecutor getCommandExecutor();
 
+  default SkycacheChannelStateAdvisor getChannelStateAdvisor() {
+    return SkycacheChannelStateAdvisor.DISABLED;
+  }
+
   /**
    * Gets the parameters for querying and updating Skycache metadata.
    *

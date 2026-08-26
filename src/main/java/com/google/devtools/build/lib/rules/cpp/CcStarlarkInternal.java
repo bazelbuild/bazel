@@ -1128,7 +1128,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       documented = false,
       parameters = {@Param(name = "fn")})
   public void checkToplevel(StarlarkFunction fn) throws EvalException {
-    if (fn.getModule().getGlobal(fn.getName()) != fn) {
+    if (!Objects.equals(fn.getModule().getGlobal(fn.getName()), fn)) {
       throw Starlark.errorf("Passed function must be top-level functions.");
     }
   }

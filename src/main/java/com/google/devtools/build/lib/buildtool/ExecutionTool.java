@@ -591,7 +591,8 @@ public class ExecutionTool {
           buildResult,
           buildResultListener.getAnalyzedTargets(),
           buildResultListener.getSkippedTargets(),
-          buildResultListener.getAnalyzedAspects());
+          buildResultListener.getAnalyzedAspects(),
+          buildResultListener.getTargetRootCauses());
     }
 
     if (explanationHandler != null) {
@@ -669,7 +670,7 @@ public class ExecutionTool {
                           .setCode(FailureDetails.SymlinkForest.Code.CREATION_FAILED))
                   .build()),
           e);
-      }
+    }
   }
 
   private static void logDeleteTreeFailure(
@@ -991,11 +992,12 @@ public class ExecutionTool {
             options.getLocalResources(),
             options.usingLocalTestJobs() ? options.getLocalTestJobs() : Integer.MAX_VALUE));
 
-    resourceMgr.initializeCpuLoadFunctionality(
+    resourceMgr.initializeLoadFunctionality(
         MachineLoadProvider.instance(),
         options.getExperimentalCpuLoadScheduling(),
+        options.getExperimentalMemoryLoadScheduling(),
         options.getExperimentalCpuLoadSchedulingWindowSize());
-    resourceMgr.scheduleCpuLoadWindowUpdate();
+    resourceMgr.scheduleLoadWindowUpdate();
 
     resourceMgr.setAllowOneActionOnResourceUnavailable(
         options.getAllowOneActionOnResourceUnavailable());

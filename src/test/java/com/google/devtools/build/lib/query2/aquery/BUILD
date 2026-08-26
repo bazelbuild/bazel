@@ -25,7 +25,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/test/java/com/google/devtools/build/lib/query2/testutil",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -41,8 +41,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/test/java/com/google/devtools/build/lib/query2/testutil",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )

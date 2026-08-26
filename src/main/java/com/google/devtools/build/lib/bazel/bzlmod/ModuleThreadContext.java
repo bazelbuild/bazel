@@ -31,9 +31,11 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.SequencedSet;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -59,6 +61,9 @@ public class ModuleThreadContext extends StarlarkThreadContext {
 
   private final Map<String, RepoOverride> overriddenRepos = new HashMap<>();
   private final Map<String, RepoOverride> overridingRepos = new HashMap<>();
+
+  /** The labels of the module files that are currently being executed via {@link #include}. */
+  private final SequencedSet<String> includeStack = new LinkedHashSet<>();
 
   public static ModuleThreadContext fromOrFail(StarlarkThread thread, String what)
       throws EvalException {
@@ -340,10 +345,23 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       // compiled before evaluation started.
       throw Starlark.errorf("internal error; included file %s not compiled", includeLabel);
     }
+    if (!includeStack.add(includeLabel)) {
+      // include() behaves as if the included file were textually inserted at the location of the
+      // call, so a cycle would result in unbounded recursion.
+      var chain = ImmutableList.copyOf(includeStack);
+      throw Starlark.errorf(
+          "include() cycle detected: %s -> %s",
+          String.join(" -> ", chain.subList(chain.indexOf(includeLabel), chain.size())),
+          includeLabel);
+    }
     PathFragment includer = currentModuleFilePath;
     currentModuleFilePath = Label.parseCanonicalUnchecked(includeLabel).toPathFragment();
-    compiledModuleFile.runOnThread(thread);
-    currentModuleFilePath = includer;
+    try {
+      compiledModuleFile.runOnThread(thread);
+    } finally {
+      currentModuleFilePath = includer;
+      includeStack.remove(includeLabel);
+    }
   }
 
   public PathFragment getCurrentModuleFilePath() {

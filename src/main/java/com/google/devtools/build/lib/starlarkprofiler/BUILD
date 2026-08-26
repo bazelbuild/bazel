@@ -30,7 +30,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
         "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//src/main/java/net/starlark/java/eval:cpu_profiler_native_support",
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -43,6 +43,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/net/starlark/java/eval:cpu_profiler_native_support",
         "//src/main/java/net/starlark/java/eval:cpu_profiler_native_support_impl",
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )

@@ -78,6 +78,7 @@ public class RemoteAnalysisCacheDeps
   private final LazyResolver<FingerprintValueService> fingerprintValueService;
   private final LazyResolver<? extends RemoteAnalysisCacheClient> analysisCacheClient;
   private final LazyResolver<? extends RemoteAnalysisMetadataWriter> metadataWriter;
+  private final SkycacheChannelStateAdvisor channelStateAdvisor;
 
   // Volatile because double-checked locking is used in the getter
   @Nullable private volatile SkyValueRetriever skyValueRetriever;
@@ -145,6 +146,7 @@ public class RemoteAnalysisCacheDeps
         new LazyResolver<>(servicesSupplier.getAnalysisCacheClient(), "analysis cache client");
     this.metadataWriter =
         new LazyResolver<>(servicesSupplier.getMetadataWriter(), "metadata writer");
+    this.channelStateAdvisor = servicesSupplier.getChannelStateAdvisor();
 
     this.graph = graph;
     this.eventBus = eventBus;
@@ -167,6 +169,7 @@ public class RemoteAnalysisCacheDeps
     this.fingerprintValueService = new LazyResolver<>(null, "");
     this.analysisCacheClient = new LazyResolver<>(null, "");
     this.metadataWriter = new LazyResolver<>(null, "");
+    this.channelStateAdvisor = SkycacheChannelStateAdvisor.DISABLED;
 
     this.graph = null;
     this.eventBus = null;
@@ -301,7 +304,8 @@ public class RemoteAnalysisCacheDeps
     synchronized (this) {
       if (skyValueRetriever == null) {
         skyValueRetriever =
-            new SkyValueRetriever(fingerprintValueService, codecs, frontierNodeVersion, fileOp);
+            new SkyValueRetriever(
+                fingerprintValueService, codecs, frontierNodeVersion, fileOp, channelStateAdvisor);
       }
       return skyValueRetriever;
     }

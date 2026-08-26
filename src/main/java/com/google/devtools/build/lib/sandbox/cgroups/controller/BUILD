@@ -27,7 +27,8 @@ java_library(
     srcs = glob(["v2/**"]),
     deps = [
         ":controller",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:io",
     ],
 )
 

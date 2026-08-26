@@ -86,8 +86,11 @@ final class RepositoryFetcher {
         env.getSkyframeExecutor().prepareAndGet(repoDelegatorKeys, evaluationContext);
     if (evaluationResult.hasError()) {
       Exception e = evaluationResult.getError().getException();
-      throw new RepositoryFetcherException(
-          e != null ? e.getMessage() : "Unexpected error during repository fetching.");
+      String errorMessage =
+          e != null && e.getMessage() != null
+              ? e.getMessage()
+              : "Unexpected error during repository fetching.";
+      throw new RepositoryFetcherException(errorMessage);
     }
     return evaluationResult;
   }

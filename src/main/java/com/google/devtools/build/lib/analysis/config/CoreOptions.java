@@ -557,6 +557,23 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
   public abstract boolean getAlwaysIncludeFilesToBuildInData();
 
   @Option(
+      name = "incompatible_prefer_depending_configuration_runfiles",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          """
+          If true, when artifacts from the same target in multiple configurations are encountered
+          when constructing runfiles, prefer the version that matches the configuration of the
+          depending target. Specifically, when a target T depends on a target A in multiple
+          configurations, either directly or transitively, prefer the runfiles from the
+          version of A in the configuration that matches the configuration of T. This can happen,
+          for example, when a target appears in both the tools and data attributes.
+          """)
+  public abstract boolean getPreferDependingConfigurationRunfiles();
+
+  @Option(
       name = "incompatible_compact_repo_mapping_manifest",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,

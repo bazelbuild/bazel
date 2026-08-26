@@ -16,8 +16,9 @@ java_library(
     name = "compacthashset",
     srcs = ["CompactHashSet.java"],
     deps = [
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:primitives",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -27,6 +28,6 @@ java_library(
     deps = [
         ":compacthashset",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )

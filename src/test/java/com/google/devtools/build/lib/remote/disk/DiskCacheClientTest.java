@@ -155,6 +155,26 @@ public class DiskCacheClientTest {
   }
 
   @Test
+  public void uploadFile_whenMissing_doesNotInheritSourceMtimeOrPermissions() throws Exception {
+    Path file = fs.getPath("/file");
+    FileSystemUtils.writeContent(file, UTF_8, "contents");
+    // A build output is read-only, and may have been written long before it is uploaded. Neither
+    // property may leak into the cache entry: the mtime records when the entry was last stored or
+    // retrieved, and the entry must remain readable by every user of a shared cache.
+    file.chmod(0555);
+    file.setLastModifiedTime(1000);
+    Digest digest = getDigest("contents");
+
+    var unused = getFromFuture(client.uploadFile(digest, file));
+
+    Path path = getCasPath(digest);
+    assertThat(FileSystemUtils.readContent(path, UTF_8)).isEqualTo("contents");
+    assertThat(path.getLastModifiedTime()).isNotEqualTo(1000);
+    assertThat(path.isReadable()).isTrue();
+    assertThat(path.isWritable()).isTrue();
+  }
+
+  @Test
   public void uploadBlob_whenMissing_populatesCas() throws Exception {
     ByteString blob = ByteString.copyFromUtf8("contents");
     Digest digest = getDigest("contents");

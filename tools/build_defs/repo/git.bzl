@@ -71,7 +71,7 @@ def _checkout_path(ctx):
     root = ctx.path(".")
     if ctx.attr.add_prefix:
         add_prefix_root = root.get_child(ctx.attr.add_prefix)
-        if not str(add_prefix_root).startswith(str(root)):
+        if add_prefix_root != root and not str(add_prefix_root).startswith(str(root) + "/"):
             fail(
                 "add_prefix '%s' escaped the base directory of '%s': '%s'" %
                 (ctx.attr.add_prefix, str(root), str(add_prefix_root)),

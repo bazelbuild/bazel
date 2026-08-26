@@ -47,7 +47,7 @@ import java.util.List;
 public class DigestUtil {
   public static final Comparator<Digest> DIGEST_COMPARATOR =
       comparing(Digest::getHashBytes, ByteString.unsignedLexicographicalComparator())
-          .thenComparing(Digest::getSizeBytes);
+          .thenComparingLong(Digest::getSizeBytes);
 
   private final XattrProvider xattrProvider;
   private final DigestHashFunction hashFn;
