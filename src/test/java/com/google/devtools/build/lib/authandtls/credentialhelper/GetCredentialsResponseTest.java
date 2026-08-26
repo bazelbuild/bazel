@@ -35,6 +35,13 @@ public class GetCredentialsResponseTest {
     assertThat(GSON.fromJson("{}", GetCredentialsResponse.class).headers()).isEmpty();
     assertThat(GSON.fromJson("{\"headers\": {}}", GetCredentialsResponse.class).headers())
         .isEmpty();
+    assertThat(GSON.fromJson("{\"headers\": null}", GetCredentialsResponse.class).headers())
+        .isEmpty();
+    assertThat(GSON.fromJson("{\"expires\": null}", GetCredentialsResponse.class).headers()).isEmpty();
+    assertThat(GSON.fromJson("{\"headers\": {}, \"expires\": null}", GetCredentialsResponse.class).headers())
+        .isEmpty();
+    assertThat(GSON.fromJson("{\"headers\": null, \"expires\": null}", GetCredentialsResponse.class).headers())
+        .isEmpty();
 
     GetCredentialsResponse.Builder expectedResponseBuilder = GetCredentialsResponse.newBuilder();
     expectedResponseBuilder.headersBuilder().put("a", ImmutableList.of());
@@ -80,9 +87,6 @@ public class GetCredentialsResponseTest {
 
   @Test
   public void parseInvalidHeadersEnvelope() {
-    assertThrows(
-        JsonSyntaxException.class,
-        () -> GSON.fromJson("{\"headers\": null}", GetCredentialsResponse.class));
     assertThrows(
         JsonSyntaxException.class,
         () -> GSON.fromJson("{\"headers\": \"foo\"}", GetCredentialsResponse.class));
@@ -162,9 +166,6 @@ public class GetCredentialsResponseTest {
 
   @Test
   public void parseInvalidExpires() {
-    assertThrows(
-        JsonSyntaxException.class,
-        () -> GSON.fromJson("{\"expires\": null}", GetCredentialsResponse.class));
     assertThrows(
         JsonSyntaxException.class,
         () -> GSON.fromJson("{\"expires\": \"foo\"}", GetCredentialsResponse.class));
