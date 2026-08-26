@@ -652,4 +652,113 @@ EOF
   expect_log "//${pkg}:show: value = \"alt\""
 }
 
+function write_platform_flags_support_rules() {
+  local -r pkg="$1"
+  mkdir -p "$pkg"
+  mkdir -p "${pkg}_flags"
+
+  touch ${pkg}_flags/BUILD
+  cat > "${pkg}_flags"/flag_defs.bzl <<EOF
+BuildSettingInfo = provider(fields = ["value"])
+simple_flag = rule(
+    implementation = lambda ctx: BuildSettingInfo(value = ctx.build_setting_value),
+    build_setting = config.string(flag = True),
+    attrs = {
+        "scope": attr.string(default = "target"),
+    },
+)
+EOF
+
+  cat > "$pkg/rule_defs.bzl" <<EOF
+def _simple_rule_impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name + ".out")
+    ctx.actions.write(out, "content")
+    return [DefaultInfo(files = depset([out]))]
+
+simple_rule = rule(
+    implementation = _simple_rule_impl,
+    attrs = {
+        "tool": attr.label(cfg = "exec"),
+    },
+)
+EOF
+
+  cat > "$pkg/BUILD" <<EOF
+load("//${pkg}_flags:flag_defs.bzl", "simple_flag")
+load("//${pkg}:rule_defs.bzl", "simple_rule")
+
+simple_flag(
+    name = "my_flag",
+    build_setting_default = "default_value",
+    # This must be set to ensure thet platform-set value continues to the
+    # exec config.
+    scope = "universal",
+)
+platform(
+    name = "platform_with_flag",
+    flags = [
+        "--//${pkg}:my_flag=platform_set_value",
+    ],
+)
+simple_rule(name = "my_tool")
+simple_rule(
+    name = "my_target",
+    tool = ":my_tool",
+)
+EOF
+}
+
+function test_platform_flags_included_in_baseline_configuration() {
+  local -r pkg="$FUNCNAME"
+  write_platform_flags_support_rules "$pkg"
+
+  bazel cquery "deps(//$pkg:my_target)" --platforms="//$pkg:platform_with_flag" \
+    --output=files &> $TEST_log || fail "bazel failed"
+
+  local cpu_pattern="[a-zA-Z0-9_]\+"
+  expect_log "${PRODUCT_NAME}-out/${cpu_pattern}-fastbuild/bin/${pkg}/my_target.out"
+  expect_log "${PRODUCT_NAME}-out/${cpu_pattern}-opt-exec/bin/${pkg}/my_tool.out"
+  expect_not_log "-ST-"
+}
+
+function test_platform_flags_included_in_baseline_configuration_with_alias_platform() {
+  local -r pkg="$FUNCNAME"
+  write_platform_flags_support_rules "$pkg"
+  cat >> "$pkg/BUILD" <<EOF
+alias(
+  name = "alias_platform",
+  actual = ":platform_with_flag",
+)
+EOF
+
+  bazel cquery "deps(//$pkg:my_target)" --platforms="//$pkg:alias_platform" \
+    --output=files &> $TEST_log || fail "bazel failed"
+
+  local cpu_pattern="[a-zA-Z0-9_]\+"
+  expect_log "${PRODUCT_NAME}-out/${cpu_pattern}-fastbuild/bin/${pkg}/my_target.out"
+  expect_log "${PRODUCT_NAME}-out/${cpu_pattern}-opt-exec/bin/${pkg}/my_tool.out"
+  expect_not_log "-ST-"
+}
+
+function test_platform_flags_included_in_baseline_configuration_bad_target_platform() {
+  local -r pkg="$FUNCNAME"
+  write_platform_flags_support_rules "$pkg"
+
+  bazel build --nobuild //$pkg:my_target --platforms="//$pkg:my_flag" \
+    &> $TEST_log && fail "bazel passed unexepectedly"
+
+  expect_log "Target //${pkg}:my_flag was referenced as a platform, but does not provide PlatformInfo"
+}
+
+function test_platform_flags_included_in_baseline_configuration_bad_target_platform_package() {
+  local -r pkg="$FUNCNAME"
+  write_platform_flags_support_rules "$pkg"
+
+  bazel build --nobuild //$pkg:my_target --platforms="//not_a_platform:foo" \
+    &> $TEST_log && fail "bazel passed unexepectedly"
+
+  expect_log "no such package 'not_a_platform'"
+}
+
+
 run_suite "Tests for platform based flags"
