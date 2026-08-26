@@ -127,6 +127,7 @@ public class PackageLookupFunction implements SkyFunction {
    * PackageLookupValue.key(packageKey)} returned {@code NO_BUILD_FILE_VALUE}, provide a
    * human-readable error message with more details on where we searched for the package.
    */
+  
   public static String explainNoBuildFileValue(PackageIdentifier packageKey, Environment env)
       throws InterruptedException {
     String educationalMessage = "Add a BUILD file to a directory to mark it as a package.";
@@ -145,14 +146,31 @@ public class PackageLookupFunction implements SkyFunction {
       }
       return message.toString();
     } else {
-      return "BUILD file not found in directory '"
+      String baseMessage = "BUILD file not found in directory '"
           + packageKey.getPackageFragment()
           + "' of external repository "
           + packageKey.getRepository()
           + ". "
           + educationalMessage;
+
+      // Fix: Check if this is the root directory of an external http_file repo layout
+      if (packageKey.getPackageFragment().isEmpty()) {
+        SkyKey repositoryKey = RepositoryDirectoryValue.key(packageKey.getRepository());
+        RepositoryDirectoryValue repositoryValue = (RepositoryDirectoryValue) env.getValue(repositoryKey);
+        
+        if (repositoryValue instanceof RepositoryDirectoryValue.Success) {
+          Root root = ((RepositoryDirectoryValue.Success) repositoryValue).root();
+          
+          if (root.getRelative(PathFragment.create("file")).isDirectory()) {
+            return baseMessage + " Did you mean to reference '" + packageKey.getRepository() + "//file' instead?";
+          }
+        }
+      }
+
+      return baseMessage;
     }
   }
+
 
   @Nullable
   private PackageLookupValue findPackageByBuildFile(

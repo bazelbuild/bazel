@@ -369,6 +369,22 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
         .testEquals();
   }
 
+  @Test
+  public void testHttpFileRepositoryRootSuggestsFilePackage() throws Exception {
+    RepositoryName repoName = RepositoryName.create("available_port_finder");
+    
+    scratch.dir("/external/available_port_finder/file");
+    Root repoRoot = Root.fromPath(scratch.dir("/external/available_port_finder"));
+    
+    PackageIdentifier packageId = PackageIdentifier.create(repoName, PathFragment.EMPTY_FRAGMENT);
+
+    String message = PackageLookupFunction.explainNoBuildFileValue(packageId, this.env);
+    
+    assertThat(message).contains("Did you mean to reference '@available_port_finder//file' instead?");
+  }
+
+
+
   /**
    * Runs all tests in the base {@link PackageLookupFunctionTest} class with the {@link
    * CrossRepositoryLabelViolationStrategy#IGNORE} enum set, and also additional tests specific to
