@@ -482,32 +482,12 @@ public class CompactPersistentActionCache implements ActionCache {
       // This also ensures that the next initialization attempt will create an empty cache.
       // To avoid using too much disk space, only keep the most recent corrupted cache around.
       corruptedCacheRoot.deleteTree();
-
-      boolean renamedCorruptedCacheRoot = false;
-      try {
-        cacheRoot.renameTo(corruptedCacheRoot);
-        renamedCorruptedCacheRoot = true;
-      } catch (IOException ioe) {
-        ioe = new IOException("%s: %s".formatted(message, ioe.getMessage()), ioe);
-
-        logger.atWarning().withCause(ioe).log("Unable to rename %s to %s", cacheRoot, corruptedCacheRoot);
-
-        reporterForInitializationErrors.handle(
-            Event.warn(
-                "Error during action cache initialization: "
-                    + ioe.getMessage()
-                    + ". Data may be incomplete, potentially causing rebuilds"));
-      }
+      cacheRoot.renameTo(corruptedCacheRoot);
 
       e = new IOException("%s: %s".formatted(message, e.getMessage()), e);
 
-      if (renamedCorruptedCacheRoot) {
-        logger.atWarning().withCause(e).log(
-            "Failed to load action cache, preexisting files kept in %s", corruptedCacheRoot);
-      } else {
-        logger.atWarning().withCause(e).log(
-            "Failed to load action cache");
-      }
+      logger.atWarning().withCause(e).log(
+          "Failed to load action cache, preexisting files kept in %s", corruptedCacheRoot);
 
       reporterForInitializationErrors.handle(
           Event.warn(
