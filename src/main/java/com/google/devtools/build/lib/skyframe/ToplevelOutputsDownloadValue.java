@@ -16,10 +16,13 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -82,6 +85,35 @@ public final class ToplevelOutputsDownloadValue implements SkyValue {
    */
   public record DownloadPolicy(
       String outputsMode, String commandName, ImmutableList<String> downloadRegexes) {}
+
+  /**
+   * A failure to download top-level outputs.
+   *
+   * <p>{@link #getLostArtifacts} contains the artifacts (including their owning artifacts, e.g.
+   * tree artifacts for lost tree children) that were lost remotely and could not be regenerated
+   * via action rewinding; they must not be reported as built by completion events.
+   */
+  public static final class ToplevelOutputsDownloadException extends Exception {
+    private final DetailedExitCode detailedExitCode;
+    private final ImmutableSet<ActionInput> lostArtifacts;
+
+    public ToplevelOutputsDownloadException(
+        String message,
+        DetailedExitCode detailedExitCode,
+        ImmutableSet<ActionInput> lostArtifacts) {
+      super(message);
+      this.detailedExitCode = detailedExitCode;
+      this.lostArtifacts = lostArtifacts;
+    }
+
+    public DetailedExitCode getDetailedExitCode() {
+      return detailedExitCode;
+    }
+
+    public ImmutableSet<ActionInput> getLostArtifacts() {
+      return lostArtifacts;
+    }
+  }
 
   /** The key of a {@link ToplevelOutputsDownloadValue}. */
   @AutoValue

@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.ImportantOutputException;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.TopLevelOutputException;
 import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
+import com.google.devtools.build.lib.skyframe.ToplevelOutputsDownloadValue.ToplevelOutputsDownloadException;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.util.Pair;
@@ -135,7 +136,8 @@ final class ToplevelOutputsDownloadFunction implements SkyFunction {
               metadataProvider);
     } catch (ImportantOutputException e) {
       throw new ToplevelOutputsDownloadFunctionException(
-          new TopLevelOutputException(e.getMessage(), e.getDetailedExitCode()));
+          new ToplevelOutputsDownloadException(
+              e.getMessage(), e.getDetailedExitCode(), ImmutableSet.of()));
     }
 
     if (!lostOutputs.isEmpty()) {
@@ -162,8 +164,18 @@ final class ToplevelOutputsDownloadFunction implements SkyFunction {
                 env)
             .toNullIfMissingDependenciesElseReset();
       } catch (ActionRewindException e) {
+        // The lost artifacts and the artifacts owning them (e.g. tree artifacts for lost tree
+        // children) could not be regenerated. Report them so that the completion function doesn't
+        // report them as built.
+        ImmutableSet.Builder<ActionInput> lostArtifacts = ImmutableSet.builder();
+        lostArtifacts.addAll(lostOutputs.byDigest().values());
+        lostArtifacts.addAll(
+            ActionRewindStrategy.calculateLostInputOwners(
+                    lostOutputs.byDigest().values(), metadataProvider)
+                .values());
         throw new ToplevelOutputsDownloadFunctionException(
-            new TopLevelOutputException(e.getMessage(), e.getDetailedExitCode()));
+            new ToplevelOutputsDownloadException(
+                e.getMessage(), e.getDetailedExitCode(), lostArtifacts.build()));
       }
     }
 
@@ -173,7 +185,7 @@ final class ToplevelOutputsDownloadFunction implements SkyFunction {
 
   private static final class ToplevelOutputsDownloadFunctionException
       extends SkyFunctionException {
-    ToplevelOutputsDownloadFunctionException(TopLevelOutputException e) {
+    ToplevelOutputsDownloadFunctionException(ToplevelOutputsDownloadException e) {
       super(e, Transience.TRANSIENT);
     }
   }

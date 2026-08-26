@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
+import com.google.devtools.build.lib.skyframe.ToplevelOutputsDownloadValue.ToplevelOutputsDownloadException;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy.RewindPlanResult;
@@ -311,18 +312,20 @@ public final class CompletionFunction<
       try {
         if (env.getValueOrThrow(
                 ToplevelOutputsDownloadValue.key(key, toplevelOutputDownloadPolicy.get()),
-                TopLevelOutputException.class)
+                ToplevelOutputsDownloadException.class)
             == null) {
           return null;
         }
-      } catch (TopLevelOutputException e) {
+      } catch (ToplevelOutputsDownloadException e) {
+        builtArtifacts.removeAll(e.getLostArtifacts());
         Label label = key.actionLookupKey().getLabel();
         LabelCause cause = new LabelCause(label, e.getDetailedExitCode());
         rootCauses = NestedSetBuilder.fromNestedSet(rootCauses).add(cause).build();
         env.getListener().handle(completor.getRootCauseError(key, value, cause, env));
         skyframeActionExecutor.recordExecutionError();
         postFailedEvent(key, value, rootCauses, ctx, artifactsToBuild, builtArtifacts, env);
-        throw new CompletionFunctionException(e);
+        throw new CompletionFunctionException(
+            new TopLevelOutputException(e.getMessage(), e.getDetailedExitCode()));
       }
     } else {
       RewindPlanResult rewindPlanResult =

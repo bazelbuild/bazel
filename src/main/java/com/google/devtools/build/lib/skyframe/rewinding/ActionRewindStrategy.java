@@ -629,7 +629,7 @@ public final class ActionRewindStrategy {
    * Calculates the aggregation artifacts (tree artifacts, filesets, runfiles) that own {@code
    * lostInputs}.
    */
-  private static SetMultimap<ActionInput, Artifact> calculateLostInputOwners(
+  public static SetMultimap<ActionInput, Artifact> calculateLostInputOwners(
       ImmutableCollection<ActionInput> lostInputs, InputMetadataProvider inputArtifactData) {
     Set<ActionInput> lostInputsAndOwners = new HashSet<>();
     SetMultimap<ActionInput, Artifact> owners = HashMultimap.create();
