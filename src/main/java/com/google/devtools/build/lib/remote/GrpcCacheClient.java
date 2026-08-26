@@ -146,18 +146,34 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
       RemoteOptions options,
       RemoteRetrier retrier,
       DigestUtil digestUtil) {
-    this.callCredentialsProvider = callCredentialsProvider;
-    this.channel = channel;
-    this.options = options;
-    this.digestUtil = digestUtil;
-    this.retrier = retrier;
-    this.uploader =
+    this(
+        channel,
+        callCredentialsProvider,
+        options,
+        retrier,
+        digestUtil,
         new ByteStreamUploader(
             options.getRemoteInstanceName(),
             channel,
             callCredentialsProvider,
             retrier,
-            digestUtil.getDigestFunction());
+            digestUtil.getDigestFunction()));
+  }
+
+  @VisibleForTesting
+  public GrpcCacheClient(
+      ReferenceCountedChannel channel,
+      CallCredentialsProvider callCredentialsProvider,
+      RemoteOptions options,
+      RemoteRetrier retrier,
+      DigestUtil digestUtil,
+      ByteStreamUploader uploader) {
+    this.callCredentialsProvider = callCredentialsProvider;
+    this.channel = channel;
+    this.options = options;
+    this.digestUtil = digestUtil;
+    this.retrier = retrier;
+    this.uploader = uploader;
     maxMissingBlobsDigestsPerMessage = computeMaxMissingBlobsDigestsPerMessage();
     Preconditions.checkState(
         maxMissingBlobsDigestsPerMessage > 0, "Error: gRPC message size too small.");
