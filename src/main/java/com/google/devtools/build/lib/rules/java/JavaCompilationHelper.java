@@ -74,6 +74,8 @@ public final class JavaCompilationHelper {
   private boolean enableJspecify = true;
   private boolean enableDirectClasspath = true;
   private final String execGroup;
+  private ImmutableList<String> coverageIncludes;
+  private ImmutableList<String> coverageExcludes;
 
   public JavaCompilationHelper(
       RuleContext ruleContext,
@@ -102,6 +104,14 @@ public final class JavaCompilationHelper {
 
   public void enableJspecify(boolean enableJspecify) {
     this.enableJspecify = enableJspecify;
+  }
+
+  public void setCoverageIncludes(ImmutableList<String> coverageIncludes) {
+    this.coverageIncludes = coverageIncludes;
+  }
+
+  public void setCoverageExcludes(ImmutableList<String> coverageExcludes) {
+    this.coverageExcludes = coverageExcludes;
   }
 
   JavaTargetAttributes getAttributes() {
@@ -247,6 +257,8 @@ public final class JavaCompilationHelper {
     builder.setTargetLabel(label);
     Artifact coverageArtifact = maybeCreateCoverageArtifact(outputs.output());
     builder.setCoverageArtifact(coverageArtifact);
+    builder.setCoverageIncludes(coverageIncludes);
+    builder.setCoverageExcludes(coverageExcludes);
     BootClassPathInfo bootClassPathInfo = getBootclasspathOrDefault();
     builder.setBootClassPath(bootClassPathInfo);
     NestedSet<Artifact> classpath =
