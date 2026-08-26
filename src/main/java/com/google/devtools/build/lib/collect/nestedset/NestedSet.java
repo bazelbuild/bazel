@@ -685,14 +685,18 @@ public abstract sealed class NestedSet<E> {
     if (nsuccs <= maxDegree) {
       return this;
     }
-    Object[][] pieces = new Object[ceildiv(nsuccs, maxDegree)][];
+    Object[] pieces = new Object[ceildiv(nsuccs, maxDegree)];
     for (int i = 0; i < pieces.length; i++) {
-      int max = Math.min((i + 1) * maxDegree, succs.length);
-      pieces[i] = Arrays.copyOfRange(succs, i * maxDegree, max);
+      int start = i * maxDegree;
+      int end = Math.min(start + maxDegree, succs.length);
+      if (end - start == 1) {
+        // We cannot have non-leaves of size 1, so inline the singleton.
+        pieces[i] = succs[start];
+      } else {
+        pieces[i] = Arrays.copyOfRange(succs, start, end);
+      }
     }
     int depth = getApproxDepth() + 1; // may be an overapproximation
-
-    // TODO(adonovan): (preexisting): if the last piece is a singleton, it must be inlined.
 
     // Each piece is now smaller than maxDegree, but there may be many pieces.
     // Recursively split pieces. (The recursion affects only the root; it
