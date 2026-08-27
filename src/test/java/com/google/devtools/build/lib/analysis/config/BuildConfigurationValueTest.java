@@ -141,9 +141,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             "--cpu=piii",
             "--platforms=" + TestConstants.PLATFORM_LABEL,
             "--incompatible_target_cpu_from_platform",
-            "--experimental_override_platform_cpu_name="
-                + TestConstants.PLATFORM_LABEL
-                + "=new_cpu");
+            "--override_platform_cpu_name=" + TestConstants.PLATFORM_LABEL + "=new_cpu");
     assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu");
   }
 
@@ -154,12 +152,8 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             "--cpu=piii",
             "--platforms=" + TestConstants.PLATFORM_LABEL,
             "--incompatible_target_cpu_from_platform",
-            "--experimental_override_platform_cpu_name="
-                + TestConstants.PLATFORM_LABEL
-                + "=new_cpu_1",
-            "--experimental_override_platform_cpu_name="
-                + TestConstants.PLATFORM_LABEL
-                + "=new_cpu_2");
+            "--override_platform_cpu_name=" + TestConstants.PLATFORM_LABEL + "=new_cpu_1",
+            "--override_platform_cpu_name=" + TestConstants.PLATFORM_LABEL + "=new_cpu_2");
     assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu_2");
   }
 
@@ -180,9 +174,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             "--cpu=x86_64",
             "--host_platform=" + TestConstants.PIII_PLATFORM_LABEL,
             "--incompatible_target_cpu_from_platform",
-            "--experimental_override_platform_cpu_name="
-                + TestConstants.PIII_PLATFORM_LABEL
-                + "=new_cpu");
+            "--override_platform_cpu_name=" + TestConstants.PIII_PLATFORM_LABEL + "=new_cpu");
     assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu");
   }
 

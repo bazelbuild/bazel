@@ -201,7 +201,7 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
   public abstract boolean getUsePlatformsInOutputDirLegacyHeuristic();
 
   @Option(
-      name = "experimental_override_platform_cpu_name",
+      name = "override_platform_cpu_name",
       oldName = "experimental_override_name_platform_in_output_dir",
       oldNameWarning = false,
       converter = LabelToStringEntryConverter.class,
@@ -209,7 +209,6 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           """
           Each entry should be of the form `label=value` where label refers to a platform and values
