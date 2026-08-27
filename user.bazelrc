@@ -1,0 +1,2 @@
+build:ci-macos --workspace_status_command=./src/test/shell/ci_platform_context/context_check.sh
+build:ci-windows --workspace_status_command=./src/test/shell/ci_platform_context/context_check.cmd

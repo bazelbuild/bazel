@@ -1,0 +1,8 @@
+filegroup(
+    name = "context_check",
+    srcs = [
+        "context_check.cmd",
+        "context_check.py",
+        "context_check.sh",
+    ],
+)
