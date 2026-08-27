@@ -266,10 +266,22 @@ public final class RequestBatcherTest {
   public void perResponseMultiplexer_simpleSubmit_executes() throws Exception {
     var batcher =
         RequestBatcher.<Request, Response>createWithFutureMultiplexer(
-            (requests, sinks) -> {
-              assertThat(requests).hasSize(1);
-              assertThat(sinks).hasSize(1);
-              sinks.get(0).acceptFuture(immediateFuture(new Response(1)));
+            new FutureMultiplexer<>() {
+              @Override
+              public void execute(
+                  List<Request> requests, ImmutableList<? extends FutureSink<Response>> sinks) {
+                assertThat(requests).hasSize(1);
+                assertThat(sinks).hasSize(1);
+                sinks.get(0).acceptFuture(immediateFuture(new Response(1)));
+              }
+
+              @Override
+              public void handleRejection(
+                  ImmutableList<? extends FutureSink<Response>> sinks, Throwable t) {
+                for (FutureSink<?> sink : sinks) {
+                  sink.cancel();
+                }
+              }
             },
             /* maxBatchSize= */ 255,
             /* maxConcurrentRequests= */ 1);
@@ -370,6 +382,14 @@ public final class RequestBatcherTest {
             var futureResponse = SettableFuture.<Response>create();
             futureResponses.add(futureResponse);
             sinks.get(0).acceptFuture(futureResponse);
+          }
+
+          @Override
+          public void handleRejection(
+              ImmutableList<? extends FutureSink<Response>> sinks, Throwable t) {
+            for (FutureSink<?> sink : sinks) {
+              sink.cancel();
+            }
           }
         };
 
@@ -522,6 +542,14 @@ public final class RequestBatcherTest {
             assertThat(requests).hasSize(sinks.size());
             events.offer(new BatchOperation(requests, sinks));
             return () -> events.offer(DoneCallbackCalled.INSTANCE);
+          }
+
+          @Override
+          public void handleRejection(
+              ImmutableList<? extends ResponseSink<Request, Response>> sinks, Throwable t) {
+            for (ResponseSink<?, ?> sink : sinks) {
+              sink.cancel();
+            }
           }
         };
 
@@ -760,6 +788,13 @@ public final class RequestBatcherTest {
         sinks.get(i).acceptFuture(settableFuture);
       }
       queue.add(new BatchedPerResponseRequests(requests, settableFutures));
+    }
+
+    @Override
+    public void handleRejection(ImmutableList<? extends FutureSink<Response>> sinks, Throwable t) {
+      for (FutureSink<?> sink : sinks) {
+        sink.cancel();
+      }
     }
   }
 
