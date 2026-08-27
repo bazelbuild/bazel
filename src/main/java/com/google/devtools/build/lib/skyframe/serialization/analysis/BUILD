@@ -432,10 +432,7 @@ java_library(
 java_library(
     name = "skycache_channel_state_advisor",
     srcs = ["SkycacheChannelStateAdvisor.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
-        "//third_party/java/guava:annotations",
-    ],
+    deps = ["//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface"],
 )
 
 java_library(
