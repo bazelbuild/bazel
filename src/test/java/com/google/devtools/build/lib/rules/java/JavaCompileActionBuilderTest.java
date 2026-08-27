@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency.Kind;
 import java.util.ArrayList;
@@ -203,5 +204,59 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
                 action.getReducedClasspath(new ActionExecutionContextBuilder().build(), context)))
         .containsExactly(
             "bin java/com/google/test/libb-hjar.jar", "bin java/com/google/test/libc-hjar.jar");
+  }
+
+  @Test
+  public void testExtraArgsPropagated() throws Exception {
+    scratch.file("bazel_internal/test_rules/BUILD");
+    scratch.file(
+        "bazel_internal/test_rules/rule.bzl",
+        String.format(
+            """
+            load("@rules_java//java:defs.bzl", "JavaPluginInfo", rules_java_common = "java_common")
+            internal_common = java_common.internal_DO_NOT_USE()
+            def _my_rule_impl(ctx):
+                output = ctx.outputs.jar
+                args = ctx.actions.args()
+                args.add("--foo=bar")
+                internal_common.create_compilation_action(
+                    ctx,
+                    ctx.toolchains["%1$s"].java,
+                    output,
+                    ctx.actions.declare_file(ctx.label.name + ".manifest"),
+                    JavaPluginInfo(runtime_deps = []),
+                    depset(),
+                    depset(),
+                    depset(),
+                    depset(),
+                    depset(),
+                    depset(),
+                    "ERROR",
+                    ctx.label,
+                    extra_args = [args],
+                )
+                return [DefaultInfo(files = depset([output]))]
+
+            my_rule = rule(
+                implementation = _my_rule_impl,
+                outputs = {
+                    "jar": "%%{name}.jar",
+                },
+                fragments = ["java"],
+                toolchains = ["%1$s"],
+            )
+            """,
+            TestConstants.JAVA_TOOLCHAIN_TYPE));
+    scratch.file(
+        "java/com/google/test/BUILD",
+        """
+        load("//bazel_internal/test_rules:rule.bzl", "my_rule")
+        my_rule(name = "a")
+        """);
+
+    JavaCompileAction compileAction =
+        (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:a.jar");
+    List<String> command = getJavacArguments(compileAction);
+    assertThat(command).contains("--foo=bar");
   }
 }

@@ -641,6 +641,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
               /* extraActionInfoSupplier= */ null,
               /* executableLine= */ executableLine,
               /* flagLine= */ commandLine.build(),
+              /* extraCommandLineArgs= */ ImmutableList.of(),
               /* configuration= */ ruleContext.getConfiguration(),
               /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
               /* outputDepsProto= */ outputDepsProto,
