@@ -11,11 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.query2.cquery;
+package com.google.devtools.build.lib.query2;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
-import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
@@ -58,11 +56,10 @@ public final class ConfigFunction implements QueryFunction {
   }
 
   /**
-   * This function is only viable with ConfiguredTargetQueryEnvironment which extends {@link
-   * AbstractBlazeQueryEnvironment <CqueryNode>}.
+   * This function is only viable with environments that extend {@link
+   * PostAnalysisQueryEnvironment}.
    */
   @Override
-  @SuppressWarnings("unchecked")
   public <T> QueryTaskFuture<Void> eval(
       QueryEnvironment<T> env,
       QueryExpressionContext<T> context,
@@ -80,11 +77,8 @@ public final class ConfigFunction implements QueryFunction {
 
     return env.whenSucceedsCall(
         targetsFuture,
-        ((ConfiguredTargetQueryEnvironment) env)
+        ((PostAnalysisQueryEnvironment<T>) env)
             .getConfiguredTargetsForConfigFunction(
-                targetExpression.toString(),
-                targetsFuture,
-                configuration,
-                (Callback<CqueryNode>) callback));
+                targetExpression.toString(), targetsFuture, configuration, callback));
   }
 }

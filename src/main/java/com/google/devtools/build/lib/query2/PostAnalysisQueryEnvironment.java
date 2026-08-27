@@ -14,7 +14,9 @@
 package com.google.devtools.build.lib.query2;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -53,9 +55,12 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
 import com.google.devtools.build.lib.query2.engine.MinDepthUniquifier;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -83,11 +88,13 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -242,6 +249,142 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
 
   @Nullable
   protected abstract T getNullConfiguredTarget(Label label) throws InterruptedException;
+
+  @Nullable
+  protected abstract T getConfiguredTarget(
+      Label label, @Nullable BuildConfigurationValue configuration) throws InterruptedException;
+
+  protected abstract String getQueryName();
+
+  /**
+   * Resolves the configured targets for the `config` query function.
+   *
+   * @param pattern the string representation of the query pattern.
+   * @param targetsFuture the future representing the targets to be filtered.
+   * @param configPrefix the configuration identifier: "target", "null", "anyexec", an arbitrary
+   *     configuration's checksum, any prefix of its checksum, or the special identifiers "target"
+   *     "anyexec", or "null".
+   * @param callback the callback to receive the results of this method.
+   * @return {@link QueryTaskCallable} that returns the correctly configured targets.
+   */
+  public QueryTaskCallable<Void> getConfiguredTargetsForConfigFunction(
+      String pattern,
+      QueryTaskFuture<ThreadSafeMutableSet<T>> targetsFuture,
+      String configPrefix,
+      Callback<T> callback) {
+    return () -> {
+      ThreadSafeMutableSet<T> targets = targetsFuture.getIfSuccessful();
+      List<T> transformedResult = new ArrayList<>();
+      boolean userFriendlyConfigName = true;
+      for (T target : targets) {
+        Label label = getCorrectLabel(target);
+        T keyedConfiguredTarget = null;
+        switch (configPrefix) {
+          case "host" ->
+              throw new QueryException(
+                  "'host' configuration no longer exists. Use a specific configuration hash"
+                      + " instead",
+                  ConfigurableQuery.Code.INCORRECT_CONFIG_ARGUMENT_ERROR);
+          case "target" -> keyedConfiguredTarget = getTargetConfiguredTarget(label);
+          case "null" -> keyedConfiguredTarget = getNullConfiguredTarget(label);
+          case "anyexec" -> {
+            ImmutableList<BuildConfigurationValue> matchingConfigs =
+                transitiveConfigurations.values().stream()
+                    .filter(BuildConfigurationValue::isExecConfiguration)
+                    .sorted(Comparator.comparing(BuildConfigurationValue::checksum))
+                    .collect(toImmutableList());
+            if (!matchingConfigs.isEmpty()) {
+              for (var cfg : matchingConfigs) {
+                keyedConfiguredTarget = getConfiguredTarget(label, cfg);
+                if (keyedConfiguredTarget != null) {
+                  break;
+                }
+              }
+            } else {
+              throw new QueryException(
+                  String.format(
+                      """
+                      Unable to identify 'exec' configuration for %s
+                      config()'s second argument must identify a unique configuration.
+
+                      Valid values:
+                       'target' for the default configuration
+                       'null' for source files (which have no configuration)
+                       'anyexec' for identifying any path to a exec tool configuration
+                       an arbitrary configuration's full or short ID
+
+                      A short ID is any prefix of a full ID. %s shows short IDs. 'bazel config'\
+                       shows full IDs.
+
+                      For more help, see https://bazel.build/docs/%s.\
+                      """,
+                      label, getQueryName(), getQueryName()),
+                  ConfigurableQuery.Code.INCORRECT_CONFIG_ARGUMENT_ERROR);
+            }
+          }
+          default -> {
+            ImmutableList<String> matchingConfigs =
+                transitiveConfigurations.keySet().stream()
+                    .filter(fullConfig -> fullConfig.startsWith(configPrefix))
+                    .collect(toImmutableList());
+            if (matchingConfigs.size() == 1) {
+              keyedConfiguredTarget =
+                  getConfiguredTarget(
+                      label,
+                      Verify.verifyNotNull(transitiveConfigurations.get(matchingConfigs.get(0))));
+              userFriendlyConfigName = false;
+            } else if (matchingConfigs.size() >= 2) {
+              throw new QueryException(
+                  String.format(
+                      """
+                      Configuration ID '%s' is ambiguous.
+                      '%s' is a prefix of multiple configurations:
+                       %s
+
+                      Use a longer prefix to uniquely identify one configuration.\
+                      """,
+                      configPrefix, configPrefix, Joiner.on("\n ").join(matchingConfigs)),
+                  ConfigurableQuery.Code.INCORRECT_CONFIG_ARGUMENT_ERROR);
+            } else {
+              throw new QueryException(
+                  String.format(
+                      """
+                      Unknown configuration ID '%s'.
+                      config()'s second argument must identify a unique configuration.
+
+                      Valid values:
+                       'target' for the default configuration
+                       'null' for source files (which have no configuration)
+                       an arbitrary configuration's full or short ID
+
+                      A short ID is any prefix of a full ID. %s shows short IDs. 'bazel config'\
+                       shows full IDs.
+
+                      For more help, see https://bazel.build/docs/%s.\
+                      """,
+                      configPrefix, getQueryName(), getQueryName()),
+                  ConfigurableQuery.Code.INCORRECT_CONFIG_ARGUMENT_ERROR);
+            }
+          }
+        }
+        if (keyedConfiguredTarget != null) {
+          transformedResult.add(keyedConfiguredTarget);
+        }
+      }
+      if (transformedResult.isEmpty()) {
+        throw new QueryException(
+            String.format(
+                "No target (in) %s could be found in the %s",
+                pattern,
+                userFriendlyConfigName
+                    ? "'" + configPrefix + "' configuration"
+                    : "configuration with checksum '" + configPrefix + "'"),
+            ConfigurableQuery.Code.TARGET_MISSING);
+      }
+      callback.process(transformedResult);
+      return null;
+    };
+  }
 
   @Nullable
   public SkyValue getConfiguredTargetValue(SkyKey key) throws InterruptedException {
