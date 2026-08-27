@@ -67,7 +67,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -323,13 +322,8 @@ public class IncludeScanningModule extends BlazeModule {
 
     @Override
     public void executorCreated() {
-      var useAsyncExecution = useAsyncExecution(env);
       int threads = options.getIncludeScanningParallelism();
-      if (useAsyncExecution) {
-        includePool =
-            Executors.newThreadPerTaskExecutor(
-                Thread.ofVirtual().name("Include scanner ", 0).factory());
-      } else if (threads > 0) {
+      if (threads > 0) {
         logger.atInfo().log("Include scanning configured to use a pool with %d threads", threads);
         if (options.getExperimentalReuseIncludeScanningThreads()) {
           includePool =
