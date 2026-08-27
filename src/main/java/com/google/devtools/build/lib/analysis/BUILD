@@ -540,6 +540,7 @@ java_library(
         ":constraints/top_level_constraint_semantics",
         ":extra_action_artifacts_provider",
         ":make_environment_event",
+        ":provider_collection",
         ":test/coverage_report_action_factory",
         ":test/test_trimming_transition_factory",
         ":top_level_artifact_context",

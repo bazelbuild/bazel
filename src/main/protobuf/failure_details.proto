@@ -1299,6 +1299,7 @@ message Analysis {
     ANALYSIS_FAILURE_PROPAGATION_FAILED = 20 [(metadata) = { exit_code: 1 }];
     ANALYSIS_CACHE_DISCARDED = 21 [(metadata) = { exit_code: 1 }];
     INVALID_RUNFILES_TREE = 22 [(metadata) = { exit_code: 1 }];
+    UNKNOWN_OUTPUT_GROUP = 23 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
