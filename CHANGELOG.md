@@ -1,3 +1,45 @@
+## Release 10.0.0-pre.20260818.1 (2026-08-27)
+
+```
+Baseline: cec8ee49f731e48b5bb336a27a7f2f1be770da48
+
+Cherry picks:
+
+   + 2a60c3357abd1e881088e88747ac7c7baa6f2e79:
+     Roll forward of commit 909985a3b9a1f71106e7cba31eb862078e5bdebe
+     with … (https://github.com/bazelbuild/bazel/pull/30754)
+```
+
+Important changes:
+
+  - Fix `Could not chdir` in `tw.exe` for long runfiles paths on
+    Windows.
+
+This release contains contributions from many people at Google, as well as Anton Karpov, Armando Montanez, Chi Wang, Fabian Meumertzheim, Rgis Desgroppes, Son Luong Ngoc.
+
+## Release 10.0.0-pre.20260811.3 (2026-08-20)
+
+```
+Baseline: 882d6f366dfdb92f031492755ba11185948bd987
+
+Cherry picks:
+
+   + 56cf7a548564f342b6c6f78191780b0f03401e18:
+     Disable non-deterministic interning / memory optimizations when
+     Skycache serialization is needed.
+   + 31d34c8a8cd7cc3481094dcefaa5411a804a7540:
+     Fix non-fatal error in StarlarkProvider.export()
+```
+
+Important changes:
+
+  - Fix `sh_binary` on Windows to pass user arguments as positional
+    parameters to bash instead of concatenating them.
+  - Fixes a possible crash on Windows Arm64 related to JNI strings
+  - Added urlencode($1) support to --downloader_config rewrite rules.
+
+This release contains contributions from many people at Google, as well as Andrew Hewitson, dependabot[bot], Fabian Meumertzheim, Keith Smiley.
+
 ## Release 10.0.0-pre.20260806.4 (2026-08-14)
 
 ```
