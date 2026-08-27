@@ -76,6 +76,15 @@ public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
   public abstract int getMaxBatchSize();
 
   @Option(
+      name = "experimental_remote_analysis_cache_reader_max_batch_size",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      defaultValue = "1024",
+      converter = PositiveIntegerConverter.class,
+      help = "Batch size limit for remote analysis caching reader RPCs.")
+  public abstract int getReaderMaxBatchSize();
+
+  @Option(
       name = "experimental_remote_analysis_cache_concurrency",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
