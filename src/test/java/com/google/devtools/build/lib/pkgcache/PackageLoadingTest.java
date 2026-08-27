@@ -125,7 +125,7 @@ public class PackageLoadingTest extends FoundationTestCase {
   }
 
   private void setUpSkyframe(
-      PackageOptions packageOptions, BuildLanguageOptions buildLanguageOptions) {
+      PackageOptions packageOptions, BuildLanguageOptions buildLanguageOptions) throws Exception {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             /* outputBase= */ null,

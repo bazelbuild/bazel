@@ -495,7 +495,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     assertContainsEvent(expectedError);
   }
 
-  private void setUpSkyframe() {
+  private void setUpSkyframe() throws AbruptExitException {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             outputBase,

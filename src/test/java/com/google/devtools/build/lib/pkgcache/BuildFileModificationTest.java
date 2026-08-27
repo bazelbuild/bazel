@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.logging.Level;
@@ -55,9 +54,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for package loading.
- */
+/** Tests for package loading. */
 @RunWith(JUnit4.class)
 public class BuildFileModificationTest extends FoundationTestCase {
 
@@ -71,7 +68,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
   }
 
   @Before
-  public final void initializeSkyframeExecutor() throws OptionsParsingException {
+  public final void initializeSkyframeExecutor() throws Exception {
     AnalysisMock analysisMock = AnalysisMock.getAnalysisMockWithoutBuiltinModules();
     ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     BlazeDirectories directories =
@@ -104,7 +101,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
   }
 
   private void setUpSkyframe(
-      PackageOptions packageOptions, BuildLanguageOptions buildLanguageOptions) {
+      PackageOptions packageOptions, BuildLanguageOptions buildLanguageOptions) throws Exception {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             null,
@@ -141,8 +138,9 @@ public class BuildFileModificationTest extends FoundationTestCase {
 
   private Package getPackage(String packageName)
       throws NoSuchPackageException, InterruptedException {
-    return skyframeExecutor.getPackageManager().getPackage(reporter,
-        PackageIdentifier.createInMainRepo(packageName));
+    return skyframeExecutor
+        .getPackageManager()
+        .getPackage(reporter, PackageIdentifier.createInMainRepo(packageName));
   }
 
   @Test

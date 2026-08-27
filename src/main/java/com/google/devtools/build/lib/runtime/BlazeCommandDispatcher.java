@@ -401,21 +401,30 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
     // The initCommand call also records the start time for the timestamp granularity monitor.
     List<String> commandEnvWarnings = new ArrayList<>();
-    CommandEnvironment env =
-        workspace.initCommand(
-            commandAnnotation,
-            options,
-            invocationPolicy,
-            commandEnvWarnings,
-            waitTimeInMs,
-            firstContactTime,
-            idleTaskResultsFromPreviousIdlePeriod,
-            this::setShutdownReason,
-            commandExtensions,
-            commandExtensionReporter,
-            attemptNumber,
-            buildRequestIdOverride,
-            parseResults.configFlagDefinitions());
+    CommandEnvironment env;
+    try {
+      env =
+          workspace.initCommand(
+              commandAnnotation,
+              options,
+              invocationPolicy,
+              commandEnvWarnings,
+              waitTimeInMs,
+              firstContactTime,
+              idleTaskResultsFromPreviousIdlePeriod,
+              this::setShutdownReason,
+              commandExtensions,
+              commandExtensionReporter,
+              attemptNumber,
+              buildRequestIdOverride,
+              parseResults.configFlagDefinitions());
+    } catch (AbruptExitException e) {
+      if (e.getMessage() != null) {
+        outErr.printErrLn("ERROR: " + e.getMessage());
+      }
+      storedEventHandler.handle(Event.error(e.getMessage()));
+      return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
+    }
 
     if (attemptNumber > 1) {
       outErr.printErrLn("Found transient remote cache error, retrying the build...");
