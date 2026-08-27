@@ -686,6 +686,9 @@ java_library(
     name = "aspect_completion_value",
     srcs = ["AspectCompletionValue.java"],
     deps = [
+        "//third_party/java/jsr305_annotations",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         ":aspect_key_creator",
         ":sky_functions",
         ":top_level_action_lookup_key_wrapper",
@@ -3167,6 +3170,9 @@ java_library(
     name = "target_completion_value",
     srcs = ["TargetCompletionValue.java"],
     deps = [
+        "//third_party/java/jsr305_annotations",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         ":configured_target_key",
         ":sky_functions",
         ":top_level_action_lookup_key_wrapper",

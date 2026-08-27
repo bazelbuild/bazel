@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
@@ -34,6 +35,8 @@ import com.google.devtools.build.lib.skyframe.CompletionFunction.Completor;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import javax.annotation.Nullable;
+import com.google.devtools.build.lib.actions.Artifact;
 
 /** Manages completing builds for aspects. */
 final class AspectCompletor
@@ -82,8 +85,9 @@ final class AspectCompletor
   }
 
   @Override
-  public AspectCompletionValue getResult() {
-    return AspectCompletionValue.INSTANCE;
+  public AspectCompletionValue getResult(
+      @Nullable ImmutableMap<Artifact, FileContentsProxy> materializedOutputs) {
+    return AspectCompletionValue.create(materializedOutputs);
   }
 
   @Override

@@ -14,7 +14,10 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -22,13 +25,59 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.StallableSkykey;
 import java.util.Collection;
+import java.util.Objects;
+import javax.annotation.Nullable;
 import java.util.Set;
 
-/** The value of a TargetCompletion. Just a sentinel. */
+/** The value of a TargetCompletion. */
 public class TargetCompletionValue implements SkyValue {
-  @SerializationConstant static final TargetCompletionValue INSTANCE = new TargetCompletionValue();
+  @SerializationConstant
+  static final TargetCompletionValue INSTANCE = new TargetCompletionValue(null);
 
-  private TargetCompletionValue() {}
+  @Nullable private final ImmutableMap<Artifact, FileContentsProxy> materializedOutputs;
+
+  private TargetCompletionValue(
+      @Nullable ImmutableMap<Artifact, FileContentsProxy> materializedOutputs) {
+    this.materializedOutputs = materializedOutputs;
+  }
+
+  public static TargetCompletionValue create(
+      @Nullable ImmutableMap<Artifact, FileContentsProxy> materializedOutputs) {
+    return materializedOutputs == null || materializedOutputs.isEmpty()
+        ? INSTANCE
+        : new TargetCompletionValue(materializedOutputs);
+  }
+
+  /**
+   * The output files that are present in the local filesystem while the metadata tracked for them
+   * in Skyframe is remote (i.e., they were downloaded without their generating action being
+   * reexecuted), together with the contents proxy they were last observed with, or {@code null} if
+   * no such files were recorded.
+   *
+   * <p>{@link FilesystemValueChecker} compares this record against the local filesystem so that
+   * e.g. the deletion of such a file invalidates this node, whose reevaluation restores the file -
+   * without invalidating the generating action.
+   */
+  @Nullable
+  public ImmutableMap<Artifact, FileContentsProxy> getMaterializedOutputs() {
+    return materializedOutputs;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof TargetCompletionValue that)) {
+      return false;
+    }
+    return Objects.equals(materializedOutputs, that.materializedOutputs);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(materializedOutputs);
+  }
 
   public static TargetCompletionKey key(
       ConfiguredTargetKey configuredTargetKey,

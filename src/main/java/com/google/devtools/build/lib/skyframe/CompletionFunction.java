@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.ImportantOutputException;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
@@ -64,7 +66,10 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.io.IOException;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -95,7 +100,7 @@ public final class CompletionFunction<
         throws InterruptedException;
 
     /** Provides a successful completion value. */
-    ResultT getResult();
+    ResultT getResult(@Nullable ImmutableMap<Artifact, FileContentsProxy> materializedOutputs);
 
     /**
      * Creates a failed completion event.
@@ -330,7 +335,82 @@ public final class CompletionFunction<
     env.getListener().post(event);
     topLevelArtifactsMetric.mergeIn(currentConsumer);
 
-    return completor.getResult();
+    return completor.getResult(collectMaterializedOutputs(importantArtifacts, inputMap));
+  }
+
+  /**
+   * Collects the output files that are present in the local filesystem while the metadata tracked
+   * for them in Skyframe is remote, i.e., the files the important output handler downloaded (in
+   * this or a previous evaluation) without their generating action being reexecuted.
+   *
+   * <p>{@link FilesystemValueChecker} compares this record against the local filesystem so that
+   * the deletion of such a file invalidates this node, whose reevaluation restores the file.
+   */
+  @Nullable
+  private ImmutableMap<Artifact, FileContentsProxy> collectMaterializedOutputs(
+      ImmutableCollection<Artifact> importantArtifacts, ActionInputMap inputMap) {
+    if (skyframeActionExecutor.getActionContextRegistry().getContext(ImportantOutputHandler.class)
+        == null) {
+      return null;
+    }
+    InputMetadataProvider metadataProvider = new ActionInputMetadataProvider(inputMap);
+    Map<Artifact, FileContentsProxy> materializedOutputs = new LinkedHashMap<>();
+    for (Artifact artifact : importantArtifacts) {
+      collectMaterializedOutputs(metadataProvider, artifact, materializedOutputs);
+    }
+    for (var runfilesTree : metadataProvider.getRunfilesTrees()) {
+      for (var artifact : runfilesTree.getArtifacts().toList()) {
+        collectMaterializedOutputs(metadataProvider, artifact, materializedOutputs);
+      }
+    }
+    return ImmutableMap.copyOf(materializedOutputs);
+  }
+
+  private static void collectMaterializedOutputs(
+      InputMetadataProvider metadataProvider,
+      Artifact artifact,
+      Map<Artifact, FileContentsProxy> materializedOutputs) {
+    if (artifact.isFileset() || artifact.isRunfilesTree()) {
+      return;
+    }
+    try {
+      if (artifact.isTreeArtifact()) {
+        var treeArtifactValue = metadataProvider.getTreeMetadata(artifact);
+        if (treeArtifactValue == null) {
+          return;
+        }
+        for (var entry : treeArtifactValue.getChildValues().entrySet()) {
+          addIfMaterialized(entry.getKey(), entry.getValue(), materializedOutputs);
+        }
+      } else {
+        FileArtifactValue metadata = metadataProvider.getInputMetadata(artifact);
+        if (metadata == null) {
+          return;
+        }
+        addIfMaterialized(artifact, metadata, materializedOutputs);
+      }
+    } catch (IOException e) {
+      // An output whose metadata can't be read isn't recorded; a deletion of its local copy then
+      // doesn't invalidate this node, which errs on the side of not redoing work.
+    }
+  }
+
+  private static void addIfMaterialized(
+      Artifact artifact,
+      FileArtifactValue metadata,
+      Map<Artifact, FileContentsProxy> materializedOutputs) {
+    if (!metadata.isRemote() || metadata.isInMemoryOutput()) {
+      return;
+    }
+    // A contents proxy on remote metadata is recorded when the file is materialized in the local
+    // filesystem. It may be stale if the file has been deleted since a previous invocation
+    // materialized it and the current invocation's download policy doesn't want it locally, so
+    // only record files that are actually present.
+    FileContentsProxy contentsProxy = metadata.getContentsProxy();
+    if (contentsProxy == null || !artifact.getPath().exists()) {
+      return;
+    }
+    materializedOutputs.put(artifact, contentsProxy);
   }
 
   private void postFailedEvent(

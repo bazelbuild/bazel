@@ -14,7 +14,10 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -23,14 +26,49 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.StallableSkykey;
 import java.util.Collection;
+import java.util.Objects;
+import javax.annotation.Nullable;
 
-/**
- * The value of an AspectCompletion. Currently this just stores an Aspect.
- */
+/** The value of an AspectCompletion. */
 public class AspectCompletionValue implements SkyValue {
-  @SerializationConstant static final AspectCompletionValue INSTANCE = new AspectCompletionValue();
+  @SerializationConstant
+  static final AspectCompletionValue INSTANCE = new AspectCompletionValue(null);
 
-  private AspectCompletionValue() {}
+  @Nullable private final ImmutableMap<Artifact, FileContentsProxy> materializedOutputs;
+
+  private AspectCompletionValue(
+      @Nullable ImmutableMap<Artifact, FileContentsProxy> materializedOutputs) {
+    this.materializedOutputs = materializedOutputs;
+  }
+
+  public static AspectCompletionValue create(
+      @Nullable ImmutableMap<Artifact, FileContentsProxy> materializedOutputs) {
+    return materializedOutputs == null || materializedOutputs.isEmpty()
+        ? INSTANCE
+        : new AspectCompletionValue(materializedOutputs);
+  }
+
+  /** See {@link TargetCompletionValue#getMaterializedOutputs}. */
+  @Nullable
+  public ImmutableMap<Artifact, FileContentsProxy> getMaterializedOutputs() {
+    return materializedOutputs;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof AspectCompletionValue that)) {
+      return false;
+    }
+    return Objects.equals(materializedOutputs, that.materializedOutputs);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(materializedOutputs);
+  }
 
   public static Iterable<SkyKey> keys(Collection<AspectKey> keys, TopLevelArtifactContext ctx) {
     return Iterables.transform(keys, k -> AspectCompletionKey.create(k, ctx));

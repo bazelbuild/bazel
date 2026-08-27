@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -34,6 +35,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
+import com.google.devtools.build.lib.actions.Artifact;
 
 /** Manages completing builds for configured targets. */
 final class TargetCompletor
@@ -78,8 +80,9 @@ final class TargetCompletor
   }
 
   @Override
-  public TargetCompletionValue getResult() {
-    return TargetCompletionValue.INSTANCE;
+  public TargetCompletionValue getResult(
+      @Nullable ImmutableMap<Artifact, FileContentsProxy> materializedOutputs) {
+    return TargetCompletionValue.create(materializedOutputs);
   }
 
   @Override
