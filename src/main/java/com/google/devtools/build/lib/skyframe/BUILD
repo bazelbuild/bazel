@@ -210,6 +210,7 @@ java_library(
         ":test_expansion_function",
         ":tests_for_target_pattern_function",
         ":tests_for_target_pattern_value",
+        ":toplevel_output_download_policy",
         ":top_level_action_lookup_key_wrapper",
         ":top_level_aspects_details_build_failed_exception",
         ":top_level_aspects_identified_event",
@@ -2133,6 +2134,7 @@ java_library(
         "PrecomputedValue.java",
     ],
     deps = [
+        ":toplevel_output_download_policy",
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:rule_visibility",
@@ -3174,6 +3176,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/build/skyframe:stallable_skykey",
         "//third_party/java/auto:auto_value",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "toplevel_output_download_policy",
+    srcs = ["ToplevelOutputDownloadPolicy.java"],
+    deps = [
         "//third_party/java/guava:collect",
     ],
 )

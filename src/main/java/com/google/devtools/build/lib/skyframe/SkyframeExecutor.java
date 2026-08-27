@@ -523,6 +523,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   @Nullable private PlatformMappingKey platformMappingKey;
 
+  // The policy under which completion functions download top-level outputs, injected as a
+  // precomputed value on each sync. Empty unless set for the current invocation via
+  // setToplevelOutputDownloadPolicy.
+  private volatile Optional<ToplevelOutputDownloadPolicy> toplevelOutputDownloadPolicy =
+      Optional.empty();
+
   /**
    * Determines the type of hybrid globbing strategy to use when {@link
    * #tracksStateForIncrementality()} is {@code true}. See {@link #getGlobbingStrategy()} for more
@@ -1900,6 +1906,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.REMOTE_EXECUTION_ENABLED.set(injectable(), enabled);
   }
 
+  /**
+   * Sets the policy under which completion functions download top-level outputs in this
+   * invocation, or {@link Optional#empty()} if no such downloads happen. The value is injected
+   * into the graph on the next {@link #sync}.
+   */
+  public void setToplevelOutputDownloadPolicy(
+      Optional<ToplevelOutputDownloadPolicy> toplevelOutputDownloadPolicy) {
+    this.toplevelOutputDownloadPolicy = checkNotNull(toplevelOutputDownloadPolicy);
+  }
+
   /** Called when a top-level configuration is determined. */
   protected void setTopLevelConfiguration(BuildConfigurationValue topLevelConfiguration) {}
 
@@ -3061,6 +3077,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     platformMappingKey = platformOptions != null ? platformOptions.getPlatformMappingKey() : null;
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
     setRemoteExecutionEnabled(remoteOptions != null && remoteOptions.isRemoteExecutionEnabled());
+    PrecomputedValue.TOPLEVEL_OUTPUT_DOWNLOAD_POLICY.set(
+        injectable(), toplevelOutputDownloadPolicy);
     cpuBoundSemaphore.set(getUpdatedSkyFunctionsSemaphore(options));
     syncPackageLoading(
         pathPackageLocator,

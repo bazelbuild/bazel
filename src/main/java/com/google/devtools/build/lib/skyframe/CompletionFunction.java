@@ -65,6 +65,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
@@ -152,6 +153,11 @@ public final class CompletionFunction<
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws CompletionFunctionException, InterruptedException {
     KeyT key = (KeyT) skyKey;
+    // The downloads performed below depend on the invocation's download policy, so completion
+    // functions must be reevaluated when it changes (e.g. on a different download mode or a switch
+    // between build and run).
+    Optional<ToplevelOutputDownloadPolicy> unusedToplevelOutputDownloadPolicy =
+        PrecomputedValue.TOPLEVEL_OUTPUT_DOWNLOAD_POLICY.get(env);
     Pair<ValueT, ArtifactsToBuild> valueAndArtifactsToBuild = getValueAndArtifactsToBuild(key, env);
     if (env.valuesMissing()) {
       return null;
