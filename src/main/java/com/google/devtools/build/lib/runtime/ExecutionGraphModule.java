@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -102,6 +103,7 @@ import javax.annotation.Nullable;
 public class ExecutionGraphModule extends BlazeModule {
 
   private static final String ACTION_DUMP_NAME = "execution_graph_dump.proto.zst";
+  private static final PathFragment WORKSPACE_PREFIX = PathFragment.create("%workspace%");
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -131,7 +133,8 @@ public class ExecutionGraphModule extends BlazeModule {
                 + " experimental_enable_execution_graph_log is disabled, there will be an error. If"
                 + " this is unset while BEP uploads are disabled and"
                 + " experimental_enable_execution_graph_log is enabled, the log will be written to"
-                + " a local default.")
+                + " a local default. The path can be absolute, relative to the current working"
+                + " directory, or prefixed with %workspace% to be relative to the workspace root.")
     public abstract String getExecutionGraphLogPath();
 
     @Option(
@@ -966,10 +969,12 @@ public class ExecutionGraphModule extends BlazeModule {
     }
 
     String path = executionGraphOptions.getExecutionGraphLogPath();
+    Path actionGraphFile;
     if (path.isBlank()) {
-      path = ACTION_DUMP_NAME;
+      actionGraphFile = env.getOutputBase().getRelative(ACTION_DUMP_NAME);
+    } else {
+      actionGraphFile = getAbsolutePath(PathFragment.create(path), env);
     }
-    Path actionGraphFile = env.getOutputBase().getRelative(path);
     try {
       return new FilesystemActionDumpWriter(
           env.getRuntime().getBugReporter(),
@@ -983,6 +988,22 @@ public class ExecutionGraphModule extends BlazeModule {
     } catch (IOException e) {
       throw new ActionDumpFileCreationException(actionGraphFile, e);
     }
+  }
+
+  /**
+   * If the given path is an absolute path, leave it as it is. If the given path is a relative path,
+   * it is relative to the current working directory. If the given path starts with '%workspace%',
+   * it is relative to the workspace root, which is the output of `bazel info workspace`.
+   */
+  private static Path getAbsolutePath(PathFragment path, CommandEnvironment env) {
+    if (env.getWorkspace() != null && path.startsWith(WORKSPACE_PREFIX)) {
+      return env.getWorkspace().getRelative(path.relativeTo(WORKSPACE_PREFIX));
+    }
+    if (!path.isAbsolute()) {
+      return env.getWorkingDirectory().getRelative(path);
+    }
+
+    return env.getRuntime().getFileSystem().getPath(path);
   }
 
   private static final class FilesystemActionDumpWriter extends ActionDumpWriter {
