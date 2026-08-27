@@ -19,6 +19,8 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.vfs.Path;
 import java.util.Optional;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Starlark;
@@ -110,5 +112,27 @@ public class BazelLockFileModuleTest {
                 oldExtensionInfos, newExtensionInfos, id -> true, /* reproducible= */ false))
         .isEqualTo(
             ImmutableMap.of(extensionId, ImmutableMap.of(evalFactors, nonReproducibleResult)));
+  }
+
+  @Test
+  public void updateLockfileWithNullRepoRuleIdDoesNotThrow() throws Exception {
+    Path workspaceRoot = new Scratch().dir("/workspace");
+    RepoSpec repoSpecWithNullRuleId = new RepoSpec(null, AttributeValues.create(Dict.empty()));
+    LockFileModuleExtension extensionWithNullRuleId =
+        LockFileModuleExtension.builder()
+            .setBzlTransitiveDigest(new byte[] {1, 2, 3})
+            .setUsagesDigest(new byte[] {4, 5, 6})
+            .setRecordedInputs(ImmutableList.of())
+            .setGeneratedRepoSpecs(ImmutableMap.of("repo", repoSpecWithNullRuleId))
+            .build();
+    BazelLockFileValue lockfile =
+        BazelLockFileValue.builder()
+            .setModuleExtensions(
+                ImmutableMap.of(extensionId, ImmutableMap.of(evalFactors, extensionWithNullRuleId)))
+            .build();
+
+    BazelLockFileModule.updateLockfile(workspaceRoot, lockfile);
+
+    assertThat(workspaceRoot.getRelative("MODULE.bazel.lock").exists()).isTrue();
   }
 }
