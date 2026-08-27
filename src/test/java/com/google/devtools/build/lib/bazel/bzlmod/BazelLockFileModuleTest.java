@@ -111,4 +111,26 @@ public class BazelLockFileModuleTest {
         .isEqualTo(
             ImmutableMap.of(extensionId, ImmutableMap.of(evalFactors, nonReproducibleResult)));
   }
+
+  @Test
+  public void updateLockfileWithNullRepoRuleIdDoesNotThrow() throws Exception {
+    Path workspaceRoot = new Scratch().dir("/workspace");
+    RepoSpec repoSpecWithNullRuleId = new RepoSpec(null, AttributeValues.create(Dict.empty()));
+    LockFileModuleExtension extensionWithNullRuleId =
+        LockFileModuleExtension.builder()
+            .setBzlTransitiveDigest(new byte[] {1, 2, 3})
+            .setUsagesDigest(new byte[] {4, 5, 6})
+            .setRecordedInputs(ImmutableList.of())
+            .setGeneratedRepoSpecs(ImmutableMap.of("repo", repoSpecWithNullRuleId))
+            .build();
+    BazelLockFileValue lockfile =
+        BazelLockFileValue.builder()
+            .setModuleExtensions(
+                ImmutableMap.of(extensionId, ImmutableMap.of(evalFactors, extensionWithNullRuleId)))
+            .build();
+
+    BazelLockFileModule.updateLockfile(workspaceRoot, lockfile);
+
+    assertThat(workspaceRoot.getRelative("MODULE.bazel.lock").exists()).isTrue();
+  }
 }
