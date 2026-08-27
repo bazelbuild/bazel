@@ -1149,6 +1149,7 @@ message CppCompile {
     COVERAGE_NOTES_CREATION_FAILURE = 10 [(metadata) = { exit_code: 1 }];
     MODULE_EXPANSION_MISSING_DATA = 11 [(metadata) = { exit_code: 1 }];
     MODMAP_INPUT_FILE_READ_FAILURE = 12 [(metadata) = { exit_code: 36 }];
+    MODULE_EXPANSION_SERIALIZATION_ERROR = 13 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -451,6 +452,16 @@ public final class NestedSetTest {
   }
 
   @Test
+  public void toListInterruptibly_propagatesSerializationException() {
+    NestedSet<String> deserializingNestedSet =
+        NestedSet.withFuture(
+            Order.STABLE_ORDER,
+            UNKNOWN_DEPTH,
+            immediateFailedFuture(new SerializationException("test exception")));
+    assertThrows(SerializationException.class, deserializingNestedSet::toListInterruptibly);
+  }
+
+  @Test
   public void toListInterruptibly_propagatesCancellationAsMissingFingerprintValueException() {
     NestedSet<String> deserializingNestedSet =
         NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, immediateCancelledFuture());
@@ -478,6 +489,18 @@ public final class NestedSetTest {
                 new MissingFingerprintValueException(getFingerprintForTesting("fingerprint"))));
     assertThrows(
         MissingFingerprintValueException.class,
+        () -> deserializingNestedSet.toListWithTimeout(Duration.ofNanos(1)));
+  }
+
+  @Test
+  public void toListWithTimeout_propagatesSerializationException() {
+    NestedSet<String> deserializingNestedSet =
+        NestedSet.withFuture(
+            Order.STABLE_ORDER,
+            UNKNOWN_DEPTH,
+            immediateFailedFuture(new SerializationException("test exception")));
+    assertThrows(
+        SerializationException.class,
         () -> deserializingNestedSet.toListWithTimeout(Duration.ofNanos(1)));
   }
 
