@@ -276,6 +276,21 @@ public interface QueryEnvironment<T> {
       throws InterruptedException;
 
   /**
+   * Returns the forward transitive closure of all of the targets in "targets", avoiding traversing
+   * nodes that are already in "visited". "visited" is updated in place with the newly visited
+   * nodes.
+   */
+  default ThreadSafeMutableSet<T> getTransitiveClosure(
+      ThreadSafeMutableSet<T> targets,
+      QueryExpressionContext<T> context,
+      ThreadSafeMutableSet<T> visited)
+      throws InterruptedException {
+    ThreadSafeMutableSet<T> tc = getTransitiveClosure(targets, context);
+    visited.addAll(tc);
+    return visited;
+  }
+
+  /**
    * Construct the dependency graph for a depth-bounded forward transitive closure of all nodes in
    * "targetNodes". The identity of the calling expression is required to produce error messages.
    *

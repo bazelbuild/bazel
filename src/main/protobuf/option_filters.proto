@@ -60,4 +60,5 @@ enum OptionMetadataTag {
   reserved "IMMUTABLE";
   reserved 7;
   NON_CONFIGURABLE = 8;
+  FULLY_REDACTED_IN_LOGS = 9;
 }

@@ -19,8 +19,8 @@ java_library(
     srcs = ["CollectionUtils.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -32,7 +32,7 @@ java_library(
 java_library(
     name = "concurrent_identity_set",
     srcs = ["ConcurrentIdentitySet.java"],
-    deps = ["//third_party:guava"],
+    deps = ["//third_party/java/guava:base"],
 )
 
 java_library(
@@ -43,7 +43,10 @@ java_library(
 java_library(
     name = "extrema",
     srcs = ["Extrema.java"],
-    deps = ["//third_party:guava"],
+    deps = [
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+    ],
 )
 
 java_library(
@@ -53,9 +56,10 @@ java_library(
         ":compact_immutable_map",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -63,9 +67,11 @@ java_library(
     name = "immutable_sorted_key_list_multimap",
     srcs = ["ImmutableSortedKeyListMultimap.java"],
     deps = [
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:primitives",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -74,8 +80,8 @@ java_library(
     srcs = ["IterableCodecs.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
-        "//third_party:guava",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/guava:collect",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
@@ -85,7 +91,8 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -95,6 +102,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )

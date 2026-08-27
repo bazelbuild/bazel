@@ -97,15 +97,28 @@ public final class Resolver extends NodeVisitor {
     // particular in the REPL, where the same Module is shared across multiple input syntax trees.
     private final boolean isSyntactic;
 
+    // True if the binding is a file-level LOCAL/CELL binding, i.e. local to a <toplevel> function.
+    //
+    // This is only the case for bindings introduced by a load() when FileOptions#loadBindsGlobally
+    // is false; all other bindings created at file-level are GLOBAL.
+    private final boolean isToplevelLocal;
+
     // If isSyntactic is true, the first binding occurrence of this symbol.
     // Otherwise, the first occurrence of this symbol (which must be non-binding).
     private final Identifier first;
 
-    private Binding(Scope scope, int index, int bindingId, boolean isSyntactic, Identifier first) {
+    private Binding(
+        Scope scope,
+        int index,
+        int bindingId,
+        boolean isSyntactic,
+        boolean isToplevelLocal,
+        Identifier first) {
       this.scope = scope;
       this.index = index;
       this.bindingId = bindingId;
       this.isSyntactic = isSyntactic;
+      this.isToplevelLocal = isToplevelLocal;
       this.first = first;
     }
 
@@ -120,6 +133,14 @@ public final class Resolver extends NodeVisitor {
     /** Returns whether any binding occurrence of this symbol appears in the syntax tree. */
     boolean isSyntactic() {
       return isSyntactic;
+    }
+
+    /**
+     * Returns whether this symbol is a file-level LOCAL/CELL symbol, i.e. a local symbol introduced
+     * by a {@code load()} statement when {@link FileOptions#loadBindsGlobally} is false.
+     */
+    boolean isToplevelLocal() {
+      return isToplevelLocal;
     }
 
     /** Returns the name of this binding's identifier. */
@@ -148,7 +169,7 @@ public final class Resolver extends NodeVisitor {
     @Override
     public String toString() {
       String declaredAt =
-          isSyntactic
+          isSyntactic()
               ? first.getStartLocation().toString()
               : scope == Scope.UNIVERSAL || scope == Scope.PREDECLARED
                   ? "<builtin>"
@@ -159,7 +180,18 @@ public final class Resolver extends NodeVisitor {
   }
 
   private Binding newBinding(Scope scope, int index, boolean isSyntactic, Identifier first) {
-    return new Binding(scope, index, nextBindingId++, isSyntactic, first);
+    return new Binding(
+        scope, index, nextBindingId++, isSyntactic, /* isToplevelLocal= */ false, first);
+  }
+
+  private Binding newToplevelLocalBinding(int index, Identifier first) {
+    return new Binding(
+        Scope.LOCAL,
+        index,
+        nextBindingId++,
+        /* isSyntactic= */ true,
+        /* isToplevelLocal= */ true,
+        first);
   }
 
   /** A {@link Binding} for a variable of a list or dict comprehension. */
@@ -170,7 +202,13 @@ public final class Resolver extends NodeVisitor {
     private final Comprehension node;
 
     private ComprehensionBinding(int index, int bindingId, Identifier first, Comprehension node) {
-      super(Scope.LOCAL, index, bindingId, /* isSyntactic= */ true, first);
+      super(
+          Scope.LOCAL,
+          index,
+          bindingId,
+          /* isSyntactic= */ true,
+          /* isToplevelLocal= */ false,
+          first);
       this.node = node;
     }
 
@@ -233,7 +271,7 @@ public final class Resolver extends NodeVisitor {
         int numKeywordOnlyParams,
         List<Binding> locals,
         List<Binding> freevars,
-        List<String> globals,
+        ImmutableList<String> globals,
         boolean mutationFreeAtTopLevel) {
       this.name = name;
       this.location = loc;
@@ -254,7 +292,7 @@ public final class Resolver extends NodeVisitor {
       this.isToplevel = name.equals("<toplevel>");
       this.locals = ImmutableList.copyOf(locals);
       this.freevars = ImmutableList.copyOf(freevars);
-      this.globals = ImmutableList.copyOf(globals);
+      this.globals = globals;
       this.mutationFreeAtTopLevel = mutationFreeAtTopLevel;
 
       // Create an index of the locals that are cells.
@@ -447,7 +485,7 @@ public final class Resolver extends NodeVisitor {
      * @throws Undefined if the name is not defined. The exception may contain a set of available
      *     candidate names that are predefined symbols.
      */
-    Scope resolve(String name) throws Undefined;
+    Scope resolve(String name, boolean resolveTypeSyntax) throws Undefined;
 
     /**
      * Resolves a name to a corresponding type constructor.
@@ -523,6 +561,11 @@ public final class Resolver extends NodeVisitor {
   private final Module module;
   // List whose order defines the numbering of global variables in this program.
   private final List<String> globals = new ArrayList<>();
+  // Cached ImmutableList representation of globals. Set whenever we create a Function and
+  // invalidated (set to null) whenever we added a new global to globals. Lets us save memory in
+  // the common-case situation where many Functions have the same globals and thus can share the
+  // same ImmutableList object.
+  @Nullable private ImmutableList<String> cachedGlobals = null;
   // A map from global variable names to their doc comments; added to by bind(); null if doc
   // comments for global variables are not being collected.
   @Nullable private final Map<String, DocComments> docCommentsMap;
@@ -969,7 +1012,7 @@ public final class Resolver extends NodeVisitor {
     }
     Scope scope;
     try {
-      scope = module.resolve(name);
+      scope = module.resolve(name, options.resolveTypeSyntax());
     } catch (Resolver.Module.Undefined ex) {
       if (!Identifier.isValid(name)) {
         // If Identifier was created by Parser.makeErrorExpression, it
@@ -986,17 +1029,15 @@ public final class Resolver extends NodeVisitor {
       return null;
     }
     switch (scope) {
-      case GLOBAL:
+      case GLOBAL -> {
         bind = newBinding(scope, globals.size(), /* isSyntactic= */ false, id);
         // Accumulate globals in module.
         globals.add(name);
-        break;
-      case PREDECLARED:
-      case UNIVERSAL:
-        bind = newBinding(scope, 0, /* isSyntactic= */ false, id); // index not used
-        break;
-      default:
-        throw new IllegalStateException("bad scope: " + scope);
+        cachedGlobals = null;
+      }
+      case PREDECLARED, UNIVERSAL -> bind = newBinding(scope, 0, /* isSyntactic= */ false, id);
+      // index not used
+      default -> throw new IllegalStateException("bad scope: " + scope);
     }
     toplevel.put(name, bind);
     return bind;
@@ -1155,6 +1196,10 @@ public final class Resolver extends NodeVisitor {
     functionDepth--;
     popLocalBlock();
 
+    if (cachedGlobals == null) {
+      cachedGlobals = ImmutableList.copyOf(globals);
+    }
+
     return new Function(
         name,
         loc,
@@ -1167,7 +1212,7 @@ public final class Resolver extends NodeVisitor {
         numKeywordOnlyParams,
         frame,
         freevars,
-        globals,
+        cachedGlobals,
         /* mutationFreeAtTopLevel= */ false);
   }
 
@@ -1177,7 +1222,7 @@ public final class Resolver extends NodeVisitor {
     }
     params.add(param);
   }
-    
+
   /**
    * Process a binding use of a name by adding a binding to the current block if not already bound,
    * and associate the identifier with it.
@@ -1200,6 +1245,7 @@ public final class Resolver extends NodeVisitor {
         isNew = true;
         bind = newBinding(Scope.GLOBAL, globals.size(), /* isSyntactic= */ true, id);
         globals.add(name);
+        cachedGlobals = null;
         if (docComments != null && docCommentsMap != null) {
           docCommentsMap.put(name, docComments);
         }
@@ -1227,7 +1273,10 @@ public final class Resolver extends NodeVisitor {
           // its own frame (e.g. a lambda).
           bind = newComprehensionBinding(locals.frame.size(), id, comprehension);
         } else {
-          bind = newBinding(Scope.LOCAL, locals.frame.size(), /* isSyntactic= */ true, id);
+          bind =
+              locals.syntax instanceof StarlarkFile
+                  ? newToplevelLocalBinding(locals.frame.size(), id)
+                  : newBinding(Scope.LOCAL, locals.frame.size(), /* isSyntactic= */ true, id);
         }
         locals.bindings.put(name, bind);
         locals.frame.add(bind);
@@ -1256,7 +1305,7 @@ public final class Resolver extends NodeVisitor {
   private void toplevelRebinding(Identifier id, Binding prev) {
     if (!options.allowToplevelRebinding()) {
       errorf(id, "'%s' redeclared at top level", id.getName());
-      if (prev.isSyntactic) {
+      if (prev.isSyntactic()) {
         errorf(prev.first, "'%s' previously declared here", id.getName());
       }
     }
@@ -1268,7 +1317,7 @@ public final class Resolver extends NodeVisitor {
     String newqual = scope == Scope.GLOBAL ? "global" : "file-local";
     String oldqual = prev.getScope() == Scope.GLOBAL ? "global" : "file-local";
     errorf(id, "conflicting %s declaration of '%s'", newqual, id.getName());
-    if (prev.isSyntactic) {
+    if (prev.isSyntactic()) {
       errorf(prev.first, "'%s' previously declared as %s here", id.getName(), oldqual);
     }
   }
@@ -1366,7 +1415,7 @@ public final class Resolver extends NodeVisitor {
             /* numKeywordOnlyParams= */ 0,
             frame,
             /* freevars= */ ImmutableList.of(),
-            r.globals,
+            ImmutableList.copyOf(r.globals),
             !r.sawPossibleMutationAtTopLevel));
   }
 
@@ -1407,7 +1456,7 @@ public final class Resolver extends NodeVisitor {
         /* numKeywordOnlyParams= */ 0,
         frame,
         /* freevars= */ ImmutableList.of(),
-        r.globals,
+        ImmutableList.copyOf(r.globals),
         !r.sawPossibleMutationAtTopLevel);
   }
 

@@ -58,7 +58,9 @@ class MethodLibrary {
               @ParamType(type = StarlarkCallable.class),
               @ParamType(type = NoneType.class),
             },
-            doc = "An optional function applied to each element before comparison.",
+            doc =
+                "An optional function applied to each element before comparison. Must not mutate"
+                    + " the args sequence.",
             defaultValue = "None")
       },
       useStarlarkThread = true)
@@ -94,7 +96,9 @@ class MethodLibrary {
               @ParamType(type = StarlarkCallable.class),
               @ParamType(type = NoneType.class),
             },
-            doc = "An optional function applied to each element before comparison.",
+            doc =
+                "An optional function applied to each element before comparison. Must not mutate"
+                    + " the args sequence.",
             defaultValue = "None")
       },
       useStarlarkThread = true)
@@ -115,6 +119,7 @@ class MethodLibrary {
     // iterable of items to compare. In either case, there must be at least one item to compare.
     Iterable<?> items = (args.size() == 1) ? Starlark.toIterable(args.get(0)) : args;
     try {
+      EvalUtils.addIterator(items); // to prevent keyFn from mutating items
       if (keyFn.isPresent()) {
         try {
           return stream(items)
@@ -134,6 +139,8 @@ class MethodLibrary {
       throw new EvalException(ex.getMessage()); // e.g. unsupported comparison: int <=> string
     } catch (NoSuchElementException ex) {
       throw new EvalException("expected at least one item", ex);
+    } finally {
+      EvalUtils.removeIterator(items);
     }
   }
 

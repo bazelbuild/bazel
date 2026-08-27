@@ -467,16 +467,6 @@ public abstract class FileSystem {
   /** Returns the status of a file. See {@link Path#stat(Symlinks)} for specification. */
   public abstract FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException;
 
-  /** Like stat(), but returns null on failures instead of throwing. */
-  @Nullable
-  public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
-    try {
-      return stat(path, followSymlinks);
-    } catch (IOException e) {
-      return null;
-    }
-  }
-
   /**
    * Like {@link #stat}, but returns null if the file is not found (corresponding to {@code ENOENT}
    * or {@code ENOTDIR} in Unix's stat(2) function) instead of throwing. Note that this
@@ -497,8 +487,13 @@ public abstract class FileSystem {
    * Path#isFile(Symlinks)} for specification.
    */
   public boolean isFile(PathFragment path, boolean followSymlinks) {
-    FileStatus stat = statNullable(path, followSymlinks);
-    return stat != null && stat.isFile();
+    try {
+      FileStatus stat = statIfFound(path, followSymlinks);
+      return stat != null && stat.isFile();
+    } catch (IOException e) {
+      // TODO(tjgq): Do not swallow exceptions (requires fixing the signature).
+      return false;
+    }
   }
 
   /**
@@ -506,8 +501,13 @@ public abstract class FileSystem {
    * Path#isSpecialFile(Symlinks)} for specification.
    */
   public boolean isSpecialFile(PathFragment path, boolean followSymlinks) {
-    FileStatus stat = statNullable(path, followSymlinks);
+    try {
+      FileStatus stat = statIfFound(path, followSymlinks);
     return stat != null && stat.isSpecialFile();
+    } catch (IOException e) {
+      // TODO(tjgq): Do not swallow exceptions (requires fixing the signature).
+      return false;
+    }
   }
 
   /**
@@ -515,8 +515,13 @@ public abstract class FileSystem {
    * Path#isSymbolicLink()} for specification.
    */
   public boolean isSymbolicLink(PathFragment path) {
-    FileStatus stat = statNullable(path, false);
-    return stat != null && stat.isSymbolicLink();
+    try {
+      FileStatus stat = statIfFound(path, false);
+      return stat != null && stat.isSymbolicLink();
+    } catch (IOException e) {
+      // TODO(tjgq): Do not swallow exceptions (requires fixing the signature).
+      return false;
+    }
   }
 
   /**
@@ -524,8 +529,13 @@ public abstract class FileSystem {
    * Path#isDirectory(Symlinks)} for specification.
    */
   public boolean isDirectory(PathFragment path, boolean followSymlinks) {
-    FileStatus stat = statNullable(path, followSymlinks);
-    return stat != null && stat.isDirectory();
+    try {
+      FileStatus stat = statIfFound(path, followSymlinks);
+      return stat != null && stat.isDirectory();
+    } catch (IOException e) {
+      // TODO(tjgq): Do not swallow exceptions (requires fixing the signature).
+      return false;
+    }
   }
 
   /**
@@ -621,8 +631,15 @@ public abstract class FileSystem {
     Collection<String> children = getDirectoryEntries(path);
     List<Dirent> dirents = Lists.newArrayListWithCapacity(children.size());
     for (String child : children) {
-      PathFragment childPath = path.getChild(child);
-      Dirent.Type type = direntFromStat(statNullable(childPath, followSymlinks));
+      Dirent.Type type = Dirent.Type.UNKNOWN;
+      try {
+        FileStatus stat = statIfFound(path.getChild(child), followSymlinks);
+        if (stat != null) {
+          type = direntFromStat(stat);
+        }
+      } catch (FileSymlinkLoopException e) {
+        // Intentionally ignored - report looping symlinks as UNKNOWN.
+      }
       dirents.add(new Dirent(child, type));
     }
     return dirents;

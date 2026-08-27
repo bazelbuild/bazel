@@ -43,8 +43,10 @@ import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.util.function.Predicate;
@@ -181,6 +183,7 @@ public final class SpawnLogModule extends BlazeModule {
 
       checkNotNull(displayName);
 
+      XattrProvider xattrProvider = getOutputServiceAwareXattrProvider(env);
       if (executionOptions.getExecutionLogCompactFile() != null) {
         spawnLogContext =
             new CompactSpawnLogContext(
@@ -193,7 +196,7 @@ public final class SpawnLogModule extends BlazeModule {
                     .getExperimentalSiblingRepositoryLayout(),
                 env.getOptions().getOptions(RemoteOptions.class),
                 env.getRuntime().getFileSystem().getDigestFunction(),
-                env.getXattrProvider(),
+                xattrProvider,
                 env.getCommandId(),
                 env.getReporter(),
                 logSpawnPredicate);
@@ -214,7 +217,7 @@ public final class SpawnLogModule extends BlazeModule {
                 env.getExecRoot().asFragment(),
                 env.getOptions().getOptions(RemoteOptions.class),
                 env.getRuntime().getFileSystem().getDigestFunction(),
-                env.getXattrProvider(),
+                xattrProvider,
                 uriFuture != null,
                 logSpawnPredicate);
       }
@@ -222,6 +225,12 @@ public final class SpawnLogModule extends BlazeModule {
       env.getReporter()
           .handle(Event.error("Error while setting up the execution log: " + e.getMessage()));
     }
+  }
+
+  static XattrProvider getOutputServiceAwareXattrProvider(CommandEnvironment env) {
+    XattrProvider xattrProvider = env.getXattrProvider();
+    OutputService outputService = env.getOutputService();
+    return outputService == null ? xattrProvider : outputService.getXattrProvider(xattrProvider);
   }
 
   /**

@@ -22,6 +22,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
@@ -101,6 +102,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -261,7 +263,7 @@ public class BuildView {
     BuildOptions topLevelConfigurationTrimmedOfTestOptions;
     boolean shouldDiscardAnalysisCache;
     if (skyframeExecutor.getAndIncrementAnalysisCount() != 0
-        && remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.UPLOAD) {
+        && remoteAnalysisCachingDependenciesProvider.mode().isSyncUpload()) {
       throw new AbruptExitException(
           DetailedExitCode.of(
               FailureDetail.newBuilder()
@@ -397,14 +399,15 @@ public class BuildView {
                 || !skyframeExecutor.tracksStateForIncrementality();
         if (discardAnalysisCacheAfterAnalysis
             && remoteAnalysisCachingDependenciesProvider.mode().isRetrievalEnabled()) {
-          // When remote analysis value retrieval is enabled, it is possible for analysis
-          // to occur during the logical execution phase. Discarding the analysis cache
-          // can lead to crashes.
+          // When remote analysis value retrieval is enabled, it is possible for analysis to occur
+          // during the logical execution phase. Discarding the analysis cache fully can lead to
+          // crashes.
           //
           // TODO: b/466388360 - consider alternatives
           eventHandler.handle(
-              Event.warn("Remote analysis caching is enabled. Not discarding the analysis cache."));
-          discardAnalysisCacheAfterAnalysis = false;
+              Event.warn(
+                  "Remote analysis caching is enabled. Performing only a partial analysis cache"
+                      + " discard."));
         }
         skyframeAnalysisResult =
             skyframeBuildView.analyzeAndExecuteTargets(
@@ -430,8 +433,9 @@ public class BuildView {
                 /* shouldDiscardAnalysisCache= */ discardAnalysisCacheAfterAnalysis,
                 // Analysis uploads happen after the build and use the syscall cache, so it should
                 // not be cleared mid-build. The cache is still cleared upon command completion.
-                /* shouldClearSyscallCache= */ remoteAnalysisCachingDependenciesProvider.mode()
-                    != RemoteAnalysisCacheMode.UPLOAD,
+                /* shouldClearSyscallCache= */ !remoteAnalysisCachingDependenciesProvider
+                    .mode()
+                    .isSyncUpload(),
                 buildDriverKeyTestContext,
                 skymeldAnalysisOverlapPercentage);
       } else {
@@ -448,8 +452,7 @@ public class BuildView {
                 executors,
                 checkForActionConflicts);
         setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
-        if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().mode()
-            == RemoteAnalysisCacheMode.UPLOAD) {
+        if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().mode().isSyncUpload()) {
           skyframeExecutor.clearPackageValues();
         }
       }
@@ -541,7 +544,7 @@ public class BuildView {
     for (Label label : labels) {
       Package pkg =
           checkNotNull(skyframeExecutor.getExistingPackage(label.getPackageIdentifier()), label);
-      Target target = checkNotNull(pkg.getTargets().get(label.getName()), label);
+      Target target = checkNotNull(pkg.getTargetOrNull(label.getName()), label);
       builder.put(label, target);
     }
     return builder.buildOrThrow();
@@ -654,11 +657,20 @@ public class BuildView {
       Set<ConfiguredTarget> targetsToSkip,
       ImmutableMap<Label, Target> labelToTargetMap,
       boolean includeExecutionPhase)
-      throws InterruptedException {
+      throws InterruptedException, ViewCreationFailedException {
     ImmutableSet<Label> testsToRun = loadingResult.getTestsToRunLabels();
     Set<ConfiguredTarget> configuredTargets =
         new LinkedHashSet<>(skyframeAnalysisResult.getConfiguredTargets());
     ImmutableMap<AspectKey, ConfiguredAspect> aspects = skyframeAnalysisResult.getAspects();
+
+    boolean hasError =
+        skyframeAnalysisResult.hasAnalysisError()
+            || skyframeAnalysisResult.hasLoadingError()
+            || skyframeAnalysisResult.hasActionConflicts();
+
+    if (!hasError) {
+      checkUnknownOutputGroups(configuredTargets, aspects.values(), topLevelOptions, eventHandler);
+    }
 
     Set<ConfiguredTarget> allTargetsToTest = null;
     if (testsToRun != null) {
@@ -950,6 +962,61 @@ public class BuildView {
   @FunctionalInterface
   public interface BuildConfigurationsCreated {
     void run(BuildConfigurationValue buildConfiguration);
+  }
+
+  private static void checkUnknownOutputGroups(
+      Collection<ConfiguredTarget> configuredTargets,
+      Collection<ConfiguredAspect> configuredAspects,
+      TopLevelArtifactContext topLevelOptions,
+      ExtendedEventHandler eventHandler)
+      throws ViewCreationFailedException {
+    if (configuredTargets.isEmpty() && configuredAspects.isEmpty()) {
+      return;
+    }
+    List<String> unknownOutputGroups = new ArrayList<>();
+    for (String outputGroup : topLevelOptions.outputGroups()) {
+      if (OutputGroupInfo.IGNORED_OUTPUT_GROUPS.contains(outputGroup)) {
+        continue;
+      }
+      boolean found = false;
+      for (ProviderCollection provider : Iterables.concat(configuredTargets, configuredAspects)) {
+        OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(provider);
+        if (outputGroupInfo != null && outputGroupInfo.containsOutputGroup(outputGroup)) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        unknownOutputGroups.add(outputGroup);
+        String message =
+            String.format(
+                "Output group '%s' was requested, but was not present on any top-level target or"
+                    + " aspect",
+                outputGroup);
+        if (topLevelOptions.failOnUnknownOutputGroups()) {
+          eventHandler.handle(Event.error(message));
+        } else {
+          eventHandler.handle(Event.warn(message));
+        }
+      }
+    }
+    if (!unknownOutputGroups.isEmpty() && topLevelOptions.failOnUnknownOutputGroups()) {
+      String errorMessage =
+          unknownOutputGroups.size() == 1
+              ? String.format(
+                  "Output group '%s' was requested, but was not present on any top-level target or"
+                      + " aspect",
+                  unknownOutputGroups.get(0))
+              : String.format(
+                  "Output groups %s were requested, but were not present on any top-level target or"
+                      + " aspect",
+                  unknownOutputGroups.stream()
+                      .map(g -> "'" + g + "'")
+                      .collect(Collectors.joining(", ")));
+      throw new ViewCreationFailedException(
+          errorMessage,
+          createAnalysisFailureDetail(errorMessage, Analysis.Code.UNKNOWN_OUTPUT_GROUP));
+    }
   }
 
   /**

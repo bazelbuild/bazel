@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util.io;
 
+import static java.nio.charset.StandardCharsets.US_ASCII;
+
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 
 /**
  * A class which encapsulates the fancy curses-type stuff that you can do using
@@ -41,9 +43,8 @@ public class AnsiTerminal {
     private final byte[] backgroundEscapeSeq;
 
     private Color(String escapeSeq, String backgroundEscapeSeq) {
-      this.escapeSeq = escapeSeq.replace('^', (char) 27).getBytes(StandardCharsets.US_ASCII);
-      this.backgroundEscapeSeq =
-          backgroundEscapeSeq.replace('^', (char) 27).getBytes(StandardCharsets.US_ASCII);
+      this.escapeSeq = escapeSeq.replace('^', (char) 27).getBytes(US_ASCII);
+      this.backgroundEscapeSeq = backgroundEscapeSeq.replace('^', (char) 27).getBytes(US_ASCII);
     }
 
     public byte[] getEscapeSeq() {
@@ -55,15 +56,16 @@ public class AnsiTerminal {
     }
   }
 
-  private static final byte[] ESC = {27, (byte) '['};
-  private static final byte BEL = 7;
+  private static final byte[] csi = {27, (byte) '['}; // Control Sequence Introducer
   private static final byte UP = (byte) 'A';
   private static final byte ERASE_LINE = (byte) 'K';
   private static final byte SET_GRAPHICS = (byte) 'm';
   private static final byte TEXT_BOLD = (byte) '1';
-  private static final byte[] SET_TERM_TITLE = {27, (byte) ']', (byte) '0', (byte) ';'};
+  private static final byte[] osc = {27, (byte) ']'}; // Operating System Command
+  private static final byte[] setTermTitle = {(byte) '0', (byte) ';'};
+  private static final byte[] st = {27, (byte) '\\'}; // String Terminator
 
-  public static byte[] CR = { 13 };
+  private static final byte[] cr = {13};
 
   private final OutputStream out;
 
@@ -83,21 +85,21 @@ public class AnsiTerminal {
    * window.
    */
   public void cursorUp(int numLines) throws IOException {
-    writeBytes(ESC, ("" + numLines).getBytes(), new byte[] { UP });
+    writeBytes(csi, ("" + numLines).getBytes(US_ASCII), new byte[] {UP});
   }
 
   /**
    * Clear the current terminal line from the cursor position to the end.
    */
   public void clearLine() throws IOException {
-    writeEscapeSequence(ERASE_LINE);
+    writeControlSequence(ERASE_LINE);
   }
 
   /**
    * Makes any text output to the terminal appear in bold.
    */
   public void textBold() throws IOException {
-    writeEscapeSequence(TEXT_BOLD,  SET_GRAPHICS);
+    writeControlSequence(TEXT_BOLD, SET_GRAPHICS);
   }
 
   /**
@@ -113,7 +115,7 @@ public class AnsiTerminal {
    * Resets the terminal colors and fonts to defaults.
    */
   public void resetTerminal() throws IOException {
-    writeEscapeSequence((byte)'0', (byte)'m');
+    writeControlSequence((byte) '0', (byte) 'm');
   }
 
   /**
@@ -137,21 +139,18 @@ public class AnsiTerminal {
     setTextColor(Color.MAGENTA);
   }
 
-  /**
-   * Set the terminal title.
-   */
+  /** Set the terminal title. */
   public void setTitle(String title) throws IOException {
-    writeBytes(SET_TERM_TITLE, title.getBytes(), new byte[] { BEL });
+    writeBytes(osc, setTermTitle, StringUnsafe.getInternalStringBytes(title), st);
   }
 
   /**
-   * Writes a string to the terminal using the current font, color and cursor
-   * position settings.
+   * Writes a string to the terminal using the current font, color and cursor position settings.
    *
    * @param text the text to write
    */
   public void writeString(String text) throws IOException {
-    out.write(text.getBytes());
+    out.write(StringUnsafe.getInternalStringBytes(text));
   }
 
   /**
@@ -183,13 +182,13 @@ public class AnsiTerminal {
    * @param bytes bytes which should be prefixed with the terminal escape sequence to produce a
    *     valid control sequence
    */
-  private void writeEscapeSequence(byte... bytes) throws IOException {
-    writeBytes(ESC, bytes);
+  private void writeControlSequence(byte... bytes) throws IOException {
+    writeBytes(csi, bytes);
   }
 
   /** Sends a carriage return to the terminal. */
   public void cr() throws IOException {
-    writeBytes(CR);
+    writeBytes(cr);
   }
 
   /**

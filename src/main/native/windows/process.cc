@@ -276,11 +276,16 @@ int WaitableProcess::WaitFor(int64_t timeout_msec,
   if (job_.IsValid()) {
     // Wait for the job object to complete, signalling that all subprocesses
     // have exited.
+    // Use a finite timeout (5 seconds) instead of INFINITE to prevent Bazel
+    // from hanging forever if a child process (such as MSVC's vctip.exe
+    // telemetry uploader) becomes a zombie or refuses to terminate after
+    // TerminateJobObject. See https://github.com/bazelbuild/bazel/issues/15094.
+    static constexpr DWORD kJobCompletionTimeoutMsec = 5000;
     DWORD CompletionCode;
     ULONG_PTR CompletionKey;
     LPOVERLAPPED Overlapped;
-    while (GetQueuedCompletionStatus(ioport_, &CompletionCode,
-                                     &CompletionKey, &Overlapped, INFINITE) &&
+    while (GetQueuedCompletionStatus(ioport_, &CompletionCode, &CompletionKey,
+                                     &Overlapped, kJobCompletionTimeoutMsec) &&
            !((HANDLE)CompletionKey == (HANDLE)job_ &&
              CompletionCode == JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO)) {
       // Still waiting...
@@ -375,7 +380,7 @@ std::wstring WindowsEscapeArg(const std::wstring& s) {
   } else {
     bool needs_escaping = false;
     for (const auto& c : s) {
-      if (c == ' ' || c == '"') {
+      if (c == L' ' || c == L'\t' || c == L'"') {
         needs_escaping = true;
         break;
       }
@@ -389,8 +394,8 @@ std::wstring WindowsEscapeArg(const std::wstring& s) {
   result << L'"';
   int start = 0;
   for (int i = 0; i < s.size(); ++i) {
-    char c = s[i];
-    if (c == '"' || c == '\\') {
+    wchar_t c = s[i];
+    if (c == L'"' || c == L'\\') {
       // Copy the segment since the last special character.
       if (start >= 0) {
         result << s.substr(start, i - start);
@@ -398,7 +403,7 @@ std::wstring WindowsEscapeArg(const std::wstring& s) {
       }
 
       // Handle the current special character.
-      if (c == '"') {
+      if (c == L'"') {
         // This is a quote character. Escape it with a single backslash.
         result << L"\\\"";
       } else {
@@ -406,7 +411,7 @@ std::wstring WindowsEscapeArg(const std::wstring& s) {
         // Whether we escape it depends on whether the run ends with a quote.
         int run_len = 1;
         int j = i + 1;
-        while (j < s.size() && s[j] == '\\') {
+        while (j < s.size() && s[j] == L'\\') {
           run_len++;
           j++;
         }
@@ -417,7 +422,7 @@ std::wstring WindowsEscapeArg(const std::wstring& s) {
             result << L'\\';
           }
           break;
-        } else if (j < s.size() && s[j] == '"') {
+        } else if (j < s.size() && s[j] == L'"') {
           // The run of backslashes is terminated by a quote.
           // We have to escape every backslash with another backslash, and
           // escape the quote with one backslash.

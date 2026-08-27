@@ -2,8 +2,6 @@ load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 package(default_visibility = ["//visibility:public"])
 
-exports_files(["fastutil.proguard"])
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
@@ -28,6 +26,7 @@ filegroup(
         "//tools/osx:srcs",
         "//tools/proto:srcs",
         "//tools/python:srcs",
+        "//tools/res:srcs",
         "//tools/sh:srcs",
         "//tools/test:srcs",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:srcs",
@@ -60,6 +59,7 @@ filegroup(
         "//tools/osx:srcs",
         "//tools/proto:srcs",
         "//tools/python:embedded_tools",
+        "//tools/res:srcs",
         "//tools/sh:embedded_tools",
         "//tools/test:embedded_tools",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:embedded_tools",
@@ -79,6 +79,7 @@ filegroup(
         "//tools/jdk:bzl_srcs",
         "//tools/osx:bzl_srcs",
         "//tools/python:bzl_srcs",
+        "//tools/res:bzl_srcs",
         "//tools/sh:bzl_srcs",
         "//tools/test:bzl_srcs",
     ],

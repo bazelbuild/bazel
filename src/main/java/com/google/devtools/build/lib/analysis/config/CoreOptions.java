@@ -201,7 +201,7 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
   public abstract boolean getUsePlatformsInOutputDirLegacyHeuristic();
 
   @Option(
-      name = "experimental_override_platform_cpu_name",
+      name = "override_platform_cpu_name",
       oldName = "experimental_override_name_platform_in_output_dir",
       oldNameWarning = false,
       converter = LabelToStringEntryConverter.class,
@@ -209,7 +209,6 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           """
           Each entry should be of the form `label=value` where label refers to a platform and values
@@ -557,6 +556,23 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
   public abstract boolean getAlwaysIncludeFilesToBuildInData();
 
   @Option(
+      name = "incompatible_prefer_depending_configuration_runfiles",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          """
+          If true, when artifacts from the same target in multiple configurations are encountered
+          when constructing runfiles, prefer the version that matches the configuration of the
+          depending target. Specifically, when a target T depends on a target A in multiple
+          configurations, either directly or transitively, prefer the runfiles from the
+          version of A in the configuration that matches the configuration of T. This can happen,
+          for example, when a target appears in both the tools and data attributes.
+          """)
+  public abstract boolean getPreferDependingConfigurationRunfiles();
+
+  @Option(
       name = "incompatible_compact_repo_mapping_manifest",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
@@ -892,23 +908,6 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
   public abstract void setExecutionInfoModifier(List<ExecutionInfoModifier> value);
 
   @Option(
-      name = "incompatible_modify_execution_info_additive",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {
-        OptionEffectTag.EXECUTION,
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          """
-          When enabled, passing multiple `--modify_execution_info` flags is additive.
-          When disabled, only the last flag is taken into account.
-          """)
-  public abstract boolean getAdditiveModifyExecutionInfo();
-
-  @Option(
       name = "incompatible_bazel_test_exec_run_under",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
@@ -1013,21 +1012,6 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.EXECUTION},
       help = "Whether to throttle the check whether an action is cached.")
   public abstract boolean getThrottleActionCacheCheck();
-
-  // This cannot be in TestOptions since the default test toolchain needs to be enabled
-  // conditionally based on its value and test trimming would drop it when evaluating the toolchain
-  // target.
-  @Option(
-      name = "use_target_platform_for_tests",
-      deprecationWarning =
-          "Tests select an execution platform matching all constraints of the target platform by"
-              + " default. Instead of using this flag, make sure that all test target platform are"
-              + " registered as execution platforms.",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help = "If true, use the target platform for running tests rather than the test exec group.")
-  public abstract boolean getUseTargetPlatformForTests();
 
   @Option(
       name = "exec_aspects",

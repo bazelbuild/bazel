@@ -6,7 +6,9 @@ load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("//src:release_archive.bzl", "minimum_java_compilation_runtime_filegroup", "minimum_java_runtime_filegroup", "release_archive")
+load(":bazel_binary.bzl", "bazel_binary")
 load(":embedded_tools.bzl", "srcsfile")
+load(":package_zip.bzl", "package_zip")
 load(":rule_size_test.bzl", "rule_size_test")
 
 package(default_applicable_licenses = ["@io_bazel//:license"])
@@ -76,14 +78,6 @@ py_binary(
     name = "create_embedded_tools",
     srcs = ["create_embedded_tools.py"],
     deps = [":create_embedded_tools_lib"],
-)
-
-# Script for turning builtins_bzl sources into a zip file for unioning into the
-# package zip / install base.
-sh_binary(
-    name = "zip_builtins",
-    srcs = ["zip_builtins.sh"],
-    visibility = ["//src/main/starlark/builtins_bzl:__pkg__"],
 )
 
 # The tools Bazel uses to compile Java.
@@ -230,24 +224,32 @@ sh_binary(
     ],
 )
 
+# The jlink tool must have the same build as the target JDK. When cross-jlinking
+# the Windows arm64 runtime on a Windows x64 host, jdk_for_jlink (the host's
+# embedded JDK) is Azul Zulu and would not match the BellSoft target, so a
+# matching BellSoft Windows x64 build is used as the jlink tool instead. These
+# selects are resolved in the target configuration, so they key on the target
+# platform even though the selected tool is built for (and runs on) the exec
+# platform.
+_JLINK_TOOL = select({
+    "//src/conditions:windows_arm64": ["@openjdk_win_arm64_jlink_tool//file"],
+    "//conditions:default": [":jdk_for_jlink"],
+})
+
+_JLINK_TOOL_LOCATION = select({
+    "//src/conditions:windows_arm64": "$(location @openjdk_win_arm64_jlink_tool//file)",
+    "//conditions:default": "$(location :jdk_for_jlink)",
+})
+
 genrule(
     name = "embedded_jdk_minimal",
     srcs = [
         ":embedded_jdk_vanilla",
         ":jdeps_modules.golden",
-    ] + select({
-        "//src/conditions:windows_arm64": ["@openjdk_win_arm64_jmods//file"],
-        "//conditions:default": [],
-    }),
-    outs = ["minimal_jdk.zip"],
-    cmd = "$(location :minimize_jdk) $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@" + select({
-        "//src/conditions:windows_arm64": " $(location @openjdk_win_arm64_jmods//file)",
-        "//conditions:default": "",
-    }),
-    tools = [
-        ":jdk_for_jlink",
-        ":minimize_jdk",
     ],
+    outs = ["minimal_jdk.zip"],
+    cmd = "$(location :minimize_jdk) " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
+    tools = [":minimize_jdk"] + _JLINK_TOOL,
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
@@ -256,19 +258,10 @@ genrule(
     srcs = [
         ":embedded_jdk_vanilla",
         ":jdeps_modules.golden",
-    ] + select({
-        "//src/conditions:windows_arm64": ["@openjdk_win_arm64_jmods//file"],
-        "//conditions:default": [],
-    }),
-    outs = ["allmodules_jdk.zip"],
-    cmd = "$(location :minimize_jdk) --allmodules $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@" + select({
-        "//src/conditions:windows_arm64": " $(location @openjdk_win_arm64_jmods//file)",
-        "//conditions:default": "",
-    }),
-    tools = [
-        ":jdk_for_jlink",
-        ":minimize_jdk",
     ],
+    outs = ["allmodules_jdk.zip"],
+    cmd = "$(location :minimize_jdk) --allmodules " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
+    tools = [":minimize_jdk"] + _JLINK_TOOL,
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
@@ -297,20 +290,9 @@ genrule(
     "_nojdk",
 ]]
 
-[genrule(
+[package_zip(
     name = "package-zip" + suffix,
-    # This script assumes the following arg order:
-    #   1) embedded tools zip (if it exists)
-    #   2) the deploy jar
-    #   3) the install base key
-    #   4) the platforms archive
-    #   5) everything else to be bundled
-    # Ensure we haven't forgotten to add all package-zip items as dependencies
-    # of :install_base_key-file, otherwise bazel won't correctly reextract
-    # modified files.
     srcs = ([":embedded_tools" + suffix + ".zip"] if embed else []) + [
-        "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
-        "install_base_key" + suffix,
         "//:platforms-srcs",
         # Non-ordered items follow:
         "//src/main/java/net/starlark/java/eval:cpu_profiler_jni",
@@ -323,14 +305,15 @@ genrule(
             "//src/main/tools:daemonize",
         ],
     }),
-    outs = ["package" + suffix + ".zip"],
-    cmd = "$(location :package_bazel_on_host_platform) $@ " + ("" if embed else "''") + " $(SRCS)",
-    tools = [":package_bazel_on_host_platform"],
-) for suffix, embed in [
-    ("_jdk_allmodules", True),
-    ("_jdk_minimal", True),
-    ("_notools", False),
-    ("_nojdk", True),
+    out = "package" + suffix + ".zip",
+    dev_build = dev_build,
+    install_base_key = "install_base_key" + suffix,
+    server_jar = "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
+) for suffix, embed, dev_build in [
+    ("_jdk_allmodules", True, True),
+    ("_jdk_minimal", True, False),
+    ("_notools", False, False),
+    ("_nojdk", True, False),
 ]]
 
 genrule(
@@ -344,19 +327,11 @@ genrule(
     }),
 )
 
-[genrule(
+[bazel_binary(
     name = "bazel-bin" + suffix,
-    srcs = [
-        "//src/main/cpp:client",
-        "package-zip" + jdk,
-    ],
-    outs = ["bazel" + suffix],
-    # In msys, a file path without .exe suffix(say foo), refers to a file with .exe
-    # suffix(say foo.exe), if foo.exe exists and foo doesn't. So, on windows, we
-    # need to remove bazel.exe first, so that cat to bazel won't fail.
-    cmd = "rm -f $@; cat $(location //src/main/cpp:client) $(location :package-zip" + jdk + ") > $@ && zip -qA $@ && chmod a+x $@",
-    executable = 1,
-    output_to_bindir = 1,
+    out = "bazel" + suffix,
+    client = "//src/main/cpp:client",
+    package_zip = "package-zip" + jdk,
     visibility = [
         "//:__pkg__",  # For distribution archive lockfile generation
         "//scripts:__pkg__",  # For bash completion generation
@@ -374,16 +349,14 @@ genrule(
     ("_nojdk", "_nojdk"),
 ]]
 
-# Build an executable named `bazel.exe`.
+# Build an executable named `bazel.exe` (and suffixes).
 # Works on all platforms but only makes sense on Windows.
-# Workaround for non-configurability of genrule's `outs` attribute.
-[genrule(
+[copy_file(
     name = "bazel-bin" + suffix + ".exe",
-    srcs = [":bazel-bin" + suffix],
-    outs = ["bazel" + suffix + ".exe"],
-    cmd = "cp $(location :bazel-bin" + suffix + ") $@",
-    executable = 1,
-    output_to_bindir = 1,
+    src = ":bazel-bin" + suffix,
+    out = "bazel" + suffix + ".exe",
+    allow_symlink = True,
+    is_executable = True,
     visibility = [
         "//scripts:__pkg__",  # For bash completion generation
         "//scripts/packages:__pkg__",  # For installer generation
@@ -416,7 +389,6 @@ filegroup(
         "//src/main/java/net/starlark/java:srcs",
         "//src/main/native:srcs",
         "//src/main/protobuf:srcs",
-        "//src/main/res:srcs",
         "//src/main/starlark/builtins_bzl:srcs",
         "//src/main/starlark/docgen:srcs",
         "//src/main/tools:srcs",
@@ -441,6 +413,7 @@ filegroup(
         "//src/tools/launcher:srcs",
         "//src/tools/one_version:srcs",
         "//src/tools/remote:srcs",
+        "//src/tools/simple_catter:srcs",
         "//src/tools/singlejar:srcs",
         "//src/tools/starlark/java/com/google/devtools/starlark/common:srcs",
         "//src/tools/workspacelog:srcs",
@@ -597,15 +570,17 @@ release_archive(
 release_archive(
     name = "java_tools_prebuilt_zip",
     src_map = {
-        "//tools/jdk:BUILD.java_tools_prebuilt": "BUILD",
+        "//tools/jdk:java_tools_prebuilt_build_file": "BUILD",
     },
     visibility = ["//src/test/shell/bazel:__pkg__"],
     deps = [
-        ":turbine_direct_graal_zip",
         "//src/tools/one_version:one_version_deploy_zip",
         "//src/tools/singlejar:singlejar_deploy_zip",
         "//third_party/ijar:ijar_deploy_zip",
-    ],
+    ] + select({
+        "//src/conditions:darwin_x86_64": [],
+        "//conditions:default": [":turbine_direct_graal_zip"],
+    }),
 )
 
 # Following targets used by the java_tools_binaries Buildkite pipeline to upload

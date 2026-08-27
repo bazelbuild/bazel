@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.rules.config.FeatureFlagValue;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -205,7 +206,7 @@ public final class StarlarkRuleContext
     if (aspectDescriptor == null) {
       Collection<Attribute> attributes =
           rule.getAttributes().stream()
-              .filter(attribute -> !attribute.getName().equals("aspect_hints"))
+              .filter(attribute -> !attribute.getName().equals(RuleClass.ASPECT_HINTS_ATTR))
               .collect(Collectors.toList());
 
       // Populate ctx.outputs.
@@ -243,7 +244,10 @@ public final class StarlarkRuleContext
           outputs.addOutput(attrName, artifacts);
         } else {
           throw ruleContext.throwWithRuleError(
-              String.format("Attribute %s has unexpected output type %s", attrName, type));
+              String.format(
+                  "attribute '%s' has type '%s', but only types 'output' and 'output_list' are"
+                      + " allowed for output attributes",
+                  attrName, type));
         }
       }
       // Add the implicit outputs. In the case where the rule has a native-defined implicit outputs
@@ -374,6 +378,12 @@ public final class StarlarkRuleContext
     @Override
     public boolean isImmutable() {
       return context.isImmutable();
+    }
+
+    @Override
+    public boolean isAcyclic() {
+      // Artifacts are acyclic
+      return true;
     }
 
     @Override
@@ -747,7 +757,21 @@ public final class StarlarkRuleContext
 
     BuildSetting buildSetting = ruleContext.getRule().getRuleClassObject().getBuildSetting();
     if (starlarkFlagSettings.containsKey(ruleContext.getLabel())) {
-      return starlarkFlagSettings.get(ruleContext.getLabel());
+      Object value = starlarkFlagSettings.get(ruleContext.getLabel());
+      if (value instanceof FeatureFlagValue) {
+        // FeatureFlagValue is only a valid value for native.config_feature_flag rules (which
+        // aren't Starlark flags so don't call this method). While rule definitions can restrict
+        // their attrs through parameters like "allowed_rules" or "providers" to already block
+        // this, that doesn't kick in until the requested dependency is evaluated. If that
+        // dependency is a Starlark flag that means this method kicks in first. So add an extra
+        // error check to prevent a Blaze crash.
+        throw new EvalException(
+            String.format(
+                "android_binary's \"feature_flags\" attribute can only set config_feature_flag"
+                    + " targets: %s is a %s.",
+                ruleContext.getLabel(), ruleContext.getRule().getRuleClassObject().getName()));
+      }
+      return value;
     } else {
       Object defaultValue =
           ruleContext

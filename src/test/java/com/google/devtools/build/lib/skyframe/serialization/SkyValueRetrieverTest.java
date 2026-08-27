@@ -24,6 +24,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.testutils.Fak
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
@@ -41,7 +42,9 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Wa
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForLookupContinuation;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.SnapshotClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.LookupResult;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.LookupResultImpl;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheChannelStateAdvisor;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.IntVersion;
@@ -83,7 +86,115 @@ public final class SkyValueRetrieverTest {
       FingerprintValueService fingerprintValueService,
       ObjectCodecs codecs,
       FrontierNodeVersion frontierNodeVersion) {
-    return new SkyValueRetriever(fingerprintValueService, codecs, frontierNodeVersion);
+    return createSkyValueRetriever(
+        fingerprintValueService, codecs, frontierNodeVersion, SkycacheChannelStateAdvisor.DISABLED);
+  }
+
+  private static SkyValueRetriever createSkyValueRetriever(
+      FingerprintValueService fingerprintValueService,
+      ObjectCodecs codecs,
+      FrontierNodeVersion frontierNodeVersion,
+      SkycacheChannelStateAdvisor channelStateAdvisor) {
+    return new SkyValueRetriever(
+        fingerprintValueService,
+        codecs,
+        frontierNodeVersion,
+        /* fileOpNodes= */ null,
+        channelStateAdvisor);
+  }
+
+  @Test
+  public void
+      initialQueryState_whenChannelStateAdvisorIsSaturated_immediatelyEmitsMissReasonCacheSaturated()
+          throws Exception {
+    var fingerprintValueService = FingerprintValueService.createForAnalysisCacheTesting();
+    RemoteAnalysisCacheClient analysisCacheClient = mock(RemoteAnalysisCacheClient.class);
+    SkycacheChannelStateAdvisor channelStateAdvisor = new SkycacheChannelStateAdvisor(5);
+    for (int i = 0; i < 5; i++) {
+      channelStateAdvisor.incrementInFlightRequests(); // Reach capacity threshold
+    }
+
+    var key = new TrivialKey("a");
+    RetrievalContext state = new RetrievalContext();
+
+    RetrievalResult result =
+        createSkyValueRetriever(
+                fingerprintValueService, codecs, CONSTANT_FOR_TESTING, channelStateAdvisor)
+            .tryRetrieve(
+                NO_LOOKUP_ENVIRONMENT,
+                SkyValueRetrieverTest::dependOnFutureImpl,
+                analysisCacheClient,
+                key,
+                state);
+
+    // Client should never be called when saturated
+    verifyNoInteractions(analysisCacheClient);
+
+    assertThat(result).isInstanceOf(NoCachedData.class);
+    assertThat(((NoCachedData) result).reason()).isEqualTo(MissReason.MISS_REASON_CACHE_SATURATED);
+    assertThat(state.getState()).isEqualTo(result);
+
+    // Subsequent call on restart with the committed state immediately returns NoCachedData
+    RetrievalResult restartResult =
+        createSkyValueRetriever(
+                fingerprintValueService, codecs, CONSTANT_FOR_TESTING, channelStateAdvisor)
+            .tryRetrieve(
+                NO_LOOKUP_ENVIRONMENT,
+                SkyValueRetrieverTest::dependOnFutureImpl,
+                analysisCacheClient,
+                key,
+                state);
+    assertThat(restartResult).isEqualTo(result);
+    verifyNoInteractions(analysisCacheClient);
+  }
+
+  @Test
+  public void initialQueryState_recoversWhenSaturationClears() throws Exception {
+    var fingerprintValueService = FingerprintValueService.createForAnalysisCacheTesting();
+    var data = new HashMap<ByteString, ByteString>();
+    RemoteAnalysisCacheClient analysisCacheClient = createFakeAnalysisCacheClient(data);
+    SkycacheChannelStateAdvisor channelStateAdvisor = new SkycacheChannelStateAdvisor(5);
+    for (int i = 0; i < 10; i++) {
+      channelStateAdvisor.incrementInFlightRequests(); // Saturated
+    }
+
+    var key = new TrivialKey("a");
+
+    // First attempt when saturated -> shed to local evaluation
+    RetrievalContext saturatedState = new RetrievalContext();
+    RetrievalResult saturatedResult =
+        createSkyValueRetriever(
+                fingerprintValueService, codecs, CONSTANT_FOR_TESTING, channelStateAdvisor)
+            .tryRetrieve(
+                NO_LOOKUP_ENVIRONMENT,
+                SkyValueRetrieverTest::dependOnFutureImpl,
+                analysisCacheClient,
+                key,
+                saturatedState);
+    assertThat(saturatedResult).isInstanceOf(NoCachedData.class);
+    assertThat(((NoCachedData) saturatedResult).reason())
+        .isEqualTo(MissReason.MISS_REASON_CACHE_SATURATED);
+
+    // Capacity clears up
+    channelStateAdvisor.decrementInFlightRequests(10);
+
+    // New retrieval attempt now proceeds to query the cache client normally
+    RetrievalContext clearedState = new RetrievalContext();
+    RetrievalResult clearedResult =
+        createSkyValueRetriever(
+                fingerprintValueService, codecs, CONSTANT_FOR_TESTING, channelStateAdvisor)
+            .tryRetrieve(
+                NO_LOOKUP_ENVIRONMENT,
+                SkyValueRetrieverTest::dependOnFutureImpl,
+                analysisCacheClient,
+                key,
+                clearedState);
+    clearedResult =
+        maybeWaitForAnalysisCacheService(
+            fingerprintValueService, analysisCacheClient, clearedState, key, clearedResult);
+    assertThat(clearedResult).isInstanceOf(NoCachedData.class);
+    assertThat(((NoCachedData) clearedResult).reason())
+        .isEqualTo(MissReason.MISS_REASON_SKYVALUE_MISS);
   }
 
   private enum InitialQueryCases {
@@ -302,7 +413,7 @@ public final class SkyValueRetrieverTest {
     when(analysisCacheClient.lookup(any()))
         .thenReturn(
             immediateFuture(
-                new LookupResult(
+                new LookupResultImpl(
                     /* value= */ new byte[0], /* missReason= */ 999))); // invalid miss reason
 
     RetrievalResult result =
@@ -868,7 +979,7 @@ public final class SkyValueRetrieverTest {
               ByteString key = ByteString.copyFrom((byte[]) invocation.getArgument(0));
               ByteString value = data.getOrDefault(key, ByteString.empty());
               return immediateFuture(
-                  new LookupResult(
+                  new LookupResultImpl(
                       value.toByteArray(),
                       value.isEmpty()
                           ? MissReason.MISS_REASON_SKYVALUE_MISS.getNumber()

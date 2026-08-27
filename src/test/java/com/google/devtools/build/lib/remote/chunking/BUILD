@@ -19,6 +19,7 @@ java_library(
     srcs = [
         "ChunkingConfigTest.java",
         "FastCdcChunkerTest.java",
+        "RepMaxCdcChunkerTest.java",
     ],
     data = [
         # Public domain image by Toriyama Sekien (1712-1788),
@@ -30,9 +31,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/chunking",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:hash",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
         "@rules_java//java/runfiles",
     ],
@@ -56,6 +58,19 @@ java_opt_binary(
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/bazel",
-        "//third_party:jmh",
+        "//third_party/java/jmh",
+    ],
+)
+
+java_opt_binary(
+    name = "RepMaxCdcBenchmark",
+    srcs = ["RepMaxCdcBenchmark.java"],
+    main_class = "org.openjdk.jmh.Main",
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/remote/chunking",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/bazel",
+        "//third_party/java/jmh",
     ],
 )

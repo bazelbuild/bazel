@@ -141,9 +141,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             "--cpu=piii",
             "--platforms=" + TestConstants.PLATFORM_LABEL,
             "--incompatible_target_cpu_from_platform",
-            "--experimental_override_platform_cpu_name="
-                + TestConstants.PLATFORM_LABEL
-                + "=new_cpu");
+            "--override_platform_cpu_name=" + TestConstants.PLATFORM_LABEL + "=new_cpu");
     assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu");
   }
 
@@ -154,12 +152,8 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             "--cpu=piii",
             "--platforms=" + TestConstants.PLATFORM_LABEL,
             "--incompatible_target_cpu_from_platform",
-            "--experimental_override_platform_cpu_name="
-                + TestConstants.PLATFORM_LABEL
-                + "=new_cpu_1",
-            "--experimental_override_platform_cpu_name="
-                + TestConstants.PLATFORM_LABEL
-                + "=new_cpu_2");
+            "--override_platform_cpu_name=" + TestConstants.PLATFORM_LABEL + "=new_cpu_1",
+            "--override_platform_cpu_name=" + TestConstants.PLATFORM_LABEL + "=new_cpu_2");
     assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu_2");
   }
 
@@ -180,9 +174,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             "--cpu=x86_64",
             "--host_platform=" + TestConstants.PIII_PLATFORM_LABEL,
             "--incompatible_target_cpu_from_platform",
-            "--experimental_override_platform_cpu_name="
-                + TestConstants.PIII_PLATFORM_LABEL
-                + "=new_cpu");
+            "--override_platform_cpu_name=" + TestConstants.PIII_PLATFORM_LABEL + "=new_cpu");
     assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu");
   }
 
@@ -653,6 +645,79 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     } else {
       assertThat(execConfig.getOptions().getStarlarkOptions())
           .containsExactly(Label.parseCanonicalUnchecked("//test:universal_scope"), "//custom");
+    }
+  }
+
+  @Test
+  public void ruleDefinedDefaultScope(@TestParameter boolean propagateByDefault) throws Exception {
+    scratch.file("my_starlark_flag/BUILD");
+    scratch.file(
+        "my_starlark_flag/rule_defs.bzl",
+        """
+        target_scoped_by_rule_definition = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(default = "target")},
+        )
+        universal_scoped_by_rule_definition = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string(default = "universal")},
+        )
+        default_scoped_by_rule_definition = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string()},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(
+            "//my_starlark_flag:rule_defs.bzl",
+            "target_scoped_by_rule_definition",
+            "universal_scoped_by_rule_definition",
+            "default_scoped_by_rule_definition",
+        )
+        target_scoped_by_rule_definition(
+            name = "target_scope",
+            build_setting_default = "default",
+        )
+        universal_scoped_by_rule_definition(
+            name = "universal_scope",
+            build_setting_default = "default",
+        )
+        default_scoped_by_rule_definition(
+            name = "default_scope",
+            build_setting_default = "default",
+        )
+        """);
+
+    BuildOptions targetOptions =
+        parseBuildOptions(
+            ImmutableMap.of(
+                "//test:target_scope",
+                "custom",
+                "//test:universal_scope",
+                "custom",
+                "//test:default_scope",
+                "custom"),
+            "--experimental_exclude_starlark_flags_from_exec_config="
+                + (propagateByDefault ? "false" : "true"));
+
+    BuildOptions execOptions =
+        AnalysisTestUtil.execOptions(targetOptions, skyframeExecutor, reporter);
+
+    if (propagateByDefault) {
+      assertThat(execOptions.getStarlarkOptions())
+          .containsExactly(
+              Label.parseCanonicalUnchecked("//test:default_scope"),
+              "custom",
+              Label.parseCanonicalUnchecked("//test:universal_scope"),
+              "custom");
+    } else {
+      assertThat(execOptions.getStarlarkOptions())
+          .containsExactly(Label.parseCanonicalUnchecked("//test:universal_scope"), "custom");
     }
   }
 

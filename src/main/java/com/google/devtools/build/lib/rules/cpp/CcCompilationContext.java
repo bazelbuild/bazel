@@ -47,6 +47,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkList;
@@ -555,6 +556,7 @@ public final class CcCompilationContext {
    */
   @Immutable
   @VisibleForTesting
+  @StarlarkBuiltin(name = "header_info", documented = false)
   public static final class HeaderInfo implements StarlarkValue {
     // This class has non-private visibility testing and HeaderInfoCodec.
 
@@ -758,6 +760,11 @@ public final class CcCompilationContext {
       return true;
     }
 
+    @Override
+    public boolean isAcyclic() {
+      return true;
+    }
+
     /** Represents the memoized transitive information for a HeaderInfo instance. */
     private class TransitiveHeaderCollection extends AbstractCollection<HeaderInfo> {
       private final int size;
@@ -843,10 +850,9 @@ public final class CcCompilationContext {
           "Separate module ('%s', '%s') cannot be used without main module",
           separateModule,
           separatePicModule);
-      ImmutableSet.Builder<Artifact> modularPublicHeaders = ImmutableSet.builder();
-      ImmutableSet.Builder<Artifact> modularPrivateHeaders = ImmutableSet.builder();
-      ImmutableSet.Builder<Artifact> allTextualHeaders = ImmutableSet.builder();
-      allTextualHeaders.addAll(textualHeaders);
+      Set<Artifact> modularPublicHeaders = CompactHashSet.create();
+      Set<Artifact> modularPrivateHeaders = CompactHashSet.create();
+      Set<Artifact> allTextualHeaders = CompactHashSet.create(textualHeaders);
       // TODO(djasper): CPP_TEXTUAL_INCLUDEs are currently special cased here and in
       // CppModuleMapAction. These should be moved to a place earlier in the Action construction.
       for (Artifact header : publicHeaders) {
@@ -872,9 +878,9 @@ public final class CcCompilationContext {
           identityToken,
           headerModule,
           picHeaderModule,
-          modularPublicHeaders.build().asList(),
-          modularPrivateHeaders.build().asList(),
-          allTextualHeaders.build().asList(),
+          ImmutableList.copyOf(modularPublicHeaders),
+          ImmutableList.copyOf(modularPrivateHeaders),
+          ImmutableList.copyOf(allTextualHeaders),
           separateModuleHeaders,
           separateModule,
           separatePicModule,

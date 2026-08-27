@@ -76,7 +76,8 @@ public final class GoogleAuthUtils {
       String target,
       String proxy,
       AuthAndTLSOptions options,
-      @Nullable List<ClientInterceptor> interceptors)
+      @Nullable List<ClientInterceptor> interceptors,
+      @Nullable Map<String, ?> serviceConfig)
       throws IOException {
     Preconditions.checkNotNull(target);
     Preconditions.checkNotNull(options);
@@ -103,6 +104,7 @@ public final class GoogleAuthUtils {
       if (options.getGrpcKeepaliveTime() != null && !options.getGrpcKeepaliveTime().isZero()) {
         builder.keepAliveTime(options.getGrpcKeepaliveTime().toNanos(), NANOSECONDS);
         builder.keepAliveTimeout(options.getGrpcKeepaliveTimeout().toNanos(), NANOSECONDS);
+        builder.keepAliveWithoutCalls(true);
       }
       boolean isUnixSocketChannel = targetUrl.startsWith("unix:") || !Strings.isNullOrEmpty(proxy);
       if (options.getGrpcTcpKeepalive() && !isUnixSocketChannel) {
@@ -134,6 +136,10 @@ public final class GoogleAuthUtils {
       }
       if (interceptors != null) {
         builder.intercept(interceptors);
+      }
+      if (serviceConfig != null) {
+        builder.disableServiceConfigLookUp();
+        builder.defaultServiceConfig(serviceConfig);
       }
       if (sslContext != null) {
         builder.sslContext(sslContext);
@@ -221,7 +227,9 @@ public final class GoogleAuthUtils {
   private static NettyChannelBuilder newUnixNettyChannelBuilder(String target) throws IOException {
     DomainSocketAddress address = new DomainSocketAddress(target.replaceFirst("^unix:", ""));
     NettyChannelBuilder builder =
-        NettyChannelBuilder.forAddress(address).eventLoopGroup(getEventLoopGroup());
+        NettyChannelBuilder.forAddress(address)
+            .eventLoopGroup(getEventLoopGroup())
+            .overrideAuthority("localhost");
     if (KQueue.isAvailable()) {
       return builder.channelType(KQueueDomainSocketChannel.class);
     }
@@ -306,7 +314,8 @@ public final class GoogleAuthUtils {
       // Fallback to .netrc if it exists.
       try {
         fallbackCredentials =
-            newCredentialsFromNetrc(credentialHelperEnvironment.clientEnvironment(), fileSystem);
+            newCredentialsFromNetrc(
+                credentialHelperEnvironment.clientEnvironment().get(), fileSystem);
       } catch (IOException e) {
         // TODO(yannic): Make this fail the build.
         credentialHelperEnvironment.eventReporter().handle(Event.warn(e.getMessage()));
@@ -422,7 +431,7 @@ public final class GoogleAuthUtils {
     CredentialHelperProvider.Builder builder = CredentialHelperProvider.builder();
     for (AuthAndTLSOptions.CredentialHelperOption helper : helpers) {
       Optional<String> scope = helper.scope();
-      Path path = pathFactory.create(environment.clientEnvironment(), helper.path());
+      Path path = pathFactory.create(environment.clientEnvironment().get(), helper.path());
       if (scope.isPresent()) {
         builder.add(scope.get(), path);
       } else {

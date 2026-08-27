@@ -19,6 +19,7 @@ import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
@@ -29,7 +30,9 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.AspectCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.RuleClassCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.Distribution;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.LatencyBySkyFunction;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerPoolMetrics.WorkerPoolStats;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.clock.JavaClock;
@@ -40,8 +43,16 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.MemoryPressureModule;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalPhase;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievedValue;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus;
+import com.google.devtools.build.lib.util.Bucket;
+import com.google.devtools.build.lib.util.DecimalBucketer;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
@@ -49,7 +60,9 @@ import com.google.devtools.build.lib.worker.WorkerProcessStatus;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import org.junit.After;
 import org.junit.Assume;
 import org.junit.Before;
@@ -734,19 +747,37 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
   @Test
   public void cumulativeMetrics() throws Exception {
+    // The instance ID is the server's UUID, stable for the server's lifetime, so every event
+    // below reports the same value.
+    String instanceId = getRuntime().getInstanceId().toString();
     buildTarget("//foo:foo");
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics())
-        .isEqualTo(CumulativeMetrics.newBuilder().setNumAnalyses(1).setNumBuilds(1).build());
+        .isEqualTo(
+            CumulativeMetrics.newBuilder()
+                .setNumAnalyses(1)
+                .setNumBuilds(1)
+                .setInstanceId(instanceId)
+                .build());
 
     addOptions("--nobuild");
     buildTarget("//foo:foo");
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics())
-        .isEqualTo(CumulativeMetrics.newBuilder().setNumAnalyses(2).setNumBuilds(1).build());
+        .isEqualTo(
+            CumulativeMetrics.newBuilder()
+                .setNumAnalyses(2)
+                .setNumBuilds(1)
+                .setInstanceId(instanceId)
+                .build());
 
     addOptions("--build", "--noanalyze");
     buildTarget("//foo:foo");
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics())
-        .isEqualTo(CumulativeMetrics.newBuilder().setNumAnalyses(2).setNumBuilds(1).build());
+        .isEqualTo(
+            CumulativeMetrics.newBuilder()
+                .setNumAnalyses(2)
+                .setNumBuilds(1)
+                .setInstanceId(instanceId)
+                .build());
 
     write(
         "foo/BUILD",
@@ -762,7 +793,12 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     addOptions("--analyze");
     assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:foo"));
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics())
-        .isEqualTo(CumulativeMetrics.newBuilder().setNumAnalyses(3).setNumBuilds(1).build());
+        .isEqualTo(
+            CumulativeMetrics.newBuilder()
+                .setNumAnalyses(3)
+                .setNumBuilds(1)
+                .setInstanceId(instanceId)
+                .build());
 
     write(
         "foo/BUILD",
@@ -776,7 +812,31 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics())
-        .isEqualTo(CumulativeMetrics.newBuilder().setNumAnalyses(4).setNumBuilds(2).build());
+        .isEqualTo(
+            CumulativeMetrics.newBuilder()
+                .setNumAnalyses(4)
+                .setNumBuilds(2)
+                .setInstanceId(instanceId)
+                .build());
+  }
+
+  @Test
+  public void instanceId_matchesServerInstanceIdAndChangesOnRestart() throws Exception {
+    String firstInstanceId = getRuntime().getInstanceId().toString();
+    buildTarget("//foo:foo");
+    assertThat(reportedInstanceId()).isEqualTo(firstInstanceId);
+
+    // Simulate a server restart: the new runtime mints a new instance ID.
+    reinitializeAndPreserveOptions();
+    writeTrivialFooTarget();
+    buildTarget("//foo:foo");
+    String secondInstanceId = getRuntime().getInstanceId().toString();
+    assertThat(secondInstanceId).isNotEqualTo(firstInstanceId);
+    assertThat(reportedInstanceId()).isEqualTo(secondInstanceId);
+  }
+
+  private String reportedInstanceId() {
+    return buildMetricsEventListener.event.getBuildMetrics().getCumulativeMetrics().getInstanceId();
   }
 
   @Test
@@ -936,14 +996,42 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
         .getRemoteAnalysisCachingEventListener()
         .recordServiceStats(
             FingerprintValueStore.EMPTY_STATS,
-            new RemoteAnalysisCacheClient.Stats(
-                /* bytesSent= */ 10,
-                /* bytesReceived= */ 2,
-                /* requestsSent= */ 100,
-                /* batches= */ 200,
-                /* latencyMicros= */ ImmutableList.of(),
-                /* batchLatencyMicros= */ ImmutableList.of(),
-                /* matchStatus= */ 999)); // invalid value
+            new RemoteAnalysisCacheClient.Stats() {
+              @Override
+              public long bytesSent() {
+                return 10;
+              }
+
+              @Override
+              public long bytesReceived() {
+                return 2;
+              }
+
+              @Override
+              public long requestsSent() {
+                return 100;
+              }
+
+              @Override
+              public long batches() {
+                return 200;
+              }
+
+              @Override
+              public ImmutableList<Bucket> latencyMicros() {
+                return ImmutableList.of();
+              }
+
+              @Override
+              public ImmutableList<Bucket> batchLatencyMicros() {
+                return ImmutableList.of();
+              }
+
+              @Override
+              public int matchStatus() {
+                return 999; // invalid value
+              }
+            });
 
     buildTarget("//foo:foo");
 
@@ -988,7 +1076,8 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
               public SkyFunctionName functionName() {
                 return SkyFunctionName.createHermetic("DUMMY_FUNCTION");
               }
-            });
+            },
+            ImmutableMap.of());
 
     buildTarget("//foo:foo");
 
@@ -996,5 +1085,127 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     assertThat(buildMetrics.hasRemoteAnalysisCacheStatistics()).isTrue();
     RemoteAnalysisCacheStatistics stats = buildMetrics.getRemoteAnalysisCacheStatistics();
     assertThat(stats.getSerializationExceptionCount()).isEqualTo(1);
+  }
+
+  @Test
+  public void testRemoteAnalysisCacheStats_latencyBySkyFunction() throws Exception {
+    runtimeWrapper.newCommand();
+    var listener = getCommandEnvironment().getRemoteAnalysisCachingEventListener();
+    SkyKey key1 =
+        new SkyKey() {
+          @Override
+          public SkyFunctionName functionName() {
+            return SkyFunctionName.createHermetic("FUNCTION_A");
+          }
+        };
+    SkyKey key2 =
+        new SkyKey() {
+          @Override
+          public SkyFunctionName functionName() {
+            return SkyFunctionName.createHermetic("FUNCTION_B");
+          }
+        };
+    listener.recordRetrievalResult(new RetrievedValue(new SkyValue() {}), key1, 100L);
+    listener.recordRetrievalResult(
+        new NoCachedData(MissReason.MISS_REASON_SKYVALUE_MISS), key2, 200L);
+
+    buildTarget("//foo:foo");
+
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    assertThat(buildMetrics.hasRemoteAnalysisCacheStatistics()).isTrue();
+    RemoteAnalysisCacheStatistics stats = buildMetrics.getRemoteAnalysisCacheStatistics();
+    assertThat(stats.getLatencyBySkyfunctionList())
+        .containsExactly(
+            LatencyBySkyFunction.newBuilder()
+                .setSkyfunction("FUNCTION_A")
+                .setOutcome(LatencyBySkyFunction.Outcome.HIT)
+                .setPhase(LatencyBySkyFunction.Phase.TOTAL)
+                .setLatency(computeExpectedDistribution(100L))
+                .build(),
+            LatencyBySkyFunction.newBuilder()
+                .setSkyfunction("FUNCTION_B")
+                .setOutcome(LatencyBySkyFunction.Outcome.MISS)
+                .setPhase(LatencyBySkyFunction.Phase.TOTAL)
+                .setLatency(computeExpectedDistribution(200L))
+                .build());
+  }
+
+  @Test
+  public void testRemoteAnalysisCacheStats_latencyBySkyFunction_phases() throws Exception {
+    runtimeWrapper.newCommand();
+    var listener = getCommandEnvironment().getRemoteAnalysisCachingEventListener();
+    SkyKey key1 =
+        new SkyKey() {
+          @Override
+          public SkyFunctionName functionName() {
+            return SkyFunctionName.createHermetic("FUNCTION_A");
+          }
+        };
+    RetrievalContext context = new RetrievalContext();
+    context.setStartTimestampNanos(System.nanoTime() - 1000_000L);
+    context.recordPhaseDurationNanos(RetrievalPhase.INITIAL_QUERY, 200_000L);
+    context.recordPhaseDurationNanos(RetrievalPhase.WAITING_FOR_CACHE_SERVICE_RESPONSE, 800_000L);
+
+    listener.recordRetrievalResult(
+        new RetrievedValue(new SkyValue() {}), key1, context.getPhaseDurationMicros());
+
+    buildTarget("//foo:foo");
+
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    assertThat(buildMetrics.hasRemoteAnalysisCacheStatistics()).isTrue();
+    RemoteAnalysisCacheStatistics stats = buildMetrics.getRemoteAnalysisCacheStatistics();
+    assertThat(stats.getLatencyBySkyfunctionList())
+        .containsAtLeast(
+            LatencyBySkyFunction.newBuilder()
+                .setSkyfunction("FUNCTION_A")
+                .setOutcome(LatencyBySkyFunction.Outcome.HIT)
+                .setPhase(LatencyBySkyFunction.Phase.INITIAL_QUERY)
+                .setLatency(computeExpectedDistribution(200L))
+                .build(),
+            LatencyBySkyFunction.newBuilder()
+                .setSkyfunction("FUNCTION_A")
+                .setOutcome(LatencyBySkyFunction.Outcome.HIT)
+                .setPhase(LatencyBySkyFunction.Phase.WAITING_FOR_CACHE_SERVICE_RESPONSE)
+                .setLatency(computeExpectedDistribution(800L))
+                .build());
+  }
+
+  private static Distribution computeExpectedDistribution(long... values) {
+    DecimalBucketer bucketer = new DecimalBucketer();
+    for (long value : values) {
+      bucketer.add(value);
+    }
+    Distribution.Builder result = Distribution.newBuilder();
+    for (var b : bucketer.getBuckets()) {
+      result.addHistogramBucket(
+          Distribution.HistogramBucket.newBuilder()
+              .setMin(b.minInclusive())
+              .setMax(b.maxExclusive())
+              .setCount(b.count())
+              .build());
+    }
+    return result.build();
+  }
+
+  @Test
+  public void testRemoteAnalysisCacheStats_peers() throws Exception {
+    runtimeWrapper.newCommand();
+    getCommandEnvironment()
+        .getRemoteAnalysisCachingEventListener()
+        .recordPeers(
+            ImmutableMap.of(
+                new RemoteAnalysisCachingServicesSupplier.Peer(
+                    "skycache.AnalysisCacheService", "test-user@wj/10.0.0.1:8080"),
+                new AtomicLong(1)));
+
+    buildTarget("//foo:foo");
+
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    assertThat(buildMetrics.hasRemoteAnalysisCacheStatistics()).isTrue();
+    RemoteAnalysisCacheStatistics stats = buildMetrics.getRemoteAnalysisCacheStatistics();
+    assertThat(stats.getPeersList()).hasSize(1);
+    assertThat(stats.getPeers(0).getServiceName()).isEqualTo("skycache.AnalysisCacheService");
+    assertThat(stats.getPeers(0).getId()).isEqualTo("test-user@wj/10.0.0.1:8080");
+    assertThat(stats.getPeers(0).getRequestCount()).isEqualTo(1);
   }
 }

@@ -17,6 +17,9 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -55,6 +58,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -884,26 +888,52 @@ public class BuildConfigurationValue
     return options.getRemotableSourceManifestActions();
   }
 
+  private static record ExecutionInfoInternerKey(
+      ImmutableMap<String, String> executionInfo,
+      String mnemonic,
+      List<ExecutionInfoModifier> executionInfoModifiers) {}
+
+  private static final LoadingCache<ExecutionInfoInternerKey, ImmutableMap<String, String>>
+      modifiedExecutionInfoInterner =
+          CacheBuilder.newBuilder()
+              .weakValues()
+              .build(
+                  new CacheLoader<ExecutionInfoInternerKey, ImmutableMap<String, String>>() {
+                    @Override
+                    public ImmutableMap<String, String> load(ExecutionInfoInternerKey key) {
+                      Map<String, String> mutableCopy = new HashMap<>(key.executionInfo());
+                      ExecutionInfoModifier.apply(
+                          key.executionInfoModifiers(), key.mnemonic(), mutableCopy);
+                      return ImmutableSortedMap.copyOf(mutableCopy);
+                    }
+                  });
+
   /**
    * Returns a modified copy of {@code executionInfo} if any {@code executionInfoModifiers} apply to
    * the given {@code mnemonic}. Otherwise returns {@code executionInfo} unchanged.
    */
   public ImmutableMap<String, String> modifiedExecutionInfo(
       ImmutableMap<String, String> executionInfo, String mnemonic) {
-    if (!ExecutionInfoModifier.matches(
-        options.getExecutionInfoModifier(), options.getAdditiveModifyExecutionInfo(), mnemonic)) {
+    if (!ExecutionInfoModifier.matches(options.getExecutionInfoModifier(), mnemonic)) {
       return executionInfo;
     }
-    Map<String, String> mutableCopy = new HashMap<>(executionInfo);
-    modifyExecutionInfo(mutableCopy, mnemonic);
-    return ImmutableSortedMap.copyOf(mutableCopy);
+    if (!ExecutionInfoModifier.wouldChange(
+        options.getExecutionInfoModifier(), mnemonic, executionInfo)) {
+      return executionInfo;
+    }
+    try {
+      return modifiedExecutionInfoInterner.get(
+          new ExecutionInfoInternerKey(
+              executionInfo, mnemonic, options.getExecutionInfoModifier()));
+    } catch (ExecutionException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   /** Applies {@code executionInfoModifiers} to the given {@code executionInfo}. */
   public void modifyExecutionInfo(Map<String, String> executionInfo, String mnemonic) {
     ExecutionInfoModifier.apply(
         options.getExecutionInfoModifier(),
-        options.getAdditiveModifyExecutionInfo(),
         mnemonic,
         executionInfo);
   }

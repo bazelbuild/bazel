@@ -23,7 +23,9 @@ java_library(
         # Generated classes have the following dependencies.
         ":registered-singleton",
         ":runtime-helpers",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/guava:collect",
+        "//third_party/java/protobuf",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
     ],
@@ -64,7 +66,7 @@ java_plugin(
 java_library(
     name = "serialization-processing-exception",
     srcs = ["SerializationProcessingException.java"],
-    deps = ["//third_party:error_prone_annotations"],
+    deps = ["//third_party/java/error_prone:annotations"],
 )
 
 java_library(
@@ -72,9 +74,10 @@ java_library(
     srcs = ["TypeOperations.java"],
     deps = [
         ":serialization-processing-exception",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
         "//third_party/java/javapoet",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -87,13 +90,14 @@ java_library(
         ":serialization-processing-exception",
         ":type-operations",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:codec-scanning-constants",
-        "//third_party:auto_service",
-        "//third_party:guava",
+        "//third_party/java/auto:auto_service",
+        "//third_party/java/guava:collect",
         "//third_party/java/javapoet",
     ],
 )
 
-# @AutoCodec annotation only. Used by clients and the processor.
+# @AutoCodec annotation only. Clients should not depend on this directly as it doesn't include the processor.
+# Depend on :autocodec instead.
 java_library(
     name = "autocodec-annotation",
     srcs = ["AutoCodec.java"],
@@ -132,13 +136,15 @@ java_library(
         ":runtime-helpers",
         ":serialization-processing-exception",
         ":type-operations",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
         "//src/main/java/com/google/devtools/build/lib/util:string",
-        "//third_party:auto_service",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/auto:auto_service",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
         "//third_party/java/javapoet",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )

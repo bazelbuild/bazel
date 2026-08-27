@@ -115,11 +115,12 @@ public final class BuildEventServiceProtoUtil {
   }
 
   private static BuildStatus buildStatus(InvocationStatus status) {
-    return switch (status) {
-      case UNKNOWN -> BuildStatus.newBuilder().setResult(Result.UNKNOWN_STATUS).build();
-      case SUCCEEDED -> BuildStatus.newBuilder().setResult(Result.COMMAND_SUCCEEDED).build();
-      case FAILED -> BuildStatus.newBuilder().setResult(Result.COMMAND_FAILED).build();
-    };
+    if (status == InvocationStatus.SUCCEEDED) {
+      return BuildStatus.newBuilder().setResult(Result.COMMAND_SUCCEEDED).build();
+    } else if (status == InvocationStatus.FAILED) {
+      return BuildStatus.newBuilder().setResult(Result.COMMAND_FAILED).build();
+    }
+    return BuildStatus.newBuilder().setResult(Result.UNKNOWN_STATUS).build();
   }
 
   /** Creates a {@link PublishBuildToolEventStreamRequest} from a {@link StreamEvent}. */

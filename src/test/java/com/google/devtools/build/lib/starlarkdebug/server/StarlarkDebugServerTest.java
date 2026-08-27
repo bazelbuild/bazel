@@ -45,6 +45,7 @@ import java.net.ServerSocket;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -969,6 +970,50 @@ public class StarlarkDebugServerTest {
 
     assertThat(pausedThread.getPauseReason()).isEqualTo(PauseReason.STEPPING);
     assertThat(pausedThread.getLocation()).isEqualTo(expectedLocation);
+  }
+
+  @Test
+  public void testCreateAndWaitForConnection_bindsToLoopback() throws Exception {
+    CompletableFuture<Integer> boundPort = new CompletableFuture<>();
+    DebugServerTransport.onListenPortCallbackForTests = boundPort::complete;
+    Future<StarlarkDebugServer> serverFuture =
+        executor.submit(
+            () ->
+                StarlarkDebugServer.createAndWaitForConnection(
+                    events.reporter(), "127.0.0.1", 0, false, DebugCallback.noop()));
+    MockDebugClient testClient = new MockDebugClient();
+    try {
+      int port = boundPort.get(5, TimeUnit.SECONDS);
+      testClient.connect(InetAddress.getByName("127.0.0.1"), port, Duration.ofSeconds(5));
+      StarlarkDebugServer debugServer = serverFuture.get(5, TimeUnit.SECONDS);
+      assertThat(debugServer).isNotNull();
+      debugServer.close();
+    } finally {
+      DebugServerTransport.onListenPortCallbackForTests = null;
+      testClient.close();
+    }
+  }
+
+  @Test
+  public void testCreateAndWaitForConnection_customAddress() throws Exception {
+    CompletableFuture<Integer> boundPort = new CompletableFuture<>();
+    DebugServerTransport.onListenPortCallbackForTests = boundPort::complete;
+    Future<StarlarkDebugServer> serverFuture =
+        executor.submit(
+            () ->
+                StarlarkDebugServer.createAndWaitForConnection(
+                    events.reporter(), "localhost", 0, false, DebugCallback.noop()));
+    MockDebugClient testClient = new MockDebugClient();
+    try {
+      int port = boundPort.get(5, TimeUnit.SECONDS);
+      testClient.connect(InetAddress.getByName("localhost"), port, Duration.ofSeconds(5));
+      StarlarkDebugServer debugServer = serverFuture.get(5, TimeUnit.SECONDS);
+      assertThat(debugServer).isNotNull();
+      debugServer.close();
+    } finally {
+      DebugServerTransport.onListenPortCallbackForTests = null;
+      testClient.close();
+    }
   }
 
   private void setBreakpoints(Collection<Location> locations) throws Exception {

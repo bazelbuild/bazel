@@ -24,13 +24,26 @@ public interface LifecycleEvent {
   Instant eventTime();
 
   /** The status of an invocation. */
-  enum InvocationStatus {
+  public final class InvocationStatus {
+    private final String name;
+
+    private InvocationStatus(String name) {
+      this.name = name;
+    }
+
     /** No information is available about the invocation status. */
-    UNKNOWN,
+    public static final InvocationStatus UNKNOWN = new InvocationStatus("UNKNOWN");
+
     /** The invocation succeeded. */
-    SUCCEEDED,
+    public static final InvocationStatus SUCCEEDED = new InvocationStatus("SUCCEEDED");
+
     /** The invocation failed. */
-    FAILED,
+    public static final InvocationStatus FAILED = new InvocationStatus("FAILED");
+
+    @Override
+    public String toString() {
+      return name;
+    }
   }
 
   /** The lifecycle event signalling that the build was enqueued. */

@@ -1784,8 +1784,9 @@ public class VisibilityTest extends AnalysisTestCase {
     assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo"));
     assertContainsEvent(
         """
-        * If you think the dependency on this source file is legitimate, consider updating its \
-        visibility declaration using exports_files().\
+        * If you think the dependency on this source file is legitimate, consider either \
+        depending on the file via an appropriate filegroup() target, or updating the file's \
+        visibility using exports_files().\
         """);
   }
 }

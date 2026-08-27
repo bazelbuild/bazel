@@ -111,6 +111,7 @@ def _rename_impl(ctx):
     out_file = ctx.actions.declare_file(ctx.label.name + "/" + ctx.attr.target)
     in_file = ctx.file.source
     ctx.actions.run_shell(
+        mnemonic = "ReleaseArchiveRename",
         inputs = [in_file],
         outputs = [out_file],
         progress_message = "%s -> %s" % (in_file, ctx.attr.target),

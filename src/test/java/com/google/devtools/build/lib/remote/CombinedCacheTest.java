@@ -20,8 +20,10 @@ import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfe
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
@@ -31,6 +33,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.FastCdc2020Params;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
+import build.bazel.remote.execution.v2.SplitBlobResponse;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -57,7 +60,9 @@ import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
+import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
@@ -83,8 +88,10 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.Map;
 import java.util.SortedMap;
@@ -909,7 +916,7 @@ public class CombinedCacheTest {
               return spliceFuture;
             })
         .when(grpcCacheClient)
-        .spliceBlob(any(), any(), any());
+        .spliceBlob(any(), any(), any(), any());
 
     CombinedCache combinedCache =
         new CombinedCache(
@@ -917,7 +924,8 @@ public class CombinedCacheTest {
             /* diskCacheClient= */ null,
             /* symlinkTemplate= */ null,
             digestUtil,
-            /* chunkingEnabled= */ true);
+            /* chunkingFunction= */ RemoteOptions.ChunkingFunctionValue.FAST_CDC_2020,
+            new ChunkLocationMap());
     byte[] data = new byte[8192];
     Path file = execRoot.getRelative("chunked-output");
     try (var out = file.getOutputStream()) {
@@ -935,7 +943,7 @@ public class CombinedCacheTest {
 
       assertThat(grpcCacheClient.getUploadSubscriberCount(digest)).isEqualTo(2);
       verify(grpcCacheClient).findMissingDigests(any(), any());
-      verify(grpcCacheClient).spliceBlob(any(), any(), any());
+      verify(grpcCacheClient).spliceBlob(any(), any(), any(), any());
 
       spliceFuture.set(null);
       getFromFuture(firstUpload);
@@ -943,6 +951,181 @@ public class CombinedCacheTest {
     } finally {
       combinedCache.release();
     }
+  }
+
+  @Test
+  public void downloadBlob_chunkMissingAfterPartialWrite_doesNotRestartIntoSameStream()
+      throws Exception {
+    // Larger than the chunking threshold (4 * 1024, derived from the advertised average chunk size
+    // of 1024) so that the download is chunked, with chunks small enough not to be chunked again.
+    byte[] chunk1Data = new byte[4096];
+    Arrays.fill(chunk1Data, (byte) 1);
+    byte[] chunk2Data = new byte[4096];
+    Arrays.fill(chunk2Data, (byte) 2);
+    byte[] blobData = new byte[8192];
+    System.arraycopy(chunk1Data, 0, blobData, 0, chunk1Data.length);
+    System.arraycopy(chunk2Data, 0, blobData, chunk1Data.length, chunk2Data.length);
+    Digest blobDigest = digestUtil.compute(blobData);
+    Digest chunk1Digest = digestUtil.compute(chunk1Data);
+    Digest chunk2Digest = digestUtil.compute(chunk2Data);
+
+    GrpcCacheClient grpcCacheClient = newChunkingGrpcCacheClient();
+    doAnswer(
+            unused ->
+                immediateFuture(
+                    SplitBlobResponse.newBuilder()
+                        .addChunkDigests(chunk1Digest)
+                        .addChunkDigests(chunk2Digest)
+                        .build()))
+        .when(grpcCacheClient)
+        .splitBlob(any(), eq(blobDigest), any());
+    doAnswer(
+            invocation -> {
+              OutputStream chunkOut = invocation.getArgument(2);
+              chunkOut.write(chunk1Data);
+              return Futures.immediateVoidFuture();
+            })
+        .when(grpcCacheClient)
+        .downloadBlob(any(), eq(chunk1Digest), any());
+    // The second chunk was evicted between SplitBlob and the read of the chunk itself.
+    doAnswer(unused -> Futures.immediateFailedFuture(new CacheNotFoundException(chunk2Digest)))
+        .when(grpcCacheClient)
+        .downloadBlob(any(), eq(chunk2Digest), any());
+    // Only reached if the whole-blob fallback is (incorrectly) attempted, in which case `out` ends
+    // up holding the first chunk followed by the entire blob.
+    doAnswer(
+            invocation -> {
+              OutputStream blobOut = invocation.getArgument(2);
+              blobOut.write(blobData);
+              return Futures.immediateVoidFuture();
+            })
+        .when(grpcCacheClient)
+        .downloadBlob(any(), eq(blobDigest), any());
+
+    CombinedCache combinedCache = newChunkingCombinedCache(grpcCacheClient);
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try {
+      assertThrows(
+          CacheNotFoundException.class,
+          () ->
+              getFromFuture(
+                  combinedCache.downloadBlob(remoteActionExecutionContext, blobDigest, out)));
+
+      // Falling back to a whole-blob download here would append the blob to the chunks already
+      // written, silently producing a blob longer than its digest claims.
+      verify(grpcCacheClient, never()).downloadBlob(any(), eq(blobDigest), any());
+      assertThat(out.toByteArray()).isEqualTo(chunk1Data);
+    } finally {
+      combinedCache.release();
+    }
+  }
+
+  @Test
+  public void downloadBlob_firstChunkMissing_doesNotFallBackToWholeBlobDownload() throws Exception {
+    byte[] chunk1Data = new byte[4096];
+    Arrays.fill(chunk1Data, (byte) 1);
+    byte[] chunk2Data = new byte[4096];
+    Arrays.fill(chunk2Data, (byte) 2);
+    byte[] blobData = new byte[8192];
+    System.arraycopy(chunk1Data, 0, blobData, 0, chunk1Data.length);
+    System.arraycopy(chunk2Data, 0, blobData, chunk1Data.length, chunk2Data.length);
+    Digest blobDigest = digestUtil.compute(blobData);
+    Digest chunk1Digest = digestUtil.compute(chunk1Data);
+    Digest chunk2Digest = digestUtil.compute(chunk2Data);
+
+    GrpcCacheClient grpcCacheClient = newChunkingGrpcCacheClient();
+    doAnswer(
+            unused ->
+                immediateFuture(
+                    SplitBlobResponse.newBuilder()
+                        .addChunkDigests(chunk1Digest)
+                        .addChunkDigests(chunk2Digest)
+                        .build()))
+        .when(grpcCacheClient)
+        .splitBlob(any(), eq(blobDigest), any());
+    doAnswer(unused -> Futures.immediateFailedFuture(new CacheNotFoundException(chunk1Digest)))
+        .when(grpcCacheClient)
+        .downloadBlob(any(), eq(chunk1Digest), any());
+    doAnswer(
+            invocation -> {
+              OutputStream blobOut = invocation.getArgument(2);
+              blobOut.write(blobData);
+              return Futures.immediateVoidFuture();
+            })
+        .when(grpcCacheClient)
+        .downloadBlob(any(), eq(blobDigest), any());
+
+    CombinedCache combinedCache = newChunkingCombinedCache(grpcCacheClient);
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try {
+      // Nothing has been written yet, so restarting would be safe, but the blob is genuinely
+      // incomplete in the CAS. Report it as missing and let lost input handling regenerate it
+      // rather than papering over it, which also keeps the behavior independent of which chunk
+      // happens to be missing.
+      assertThrows(
+          CacheNotFoundException.class,
+          () ->
+              getFromFuture(
+                  combinedCache.downloadBlob(remoteActionExecutionContext, blobDigest, out)));
+
+      verify(grpcCacheClient, never()).downloadBlob(any(), eq(blobDigest), any());
+    } finally {
+      combinedCache.release();
+    }
+  }
+
+  @Test
+  public void downloadBlob_blobNotSplittable_fallsBackToWholeBlobDownload() throws Exception {
+    byte[] blobData = new byte[8192];
+    Arrays.fill(blobData, (byte) 1);
+    Digest blobDigest = digestUtil.compute(blobData);
+
+    GrpcCacheClient grpcCacheClient = newChunkingGrpcCacheClient();
+    // What GrpcCacheClient#splitBlob reports when the server answers NOT_FOUND or UNIMPLEMENTED.
+    doAnswer(unused -> Futures.immediateFailedFuture(new BlobNotSplittableException(blobDigest)))
+        .when(grpcCacheClient)
+        .splitBlob(any(), eq(blobDigest), any());
+    doAnswer(
+            invocation -> {
+              OutputStream blobOut = invocation.getArgument(2);
+              blobOut.write(blobData);
+              return Futures.immediateVoidFuture();
+            })
+        .when(grpcCacheClient)
+        .downloadBlob(any(), eq(blobDigest), any());
+
+    CombinedCache combinedCache = newChunkingCombinedCache(grpcCacheClient);
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try {
+      getFromFuture(combinedCache.downloadBlob(remoteActionExecutionContext, blobDigest, out));
+
+      assertThat(out.toByteArray()).isEqualTo(blobData);
+    } finally {
+      combinedCache.release();
+    }
+  }
+
+  private GrpcCacheClient newChunkingGrpcCacheClient() throws IOException {
+    GrpcCacheClient grpcCacheClient =
+        spy(
+            new GrpcCacheClient(
+                mock(ReferenceCountedChannel.class),
+                mock(CallCredentialsProvider.class),
+                Options.getDefaults(RemoteOptions.class),
+                mock(RemoteRetrier.class),
+                digestUtil));
+    doAnswer(unused -> chunkingCapabilities()).when(grpcCacheClient).getServerCapabilities();
+    return grpcCacheClient;
+  }
+
+  private CombinedCache newChunkingCombinedCache(GrpcCacheClient grpcCacheClient) {
+    return new CombinedCache(
+        grpcCacheClient,
+        /* diskCacheClient= */ null,
+        /* symlinkTemplate= */ null,
+        digestUtil,
+        RemoteOptions.ChunkingFunctionValue.FAST_CDC_2020,
+        new ChunkLocationMap());
   }
 
   private InMemoryCombinedCache newCombinedCache() {
@@ -960,7 +1143,8 @@ public class CombinedCacheTest {
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
         digestUtil,
-        /* chunkingEnabled= */ false);
+        /* chunkingFunction= */ null,
+        new ChunkLocationMap());
   }
 
   private RemoteExecutionCache newRemoteExecutionCache(RemoteCacheClient remoteCacheClient) {
@@ -969,7 +1153,8 @@ public class CombinedCacheTest {
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
         digestUtil,
-        /* chunkingEnabled= */ false);
+        /* chunkingFunction= */ null,
+        new ChunkLocationMap());
   }
 
   private static ServerCapabilities chunkingCapabilities() {

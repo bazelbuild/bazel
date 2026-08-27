@@ -17,7 +17,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -26,7 +26,7 @@ java_library(
     srcs = ["PrevInvocationBesUploadReportFailedEvent.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -64,10 +64,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:error_prone_annotations",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -108,11 +112,14 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:spawn_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
-        "@com_google_protobuf//:protobuf_java_util",
+        "//third_party/google/protobuf:any_java_proto",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf/util:json",
     ],
 )
 
@@ -131,11 +138,15 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_grpc_client",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:auth",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/grpc-java:grpc-jar",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/google/protobuf:any_java_proto",
+        "//third_party/java/auth_kit:credentials",
+        "//third_party/java/grpc:auth",
+        "//third_party/java/grpc:core",
+        "//third_party/java/grpc:stub",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -150,9 +161,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/util",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -168,9 +182,10 @@ java_library(
     srcs = ["CommandContextImpl.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:command_context",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -179,7 +194,7 @@ java_library(
     srcs = ["BuildEnqueuedImpl.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:lifecycle_event",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -188,7 +203,7 @@ java_library(
     srcs = ["InvocationStartedImpl.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:lifecycle_event",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -197,7 +212,7 @@ java_library(
     srcs = ["InvocationFinishedImpl.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:lifecycle_event",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -206,7 +221,7 @@ java_library(
     srcs = ["BuildFinishedImpl.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:lifecycle_event",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -215,7 +230,7 @@ java_library(
     srcs = ["BazelEventImpl.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:stream_event",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -224,6 +239,6 @@ java_library(
     srcs = ["StreamFinishedImpl.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:stream_event",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
     ],
 )

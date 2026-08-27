@@ -179,6 +179,10 @@ public class ActionGraphDump {
               actionExecutionMetadata.getKey(
                   getActionKeyContext(), /* inputMetadataProvider= */ null))
           .setDiscoversInputs(actionExecutionMetadata.discoversInputs());
+      String progressMessage = actionExecutionMetadata.getProgressMessage();
+      if (progressMessage != null) {
+        actionBuilder.setProgressMessage(progressMessage);
+      }
     }
 
     // store environment

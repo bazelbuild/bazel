@@ -1,3 +1,4 @@
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
@@ -55,8 +56,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -70,7 +73,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/core",
         "//src/main/java/com/google/devtools/build/lib/rules/objc",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/objc",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -89,7 +92,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/starlarkdocextract",
         "//src/main/java/com/google/devtools/build/lib/rules/test:test_suite_rule",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -112,7 +115,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -137,7 +140,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/platform",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -154,7 +157,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -169,7 +172,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules:toolchain_type",
         "//src/main/java/com/google/devtools/build/lib/rules/core",
         "//src/main/java/com/google/devtools/build/lib/rules/genrule",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -185,17 +188,17 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/core",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
 # We need this redirect target so that the builtins zip can be packaged as a
 # resource next to the BazelRuleClassProvider class (com/google/devtools/...). Otherwise
 # it gets placed under the package path of the original zip target.
-genrule(
+copy_file(
     name = "builtins_bzl_zip",
-    srcs = ["//src/main/starlark/builtins_bzl:builtins_bzl.zip"],
-    outs = ["builtins_bzl.zip"],
-    cmd = "cp $(SRCS) $@",
+    src = "//src/main/starlark/builtins_bzl:builtins_bzl.zip",
+    out = "builtins_bzl.zip",
+    allow_symlink = True,
     visibility = ["//:__pkg__"],
 )

@@ -20,6 +20,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
@@ -38,7 +39,6 @@ import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.perftools.profiles.ProfileProto.Profile;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import org.junit.Before;
 import org.junit.Rule;
@@ -56,7 +56,7 @@ public final class FileDependencySerializerTest {
 
   private static final int THREAD_COUNT = 10;
 
-  private final Executor executor = new ForkJoinPool(THREAD_COUNT);
+  private final SafeExecutorOwner executor = new SafeExecutorOwner(new ForkJoinPool(THREAD_COUNT));
   @Mock private LongVersionGetter versionGetter;
   @Mock private InMemoryGraph graph;
   @Mock private KeyValueWriter writer;

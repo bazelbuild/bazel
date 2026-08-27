@@ -26,8 +26,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/protobuf:spawn_java_proto",
         "//src/tools/execlog/src/main/java/com/google/devtools/build/execlog:parser",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@zstd-jni",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+        "//third_party/java/zstd_jni",
     ],
 )

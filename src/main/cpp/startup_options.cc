@@ -314,7 +314,11 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(const string& argstr,
     // macOS-specific to ensure that rc files mentioning it are valid.
     // There is also apparently "QOS_CLASS_MAINTENANCE", but this doesn't
     // appear to have been exposed in the public headers as of macOS 11.1.
-    if (strcmp(value, "utility") == 0) {
+    if (strcmp(value, "default") == 0) {
+#if defined(__APPLE__)
+      macos_qos_class = QOS_CLASS_UNSPECIFIED;
+#endif
+    } else if (strcmp(value, "utility") == 0) {
 #if defined(__APPLE__)
       macos_qos_class = QOS_CLASS_UTILITY;
 #endif
@@ -481,7 +485,7 @@ StartupOptions::GetServerJavabaseAndType() const {
       if (system_javabase.IsEmpty()) {
         BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
             << "Could not find system javabase. Ensure JAVA_HOME is set, or "
-               "javac is on your PATH.";
+               "java is on your PATH.";
       }
       default_server_javabase_ = std::pair<blaze_util::Path, JavabaseType>(
           system_javabase, JavabaseType::SYSTEM);
@@ -647,9 +651,10 @@ static std::string GetSimpleLogHandlerProps(
          "com.google.devtools.build.lib.util.SimpleLogHandler.prefix=" +
          java_log.AsJvmArgument() +
          "\n"
-         "com.google.devtools.build.lib.util.SimpleLogHandler.limit=1024000\n"
-         "com.google.devtools.build.lib.util.SimpleLogHandler.total_limit="
-         "20971520\n"  // 20 MB.
+         "com.google.devtools.build.lib.util."
+         "SimpleLogHandler.rotate_limit_bytes=5242880\n"
+         "com.google.devtools.build.lib.util."
+         "SimpleLogHandler.total_limit_bytes=20971520\n"
          "com.google.devtools.build.lib.util.SimpleLogHandler.formatter=" +
          java_logging_formatter + "\n";
 }

@@ -15,7 +15,7 @@ java_library(
     name = "stringtemplate",
     srcs = glob(["*.java"]),
     deps = [
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )

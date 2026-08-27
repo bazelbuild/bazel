@@ -53,8 +53,8 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     assertThat(toolchain.mnemonic()).isEqualTo("MyMnemonic");
   }
 
-  private void validateProtoCompiler(ProtoLangToolchainProvider toolchain, String protocLabel)
-      throws Exception {
+  private void validateProtoCompilerByLabel(
+      ProtoLangToolchainProvider toolchain, String protocLabel) throws Exception {
     Label actualProtocLabel = getConfiguredTarget(protocLabel).getActual().getLabel();
     assertThat(toolchain.protoc().getExecutable().prettyPrint())
         .isEqualTo(
@@ -63,6 +63,11 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
                 .getExecPath(false)
                 .getRelative(actualProtocLabel.toPathFragment())
                 .getPathString());
+  }
+
+  private void validateProtoCompilerDirectly(ProtoLangToolchainProvider toolchain, String expected)
+      throws Exception {
+    assertThat(toolchain.protoc().getExecutable().prettyPrint()).isEqualTo(expected);
   }
 
   @Test
@@ -126,7 +131,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         ProtoLangToolchainProvider.get(getConfiguredTarget("//foo:toolchain"));
 
     validateProtoLangToolchain(toolchain);
-    validateProtoCompiler(toolchain, ProtoConstants.DEFAULT_PROTOC_LABEL);
+    validateProtoCompilerDirectly(toolchain, ProtoConstants.DEFAULT_PROTOC_LABEL_THIRD_PARTY);
   }
 
   @Test
@@ -190,7 +195,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         ProtoLangToolchainProvider.get(getConfiguredTarget("//foo:toolchain"));
 
     validateProtoLangToolchain(toolchain);
-    validateProtoCompiler(toolchain, ProtoConstants.DEFAULT_PROTOC_LABEL);
+    validateProtoCompilerByLabel(toolchain, ProtoConstants.DEFAULT_PROTOC_LABEL);
   }
 
   @Test
@@ -224,7 +229,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         ProtoLangToolchainProvider.get(getConfiguredTarget("//foo:toolchain"));
 
     validateProtoLangToolchain(toolchain);
-    validateProtoCompiler(toolchain, ProtoConstants.DEFAULT_PROTOC_LABEL);
+    validateProtoCompilerDirectly(toolchain, ProtoConstants.DEFAULT_PROTOC_LABEL_THIRD_PARTY);
   }
 
   @Test
@@ -258,7 +263,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         ProtoLangToolchainProvider.get(getConfiguredTarget("//foo:toolchain"));
 
     validateProtoLangToolchain(toolchain);
-    validateProtoCompiler(toolchain, ProtoConstants.DEFAULT_PROTOC_LABEL);
+    validateProtoCompilerDirectly(toolchain, ProtoConstants.DEFAULT_PROTOC_LABEL_THIRD_PARTY);
   }
 
   @Test

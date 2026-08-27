@@ -1635,32 +1635,32 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void testPackageLoadingError_keepGoing_explicitTarget() throws Exception {
-    runTestPackageLoadingError(/*keepGoing=*/ true, "//bad:BUILD");
+    runTestPackageLoadingError(/* keepGoing= */ true, "//bad:BUILD");
   }
 
   @Test
   public void testPackageLoadingError_noKeepGoing_explicitTarget() throws Exception {
-    runTestPackageLoadingError(/*keepGoing=*/ false, "//bad:BUILD");
+    runTestPackageLoadingError(/* keepGoing= */ false, "//bad:BUILD");
   }
 
   @Test
   public void testPackageLoadingError_keepGoing_targetsInPackage() throws Exception {
-    runTestPackageLoadingError(/*keepGoing=*/ true, "//bad:all");
+    runTestPackageLoadingError(/* keepGoing= */ true, "//bad:all");
   }
 
   @Test
   public void testPackageLoadingError_noKeepGoing_targetsInPackage() throws Exception {
-    runTestPackageLoadingError(/*keepGoing=*/ false, "//bad:all");
+    runTestPackageLoadingError(/* keepGoing= */ false, "//bad:all");
   }
 
   @Test
   public void testPackageLoadingError_keepGoing_targetsBeneathDirectory() throws Exception {
-    runTestPackageLoadingError(/*keepGoing=*/ true, "//bad/...");
+    runTestPackageLoadingError(/* keepGoing= */ true, "//bad/...");
   }
 
   @Test
   public void testPackageLoadingError_noKeepGoing_targetsBeneathDirectory() throws Exception {
-    runTestPackageLoadingError(/*keepGoing=*/ false, "//bad/...");
+    runTestPackageLoadingError(/* keepGoing= */ false, "//bad/...");
   }
 
   @Test
@@ -1800,7 +1800,7 @@ public final class LoadingPhaseRunnerTest {
 
     private final MockToolsConfig mockToolsConfig;
 
-    LoadingPhaseTester() throws IOException, OptionsParsingException {
+    LoadingPhaseTester() throws IOException, OptionsParsingException, AbruptExitException {
       this.workspace = fs.getPath("/workspace");
       workspace.createDirectory();
       mockToolsConfig = new MockToolsConfig(workspace);
@@ -1848,6 +1848,7 @@ public final class LoadingPhaseRunnerTest {
           defaultBuildLanguageOptions(),
           UUID.randomUUID(),
           ImmutableMap.of(),
+          /* repoEnv= */ ImmutableMap.of(),
           QuiescingExecutorsImpl.forTesting(),
           new TimestampGranularityMonitor(clock));
       skyframeExecutor.setActionEnv(ImmutableMap.of());
@@ -1910,19 +1911,19 @@ public final class LoadingPhaseRunnerTest {
     }
 
     public TargetPatternPhaseValue load(String... patterns) throws Exception {
-      return loadWithFlags(/*keepGoing=*/ false, /*determineTests=*/ false, patterns);
+      return loadWithFlags(/* keepGoing= */ false, /* determineTests= */ false, patterns);
     }
 
     TargetPatternPhaseValue loadKeepGoing(String... patterns) throws Exception {
-      return loadWithFlags(/*keepGoing=*/ true, /*determineTests=*/ false, patterns);
+      return loadWithFlags(/* keepGoing= */ true, /* determineTests= */ false, patterns);
     }
 
     TargetPatternPhaseValue loadTests(String... patterns) throws Exception {
-      return loadWithFlags(/*keepGoing=*/ false, /*determineTests=*/ true, patterns);
+      return loadWithFlags(/* keepGoing= */ false, /* determineTests= */ true, patterns);
     }
 
     TargetPatternPhaseValue loadTestsKeepGoing(String... patterns) throws Exception {
-      return loadWithFlags(/*keepGoing=*/ true, /*determineTests=*/ true, patterns);
+      return loadWithFlags(/* keepGoing= */ true, /* determineTests= */ true, patterns);
     }
 
     TargetPatternPhaseValue loadWithFlags(

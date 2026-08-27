@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
+import com.google.devtools.build.lib.exec.SpawnUploadingEvent;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -92,6 +93,9 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
   private static final SpawnCheckingCacheEvent SPAWN_CHECKING_CACHE_EVENT =
       SpawnCheckingCacheEvent.create("remote");
+
+  private static final SpawnUploadingEvent SPAWN_UPLOADING_EVENT =
+      SpawnUploadingEvent.create("remote");
 
   private static final SpawnSchedulingEvent SPAWN_SCHEDULING_EVENT =
       SpawnSchedulingEvent.create("remote");
@@ -278,9 +282,18 @@ public class RemoteSpawnRunner implements SpawnRunner {
             try (SilentCloseable c = prof.profile(UPLOAD_TIME, "upload missing inputs")) {
               Duration networkTimeStart = action.getNetworkTime().getDuration();
               Stopwatch uploadTime = Stopwatch.createStarted();
-              // Upon retry, we force upload inputs
-              remoteExecutionService.uploadInputsIfNotPresent(
-                  action, forceUploadInput.getAndSet(true));
+              try {
+                context.report(SPAWN_UPLOADING_EVENT);
+                // Upon retry, we force upload inputs
+                remoteExecutionService.uploadInputsIfNotPresent(
+                    action, forceUploadInput.getAndSet(true));
+              } catch (BulkTransferException e) {
+                // An input that is missing from the remote cache and not available locally can
+                // only be regenerated reliably by action rewinding or an invocation retry. Unwrap
+                // the LostInputsExecException, which is not classified as retryable.
+                e.getLostArtifacts(context.getInputMetadataProvider()::getInput).throwIfNotEmpty();
+                throw e;
+              }
 
               // subtract network time consumed here to ensure wall clock during upload is not
               // double

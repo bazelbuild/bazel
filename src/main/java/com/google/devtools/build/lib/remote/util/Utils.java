@@ -69,7 +69,6 @@ import com.google.rpc.RequestInfo;
 import com.google.rpc.ResourceInfo;
 import com.google.rpc.RetryInfo;
 import com.google.rpc.Status;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.time.Instant;
@@ -391,13 +390,13 @@ public final class Utils {
   public static ListenableFuture<ActionResult> downloadAsActionResult(
       ActionKey actionDigest,
       BiFunction<Digest, OutputStream, ListenableFuture<Void>> downloadFunction) {
-    ByteArrayOutputStream data = new ByteArrayOutputStream(/* size= */ 1024);
+    ByteString.Output data = ByteString.newOutput(/* initialCapacity= */ 1024);
     ListenableFuture<Void> download = downloadFunction.apply(actionDigest.digest(), data);
     return FluentFuture.from(download)
         .transformAsync(
             (v) -> {
               try {
-                return Futures.immediateFuture(ActionResult.parseFrom(data.toByteArray()));
+                return Futures.immediateFuture(ActionResult.parseFrom(data.toByteString()));
               } catch (InvalidProtocolBufferException e) {
                 return immediateFailedFuture(e);
               }

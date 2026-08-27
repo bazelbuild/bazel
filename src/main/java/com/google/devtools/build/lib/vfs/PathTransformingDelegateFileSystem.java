@@ -272,11 +272,6 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   }
 
   @Override
-  public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
-    return delegateFs.statNullable(toDelegatePath(path), followSymlinks);
-  }
-
-  @Override
   public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
     return delegateFs.statIfFound(toDelegatePath(path), followSymlinks);
   }

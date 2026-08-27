@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
@@ -87,8 +88,6 @@ public class GroupedDeps implements Iterable<List<SkyKey>> {
    * to the position of the {@link Integer} representing the size of the group.
    */
   private final ArrayList<Integer> groupIndices;
-
-  private final CollectionView collectionView = new CollectionView();
 
   public GroupedDeps() {
     this(0, newSmallArrayList());
@@ -303,7 +302,7 @@ public class GroupedDeps implements Iterable<List<SkyKey>> {
         return ImmutableList.of((SkyKey) compressed);
       case MULTIPLE:
         List<Object> elements = Arrays.asList((Object[]) compressed);
-        return () -> new UngroupedIterator(elements);
+        return () -> new UngroupedIterator(elements, elements.size());
     }
     throw new AssertionError(compressed);
   }
@@ -424,14 +423,25 @@ public class GroupedDeps implements Iterable<List<SkyKey>> {
    * return value of {@link #getAllElementsAsIterable} will take constant time.
    */
   private final class CollectionView extends AbstractCollection<SkyKey> {
+    private final int expectedSize = elements.size();
 
     @Override
     public Iterator<SkyKey> iterator() {
-      return new UngroupedIterator(elements);
+      checkState(
+          elements.size() == expectedSize,
+          "GroupedDeps mutated during iteration (expected size %s, actual size %s)",
+          expectedSize,
+          elements.size());
+      return new UngroupedIterator(elements, expectedSize);
     }
 
     @Override
     public int size() {
+      checkState(
+          elements.size() == expectedSize,
+          "GroupedDeps mutated during iteration (expected size %s, actual size %s)",
+          expectedSize,
+          elements.size());
       return size;
     }
   }
@@ -439,16 +449,26 @@ public class GroupedDeps implements Iterable<List<SkyKey>> {
   /** An iterator that loops through every element in each group. */
   private static final class UngroupedIterator implements Iterator<SkyKey> {
     private final List<Object> elements;
+    private final int expectedSize;
     private int i = 0;
 
-    private UngroupedIterator(List<Object> elements) {
+    private UngroupedIterator(List<Object> elements, int expectedSize) {
       this.elements = elements;
+      this.expectedSize = expectedSize;
       advanceIfSizeMarker();
     }
 
     @Override
     public boolean hasNext() {
-      return i < elements.size();
+      boolean hasNext = i < elements.size();
+      if (!hasNext) {
+        checkState(
+            elements.size() == expectedSize,
+            "GroupedDeps mutated during iteration (expected size %s, actual size %s)",
+            expectedSize,
+            elements.size());
+      }
+      return hasNext;
     }
 
     @Override
@@ -467,7 +487,7 @@ public class GroupedDeps implements Iterable<List<SkyKey>> {
 
   @ThreadHostile
   public Collection<SkyKey> getAllElementsAsIterable() {
-    return collectionView;
+    return new CollectionView();
   }
 
   @Override

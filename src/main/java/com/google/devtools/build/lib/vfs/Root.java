@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec;
@@ -291,14 +292,25 @@ public abstract class Root implements Comparable<Root> {
     }
   }
 
+  /** Returns an {@code ObjectCodec} for {@link Root}. */
+  public static RootCodec rootCodec() {
+    return new RootCodec();
+  }
+
   @SuppressWarnings("unused") // Used at run-time via classpath scanning + reflection.
   private static class RootCodec extends AsyncObjectCodec<Root> {
+
     private static final DynamicCodec PATH_ROOT_CODEC = new DynamicCodec(PathRoot.class);
     private static final DynamicCodec ABSOLUTE_ROOT_CODEC = new DynamicCodec(AbsoluteRoot.class);
 
     @Override
     public Class<? extends Root> getEncodedClass() {
       return Root.class;
+    }
+
+    @Override
+    public ImmutableSet<Class<? extends Root>> additionalEncodedClasses() {
+      return ImmutableSet.of(PathRoot.class, AbsoluteRoot.class);
     }
 
     @Override

@@ -62,12 +62,14 @@ import com.google.devtools.build.lib.bazel.commands.FetchCommand;
 import com.google.devtools.build.lib.bazel.commands.ModCommand;
 import com.google.devtools.build.lib.bazel.commands.VendorCommand;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
+import com.google.devtools.build.lib.bazel.repository.RepoMetadataRequirements;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RequireRepoExtensionMetadataMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryUtils;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
@@ -148,6 +150,8 @@ public class BazelRepositoryModule extends BlazeModule {
   private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
   private BazelCompatibilityMode bazelCompatibilityMode = BazelCompatibilityMode.ERROR;
   private LockfileMode bazelLockfileMode = LockfileMode.UPDATE;
+  private RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode =
+      RequireRepoExtensionMetadataMode.FALSE;
   private Clock clock;
   private Instant lastRegistryInvalidation = Instant.EPOCH;
 
@@ -294,8 +298,10 @@ public class BazelRepositoryModule extends BlazeModule {
     singleExtensionEvalFunction.setDownloadManager(downloadManager);
 
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
+    requireRepoExtensionMetadataMode = RequireRepoExtensionMetadataMode.FALSE;
     if (repoOptions != null) {
       downloadManager.setDisableDownload(repoOptions.getDisableDownload());
+      requireRepoExtensionMetadataMode = repoOptions.getRequireRepoExtensionMetadata();
       if (repoOptions.getRepositoryDownloaderRetries() >= 0) {
         downloadManager.setRetries(repoOptions.getRepositoryDownloaderRetries());
       }
@@ -448,7 +454,7 @@ public class BazelRepositoryModule extends BlazeModule {
             CredentialHelperEnvironment.newBuilder()
                 .setEventReporter(env.getReporter())
                 .setWorkspacePath(env.getWorkspace())
-                .setClientEnvironment(env.getClientEnv())
+                .setClientEnvironment(env::getClientEnv)
                 .setHelperExecutionTimeout(authAndTlsOptions.getCredentialHelperTimeout())
                 .build();
         CredentialHelperProvider credentialHelperProvider =
@@ -746,7 +752,6 @@ public class BazelRepositoryModule extends BlazeModule {
       lastRegistryInvalidation = now;
     }
     return ImmutableList.of(
-        PrecomputedValue.injected(PrecomputedValue.REPO_ENV, repoEnvSupplier.get()),
         PrecomputedValue.injected(RepoDefinitionFunction.REPOSITORY_OVERRIDES, overrides),
         PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, injections),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, moduleOverrides),
@@ -765,6 +770,9 @@ public class BazelRepositoryModule extends BlazeModule {
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, checkDirectDepsMode),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, bazelCompatibilityMode),
+        PrecomputedValue.injected(
+            RepoMetadataRequirements.REQUIRE_REPO_EXTENSION_METADATA,
+            requireRepoExtensionMetadataMode),
         PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, bazelLockfileMode),
         PrecomputedValue.injected(RepositoryDirectoryValue.IS_VENDOR_COMMAND, false),
         PrecomputedValue.injected(RepositoryDirectoryValue.VENDOR_DIRECTORY, vendorDirectory),

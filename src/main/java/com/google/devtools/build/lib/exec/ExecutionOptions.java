@@ -275,7 +275,7 @@ public abstract class ExecutionOptions extends OptionsBase {
   @Option(
       name = "test_tmpdir",
       defaultValue = "null",
-      converter = OptionsUtils.PathFragmentConverter.class,
+      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Specifies the base temporary directory for 'bazel test' to use.")
@@ -400,6 +400,16 @@ public abstract class ExecutionOptions extends OptionsBase {
           "The size of window during experimental scheduling of action based on CPU load. Make"
               + " sense to define only when flag --experimental_cpu_load_scheduling is enabled.")
   public abstract Duration getExperimentalCpuLoadSchedulingWindowSize();
+
+  @Option(
+      name = "experimental_memory_load_scheduling",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Enables the experimental local execution scheduling based on memory load, not estimation"
+              + " of actions one by one.")
+  public abstract boolean getExperimentalMemoryLoadScheduling();
 
   @Option(
       name = "local_test_jobs",

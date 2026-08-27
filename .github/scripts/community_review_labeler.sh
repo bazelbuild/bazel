@@ -35,7 +35,8 @@ echo "$PRS" | jq -c '.[]' | while read -r pr; do
 
   # Filter trusted reviews and get the latest one
   LATEST_TRUSTED_REVIEW=$(echo "$REVIEWS" | jq -c --argjson trusted "$TRUSTED_JSON" '
-    select(.user as $u | $trusted | index($u) != null)
+    select((.user as $u | $trusted | index($u) != null)
+      and (.state == "APPROVED" or .state == "CHANGES_REQUESTED" or .state == "DISMISSED"))
   ' | jq -s 'sort_by(.submitted_at) | last' || echo "null")
 
   if [[ -z "$LATEST_TRUSTED_REVIEW" || "$LATEST_TRUSTED_REVIEW" == "null" ]]; then

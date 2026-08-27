@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.IncrementalArtifactConflictFinder;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.LinkedHashSet;
@@ -185,7 +186,7 @@ public final class ConfiguredTargetFactory {
   }
 
   @Nullable
-  private PackageSpecificationProvider getTransitiveVisibilityForCurrentPackage(
+  private TransitiveVisibilityProvider.Requirement getTransitiveVisibilityForCurrentPackage(
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       EventHandler reporter,
       Target target) {
@@ -205,8 +206,9 @@ public final class ConfiguredTargetFactory {
               String.format(
                   "Label '%s' in transitive_visibility does not refer to a package group",
                   tvLabel)));
+      return null;
     }
-    return provider;
+    return new TransitiveVisibilityProvider.Requirement(provider, tvLabel);
   }
 
   /**
@@ -229,7 +231,8 @@ public final class ConfiguredTargetFactory {
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable NestedSet<Package.Metadata> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
-      @Nullable StarlarkAttributeTransitionProvider starlarkExecTransition)
+      @Nullable StarlarkAttributeTransitionProvider starlarkExecTransition,
+      boolean dependsOnFileKey)
       throws InterruptedException,
           ActionConflictException,
           InvalidExecGroupException,
@@ -273,7 +276,7 @@ public final class ConfiguredTargetFactory {
     // have no config, so we can't check whether --experimental_enforce_transitive_visibility is
     // set. Some unnecessary memory cost here, but no enforcement because we'll also check for the
     // flag where the provider is read.
-    PackageSpecificationProvider transitiveVisibility =
+    TransitiveVisibilityProvider.Requirement transitiveVisibility =
         (config != null && config.enforceTransitiveVisibility()) || target instanceof InputFile
             ? getTransitiveVisibilityForCurrentPackage(
                 prerequisiteMap, analysisEnvironment.getEventHandler(), target)
@@ -332,6 +335,17 @@ public final class ConfiguredTargetFactory {
                   .setLabel(target.getLabel())
                   .setConfiguration(config)
                   .build());
+      if (dependsOnFileKey) {
+        // This code branch is here because in the current implementation, the invalidation data for
+        // actions in the remote analysis cache is stored with the configured targets / aspects and
+        // is found by a simple "get if present" lookup in the Skyframe graph. With async analysis
+        // caching, this doesn't work because analysis nodes usually get uploaded before any actions
+        // execute.
+        if (analysisEnvironment.getSkyframeEnv().getValue(FileKey.create(artifact.getRootedPath()))
+            == null) {
+          return null;
+        }
+      }
       return new InputFileConfiguredTarget(targetContext, artifact);
     } else if (target instanceof PackageGroup packageGroup) {
       TargetContext targetContext =

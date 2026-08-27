@@ -35,6 +35,7 @@ import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.testing.GcFinalization;
+import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -62,7 +63,9 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -617,6 +620,105 @@ public final class NestedSetCodecTest {
         .isEqualTo(Lists.transform(stuff, thing -> ColorfulThing.of(thing, Color.GREEN)));
   }
 
+  @Test
+  public void cancelPendingFetches() throws Exception {
+    SettableFuture<byte[]> getFuture = SettableFuture.create();
+    FingerprintValueStore fingerprintValueStore =
+        new FingerprintValueStore() {
+          @Override
+          public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
+            return immediateWriteStatus();
+          }
+
+          @Override
+          public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) throws IOException {
+            return getFuture;
+          }
+        };
+
+    NestedSetStore deserializerStore = createStore(fingerprintValueStore);
+    ObjectCodecs deserializer = createCodecs(deserializerStore);
+
+    NestedSet<String> base = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b");
+    FingerprintValueService fingerprintValueService =
+        FingerprintValueService.createForTesting(fingerprintValueStore);
+    ObjectCodecs serializer = createCodecs(createStore(fingerprintValueStore));
+    ByteString serializedBase =
+        serializer.serializeMemoizedAndBlocking(fingerprintValueService, base).getObject();
+
+    Object deserialized = deserializer.deserializeMemoized(serializedBase);
+    assertThat(deserialized).isInstanceOf(NestedSet.class);
+    NestedSet<?> deserializedSet = (NestedSet<?>) deserialized;
+    assertThat(deserializedSet.children).isInstanceOf(ListenableFuture.class);
+    ListenableFuture<?> future = (ListenableFuture<?>) deserializedSet.children;
+    assertThat(future.isDone()).isFalse();
+
+    deserializerStore.cancelPendingFetches();
+
+    assertThat(future.isCancelled()).isTrue();
+    assertThat(getFuture.isCancelled()).isTrue();
+
+    var exception1 =
+        assertThrows(MissingFingerprintValueException.class, deserializedSet::toListInterruptibly);
+    assertThat(exception1).hasCauseThat().isInstanceOf(CancellationException.class);
+
+    var exception2 =
+        assertThrows(
+            MissingFingerprintValueException.class,
+            () -> deserializedSet.toListWithTimeout(Duration.ofSeconds(1)));
+    assertThat(exception2).hasCauseThat().isInstanceOf(CancellationException.class);
+  }
+
+  @Test
+  public void cancelledFuture_hashAndEqualsDoNotThrow() throws Exception {
+    NestedSetStore mockBookkeeper = mock(NestedSetStore.class);
+    ObjectCodecs codecs = createCodecs(mockBookkeeper);
+
+    NestedSet<String> materializedSet = NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b");
+    Object contents = materializedSet.children;
+    int targetHashCode = contents.hashCode();
+
+    SettableHashCodeFuture<Object[]> mockFuture = new SettableHashCodeFuture<>(targetHashCode);
+    mockFuture.cancel(false);
+
+    // Mock store to return our mockFuture on get, and a mock PutOperation on put.
+    when(mockBookkeeper.getContentsAndDeserialize(any(), any())).thenReturn(mockFuture);
+    PutOperation mockPut =
+        new PutOperation(getFingerprintForTesting("fingerprint"), immediateWriteStatus());
+    when(mockBookkeeper.computeFingerprintAndStore(any(), any())).thenReturn(mockPut);
+
+    // 1. Serialize materializedSet. This puts EqualsWrapper(materializedSet) into interner.
+    // EqualsWrapper(materializedSet) has children = Object[], hashCode = targetHashCode.
+    FingerprintValueService fingerprintValueService = FingerprintValueService.createForTesting();
+    ByteString serializedBytes =
+        codecs.serializeMemoizedAndBlocking(fingerprintValueService, materializedSet).getObject();
+
+    // 2. Deserialize. This will call intern(order, depth, mockFuture).
+    // It creates A = NestedSet.withFuture(mockFuture).
+    // It calls interner.get(new EqualsWrapper(A), ...).
+    //
+    // This triggers EqualsWrapper.hashCode() on EqualsWrapper(A) which contains the cancelled
+    // future.
+    // We expect this to not throw CancellationException and fallback to mockFuture.hashCode()
+    // (targetHashCode).
+    //
+    // Since EqualsWrapper(A) hashCode matches EqualsWrapper(materializedSet) hashCode
+    // (targetHashCode), the map will call
+    // EqualsWrapper(materializedSet).equals(EqualsWrapper(A)).
+    // This triggers deserializingAndMaterializedSetsAreEqual(materializedSet.children, A.children)
+    // (Object[] vs cancelled future).
+    // We expect this to not throw CancellationException and return false (unequal).
+    Object deserialized =
+        codecs.deserializeMemoizedAndBlocking(fingerprintValueService, serializedBytes);
+
+    // It should not be the same instance as materializedSet because the future was cancelled (so
+    // they are not equal).
+    assertThat(deserialized).isNotSameInstanceAs(materializedSet);
+    assertThat(deserialized).isInstanceOf(NestedSet.class);
+    // The deserialized set has the mockFuture as children.
+    assertThat(((NestedSet<?>) deserialized).children).isSameInstanceAs(mockFuture);
+  }
+
   private static NestedSetStore createStore(FingerprintValueStore fingerprintValueStore) {
     return createStoreWithBugReporter(fingerprintValueStore, BugReporter.defaultInstance());
   }
@@ -650,5 +752,23 @@ public final class NestedSetCodecTest {
       registry.add(codec);
     }
     return new ObjectCodecs(registry.build(), /*dependencies=*/ ImmutableClassToInstanceMap.of());
+  }
+
+  private static final class SettableHashCodeFuture<V> extends AbstractFuture<V> {
+    private final int hashCode;
+
+    private SettableHashCodeFuture(int hashCode) {
+      this.hashCode = hashCode;
+    }
+
+    @Override
+    public int hashCode() {
+      return hashCode;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return this == obj;
+    }
   }
 }

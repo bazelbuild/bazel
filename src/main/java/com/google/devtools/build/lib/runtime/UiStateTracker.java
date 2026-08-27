@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.primitives.Booleans.trueFirst;
 import static java.util.Comparator.comparing;
+import static java.util.Comparator.comparingLong;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Comparators;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
+import com.google.devtools.build.lib.actions.UploadingActionEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
@@ -109,7 +111,7 @@ class UiStateTracker {
 
   // Desired maximal width of the progress bar, if positive.
   // Non-positive values indicate not to aim for a particular width.
-  protected final int targetWidth;
+  protected int targetWidth;
 
   /**
    * Tracker of strategy names to unique IDs and viceversa.
@@ -195,6 +197,7 @@ class UiStateTracker {
     PREPARING("Preparing"),
     SCANNING("Scanning"),
     CACHING("Caching"),
+    UPLOADING("Uploading"),
     SCHEDULING("Scheduling"),
     RUNNING("Running");
 
@@ -308,6 +311,20 @@ class UiStateTracker {
     }
 
     /**
+     * Marks the action as uploading inputs with the given strategy.
+     *
+     * <p>Because we may receive events out of order, this does not affect the current phase if the
+     * action is already uploading, scheduling or running for any other strategy.
+     */
+    synchronized void setUploading(String strategy, long nanoChangeTime) {
+      strategyBitmap |= strategyIds.getId(strategy);
+      if (currentPhase.compareTo(ActionPhase.UPLOADING) < 0) {
+        currentPhase = ActionPhase.UPLOADING;
+        nanoStartTime = nanoChangeTime;
+      }
+    }
+
+    /**
      * Marks the action as scheduling with the given strategy.
      *
      * <p>Because we may receive events out of order, this does not affect the current phase if the
@@ -409,6 +426,11 @@ class UiStateTracker {
   /** Set the progress bar sample size. */
   void setProgressSampleSize(int sampleSize) {
     this.sampleSize = Math.max(1, sampleSize);
+  }
+
+  /** Set the desired maximal width of the progress bar. */
+  synchronized void setTargetWidth(int targetWidth) {
+    this.targetWidth = targetWidth;
   }
 
   void setNewStatsSummary(boolean newStatsSummary) {
@@ -575,6 +597,13 @@ class UiStateTracker {
     Artifact actionId = action.getPrimaryOutput();
     long now = clock.nanoTime();
     getActionState(action, actionId, now).setCaching(event.strategy(), now);
+  }
+
+  void uploadingAction(UploadingActionEvent event) {
+    ActionExecutionMetadata action = event.action();
+    Artifact actionId = action.getPrimaryOutput();
+    long now = clock.nanoTime();
+    getActionState(action, actionId, now).setUploading(event.strategy(), now);
   }
 
   void schedulingAction(SchedulingActionEvent event) {
@@ -1164,7 +1193,7 @@ class UiStateTracker {
       throws IOException {
     ArrayList<Map.Entry<String, DownloadData>> runningDownloadsSnapshot =
         new ArrayList<>(runningDownloads.entrySet());
-    runningDownloadsSnapshot.sort(comparing(entry -> entry.getValue().nanoStartTime()));
+    runningDownloadsSnapshot.sort(comparingLong(entry -> entry.getValue().nanoStartTime()));
     int count = 0;
     long nanoTime = clock.nanoTime();
     int downloadCount = runningDownloadsSnapshot.size();

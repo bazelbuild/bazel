@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -67,6 +68,7 @@ import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.devtools.common.options.Options;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.Semaphore;
 import org.junit.Before;
@@ -230,7 +232,7 @@ public class WorkerSpawnRunnerTest {
   public void testExecInWorker_sendsCancelMessageOnInterrupt() throws Exception {
     WorkerOptions workerOptions = Options.getDefaults(WorkerOptions.class);
     workerOptions.setWorkerCancellation(true);
-    workerOptions.setWorkerSandboxing(true);
+    workerOptions.setWorkerSandboxing(ImmutableList.of(Maps.immutableEntry("", true)));
     when(spawn.getExecutionInfo())
         .thenReturn(ImmutableMap.of(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1"));
     when(worker.isSandboxed()).thenReturn(true);
@@ -278,10 +280,94 @@ public class WorkerSpawnRunnerTest {
   }
 
   @Test
+  public void testCreateCancelRequest_default() throws Exception {
+    WorkerOptions workerOptions = Options.getDefaults(WorkerOptions.class);
+    WorkerSpawnRunner runner = createWorkerSpawnRunner(workerOptions);
+    WorkRequest request = runner.createCancelRequest(1);
+    assertThat(request).isEqualTo(WorkRequest.newBuilder().setRequestId(1).setCancel(true).build());
+  }
+
+  @Test
+  public void testCreateCancelRequest_verbose() throws Exception {
+    WorkerOptions workerOptions = Options.getDefaults(WorkerOptions.class);
+    workerOptions.setWorkerVerbose(true);
+    WorkerSpawnRunner runner = createWorkerSpawnRunner(workerOptions);
+    WorkRequest request = runner.createCancelRequest(1);
+    assertThat(request)
+        .isEqualTo(
+            WorkRequest.newBuilder()
+                .setRequestId(1)
+                .setCancel(true)
+                .setVerbosity(WorkerSpawnRunner.VERBOSE_LEVEL)
+                .build());
+  }
+
+  @Test
+  public void testExecInWorker_sendsCancelMessageOnInterrupt_verbose() throws Exception {
+    WorkerOptions workerOptions = Options.getDefaults(WorkerOptions.class);
+    workerOptions.setWorkerCancellation(true);
+    workerOptions.setWorkerVerbose(true);
+    workerOptions.setWorkerSandboxing(ImmutableList.of(Maps.immutableEntry("", true)));
+    when(spawn.getExecutionInfo())
+        .thenReturn(ImmutableMap.of(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1"));
+    when(worker.isSandboxed()).thenReturn(true);
+    WorkerSpawnRunner runner = createWorkerSpawnRunner(workerOptions);
+    WorkerKey key = createWorkerKey(fs, "mnem", false);
+    Path logFile = fs.getPath("/worker.log");
+    Semaphore secondResponseRequested = new Semaphore(0);
+    // Fake that the getting the regular response gets interrupted and we then answer the cancel.
+    when(worker.getResponse(anyInt()))
+        .thenThrow(new InterruptedException())
+        .thenAnswer(
+            invocation -> {
+              secondResponseRequested.release();
+              return WorkResponse.newBuilder()
+                  .setRequestId(invocation.getArgument(0))
+                  .setWasCancelled(true)
+                  .build();
+            });
+    assertThrows(
+        InterruptedException.class,
+        () ->
+            runner.execInWorker(
+                spawn,
+                key,
+                context,
+                new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
+                SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+                ImmutableList.of(),
+                inputFileCache,
+                spawnMetrics));
+    secondResponseRequested.acquire();
+    assertThat(logFile.exists()).isFalse();
+    verify(context).report(SpawnExecutingEvent.create("worker"));
+    ArgumentCaptor<WorkRequest> argumentCaptor = ArgumentCaptor.forClass(WorkRequest.class);
+    verify(worker, times(2)).putRequest(argumentCaptor.capture());
+    assertThat(argumentCaptor.getAllValues().get(0))
+        .isEqualTo(
+            WorkRequest.newBuilder()
+                .setRequestId(0)
+                .setVerbosity(WorkerSpawnRunner.VERBOSE_LEVEL)
+                .build());
+    assertThat(argumentCaptor.getAllValues().get(1))
+        .isEqualTo(
+            WorkRequest.newBuilder()
+                .setRequestId(0)
+                .setCancel(true)
+                .setVerbosity(WorkerSpawnRunner.VERBOSE_LEVEL)
+                .build());
+    // Wait until thread produced by WorkerSpawnRunner.finishWorkAsync is finshed and returned
+    // resources via resourceHandle.
+    Thread.sleep(Duration.ofMillis(50));
+    verify(resourceHandle).close();
+    verify(resourceHandle, never()).invalidateAndClose(any());
+  }
+
+  @Test
   public void testExecInWorker_unsandboxedDiesOnInterrupt() throws Exception {
     WorkerOptions workerOptions = Options.getDefaults(WorkerOptions.class);
     workerOptions.setWorkerCancellation(true);
-    workerOptions.setWorkerSandboxing(false);
+    workerOptions.setWorkerSandboxing(ImmutableList.of(Maps.immutableEntry("", false)));
     when(spawn.getExecutionInfo())
         .thenReturn(ImmutableMap.of(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1"));
     WorkerSpawnRunner runner = createWorkerSpawnRunner(workerOptions);

@@ -26,6 +26,9 @@ import com.google.devtools.build.lib.server.CommandProtos.PingRequest;
 import com.google.devtools.build.lib.server.CommandProtos.PingResponse;
 import com.google.devtools.build.lib.server.CommandProtos.RunRequest;
 import com.google.devtools.build.lib.server.CommandProtos.RunResponse;
+import com.google.devtools.build.lib.server.CommandProtos.TerminalSizeRequest;
+import com.google.devtools.build.lib.server.CommandProtos.TerminalSizeResponse;
+import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.devtools.build.lib.util.OS;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -59,6 +62,7 @@ import javax.annotation.Nullable;
  * method is running, which means we can't use flow control, which we need so that gRPC doesn't
  * buffer an unbounded amount of outgoing data.
  */
+@ScOnly
 public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBase
     implements GrpcCommandServer {
 
@@ -253,5 +257,16 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
         new BlockingStreamObserver<>(streamObserver, CancelResponse.getDefaultInstance());
     byte[] serializedRequest = cancelRequest.toByteArray();
     callbackExecutorPool.execute(() -> callback.cancel(serializedRequest, blockingObserver));
+  }
+
+  @Override
+  public void updateTerminalSize(
+      TerminalSizeRequest request, StreamObserver<TerminalSizeResponse> streamObserver) {
+    checkNotNull(callback, "updateTerminalSize() called before serve()");
+    BlockingStreamObserver<TerminalSizeResponse> blockingObserver =
+        new BlockingStreamObserver<>(streamObserver, TerminalSizeResponse.getDefaultInstance());
+    byte[] serializedRequest = request.toByteArray();
+    callbackExecutorPool.execute(
+        () -> callback.updateTerminalSize(serializedRequest, blockingObserver));
   }
 }

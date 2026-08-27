@@ -41,6 +41,7 @@ public interface SerializationDependenciesProvider {
   ObjectCodecs getObjectCodecs() throws InterruptedException;
 
   /** Returns the {@link FingerprintValueService} implementation. */
+  @Nullable
   FingerprintValueService getFingerprintValueService() throws InterruptedException;
 
   String getSerializedFrontierProfile();
@@ -53,6 +54,9 @@ public interface SerializationDependenciesProvider {
 
   @Nullable
   RemoteAnalysisMetadataWriter getMetadataWriter() throws InterruptedException;
+
+  @Nullable
+  FileOpNodeMemoizingLookup getFileOpNodes() throws InterruptedException;
 
   void waitForUploadCompletion() throws InterruptedException, ExecutionException;
 

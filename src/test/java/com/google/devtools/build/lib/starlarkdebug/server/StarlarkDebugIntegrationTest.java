@@ -51,6 +51,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import org.junit.Before;
@@ -82,20 +83,44 @@ public class StarlarkDebugIntegrationTest extends BuildIntegrationTestCase {
     addOptions("--experimental_skylark_debug_reset_analysis");
     write("foo/BUILD", "genrule(name = 'foo', outs = ['foo.out'], cmd = 'touch $@')");
 
+    AtomicReference<MockDebugClient> clientRef = new AtomicReference<>();
+
     // run async, otherwise this will just block on the result indefinitely
     CompletableFuture<BuildResult> resultCf =
         CompletableFuture.supplyAsync(
             () -> {
               try {
-                return buildTarget(StarlarkDebugIntegrationTest::createClient, "//foo");
+                return buildTarget(
+                    port -> {
+                      MockDebugClient client = createClient(port);
+                      clientRef.set(client);
+                    },
+                    "//foo");
               } catch (Exception e) {
                 throw new RuntimeException(e);
               }
             },
             Executors.newSingleThreadExecutor());
 
-    TimeoutException unusedError =
-        assertThrows(TimeoutException.class, () -> resultCf.get(10, SECONDS));
+    try {
+      assertThrows(TimeoutException.class, () -> resultCf.get(10, SECONDS));
+    } finally {
+      MockDebugClient client = clientRef.get();
+      if (client != null) {
+        try {
+          client.close();
+        } catch (IOException e) {
+          // ignore
+        }
+      }
+      try {
+        resultCf.get(5, SECONDS);
+      } catch (Exception e) {
+        if (e instanceof InterruptedException) {
+          Thread.currentThread().interrupt();
+        }
+      }
+    }
   }
 
   @Test
@@ -157,6 +182,17 @@ public class StarlarkDebugIntegrationTest extends BuildIntegrationTestCase {
     assertThat(deletedFiles).contains("foo/BUILD");
   }
 
+  @Test
+  public void testCustomServerAddressOption() throws Exception {
+    addOptions("--experimental_skylark_debug_server_address=127.0.0.1");
+    write("foo/BUILD", "genrule(name = 'foo', outs = ['foo.out'], cmd = 'touch $@')");
+
+    BuildResult result =
+        buildTarget(StarlarkDebugIntegrationTest::createClientAndStartDebugging, "//foo");
+    assertThat(result).isNotNull();
+    assertThat(result.getSuccessfulTargets()).hasSize(1);
+  }
+
   private BuildResult buildTarget(Consumer<Integer> clientSetup, String target) throws Exception {
     DebugServerTransport.onListenPortCallbackForTests =
         port -> {
@@ -168,7 +204,11 @@ public class StarlarkDebugIntegrationTest extends BuildIntegrationTestCase {
   @CanIgnoreReturnValue
   private static MockDebugClient createClient(int debugPort) {
     MockDebugClient client = new MockDebugClient();
-    client.connect(InetAddress.getLoopbackAddress(), debugPort, Duration.ofSeconds(5));
+    try {
+      client.connect(InetAddress.getByName("127.0.0.1"), debugPort, Duration.ofSeconds(5));
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
     return client;
   }
 

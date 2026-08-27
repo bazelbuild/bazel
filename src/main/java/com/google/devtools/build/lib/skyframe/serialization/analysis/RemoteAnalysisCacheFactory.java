@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.getDone;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.ForkJoinPool.commonPool;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
@@ -39,6 +39,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie.PathFragmentPrefixTrieException;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeFutures;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -109,8 +111,7 @@ public final class RemoteAnalysisCacheFactory {
                   .build()));
     }
 
-    if (options.getMode() == RemoteAnalysisCacheMode.UPLOAD
-        || options.getMode() == RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY) {
+    if (options.getMode().serializesValues()) {
       CoreOptions coreOptions = topLevelOptions.get(CoreOptions.class);
       if (coreOptions != null && !coreOptions.getCheckVisibility()) {
         throw new AbruptExitException(
@@ -176,8 +177,6 @@ public final class RemoteAnalysisCacheFactory {
 
     // Create various objects we need
 
-    ListenableFuture<ObjectCodecs> objectCodecs = createObjectCodecs(env, topLevelOptions);
-
     RemoteAnalysisCachingServicesSupplier servicesSupplier =
         env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
     try {
@@ -186,6 +185,11 @@ public final class RemoteAnalysisCacheFactory {
     } catch (SerializedAbruptExitException e) {
       throw AbruptExitException.fromSerialized(e);
     }
+
+    SafeExecutor commandExecutor = servicesSupplier.getCommandExecutor();
+
+    ListenableFuture<ObjectCodecs> objectCodecs =
+        createObjectCodecs(env, topLevelOptions, commandExecutor);
 
     // Set up parameters for the metadata store, if needed
 
@@ -223,7 +227,8 @@ public final class RemoteAnalysisCacheFactory {
             env.getBlazeWorkspace().getFingerprinterForAnalysisCaching(),
             env.getSkyframeExecutor().getEvaluator().getInMemoryGraph(),
             env.getEventBus(),
-            env.getVersionGetter());
+            env.getVersionGetter(),
+            commandExecutor);
 
     ListenableFuture<AnalysisCacheInvalidator> analysisCacheInvalidator =
         createAnalysisCacheInvalidator(
@@ -233,7 +238,8 @@ public final class RemoteAnalysisCacheFactory {
             objectCodecs,
             deps.getFingerprintValueServiceFuture(),
             servicesSupplier.getAnalysisCacheClient(),
-            env.getRemoteAnalysisCachingEventListener());
+            env.getRemoteAnalysisCachingEventListener(),
+            commandExecutor);
 
     var manager =
         new RemoteAnalysisCacheManager(
@@ -248,32 +254,28 @@ public final class RemoteAnalysisCacheFactory {
 
     // Bail out if needed
 
-    return switch (options.getMode()) {
-      case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY,
-          RemoteAnalysisCacheMode.UPLOAD,
-          RemoteAnalysisCacheMode.ASYNC_UPLOAD ->
-          new AnalysisDeps(manager, deps, deps);
-      case RemoteAnalysisCacheMode.DOWNLOAD, RemoteAnalysisCacheMode.BIDI -> {
-        RemoteAnalysisCacheClient analysisCacheClient;
-        try (SilentCloseable unused = Profiler.instance().profile("initAnalysisCacheClient")) {
-          analysisCacheClient = deps.getAnalysisCacheClient();
-        }
-        if (analysisCacheClient == null) {
-          env.getReporter()
-              .handle(
-                  Event.warn(
-                      "Failed to establish connection to AnalysisCacheService (or it was not"
-                          + " specified). Falling back to local evaluation."));
-          yield new AnalysisDeps(
-              RemoteAnalysisCacheManager.createDisabled(),
-              RemoteAnalysisCacheDeps.createDisabled(),
-              RemoteAnalysisCacheDeps.createDisabled());
-        }
-        yield new AnalysisDeps(manager, deps, deps);
+    if (options.getMode().isRetrievalEnabled()) {
+      RemoteAnalysisCacheClient analysisCacheClient;
+      try (SilentCloseable unused = Profiler.instance().profile("initAnalysisCacheClient")) {
+        analysisCacheClient = deps.getAnalysisCacheClient();
       }
-      default ->
-          throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + options.getMode());
-    };
+      if (analysisCacheClient == null) {
+        env.getReporter()
+            .handle(
+                Event.warn(
+                    "Failed to establish connection to AnalysisCacheService (or it was not"
+                        + " specified). Falling back to local evaluation."));
+        return new AnalysisDeps(
+            RemoteAnalysisCacheManager.createDisabled(),
+            RemoteAnalysisCacheDeps.createDisabled(),
+            RemoteAnalysisCacheDeps.createDisabled());
+      }
+      return new AnalysisDeps(manager, deps, deps);
+    } else if (options.getMode().serializesValues()) {
+      return new AnalysisDeps(manager, deps, deps);
+    } else {
+      throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + options.getMode());
+    }
   }
 
   private static Optional<PathFragmentPrefixTrie> finalizeActiveDirectoriesMatcher(
@@ -281,38 +283,37 @@ public final class RemoteAnalysisCacheFactory {
       Optional<PathFragmentPrefixTrie> maybeProjectFileMatcher,
       RemoteAnalysisCacheMode mode)
       throws InvalidConfigurationException {
-    return switch (mode) {
-      case DOWNLOAD, OFF -> Optional.empty();
-      case UPLOAD, DUMP_UPLOAD_MANIFEST_ONLY, BIDI, ASYNC_UPLOAD -> {
-        // Upload or Dump mode: allow overriding the project file matcher with the active
-        // directories flag.
-        List<String> activeDirectoriesFromFlag =
-            env.getOptions().getOptions(SkyfocusOptions.class).getActiveDirectories();
-        var result = maybeProjectFileMatcher;
-        if (!activeDirectoriesFromFlag.isEmpty()) {
-          env.getReporter()
-              .handle(
-                  Event.warn(
-                      "Specifying --experimental_active_directories will override the active"
-                          + " directories specified in the PROJECT.scl file"));
-          try {
-            result = Optional.of(PathFragmentPrefixTrie.of(activeDirectoriesFromFlag));
-          } catch (PathFragmentPrefixTrieException e) {
-            throw new InvalidConfigurationException(
-                "Active directories configuration error: " + e.getMessage(), Code.INVALID_PROJECT);
-          }
+    if (mode.serializesValues()) {
+      // Upload or Dump mode: allow overriding the project file matcher with the active
+      // directories flag.
+      List<String> activeDirectoriesFromFlag =
+          env.getOptions().getOptions(SkyfocusOptions.class).getActiveDirectories();
+      var result = maybeProjectFileMatcher;
+      if (!activeDirectoriesFromFlag.isEmpty()) {
+        env.getReporter()
+            .handle(
+                Event.warn(
+                    "Specifying --experimental_active_directories will override the active"
+                        + " directories specified in the PROJECT.scl file"));
+        try {
+          result = Optional.of(PathFragmentPrefixTrie.of(activeDirectoriesFromFlag));
+        } catch (PathFragmentPrefixTrieException e) {
+          throw new InvalidConfigurationException(
+              "Active directories configuration error: " + e.getMessage(), Code.INVALID_PROJECT);
         }
-
-        if (result.isEmpty() || !result.get().hasIncludedPaths()) {
-          env.getReporter()
-              .handle(
-                  Event.warn(
-                      "No active directories were found. Falling back on full serialization."));
-          yield Optional.empty();
-        }
-        yield result;
       }
-    };
+
+      if (result.isEmpty() || !result.get().hasIncludedPaths()) {
+        env.getReporter()
+            .handle(
+                Event.warn(
+                    "No active directories were found. Falling back on full serialization."));
+        return Optional.empty();
+      }
+      return result;
+    } else {
+      return Optional.empty();
+    }
   }
 
   private static ObjectCodecs initAnalysisObjectCodecs(
@@ -342,8 +343,8 @@ public final class RemoteAnalysisCacheFactory {
   }
 
   private static ListenableFuture<ObjectCodecs> createObjectCodecs(
-      CommandEnvironment env, BuildOptions topLevelOptions) {
-    return Futures.submit(
+      CommandEnvironment env, BuildOptions topLevelOptions, SafeExecutor commandExecutor) {
+    return SafeFutures.submit(
         () ->
             initAnalysisObjectCodecs(
                 requireNonNull(env.getBlazeWorkspace().getAnalysisObjectCodecRegistrySupplier())
@@ -352,7 +353,7 @@ public final class RemoteAnalysisCacheFactory {
                 env.getBlazeWorkspace().getSkyframeExecutor(),
                 env.getDirectories(),
                 topLevelOptions),
-        commonPool());
+        commandExecutor);
   }
 
   private static BuildOptions trimConfigurations(BuildOptions options) {
@@ -373,22 +374,24 @@ public final class RemoteAnalysisCacheFactory {
       ListenableFuture<? extends ObjectCodecs> objectCodecs,
       ListenableFuture<? extends FingerprintValueService> fingerprintValueService,
       ListenableFuture<? extends RemoteAnalysisCacheClient> analysisCacheClient,
-      RemoteAnalysisCachingEventListener eventListener) {
-    if (analysisCacheClient == null) {
+      RemoteAnalysisCachingEventListener eventListener,
+      SafeExecutor commandExecutor) {
+    if (analysisCacheClient == null || fingerprintValueService == null) {
       return immediateFuture(null);
     }
-    return Futures.whenAllSucceed(objectCodecs, fingerprintValueService, analysisCacheClient)
-        .call(
-            () ->
-                new AnalysisCacheInvalidator(
-                    analysisCacheClient.get(),
-                    objectCodecs.get(),
-                    fingerprintValueService.get(),
-                    frontierNodeVersion,
-                    clientId,
-                    eventHandler,
-                    eventListener),
-            commonPool());
+    return SafeFutures.call(
+        Futures.whenAllSucceed(objectCodecs, fingerprintValueService, analysisCacheClient),
+        () ->
+            new AnalysisCacheInvalidator(
+                getDone(analysisCacheClient),
+                getDone(objectCodecs),
+                getDone(fingerprintValueService),
+                frontierNodeVersion,
+                clientId,
+                eventHandler,
+                eventListener,
+                commandExecutor),
+        commandExecutor);
   }
 
   private static HashCode computeBlazeInstallMD5(

@@ -129,6 +129,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction
   private final Runfiles runfiles;
 
   private final boolean remotableSourceManifestActions;
+  private final boolean preferTargetConfigurationRunfiles;
 
   private NestedSet<Artifact> symlinkArtifacts = null;
 
@@ -164,12 +165,31 @@ public final class SourceManifestAction extends AbstractFileWriteAction
       Runfiles runfiles,
       @Nullable Artifact repoMappingManifest,
       boolean remotableSourceManifestActions) {
+    this(
+        manifestWriter,
+        owner,
+        primaryOutput,
+        runfiles,
+        repoMappingManifest,
+        remotableSourceManifestActions,
+        /* preferTargetConfigurationRunfiles= */ false);
+  }
+
+  public SourceManifestAction(
+      ManifestWriter manifestWriter,
+      ActionOwner owner,
+      Artifact primaryOutput,
+      Runfiles runfiles,
+      @Nullable Artifact repoMappingManifest,
+      boolean remotableSourceManifestActions,
+      boolean preferTargetConfigurationRunfiles) {
     // The real set of inputs is computed in #getInputs().
     super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), primaryOutput);
     this.manifestWriter = manifestWriter;
     this.runfiles = runfiles;
     this.repoMappingManifest = repoMappingManifest;
     this.remotableSourceManifestActions = remotableSourceManifestActions;
+    this.preferTargetConfigurationRunfiles = preferTargetConfigurationRunfiles;
   }
 
   /**
@@ -209,7 +229,11 @@ public final class SourceManifestAction extends AbstractFileWriteAction
   @VisibleForTesting
   public void writeTo(OutputStream out, @Nullable EventHandler eventHandler) throws IOException {
     writeFile(
-        out, runfiles.getRunfilesInputs(repoMappingManifest), /* inputMetadataProvider= */ null);
+        out,
+        runfiles.getRunfilesInputs(
+            repoMappingManifest,
+            preferTargetConfigurationRunfiles ? getPrimaryOutput().getRoot() : null),
+        /* inputMetadataProvider= */ null);
   }
 
   /**
@@ -257,7 +281,10 @@ public final class SourceManifestAction extends AbstractFileWriteAction
         };
 
     Map<PathFragment, Artifact> runfilesInputs =
-        runfiles.getRunfilesInputs(receiver, repoMappingManifest);
+        runfiles.getRunfilesInputs(
+            receiver,
+            repoMappingManifest,
+            preferTargetConfigurationRunfiles ? getPrimaryOutput().getRoot() : null);
     eventHandler.replayOn(ctx.getEventHandler());
     if (seenNestedRunfilesTree[0]) {
       FailureDetail failureDetail =

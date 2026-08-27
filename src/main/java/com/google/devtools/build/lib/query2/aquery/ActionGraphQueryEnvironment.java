@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.query2.ConfigFunction;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.SkyQueryEnvironment;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.OutputStream;
@@ -136,7 +138,8 @@ public class ActionGraphQueryEnvironment
   }
 
   private static ImmutableList<QueryFunction> populateAqueryFunctions() {
-    return ImmutableList.of(new InputsFunction(), new OutputsFunction(), new MnemonicFunction());
+    return ImmutableList.of(
+        new InputsFunction(), new OutputsFunction(), new MnemonicFunction(), new ConfigFunction());
   }
 
   @Override
@@ -266,6 +269,23 @@ public class ActionGraphQueryEnvironment
   protected ConfiguredTargetValue getNullConfiguredTarget(Label label) throws InterruptedException {
     return createConfiguredTargetValueFromKey(
         ConfiguredTargetKey.builder().setLabel(label).build());
+  }
+
+  @Override
+  protected String getQueryName() {
+    return "aquery";
+  }
+
+  @Nullable
+  @Override
+  protected ConfiguredTargetValue getConfiguredTarget(
+      Label label, @Nullable BuildConfigurationValue configuration) throws InterruptedException {
+    BuildConfigurationKey configurationKey = configuration == null ? null : configuration.getKey();
+    return createConfiguredTargetValueFromKey(
+        ConfiguredTargetKey.builder()
+            .setLabel(label)
+            .setConfigurationKey(configurationKey)
+            .build());
   }
 
   @Nullable

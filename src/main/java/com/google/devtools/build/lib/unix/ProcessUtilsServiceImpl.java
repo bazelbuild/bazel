@@ -15,10 +15,12 @@ package com.google.devtools.build.lib.unix;
 
 import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.runtime.BlazeService;
+import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.OptionsProvider;
 
 /** Various utilities related to UNIX processes. */
+@ScOnly
 public final class ProcessUtilsServiceImpl implements ProcessUtilsService {
 
   @Override

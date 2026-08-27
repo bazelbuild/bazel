@@ -337,25 +337,27 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     buildLanguageOptions.setExperimentalDormantDeps(true);
 
     ImmutableList<BuildFileName> buildFilesByPriority = skyframeExecutor.getBuildFilesByPriority();
-    PathPackageLocator packageLocator =
-        useVirtualSourceRoot()
-            ? PathPackageLocator.createWithoutExistenceCheck(
-                /* outputBase= */ null,
-                ImmutableList.of(directories.getVirtualSourceRoot()),
-                buildFilesByPriority)
-            : PathPackageLocator.create(
-                directories.getOutputBase(),
-                packageOptions.getPackagePath(),
-                getReporter(),
-                directories.getWorkspace().asFragment(),
-                rootDirectory,
-                buildFilesByPriority);
+    PathPackageLocator packageLocator;
     try {
+      packageLocator =
+          useVirtualSourceRoot()
+              ? PathPackageLocator.createWithoutExistenceCheck(
+                  /* outputBase= */ null,
+                  ImmutableList.of(directories.getVirtualSourceRoot()),
+                  buildFilesByPriority)
+              : PathPackageLocator.create(
+                  directories.getOutputBase(),
+                  packageOptions.getPackagePath(),
+                  getReporter(),
+                  directories.getWorkspace().asFragment(),
+                  rootDirectory,
+                  buildFilesByPriority);
       skyframeExecutor.sync(
           getReporter(),
           packageLocator,
           UUID.randomUUID(),
-          ImmutableMap.of(),
+          /* clientEnv= */ ImmutableMap.of(),
+          /* repoEnv= */ ImmutableMap.of(),
           new TimestampGranularityMonitor(BlazeClock.instance()),
           QuiescingExecutorsImpl.forTesting(),
           FakeOptions.builder().put(packageOptions).put(buildLanguageOptions).build(),

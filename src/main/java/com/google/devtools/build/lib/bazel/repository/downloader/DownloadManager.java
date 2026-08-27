@@ -26,6 +26,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
@@ -220,18 +221,24 @@ public class DownloadManager {
           rewriter.updateAuthHeaders(rewrittenUrlMappings, authHeaders, netrcCreds);
     }
 
-    URI mainUrl; // The "main" URL for this request
-    // Used for reporting only and determining the file name only.
+    URI mainUrl; // The "main" URL for this request, used for reporting.
+    // The URL used to derive the download's file name. When the rewriter blocks all URLs, this
+    // falls back to the first original URL so that its extension (used, e.g., by
+    // download_and_extract to infer the archive type) is preserved instead of being lost to the
+    // "cacheprobe" placeholder.
+    URI fileNameUrl;
     if (rewrittenUrls.isEmpty()) {
       if (type.isPresent() && !Strings.isNullOrEmpty(type.get())) {
         mainUrl = URI.create("http://nonexistent.example.org/cacheprobe." + type.get());
       } else {
         mainUrl = URI.create("http://nonexistent.example.org/cacheprobe");
       }
+      fileNameUrl = Iterables.getFirst(originalUrls, mainUrl);
     } else {
       mainUrl = rewrittenUrls.get(0);
+      fileNameUrl = mainUrl;
     }
-    Path destination = getDownloadDestination(mainUrl, type, output);
+    Path destination = getDownloadDestination(fileNameUrl, type, output);
     ImmutableSet<String> candidateFileNames = getCandidateFileNames(mainUrl, destination);
 
     // Is set to true if the value should be cached by the checksum value provided
@@ -460,8 +467,8 @@ public class DownloadManager {
     for (int attempt = 0; ; ++attempt) {
       try {
         content =
-            bzlmodHttpDownloader.downloadAndReadOneUrl(
-                rewrittenUrls.get(0),
+            bzlmodHttpDownloader.downloadAndRead(
+                rewrittenUrls,
                 credentialFactory.create(authHeaders),
                 checksum,
                 eventHandler,

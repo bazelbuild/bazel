@@ -25,8 +25,10 @@ public final class SkyFunctions {
       SkyFunctionName.createNonHermetic("CLIENT_ENVIRONMENT_VARIABLE");
   public static final SkyFunctionName ACTION_ENVIRONMENT_VARIABLE =
       SkyFunctionName.createHermetic("ACTION_ENVIRONMENT_VARIABLE");
+  // Non-hermetic because its values are injected per-variable and invalidated on deletion, exactly
+  // like CLIENT_ENVIRONMENT_VARIABLE (see SkyframeExecutor#handleRepositoryEnvironmentChanges).
   public static final SkyFunctionName REPOSITORY_ENVIRONMENT_VARIABLE =
-      SkyFunctionName.createHermetic("REPOSITORY_ENVIRONMENT_VARIABLE");
+      SkyFunctionName.createNonHermetic("REPOSITORY_ENVIRONMENT_VARIABLE");
   public static final SkyFunctionName DIRECTORY_LISTING_STATE =
       SkyFunctionName.createNonHermetic("DIRECTORY_LISTING_STATE");
   public static final SkyFunctionName DIRECTORY_LISTING =

@@ -292,6 +292,11 @@ public interface SpawnRunner {
 
     /** Returns the environment of the Bazel client. */
     ImmutableMap<String, String> getClientEnv();
+
+    /** Returns whether caches for this spawn should be busted. */
+    default boolean bustCaches() {
+      return false;
+    }
   }
 
   /** Partial implementation of {@link SpawnExecutionContext}. */
@@ -303,6 +308,11 @@ public interface SpawnRunner {
         Spawn spawn, ActionExecutionContext actionExecutionContext) {
       this.spawn = checkNotNull(spawn);
       this.actionExecutionContext = checkNotNull(actionExecutionContext);
+    }
+
+    @Override
+    public boolean bustCaches() {
+      return actionExecutionContext.bustCaches();
     }
 
     @Override
@@ -399,8 +409,10 @@ public interface SpawnRunner {
    *     entries
    * @param treeDeleter scheduler for tree deletions
    * @throws IOException if there are problems deleting the entries
+   * @throws InterruptedException if the cleanup is interrupted
    */
-  default void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter) throws IOException {}
+  default void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter)
+      throws IOException, InterruptedException {}
 
   /**
    * Returns a {@link SpawnResult.Builder} prepopulated with the runner name and the spawn digest.

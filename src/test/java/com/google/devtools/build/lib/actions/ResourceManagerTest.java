@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.worker.Worker;
 import com.google.devtools.build.lib.worker.WorkerKey;
+import com.google.devtools.build.lib.worker.WorkerPool;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import com.google.devtools.build.lib.worker.WorkerTestUtils;
@@ -137,8 +138,7 @@ public final class ResourceManagerTest {
     return acquire(ram, cpu, extraResources, tests, ResourcePriority.LOCAL);
   }
 
-  private void release(ResourceHandle resourceHandle)
-      throws IOException, InterruptedException, UserExecException {
+  private void release(ResourceHandle resourceHandle) throws IOException, InterruptedException {
     manager.releaseResources(resourceHandle.getRequest(), /* worker= */ null);
   }
 
@@ -736,7 +736,11 @@ public final class ResourceManagerTest {
 
   @Test
   public void testCPULoadScheduling_cantAcquireWhileWindowFull() throws Exception {
-    manager.initializeCpuLoadFunctionality(machineLoadProvider, true, Duration.ofSeconds(5));
+    manager.initializeLoadFunctionality(
+        machineLoadProvider,
+        /* cpuLoadScheduling= */ true,
+        /* memoryLoadScheduling= */ false,
+        Duration.ofSeconds(5));
     // Acquire 1 CPU
     acquire(0, 1, 0);
     // Set load only for 0.1 CPU
@@ -757,7 +761,11 @@ public final class ResourceManagerTest {
 
   @Test
   public void testCPULoadScheduling_cantAcquireWhileCpuLoaded() throws Exception {
-    manager.initializeCpuLoadFunctionality(machineLoadProvider, true, Duration.ofSeconds(5));
+    manager.initializeLoadFunctionality(
+        machineLoadProvider,
+        /* cpuLoadScheduling= */ true,
+        /* memoryLoadScheduling= */ false,
+        Duration.ofSeconds(5));
     // Acquire 1 CPU
     acquire(0, 1, 0);
     when(machineLoadProvider.getCurrentCpuUsage()).thenReturn(0.9);
@@ -779,7 +787,11 @@ public final class ResourceManagerTest {
 
   @Test
   public void testCPULoadScheduling_success() throws Exception {
-    manager.initializeCpuLoadFunctionality(machineLoadProvider, true, Duration.ofSeconds(5));
+    manager.initializeLoadFunctionality(
+        machineLoadProvider,
+        /* cpuLoadScheduling= */ true,
+        /* memoryLoadScheduling= */ false,
+        Duration.ofSeconds(5));
     // Acquire 1 CPU
     acquire(0, 1, 0);
     // Set load only for 0.1 CPU
@@ -798,8 +810,145 @@ public final class ResourceManagerTest {
   }
 
   @Test
+  public void testMemoryLoadScheduling_success() throws Exception {
+    manager.initializeLoadFunctionality(
+        machineLoadProvider,
+        /* cpuLoadScheduling= */ false,
+        /* memoryLoadScheduling= */ true,
+        Duration.ofSeconds(5));
+    // Acquire 100 memory
+    acquire(100, 0, 0);
+    // Set load for 100 memory
+    when(machineLoadProvider.getCurrentMemoryUsageMb()).thenReturn(100.0);
+    TestThread thread =
+        new TestThread(
+            () -> {
+              ResourceHandle handle = acquire(100, 0, 0);
+              release(handle);
+            });
+    manager.windowUpdate();
+
+    thread.start();
+
+    thread.joinAndAssertState(10000);
+  }
+
+  @Test
+  public void testMemoryLoadScheduling_cantAcquireWhileMemoryLoaded() throws Exception {
+    manager.initializeLoadFunctionality(
+        machineLoadProvider,
+        /* cpuLoadScheduling= */ false,
+        /* memoryLoadScheduling= */ true,
+        Duration.ofSeconds(5));
+    // Acquire 100 memory
+    acquire(100, 0, 0);
+    when(machineLoadProvider.getCurrentMemoryUsageMb()).thenReturn(950.0);
+    TestThread thread =
+        new TestThread(
+            () -> {
+              ResourceHandle handle = acquire(100, 0, 0);
+              release(handle);
+            });
+    manager.windowUpdate();
+
+    thread.start();
+
+    // Can't allocate because memory load is too high (950 + 100 > 1000).
+    AssertionError e = assertThrows(AssertionError.class, () -> thread.joinAndAssertState(1000));
+    assertThat(e).hasCauseThat().hasMessageThat().contains("is still alive");
+  }
+
+  @Test
+  public void testScaledCpuRequestSucceeds() throws Exception {
+    ResourceHandle handle = acquire(0, 1.5, 0);
+    release(handle);
+  }
+
+  @Test
+  public void testCPULoadScheduling_unavailableCpuFailsWithoutAllowOneAction() throws Exception {
+    manager.initializeLoadFunctionality(
+        machineLoadProvider,
+        /* cpuLoadScheduling= */ true,
+        /* memoryLoadScheduling= */ false,
+        Duration.ofSeconds(5));
+    when(machineLoadProvider.getCurrentCpuUsage()).thenReturn(1.0);
+
+    for (double[] cpu : new double[][] {{-1, 1}, {0, 1}, {1, 2}}) {
+      manager.setAvailableResources(
+          ResourceSet.create(/* memoryMb= */ 1000, /* cpu= */ cpu[0], /* localTestCount= */ 2));
+
+      TestThread thread =
+          new TestThread(
+              () -> {
+                UserExecException e =
+                    assertThrows(UserExecException.class, () -> acquire(0, cpu[1], 0));
+                assertThat(e.getFailureDetail().getLocalExecution().getCode())
+                    .isEqualTo(FailureDetails.LocalExecution.Code.NOT_ENOUGH_LOCAL_RESOURCE);
+              });
+      thread.setDaemon(true);
+      thread.start();
+      thread.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+    }
+  }
+
+  @Test
+  public void testUnavailableCpuFailsWhenWorkerQuotaUnavailable() throws Exception {
+    WorkerPool workerPool = mock(WorkerPool.class);
+    WorkerKey workerKey = createWorkerKey("dummy");
+    when(workerPool.hasAvailableQuota(workerKey)).thenReturn(false);
+    manager.setWorkerPool(workerPool);
+    ResourceSet resources =
+        ResourceSet.create(
+            ImmutableMap.of(ResourceSet.MEMORY, 0.0, ResourceSet.CPU, 2.0),
+            /* localTestCount= */ 0,
+            workerKey);
+
+    TestThread thread =
+        new TestThread(
+            () -> {
+              UserExecException e =
+                  assertThrows(
+                      UserExecException.class,
+                      () ->
+                          manager.acquireResources(
+                              resourceOwner, resources, ResourcePriority.LOCAL));
+              assertThat(e.getFailureDetail().getLocalExecution().getCode())
+                  .isEqualTo(FailureDetails.LocalExecution.Code.NOT_ENOUGH_LOCAL_RESOURCE);
+            });
+    thread.setDaemon(true);
+    thread.start();
+    thread.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+    assertThat(manager.getWaitCount()).isEqualTo(0);
+
+    manager.setAllowOneActionOnResourceUnavailable(true);
+    assertThat(manager.areResourcesAvailable(resources)).isFalse();
+  }
+
+  @Test
+  public void testUnavailableCpuFailsWhileCpuIsInUse() throws Exception {
+    ResourceHandle handle = acquire(0, 1, 0);
+
+    TestThread thread =
+        new TestThread(
+            () -> {
+              UserExecException e = assertThrows(UserExecException.class, () -> acquire(0, 2, 0));
+              assertThat(e.getFailureDetail().getLocalExecution().getCode())
+                  .isEqualTo(FailureDetails.LocalExecution.Code.NOT_ENOUGH_LOCAL_RESOURCE);
+            });
+    thread.setDaemon(true);
+    thread.start();
+    thread.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+    assertThat(manager.getWaitCount()).isEqualTo(0);
+    release(handle);
+  }
+
+  @Test
   public void testCPULoadScheduling_cantAcquireX3Cpu() throws Exception {
-    manager.initializeCpuLoadFunctionality(machineLoadProvider, true, Duration.ofSeconds(5));
+    manager.initializeLoadFunctionality(
+        machineLoadProvider,
+        /* cpuLoadScheduling= */ true,
+        /* memoryLoadScheduling= */ false,
+        Duration.ofSeconds(5));
     // Set load only for 0.1 CPU
     when(machineLoadProvider.getCurrentCpuUsage()).thenReturn(0.1);
     for (int i = 0; i < 3; i++) {
@@ -828,8 +977,7 @@ public final class ResourceManagerTest {
     assertThat(e).hasCauseThat().hasMessageThat().contains("is still alive");
   }
 
-  synchronized boolean isAvailable(ResourceManager rm, double ram, double cpu, int localTestCount)
-      throws UserExecException {
+  synchronized boolean isAvailable(ResourceManager rm, double ram, double cpu, int localTestCount) {
     return rm.areResourcesAvailable(ResourceSet.create(ram, cpu, localTestCount));
   }
 

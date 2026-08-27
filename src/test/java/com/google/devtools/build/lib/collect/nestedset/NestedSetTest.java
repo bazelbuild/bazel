@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -451,6 +452,24 @@ public final class NestedSetTest {
   }
 
   @Test
+  public void toListInterruptibly_propagatesSerializationException() {
+    NestedSet<String> deserializingNestedSet =
+        NestedSet.withFuture(
+            Order.STABLE_ORDER,
+            UNKNOWN_DEPTH,
+            immediateFailedFuture(new SerializationException("test exception")));
+    assertThrows(SerializationException.class, deserializingNestedSet::toListInterruptibly);
+  }
+
+  @Test
+  public void toListInterruptibly_propagatesCancellationAsMissingFingerprintValueException() {
+    NestedSet<String> deserializingNestedSet =
+        NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, immediateCancelledFuture());
+    assertThrows(
+        MissingFingerprintValueException.class, deserializingNestedSet::toListInterruptibly);
+  }
+
+  @Test
   public void toListWithTimeout_propagatesInterrupt() {
     NestedSet<String> deserializingNestedSet =
         NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, SettableFuture.create());
@@ -468,6 +487,27 @@ public final class NestedSetTest {
             UNKNOWN_DEPTH,
             immediateFailedFuture(
                 new MissingFingerprintValueException(getFingerprintForTesting("fingerprint"))));
+    assertThrows(
+        MissingFingerprintValueException.class,
+        () -> deserializingNestedSet.toListWithTimeout(Duration.ofNanos(1)));
+  }
+
+  @Test
+  public void toListWithTimeout_propagatesSerializationException() {
+    NestedSet<String> deserializingNestedSet =
+        NestedSet.withFuture(
+            Order.STABLE_ORDER,
+            UNKNOWN_DEPTH,
+            immediateFailedFuture(new SerializationException("test exception")));
+    assertThrows(
+        SerializationException.class,
+        () -> deserializingNestedSet.toListWithTimeout(Duration.ofNanos(1)));
+  }
+
+  @Test
+  public void toListWithTimeout_propagatesCancellationAsMissingFingerprintValueException() {
+    NestedSet<String> deserializingNestedSet =
+        NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, immediateCancelledFuture());
     assertThrows(
         MissingFingerprintValueException.class,
         () -> deserializingNestedSet.toListWithTimeout(Duration.ofNanos(1)));
@@ -639,36 +679,46 @@ public final class NestedSetTest {
   }
 
   @Test
-  public void interning_nestedSetOfString_isInterned() {
+  public void interning_multiElementNestedSetOfString_childrenArrayIsInterned() {
     NestedSet<String> nestedSetA = nestedSetBuilder("cat", "dog").build();
     NestedSet<String> nestedSetB = nestedSetBuilder("cat", "dog").build();
-    assertThat(nestedSetB).isSameInstanceAs(nestedSetA);
+    assertThat(nestedSetB.getChildren()).isSameInstanceAs(nestedSetA.getChildren());
+    assertThat(nestedSetB).isNotSameInstanceAs(nestedSetA);
     NestedSetInterner.clear();
     NestedSet<String> nestedSetC = nestedSetBuilder("cat", "dog").build();
-    assertThat(nestedSetC).isNotSameInstanceAs(nestedSetA);
+    assertThat(nestedSetC.getChildren()).isNotSameInstanceAs(nestedSetA.getChildren());
   }
 
   @Test
-  public void interning_nestedSetOfInteger_isNotInterned() {
+  public void interning_singletonNestedSetOfString_isNotInterned() {
+    NestedSet<String> singletonA = nestedSetBuilder("cat").build();
+    NestedSet<String> singletonB = nestedSetBuilder("cat").build();
+    assertThat(singletonB).isNotSameInstanceAs(singletonA);
+  }
+
+  @Test
+  public void interning_multiElementNestedSetOfInteger_isNotInterned() {
     NestedSet<Integer> nestedSetA = nestedSetBuilder(1, 2).build();
     NestedSet<Integer> nestedSetB = nestedSetBuilder(1, 2).build();
-    assertThat(nestedSetA).isNotSameInstanceAs(nestedSetB);
+    assertThat(nestedSetA.getChildren()).isNotSameInstanceAs(nestedSetB.getChildren());
   }
 
   @Test
-  public void interning_nestedSetOfArtifact_isInternedByArtifactIdentity() {
-    Artifact firstInstanceArtifactA = ActionsTestUtil.createArtifact(artifactRoot, "a");
-    Artifact secondInstanceArtifactA = ActionsTestUtil.createArtifact(artifactRoot, "a");
-    Artifact artifactB = ActionsTestUtil.createArtifact(artifactRoot, "b");
+  public void
+      interning_multiElementNestedSetOfArtifact_childrenArrayIsInternedByArtifactIdentity() {
+    Artifact a1 = ActionsTestUtil.createArtifact(artifactRoot, "a");
+    Artifact a2 = ActionsTestUtil.createArtifact(artifactRoot, "a");
+    Artifact b = ActionsTestUtil.createArtifact(artifactRoot, "b");
 
-    NestedSet<Artifact> firstInstanceNestedSetA = nestedSetBuilder(firstInstanceArtifactA).build();
-    assertThat(nestedSetBuilder(firstInstanceArtifactA).build())
-        .isSameInstanceAs(firstInstanceNestedSetA);
-    assertThat(nestedSetBuilder(secondInstanceArtifactA).build())
-        .isNotSameInstanceAs(firstInstanceNestedSetA);
-    assertThat(nestedSetBuilder(artifactB).build()).isNotSameInstanceAs(firstInstanceNestedSetA);
+    NestedSet<Artifact> a1bFirst = nestedSetBuilder(a1, b).build();
+    NestedSet<Artifact> a1bSecond = nestedSetBuilder(a1, b).build();
+    NestedSet<Artifact> a2b = nestedSetBuilder(a2, b).build();
+    assertThat(a1bSecond.getChildren()).isSameInstanceAs(a1bFirst.getChildren());
+    assertThat(a1bSecond).isNotSameInstanceAs(a1bFirst);
+    assertThat(a2b.getChildren()).isNotSameInstanceAs(a1bFirst.getChildren());
+    assertThat(a2b.toList().getFirst()).isSameInstanceAs(a2);
     NestedSetInterner.clear();
-    assertThat(nestedSetBuilder(firstInstanceArtifactA).build())
-        .isNotSameInstanceAs(firstInstanceNestedSetA);
+    assertThat(nestedSetBuilder(a1, b).build().getChildren())
+        .isNotSameInstanceAs(a1bFirst.getChildren());
   }
 }

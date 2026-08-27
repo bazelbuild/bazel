@@ -24,7 +24,7 @@ import javax.annotation.Nullable;
  * <p>Starlark typing is an experimental feature under development. See the tracking issue:
  * https://github.com/bazelbuild/bazel/issues/27370
  */
-public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
+public abstract non-sealed class StarlarkType implements TypeConstructor.Term {
 
   /**
    * Returns the list of supertypes of this type.
@@ -38,7 +38,7 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    */
   // TODO: #27370 - Add getSubtypes(), with the semantics that the actual subtype relation is the
   // union of these two methods.
-  public List<StarlarkType> getSupertypes() {
+  public List<StarlarkType> getSupertypes(TypeContext context) {
     return ImmutableList.of();
   }
 
@@ -54,7 +54,7 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    * <p>See {@link #getSupertypes()} for subtype/supertype relation with other (non-{@link
    * #toRvalue}) subclasses of {@link StarlarkType}.
    */
-  public boolean assignableFromHook(StarlarkType t) {
+  public boolean assignableFromHook(StarlarkType t, TypeContext context) {
     return this.equals(t);
   }
 
@@ -76,7 +76,7 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    * <p>The Python glossary uses the term "assignable [to/from]" for this relation, and
    * "materialization" to refer to the process of substituting {@code Any}.
    */
-  public static boolean assignableFrom(StarlarkType t1, StarlarkType t2) {
+  public static boolean assignableFrom(StarlarkType t1, StarlarkType t2, TypeContext context) {
     if (t1.equals(Types.ANY) || t2.equals(Types.ANY)) {
       return true;
     }
@@ -89,16 +89,17 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
     if (t1.equals(t2)) {
       return true;
     }
-    if (t1.assignableFromHook(t2)) {
+    if (t1.assignableFromHook(t2, context)) {
       return true;
     }
     if (t2 instanceof Types.UnionType union2) {
-      return union2.getTypes().stream().allMatch(sub2 -> assignableFrom(t1, sub2));
+      return union2.getTypes().stream().allMatch(sub2 -> assignableFrom(t1, sub2, context));
     }
     if (t1 instanceof Types.UnionType union1) {
-      return union1.getTypes().stream().anyMatch(sub1 -> assignableFrom(sub1, t2));
+      return union1.getTypes().stream().anyMatch(sub1 -> assignableFrom(sub1, t2, context));
     }
-    if (t2.getSupertypes().stream().anyMatch(super2 -> assignableFrom(t1, super2))) {
+    if (t2.getSupertypes(context).stream()
+        .anyMatch(super2 -> assignableFrom(t1, super2, context))) {
       return true;
     }
     return false;
@@ -115,8 +116,8 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    * {@code list[int]} is consistent-equals to {@code list[Any]} because {@code int} is
    * consistent-equals to {@code Any}.
    */
-  public static boolean consistentEquals(StarlarkType t1, StarlarkType t2) {
-    return assignableFrom(t1, t2) && assignableFrom(t2, t1);
+  public static boolean consistentEquals(StarlarkType t1, StarlarkType t2, TypeContext context) {
+    return assignableFrom(t1, t2, context) && assignableFrom(t2, t1, context);
   }
 
   /**
@@ -189,8 +190,8 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    *     not a truthiness, equality, or ordering comparison operator (in other words, not {@link
    *     TokenKind#AND}, {@link TokenKind#OR}, {@link TokenKind#EQUALS}, {@link
    *     TokenKind#NOT_EQUALS}, {@link TokenKind#LESS}, {@link TokenKind#LESS_EQUALS}, {@link
-   *     TokenKind#GREATER}, or {@link TokenKind#GREATER_EQUALS}); those are handled specially by
-   *     {@link TypeChecker#infer}.
+   *     TokenKind#GREATER}, or {@link TokenKind#GREATER_EQUALS}), and not tuple multiplication;
+   *     those are handled specially by {@link TypeChecker#inferBinaryOperator}.
    * @param that a non-union, non-Never type of the other operand
    * @param thisLeft true iff this type is the type of the LHS operand.
    * @return the inferred type of the operation, or {@code null} to indicate that we could not infer
@@ -199,16 +200,36 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    *     operators on certain built-in types (e.g. tuple multiplication).
    */
   @Nullable
-  StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+  public StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
     return null;
+  }
+
+  /**
+   * Infers the return type of some binary operations. Intended for use by {@link TypeChecker}.
+   *
+   * @param operator a binary operator (one of {@link BinaryOperatorExpression#operators}) which is
+   *     not a truthiness, equality, or ordering comparison operator (in other words, not {@link
+   *     TokenKind#AND}, {@link TokenKind#OR}, {@link TokenKind#EQUALS}, {@link
+   *     TokenKind#NOT_EQUALS}, {@link TokenKind#LESS}, {@link TokenKind#LESS_EQUALS}, {@link
+   *     TokenKind#GREATER}, or {@link TokenKind#GREATER_EQUALS}), and not tuple multiplication;
+   *     those are handled specially by {@link TypeChecker#inferBinaryOperator}.
+   */
+  @Nullable
+  public static StarlarkType inferBinaryOperator(
+      StarlarkType lhs, TokenKind operator, StarlarkType rhs) {
+    StarlarkType result = lhs.inferBinaryOperator(operator, rhs, true);
+    if (result == null) {
+      result = rhs.inferBinaryOperator(operator, lhs, false);
+    }
+    return result;
   }
 
   /**
    * Returns true iff the values of the two arbitrary (possibly union) types can be ordering
    * compared.
    */
-  public static boolean comparable(StarlarkType x, StarlarkType y) {
-    return x.isComparable(y) || y.isComparable(x);
+  public static boolean comparable(StarlarkType x, StarlarkType y, TypeContext context) {
+    return x.isComparable(y, context) || y.isComparable(x, context);
   }
 
   /**
@@ -218,7 +239,7 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    *
    * <p>Do not call this method directly; instead, use {@link #comparable}.
    */
-  protected boolean isComparable(StarlarkType that) {
+  protected boolean isComparable(StarlarkType that, TypeContext context) {
     return false;
   }
 
@@ -236,5 +257,10 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    */
   public boolean hasSetField() {
     return false;
+  }
+
+  @Override
+  public boolean isOrEvaluatesToStarlarkType() {
+    return true;
   }
 }

@@ -156,14 +156,15 @@ public class HttpConnectorMultiplexerTest {
             ImmutableList.of("gzip"),
             "User-Agent",
             ImmutableList.of("Bazel/testing"));
+    URI originalUrl = new URI("http://hosting.example.com/user/foo/file.txt");
     ImmutableMap<URI, Map<String, List<String>>> additionalHeaders =
         ImmutableMap.of(
-            new URI("http://hosting.example.com/user/foo/file.txt"),
+            originalUrl,
             ImmutableMap.of("Authentication", ImmutableList.of("Zm9vOmZvb3NlY3JldA==")));
 
     Function<URI, ImmutableMap<String, List<String>>> headerFunction =
         HttpConnectorMultiplexer.getHeaderFunction(
-            baseHeaders, new StaticCredentials(additionalHeaders), eventHandler);
+            originalUrl, baseHeaders, new StaticCredentials(additionalHeaders), eventHandler);
 
     // Unrelated URL
     assertThat(headerFunction.apply(URI.create("http://example.org/some/path/file.txt")))
@@ -216,11 +217,50 @@ public class HttpConnectorMultiplexerTest {
         ImmutableMap.of("Authentication", ImmutableList.of("YW5vbnltb3VzOmZvb0BleGFtcGxlLm9yZw=="));
     Function<URI, ImmutableMap<String, List<String>>> combinedHeaders =
         HttpConnectorMultiplexer.getHeaderFunction(
-            annonAuth, new StaticCredentials(additionalHeaders), eventHandler);
+            originalUrl, annonAuth, new StaticCredentials(additionalHeaders), eventHandler);
     assertThat(combinedHeaders.apply(URI.create("http://hosting.example.com/user/foo/file.txt")))
         .containsExactly("Authentication", ImmutableList.of("Zm9vOmZvb3NlY3JldA=="));
     assertThat(combinedHeaders.apply(URI.create("http://unreleated.example.org/user/foo/file.txt")))
         .containsExactly(
             "Authentication", ImmutableList.of("YW5vbnltb3VzOmZvb0BleGFtcGxlLm9yZw=="));
+  }
+
+  @Test
+  public void testHeaderComputationFunction_crossOriginStripsSensitiveHeaders() throws Exception {
+    ImmutableMap<String, List<String>> baseHeaders =
+        ImmutableMap.of(
+            "Authorization", ImmutableList.of("Bearer token"),
+            "Proxy-Authorization", ImmutableList.of("Basic proxy"),
+            "Cookie", ImmutableList.of("session=123"),
+            "Cookie2", ImmutableList.of("$Version=1"),
+            "User-Agent", ImmutableList.of("Bazel/testing"));
+
+    URI originalUrl = URI.create("http://EXAMPLE.COM/file.txt");
+
+    Function<URI, ImmutableMap<String, List<String>>> headerFunction =
+        HttpConnectorMultiplexer.getHeaderFunction(
+            originalUrl, baseHeaders, StaticCredentials.EMPTY, eventHandler);
+
+    // Same origin (case-insensitive host matching e.g. EXAMPLE.COM vs example.com and default port
+    // 80 normalization)
+    assertThat(headerFunction.apply(URI.create("http://example.com:80/other.txt")))
+        .containsExactly(
+            "Authorization", ImmutableList.of("Bearer token"),
+            "Proxy-Authorization", ImmutableList.of("Basic proxy"),
+            "Cookie", ImmutableList.of("session=123"),
+            "Cookie2", ImmutableList.of("$Version=1"),
+            "User-Agent", ImmutableList.of("Bazel/testing"));
+
+    // Cross origin (host change)
+    assertThat(headerFunction.apply(URI.create("http://other.org/file.txt")))
+        .containsExactly("User-Agent", ImmutableList.of("Bazel/testing"));
+
+    // Cross origin (port change)
+    assertThat(headerFunction.apply(URI.create("http://example.com:8080/file.txt")))
+        .containsExactly("User-Agent", ImmutableList.of("Bazel/testing"));
+
+    // Cross origin (scheme change)
+    assertThat(headerFunction.apply(URI.create("https://example.com/file.txt")))
+        .containsExactly("User-Agent", ImmutableList.of("Bazel/testing"));
   }
 }

@@ -444,14 +444,15 @@ public class ExecutionTool {
             .mode()
             .isRetrievalEnabled()) {
           // When remote analysis value retrieval is enabled, it is possible for analysis to occur
-          // during the logical execution phase. Discarding the analysis cache can lead to crashes.
+          // during the logical execution phase. Discarding the analysis cache fully can lead to
+          // crashes.
           //
           // TODO: b/466388360 - consider alternatives
           getReporter()
               .handle(
                   Event.warn(
-                      "Remote analysis caching is enabled. Not discarding the analysis cache."));
-          shouldDiscardAnalysisCache = false;
+                      "Remote analysis caching is enabled. Performing only a partial analysis cache"
+                          + " discard."));
         }
       }
       if (shouldDiscardAnalysisCache) {
@@ -471,7 +472,7 @@ public class ExecutionTool {
               // If this supplier is ever consumed by more than one ActionContextProvider, it can be
               // pulled out of the loop and made a memoizing supplier.
               () -> TopLevelArtifactHelper.findAllTopLevelArtifacts(analysisResult),
-              /* ephemeralCheckIfOutputConsumed= */ null);
+              skyframeExecutor.getEphemeralCheckIfOutputConsumed());
         }
       }
       skyframeExecutor.drainChangedFiles();
@@ -590,7 +591,8 @@ public class ExecutionTool {
           buildResult,
           buildResultListener.getAnalyzedTargets(),
           buildResultListener.getSkippedTargets(),
-          buildResultListener.getAnalyzedAspects());
+          buildResultListener.getAnalyzedAspects(),
+          buildResultListener.getTargetRootCauses());
     }
 
     if (explanationHandler != null) {
@@ -668,7 +670,7 @@ public class ExecutionTool {
                           .setCode(FailureDetails.SymlinkForest.Code.CREATION_FAILED))
                   .build()),
           e);
-      }
+    }
   }
 
   private static void logDeleteTreeFailure(
@@ -972,6 +974,7 @@ public class ExecutionTool {
                 .setEnabled(options.getUseActionCache())
                 .setStoreOutputMetadata(
                     outputService.shouldStoreRemoteOutputMetadataInActionCache())
+                .setBustActionCachesTarget(options.getBustActionCachesTarget())
                 .build()),
         actionExecutionSalt,
         modifiedOutputFiles,
@@ -989,11 +992,12 @@ public class ExecutionTool {
             options.getLocalResources(),
             options.usingLocalTestJobs() ? options.getLocalTestJobs() : Integer.MAX_VALUE));
 
-    resourceMgr.initializeCpuLoadFunctionality(
+    resourceMgr.initializeLoadFunctionality(
         MachineLoadProvider.instance(),
         options.getExperimentalCpuLoadScheduling(),
+        options.getExperimentalMemoryLoadScheduling(),
         options.getExperimentalCpuLoadSchedulingWindowSize());
-    resourceMgr.scheduleCpuLoadWindowUpdate();
+    resourceMgr.scheduleLoadWindowUpdate();
 
     resourceMgr.setAllowOneActionOnResourceUnavailable(
         options.getAllowOneActionOnResourceUnavailable());

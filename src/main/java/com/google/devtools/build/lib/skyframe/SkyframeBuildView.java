@@ -104,7 +104,6 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor.ConfigureTargetsR
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.FailureToRetrieveIntrospectedValueException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.TopLevelActionConflictReport;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -941,8 +940,7 @@ public final class SkyframeBuildView {
           buildResultListener.getAnalyzedTargets(),
           buildResultListener.getAnalyzedAspects().keySet());
     }
-    if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().mode()
-        == RemoteAnalysisCacheMode.UPLOAD) {
+    if (skyframeExecutor.getRemoteAnalysisCachingDependenciesProvider().mode().isSyncUpload()) {
       skyframeExecutor.clearPackageValues();
     }
 
@@ -1219,7 +1217,7 @@ public final class SkyframeBuildView {
     return cts.build();
   }
 
-  private static ImmutableMap<AspectKey, ConfiguredAspect> getSuccessfulAspectMap(
+  private ImmutableMap<AspectKey, ConfiguredAspect> getSuccessfulAspectMap(
       int expectedSize,
       EvaluationResult<SkyValue> evaluationResult,
       Set<BuildDriverKey> buildDriverAspectKeys,
@@ -1233,12 +1231,23 @@ public final class SkyframeBuildView {
         continue;
       }
       BuildDriverValue value = (BuildDriverValue) evaluationResult.get(bdAspectKey);
-      if (value == null) {
-        // Skip aspects that couldn't be applied to targets.
-        continue;
+      TopLevelAspectsValue topLevelAspectsValue = null;
+      if (value != null) {
+        topLevelAspectsValue = (TopLevelAspectsValue) value.getWrappedSkyValue();
+      } else {
+        try {
+          topLevelAspectsValue =
+              (TopLevelAspectsValue)
+                  skyframeExecutor.getDoneSkyValueForIntrospection(
+                      bdAspectKey.getActionLookupKey());
+        } catch (FailureToRetrieveIntrospectedValueException e) {
+          // Skip aspects that couldn't be analyzed.
+          continue;
+        }
       }
-      TopLevelAspectsValue topLevelAspectsValue = (TopLevelAspectsValue) value.getWrappedSkyValue();
-      aspects.putAll(topLevelAspectsValue.getTopLevelAspectsMap());
+      if (topLevelAspectsValue != null) {
+        aspects.putAll(topLevelAspectsValue.getTopLevelAspectsMap());
+      }
     }
     return aspects.buildOrThrow();
   }
@@ -1373,7 +1382,8 @@ public final class SkyframeBuildView {
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable NestedSet<Package.Metadata> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
-      boolean crashIfExecutionPhase)
+      boolean crashIfExecutionPhase,
+      boolean dependsOnFileKey)
       throws InterruptedException,
           ActionConflictException,
           InvalidExecGroupException,
@@ -1412,7 +1422,8 @@ public final class SkyframeBuildView {
         toolchainContexts,
         transitivePackages,
         execGroupCollectionBuilder,
-        starlarkExecTransition.orElse(null));
+        starlarkExecTransition.orElse(null),
+        dependsOnFileKey);
   }
 
   /**

@@ -51,8 +51,9 @@ import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue.WithRichData;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
+import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsValue;
@@ -136,6 +137,17 @@ public final class FrontierSerializer {
       return Optional.empty();
     }
 
+    FingerprintValueService fingerprintValueService =
+        serializationDependenciesProvider.getFingerprintValueService();
+    if (fingerprintValueService == null) {
+      return Optional.of(
+          createFailureDetail(
+              "Remote analysis cache initialization failed (FingerprintValueService is null).",
+              Code.UPLOAD_FAILED));
+    }
+    KeyValueWriter fileInvalidationWriter =
+        serializationDependenciesProvider.getFileInvalidationWriter();
+
     ObjectCodecs codecs = requireNonNull(serializationDependenciesProvider.getObjectCodecs());
     FrontierNodeVersion frontierVersion = serializationDependenciesProvider.getSkyValueVersion();
     String profilePath = serializationDependenciesProvider.getSerializedFrontierProfile();
@@ -188,13 +200,14 @@ public final class FrontierSerializer {
             codecs,
             frontierVersion,
             selectedKeys,
-            serializationDependenciesProvider.getFingerprintValueService(),
-            serializationDependenciesProvider.getFileInvalidationWriter(),
+            fingerprintValueService,
+            fileInvalidationWriter,
             shouldDiscardMemory,
             eventBus,
             profileCollector,
             serializationStats,
-            serializationDependenciesProvider.getEmitUploadedEvents());
+            serializationDependenciesProvider.getEmitUploadedEvents(),
+            requireNonNull(serializationDependenciesProvider.getFileOpNodes()));
 
     try {
       // Waits for the write to complete uninterruptibly. This avoids returning to the caller
@@ -206,20 +219,12 @@ public final class FrontierSerializer {
         return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
       }
 
-      FingerprintValueStore.Stats stats =
-          serializationDependenciesProvider.getFingerprintValueService().getStats();
-
       reporter.handle(
           Event.info(
               String.format(
-                  "Serialized %s/%s analysis/execution nodes into %s/%s key/value bytes and %s"
-                      + " entries (%s batches) in %s",
+                  "Skycache sync write: serialized %s/%s analysis/execution nodes in %s",
                   serializationStats.analysisNodes(),
                   serializationStats.executionNodes(),
-                  stats.keyBytesSent(),
-                  stats.valueBytesSent(),
-                  stats.entriesWritten(),
-                  stats.setBatches(),
                   stopwatch)));
     } catch (ExecutionException e) {
       // The writeStatus future is not known to throw any ExecutionExceptions.

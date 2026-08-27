@@ -277,10 +277,21 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @Override
   public ThreadSafeMutableSet<Target> getTransitiveClosure(
       ThreadSafeMutableSet<Target> targetNodes, QueryExpressionContext<Target> context) {
+    return getTransitiveClosure(targetNodes, context, createThreadSafeMutableSet());
+  }
+
+  @Override
+  public ThreadSafeMutableSet<Target> getTransitiveClosure(
+      ThreadSafeMutableSet<Target> targetNodes,
+      QueryExpressionContext<Target> context,
+      ThreadSafeMutableSet<Target> visited) {
     for (Target node : targetNodes) {
       checkBuilt(node);
     }
-    return getTargetsFromNodes(graph.getFwdReachable(getNodes(targetNodes)));
+    ThreadSafeMutableSet<Target> tc =
+        getTargetsFromNodes(graph.getFwdReachable(getNodes(targetNodes)));
+    visited.addAll(tc);
+    return visited;
   }
 
   /**

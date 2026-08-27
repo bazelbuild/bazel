@@ -1771,36 +1771,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     checkError("//foo", "Trying to link twice");
   }
 
-  @Test
-  public void testImplicitOutputsWhitelistOnWhitelist() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
-    scratch.overwriteFile(
-        "tools/build_defs/cc/whitelists/cc_lib_implicit_outputs/BUILD",
-        """
-        package_group(
-            name = 'allowed_cc_lib_implicit_outputs',
-            packages = ['//bar'])
-        """);
-
-    scratch.file(
-        "bar/BUILD",
-        """
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        filegroup(
-            name = 'allowed',
-            srcs = [':liballowed_cc_lib.a'],
-        )
-        cc_library(
-            name = 'allowed_cc_lib',
-            srcs = ['allowed_cc_lib.cc'],
-        )
-        """);
-    getConfiguredTarget("//bar:allowed");
-    assertNoEvents();
-  }
-
   private void prepareCustomTransition() throws Exception {
     scratch.file(
         "transition/custom_transition.bzl",

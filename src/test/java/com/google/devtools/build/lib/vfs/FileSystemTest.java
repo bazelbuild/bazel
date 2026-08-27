@@ -1869,13 +1869,8 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testStatFailsFastOnNonExistingFiles() throws Exception {
+  public void testStatThrowsForNonExistingFiles() throws Exception {
     assertThrows(IOException.class, () -> xNothing.stat());
-  }
-
-  @Test
-  public void testStatNullableFailsFastOnNonExistingFiles() throws Exception {
-    assertThat(xNothing.statNullable()).isNull();
   }
 
   @Test

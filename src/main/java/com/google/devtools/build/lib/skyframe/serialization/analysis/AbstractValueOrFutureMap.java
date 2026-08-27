@@ -90,6 +90,18 @@ abstract class AbstractValueOrFutureMap<
   }
 
   /**
+   * Clears all entries from the underlying map for testing or benchmarking.
+   *
+   * <p>Concurrency Precondition Contract: Callers must guarantee that all futures ({@link
+   * SettableFutureKeyedValue}) are completed and the service is completely idle with zero in-flight
+   * requests prior to invocation. If an incomplete future completes after clearing, its
+   * asynchronous callback re-inserts a phantom entry into the map via {@link #accept}.
+   */
+  public void unsafeClearForTesting() {
+    map.clear();
+  }
+
+  /**
    * @deprecated only used by {@link FutureValueFactory#apply}
    */
   @Override

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionTemplate;
+import com.google.devtools.build.lib.actions.ActionTemplateOutputEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -176,6 +177,7 @@ public final class ArtifactFunction implements SkyFunction {
       var result = createTreeArtifactValueFromActionKey(artifactDependencies, env);
       if (result != null) {
         SkyValueRetrieverUtils.tryUploadAsync(remoteCachingDependencies, artifact, result, env);
+        env.getListener().post(new ActionTemplateOutputEvent(artifact, result));
       }
       return result;
     }
@@ -302,14 +304,13 @@ public final class ArtifactFunction implements SkyFunction {
           artifactDependencies);
     }
 
-    TreeArtifactValue tree = treeBuilder.build();
-    return tree;
+    return treeBuilder.build();
   }
 
   @Nullable
   private SkyValue createSourceValue(Artifact artifact, Environment env)
       throws InterruptedException, ArtifactFunctionException {
-    RootedPath path = RootedPath.toRootedPath(artifact.getRoot().getRoot(), artifact.getPath());
+    RootedPath path = artifact.getRootedPath();
     SkyKey fileSkyKey = FileValue.key(path);
     FileValue fileValue;
     try {

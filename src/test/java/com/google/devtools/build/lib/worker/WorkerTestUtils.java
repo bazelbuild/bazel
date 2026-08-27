@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Maps;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
@@ -71,7 +72,7 @@ public class WorkerTestUtils {
       String... args) {
     WorkerOptions workerOptions = Options.getDefaults(WorkerOptions.class);
     workerOptions.setWorkerMultiplex(multiplex);
-    workerOptions.setWorkerSandboxing(sandboxed);
+    workerOptions.setWorkerSandboxing(ImmutableList.of(Maps.immutableEntry("", sandboxed)));
 
     return createWorkerKeyFromOptions(
         protocolFormat,

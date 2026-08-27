@@ -97,6 +97,7 @@ import java.util.concurrent.Phaser;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -111,6 +112,7 @@ import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
 /** A common base class for Starlark "ctx" objects related to external dependencies. */
+@StarlarkBuiltin(name = "starlark_base_external_context", documented = false)
 public abstract class StarlarkBaseExternalContext implements AutoCloseable, StarlarkValue {
 
   /**
@@ -565,6 +567,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     return StarlarkInfo.create(StructProvider.STRUCT, out.buildOrThrow());
   }
 
+  @StarlarkBuiltin(name = "pending_download", documented = false)
   private class PendingDownload implements StarlarkValue, AsyncTask {
     private final boolean executable;
     private final boolean allowFail;
@@ -1174,15 +1177,18 @@ Strip the given number of leading components from file paths on extraction. Only
           .post(
               new ExtractProgress(
                   outputPath.getPath().toString(), "Extracting " + downloadedPath.getBaseName()));
-      DecompressorValue.decompress(
+      DecompressorDescriptor.Builder descriptorBuilder =
           DecompressorDescriptor.builder()
               .setContext(identifyingStringForLogging)
               .setArchivePath(downloadedPath)
               .setDestinationPath(outputPath.getPath())
-              .setPrefix(stripPrefix)
               .setStripComponents(stripComponents)
-              .setRenameFiles(renameFilesMap)
-              .build(),
+              .setRenameFiles(renameFilesMap);
+      if (!stripPrefix.isEmpty()) {
+        descriptorBuilder.setPrefix(stripPrefix);
+      }
+      DecompressorValue.decompress(
+          descriptorBuilder.build(),
           // Type does NOT need to be passed here, as the existing code renames the archive path to
           // include the type extension. The decompression code then uses the file extension to get
           // the proper decompressor.
@@ -1382,16 +1388,18 @@ Strip the given number of leading components from file paths on extraction. Only
         .post(
             new ExtractProgress(
                 outputPath.getPath().toString(), "Extracting " + archivePath.getBasename()));
-    DecompressorValue.decompress(
+    DecompressorDescriptor.Builder descriptorBuilder =
         DecompressorDescriptor.builder()
             .setContext(identifyingStringForLogging)
             .setArchivePath(archivePath.getPath())
             .setDestinationPath(outputPath.getPath())
-            .setPrefix(stripPrefix)
             .setStripComponents(stripComponents)
-            .setRenameFiles(renameFilesMap)
-            .build(),
-        Optional.ofNullable(type).filter(s -> !s.isBlank()));
+            .setRenameFiles(renameFilesMap);
+    if (!stripPrefix.isEmpty()) {
+      descriptorBuilder.setPrefix(stripPrefix);
+    }
+    DecompressorValue.decompress(
+        descriptorBuilder.build(), Optional.ofNullable(type).filter(s -> !s.isBlank()));
     env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
   }
 

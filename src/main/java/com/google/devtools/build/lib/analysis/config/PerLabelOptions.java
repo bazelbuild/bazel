@@ -40,14 +40,20 @@ public final class PerLabelOptions {
    * Converts a String to a {@link PerLabelOptions} object. The syntax of the string is {@code
    * regex_filter@option_1,option_2,...,option_n}. Where regex_filter stands for the String
    * representation of a {@link RegexFilter}, and {@code option_1} to {@code option_n} stand for
-   * arbitrary command line options. If an option contains a comma it has to be quoted with a
-   * backslash. Options can contain @. Only the first @ is used to split the string.
+   * arbitrary command line options. If an option contains a comma or an @ it has to be quoted with
+   * a backslash. Only the last unescaped @ is used to split the string.
    */
   public static class PerLabelOptionsConverter extends Converter.Contextless<PerLabelOptions> {
 
     @Override
     public PerLabelOptions convert(String input) throws OptionsParsingException {
-      int atIndex = input.indexOf('@');
+      int atIndex = -1;
+      for (int i = input.length() - 1; i >= 0; i--) {
+        if (input.charAt(i) == '@' && (i == 0 || input.charAt(i - 1) != '\\')) {
+          atIndex = i;
+          break;
+        }
+      }
       RegexFilterConverter converter = new RegexFilter.RegexFilterConverter();
       if (atIndex < 0) {
         return new PerLabelOptions(converter.convert(input), ImmutableList.of());
@@ -57,7 +63,7 @@ public final class PerLabelOptions {
         List<String> optionsList = new ArrayList<>();
         for (String option : optionsPiece.split("(?<!\\\\),")) { // Split on ',' but not on '\,'
           if (option != null && !option.trim().isEmpty()) {
-            optionsList.add(option.replace("\\,", ","));
+            optionsList.add(option.replace("\\,", ",").replace("\\@", "@"));
           }
         }
         return new PerLabelOptions(converter.convert(filterPiece), optionsList);

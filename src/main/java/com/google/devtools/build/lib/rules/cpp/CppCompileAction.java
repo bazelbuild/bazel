@@ -690,6 +690,11 @@ public class CppCompileAction extends AbstractAction
               .setSystemIncludeDirs(systemIncludeDirs)
               .setCmdlineIncludes(getCmdlineIncludes(options))
               .setIsValidUndeclaredHeader(getValidUndeclaredHeaderPredicate())
+              // Register generated prunable/toolchain headers as declared so the include scanner
+              // can resolve them; it never stats output-directory paths. Keep in sync with the
+              // matching call in the rediscovery path below. See
+              // IncludeScanningHeaderData.Builder#addDeclaredHeaders.
+              .addDeclaredHeaders(additionalPrunableHeaders)
               .build();
       additionalInputs = findUsedHeaders(actionExecutionContext, includeScanningHeaderData);
       if (additionalInputs == null) {
@@ -1448,7 +1453,10 @@ public class CppCompileAction extends AbstractAction
       throws ActionExecutionException, InterruptedException {
     PathMapper pathMapper =
         PathMappers.create(
-            this, PathMappers.getOutputPathsMode(configuration), /* isStarlarkAction= */ false);
+            this,
+            PathMappers.getOutputPathsMode(configuration),
+            /* isStarlarkAction= */ false,
+            actionExecutionContext.getInputMetadataProvider());
 
     ArgumentsAndParamFileActionInput argumentsAndParamFileActionInput =
         getArgumentsForExecute(pathMapper);
@@ -1699,10 +1707,17 @@ public class CppCompileAction extends AbstractAction
       DetailedExitCode code = createDetailedExitCode(message, Code.MODMAP_INPUT_FILE_READ_FAILURE);
       throw new ActionExecutionException(message, this, /* catastrophe= */ false, code);
     }
+    var pathMapper =
+        PathMappers.create(
+            this,
+            PathMappers.getOutputPathsMode(configuration),
+            /* isStarlarkAction= */ false,
+            actionExecutionContext.getInputMetadataProvider());
     // All module files referenced in the modmap input file are expected to be known modules. We
     // delegate error reporting to the compiler by silently skipping over unknown files.
     return moduleFiles.toList().stream()
-        .filter(moduleFile -> usedModulePaths.contains(moduleFile.getExecPathString()))
+        .filter(
+            moduleFile -> usedModulePaths.contains(pathMapper.getMappedExecPathString(moduleFile)))
         .collect(toImmutableSet());
   }
 
@@ -1948,6 +1963,11 @@ public class CppCompileAction extends AbstractAction
               includeScanningHeaderData
                   .setSystemIncludeDirs(getSystemIncludeDirs())
                   .setCmdlineIncludes(getCmdlineIncludes(getCompilerOptions()))
+                  // Register generated prunable/toolchain headers as declared so the include
+                  // scanner can resolve them; it never stats output-directory paths. Keep in sync
+                  // with the matching call in discoverInputs above. See
+                  // IncludeScanningHeaderData.Builder#addDeclaredHeaders.
+                  .addDeclaredHeaders(additionalPrunableHeaders)
                   .build());
       if (usedHeaders == null) {
         return null;

@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.analysis.Nest
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.NoMatch.NO_MATCH_RESULT;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FileOpMatch;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FileOpMatchResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FutureFileOpMatchResult;
@@ -36,7 +37,7 @@ public final class VersionedChangesValidatorTest {
 
   private final VersionedChanges changes = new VersionedChanges(ImmutableList.of());
   private final VersionedChangesValidator validator =
-      new VersionedChangesValidator(new ForkJoinPool(THREAD_COUNT), changes);
+      new VersionedChangesValidator(new SafeExecutorOwner(new ForkJoinPool(THREAD_COUNT)), changes);
 
   @Test
   public void matchesFileOpDependency_noMatch() throws Exception {

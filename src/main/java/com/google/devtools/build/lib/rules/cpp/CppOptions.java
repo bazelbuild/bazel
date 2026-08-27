@@ -160,14 +160,6 @@ public abstract class CppOptions extends FragmentOptions {
       help = "The C++ compiler to use for compiling the target.")
   public abstract String getCppCompiler();
 
-  @Option(
-      name = "host_compiler",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      help = "No-op flag. Will be removed in a future release.")
-  public abstract String getHostCppCompiler();
-
   // This is different from --platform_suffix in that that one is designed to facilitate the
   // migration to toolchains and this one is designed to eliminate the C++ toolchain identifier
   // from the output directory path.
@@ -394,7 +386,6 @@ public abstract class CppOptions extends FragmentOptions {
   @Option(
       name = "fdo_instrument",
       defaultValue = "null",
-      implicitRequirements = {"--copt=-Wno-error"},
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
@@ -429,7 +420,6 @@ public abstract class CppOptions extends FragmentOptions {
   @Option(
       name = "cs_fdo_instrument",
       defaultValue = "null",
-      implicitRequirements = {"--copt=-Wno-error"},
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
@@ -815,15 +805,6 @@ public abstract class CppOptions extends FragmentOptions {
           "If true, Bazel will not link library dependencies as whole archive by default "
               + "(see https://github.com/bazelbuild/bazel/issues/7362 for migration instructions).")
   public abstract boolean getRemoveLegacyWholeArchive();
-
-  @Option(
-      name = "incompatible_enable_cc_toolchain_resolution",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "No-op flag. Will be removed in a future release.")
-  public abstract boolean getEnableCcToolchainResolutionNoOp();
 
   @Option(
       name = "experimental_save_feature_state",

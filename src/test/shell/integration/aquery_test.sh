@@ -2083,9 +2083,67 @@ EOF
   assert_contains 'label: "output-\\303\\274n\\303\\257c\\303\\266d\\303\\253.txt"' output
 }
 
+function test_aquery_test_suite() {
+  add_rules_shell "MODULE.bazel"
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+    name = "foo",
+    srcs = ["foo.sh"],
+)
+
+test_suite(
+    name = "suite",
+    tests = [":foo"],
+)
+EOF
+  cat > "$pkg/foo.sh" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+  chmod +x "$pkg/foo.sh"
+
+  bazel aquery "deps(//$pkg:suite)" > output 2> "$TEST_log" || fail "Expected success"
+  assert_contains "//$pkg:foo" output
+}
+
 # Usage: assert_matches expected_pattern actual
 function assert_matches() {
   [[ "$2" =~ $1 ]] || fail "Expected to match '$1', was: $2"
+}
+
+function test_config_function() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "dep",
+    srcs = ["dep.in"],
+    outs = ["dep.out"],
+    cmd = "cat $(SRCS) > $(OUTS)",
+)
+
+genrule(
+    name = "foo",
+    srcs = ["foo.in", ":dep"],
+    outs = ["foo.out"],
+    cmd = "cat $(SRCS) > $(OUTS)",
+)
+EOF
+  touch "$pkg/foo.in" "$pkg/dep.in"
+
+  bazel aquery "config(deps(//$pkg:foo), target)" > output 2> "$TEST_log" || fail "Expected success"
+  assert_contains "//$pkg:foo" output
+  assert_contains "//$pkg:dep" output
+
+  bazel aquery "config(//$pkg:foo, null)" > output 2> "$TEST_log" && fail "Expected failure"
+  assert_contains "No target (in) //$pkg:foo could be found in the 'null' configuration" "$TEST_log"
+
+  bazel aquery "config(//$pkg:foo, unknown_config)" > output 2> "$TEST_log" && fail "Expected failure"
+  assert_contains "Unknown configuration ID 'unknown_config'" "$TEST_log"
 }
 
 run_suite "${PRODUCT_NAME} action graph query tests"

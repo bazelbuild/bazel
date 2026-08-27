@@ -33,7 +33,7 @@ android/ @ahumesky @ted-xie
 
 /src/main/java/com/google/devtools/build/lib/rules/apple @bazelbuild/rules_apple-team
 /src/test/java/com/google/devtools/build/lib/rules/apple @bazelbuild/rules_apple-team
-/src/test/shell/bazel/apple @allevato @davidgoldman @dmaclach @kelvinchan-google @reinhillman @thomasvl @bazelbuild/rules_apple-team
+/src/test/shell/bazel/apple @allevato @davidgoldman @dmaclach @reinhillmann @thomasvl @bazelbuild/rules_apple-team
 /tools/osx @bazelbuild/rules_apple-team
 
 # Bzlmod

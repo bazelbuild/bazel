@@ -69,6 +69,9 @@ message Action {
   // The mnemonic for this kind of action.
   string mnemonic = 4;
 
+  // The progress message of the action.
+  string progress_message = 21;
+
   // The configuration under which this action is executed.
   uint32 configuration_id = 5;
 

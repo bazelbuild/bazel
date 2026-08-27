@@ -33,8 +33,8 @@ public abstract class DeferredObjectCodec<T> implements ObjectCodec<T> {
    * <p>This interface should only be used by codec implementations and serialization code.
    */
   public interface DeferredValue<T> extends Callable<T> {
-    @Override // to remove the checked exception
-    T call();
+    @Override // to narrow the exception type.
+    T call() throws SerializationException;
   }
 
   /**

@@ -122,7 +122,7 @@ public final class TypeChecker extends NodeVisitor {
   }
 
   private void errorIfKeyNotInt(IndexExpression index, StarlarkType objType, StarlarkType keyType) {
-    if (!StarlarkType.assignableFrom(Types.INT, keyType)) {
+    if (!StarlarkType.assignableFrom(Types.INT, keyType, typeContext)) {
       errorf(
           index.getLbracketLocation(),
           "'%s' of type '%s' must be indexed by an integer, but got '%s'",
@@ -169,7 +169,7 @@ public final class TypeChecker extends NodeVisitor {
       case LAMBDA -> {
         var lambda = (LambdaExpression) expr;
         StarlarkType inferedReturnType = infer(lambda.getBody());
-        Types.CallableType originalType =
+        Types.GeneralCallableType originalType =
             checkNotNull(
                 typeTable.getType(lambda.getResolvedFunction()),
                 "type tagger should have set type for lambda expr '%s'",
@@ -178,7 +178,7 @@ public final class TypeChecker extends NodeVisitor {
           // Update the lambda function type with a more precise return type.
           typeTable.setType(
               lambda.getResolvedFunction(),
-              Types.callable(
+              Types.generalCallable(
                   originalType.getParameterNames(),
                   originalType.getParameterTypes(),
                   originalType.getNumPositionalOnlyParameters(),
@@ -241,7 +241,7 @@ public final class TypeChecker extends NodeVisitor {
         StarlarkType xType = infer(unop.getX());
         if (xType.equals(Types.ANY)
             || ((unop.getOperator() == TokenKind.MINUS || unop.getOperator() == TokenKind.PLUS)
-                && StarlarkType.assignableFrom(Types.NUMERIC, xType))
+                && StarlarkType.assignableFrom(Types.NUMERIC, xType, typeContext))
             || (unop.getOperator() == TokenKind.TILDE && xType.equals(Types.INT))) {
           // Unary operators other than NOT preserve the type of their operand.
           return xType;
@@ -383,7 +383,7 @@ public final class TypeChecker extends NodeVisitor {
         resultTypes.add(sequenceType.getElementType());
 
       } else if (objElemType instanceof Types.AbstractMappingType mappingType) {
-        if (!StarlarkType.assignableFrom(mappingType.getKeyType(), keyType)) {
+        if (!StarlarkType.assignableFrom(mappingType.getKeyType(), keyType, typeContext)) {
           errorf(
               index.getLbracketLocation(),
               "'%s' of type '%s' requires key type '%s', but got '%s'",
@@ -413,7 +413,7 @@ public final class TypeChecker extends NodeVisitor {
       step = 1;
       if (slice.getStep() != null) {
         StarlarkType stepType = infer(slice.getStep());
-        if (!StarlarkType.assignableFrom(Types.INT, stepType)) {
+        if (!StarlarkType.assignableFrom(Types.INT, stepType, typeContext)) {
           errorf(slice.getStep(), "got '%s' for slice step, want int", stepType);
           return Types.ANY;
         }
@@ -424,14 +424,14 @@ public final class TypeChecker extends NodeVisitor {
     }
     if (slice.getStart() != null) {
       StarlarkType startType = infer(slice.getStart());
-      if (!StarlarkType.assignableFrom(Types.INT, startType)) {
+      if (!StarlarkType.assignableFrom(Types.INT, startType, typeContext)) {
         errorf(slice.getStart(), "got '%s' for start index, want int", startType);
         return Types.ANY;
       }
     }
     if (slice.getStop() != null) {
       StarlarkType stopType = infer(slice.getStop());
-      if (!StarlarkType.assignableFrom(Types.INT, stopType)) {
+      if (!StarlarkType.assignableFrom(Types.INT, stopType, typeContext)) {
         errorf(slice.getStop(), "got '%s' for stop index, want int", stopType);
         return Types.ANY;
       }
@@ -511,13 +511,17 @@ public final class TypeChecker extends NodeVisitor {
       boolean augmentedAssignment) {
     // TokenKind operator = binop.getOperator();
     switch (operator) {
-      case AND, OR, EQUALS_EQUALS, NOT_EQUALS -> {
+      case EQUALS_EQUALS, NOT_EQUALS -> {
         // Boolean regardless of LHS and RHS.
         return Types.BOOL;
       }
+      case AND, OR -> {
+        // LHS | RHS
+        return Types.union(xType, yType);
+      }
       case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS -> {
         // Boolean or type error.
-        if (StarlarkType.comparable(xType, yType)) {
+        if (StarlarkType.comparable(xType, yType, typeContext)) {
           return Types.BOOL;
         }
         binaryOperatorError(xType, operator, operatorLocation, yType, augmentedAssignment);
@@ -532,18 +536,16 @@ public final class TypeChecker extends NodeVisitor {
         for (StarlarkType xElemType : xTypes) {
           for (StarlarkType yElemType : yTypes) {
             @Nullable
-            StarlarkType resultType = xElemType.inferBinaryOperator(operator, yElemType, true);
-            if (resultType == null) {
-              resultType = yElemType.inferBinaryOperator(operator, xElemType, false);
-            }
+            StarlarkType resultType =
+                StarlarkType.inferBinaryOperator(xElemType, operator, yElemType);
             if (resultType == null && operator == TokenKind.STAR) {
               // Tuple repetition is the only case where we need to examine the expressions.
               // TODO: #28037 - We can get rid of the tuple repetition special case if we
               // introduce ConstantIntType for integer constants.
-              if (StarlarkType.assignableFrom(Types.INT, xElemType)
+              if (StarlarkType.assignableFrom(Types.INT, xElemType, typeContext)
                   && yElemType instanceof Types.TupleType tuple) {
                 resultType = inferTupleRepetition(tuple, xExpr);
-              } else if (StarlarkType.assignableFrom(Types.INT, yElemType)
+              } else if (StarlarkType.assignableFrom(Types.INT, yElemType, typeContext)
                   && xElemType instanceof Types.TupleType tuple) {
                 resultType = inferTupleRepetition(tuple, yExpr);
               }
@@ -584,7 +586,7 @@ public final class TypeChecker extends NodeVisitor {
     }
 
     StarlarkType callFunctionType = infer(call.getFunction());
-    if (callFunctionType.equals(Types.ANY)) {
+    if (callFunctionType.equals(Types.ANY) || callFunctionType.equals(Types.ANY_CALLABLE)) {
       return Types.ANY;
     }
 
@@ -613,16 +615,13 @@ public final class TypeChecker extends NodeVisitor {
         return Types.ANY;
       }
 
-      // TODO: #28043 - Some of the checks below can be used to implement
-      // Types.CallableType.assignableFromHook().
-
       // Indices of residual arguments in call.getArguments() and their corresponding types in
       // argTypes. (Micro-optimization to avoid allocating <Argument, StarlarkType> pairs.)
       ArrayList<Integer> residualPositional = new ArrayList<>(0);
       ArrayList<Integer> residualNamed = new ArrayList<>(0);
       // Names of mandatory parameters (both positional and named) having a corresponding argument.
       ArrayList<String> seenMandatoryParameters =
-          new ArrayList<>(callable.getMandatoryParameters().size());
+          new ArrayList<>(callable.getNumMandatoryParameters());
       for (int i = 0; i < numArgs; i++) {
         Argument arg = call.getArguments().get(i);
         int parameterIndex;
@@ -646,15 +645,19 @@ public final class TypeChecker extends NodeVisitor {
         // Argument is not residual; check it against the corresponding parameter.
         String parameterName = callable.getParameterNames().get(parameterIndex);
         StarlarkType parameterType = callable.getParameterTypeByPos(parameterIndex);
-        if (callable.getMandatoryParameters().contains(parameterName)) {
+        if (callable.isMandatory(parameterIndex)) {
           seenMandatoryParameters.add(parameterName);
         }
-        if (!StarlarkType.assignableFrom(parameterType, argTypes.get(i))) {
+        if (!StarlarkType.assignableFrom(parameterType, argTypes.get(i), typeContext)) {
+          String parameterDescription =
+              callable instanceof Types.SimpleCallableType
+                  ? "#" + (parameterIndex + 1)
+                  : String.format("'%s'", parameterName);
           errorf(
               call.getArguments().get(i),
-              "in call to '%s()', parameter '%s' got value of type '%s', want '%s'",
+              "in call to '%s()', parameter %s got value of type '%s', want '%s'",
               call.getFunction(),
-              parameterName,
+              parameterDescription,
               argTypes.get(i),
               parameterType);
           return Types.ANY;
@@ -743,7 +746,7 @@ public final class TypeChecker extends NodeVisitor {
     static KwargsArgument of(Argument.StarStar arg, TypeChecker checker) {
       Expression kwargs = arg.getValue();
       StarlarkType kwargsType = checker.infer(kwargs);
-      StarlarkType kwargsValueType = findValueType(kwargsType);
+      StarlarkType kwargsValueType = findValueType(kwargsType, checker.typeContext);
       if (kwargsValueType == null) {
         checker.errorf(
             kwargs, "argument after ** must be a dict with string keys, not '%s'", kwargsType);
@@ -758,7 +761,7 @@ public final class TypeChecker extends NodeVisitor {
      * have such a supertype.
      */
     @Nullable
-    private static StarlarkType findValueType(StarlarkType maybeMapping) {
+    private static StarlarkType findValueType(StarlarkType maybeMapping, TypeContext context) {
       if (maybeMapping.equals(Types.ANY)) {
         return Types.ANY;
       }
@@ -767,7 +770,7 @@ public final class TypeChecker extends NodeVisitor {
       for (StarlarkType unfoldedElem : unfolded) {
         // TODO: #28037 - Check getSubtypes() instead of relying purely on Java inheritance.
         if (unfoldedElem instanceof Types.AbstractMappingType mapping
-            && StarlarkType.assignableFrom(Types.STR, mapping.getKeyType())) {
+            && StarlarkType.assignableFrom(Types.STR, mapping.getKeyType(), context)) {
           values.add(mapping.getValueType());
         } else {
           return null;
@@ -786,7 +789,7 @@ public final class TypeChecker extends NodeVisitor {
     if (t instanceof Types.CallableType callableType) {
       return callableType;
     }
-    for (StarlarkType supertype : t.getSupertypes()) {
+    for (StarlarkType supertype : t.getSupertypes(typeContext)) {
       if (supertype instanceof Types.CallableType callableType) {
         return callableType;
       }
@@ -807,21 +810,12 @@ public final class TypeChecker extends NodeVisitor {
       return true;
     } else if (callable.getVarargsType() == null) {
       // callable cannot accept residual positional args
-      if (callable.getNumPositionalParameters() > 0) {
-        errorf(
-            call.getArguments().get(callable.getNumPositionalParameters()),
-            "'%s()' accepts no more than %d positional argument%s but got %d",
-            call.getFunction(),
-            callable.getNumPositionalParameters(),
-            plural(callable.getNumPositionalParameters()),
-            call.getNumPositionalArguments());
-      } else {
-        errorf(
-            call.getArguments().getFirst(),
-            "'%s()' does not accept positional arguments, but got %d",
-            call.getFunction(),
-            call.getNumPositionalArguments());
-      }
+      errorf(
+          call.getArguments().get(callable.getNumPositionalParameters()),
+          "'%s()' %s but got %d",
+          call.getFunction(),
+          describeAcceptsPositionals(callable),
+          call.getNumPositionalArguments());
       return false;
     } else {
       // residual positional args go into callable's varargs
@@ -894,7 +888,7 @@ public final class TypeChecker extends NodeVisitor {
       boolean callHasKwargs,
       CallExpression call,
       Types.CallableType callable) {
-    if (seenMandatoryParameters.size() < callable.getMandatoryParameters().size()) {
+    if (seenMandatoryParameters.size() < callable.getNumMandatoryParameters()) {
       ImmutableSet<String> seenMandatorySet = ImmutableSet.copyOf(seenMandatoryParameters);
       // Identify mandatory parameters which were not seen and which cannot be possibly supplied
       // from the call's *args or **kwargs.
@@ -903,7 +897,7 @@ public final class TypeChecker extends NodeVisitor {
       ArrayList<String> missingMandatory = new ArrayList<>(0);
       for (int i = 0; i < callable.getParameterNames().size(); i++) {
         String name = callable.getParameterNames().get(i);
-        if (!callable.getMandatoryParameters().contains(name)) {
+        if (!callable.isMandatory(i)) {
           continue;
         }
         if (!seenMandatorySet.contains(name)) {
@@ -919,17 +913,49 @@ public final class TypeChecker extends NodeVisitor {
         }
       }
       if (!missingMandatory.isEmpty()) {
-        errorf(
-            call.getLparenLocation(),
-            "'%s()' missing %d required argument%s: %s",
-            call.getFunction(),
-            missingMandatory.size(),
-            plural(missingMandatory.size()),
-            Joiner.on(", ").join(missingMandatory));
+        if (callable instanceof Types.SimpleCallableType) {
+          errorf(
+              call.getLparenLocation(),
+              "'%s()' %s but got %d",
+              call.getFunction(),
+              describeAcceptsPositionals(callable),
+              call.getNumPositionalArguments());
+        } else {
+          errorf(
+              call.getLparenLocation(),
+              "'%s()' missing %d required argument%s: %s",
+              call.getFunction(),
+              missingMandatory.size(),
+              plural(missingMandatory.size()),
+              Joiner.on(", ").join(missingMandatory));
+        }
         return false;
       }
     }
     return true;
+  }
+
+  private static String describeAcceptsPositionals(Types.CallableType callable) {
+    if (callable.getVarargsType() != null) {
+      return String.format(
+          "accepts %d or more positional argument%s",
+          callable.getNumPositionalParameters(), plural(callable.getNumPositionalParameters()));
+    } else if (callable.getNumPositionalParameters() == 0) {
+      return "does not accept positional arguments";
+    } else {
+      boolean allPositionalsMandatory = true;
+      for (int i = 0; i < callable.getNumPositionalParameters(); i++) {
+        if (!callable.isMandatory(i)) {
+          allPositionalsMandatory = false;
+          break;
+        }
+      }
+      return String.format(
+          "accepts %s %d positional argument%s",
+          allPositionalsMandatory ? "exactly" : "no more than",
+          callable.getNumPositionalParameters(),
+          plural(callable.getNumPositionalParameters()));
+    }
   }
 
   private StarlarkType inferComprehension(Comprehension comp) {
@@ -986,7 +1012,7 @@ public final class TypeChecker extends NodeVisitor {
       Node node,
       String nodeDescription) {
     if (lhs != null && rhs != null) {
-      if (!StarlarkType.assignableFrom(lhs, rhs)) {
+      if (!StarlarkType.assignableFrom(lhs, rhs, typeContext)) {
         errorf(
             node,
             "in call to '%s()', %s must be '%s', not '%s'",
@@ -1050,7 +1076,7 @@ public final class TypeChecker extends NodeVisitor {
 
     ImmutableList<StarlarkType> lhsMeet = inferIndividualAssignmentTarget(lhs);
     for (StarlarkType lhsType : lhsMeet) {
-      if (!StarlarkType.assignableFrom(lhsType, rhsType)) {
+      if (!StarlarkType.assignableFrom(lhsType, rhsType, typeContext)) {
         errorf(lhs, "cannot assign type '%s' to %s", rhsType, formatExprWithMeetType(lhs, lhsMeet));
         break;
       }
@@ -1149,7 +1175,7 @@ public final class TypeChecker extends NodeVisitor {
               lhs.getElements().size());
           return;
         }
-      } else if (!Types.isCollection(rhsType)) {
+      } else if (!Types.isCollection(rhsType, typeContext)) {
         // TODO: #28043 - consider checking for an Iterable type (as it is in the eval layer)
         errorf(lhs, "cannot assign non-iterable type '%s' to '%s'", rhsType, lhs);
         return;
@@ -1225,7 +1251,7 @@ public final class TypeChecker extends NodeVisitor {
                 rhs,
                 rhsType,
                 /* augmentedAssignment= */ true);
-        if (!StarlarkType.assignableFrom(lhsType, resultType)) {
+        if (!StarlarkType.assignableFrom(lhsType, resultType, typeContext)) {
           binaryOperatorError(
               lhsType,
               operator,
@@ -1264,27 +1290,33 @@ public final class TypeChecker extends NodeVisitor {
               typeTable.getType(function),
               "type tagger should have set type for def statement '%s'",
               def);
-      int numOrdinaryParams = callableType.getParameterTypes().size();
-      for (int i = 0; i < numOrdinaryParams; i++) {
-        Parameter param = def.getParameters().get(i);
+      int numNonSpecialParams = callableType.getParameterTypes().size();
+      // Indices of parameters in `def` and their types in `callableType` may be offset:
+      // `def f(a: T, *, b: U)` has 3 parameters, but only 2 parameter types in its callableType.
+      for (int iParam = 0, iType = 0; iType < numNonSpecialParams; iParam++, iType++) {
+        Parameter param = def.getParameters().get(iParam);
+        while (!(param instanceof Parameter.Mandatory || param instanceof Parameter.Optional)) {
+          // Skip special params; they are not in callableType.getParameterTypes().
+          param = def.getParameters().get(++iParam);
+        }
         if (param.getDefaultValue() != null) {
           StarlarkType defaultValueType = infer(param.getDefaultValue());
           if (!StarlarkType.assignableFrom(
-              callableType.getParameterTypeByPos(i), defaultValueType)) {
+              callableType.getParameterTypeByPos(iType), defaultValueType, typeContext)) {
             errorf(
                 param.getDefaultValue().getStartLocation(),
                 "%s(): parameter '%s' has default value of type '%s', declares '%s'",
                 def.getIdentifier().getName(),
                 param.getName(),
                 defaultValueType,
-                callableType.getParameterTypeByPos(i));
+                callableType.getParameterTypeByPos(iType));
           }
         }
       }
 
       @Nullable Statement implicitNoneReturn = getImplicitNoneReturn(def.getBody());
       if (implicitNoneReturn != null
-          && !StarlarkType.assignableFrom(callableType.getReturnType(), Types.NONE)) {
+          && !StarlarkType.assignableFrom(callableType.getReturnType(), Types.NONE, typeContext)) {
         errorf(
             implicitNoneReturn,
             "%s() declares return type '%s' but may exit without an explicit 'return'",
@@ -1339,7 +1371,7 @@ public final class TypeChecker extends NodeVisitor {
     // May be null if function is the toplevel
     @Nullable Types.CallableType callableType = typeTable.getType(function);
     if (callableType != null
-        && !StarlarkType.assignableFrom(callableType.getReturnType(), returnType)) {
+        && !StarlarkType.assignableFrom(callableType.getReturnType(), returnType, typeContext)) {
       errorf(
           ret.getResult().getStartLocation(),
           "%s() declares return type '%s' but may return '%s'",

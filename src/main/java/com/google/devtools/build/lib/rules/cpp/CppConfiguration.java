@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -47,6 +48,7 @@ import net.starlark.java.eval.StarlarkThread;
  */
 @Immutable
 @RequiresOptions(options = {CppOptions.class})
+@StarlarkBuiltin(name = "cpp", documented = false)
 public final class CppConfiguration extends Fragment
     implements CppConfigurationApi<InvalidConfigurationException> {
   private static final String BAZEL_TOOLS_REPO = "@bazel_tools";
@@ -585,11 +587,6 @@ public final class CppConfiguration extends Fragment
             Event.error(
                 "Cannot instrument and optimize for FDO at the same time. Remove one of the "
                     + "'--fdo_instrument' and '--fdo_optimize/--fdo_profile' options"));
-      }
-      if (!cppOptions.getCoptList().contains("-Wno-error")) {
-        // This is effectively impossible. --fdo_instrument adds this value, and only invocation
-        // policy could remove it.
-        reporter.handle(Event.error("Cannot instrument FDO without --copt including -Wno-error."));
       }
     }
 

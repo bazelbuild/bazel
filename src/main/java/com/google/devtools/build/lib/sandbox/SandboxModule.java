@@ -461,15 +461,15 @@ public final class SandboxModule extends BlazeModule {
         checkNotNull(sandboxBase, "shouldCleanupSandboxBase implies sandboxBase has been set");
         for (SpawnRunner spawnRunner : spawnRunners) {
           spawnRunner.cleanupSandboxBase(sandboxBase, treeDeleter);
-          sandboxBase.getChild(spawnRunner.getName()).delete();
         }
+        shouldCleanupSandboxBase = false;
+        checkSandboxBaseTopOnlyContainsPersistentDirs(sandboxBase);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
       } catch (IOException e) {
         env.getReporter()
             .handle(Event.warn("Failed to delete contents of sandbox " + sandboxBase + ": " + e));
       }
-      shouldCleanupSandboxBase = false;
-
-      checkSandboxBaseTopOnlyContainsPersistentDirs(sandboxBase);
       // We intentionally keep sandboxBase around, without resetting it to null, in case we have
       // asynchronous deletions going on. In that case, we'd still want to retry this during
       // shutdown.

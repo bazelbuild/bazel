@@ -233,6 +233,7 @@ public interface OutputService {
   default void updateActionFileSystemContext(
       ActionExecutionMetadata action,
       FileSystem actionFileSystem,
+      InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore) {}
 
   /**
@@ -290,7 +291,8 @@ public interface OutputService {
         throws InterruptedException;
 
     /** Guards an action from the beginning to the end of its {@link Action#execute execution}. */
-    SilentCloseable enterActionExecution(Action action, InputMetadataProvider metadataProvider)
+    SilentCloseable enterActionExecution(
+        Action action, boolean wasRewound, InputMetadataProvider metadataProvider)
         throws InterruptedException;
 
     /**
@@ -306,7 +308,7 @@ public interface OutputService {
 
           @Override
           public SilentCloseable enterActionExecution(
-              Action action, InputMetadataProvider metadataProvider) {
+              Action action, boolean wasRewound, InputMetadataProvider metadataProvider) {
             return () -> {};
           }
         };

@@ -97,7 +97,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean experimentalTurbineAnnotationProcessing;
   private final int experimentalTurbineCpuReservation;
   private final boolean experimentalEnableJspecify;
-  private final boolean multiReleaseDeployJars;
   private final boolean disallowJavaImportExports;
 
   public JavaConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
@@ -125,7 +124,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.enforceOneVersionOnJavaTests = javaOptions.getEnforceOneVersionOnJavaTests();
     this.explicitJavaTestDeps = javaOptions.getExplicitJavaTestDeps();
     this.runAndroidLint = javaOptions.getRunAndroidLint();
-    this.multiReleaseDeployJars = javaOptions.getMultiReleaseDeployJars();
     this.disallowJavaImportExports = javaOptions.getDisallowJavaImportExports();
     Map<String, Label> optimizers = javaOptions.getBytecodeOptimizers();
     if (optimizers.size() != 1) {
@@ -349,7 +347,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   @Override
   public boolean multiReleaseDeployJars() {
-    return multiReleaseDeployJars;
+    return true;
   }
 
   /** Returns true if java_import exports are not allowed. */

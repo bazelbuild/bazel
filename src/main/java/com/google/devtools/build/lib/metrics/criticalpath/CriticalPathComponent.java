@@ -171,6 +171,31 @@ public class CriticalPathComponent {
     return action.getMnemonic();
   }
 
+  @Nullable
+  public String getPrimaryOutputExecPathString() {
+    return primaryOutput != null ? primaryOutput.getExecPathString() : null;
+  }
+
+  public String getOwnerLabelAsString() {
+    ActionOwner owner = action.getOwner();
+    if (owner == null) {
+      return "";
+    }
+    Label ownerLabel = owner.getLabel();
+    if (ownerLabel == null) {
+      return "";
+    }
+    return ownerLabel.getCanonicalForm();
+  }
+
+  public String getOwnerConfigurationAsString() {
+    ActionOwner owner = action.getOwner();
+    if (owner == null) {
+      return "";
+    }
+    return owner.getConfigurationChecksum();
+  }
+
   /** An unique identifier of the component for one build execution */
   public int getId() {
     return id;

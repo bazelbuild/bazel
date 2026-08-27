@@ -575,22 +575,24 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             name = "resource_set",
             allowedTypes = {
               @ParamType(type = StarlarkCallable.class),
+              @ParamType(type = Dict.class),
               @ParamType(type = NoneType.class),
             },
             defaultValue = "None",
             named = true,
             positional = false,
             doc =
-                "A callback function that returns a resource set dictionary, used to estimate"
-                    + " resource usage at execution time if this action is run locally.<p>The"
-                    + " function accepts two positional arguments: a string representing an OS name"
-                    + " (e.g. \"osx\"), and an integer representing the number of inputs to the"
-                    + " action. The returned dictionary may contain the following entries, each of"
-                    + " which may be a float or an int:<ul><li>\"cpu\": number of CPUs; default"
-                    + " 1<li>\"memory\": in MB; default 250<li>\"local_test\": number of local"
-                    + " tests; default 1</ul><p>If this parameter is set to <code>None</code> , the"
-                    + " default values are used.<p>The callback must be top-level (lambda and"
-                    + " nested functions aren't allowed)."),
+                "A callback function or dictionary used to estimate resource usage at execution"
+                    + " time if this action is run locally.<p>If a dictionary is passed directly,"
+                    + " it may contain the following entries, each of which may be a float or an"
+                    + " int:<ul><li>\"cpu\": number of CPUs; default 1<li>\"memory\": in MB;"
+                    + " default 250<li>\"local_test\": number of local tests; default 1</ul><p>If a"
+                    + " callback function is passed, it accepts two positional arguments: a string"
+                    + " representing an OS name (e.g. \"osx\"), and an integer representing the"
+                    + " number of inputs to the action. It must return a dictionary with the same"
+                    + " entries described above. The callback must be top-level (lambda and nested"
+                    + " functions aren't allowed).<p>If this parameter is set to <code>None</code>,"
+                    + " the default values are used."),
         @Param(
             name = "toolchain",
             allowedTypes = {
@@ -826,14 +828,15 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
             name = "resource_set",
             allowedTypes = {
               @ParamType(type = StarlarkCallable.class),
+              @ParamType(type = Dict.class),
               @ParamType(type = NoneType.class),
             },
             defaultValue = "None",
             named = true,
             positional = false,
             doc =
-                "A callback function for estimating resource usage if run locally. See"
-                    + "<a href=\"#run.resource_set\"><code>ctx.actions.run()</code></a>."),
+                "A callback function or dictionary for estimating resource usage if run locally."
+                    + " See <a href=\"#run.resource_set\"><code>ctx.actions.run()</code></a>."),
         @Param(
             name = "toolchain",
             allowedTypes = {
@@ -1034,6 +1037,20 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
                 "A one-word description of the created actions, for example, CppCompile or"
                     + " GoLink."),
         @Param(
+            name = "resource_set",
+            allowedTypes = {
+              @ParamType(type = StarlarkCallable.class),
+              @ParamType(type = Dict.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                "A callback or dictionary that returns/contains the resource set used for local"
+                    + " scheduling of every action created by this template. See"
+                    + " <code>actions.run</code>'s argument of the same name."),
+        @Param(
             name = "implementation",
             allowedTypes = {@ParamType(type = StarlarkFunction.class)},
             named = true,
@@ -1053,6 +1070,7 @@ This function must be top-level, i.e. lambdas and nested functions are not allow
       Boolean useDefaultShellEnv,
       Object envUnchecked,
       Object mnemonicUnchecked,
+      Object resourceSetUnchecked,
       StarlarkFunction implementation,
       StarlarkThread thread)
       throws EvalException, InterruptedException;

@@ -15,6 +15,7 @@
 package com.google.testing.coverage;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -29,6 +30,7 @@ import org.jacoco.core.internal.InputStreams;
 import org.jacoco.core.internal.data.CRC64;
 import org.jacoco.core.internal.flow.ClassProbesAdapter;
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.Opcodes;
 
 /**
  * Custom analyzer to calculate the coverage of source files in the form we require.
@@ -45,7 +47,7 @@ import org.objectweb.asm.ClassReader;
 public class CoverageAnalyzer extends Analyzer {
 
   private final ExecutionDataStore executionData;
-  private final Map<String, CoverageData> classCoverageData;
+  private final Map<String, CoverageData.Builder> classCoverageData;
 
   public CoverageAnalyzer(final ExecutionDataStore executionData) {
     super(
@@ -82,6 +84,13 @@ public class CoverageAnalyzer extends Analyzer {
   private void analyzeClass(final ClassReader reader) {
     final ClassProbesMapper mapper = new ClassProbesMapper(reader.getClassName());
     final ClassProbesAdapter adapter = new ClassProbesAdapter(mapper, false);
+
+    // Skip synthetic classes and modules.
+    if ((reader.getAccess() & Opcodes.ACC_SYNTHETIC) != 0
+        || (reader.getAccess() & Opcodes.ACC_MODULE) != 0) {
+      return;
+    }
+
     reader.accept(adapter, 0); // Read the class using the ClassProbesMapper visitor
 
     final Map<Integer, BranchExpression> lineToBranchExpression = mapper.getBranchExpressions();
@@ -98,7 +107,16 @@ public class CoverageAnalyzer extends Analyzer {
       probes = classExecutionData.getProbes();
     }
 
-    CoverageData.Builder coverageBuilder = new CoverageData.Builder();
+    String packageName = mapper.getPackageName();
+    String sourceFileName = mapper.getSourceFileName();
+    if (!packageName.isEmpty()) {
+      sourceFileName = packageName + "/" + sourceFileName;
+    }
+
+    CoverageData.Builder coverageBuilder = classCoverageData.get(sourceFileName);
+    if (coverageBuilder == null) {
+      coverageBuilder = CoverageData.builder();
+    }
 
     for (Map.Entry<Integer, CoverageExpression> entry : lineToCoverageExpression.entrySet()) {
       int line = entry.getKey();
@@ -118,7 +136,7 @@ public class CoverageAnalyzer extends Analyzer {
           method.name(), method.startLine(), method.coverageExpression().eval(probes));
     }
     if (!coverageBuilder.isEmpty()) {
-      classCoverageData.put(reader.getClassName(), coverageBuilder.build());
+      classCoverageData.put(sourceFileName, coverageBuilder);
     }
   }
 
@@ -133,8 +151,9 @@ public class CoverageAnalyzer extends Analyzer {
     return ex;
   }
 
-  /** Returns a map of class to coverage data. */
+  /** Returns the coverage data for each source file. */
   public ImmutableMap<String, CoverageData> getCoverage() {
-    return ImmutableMap.copyOf(classCoverageData);
+    return ImmutableMap.copyOf(
+        Maps.transformValues(classCoverageData, CoverageData.Builder::build));
   }
 }

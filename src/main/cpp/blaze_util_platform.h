@@ -28,6 +28,7 @@
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/server_process_info.h"
 #include "src/main/cpp/util/port.h"
+#include "absl/strings/string_view.h"
 
 namespace blaze {
 
@@ -88,10 +89,15 @@ class SignalHandler {
   const std::string& GetProductName() const { return product_name_; }
   const blaze_util::Path& GetOutputBase() const { return output_base_; }
   void CancelServer() { cancel_server_(); }
+  void TerminalSizeChanged() {
+    if (terminal_size_changed_ != nullptr) {
+      terminal_size_changed_();
+    }
+  }
   void Install(const std::string& product_name,
                const blaze_util::Path& output_base,
                const ServerProcessInfo* server_process_info,
-               Callback cancel_server);
+               Callback cancel_server, Callback terminal_size_changed);
   ATTRIBUTE_NORETURN void PropagateSignalOrExit(int exit_code);
 
  private:
@@ -101,8 +107,12 @@ class SignalHandler {
   blaze_util::Path output_base_;
   const ServerProcessInfo* server_process_info_;
   Callback cancel_server_;
+  Callback terminal_size_changed_;
 
-  SignalHandler() : server_process_info_(nullptr), cancel_server_(nullptr) {}
+  SignalHandler()
+      : server_process_info_(nullptr),
+        cancel_server_(nullptr),
+        terminal_size_changed_(nullptr) {}
 };
 
 // A signal-safe version of fprintf(stderr, ...).
@@ -143,9 +153,9 @@ std::unique_ptr<blaze_util::Path> GetProcessCWD(int pid);
 
 bool IsSharedLibrary(const std::string& filename);
 
-// Returns the absolute path to the user's local JDK install, to be used as
-// the default target javabase and as a fall-back host_javabase. This is not
-// the embedded JDK.
+// Returns the absolute path to the user's local Java install (JDK or JRE),
+// to be used as the default target javabase and as a fall-back
+// host_javabase. This is not the embedded JDK.
 std::string GetSystemJavabase();
 
 // Return the path to the JVM binary relative to a javabase, e.g. "bin/java".
@@ -227,10 +237,24 @@ void ReleaseLock(LockHandle lock_handle);
 // Verifies whether the server process still exists. Returns true if it does.
 bool VerifyServerProcess(int pid, const blaze_util::Path& output_base);
 
+// Parses the content of /proc/[pid]/stat (passed as statline) to extract the
+// start time (field 22). Returns true on success and writes the start time to
+// 'start_time'. Returns false on failure.
+bool ParseProcStat(absl::string_view statline, std::string* start_time);
+
+// Parses the content of /proc/[pid]/stat (passed as statline) to generate a
+// diagnostic message explaining why process `pid` has not terminated.
+std::string ParseProcStatDiagnosis(absl::string_view statline, int pid);
+
 // Kills a server process based on its PID.
 // Returns true if the server process was found and killed.
 // WARNING! This function can be called from a signal handler!
-bool KillServerProcess(int pid, const blaze_util::Path& output_base);
+bool KillServerProcess(int pid, const blaze_util::Path& output_base,
+                       bool from_signal_handler = false);
+
+// Returns a diagnostic string explaining why a process has not terminated
+// (e.g. if it is a zombie process 'Z' or in uninterruptible sleep 'D').
+std::string GetProcessTerminationDiagnosis(int pid);
 
 // Wait for approximately the specified number of milliseconds. The actual
 // amount of time waited may be more or less because of interrupts or system

@@ -19,8 +19,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.docgen.annot.GlobalMethods;
-import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleThreadContext.ModuleExtensionUsageBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -57,7 +57,7 @@ import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.Location;
 
 /** A collection of global Starlark build API functions that apply to MODULE.bazel files. */
-@GlobalMethods(environment = Environment.MODULE)
+@GlobalMethodDocs(environment = Environment.MODULE)
 @StarlarkLibrary
 public class ModuleFileGlobals {
 
@@ -576,6 +576,7 @@ public class ModuleFileGlobals {
       usageBuilder.addRepoOverride(overriddenRepoName, overridingRepoName, mustExist, stack);
     }
 
+    @StarlarkBuiltin(name = "tag_callable", documented = false)
     class TagCallable implements StarlarkValue {
       final String tagName;
 
@@ -889,14 +890,23 @@ public class ModuleFileGlobals {
                     + " main repo; in other words, it <strong>must<strong> start with double"
                     + " slashes (<code>//</code>). The name of the file must end with"
                     + " <code>.MODULE.bazel</code> and must not start with <code>.</code>."),
+        @Param(
+            name = "dev_dependency",
+            doc =
+                "If true, this include will be ignored if the current module is not the root"
+                    + " module or <code>--ignore_dev_dependency</code> is enabled. The value must"
+                    + " be a literal <code>True</code> or <code>False</code>.",
+            named = true,
+            positional = false,
+            defaultValue = "False"),
       },
       useStarlarkThread = true)
-  public void include(String label, StarlarkThread thread)
+  public void include(String label, boolean devDependency, StarlarkThread thread)
       throws InterruptedException, EvalException {
     ModuleThreadContext context =
         ModuleThreadContext.fromOrFail(thread, CompiledModuleFile.INCLUDE_IDENTIFIER + "()");
     context.setNonModuleCalled();
-    context.include(label, thread);
+    context.include(label, devDependency, thread);
   }
 
   @StarlarkMethod(

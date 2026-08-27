@@ -72,14 +72,8 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
 
       @Nullable
       @Override
-      public FileStatus statIfFound(PathFragment path, boolean followSymlinks) {
-        return statNullable(path, followSymlinks);
-      }
-
-      @Nullable
-      @Override
-      public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
-        FileStatus defaultResult = super.statNullable(path, followSymlinks);
+      public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
+        FileStatus defaultResult = super.statIfFound(path, followSymlinks);
         try {
           return transformer.stat(defaultResult, path, followSymlinks);
         } catch (IOException e) {

@@ -70,8 +70,14 @@ public abstract class ActionExecutionValue implements SkyValue {
 
     // Defensive sorting to make it obvious that the iteration order is deterministic. These maps
     // are most of the time sorted, since ActionOutputMetadataStore sorts them.
-    artifactData = ImmutableSortedMap.copyOf(artifactData);
-    treeArtifactData = ImmutableSortedMap.copyOf(treeArtifactData);
+    artifactData =
+        ImmutableMap.<Artifact, FileArtifactValue>builderWithExpectedSize(artifactData.size())
+            .putAll(ImmutableSortedMap.copyOf(artifactData))
+            .buildOrThrow();
+    treeArtifactData =
+        ImmutableMap.<Artifact, TreeArtifactValue>builderWithExpectedSize(treeArtifactData.size())
+            .putAll(ImmutableSortedMap.copyOf(treeArtifactData))
+            .buildOrThrow();
 
     // Use forEach instead of entrySet to avoid instantiating an EntrySet in ImmutableMap.
     artifactData.forEach(

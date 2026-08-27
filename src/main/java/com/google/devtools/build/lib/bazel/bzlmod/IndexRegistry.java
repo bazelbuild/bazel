@@ -103,6 +103,8 @@ public class IndexRegistry implements Registry {
   private volatile StoredEventHandler bazelRegistryJsonEvents;
 
   private static final String SOURCE_JSON_FILENAME = "source.json";
+  private static final ImmutableList<String> ALLOWED_GIT_SCHEMES =
+      ImmutableList.of("https://", "ssh://", "git://", "file://");
 
   public IndexRegistry(
       URI uri,
@@ -556,6 +558,28 @@ public class IndexRegistry implements Registry {
       Checksum moduleFileChecksum,
       ModuleKey key)
       throws IOException {
+    if (sourceJson.remote == null) {
+      throw new IOException(
+          String.format("Missing remote in git_repository source for module %s", key));
+    }
+    if (ALLOWED_GIT_SCHEMES.stream().noneMatch(sourceJson.remote::startsWith)) {
+      throw new IOException(
+          String.format(
+              "Invalid remote URL scheme: \"%s\" for module %s. Only %s are allowed.",
+              sourceJson.remote, key, String.join(", ", ALLOWED_GIT_SCHEMES)));
+    }
+    if (sourceJson.commit != null && !sourceJson.commit.matches("^[0-9a-fA-F]{7,64}$")) {
+      throw new IOException(
+          String.format(
+              "Invalid commit: \"%s\" for module %s. Must be a valid commit hash.",
+              sourceJson.commit, key));
+    }
+    if (sourceJson.tag != null && sourceJson.tag.startsWith("-")) {
+      throw new IOException(
+          String.format(
+              "Invalid tag: \"%s\" for module %s. Cannot start with '-'.", sourceJson.tag, key));
+    }
+
     // Build remote patches as key-value pairs of "url" => "integrity".
     ImmutableMap.Builder<String, String> remotePatches = new ImmutableMap.Builder<>();
     if (sourceJson.patches != null) {
@@ -642,6 +666,11 @@ public class IndexRegistry implements Registry {
           YankedVersionsValue.create(
               Optional.of(ImmutableMap.of(selectedModuleKey.version(), yankedInfo))));
     }
+    if (knownFileHashesMode == KnownFileHashesMode.ENFORCE) {
+      // metadata.json is mutable and can't be fetched in error mode. If source.json is missing
+      // from the lockfile, its later fetch will report the actionable missing-checksum error.
+      return Optional.of(YankedVersionsValue.NONE_YANKED);
+    }
     if (knownFileHashes.containsKey(getSourceJsonUrl(selectedModuleKey))) {
       // If the source.json hash is recorded in the lockfile, we know that the module was selected
       // when the lockfile was created. Since it does not appear in the list of selected yanked
@@ -656,9 +685,6 @@ public class IndexRegistry implements Registry {
     }
     // The lockfile does not contain sufficient information to determine the "yanked" status of the
     // module - network access to the registry is required.
-    // Note that this point can't (and must not) be reached with --lockfile_mode=error: The lockfile
-    // records the source.json hashes of all selected modules and the result of selection is fully
-    // determined by the lockfile.
     return Optional.empty();
   }
 

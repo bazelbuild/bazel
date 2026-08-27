@@ -138,11 +138,12 @@ public final class PathPackageLocator {
   public static String maybeReplaceWorkspaceInString(String pathElement, PathFragment workspace) {
     return pathElement.replace(WORKSPACE_WILDCARD, workspace.getPathString());
   }
+
   /**
    * A factory of PathPackageLocators from a list of path elements. Elements may contain
    * "%workspace%", indicating the workspace.
    *
-   * <p>If any of the paths given do not exist, an exception will be thrown.
+   * <p>If none of the paths given exist, an exception will be thrown.
    *
    * @param outputBase the output base. Can be null if remote repositories are not in use.
    * @param pathElements Each element must be an absolute path, relative path, or some string
@@ -164,7 +165,8 @@ public final class PathPackageLocator {
       EventHandler eventHandler,
       PathFragment workspace,
       Path clientWorkingDirectory,
-      List<BuildFileName> buildFilesByPriority) {
+      List<BuildFileName> buildFilesByPriority)
+      throws AbruptExitException {
     return createInternal(
         outputBase,
         pathElements,
@@ -197,7 +199,8 @@ public final class PathPackageLocator {
       EventHandler eventHandler,
       PathFragment workspace,
       Path clientWorkingDirectory,
-      List<BuildFileName> buildFilesByPriority) {
+      List<BuildFileName> buildFilesByPriority)
+      throws AbruptExitException {
     List<Root> resolvedPaths = new ArrayList<>();
 
     for (String pathElement : pathElements) {
@@ -226,6 +229,19 @@ public final class PathPackageLocator {
       if (rootPath.exists()) {
         resolvedPaths.add(Root.fromPath(rootPath));
       }
+    }
+
+    if (resolvedPaths.isEmpty()) {
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(
+                      String.format(
+                          "None of the directories specified in --package_path '%s' exist",
+                          String.join(":", pathElements)))
+                  .setPackageOptions(
+                      FailureDetails.PackageOptions.newBuilder().setCode(Code.PACKAGE_PATH_INVALID))
+                  .build()));
     }
 
     return new PathPackageLocator(outputBase, resolvedPaths, buildFilesByPriority);

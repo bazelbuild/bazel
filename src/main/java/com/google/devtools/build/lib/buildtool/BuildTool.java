@@ -29,6 +29,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
@@ -38,11 +39,13 @@ import com.google.devtools.build.lib.analysis.AnalysisAndExecutionResult;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.UploadContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
@@ -66,6 +69,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
@@ -98,15 +102,16 @@ import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler.OutputType;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.InvalidAqueryOutputFormatException;
+import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataParams;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheFactory;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisMetadataWriter;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.SerializationDependenciesProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -119,6 +124,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
@@ -364,6 +370,8 @@ public class BuildTool {
                         CommandLineEvent.CanonicalCommandLineEvent.LABEL)));
       }
       buildOptions = runtime.createBuildOptions(optionsParser);
+      buildOptions = addPlatformFlags(request, buildOptions);
+
       if (request.needsInstrumentationFilter()) {
         applyHeuristicInstrumentationFilter(buildOptions, targetPatternPhaseValue);
       }
@@ -427,7 +435,9 @@ public class BuildTool {
         // Delete dirty nodes to ensure that they do not accumulate indefinitely.
         long versionWindow = request.getViewOptions().getVersionWindowForDirtyNodeGc();
         if (versionWindow != -1) {
-          env.getSkyframeExecutor().deleteOldNodes(versionWindow);
+          env.getSkyframeExecutor()
+              .deleteOldNodes(
+                  versionWindow, request.getViewOptions().getKeepChangePrunableNodesDuringGc());
         }
         // The workspace status actions will not run with certain flags, or if an error occurs early
         // in the build. Ensure that build info is posted on every build.
@@ -445,6 +455,65 @@ public class BuildTool {
         }
       }
     }
+  }
+
+  /**
+   * Applies an input {@link BuildOptions}'s platform flags (i.e. the {@code platform} rule's {@code
+   * flags} attribute)
+   *
+   * <p>This is important to support {@code BaselineOptionsFunction}'s {@code
+   * BASELINE_CONFIGURATION} and {@code BASELINE_EXEC_CONFIGURATION}.
+   *
+   * <p>{@code BASELINE_EXEC_CONFIGURATION} is set by applying the exec transition to the top-level
+   * {@link BuildOptions}. If the top-level {@code --platforms} sets a flag that propagates to the
+   * exec configuration, we need to ensure that flag is in {@code BASELINE_EXEC_CONFIGURATION}
+   *
+   * <p>While it'd be nice to handle this in {@code BaselineOptionsFunction}, exec-configured calls
+   * to that function cannot depend on {@code BASELINE_CONFIGURATION} to support the Bazel feature
+   * that changing target-only flags doesn't invalidate exec-configured graph nodes. If we applied
+   * this logic there we'd have to do a {@code TopLevelOptions -> platformMapping -> execTransition}
+   * sequence that breaks that requirement.
+   *
+   * <p>See {@link ParsedFlagsValue#mergeWith} for mapping logic. See {@link
+   * BaselineOptionsFunction} for more details on how this mapping is consumed and further adjusted.
+   */
+  private BuildOptions addPlatformFlags(BuildRequest request, BuildOptions originalOptions)
+      throws InterruptedException, RepositoryMappingResolutionException {
+    if (originalOptions.get(PlatformOptions.class).getPlatforms().isEmpty()) {
+      return originalOptions;
+    }
+    Label targetPlatform =
+        Iterables.getOnlyElement(originalOptions.get(PlatformOptions.class).getPlatforms());
+    try {
+      Optional<ParsedFlagsValue> targetPlatformFlags =
+          PlatformValue.getFlags(
+              targetPlatform,
+              new PlatformValue.SkyframeEvaluator() {
+                @Nullable
+                @Override
+                public SkyValue evaluate(SkyKey key) throws InterruptedException {
+                  var evalResult =
+                      env.getSkyframeExecutor()
+                          .evaluate(
+                              ImmutableList.of(key),
+                              /* keepGoing= */ false,
+                              request.getLoadingPhaseThreadCount(),
+                              env.getReporter());
+                  if (evalResult.hasError()) {
+                    // Already handled by env.getReporter().
+                    return null;
+                  }
+                  return evalResult.get(key);
+                }
+              },
+              env.getSkyframeExecutor().getMainRepoMapping(env.getReporter()));
+      if (targetPlatformFlags.isPresent()) {
+        return targetPlatformFlags.get().mergeWith(originalOptions).getOptions();
+      }
+    } catch (NoSuchTargetException e) {
+      // Already handled by env.getReporter()).
+    }
+    return originalOptions;
   }
 
   private static TargetPatternPhaseValue evaluateTargetPatterns(
@@ -1035,14 +1104,24 @@ public class BuildTool {
   }
 
   private void reportRemoteAnalysisServiceStats(
-      FingerprintValueService fingerprintValueService,
-      RemoteAnalysisCacheClient analysisCacheClient) {
-    FingerprintValueStore.Stats fvsStats = fingerprintValueService.getStats();
-    RemoteAnalysisCacheClient.Stats raccStats =
+      @Nullable FingerprintValueService fingerprintValueService,
+      @Nullable RemoteAnalysisCacheClient analysisCacheClient) {
+    if (fingerprintValueService != null) {
+      fingerprintValueService.shutdown();
+    }
+    FingerprintValueStore.Stats fingerprintValueServiceStats =
+        fingerprintValueService == null
+            ? FingerprintValueStore.EMPTY_STATS
+            : fingerprintValueService.getStats();
+    RemoteAnalysisCacheClient.Stats remoteAnalysisCacheClientStats =
         analysisCacheClient == null
             ? RemoteAnalysisCacheClient.EMPTY_STATS
             : analysisCacheClient.getStats();
-    env.getRemoteAnalysisCachingEventListener().recordServiceStats(fvsStats, raccStats);
+    env.getRemoteAnalysisCachingEventListener()
+        .recordServiceStats(fingerprintValueServiceStats, remoteAnalysisCacheClientStats);
+    RemoteAnalysisCachingServicesSupplier servicesSupplier =
+        env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
+    env.getRemoteAnalysisCachingEventListener().recordPeers(servicesSupplier.getPeers());
   }
 
   private void reportOnlyBailOutReason(RemoteAnalysisCacheReaderDepsProvider readerDeps)
@@ -1073,24 +1152,20 @@ public class BuildTool {
       return;
     }
 
-    // TODO(b/529634169): make this exhaustive.
-    switch (dependenciesProvider.mode()) {
-      case UPLOAD, ASYNC_UPLOAD ->
-          reportRemoteAnalysisServiceStats(
-              dependenciesProvider.getFingerprintValueService(),
-              dependenciesProvider.getAnalysisCacheClient());
-
-      case DOWNLOAD, BIDI -> {
-        reportRemoteAnalysisServiceStats(
-            dependenciesProvider.getFingerprintValueService(),
-            dependenciesProvider.getAnalysisCacheClient());
-        reportRemoteAnalysisCachingStats();
-        env.getSkyframeExecutor()
-            .syncRemoteAnalysisCachingState(
-                env.getRemoteAnalysisCachingEventListener().getSkyValueVersion(),
-                env.getRemoteAnalysisCachingEventListener().getClientId());
-      }
-      case DUMP_UPLOAD_MANIFEST_ONLY, OFF -> {}
+    if (dependenciesProvider.mode().requiresBackendConnectivity()) {
+      reportRemoteAnalysisServiceStats(
+          dependenciesProvider.getFingerprintValueService(),
+          dependenciesProvider.getAnalysisCacheClient());
+    }
+    if (dependenciesProvider.mode().isUploadEnabled()) {
+      reportRemoteAnalysisUploadStats();
+    }
+    if (dependenciesProvider.mode().isRetrievalEnabled()) {
+      reportRemoteAnalysisRetrievalStats();
+      env.getSkyframeExecutor()
+          .syncRemoteAnalysisCachingState(
+              env.getRemoteAnalysisCachingEventListener().getSkyValueVersion(),
+              env.getRemoteAnalysisCachingEventListener().getClientId());
     }
   }
 
@@ -1291,7 +1366,7 @@ public class BuildTool {
 
     checkState(serializationDependenciesProvider.mode().serializesValues());
 
-    if (serializationDependenciesProvider.mode().isAsyncUploadEnabled()) {
+    if (serializationDependenciesProvider.mode().isAsyncUpload()) {
       try {
         serializationDependenciesProvider.waitForUploadCompletion();
       } catch (ExecutionException e) {
@@ -1324,12 +1399,27 @@ public class BuildTool {
       }
     }
 
-    if (serializationDependenciesProvider.mode() == RemoteAnalysisCacheMode.UPLOAD) {
+    if (serializationDependenciesProvider.mode().isSyncUpload()) {
       tryWriteSkycacheMetadata(serializationDependenciesProvider);
     }
   }
 
-  private void reportRemoteAnalysisCachingStats() {
+  private void reportRemoteAnalysisUploadStats() {
+    FingerprintValueStore.Stats stats =
+        env.getRemoteAnalysisCachingEventListener().getFingerprintValueStoreStats();
+
+    env.getReporter()
+        .handle(
+            Event.info(
+                String.format(
+                    "Skycache write: uploaded %s/%s key/value bytes and %s entries (%s batches)",
+                    stats.keyBytesSent(),
+                    stats.valueBytesSent(),
+                    stats.entriesWritten(),
+                    stats.setBatches())));
+  }
+
+  private void reportRemoteAnalysisRetrievalStats() {
     var listener = env.getRemoteAnalysisCachingEventListener();
     var hitsByFunction = listener.getHitsBySkyFunctionName();
     var missesByFunction = listener.getMissesBySkyFunctionName();
@@ -1378,7 +1468,7 @@ public class BuildTool {
         .handle(
             Event.info(
                 String.format(
-                    "Skycache stats: %s received in %s requests, %s/%s cache"
+                    "Skycache read: %s received in %s requests, %s/%s cache"
                         + " hits (%.2f%%) [Breakdown: %s]",
                     formatBytes(bytesReceived),
                     requests,

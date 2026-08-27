@@ -15,8 +15,8 @@ java_library(
     name = "annot",
     srcs = [
         "DocCategory.java",
-        "GlobalMethods.java",
+        "GlobalMethodDocs.java",
         "StarlarkConstructor.java",
     ],
-    deps = ["//third_party:guava"],
+    deps = ["//third_party/java/guava:base"],
 )

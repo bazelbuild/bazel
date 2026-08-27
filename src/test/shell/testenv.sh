@@ -275,6 +275,15 @@ function setup_javabase() {
   fi
   if is_windows; then
     jdk_dir="$(cygpath -m $(cd ${jdk_binary_rlocation}/../..; pwd))"
+    # if this is a java repository, copy out just the runtime and use that
+    if [[ -f "${jdk_dir}/BUILD.bazel" ]]; then
+      tmp_runtime_dir=$(mktemp -d --tmpdir=${TEST_TMPDIR})
+      for f in $(ls -1 ${jdk_dir}); do
+        ln -s ${jdk_dir}/$f -t ${tmp_runtime_dir}
+      done
+      rm ${tmp_runtime_dir}/BUILD.bazel
+      jdk_dir=${tmp_runtime_dir}
+    fi
   else
     jdk_dir="$(dirname $(dirname ${jdk_binary_rlocation}))"
   fi
@@ -299,10 +308,10 @@ build --incompatible_skip_genfiles_symlink=false
 
 build --incompatible_use_toolchain_resolution_for_java_rules
 
-# Support JDK 21, data dependencies that get compiled and used tools need to be
-# run with 21 runtime.
-build --java_runtime_version=21
-build --tool_java_runtime_version=21
+# Support JDK 25, data dependencies that get compiled and used tools need to be
+# run with 25 runtime.
+build --java_runtime_version=25
+build --tool_java_runtime_version=25
 
 ${EXTRA_BAZELRC:-}
 EOF

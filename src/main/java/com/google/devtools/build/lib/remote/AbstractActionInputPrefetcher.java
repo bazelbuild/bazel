@@ -66,6 +66,7 @@ import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -86,6 +87,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   private final AsyncTaskCache.NoResult<Path> downloadCache = AsyncTaskCache.NoResult.create();
   private final TempPathGenerator tempPathGenerator;
   private final OutputPermissions outputPermissions;
+  private final ConcurrentArtifactPathTrie rewoundActionOutputs = new ConcurrentArtifactPathTrie();
 
   protected final Path execRoot;
   protected final RemoteOutputChecker remoteOutputChecker;
@@ -286,18 +288,29 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * If true, then all previously acquired knowledge of the file system state of this path (e.g. the
    * existence of tree artifact directories or previously downloaded files) must be discarded.
    */
-  protected abstract boolean forceRefetch(Path path);
+  protected boolean forceRefetch(Path path) {
+    // Caches for download operations and output directory creation need to be disregarded for the
+    // outputs of rewound actions as they may have been deleted after they were first created.
+    // Compare as fragments since execRoot may be located on a file system overlaying the host file
+    // system where downloads are written to.
+    PathFragment execRootFragment = execRoot.asFragment();
+    PathFragment pathFragment = path.asFragment();
+    return pathFragment.startsWith(execRootFragment)
+        && rewoundActionOutputs.contains(pathFragment.relativeTo(execRootFragment));
+  }
 
   /**
    * Downloads file to the given path via its metadata.
    *
    * @param tempPath the temporary path which the input should be written to.
+   * @param finalPath the path the downloaded file will be moved to once the download completes.
    */
   protected abstract ListenableFuture<Void> doDownloadFile(
       @Nullable ActionExecutionMetadata action,
       Reporter reporter,
       ActionInput input,
       Path tempPath,
+      Path finalPath,
       FileArtifactValue metadata,
       Priority priority,
       Reason reason)
@@ -434,6 +447,18 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       if (metadata == null) {
         return immediateVoidFuture();
       }
+
+      if (metadata.getType() == FileStateType.DIRECTORY) {
+        // Tree artifacts have already been expanded into their children, so this is a source
+        // directory. If it lies in an external repo backed by the remote repo contents cache, its
+        // contents may only be available in memory and must be materialized to the local file
+        // system for local actions to access them.
+        if (inputPath.getFileSystem() instanceof SubtreeMaterializer subtreeMaterializer) {
+          subtreeMaterializer.ensureSubtreeMaterialized(inputPath.asFragment());
+        }
+        return immediateVoidFuture();
+      }
+
       var symlinks = getSymlinks(input, inputPath, metadata, metadataSupplier);
       // On Windows, the type of symlink depends on the target file and the target may have to
       // exist, so we plant symlinks in reverse order and only after any download has completed.
@@ -660,6 +685,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                                 reporter,
                                 input,
                                 tempPath.forHostFileSystem(),
+                                finalPath,
                                 metadata,
                                 priority,
                                 reason),
@@ -794,6 +820,17 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         forceRefetch(linkPath));
   }
 
+  /**
+   * Forgets about completed downloads of the given paths so that the next prefetch of each of them
+   * verifies it against the local file system instead of assuming that it is still in place.
+   */
+  public void invalidateDownloads(Iterable<PathFragment> execPaths) {
+    for (PathFragment path : execPaths) {
+      // Downloads are written to the actual host file system, not any overlays.
+      downloadCache.invalidate(execRoot.getRelative(path).forHostFileSystem());
+    }
+  }
+
   public ImmutableSet<Path> downloadedFiles() {
     return downloadCache.getFinishedTasks();
   }
@@ -868,5 +905,26 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   public RemoteOutputChecker getRemoteOutputChecker() {
     return remoteOutputChecker;
+  }
+
+  public void handleRewoundActionOutputs(Collection<Artifact> outputs) {
+    // SkyframeActionExecutor#prepareForRewinding does *not* invalidate outputDirectoryHelper
+    // because action file systems correspond to an ActionFileSystemType with
+    // inMemoryFileSystem() == true. While it is true that resetting outputDirectoryHelper isn't
+    // necessary to undo the caching of output directory creation during action preparation, we
+    // still need to reset here since outputDirectoryHelper is also used by
+    // AbstractActionInputPrefetcher.
+    if (outputDirectoryHelper != null) {
+      outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(outputs);
+    }
+    for (Artifact output : outputs) {
+      // Action templates have TreeFileArtifacts as outputs, which isn't supported by the trie. We
+      // only need to track the tree artifacts themselves.
+      if (output instanceof TreeFileArtifact) {
+        rewoundActionOutputs.add(output.getParent());
+      } else {
+        rewoundActionOutputs.add(output);
+      }
+    }
   }
 }

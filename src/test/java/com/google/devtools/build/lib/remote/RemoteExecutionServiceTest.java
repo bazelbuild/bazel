@@ -43,8 +43,10 @@ import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
+import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.FileNode;
+import build.bazel.remote.execution.v2.LogFile;
 import build.bazel.remote.execution.v2.NodeProperties;
 import build.bazel.remote.execution.v2.NodeProperty;
 import build.bazel.remote.execution.v2.OutputDirectory;
@@ -174,6 +176,9 @@ import org.openjdk.jol.info.GraphLayout;
 public class RemoteExecutionServiceTest {
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
   @Rule public final RxNoGlobalErrorsRule rxNoGlobalErrorsRule = new RxNoGlobalErrorsRule();
+
+  private static final ImmutableList<String> INVALID_PATH_COMPONENTS =
+      ImmutableList.of("..", ".", "/", "a/b", "");
 
   @Mock private RemoteOutputChecker remoteOutputChecker; // download nothing by default.
 
@@ -867,6 +872,9 @@ public class RemoteExecutionServiceTest {
       //   basename for file nodes), and Integers (referencing intermediate segments of Artifact
       //   exec paths for most directory nodes).
       // TODO: Get this number down.
+      // NOTE: Don't just increase this number if the test fails, it directly corresponds to the
+      // memory usage of Bazel's (but not Blaze's) remote execution implementation.
+      // TODO: b/280079296 - Change this to 4048 after pulling in Guava 33.7.0:
       assertThat(stableRetainedSize).isEqualTo(4064);
     }
   }
@@ -1008,6 +1016,12 @@ public class RemoteExecutionServiceTest {
     // arrange
     Digest fooDigest = cache.addContents(remoteActionExecutionContext, "foo-contents");
     Digest barDigest = cache.addContents(remoteActionExecutionContext, "bar-contents");
+    Directory subdir =
+        Directory.newBuilder()
+            .addFiles(
+                FileNode.newBuilder().setName("bar").setDigest(barDigest).setIsExecutable(true))
+            .build();
+    Digest subdirDigest = digestUtil.compute(subdir);
     Tree tree =
         Tree.newBuilder()
             .setRoot(
@@ -1017,11 +1031,9 @@ public class RemoteExecutionServiceTest {
                             .setName("foo")
                             .setDigest(fooDigest)
                             .setIsExecutable(true))
-                    .addFiles(
-                        FileNode.newBuilder()
-                            .setName("subdir/bar")
-                            .setDigest(barDigest)
-                            .setIsExecutable(true)))
+                    .addDirectories(
+                        DirectoryNode.newBuilder().setName("subdir").setDigest(subdirDigest)))
+            .addChildren(subdir)
             .build();
     Digest treeDigest = cache.addContents(remoteActionExecutionContext, tree.toByteArray());
     ActionResult.Builder builder = ActionResult.newBuilder();
@@ -2561,6 +2573,31 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void uploadOutputs_uploadFails_deduplicatesWarnings() throws Exception {
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn = newSpawn(ImmutableMap.of(), ImmutableSet.of());
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    SpawnResult spawnResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+    doReturn(Futures.immediateFailedFuture(new IOException("cache down")))
+        .when(cache)
+        .uploadActionResult(any(), any(), any());
+
+    uploadOutputsAndWait(service, action, spawnResult);
+    uploadOutputsAndWait(service, action, spawnResult);
+
+    assertThat(eventHandler.getEvents()).hasSize(1);
+    Event evt = eventHandler.getEvents().get(0);
+    assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);
+    assertThat(evt.getMessage()).contains("cache down");
+  }
+
+  @Test
   public void uploadOutputs_firesUploadEvents() throws Exception {
     Digest digest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("outputs/file"), "content");
@@ -2872,6 +2909,21 @@ public class RemoteExecutionServiceTest {
         .isEqualTo("persistentWorkerKey");
     assertThat(remoteAction3.getAction().getPlatform().getProperties(0).getValue())
         .isNotEqualTo(remoteAction1.getAction().getPlatform().getProperties(0).getValue());
+  }
+
+  @Test
+  public void workerPropertiesNotAddedUnlessMarkToolInputsSet() throws Exception {
+    Spawn spawn =
+        new SpawnBuilder("some/path/cmd")
+            .withExecutionInfo(ExecutionRequirements.SUPPORTS_WORKERS, "1")
+            .withExecutionInfo(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL, "json")
+            .build();
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
+
+    assertThat(remoteAction.getAction().getPlatform().getPropertiesList()).isEmpty();
   }
 
   @Test
@@ -3281,5 +3333,151 @@ public class RemoteExecutionServiceTest {
     SettableFuture<Void> future = SettableFuture.create();
     service.uploadOutputs(action, result, () -> future.set(null), ConcurrentChangesCheckLevel.OFF);
     future.get();
+  }
+
+  @Test
+  public void maybeDownloadServerLogs_relativeTraversalKey_throwsIOException() throws Exception {
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction remoteAction = mock(RemoteAction.class);
+    when(remoteAction.getActionId()).thenReturn("action-id");
+    when(remoteAction.getRemoteActionExecutionContext()).thenReturn(remoteActionExecutionContext);
+    Path logDir = fs.getPath("/logs");
+    logDir.createDirectoryAndParents();
+
+    ExecuteResponse resp =
+        ExecuteResponse.newBuilder()
+            .setResult(ActionResult.newBuilder().setExitCode(1).build())
+            .putServerLogs(
+                "../../evil.log",
+                LogFile.newBuilder()
+                    .setHumanReadable(true)
+                    .setDigest(Digest.getDefaultInstance())
+                    .build())
+            .build();
+
+    IOException e =
+        assertThrows(
+            IOException.class, () -> service.maybeDownloadServerLogs(remoteAction, resp, logDir));
+    assertThat(e).hasMessageThat().contains("Path traversal detected in server log key");
+  }
+
+  @Test
+  public void maybeDownloadServerLogs_absoluteTraversalKey_throwsIOException() throws Exception {
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction remoteAction = mock(RemoteAction.class);
+    when(remoteAction.getActionId()).thenReturn("action-id");
+    when(remoteAction.getRemoteActionExecutionContext()).thenReturn(remoteActionExecutionContext);
+    Path logDir = fs.getPath("/logs");
+    logDir.createDirectoryAndParents();
+
+    ExecuteResponse resp =
+        ExecuteResponse.newBuilder()
+            .setResult(ActionResult.newBuilder().setExitCode(1).build())
+            .putServerLogs(
+                "/etc/evil.log",
+                LogFile.newBuilder()
+                    .setHumanReadable(true)
+                    .setDigest(Digest.getDefaultInstance())
+                    .build())
+            .build();
+
+    IOException e =
+        assertThrows(
+            IOException.class, () -> service.maybeDownloadServerLogs(remoteAction, resp, logDir));
+    assertThat(e).hasMessageThat().contains("Path traversal detected in server log key");
+  }
+
+  @Test
+  public void maybeDownloadServerLogs_validKey_downloadsLog() throws Exception {
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction remoteAction = mock(RemoteAction.class);
+    when(remoteAction.getActionId()).thenReturn("action-id");
+    when(remoteAction.getRemoteActionExecutionContext()).thenReturn(remoteActionExecutionContext);
+    Path logDir = fs.getPath("/logs");
+    logDir.createDirectoryAndParents();
+
+    Digest logDigest = cache.addContents(remoteActionExecutionContext, "server log content");
+    ExecuteResponse resp =
+        ExecuteResponse.newBuilder()
+            .setResult(ActionResult.newBuilder().setExitCode(1).build())
+            .putServerLogs(
+                "valid.log",
+                LogFile.newBuilder().setHumanReadable(true).setDigest(logDigest).build())
+            .build();
+
+    RemoteExecutionService.ServerLogs serverLogs =
+        service.maybeDownloadServerLogs(remoteAction, resp, logDir);
+
+    assertThat(serverLogs.logCount).isEqualTo(1);
+    assertThat(serverLogs.directory).isEqualTo(logDir.getRelative("action-id"));
+    assertThat(serverLogs.lastLogPath).isEqualTo(logDir.getRelative("action-id/valid.log"));
+    assertThat(readContent(serverLogs.lastLogPath, UTF_8)).isEqualTo("server log content");
+  }
+
+  @Test
+  public void parseActionResultMetadata_invalidDirectoryNames_rejected() throws Exception {
+    for (String invalidName : INVALID_PATH_COMPONENTS) {
+      Directory child = Directory.getDefaultInstance();
+      Digest childDigest = digestUtil.compute(child);
+      Tree tree =
+          Tree.newBuilder()
+              .setRoot(
+                  Directory.newBuilder()
+                      .addDirectories(
+                          DirectoryNode.newBuilder().setName(invalidName).setDigest(childDigest)))
+              .addChildren(child)
+              .build();
+      assertTreeRejected(tree, invalidName);
+    }
+  }
+
+  @Test
+  public void parseActionResultMetadata_invalidFileNames_rejected() throws Exception {
+    for (String invalidName : INVALID_PATH_COMPONENTS) {
+      Tree tree =
+          Tree.newBuilder()
+              .setRoot(
+                  Directory.newBuilder()
+                      .addFiles(
+                          FileNode.newBuilder()
+                              .setName(invalidName)
+                              .setDigest(digestUtil.compute("content".getBytes(UTF_8)))
+                              .setIsExecutable(false)))
+              .build();
+      assertTreeRejected(tree, invalidName);
+    }
+  }
+
+  @Test
+  public void parseActionResultMetadata_invalidSymlinkNames_rejected() throws Exception {
+    for (String invalidName : INVALID_PATH_COMPONENTS) {
+      Tree tree =
+          Tree.newBuilder()
+              .setRoot(
+                  Directory.newBuilder()
+                      .addSymlinks(
+                          SymlinkNode.newBuilder().setName(invalidName).setTarget("target")))
+              .build();
+      assertTreeRejected(tree, invalidName);
+    }
+  }
+
+  private void assertTreeRejected(Tree tree, String expectedName) throws Exception {
+    String treeOut = "bazel-out/k8-fastbuild/bin/pkg/out.tree";
+    ActionResult ar =
+        ActionResult.newBuilder()
+            .addOutputDirectories(
+                OutputDirectory.newBuilder()
+                    .setPath(treeOut)
+                    .setTreeDigest(cache.addContents(remoteActionExecutionContext, tree)))
+            .build();
+
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                RemoteExecutionService.parseActionResultMetadata(
+                    cache, digestUtil, remoteActionExecutionContext, ar, remotePathResolver));
+    assertThat(e).hasMessageThat().contains("Malformed path component: " + expectedName);
   }
 }

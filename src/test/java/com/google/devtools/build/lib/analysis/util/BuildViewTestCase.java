@@ -357,6 +357,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
         tsgm);
     skyframeExecutor.setActionEnv(ImmutableMap.of());
@@ -390,7 +391,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             // aren't present in the cache.
             /* bzlLoadValueCacheSize= */ 2);
     // The builtins should be empty since this was just created but reset it anyway to be sure.
-    inliningBzlLoadFunction.resetInliningCacheAndBuiltinsForTesting();
+    inliningBzlLoadFunction.resetInliningCacheAndBuiltins();
     // This doesn't override the BZL_LOAD -> BzlLoadFunction mapping, but nothing besides
     // PackageFunction should be requesting that key while using the inlining code path.
     ((PackageFunction) skyFunctions.get(SkyFunctions.PACKAGE))
@@ -494,7 +495,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     assertContainsEvent(expectedError);
   }
 
-  private void setUpSkyframe() {
+  private void setUpSkyframe() throws AbruptExitException {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             outputBase,
@@ -511,6 +512,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
         tsgm);
     skyframeExecutor.setActionEnv(ImmutableMap.of());
@@ -602,7 +604,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.invalidateFilesUnderPathForTesting(
         reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
     if (inliningBzlLoadFunction != null) {
-      inliningBzlLoadFunction.resetInliningCacheAndBuiltinsForTesting();
+      inliningBzlLoadFunction.resetInliningCacheAndBuiltins();
     }
     if (alsoConfigs) {
       try {

@@ -198,12 +198,13 @@ bool IsSharedLibrary(const string &filename) {
 string GetSystemJavabase() {
   string java_home = GetPathEnv("JAVA_HOME");
   if (!java_home.empty()) {
-    string javac = blaze_util::JoinPath(java_home, "bin/javac");
-    if (access(javac.c_str(), X_OK) == 0) {
+    string java = blaze_util::JoinPath(java_home, "bin/java");
+    if (access(java.c_str(), X_OK) == 0) {
       return java_home;
     }
     BAZEL_LOG(WARNING)
-        << "Ignoring JAVA_HOME, because it must point to a JDK, not a JRE.";
+        << "Ignoring JAVA_HOME, because it does not contain a bin/java "
+           "executable.";
   }
 
   // java_home will print a warning if no JDK could be found
@@ -250,6 +251,13 @@ bool VerifyServerProcess(int pid, const blaze_util::Path &output_base) {
   // unrelated process if the server died and the PID got reused.
   return killpg(pid, 0) == 0;
 }
+
+std::string ParseProcStatDiagnosis(absl::string_view /*statline*/,
+                                   int /*pid*/) {
+  return "";
+}
+
+std::string GetProcessTerminationDiagnosis(int /*pid*/) { return ""; }
 
 // Sets a flag on path to exclude the path from Apple's automatic backup service
 // (Time Machine)

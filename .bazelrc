@@ -1,4 +1,5 @@
 common --enable_platform_specific_config
+common --@rules_python//python/config_settings:bootstrap_impl=script
 
 # Either consumed as @remoteapis or as files.
 common --deleted_packages=third_party/remoteapis
@@ -24,6 +25,9 @@ common:remote --config=ubuntu2404
 
 common:macos --host_macos_minimum_os=10.13
 common:macos --macos_minimum_os=10.13
+
+# grpc fails layering_check on macOS until the next update
+common:macos --repo_env=APPLE_SUPPORT_LAYERING_CHECK_BETA=0
 
 common:windows_arm64 --platforms=//:windows_arm64
 common:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows
@@ -56,12 +60,15 @@ common:windows --host_per_file_copt=external/.*@/wd4047,/wd4624,/wd4267,/wd4244,
 # Enable Protobuf MSVC support on Windows
 common:windows --define=protobuf_allow_msvc=true
 
-# Enable Java 21 language features and compile for a Java 25 runtime, matching
+# Build protoc from source instead of using the prebuilt binary so we can apply patches.
+common --@com_google_protobuf//bazel/flags:prefer_prebuilt_protoc=false
+
+# Enable Java 25 language features and compile for a Java 25 runtime, matching
 # version of the embedded JDK.
 # Keep in sync with //:java_toolchain_%d.
 # LINT.IfChange
-common --java_language_version=21
-common --tool_java_language_version=21
+common --java_language_version=25
+common --tool_java_language_version=25
 common --java_runtime_version=remotejdk_25
 common --tool_java_runtime_version=remotejdk_25
 # LINT.ThenChange(//BUILD)

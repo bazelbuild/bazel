@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.skybridge.ScFlags;
+import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.EnumConverter;
@@ -38,7 +38,7 @@ import java.time.Duration;
  * <p>A flag should be in the SC otherwise, as it offers simpler backwards compatibility.
  */
 @OptionsClass
-@ScFlags
+@ScOnly
 public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
 
   /** A converter for integers that must be at least 1. */
@@ -47,6 +47,24 @@ public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
       super(1, Integer.MAX_VALUE);
     }
   }
+
+  /** A converter for integers that must be at least 0. */
+  public static final class NonNegativeIntegerConverter extends RangeConverter {
+    public NonNegativeIntegerConverter() {
+      super(0, Integer.MAX_VALUE);
+    }
+  }
+
+  @Option(
+      name = "experimental_remote_analysis_cache_max_in_flight_read_requests",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      defaultValue = "500000",
+      converter = NonNegativeIntegerConverter.class,
+      help =
+          "Maximum number of concurrent in-flight read requests across Skycache stores before"
+              + " shedding load to local evaluation. 0 to disable.")
+  public abstract int getMaxInFlightReadRequests();
 
   @Option(
       name = "experimental_remote_analysis_cache_max_batch_size",
@@ -58,6 +76,15 @@ public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
   public abstract int getMaxBatchSize();
 
   @Option(
+      name = "experimental_remote_analysis_cache_reader_max_batch_size",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      defaultValue = "1024",
+      converter = PositiveIntegerConverter.class,
+      help = "Batch size limit for remote analysis caching reader RPCs.")
+  public abstract int getReaderMaxBatchSize();
+
+  @Option(
       name = "experimental_remote_analysis_cache_concurrency",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
@@ -67,10 +94,21 @@ public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
   public abstract int getConcurrency();
 
   @Option(
+      name = "experimental_remote_analysis_cache_cpu_concurrency",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      defaultValue = "0",
+      converter = NonNegativeIntegerConverter.class,
+      help =
+          "Parallelism for CPU-bound remote analysis cache tasks. 0 auto-detects based on available"
+              + " processors.")
+  public abstract int getCpuConcurrency();
+
+  @Option(
       name = "experimental_remote_analysis_cache_max_write_concurrency",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      defaultValue = "100",
+      defaultValue = "16",
       converter = PositiveIntegerConverter.class,
       help = "Max write concurrency for remote analysis caching RPCs.")
   public abstract int getMaxWriteConcurrency();
@@ -163,4 +201,12 @@ public abstract class RemoteAnalysisCachingServicesOptions extends OptionsBase {
 
   @VisibleForTesting
   public abstract void setRemoteAnalysisDebugEntries(String value);
+
+  @Option(
+      name = "experimental_remote_analysis_cache_keep_services_on_for_testing",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "Prevents resetCommandState from shutting down executors and stores for testing.")
+  public abstract boolean getKeepServicesOnForTesting();
 }

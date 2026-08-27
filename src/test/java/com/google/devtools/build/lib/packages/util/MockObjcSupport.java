@@ -710,6 +710,21 @@ public final class MockObjcSupport {
       config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/" + tool);
     }
     setupXcodeRules(config);
+    /** Test setup for the Apple platform constraint targets that are used in tests. */
+    config.create(
+        "third_party/bazel_rules/apple_support/constraints/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "licenses(['notice'])",
+        "constraint_setting(name = 'target_environment')",
+        "constraint_value(name = 'device', constraint_setting = ':target_environment')",
+        "constraint_value(name = 'simulator', constraint_setting = ':target_environment')",
+        "constraint_value(name = 'catalyst', constraint_setting = ':target_environment')",
+        "constraint_setting(name = 'target_vendor')",
+        "constraint_value(name = 'apple', constraint_setting = ':target_vendor')",
+        "constraint_setting(name = 'pointer_authentication_setting')",
+        "constraint_value(name = 'pointer_authentication', constraint_setting ="
+            + " ':pointer_authentication_setting')");
+    /** Test setup for the Xcode rules that are used in tests. */
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/BUILD",
         getPyLoad("py_binary"),

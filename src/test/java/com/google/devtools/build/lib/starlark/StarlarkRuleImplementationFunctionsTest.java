@@ -82,6 +82,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -102,6 +103,7 @@ import org.mockito.Mockito;
 
 /** Tests for Starlark functions relating to rule implementation. */
 @RunWith(TestParameterInjector.class)
+@StarlarkLibrary
 public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
 
   private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
@@ -679,6 +681,16 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             + "in $(location) expression expands to more than one file, please use $(locations "
             + "//foo:gl) instead.",
         "ruleContext.expand_location('$(location :gl)')");
+    checkReportedErrorStartsWith(
+        "in genrule rule //foo:bar: label '//foo:gl' "
+            + "in $(execpath) expression expands to more than one file, please use $(execpaths "
+            + "//foo:gl) instead.",
+        "ruleContext.expand_location('$(execpath :gl)')");
+    checkReportedErrorStartsWith(
+        "in genrule rule //foo:bar: label '//foo:gl' "
+            + "in $(rootpath) expression expands to more than one file, please use $(rootpaths "
+            + "//foo:gl) instead.",
+        "ruleContext.expand_location('$(rootpath :gl)')");
 
     // We have to use "locations" for multiple targets
     runExpansion("locations :gl", "[blaze]*-out/.*/bin/foo/gl.a [blaze]*-out/.*/bin/foo/gl.gcgox");

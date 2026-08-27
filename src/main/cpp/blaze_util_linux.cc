@@ -35,6 +35,9 @@
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
 
 namespace blaze {
 
@@ -133,29 +136,52 @@ string GetSystemJavabase() {
   // if JAVA_HOME is defined, then use it as default.
   string javahome = GetPathEnv("JAVA_HOME");
   if (!javahome.empty()) {
-    string javac = blaze_util::JoinPath(javahome, "bin/javac");
-    if (access(javac.c_str(), X_OK) == 0) {
+    string java = blaze_util::JoinPath(javahome, "bin/java");
+    if (access(java.c_str(), X_OK) == 0) {
       return javahome;
     }
     BAZEL_LOG(WARNING)
-        << "Ignoring JAVA_HOME, because it must point to a JDK, not a JRE.";
+        << "Ignoring JAVA_HOME, because it does not contain a bin/java "
+           "executable.";
   }
 
-  // which javac
-  string javac_dir = Which("javac");
-  if (javac_dir.empty()) {
+  // which java
+  string java_dir = Which("java");
+  if (java_dir.empty()) {
     return "";
   }
 
   // Resolve all symlinks.
   char resolved_path[PATH_MAX];
-  if (realpath(javac_dir.c_str(), resolved_path) == nullptr) {
+  if (realpath(java_dir.c_str(), resolved_path) == nullptr) {
     return "";
   }
-  javac_dir = resolved_path;
+  java_dir = resolved_path;
 
   // dirname dirname
-  return blaze_util::Dirname(blaze_util::Dirname(javac_dir));
+  return blaze_util::Dirname(blaze_util::Dirname(java_dir));
+}
+
+bool ParseProcStat(absl::string_view statline, string* start_time) {
+  size_t last_parenthesis = statline.rfind(')');
+  if (last_parenthesis == absl::string_view::npos) {
+    return false;
+  }
+
+  // The remainder starts after the last ')' and the space following it.
+  absl::string_view remainder = statline.substr(last_parenthesis + 1);
+  vector<absl::string_view> stat_entries =
+      absl::StrSplit(remainder, ' ', absl::SkipEmpty());
+  // In /proc/[pid]/stat, field 22 (starttime) is at index 19 of remainder after
+  // stripping pid and comm.
+  constexpr int kStartTimeIndexInRemainder = 19;
+  if (stat_entries.size() <= kStartTimeIndexInRemainder) {
+    return false;
+  }
+
+  // Start time since startup in jiffies.
+  *start_time = string(stat_entries[kStartTimeIndexInRemainder]);
+  return true;
 }
 
 // Called from a signal handler!
@@ -167,17 +193,56 @@ static bool GetStartTime(const string& pid, string* start_time) {
     return false;
   }
 
-  vector<string> stat_entries = blaze_util::Split(statline, ' ');
-  if (stat_entries.size() < 22) {
+  if (!ParseProcStat(statline, start_time)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "Format of stat file at " << statfile
-        << " is unknown: " << GetLastErrorString();
+        << "Format of stat file at " << statfile << " is unknown";
   }
 
-  // Start time since startup in jiffies. This combined with the PID should be
-  // unique.
-  *start_time = stat_entries[21];
   return true;
+}
+
+std::string ParseProcStatDiagnosis(absl::string_view statline, int pid) {
+  size_t last_parenthesis = statline.rfind(')');
+  if (last_parenthesis == string::npos) {
+    return "";
+  }
+
+  absl::string_view remainder = statline.substr(last_parenthesis + 1);
+  vector<absl::string_view> stat_entries =
+      absl::StrSplit(remainder, ' ', absl::SkipEmpty());
+  if (stat_entries.size() < 2) {
+    return "";
+  }
+
+  absl::string_view state = stat_entries[0];
+  absl::string_view ppid = stat_entries[1];
+
+  if (state == "Z") {
+    return absl::StrCat(
+        "Process ", pid,
+        " is a zombie process (state 'Z'). It has already terminated, but "
+        "its parent process (pid=",
+        ppid,
+        ") has not reaped it. If running inside a container (such as "
+        "Docker), ensure an init process is used (e.g., 'docker run --init').");
+  } else if (state == "D") {
+    return absl::StrCat(
+        "Process ", pid,
+        " is in uninterruptible disk/kernel sleep (state 'D'). This is "
+        "typically caused by a hanging filesystem or I/O call (such as "
+        "FUSE or network mount), which prevents SIGKILL from taking effect.");
+  }
+  return absl::StrCat("Process state: ", state, " (parent pid=", ppid, ").");
+}
+
+std::string GetProcessTerminationDiagnosis(int pid) {
+  string statfile = absl::StrCat("/proc/", pid, "/stat");
+  string statline;
+
+  if (!blaze_util::ReadFile(statfile, &statline)) {
+    return "";
+  }
+  return ParseProcStatDiagnosis(statline, pid);
 }
 
 int ConfigureDaemonProcess(posix_spawnattr_t* attrp,

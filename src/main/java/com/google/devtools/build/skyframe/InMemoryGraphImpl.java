@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ForwardingConcurrentMap;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.LabelInterner;
@@ -134,9 +133,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
       return;
     }
     LabelInterner interner = Label.getLabelInterner();
-
-    ImmutableSortedMap<String, Target> targets = packageoidValue.getPackageoid().getTargets();
-    targets.values().forEach(t -> interner.weakIntern(t.getLabel()));
+    packageoidValue.getPackageoid().getTargets().forEach(t -> interner.weakIntern(t.getLabel()));
   }
 
   @Override
@@ -379,9 +376,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
       return null;
     }
     checkState(value instanceof PackageoidValue, value);
-    ImmutableSortedMap<String, Target> targets =
-        ((PackageoidValue) value).getPackageoid().getTargets();
-    Target target = targets.get(sample.getName());
+    Target target = ((PackageoidValue) value).getPackageoid().getTargetOrNull(sample.getName());
     return target != null ? target.getLabel() : null;
   }
 

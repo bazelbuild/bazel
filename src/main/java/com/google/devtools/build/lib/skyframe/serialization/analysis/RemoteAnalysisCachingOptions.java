@@ -13,11 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import com.google.common.base.Ascii;
+import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.devtools.common.options.Converter;
-import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -79,11 +80,27 @@ public abstract class RemoteAnalysisCachingOptions extends OptionsBase {
 
   public abstract void setMode(RemoteAnalysisCacheMode value);
 
-  /** Enum converter for {@link RemoteAnalysisCacheMode}. */
+  /** Converter for {@link RemoteAnalysisCacheMode}. */
   private static class RemoteAnalysisCacheModeConverter
-      extends EnumConverter<RemoteAnalysisCacheMode> {
-    RemoteAnalysisCacheModeConverter() {
-      super(RemoteAnalysisCacheMode.class, "Remote analysis cache mode");
+      extends Converter.Contextless<RemoteAnalysisCacheMode> {
+    @Override
+    public RemoteAnalysisCacheMode convert(String input) throws OptionsParsingException {
+      for (RemoteAnalysisCacheMode value : RemoteAnalysisCacheMode.values()) {
+        if (Ascii.equalsIgnoreCase(value.toString(), input)) {
+          return value;
+        }
+      }
+      throw new OptionsParsingException(
+          "Not a valid remote analysis cache mode: '"
+              + input
+              + "' (should be "
+              + getTypeDescription()
+              + ")");
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return Joiner.on(", ").join(RemoteAnalysisCacheMode.values());
     }
   }
 

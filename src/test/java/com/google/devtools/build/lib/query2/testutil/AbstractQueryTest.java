@@ -237,6 +237,10 @@ public abstract class AbstractQueryTest<T> {
     return resultSetToListOfStrings(eval(query));
   }
 
+  protected ImmutableList<String> evalToListOfStringsUnsorted(String query) throws Exception {
+    return eval(query).stream().map(node -> helper.getLabel(node)).collect(toImmutableList());
+  }
+
   protected ImmutableList<String> resultSetToListOfStrings(Set<T> results) {
     return results.stream()
         .map(node -> helper.getLabel(node))
@@ -665,6 +669,26 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
+  public void testSomePathOperatorOrderingWithLet() throws Exception {
+    writeFile("z/BUILD", "genrule(name='z', srcs=['//y:y'], outs=['out'], cmd=':')");
+    writeFile("y/BUILD", "genrule(name='y', srcs=['//x:x'], outs=['out'], cmd=':')");
+    writeFile("x/BUILD", "genrule(name='x', srcs=['//w:w'], outs=['out'], cmd=':')");
+    writeFile("w/BUILD", "exports_files(['w'])");
+
+    ImmutableList<String> expectedPath = ImmutableList.of("//z:z", "//y:y", "//x:x", "//w:w");
+
+    // Single let expression
+    ImmutableList<String> somepathZToW =
+        evalToListOfStringsUnsorted("let x = //z:z in somepath($x, //w)");
+    assertThat(somepathZToW).isEqualTo(expectedPath);
+
+    // Nested let expressions
+    ImmutableList<String> somepathZToWNested =
+        evalToListOfStringsUnsorted("let y = //y:y in let x = //z:z in somepath($x, //w)");
+    assertThat(somepathZToWNested).isEqualTo(expectedPath);
+  }
+
+  @Test
   public void testAllPathsOperator() throws Exception {
     writeBuildFiles3();
     writeBuildFilesWithConfigurableAttributes();
@@ -957,6 +981,13 @@ public abstract class AbstractQueryTest<T> {
     assertThat(eval("rdeps(//a, //d, 1)" + getDependencyCorrection()))
         .isEqualTo(eval("//b union //c union //d"));
     assertThat(eval("rdeps(//a, //d, 0)" + getDependencyCorrection())).isEqualTo(eval("//d"));
+
+    // Test union of multiple rdeps with the same universe (tests universe DTC memoization):
+    assertThat(
+            eval(
+                "(rdeps(//a, //d, 1) except //d) + (rdeps(//a, //c, 1) except //c)"
+                    + getDependencyCorrection()))
+        .isEqualTo(eval("//a union //b union //c"));
 
     // Configurable attributes:
     if (testConfigurableAttributes()) {

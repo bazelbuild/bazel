@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -372,7 +373,10 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     addOptions("--aspects=//foo:aspect.bzl%execution_err_aspect", "--output_groups=files");
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
     events.assertContainsError(
-        "Action foo/aspect_output failed: (Exit 1): bash failed: error executing Action command");
+        // The shell binary is "bash" on Unix and "bash.exe" on Windows.
+        Pattern.compile(
+            "\\QAction foo/aspect_output (from target //foo:foo) failed: (Exit 1): bash\\E"
+                + "(\\.exe)?\\Q failed: error executing Action command\\E"));
   }
 
   @Test
@@ -405,7 +409,8 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
       assertSingleOutputBuilt("//foo:foo");
     }
     events.assertContainsError(
-        "Action foo/execution_failure.out failed: missing input file '//foo:missing'");
+        "Action foo/execution_failure.out (from target //foo:execution_failure) failed: missing"
+            + " input file '//foo:missing'");
   }
 
   @Test
@@ -500,7 +505,8 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
         BuildFailedException.class,
         () -> buildTarget("//foo:analysis_failure", "//foo:execution_failure"));
     events.assertContainsError(
-        "Action foo/execution_failure.out failed: missing input file '//foo:missing'");
+        "Action foo/execution_failure.out (from target //foo:execution_failure) failed: missing"
+            + " input file '//foo:missing'");
     events.assertContainsError("rule '//foo:missing' does not exist");
 
     assertThat(getLabelsOfAnalyzedTargets()).contains("//foo:execution_failure");
@@ -831,7 +837,10 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     // Verify that the build did not crash.
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
     events.assertContainsError(
-        "Action foo/aspect_output failed: (Exit 1): bash failed: error executing Action command");
+        // The shell binary is "bash" on Unix and "bash.exe" on Windows.
+        Pattern.compile(
+            "\\QAction foo/aspect_output (from target //foo:foo) failed: (Exit 1): bash\\E"
+                + "(\\.exe)?\\Q failed: error executing Action command\\E"));
   }
 
   @Test

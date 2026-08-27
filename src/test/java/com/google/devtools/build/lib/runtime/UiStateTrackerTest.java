@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
+import com.google.devtools.build.lib.actions.UploadingActionEvent;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -777,6 +778,30 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // assert
     String output = terminalWriter.getTranscript();
     assertThat(output).contains("action progress");
+  }
+
+  @Test
+  public void setTargetWidth_affectsSubsequentProgressBarRendering() throws Exception {
+    ManualClock clock = new ManualClock();
+    Action action = createDummyAction("Some random action");
+    UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 70);
+    // Mimic being at the execution phase.
+    simulateExecutionPhase(stateTracker);
+    stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
+    stateTracker.actionProgress(
+        ActionProgressEvent.create(action, "action-id", "action progress", false));
+
+    LoggingTerminalWriter wideTerminalWriter =
+        new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(wideTerminalWriter);
+    assertThat(wideTerminalWriter.getTranscript()).contains("action progress");
+
+    stateTracker.setTargetWidth(30);
+
+    LoggingTerminalWriter narrowTerminalWriter =
+        new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(narrowTerminalWriter);
+    assertThat(narrowTerminalWriter.getTranscript()).doesNotContain("action progress");
   }
 
   @Test
@@ -1771,5 +1796,24 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertThat(output).contains("Running action");
     assertThat(output).contains("(2 actions, 1 running)");
     assertThat(output).doesNotContain("Scheduled action");
+  }
+
+  @Test
+  public void testUploadingAction() throws Exception {
+    ManualClock clock = new ManualClock();
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    simulateExecutionPhase(stateTracker);
+
+    Action uploadingAction = mockAction("Uploading action", "uploading/action");
+    when(uploadingAction.getOwner()).thenReturn(dummyActionOwner());
+    stateTracker.actionStarted(new ActionStartedEvent(uploadingAction, clock.nanoTime()));
+    stateTracker.uploadingAction(new UploadingActionEvent(uploadingAction, "remote"));
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriter, /* shortVersion= */ true);
+    String output = terminalWriter.getTranscript();
+
+    assertThat(output).contains("Uploading action");
+    assertThat(output).contains("[Uploa]");
   }
 }

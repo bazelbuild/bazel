@@ -25,8 +25,10 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
@@ -37,6 +39,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -204,6 +207,38 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
 
     // Bytes are the same but the encoding is actually UTF-8 as required of a protobuf string.
     assertThat(fileProto.getName()).isEqualTo(new String(filenameBytes, UTF_8));
+  }
+
+  @Test
+  public void testFileProtoFromExternalSourceArtifact() throws Exception {
+    ArtifactRoot externalRoot =
+        ArtifactRoot.asExternalSourceRoot(Root.fromPath(scratch.dir("/output_base/external/foo")));
+    Artifact artifact =
+        ActionsTestUtil.createArtifactWithExecPath(
+            externalRoot, PathFragment.create("external/foo/bar/baz.cc"));
+    FileArtifactValue metadata =
+        FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, null, 10);
+
+    File fileProto = TargetCompleteEvent.newFile(artifact, metadata);
+
+    assertThat(fileProto.getName()).isEqualTo("external/foo/bar/baz.cc");
+    assertThat(fileProto.getPathPrefixList()).isEmpty();
+  }
+
+  @Test
+  public void testFileProtoFromExternalSourceArtifact_siblingRepositoryLayout() throws Exception {
+    ArtifactRoot externalRoot =
+        ArtifactRoot.asExternalSourceRoot(Root.fromPath(scratch.dir("/output_base/external/foo")));
+    Artifact artifact =
+        ActionsTestUtil.createArtifactWithExecPath(
+            externalRoot, PathFragment.create("../foo/bar/baz.cc"));
+    FileArtifactValue metadata =
+        FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, null, 10);
+
+    File fileProto = TargetCompleteEvent.newFile(artifact, metadata);
+
+    assertThat(fileProto.getName()).isEqualTo("../foo/bar/baz.cc");
+    assertThat(fileProto.getPathPrefixList()).isEmpty();
   }
 
   private ConfiguredTargetAndData getCtAndData(String target) throws Exception {

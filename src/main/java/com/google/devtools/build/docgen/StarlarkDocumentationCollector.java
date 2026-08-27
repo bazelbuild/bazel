@@ -25,8 +25,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.docgen.StarlarkDocumentationProcessor.Category;
-import com.google.devtools.build.docgen.annot.GlobalMethods;
-import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.docgen.starlark.AnnotStarlarkBuiltinDoc;
 import com.google.devtools.build.docgen.starlark.AnnotStarlarkConstructorMethodDoc;
@@ -299,13 +299,13 @@ final class StarlarkDocumentationCollector {
 
   /**
    * Adds {@link StarlarkJavaMethodDoc} entries to the top level module, one for
-   * each @StarlarkMethod method defined in the given @GlobalMethods class {@code clazz}.
+   * each @StarlarkMethod method defined in the given @GlobalMethodDocs class {@code clazz}.
    */
   private static void collectGlobalMethods(
       Class<?> clazz,
       Map<Category, Map<String, StarlarkDocPage>> pages,
       StarlarkDocExpander expander) {
-    GlobalMethods globalMethods = clazz.getAnnotation(GlobalMethods.class);
+    GlobalMethodDocs globalMethods = clazz.getAnnotation(GlobalMethodDocs.class);
 
     if (globalMethods == null && !clazz.getName().equals("net.starlark.java.eval.MethodLibrary")) {
       return;
@@ -503,7 +503,7 @@ final class StarlarkDocumentationCollector {
       Map<Category, Map<String, StarlarkDocPage>> pages,
       StarlarkDocExpander expander) {
     if (!clazz.isAnnotationPresent(StarlarkBuiltin.class)
-        && !clazz.isAnnotationPresent(GlobalMethods.class)) {
+        && !clazz.isAnnotationPresent(GlobalMethodDocs.class)) {
       return;
     }
     Method selfCall = Starlark.getSelfCallMethod(StarlarkSemantics.DEFAULT, clazz);

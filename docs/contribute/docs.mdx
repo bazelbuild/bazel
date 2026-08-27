@@ -2,42 +2,19 @@
 title: 'Contribute to Bazel documentation'
 ---
 
+Thank you for contributing to Bazel's documentation!
 
+## How docs work
 
-Thank you for contributing to Bazel's documentation! There are a few ways to
-help create better docs for our community.
+Bazel documentation lives in two repositories:
 
-## Documentation types
+- [`bazelbuild/bazel`](https://github.com/bazelbuild/bazel) — all doc content in the `docs/` folder. This is where you make changes.
+- [`bazel-contrib/bazel-docs`](https://github.com/bazel-contrib/bazel-docs) — the hosting and navigation layer (Mintlify config, sidebar, PR previews).
 
-This site includes a few types of content.
+Content changes always go to `bazelbuild/bazel`. Navigation changes go to `bazel-contrib/bazel-docs`.
 
- - *Narrative documentation*, which is written by technical writers and
-   engineers. Most of this site is narrative documentation that covers
-   conceptual and task-based guides.
- - *Reference documentation*, which is generated documentation from code comments.
-   You can't make changes to the reference doc pages directly, but instead need
-   to change their source.
+## Contributing
 
-## Documentation infrastructure
+- **Make a change or add a page** — see [Docs contribution workflow](/contribute/docs-contribution-workflow) for step-by-step instructions, from a quick typo fix to adding a new page.
+- **Update the sidebar navigation** — see [Update the docs navigation](/contribute/docs-navigation) for instructions on adding your new page to the left-hand nav in `bazel-contrib/bazel-docs`.
 
-Bazel documentation is served from Google and the source files are mirrored in
-Bazel's GitHub repository. You can make changes to the source files in GitHub.
-If approved, you can merge the changes and a Bazel maintainer will update the
-website source to publish your updates.
-
-
-## Small changes
-
-You can approach small changes, such as fixing errors or typos, in a couple of
-ways.
-
- - **Pull request**. You can create a pull request in GitHub with the
-   [web-based editor](https://docs.github.com/repositories/working-with-files/managing-files/editing-files) or on a branch.
- - **Bug**. You can file a bug with details and suggested changes and the Bazel
-   documentation owners will make the update.
-
-## Large changes
-
-If you want to make substantial changes to existing documentation or propose
-new documentation, you can either create a pull request or start with a Google
-doc and contact the Bazel Owners to collaborate.

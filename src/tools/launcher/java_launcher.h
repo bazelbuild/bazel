@@ -15,6 +15,7 @@
 #ifndef BAZEL_SRC_TOOLS_LAUNCHER_JAVA_LAUNCHER_H_
 #define BAZEL_SRC_TOOLS_LAUNCHER_JAVA_LAUNCHER_H_
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -92,17 +93,26 @@ class JavaBinaryLauncher : public BinaryLauncherBase {
   // classpath jar across concurrent launcher processes sharing the same binary.
   const std::wstring rand_id_;
 
-  // Create a classpath jar to pass CLASSPATH value when its length is over
-  // limit.
+  // Returns the Java version targeted by this launcher.
+  std::optional<int> GetJavaVersion();
+
+  // Creates a classpath jar to pass the CLASSPATH value when its length is over
+  // the limit.
   //
-  // Return the path of the classpath jar created.
+  // Returns the path to the classpath jar.
   std::wstring CreateClasspathJar(const std::wstring& classpath);
 
-  // Creat a directory based on the binary path, all the junctions will be
+  // Creates a classpath flagfile to pass the CLASSPATH value when its length is
+  // over the limit.
+  //
+  // Returns the path to the classpath flagfile.
+  std::wstring CreateClasspathFlagfile(const std::wstring& classpath);
+
+  // Creates a directory based on the binary path, all the junctions will be
   // generated under this directory.
   std::wstring GetJunctionBaseDir();
 
-  // Delete all the junction directory and all the junctions under it.
+  // Deletes all the junction directory and all the junctions under it.
   void DeleteJunctionBaseDir();
 };
 

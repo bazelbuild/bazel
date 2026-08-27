@@ -1,25 +1,26 @@
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
-genrule(
+copy_file(
     name = "copy_link_jni_md_header",
-    srcs = select({
-        "//src/conditions:darwin": ["@rules_java//toolchains:jni_md_header-darwin"],
-        "//src/conditions:freebsd": ["@rules_java//toolchains:jni_md_header-freebsd"],
-        "//src/conditions:openbsd": ["@rules_java//toolchains:jni_md_header-openbsd"],
-        "//src/conditions:windows": ["@rules_java//toolchains:jni_md_header-windows"],
-        "//conditions:default": ["@rules_java//toolchains:jni_md_header-linux"],
+    src = select({
+        "//src/conditions:darwin": "@rules_java//toolchains:jni_md_header-darwin",
+        "//src/conditions:freebsd": "@rules_java//toolchains:jni_md_header-freebsd",
+        "//src/conditions:openbsd": "@rules_java//toolchains:jni_md_header-openbsd",
+        "//src/conditions:windows": "@rules_java//toolchains:jni_md_header-windows",
+        "//conditions:default": "@rules_java//toolchains:jni_md_header-linux",
     }),
-    outs = ["jni_md.h"],
-    cmd = "cp -f $< $@",
+    out = "jni_md.h",
+    allow_symlink = True,
     visibility = ["//src/main/native:__subpackages__"],
 )
 
-genrule(
+copy_file(
     name = "copy_link_jni_header",
-    srcs = ["@rules_java//toolchains:jni_header"],
-    outs = ["jni.h"],
-    cmd = "cp -f $< $@",
+    src = "@rules_java//toolchains:jni_header",
+    out = "jni.h",
+    allow_symlink = True,
     visibility = ["//src/main/native:__subpackages__"],
 )
 
@@ -107,12 +108,11 @@ cc_binary(
 
 # TODO(bazel-team): Come up with a way to support platform-specific dynamic
 # library extensions.  This is issue #914.
-genrule(
+copy_file(
     name = "mac-compat",
-    srcs = ["libunix_jni.so"],
-    outs = ["libunix_jni.dylib"],
-    cmd = "cp $< $@",
-    output_to_bindir = 1,
+    src = "libunix_jni.so",
+    out = "libunix_jni.dylib",
+    allow_symlink = True,
     visibility = ["//src/main/java/com/google/devtools/build/lib/jni:__pkg__"],
 )
 

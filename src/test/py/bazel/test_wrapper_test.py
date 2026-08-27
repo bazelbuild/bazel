@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import string
 import zipfile
 
 from absl.testing import absltest
@@ -190,7 +191,8 @@ class TestWrapperTest(test_base.TestBase):
         executable=True)
 
     self.ScratchFile(
-        'foo/annot_test.py', [
+        'foo/annot_test.py',
+        [
             'import os',
             'root = os.environ.get("TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR")',
             'dir1 = os.path.join(root, "out1")',
@@ -203,12 +205,19 @@ class TestWrapperTest(test_base.TestBase):
             '  f.write("Hello b")',
             'with open(os.path.join(root, "c.part"), "wt") as f:',
             '  f.write("Hello c")',
+            'with open(os.path.join(root, "a.pb"), "wb") as f:',
+            '  f.write(b"\\x03\\x0a\\x01\\x00")',
+            'with open(os.path.join(root, "c.pb"), "wb") as f:',
+            '  f.write(b"\\x03\\x0a\\x01\\xff")',
             'with open(os.path.join(dir1, "d.part"), "wt") as f:',
             '  f.write("Hello d")',
+            'with open(os.path.join(dir1, "d.pb"), "wb") as f:',
+            '  f.write(b"\\x03\\x0a\\x01\\x7f")',
             'with open(os.path.join(dir2, "e.part"), "wt") as f:',
             '  f.write("Hello e")',
         ],
-        executable=True)
+        executable=True,
+    )
 
     self.ScratchFile(
         'foo/xml_test.py', [
@@ -603,6 +612,11 @@ class TestWrapperTest(test_base.TestBase):
 
     self.assertListEqual(annot_content, ['Hello aHello c'])
 
+    undecl_annot_pb = undecl_annot + '.pb'
+    self.assertTrue(os.path.exists(undecl_annot_pb))
+    with open(undecl_annot_pb, 'rb') as f:
+      self.assertEqual(f.read(), b'\x03\x0a\x01\x00\x03\x0a\x01\xff')
+
   def _AssertXmlGeneration(self, flags):
     _, bazel_testlogs, _ = self.RunBazel(['info', 'bazel-testlogs'])
     bazel_testlogs = bazel_testlogs[0]
@@ -754,6 +768,44 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertXmlGeneration(flags)
     self._AssertXmlGeneratedByTestIsRetained(flags)
     self._AssertAddCurrentDirectoryToPathTest(flags)
+
+  # Test that chdir'ing into a runfiles directory longer than MAX_PATH works.
+  # See https://github.com/bazelbuild/bazel/issues/30609
+  def testChdirToRunfilesWithPathLongerThanMaxPath(self):
+    # Used for both the package directory and the target name so the overall
+    # runfiles path exceeds MAX_PATH, while each individual path component
+    # remains well below the separate 255-character per-component limit:
+    # https://support.microsoft.com/en-us/onedrive/what-are-file-path-length-limits
+    _130_chars = string.ascii_lowercase * 5
+    self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "rules_python", version = "0.40.0")']
+    )
+    self.CopyFile(
+        src_path=self.Rlocation('io_bazel/src/test/py/bazel/native_test.bzl'),
+        dst_path='%s/native_test.bzl' % _130_chars,
+    )
+    self.CopyFile(
+        src_path=self.Rlocation('io_bazel/src/test/py/bazel/printargs.exe'),
+        dst_path='%s/printargs.exe' % _130_chars,
+        executable=True,
+    )
+    self.ScratchFile(
+        '%s/BUILD' % _130_chars,
+        [
+            'load(":native_test.bzl", "exe_test")',
+            'exe_test(',
+            '    name = "%s",' % _130_chars,
+            '    src = "printargs.exe",',
+            ')',
+        ],
+    )
+    self.RunBazel([
+        'test',
+        '//%s:%s' % (_130_chars, _130_chars),
+        '-t-',
+        '--shell_executable=',
+        '--test_output=errors',
+    ])
 
 
 if __name__ == '__main__':

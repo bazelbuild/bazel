@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -116,9 +117,11 @@ import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Structure;
 import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.FileOptions;
+import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.ParserInput;
 import org.junit.Before;
 import org.junit.Test;
@@ -415,7 +418,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Package pkg = getPackage("pkg");
     assertThat(pkg).isNotNull();
     assertThat(pkg.containsErrors()).isTrue();
-    assertContainsEvent("unexpected positional arguments");
+    assertContainsEvent("does not accept positional arguments, but got 1");
   }
 
   @Test
@@ -444,7 +447,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey("abc_xyz");
+    assertThat(pkg.getTargetOrNull("abc_xyz")).isNotNull();
   }
 
   @Test
@@ -1005,7 +1008,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testLabelListWithAspectsError() throws Exception {
-    ev.setThreadOwner(keyForBuild(FAKE_LABEL));
+    ev.setBzlLoadThreadOwner(FAKE_LABEL);
     ev.checkEvalErrorContains(
         "at index 1 of aspects, got element of type int, want Aspect",
         "def _impl(target, ctx):",
@@ -1675,7 +1678,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   private static void evalAndExport(BazelEvaluationTestCase ev, String... lines) throws Exception {
-    ev.setThreadOwner(keyForBuild(FAKE_LABEL));
+    ev.setBzlLoadThreadOwner(FAKE_LABEL);
     ev.execAndExport(FAKE_LABEL, lines);
   }
 
@@ -2445,7 +2448,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testStructsInSets() throws Exception {
+  public void testStructsInDepsets() throws Exception {
     ev.exec("depset([struct(a='a')])");
   }
 
@@ -2457,6 +2460,102 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(ev.eval("str([d[k] for k in d])")).isEqualTo("[\"aa\", \"bb\"]");
 
     ev.checkEvalErrorContains("unhashable type: 'struct'", "{struct(a = []): 'foo'}");
+
+    // TODO(bazel-team): don't allow structs to launder lists into hashable values
+    ev.update("frozen_list", StarlarkList.immutableOf("a", "b", "c"));
+    assertThat(ev.eval("{struct(a = frozen_list): 'foo'}[struct(a = frozen_list)]"))
+        .isEqualTo("foo");
+  }
+
+  @Test
+  public void testSelfRefTuple_inDictsAndDepsets() throws Exception {
+    // def make_self_ref():
+    //     s = struct(a = [])
+    //     t = (s,)
+    //     s.a.append(t)
+    //     return t
+    Mutability mu = Mutability.create("test");
+    StarlarkList<Object> list = StarlarkList.newList(mu);
+    Structure struct = StructProvider.STRUCT.create(ImmutableMap.of("a", list), "");
+    Tuple tuple = Tuple.of(struct);
+    list.addElement(tuple);
+    mu.freeze();
+    ev.update("self_ref", tuple);
+
+    ev.checkEvalErrorContains(
+        "self-referential or overly nested data structure (struct(a = [...]),)",
+        "depset([self_ref])");
+
+    // TODO(bazel-team): don't allow structs to launder lists into hashable values
+    ev.checkEvalErrorContains(
+        "self-referential or overly nested data structure (struct(a = [...]),)",
+        "{self_ref: 'foo'}");
+    ev.checkEvalErrorContains(
+        "self-referential or overly nested data structure (struct(a = [...]),)",
+        "{}[self_ref] = 'foo'");
+    ev.checkEvalErrorContains(
+        "self-referential or overly nested data structure (struct(a = [...]),)", "self_ref in {}");
+  }
+
+  @Test
+  public void testSelfRefStruct_inDictsAndDepsets() throws Exception {
+    // def make_self_ref():
+    //     s = struct(a = [])
+    //     s.a.append(s)
+    //     return s
+    Mutability mu = Mutability.create("test");
+    StarlarkList<Object> list = StarlarkList.newList(mu);
+    Structure struct = StructProvider.STRUCT.create(ImmutableMap.of("a", list), "");
+    list.addElement(struct);
+    mu.freeze();
+    ev.update("self_ref", struct);
+
+    ev.checkEvalErrorContains(
+        "self-referential or overly nested data structure struct(a = [...])", "depset([self_ref])");
+
+    // TODO(bazel-team): don't allow structs to launder lists into hashable values
+    ev.checkEvalErrorContains(
+        "self-referential or overly nested data structure struct(a = [...])", "{self_ref: 'foo'}");
+    ev.checkEvalErrorContains(
+        "self-referential or overly nested data structure struct(a = [...])",
+        "{}[self_ref] = 'foo'");
+    ev.checkEvalErrorContains(
+        "self-referential or overly nested data structure struct(a = [...])", "self_ref in {}");
+  }
+
+  @Test
+  public void testSelfRefStarlarkInfoWithSchema_inDictsAndDepsets() throws Exception {
+    // def make_self_ref():
+    //     s = TestInfo(a = [])
+    //     s.a.append(s)
+    //     return s
+    StarlarkProvider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:test.bzl")), "TestInfo");
+    StarlarkProvider provider =
+        StarlarkProvider.builder(Location.BUILTIN)
+            .setSchema(ImmutableList.of("a"))
+            .buildExported(key);
+    Mutability mu = Mutability.create("test");
+    StarlarkThread thread = StarlarkThread.createTransient(mu, getStarlarkSemantics());
+    StarlarkList<Object> list = StarlarkList.newList(mu);
+    StarlarkInfoWithSchema info =
+        (StarlarkInfoWithSchema)
+            Starlark.call(thread, provider, ImmutableList.of(), ImmutableMap.of("a", list));
+    list.addElement(info);
+    mu.freeze();
+    ev.update("self_ref", info);
+
+    ev.checkEvalErrorContains(
+        "self-referential or overly nested data structure struct(a = [...])", "depset([self_ref])");
+
+    // TODO(bazel-team): don't allow structs to launder lists into hashable values
+    ev.checkEvalErrorContains(
+        "self-referential or overly nested data structure struct(a = [...])", "{self_ref: 'foo'}");
+    ev.checkEvalErrorContains(
+        "self-referential or overly nested data structure struct(a = [...])",
+        "{}[self_ref] = 'foo'");
+    ev.checkEvalErrorContains(
+        "self-referential or overly nested data structure struct(a = [...])", "self_ref in {}");
   }
 
   @Test

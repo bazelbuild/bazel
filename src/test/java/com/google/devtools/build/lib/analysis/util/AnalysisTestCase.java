@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
@@ -249,6 +250,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
@@ -367,6 +369,25 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
       ImmutableMap<String, String> aspectsParameters,
       String... labels)
       throws Exception {
+    return update(
+        eventBus,
+        config,
+        AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT,
+        explicitTargetPatterns,
+        aspects,
+        aspectsParameters,
+        labels);
+  }
+
+  protected AnalysisResult update(
+      EventBus eventBus,
+      FlagBuilder config,
+      TopLevelArtifactContext topLevelArtifactContext,
+      ImmutableSet<Label> explicitTargetPatterns,
+      ImmutableList<String> aspects,
+      ImmutableMap<String, String> aspectsParameters,
+      String... labels)
+      throws Exception {
     Set<Flag> flags = config.flags;
 
     LoadingOptions loadingOptions = optionsParser.getOptions(LoadingOptions.class);
@@ -397,6 +418,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
@@ -423,7 +445,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             viewOptions,
             keepGoing,
             LOADING_PHASE_THREADS,
-            AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT,
+            topLevelArtifactContext,
             reporter,
             eventBus);
     if (discardAnalysisCache) {
@@ -485,6 +507,28 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         aspects,
         aspectsParameters,
         labels);
+  }
+
+  @CanIgnoreReturnValue
+  protected AnalysisResult update(
+      TopLevelArtifactContext topLevelArtifactContext,
+      ImmutableList<String> aspects,
+      String... labels)
+      throws Exception {
+    return update(
+        new EventBus(),
+        defaultFlags(),
+        topLevelArtifactContext,
+        /* explicitTargetPatterns= */ ImmutableSet.of(),
+        aspects,
+        /* aspectsParameters= */ ImmutableMap.of(),
+        labels);
+  }
+
+  @CanIgnoreReturnValue
+  protected AnalysisResult update(TopLevelArtifactContext topLevelArtifactContext, String... labels)
+      throws Exception {
+    return update(topLevelArtifactContext, /* aspects= */ ImmutableList.of(), labels);
   }
 
   protected ConfiguredTargetAndData getConfiguredTargetAndTarget(String label)

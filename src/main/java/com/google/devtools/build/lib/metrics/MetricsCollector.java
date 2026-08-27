@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.PackageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.Entry;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.LatencyBySkyFunction;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TargetMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
@@ -78,8 +79,10 @@ import com.google.devtools.build.lib.skyframe.SkyframeStats;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalPhase;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus;
 import com.google.devtools.build.lib.util.Bucket;
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
@@ -115,6 +118,7 @@ class MetricsCollector {
   // For CumulativeMetrics.
   private final AtomicInteger numAnalyses;
   private final AtomicInteger numBuilds;
+  private final String instanceId;
 
   private final ActionSummary.Builder actionSummary = ActionSummary.newBuilder();
   private final TargetMetrics.Builder targetMetrics = TargetMetrics.newBuilder();
@@ -144,6 +148,7 @@ class MetricsCollector {
     this.recordSkyframeMetrics = options != null && options.getRecordSkyframeMetrics();
     this.numAnalyses = numAnalyses;
     this.numBuilds = numBuilds;
+    this.instanceId = env.getRuntime().getInstanceId().toString();
     env.getEventBus().register(this);
     WorkerProcessMetricsCollector.instance().setClock(env.getClock());
     this.buildAccountedFor = new AtomicBoolean();
@@ -428,6 +433,26 @@ class MetricsCollector {
               .build());
     }
 
+    for (var entry : listener.getHitLatenciesBySkyFunctionName().entrySet()) {
+      result.addLatencyBySkyfunction(
+          LatencyBySkyFunction.newBuilder()
+              .setSkyfunction(entry.getKey().functionName().getName())
+              .setOutcome(LatencyBySkyFunction.Outcome.HIT)
+              .setPhase(toProtoPhase(entry.getKey().phase()))
+              .setLatency(computeDistributionProto(entry.getValue().getBuckets()))
+              .build());
+    }
+
+    for (var entry : listener.getMissLatenciesBySkyFunctionName().entrySet()) {
+      result.addLatencyBySkyfunction(
+          LatencyBySkyFunction.newBuilder()
+              .setSkyfunction(entry.getKey().functionName().getName())
+              .setOutcome(LatencyBySkyFunction.Outcome.MISS)
+              .setPhase(toProtoPhase(entry.getKey().phase()))
+              .setLatency(computeDistributionProto(entry.getValue().getBuckets()))
+              .build());
+    }
+
     FingerprintValueStore.Stats fvsStats =
         env.getRemoteAnalysisCachingEventListener().getFingerprintValueStoreStats();
     result
@@ -472,7 +497,37 @@ class MetricsCollector {
 
     result.setSerializationExceptionCount(listener.getSerializationExceptionCounts());
 
+    RemoteAnalysisCachingServicesSupplier supplier =
+        env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
+    if (supplier != null && supplier.getPeers() != null) {
+      listener.recordPeers(supplier.getPeers());
+    }
+
+    for (var entry : listener.getPeers().entrySet()) {
+      var peer = entry.getKey();
+      result.addPeers(
+          RemoteAnalysisCacheStatistics.Peer.newBuilder()
+              .setServiceName(peer.serviceName())
+              .setId(peer.id())
+              .setRequestCount(entry.getValue().get())
+              .build());
+    }
+
     return result.build();
+  }
+
+  private static LatencyBySkyFunction.Phase toProtoPhase(RetrievalPhase phase) {
+    return switch (phase) {
+      case TOTAL -> LatencyBySkyFunction.Phase.TOTAL;
+      case INITIAL_QUERY -> LatencyBySkyFunction.Phase.INITIAL_QUERY;
+      case WAITING_FOR_CACHE_SERVICE_RESPONSE ->
+          LatencyBySkyFunction.Phase.WAITING_FOR_CACHE_SERVICE_RESPONSE;
+      case WAITING_FOR_FUTURE_LOOKUP_CONTINUATION ->
+          LatencyBySkyFunction.Phase.WAITING_FOR_FUTURE_LOOKUP_CONTINUATION;
+      case WAITING_FOR_LOOKUP_CONTINUATION ->
+          LatencyBySkyFunction.Phase.WAITING_FOR_LOOKUP_CONTINUATION;
+      case WAITING_FOR_FUTURE_RESULT -> LatencyBySkyFunction.Phase.WAITING_FOR_FUTURE_RESULT;
+    };
   }
 
   private ActionData buildActionData(ActionStats actionStats) {
@@ -646,6 +701,7 @@ class MetricsCollector {
     return CumulativeMetrics.newBuilder()
         .setNumAnalyses(numAnalyses.get())
         .setNumBuilds(numBuilds.get())
+        .setInstanceId(instanceId)
         .build();
   }
 

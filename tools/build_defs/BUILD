@@ -10,6 +10,7 @@ filegroup(
         "//tools/build_defs/hash:srcs",
         "//tools/build_defs/inspect:srcs",
         "//tools/build_defs/pkg:srcs",
+        "//tools/build_defs/proguard:srcs",
         "//tools/build_defs/repo:srcs",
     ],
     visibility = ["//tools:__pkg__"],

@@ -132,6 +132,8 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -173,6 +175,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   protected GraphBackedRecursivePackageProvider graphBackedRecursivePackageProvider;
   protected ListeningExecutorService executor;
   private TargetPatternResolver<Target> resolver;
+  private final ConcurrentMap<QueryExpression, QueryTaskFuture<Predicate<SkyKey>>>
+      dtcUniversePredicateCache = new ConcurrentHashMap<>();
 
   public SkyQueryEnvironment(
       boolean keepGoing,
@@ -246,6 +250,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   @Override
   public void close() {
+    dtcUniversePredicateCache.clear();
     if (executor != null) {
       executor.shutdownNow();
       executor = null;
@@ -268,6 +273,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   protected void beforeEvaluateQuery(
       QueryExpression expr, ThreadSafeOutputFormatterCallback<Target> callback)
       throws QueryException, InterruptedException {
+    dtcUniversePredicateCache.clear();
     if (!trackIncrementalState) {
       RequiresEdgesQueryExpressionVisitor visitor = new RequiresEdgesQueryExpressionVisitor();
       if (expr.accept(visitor)) {
@@ -489,7 +495,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     BatchStreamedCallback batchCallback =
         new BatchStreamedCallback(
             callback, BATCH_CALLBACK_SIZE, createUniquifierForOuterBatchStreamedCallback(expr));
-    return evaluateQueryInternal(expr, batchCallback);
+    try {
+      return evaluateQueryInternal(expr, batchCallback);
+    } finally {
+      dtcUniversePredicateCache.clear();
+    }
   }
 
   private Map<SkyKey, Collection<Target>> targetifyValues(
@@ -843,8 +853,17 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   public ThreadSafeMutableSet<Target> getTransitiveClosure(
       ThreadSafeMutableSet<Target> targets, QueryExpressionContext<Target> context)
       throws InterruptedException {
+    return getTransitiveClosure(targets, context, createThreadSafeMutableSet());
+  }
+
+  @Override
+  public ThreadSafeMutableSet<Target> getTransitiveClosure(
+      ThreadSafeMutableSet<Target> targets,
+      QueryExpressionContext<Target> context,
+      ThreadSafeMutableSet<Target> visited)
+      throws InterruptedException {
     return SkyQueryUtils.getTransitiveClosure(
-        targets, targets1 -> getFwdDeps(targets1, context), createThreadSafeMutableSet());
+        targets, targets1 -> getFwdDeps(targets1, context), visited);
   }
 
   @Override
@@ -1595,8 +1614,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   protected QueryTaskFuture<Predicate<SkyKey>> getUnfilteredUniverseDTCSkyKeyPredicateFuture(
       QueryExpression universe, QueryExpressionContext<Target> context) {
-    return ParallelSkyQueryUtils.getDTCSkyKeyPredicateFuture(
-        this, universe, context, BATCH_CALLBACK_SIZE, queryEvaluationParallelismLevel);
+    return dtcUniversePredicateCache.computeIfAbsent(
+        universe,
+        u ->
+            ParallelSkyQueryUtils.getDTCSkyKeyPredicateFuture(
+                this, u, context, BATCH_CALLBACK_SIZE, queryEvaluationParallelismLevel));
   }
 
   @ThreadSafe

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.remote.downloader;
 
-
 import build.bazel.remote.asset.v1.FetchBlobRequest;
 import build.bazel.remote.asset.v1.FetchBlobResponse;
 import build.bazel.remote.asset.v1.FetchGrpc;
@@ -25,6 +24,7 @@ import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
@@ -57,7 +57,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -293,6 +292,12 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     }
 
     for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
+      if (!remoteDownloaderPropagateCredentials
+          && (Ascii.equalsIgnoreCase(entry.getKey(), "Authorization")
+              || Ascii.equalsIgnoreCase(entry.getKey(), "Proxy-Authorization")
+              || Ascii.equalsIgnoreCase(entry.getKey(), "Cookie"))) {
+        continue;
+      }
       // https://www.rfc-editor.org/rfc/rfc9110.html#name-field-order permits
       // merging the field-values with a comma.
       requestBuilder.addQualifiers(
@@ -313,8 +318,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         .withInterceptors(
             TracingMetadataUtils.newDownloaderHeadersInterceptor(
                 options.getRemoteHeaders(), options.getRemoteDownloaderHeaders()))
-        .withCallCredentials(credentials.orElse(null))
-        .withDeadlineAfter(options.getRemoteTimeout().toSeconds(), TimeUnit.SECONDS);
+        .withCallCredentials(credentials.orElse(null));
   }
 
   private OutputStream newOutputStream(Path destination, Optional<Checksum> checksum)

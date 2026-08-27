@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -102,6 +103,7 @@ import javax.annotation.Nullable;
 public class ExecutionGraphModule extends BlazeModule {
 
   private static final String ACTION_DUMP_NAME = "execution_graph_dump.proto.zst";
+  private static final PathFragment WORKSPACE_PREFIX = PathFragment.create("%workspace%");
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -131,7 +133,8 @@ public class ExecutionGraphModule extends BlazeModule {
                 + " experimental_enable_execution_graph_log is disabled, there will be an error. If"
                 + " this is unset while BEP uploads are disabled and"
                 + " experimental_enable_execution_graph_log is enabled, the log will be written to"
-                + " a local default.")
+                + " a local default. The path can be absolute, relative to the current working"
+                + " directory, or prefixed with %workspace% to be relative to the workspace root.")
     public abstract String getExecutionGraphLogPath();
 
     @Option(
@@ -175,13 +178,6 @@ public class ExecutionGraphModule extends BlazeModule {
         help = "Handle edges from filewrite actions to their inputs correctly.")
     public abstract boolean getLogFileWriteEdges();
 
-    @Option(
-        name = "experimental_execution_graph_include_change_pruned_actions",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "false",
-        help = "Whether to include change pruned actions in execution graph.")
-    public abstract boolean getIncludeChangePrunedActions();
   }
 
   /** What level of dependency information to include in the dump. */
@@ -197,13 +193,10 @@ public class ExecutionGraphModule extends BlazeModule {
       super(DependencyInfo.class, "dependency edge strategy");
     }
   }
-
-  private boolean includeChangePrunedActions;
   private ActionDumpWriter writer;
   private CommandEnvironment env;
   private WalkableGraph graph;
-  private NanosToMillisSinceEpochConverter nanosToMillis =
-      BlazeClock.createNanosToMillisSinceEpochConverter();
+  private NanosToMillisSinceEpochConverter nanosToMillis;
   // Only relevant for Skymeld: there may be multiple events and we only count the first one.
   private final AtomicBoolean executionStarted = new AtomicBoolean();
 
@@ -225,13 +218,20 @@ public class ExecutionGraphModule extends BlazeModule {
   }
 
   @VisibleForTesting
-  void setNanosToMillis(NanosToMillisSinceEpochConverter nanosToMillis) {
-    this.nanosToMillis = nanosToMillis;
+  void resetNanosToMillis() {
+    this.nanosToMillis = BlazeClock.createNanosToMillisSinceEpochConverter();
+  }
+
+  @VisibleForTesting
+  NanosToMillisSinceEpochConverter getNanosToMillis() {
+    return nanosToMillis;
   }
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
     this.env = env;
+    // The offset between monotonic and wall clock time may change between commands.
+    resetNanosToMillis();
 
     if (env.getCommand().buildPhase().executes()) {
       ExecutionGraphOptions options =
@@ -254,8 +254,6 @@ public class ExecutionGraphModule extends BlazeModule {
                                 BuildReport.newBuilder().setCode(Code.BUILD_REPORT_WRITE_FAILED))
                             .build())));
       }
-
-      includeChangePrunedActions = options.getIncludeChangePrunedActions();
     }
   }
 
@@ -272,7 +270,7 @@ public class ExecutionGraphModule extends BlazeModule {
   }
 
   private void handleExecutionBegin() {
-    if (includeChangePrunedActions) {
+    if (graph == null) {
       graph = SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
     }
     try {
@@ -971,10 +969,12 @@ public class ExecutionGraphModule extends BlazeModule {
     }
 
     String path = executionGraphOptions.getExecutionGraphLogPath();
+    Path actionGraphFile;
     if (path.isBlank()) {
-      path = ACTION_DUMP_NAME;
+      actionGraphFile = env.getOutputBase().getRelative(ACTION_DUMP_NAME);
+    } else {
+      actionGraphFile = getAbsolutePath(PathFragment.create(path), env);
     }
-    Path actionGraphFile = env.getOutputBase().getRelative(path);
     try {
       return new FilesystemActionDumpWriter(
           env.getRuntime().getBugReporter(),
@@ -988,6 +988,22 @@ public class ExecutionGraphModule extends BlazeModule {
     } catch (IOException e) {
       throw new ActionDumpFileCreationException(actionGraphFile, e);
     }
+  }
+
+  /**
+   * If the given path is an absolute path, leave it as it is. If the given path is a relative path,
+   * it is relative to the current working directory. If the given path starts with '%workspace%',
+   * it is relative to the workspace root, which is the output of `bazel info workspace`.
+   */
+  private static Path getAbsolutePath(PathFragment path, CommandEnvironment env) {
+    if (env.getWorkspace() != null && path.startsWith(WORKSPACE_PREFIX)) {
+      return env.getWorkspace().getRelative(path.relativeTo(WORKSPACE_PREFIX));
+    }
+    if (!path.isAbsolute()) {
+      return env.getWorkingDirectory().getRelative(path);
+    }
+
+    return env.getRuntime().getFileSystem().getPath(path);
   }
 
   private static final class FilesystemActionDumpWriter extends ActionDumpWriter {

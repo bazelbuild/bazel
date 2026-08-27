@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.docgen.annot.GlobalMethods;
-import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
 import java.util.Map;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -27,7 +27,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
 /** Definition of the {@code repo()} function used in REPO.bazel files. */
-@GlobalMethods(environment = Environment.REPO)
+@GlobalMethodDocs(environment = Environment.REPO)
 @StarlarkLibrary
 public final class RepoFileGlobals {
   private RepoFileGlobals() {}

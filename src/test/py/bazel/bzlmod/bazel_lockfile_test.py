@@ -96,6 +96,32 @@ class BazelLockfileTest(test_base.TestBase):
         stderr,
     )
 
+  def testShutdownKeepsExternallyChangedLockfile(self):
+    # Regression test for https://github.com/bazelbuild/bazel/issues/30347.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.0")',
+        ],
+    )
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    # This build updates the lockfile on disk at the end of the command, so the
+    # lockfile state tracked by the server's Skyframe graph predates the write.
+    self.RunBazel(['build', '--nobuild', '//:all'])
+
+    # Simulate an update to the lockfile by another server running on a
+    # different output base (or by the user, e.g. via git).
+    external_content = '{"lockFileVersion": 99}\n'
+    with open(self.Path('MODULE.bazel.lock'), 'w') as f:
+      f.write(external_content)
+
+    # The shutdown command (which the client also uses to replace a server
+    # whose startup options changed) runs no Skyframe evaluation and thus must
+    # not write the stale lockfile state tracked by the server.
+    self.RunBazel(['shutdown'])
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      self.assertEqual(f.read(), external_content)
+
   def testChangeModuleInRegistryWithoutLockfile(self):
     # Add module 'sss' to the registry with dep on 'aaa'
     self.main_registry.createShModule('sss', '1.3', {'aaa': '1.1'})
@@ -2595,6 +2621,62 @@ class BazelLockfileTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@hello//:all'])
     stderr = ''.join(stderr)
     self.assertIn('I am running the extension: 4.5.6', stderr)
+
+  def testModuleExtensionRerunsOnDevDependencyChange(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            (
+                'lockfile_ext = use_extension("//:extension.bzl",'
+                ' "lockfile_ext", dev_dependency = True)'
+            ),
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=impl)',
+            '',
+            'def _module_ext_impl(ctx):',
+            (
+                '    print("I am running the extension: " +'
+                ' str(ctx.root_module_has_non_dev_dependency))'
+            ),
+            '    repo_rule(name="hello")',
+            '',
+            'lockfile_ext = module_extension(',
+            '    implementation=_module_ext_impl',
+            ')',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension: False', stderr)
+
+    # Shutdown bazel to empty cache and run with no changes
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertNotIn('I am running the extension:', stderr)
+
+    # Turn the usage into a non-dev dependency and rerun
+    self.RunBazel(['shutdown'])
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("//:extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension: True', stderr)
 
   def testModuleExtensionRerunsOnGetenvChanges(self):
     self.ScratchFile(

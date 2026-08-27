@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URLConnection;
 import java.util.List;
@@ -110,7 +112,7 @@ final class HttpConnectorMultiplexer {
     baseHeaders.putAll(REQUEST_HEADERS);
 
     Function<URI, ImmutableMap<String, List<String>>> headerFunction =
-        getHeaderFunction(baseHeaders.buildKeepingLast(), credentials, eventHandler);
+        getHeaderFunction(url, baseHeaders.buildKeepingLast(), credentials, eventHandler);
     URLConnection connection = connector.connect(url, headerFunction);
     return httpStreamFactory.create(
         connection,
@@ -132,13 +134,33 @@ final class HttpConnectorMultiplexer {
 
   @VisibleForTesting
   static Function<URI, ImmutableMap<String, List<String>>> getHeaderFunction(
-      Map<String, List<String>> baseHeaders, Credentials credentials, EventHandler eventHandler) {
+      URI originalUrl,
+      Map<String, List<String>> baseHeaders,
+      Credentials credentials,
+      EventHandler eventHandler) {
+    Preconditions.checkNotNull(originalUrl);
     Preconditions.checkNotNull(baseHeaders);
     Preconditions.checkNotNull(credentials);
 
     return url -> {
       ImmutableMap.Builder<String, List<String>> headers = new ImmutableMap.Builder<>();
-      headers.putAll(baseHeaders);
+      boolean sameOrigin =
+          Ascii.equalsIgnoreCase(originalUrl.getScheme(), url.getScheme())
+              && Ascii.equalsIgnoreCase(originalUrl.getHost(), url.getHost())
+              && getEffectivePort(originalUrl) == getEffectivePort(url);
+      if (sameOrigin) {
+        headers.putAll(baseHeaders);
+      } else {
+        for (Map.Entry<String, List<String>> entry : baseHeaders.entrySet()) {
+          String key = entry.getKey();
+          if (!Ascii.equalsIgnoreCase(key, "Authorization")
+              && !Ascii.equalsIgnoreCase(key, "Proxy-Authorization")
+              && !Ascii.equalsIgnoreCase(key, "Cookie")
+              && !Ascii.equalsIgnoreCase(key, "Cookie2")) {
+            headers.put(entry);
+          }
+        }
+      }
       try {
         headers.putAll(credentials.getRequestMetadata(url));
       } catch (IOException e) {
@@ -149,5 +171,17 @@ final class HttpConnectorMultiplexer {
       }
       return headers.buildKeepingLast();
     };
+  }
+
+  private static int getEffectivePort(URI uri) {
+    int port = uri.getPort();
+    if (port != -1) {
+      return port;
+    }
+    try {
+      return uri.toURL().getDefaultPort();
+    } catch (MalformedURLException | IllegalArgumentException e) {
+      return -1;
+    }
   }
 }

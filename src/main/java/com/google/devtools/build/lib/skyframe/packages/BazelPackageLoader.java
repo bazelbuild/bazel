@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
+import com.google.devtools.build.lib.bazel.repository.RepoMetadataRequirements;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
@@ -98,7 +99,6 @@ public class BazelPackageLoader extends AbstractPackageLoader {
           ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS);
       addExtraPrecomputedValues(
           PrecomputedValue.injected(PrecomputedValue.ACTION_ENV, ImmutableMap.of()),
-          PrecomputedValue.injected(PrecomputedValue.REPO_ENV, ImmutableMap.of()),
           PrecomputedValue.injected(
               RepoDefinitionFunction.REPOSITORY_OVERRIDES, Suppliers.ofInstance(ImmutableMap.of())),
           PrecomputedValue.injected(
@@ -120,6 +120,9 @@ public class BazelPackageLoader extends AbstractPackageLoader {
           PrecomputedValue.injected(
               BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
               RepositoryOptions.BazelCompatibilityMode.OFF),
+          PrecomputedValue.injected(
+              RepoMetadataRequirements.REQUIRE_REPO_EXTENSION_METADATA,
+              RepositoryOptions.RequireRepoExtensionMetadataMode.FALSE),
           PrecomputedValue.injected(
               BazelLockFileFunction.LOCKFILE_MODE, RepositoryOptions.LockfileMode.OFF),
           PrecomputedValue.injected(
@@ -184,7 +187,9 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                   SkyFunctions.DIRECTORY_LISTING_STATE,
                   new DirectoryListingStateFunction(externalFilesHelper, SyscallCache.NO_CACHE))
               .put(SkyFunctions.ACTION_ENVIRONMENT_VARIABLE, new ActionEnvironmentFunction())
-              .put(SkyFunctions.REPOSITORY_ENVIRONMENT_VARIABLE, new RepoEnvironmentFunction())
+              .put(
+                  SkyFunctions.REPOSITORY_ENVIRONMENT_VARIABLE,
+                  new RepoEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())))
               .put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction())
               .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
               .put(SkyFunctions.REPOSITORY_DIRECTORY, repositoryFetchFunction)

@@ -50,6 +50,7 @@ import java.util.Set;
 import java.util.concurrent.Semaphore;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -144,8 +145,10 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
   // TODO(https://github.com/bazelbuild/bazel/issues/13605): implement StarlarkMapping (after we've
   // added such an interface) to allow `dict(native.existing_rule(x))`.
-  private static interface DictLikeView
-      extends StarlarkIndexable, StarlarkIterable<String>, Map<String, Object> {
+  @StarlarkBuiltin(name = "dict_like_view", documented = false)
+  private static sealed interface DictLikeView
+      extends StarlarkIndexable, StarlarkIterable<String>, Map<String, Object>
+      permits ExistingRuleView, ExistingRulesView {
     @Override
     public default boolean isImmutable() {
       return true;
@@ -226,7 +229,10 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     }
 
     @Override
-    public default boolean containsKey(StarlarkSemantics semantics, Object key) {
+    public default boolean containsKey(StarlarkSemantics semantics, Object key)
+        throws EvalException {
+      // If we make DictLikeView non-sealed, we'd want to call Starlark.checkHashable here to catch
+      // self-referential keys.
       return containsKey(key);
     }
 
@@ -300,7 +306,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
      */
     @Deprecated
     @Override
-    public default void putAll(Map<? extends String, ? extends Object> map) {
+    public default void putAll(Map<? extends String, ?> map) {
       throw new UnsupportedOperationException();
     }
 
@@ -591,12 +597,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       }
       try {
         InputFile inputFile = targetDefinitionContext.createInputFile(file, loc);
-        // TODO: #19922 - The use of identity inequality in this visibility check seems suspect,
-        // since the same logical visibility may have multiple RuleVisibility instances. But it's
-        // unclear why we want to support idempotent exports_files() with the same logical
-        // visibility at all. With Macro-Aware Visibility, it becomes possible for two identical
-        // visibility lines to declare different actual visibility values depending on context.
-        if (inputFile.isVisibilitySpecified() && inputFile.getVisibility() != visibility) {
+        if (inputFile.isVisibilitySpecified() && !inputFile.getVisibility().equals(visibility)) {
           throw Starlark.errorf(
               "visibility for exported file '%s' declared twice", inputFile.getName());
         }

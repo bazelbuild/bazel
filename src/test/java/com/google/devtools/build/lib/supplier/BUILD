@@ -19,9 +19,9 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/supplier",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
-        "//third_party:guava-testlib",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:testing",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 

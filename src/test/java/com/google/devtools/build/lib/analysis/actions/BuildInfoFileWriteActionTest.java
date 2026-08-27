@@ -329,7 +329,7 @@ public class BuildInfoFileWriteActionTest extends BuildViewTestCase {
 
     assertThat(assertThrows(ActionExecutionException.class, () -> action.execute(context)))
         .hasMessageThat()
-        .contains("Error in fail: starlark error");
+        .contains("Error: starlark error");
   }
 
   @Test

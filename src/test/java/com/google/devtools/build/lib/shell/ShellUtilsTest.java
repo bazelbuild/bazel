@@ -141,6 +141,11 @@ public class ShellUtilsTest {
   public void testEscapeCreateProcessArg() {
     assertWindowsEscapeArg("", "\"\"");
     assertWindowsEscapeArg(" ", "\" \"");
+    assertWindowsEscapeArg("\t", "\"\t\"");
+    assertWindowsEscapeArg("a\tb", "\"a\tb\"");
+    assertWindowsEscapeArg("with\ttab", "\"with\ttab\"");
+    assertWindowsEscapeArg(" \t ", "\" \t \"");
+    assertWindowsEscapeArg("tab\t^caret", "\"tab\t^caret\"");
     assertWindowsEscapeArg("\"", "\"\\\"\"");
     assertWindowsEscapeArg("\"\\", "\"\\\"\\\\\"");
     assertWindowsEscapeArg("\\", "\\");

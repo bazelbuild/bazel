@@ -455,7 +455,7 @@ public final class TypeCheckerTest {
     }
 
     @Override
-    public ImmutableList<StarlarkType> getSupertypes() {
+    public ImmutableList<StarlarkType> getSupertypes(TypeContext context) {
       return supertypes;
     }
 
@@ -590,7 +590,9 @@ public final class TypeCheckerTest {
     assertValid(
         """
         rhs: Foo[int]
+        any_struct: struct = rhs
         compatible_total_struct: struct[{"f": int | str}] = rhs
+        compatible_partial_struct: struct[{"f": int | str}, ...] = rhs
         struct_of_no_fields: struct[{}] = rhs
         """);
 
@@ -600,21 +602,6 @@ public final class TypeCheckerTest {
         """
         rhs: Foo[int]
         incompatible_total_struct: struct[{"f": int, "g": str}] = rhs
-        """);
-
-    // Cannot assign a subtype of a total struct to any partial struct
-    assertInvalid(
-        ":2:1: cannot assign type 'Foo[int]' to 'partial_struct' of type 'struct[{\"f\": int|str},"
-            + " ...]'",
-        """
-        rhs: Foo[int]
-        partial_struct: struct[{"f": int | str}, ...] = rhs
-        """);
-    assertInvalid(
-        ":2:1: cannot assign type 'Foo[int]' to 'struct_of_all_fields' of type 'struct'",
-        """
-        rhs: Foo[int]
-        struct_of_all_fields: struct = rhs
         """);
   }
 
@@ -1201,10 +1188,18 @@ public final class TypeCheckerTest {
 
   @Test
   public void infer_and_or() throws Exception {
-    assertTypeGivenDecls("x and y", Types.BOOL, "x: int; y: str");
-    assertTypeGivenDecls("x or y", Types.BOOL, "x: int; y: str");
-    assertTypeGivenDecls("x and y", Types.BOOL, "x: int | float; y: str | bool");
-    assertTypeGivenDecls("x or y", Types.BOOL, "x: list[int]; y: list[str]");
+    assertTypeGivenDecls("x and y", Types.INT, "x: int; y: int");
+    assertTypeGivenDecls("x or y", Types.STR, "x: str; y: str");
+    assertTypeGivenDecls("x and y", Types.union(Types.INT, Types.STR), "x: int; y: str");
+    assertTypeGivenDecls("x or y", Types.union(Types.INT, Types.STR), "x: int; y: str");
+    assertTypeGivenDecls(
+        "x and y",
+        Types.union(Types.INT, Types.FLOAT, Types.BOOL),
+        "x: int | float; y: int | bool");
+    assertTypeGivenDecls(
+        "x or y",
+        Types.union(Types.list(Types.INT), Types.list(Types.STR)),
+        "x: list[int]; y: list[str]");
   }
 
   @Test
@@ -1696,6 +1691,11 @@ public final class TypeCheckerTest {
         g: Any
         """);
 
+    // Simple callable types (produced by `Callable` application)
+    assertTypeGivenDecls("f(42)", Types.ANY, "f: Callable");
+    assertTypeGivenDecls("f(42, 2.5)", Types.BOOL, "f: Callable[[int, float], bool]");
+    assertTypeGivenDecls("f(1, 2.5, 3, x=[])", Types.STR, "f: Callable[..., str]");
+
     // Omitted return type is Any
     assertTypeGivenDecls(
         "f(42)",
@@ -1743,7 +1743,7 @@ public final class TypeCheckerTest {
         f(42)
         """);
     assertInvalid(
-        "'f if 1 else g' is not callable; got type 'Callable[[int], int]|int'",
+        "'f if 1 else g' is not callable; got type '<def (x: int) -> int>|int'",
         """
         def f(x: int) -> int:
             return x
@@ -1762,12 +1762,24 @@ public final class TypeCheckerTest {
             return 0
         f(123, "hello")
         """);
+    assertInvalid(
+        "in call to 'f()', parameter #2 got value of type 'str', want 'int'",
+        """
+        f: Callable[[Any, int], int]
+        f(123, "hello")
+        """);
     // Too many positionals
     assertInvalid(
-        "'f()' accepts no more than 2 positional arguments but got 3",
+        "'f()' accepts exactly 2 positional arguments but got 3",
         """
         def f(x: int, y: int) -> int:
             return 0
+        f(1, 2, 3)
+        """);
+    assertInvalid(
+        "'f()' accepts exactly 1 positional argument but got 3",
+        """
+        f: Callable[[int], int]
         f(1, 2, 3)
         """);
     // Unexpected arguments
@@ -1778,12 +1790,24 @@ public final class TypeCheckerTest {
             return 0
         f(x = 1, mispelled = 2)
         """);
+    assertInvalid(
+        "'f()' got unexpected keyword argument: named",
+        """
+        f: Callable[[int], int]
+        f(1, named = 2)
+        """);
     // Missing required arguments
     assertInvalid(
         "'f()' missing 1 required argument: y",
         """
         def f(x: int, y: int) -> int:
             return 0
+        f(42)
+        """);
+    assertInvalid(
+        "'f()' accepts exactly 2 positional arguments but got 1",
+        """
+        f: Callable[[int, int], int]
         f(42)
         """);
     assertInvalid(
@@ -2034,6 +2058,13 @@ public final class TypeCheckerTest {
   @Test
   public void def_argument_defaults() throws Exception {
     assertValid("def f(x: int = 42, y: str= '', z = {}): pass");
+    // The presence of `*` and `*args` offsets the indices of parameters in the def statement and
+    // of types in the CallableType. Ensure we support this case.
+    assertValid("def f(x: int = 42, *, y: str = '', z: list[int] = [1, 2]): pass");
+    assertValid("def f(x: int = 42, *args: float, y: str = '', z: list[int] = [1, 2]): pass");
+    assertValid(
+        "def f(x: int = 42, *args: float, y: str = '', z: list[int] = [1, 2], **kwargs: bool):"
+            + " pass");
     // Allow list/dict literal defaults (same mechanism as rvalue inference for assignments)
     assertValid(
         """
@@ -2044,7 +2075,7 @@ public final class TypeCheckerTest {
     // ... but the default's type does not cause the argument's type to be inferred
     assertTypeAfterTypecheck(
         "f",
-        Types.callable(
+        Types.generalCallable(
             ImmutableList.of("x", "y"),
             ImmutableList.of(Types.ANY, Types.ANY), // not list[int] or dict[str, float]
             0,
@@ -2054,9 +2085,12 @@ public final class TypeCheckerTest {
             null,
             Types.NONE),
         "def f(x = [1, 2, 3], y = {'pi': 3.14}) -> None: pass");
-    String invalid = "def f(x: int = 42.0, y: str = 43, z = []): pass";
+    String invalid = "def f(x: int = 42.0, y: str = 43, *, z: dict = []): pass";
     assertInvalid("f(): parameter 'x' has default value of type 'float', declares 'int'", invalid);
     assertInvalid("f(): parameter 'y' has default value of type 'int', declares 'str'", invalid);
+    assertInvalid(
+        "f(): parameter 'z' has default value of type 'list[Never]', declares 'dict[Any, Any]'",
+        invalid);
   }
 
   @Test
@@ -2405,6 +2439,35 @@ public final class TypeCheckerTest {
         load("//x:x.bzl", "x")
         y : list[int] = [0]
         y[0] = x
+        """);
+  }
+
+  @Test
+  public void typeAlias_bidirectionallyAssignableToFullyWrittenType() throws Exception {
+    assertValid(
+        """
+        type int_or_str = int | str
+        type int_or[T] = int | T
+
+        def foo(a: int | str): pass
+        def bar(a: int_or_str): pass
+        def baz(a: int_or[str]): pass
+
+        x: int_or_str
+        y: int | str
+        z: int_or[str]
+
+        foo(x)
+        foo(y)
+        foo(z)
+
+        bar(x)
+        bar(y)
+        bar(z)
+
+        baz(x)
+        baz(y)
+        baz(z)
         """);
   }
 }

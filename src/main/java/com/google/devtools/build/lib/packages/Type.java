@@ -20,12 +20,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.LoggingUtil;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -164,7 +162,7 @@ public abstract class Type<T> {
    * java {@code null}.
    */
   @Nullable
-  public final T convertOptional(Object x, String what, @Nullable LabelConverter labelConverter)
+  private T convertOptional(Object x, String what, @Nullable LabelConverter labelConverter)
       throws ConversionException {
     return convertOptional(x, what, labelConverter, null);
   }
@@ -444,7 +442,7 @@ public abstract class Type<T> {
   private static final class StringType extends Type<String> {
     private final boolean internString;
 
-    public StringType(boolean internString) {
+    StringType(boolean internString) {
       this.internString = internString;
     }
 
@@ -496,9 +494,6 @@ public abstract class Type<T> {
 
     private final Type<KeyT> keyType;
     private final Type<ValueT> valueType;
-
-    private final Map<KeyT, ValueT> empty = ImmutableMap.of();
-
     private final LabelClass labelClass;
 
     @Override
@@ -565,19 +560,17 @@ public abstract class Type<T> {
     @Override
     public Map<KeyT, ValueT> convert(Object x, Object what, LabelConverter labelConverter)
         throws ConversionException {
-      if (!(x instanceof Map)) {
+      if (!(x instanceof Map<?, ?> map)) {
         throw new ConversionException(this, x, what);
       }
-      Map<?, ?> o = (Map<?, ?>) x;
-      // It's possible that #convert() calls transform non-equal keys into equal ones so we can't
-      // just use ImmutableMap.Builder() here (that throws on collisions).
-      LinkedHashMap<KeyT, ValueT> result = new LinkedHashMap<>();
-      for (Map.Entry<?, ?> elem : o.entrySet()) {
+      ImmutableMap.Builder<KeyT, ValueT> result = ImmutableMap.builderWithExpectedSize(map.size());
+      for (Map.Entry<?, ?> elem : map.entrySet()) {
         result.put(
             keyType.convert(elem.getKey(), "dict key element", labelConverter),
             valueType.convert(elem.getValue(), "dict value element", labelConverter));
       }
-      return ImmutableMap.copyOf(result);
+      // It's possible that #convert() calls transform non-equal keys into equal ones.
+      return result.buildKeepingLast();
     }
 
     @Override
@@ -611,13 +604,14 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Map<KeyT, ValueT> getDefaultValue() {
-      return empty;
+    public ImmutableMap<KeyT, ValueT> getDefaultValue() {
+      return ImmutableMap.of();
     }
   }
 
   /** A parent class for collection types (ListType, SetType). */
-  private abstract static class CollectionType<T extends Iterable<ElemT>, ElemT> extends Type<T> {
+  private abstract static sealed class CollectionType<T extends Iterable<ElemT>, ElemT>
+      extends Type<T> {
 
     final Type<ElemT> elemType;
 
@@ -693,7 +687,7 @@ public abstract class Type<T> {
   }
 
   /** A type for lists of a given element type */
-  public static class ListType<ElemT> extends CollectionType<List<ElemT>, ElemT> {
+  public static final class ListType<ElemT> extends CollectionType<List<ElemT>, ElemT> {
 
     public static <E> ListType<E> create(Type<E> elemType) {
       return new ListType<>(elemType);
@@ -704,8 +698,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public final void visitLabels(
-        LabelVisitor visitor, List<ElemT> value, @Nullable Attribute context) {
+    public void visitLabels(LabelVisitor visitor, List<ElemT> value, @Nullable Attribute context) {
       if (elemType.getLabelClass() == LabelClass.NONE) {
         return;
       }
@@ -728,7 +721,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public List<ElemT> convert(Object x, Object what, LabelConverter labelConverter)
+    public ImmutableList<ElemT> convert(Object x, Object what, LabelConverter labelConverter)
         throws ConversionException {
       Iterable<?> iterable;
 
@@ -741,7 +734,8 @@ public abstract class Type<T> {
       }
 
       int index = 0;
-      List<ElemT> result = new ArrayList<>(Iterables.size(iterable));
+      ImmutableList.Builder<ElemT> result =
+          ImmutableList.builderWithExpectedSize(Iterables.size(iterable));
       ConversionContext conversionContext = new ConversionContext(what);
       for (Object elem : iterable) {
         conversionContext.update(index);
@@ -762,7 +756,7 @@ public abstract class Type<T> {
         }
         ++index;
       }
-      return result;
+      return result.build();
     }
 
     @Override
@@ -782,7 +776,7 @@ public abstract class Type<T> {
   }
 
   /** A type for sets of a given element type */
-  public static class SetType<ElemT> extends CollectionType<Set<ElemT>, ElemT> {
+  public static final class SetType<ElemT> extends CollectionType<Set<ElemT>, ElemT> {
 
     public static <E> SetType<E> create(Type<E> elemType) {
       return new SetType<>(elemType);
@@ -793,8 +787,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public final void visitLabels(
-        LabelVisitor visitor, Set<ElemT> value, @Nullable Attribute context) {
+    public void visitLabels(LabelVisitor visitor, Set<ElemT> value, @Nullable Attribute context) {
       if (elemType.getLabelClass() == LabelClass.NONE) {
         return;
       }
@@ -810,16 +803,14 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Set<ElemT> convert(Object x, Object what, LabelConverter labelConverter)
+    public ImmutableSet<ElemT> convert(Object x, Object what, LabelConverter labelConverter)
         throws ConversionException {
-      if (!(x instanceof Set)) {
+      if (!(x instanceof Set<?> set)) {
         throw new ConversionException(this, x, what);
       }
 
-      Set<?> set = (Set<?>) x;
-
       int index = 0;
-      Set<ElemT> result = Sets.newLinkedHashSetWithExpectedSize(set.size());
+      ImmutableSet.Builder<ElemT> result = ImmutableSet.builderWithExpectedSize(set.size());
       ConversionContext conversionContext = new ConversionContext(what);
       for (Object elem : set) {
         conversionContext.update(index);
@@ -840,7 +831,7 @@ public abstract class Type<T> {
         }
         ++index;
       }
-      return result;
+      return result.build();
     }
 
     @Override

@@ -63,7 +63,7 @@ Java_com_google_devtools_build_lib_profiler_SystemNetworkStatsServiceImpl_getNet
 
   jclass counter_class = env->FindClass(
       "com/google/devtools/build/lib/profiler/"
-      "SystemNetworkStatsService$NetIoCounter");
+      "SystemNetworkStatsServiceImpl$NetIoCounterImpl");
   jmethodID counter_create =
       env->GetStaticMethodID(counter_class, "create",
                              "(JJJJ)Lcom/google/devtools/build/lib/profiler/"
