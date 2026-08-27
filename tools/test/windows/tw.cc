@@ -346,9 +346,10 @@ bool DirectoryExists(const Path& p) {
 bool GetEnv(const wchar_t* name, std::wstring* result) {
   static constexpr size_t kSmallBuf = MAX_PATH;
   WCHAR value[kSmallBuf];
+  SetLastError(0);
   DWORD size = GetEnvironmentVariableW(name, value, kSmallBuf);
   DWORD err = GetLastError();
-  if (size == 0 && err == ERROR_ENVVAR_NOT_FOUND) {
+  if (size == 0 && (err == 0 || err == ERROR_ENVVAR_NOT_FOUND)) {
     result->clear();
     return true;
   } else if (0 < size && size < kSmallBuf) {
