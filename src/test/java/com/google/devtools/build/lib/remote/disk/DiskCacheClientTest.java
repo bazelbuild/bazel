@@ -68,7 +68,7 @@ public class DiskCacheClientTest {
 
   @Before
   public void setUp() throws Exception {
-    client = new DiskCacheClient(root, DIGEST_UTIL);
+    client = new DiskCacheClient(root, DIGEST_UTIL, /* checkActionResultIntegrity= */ true);
   }
 
   @After
@@ -107,7 +107,10 @@ public class DiskCacheClientTest {
     assumeNotNull(BazelHashFunctions.BLAKE3); // BLAKE3 not available in Blaze.
 
     DiskCacheClient client =
-        new DiskCacheClient(root, new DigestUtil(SyscallCache.NO_CACHE, BazelHashFunctions.BLAKE3));
+        new DiskCacheClient(
+            root,
+            new DigestUtil(SyscallCache.NO_CACHE, BazelHashFunctions.BLAKE3),
+            /* checkActionResultIntegrity= */ true);
     Digest digest = Digest.newBuilder().setHash("0123456789abcdef").setSizeBytes(42).build();
     Path path = client.toPath(digest, Store.CAS);
 
@@ -119,7 +122,10 @@ public class DiskCacheClientTest {
     assumeNotNull(BazelHashFunctions.BLAKE3); // BLAKE3 not available in Blaze.
 
     DiskCacheClient client =
-        new DiskCacheClient(root, new DigestUtil(SyscallCache.NO_CACHE, BazelHashFunctions.BLAKE3));
+        new DiskCacheClient(
+            root,
+            new DigestUtil(SyscallCache.NO_CACHE, BazelHashFunctions.BLAKE3),
+            /* checkActionResultIntegrity= */ true);
     Digest digest = Digest.newBuilder().setHash("0123456789abcdef").setSizeBytes(42).build();
     Path path = client.toPath(digest, Store.AC);
 
@@ -357,10 +363,87 @@ public class DiskCacheClientTest {
   }
 
   @Test
+  public void downloadActionResult_withoutIntegrityCheck_withReferencedFileMissing_returnsResult()
+      throws Exception {
+    var clientWithoutIntegrityCheck =
+        new DiskCacheClient(root, DIGEST_UTIL, /* checkActionResultIntegrity= */ false);
+    Digest stdoutDigest = getDigest("stdout contents");
+    Digest stderrDigest = getDigest("stderr contents");
+    Digest missingFileDigest = getDigest("missing file contents");
+    Digest treeFileDigest = getDigest("tree file contents");
+    Tree tree = getTreeWithFile(treeFileDigest);
+    Digest treeDigest = getDigest(tree);
+    ActionKey actionKey = new ActionKey(getDigest("key"));
+    ActionResult actionResult =
+        ActionResult.newBuilder()
+            .setStdoutDigest(stdoutDigest)
+            .setStderrDigest(stderrDigest)
+            .addOutputFiles(OutputFile.newBuilder().setDigest(missingFileDigest).build())
+            .addOutputDirectories(OutputDirectory.newBuilder().setTreeDigest(treeDigest))
+            .build();
+
+    Path acPath = populateAc(actionKey, actionResult);
+    Path stdoutCasPath = populateCas(stdoutDigest, "stdout contents");
+    Path stderrCasPath = populateCas(stderrDigest, "stderr contents");
+    Path treeCasPath = populateCas(treeDigest, tree);
+    Path treeFileCasPath = populateCas(treeFileDigest, "tree file contents");
+
+    var result = getFromFuture(clientWithoutIntegrityCheck.downloadActionResult(actionKey));
+
+    assertThat(result).isEqualTo(actionResult);
+    assertThat(getCasPath(missingFileDigest).exists()).isFalse();
+    // The blobs that do exist are marked as recently used, including the ones that follow the
+    // missing blob.
+    assertThat(acPath.getLastModifiedTime()).isNotEqualTo(0);
+    assertThat(stdoutCasPath.getLastModifiedTime()).isNotEqualTo(0);
+    assertThat(stderrCasPath.getLastModifiedTime()).isNotEqualTo(0);
+    assertThat(treeCasPath.getLastModifiedTime()).isNotEqualTo(0);
+    assertThat(treeFileCasPath.getLastModifiedTime()).isNotEqualTo(0);
+  }
+
+  @Test
+  public void downloadActionResult_withoutIntegrityCheck_withReferencedTreeMissing_returnsResult()
+      throws Exception {
+    var clientWithoutIntegrityCheck =
+        new DiskCacheClient(root, DIGEST_UTIL, /* checkActionResultIntegrity= */ false);
+    Digest stdoutDigest = getDigest("stdout contents");
+    Tree tree = getTreeWithFile(getDigest("tree file contents"));
+    Digest treeDigest = getDigest(tree);
+    ActionKey actionKey = new ActionKey(getDigest("key"));
+    ActionResult actionResult =
+        ActionResult.newBuilder()
+            .setStdoutDigest(stdoutDigest)
+            .addOutputDirectories(OutputDirectory.newBuilder().setTreeDigest(treeDigest))
+            .build();
+
+    populateAc(actionKey, actionResult);
+    Path stdoutCasPath = populateCas(stdoutDigest, "stdout contents");
+
+    var result = getFromFuture(clientWithoutIntegrityCheck.downloadActionResult(actionKey));
+
+    assertThat(result).isEqualTo(actionResult);
+    assertThat(stdoutCasPath.getLastModifiedTime()).isNotEqualTo(0);
+  }
+
+  @Test
+  public void downloadActionResult_withoutIntegrityCheck_whenMissing_returnsNull()
+      throws Exception {
+    var clientWithoutIntegrityCheck =
+        new DiskCacheClient(root, DIGEST_UTIL, /* checkActionResultIntegrity= */ false);
+    ActionKey actionKey = new ActionKey(getDigest("key"));
+
+    var result = getFromFuture(clientWithoutIntegrityCheck.downloadActionResult(actionKey));
+
+    assertThat(result).isNull();
+  }
+
+  @Test
   public void concurrentUploadDownload()
       throws IOException, ExecutionException, InterruptedException {
     var nativeDiskCacheDir = TestUtils.createUniqueTmpDir(FileSystems.getNativeFileSystem());
-    var nativeClient = new DiskCacheClient(nativeDiskCacheDir, DIGEST_UTIL);
+    var nativeClient =
+        new DiskCacheClient(
+            nativeDiskCacheDir, DIGEST_UTIL, /* checkActionResultIntegrity= */ true);
     var tasks = new ArrayList<Future<?>>();
     // Use 1 MB blobs to increase the window for concurrent access during write/rename.
     var contentSize = 1024 * 1024;
