@@ -242,10 +242,19 @@ bool VerifyServerProcess(int pid, const blaze_util::Path& output_base);
 // 'start_time'. Returns false on failure.
 bool ParseProcStat(absl::string_view statline, std::string* start_time);
 
+// Parses the content of /proc/[pid]/stat (passed as statline) to generate a
+// diagnostic message explaining why process `pid` has not terminated.
+std::string ParseProcStatDiagnosis(absl::string_view statline, int pid);
+
 // Kills a server process based on its PID.
 // Returns true if the server process was found and killed.
 // WARNING! This function can be called from a signal handler!
-bool KillServerProcess(int pid, const blaze_util::Path& output_base);
+bool KillServerProcess(int pid, const blaze_util::Path& output_base,
+                       bool from_signal_handler = false);
+
+// Returns a diagnostic string explaining why a process has not terminated
+// (e.g. if it is a zombie process 'Z' or in uninterruptible sleep 'D').
+std::string GetProcessTerminationDiagnosis(int pid);
 
 // Wait for approximately the specified number of milliseconds. The actual
 // amount of time waited may be more or less because of interrupts or system
