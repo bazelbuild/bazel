@@ -749,7 +749,7 @@ EOF
     --repo_env=CC=clang \
     --verbose_failures \
     --experimental_output_paths=strip \
-    --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping,CppArchive=+supports-path-mapping \
+    --modify_execution_info=CppModuleMap=+supports-path-mapping,CppArchive=+supports-path-mapping \
     --remote_executor=grpc://localhost:${worker_port} \
     --features=layering_check \
     "//$pkg:main" &>"$TEST_log" || fail "Expected success"
@@ -764,7 +764,7 @@ EOF
     --repo_env=CC=clang \
     --verbose_failures \
     --experimental_output_paths=strip \
-    --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping,CppArchive=+supports-path-mapping \
+    --modify_execution_info=CppModuleMap=+supports-path-mapping,CppArchive=+supports-path-mapping \
     --remote_executor=grpc://localhost:${worker_port} \
     --features=layering_check \
     -s \
@@ -1526,7 +1526,7 @@ EOF
     --experimental_output_paths=strip \
     --disk_cache="$cache_dir" \
     --experimental_platform_in_output_dir \
-    --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping,CppArchive=+supports-path-mapping \
+    --modify_execution_info=CppModuleMap=+supports-path-mapping,CppArchive=+supports-path-mapping \
     --//$pkg:setting=b \
     "//$pkg:main" &>"$TEST_log"
   local exit_code=$?

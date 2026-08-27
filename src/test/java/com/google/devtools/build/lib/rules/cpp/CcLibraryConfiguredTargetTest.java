@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -117,6 +118,20 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(target), ".a"),
                 CppCompileAction.class);
     return compilationSteps.get(0);
+  }
+
+  @Test
+  public void testCppCompileSupportsPathMapping() throws Exception {
+    assertThat(getCppCompileAction("//hello:hello").getExecutionInfo())
+        .containsEntry(ExecutionRequirements.SUPPORTS_PATH_MAPPING, "");
+  }
+
+  @Test
+  public void testCppCompileCanDisablePathMapping() throws Exception {
+    useConfiguration("--modify_execution_info=CppCompile=-supports-path-mapping");
+
+    assertThat(getCppCompileAction("//hello:hello").getExecutionInfo())
+        .doesNotContainKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING);
   }
 
   private String getCppModuleMapData(Artifact moduleMap) throws Exception {

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
@@ -317,10 +318,13 @@ public final class CppCompileActionBuilder implements StarlarkValue {
               .build();
     }
 
-    configuration.modifyExecutionInfo(
-        executionInfo,
+    String mnemonic =
         CppCompileAction.actionNameToMnemonic(
-            actionName, featureConfiguration, cppConfiguration.useCppCompileHeaderMnemonic()));
+            actionName, featureConfiguration, cppConfiguration.useCppCompileHeaderMnemonic());
+    if (mnemonic.equals(CppCompileAction.CPP_COMPILE_MNEMONIC)) {
+      executionInfo.put(ExecutionRequirements.SUPPORTS_PATH_MAPPING, "");
+    }
+    configuration.modifyExecutionInfo(executionInfo, mnemonic);
 
     // Copying the collections is needed to make the builder reusable.
     return new CppCompileAction(
