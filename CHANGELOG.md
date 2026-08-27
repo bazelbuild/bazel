@@ -1,3 +1,22 @@
+## Release 10.0.0-pre.20260818.1 (2026-08-27)
+
+```
+Baseline: cec8ee49f731e48b5bb336a27a7f2f1be770da48
+
+Cherry picks:
+
+   + 2a60c3357abd1e881088e88747ac7c7baa6f2e79:
+     Roll forward of commit 909985a3b9a1f71106e7cba31eb862078e5bdebe
+     with … (https://github.com/bazelbuild/bazel/pull/30754)
+```
+
+Important changes:
+
+  - Fix `Could not chdir` in `tw.exe` for long runfiles paths on
+    Windows.
+
+This release contains contributions from many people at Google, as well as Anton Karpov, Armando Montanez, Chi Wang, Fabian Meumertzheim, Rgis Desgroppes, Son Luong Ngoc.
+
 ## Release 10.0.0-pre.20260811.3 (2026-08-20)
 
 ```
