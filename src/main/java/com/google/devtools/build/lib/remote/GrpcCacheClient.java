@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
+import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -85,6 +86,43 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public class GrpcCacheClient extends RemoteCacheClient implements MissingDigestsFinder {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  private static final class SizeLimitingOutputStream extends OutputStream {
+    private final CountingOutputStream out;
+    private final Digest digest;
+
+    private SizeLimitingOutputStream(CountingOutputStream out, Digest digest) {
+      this.out = out;
+      this.digest = digest;
+    }
+
+    @Override
+    public void write(int b) throws IOException {
+      checkSize(1);
+      out.write(b);
+    }
+
+    @Override
+    public void write(byte[] b, int off, int len) throws IOException {
+      checkSize(len);
+      out.write(b, off, len);
+    }
+
+    @Override
+    public void flush() throws IOException {
+      out.flush();
+    }
+
+    private void checkSize(int bytesToWrite) throws IOException {
+      if (bytesToWrite > digest.getSizeBytes() - out.getCount()) {
+        throw new IOException(
+            String.format(
+                "Received more bytes than expected for digest '%s/%d'. "
+                    + "Server may have ignored read_offset.",
+                digest.getHash(), digest.getSizeBytes()));
+      }
+    }
+  }
 
   private final CallCredentialsProvider callCredentialsProvider;
   private final ReferenceCountedChannel channel;
@@ -482,18 +520,19 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
         getResourceName(
             options.getRemoteInstanceName(), digest, compressed, digestUtil.getDigestFunction());
     SettableFuture<Long> future = SettableFuture.create();
+    // Prevent misbehaving servers from sending more bytes than expected.
+    SizeLimitingOutputStream sizeLimitedOut = new SizeLimitingOutputStream(rawOut, digest);
     OutputStream out;
     try {
-      out = compressed ? new ZstdDecompressingOutputStream(rawOut) : rawOut;
+      out = compressed ? new ZstdDecompressingOutputStream(sizeLimitedOut) : sizeLimitedOut;
     } catch (IOException e) {
       return Futures.immediateFailedFuture(e);
     }
-    long readOffset = rawOut.getCount();
     bsAsyncStub(context, channel)
         .read(
             ReadRequest.newBuilder()
                 .setResourceName(resourceName)
-                .setReadOffset(readOffset)
+                .setReadOffset(rawOut.getCount())
                 .build(),
             new ClientResponseObserver<ReadRequest, ReadResponse>() {
               private volatile ClientCallStreamObserver<ReadRequest> requestStream;
@@ -513,25 +552,14 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
               @Override
               public void onNext(ReadResponse readResponse) {
                 ByteString data = readResponse.getData();
-                if (!compressed && rawOut.getCount() + data.size() > digest.getSizeBytes()) {
-                  String msg =
-                      String.format(
-                          "Received more bytes than expected for digest '%s/%d'. "
-                              + "Server may have ignored read_offset.",
-                          digest.getHash(), digest.getSizeBytes());
-                  if (requestStream != null) {
-                    requestStream.cancel(msg, null);
-                  }
-                  future.setException(new IOException(msg));
-                  return;
-                }
                 try {
                   data.writeTo(out);
                 } catch (IOException e) {
-                  // The output stream was likely closed due to cancellation (e.g. dynamic execution
-                  // choosing the local branch).
+                  // The output stream either refused to accept more bytes than expected for the
+                  // digest or was closed due to cancellation (e.g. dynamic execution choosing the
+                  // local branch).
                   if (requestStream != null) {
-                    requestStream.cancel("output stream closed", e);
+                    requestStream.cancel(e.getMessage(), e);
                   }
                   future.setException(e);
                   return;
@@ -570,6 +598,10 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
                   }
                   if (digestSupplier != null) {
                     Utils.verifyBlobContents(digest, digestSupplier.get());
+                  } else if (rawOut.getCount() != digest.getSizeBytes()) {
+                    // Verifying the digest would also catch an incomplete download; with
+                    // verification disabled, at least verify the size.
+                    throw new OutputDigestMismatchException(digest, rawOut.getCount());
                   }
                 } catch (IOException e) {
                   future.setException(e);
