@@ -122,6 +122,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     private final boolean symlink;
     private final boolean remote;
     private final boolean isBuildToolLog;
+    private final boolean specialFile;
     private final DigestFunction.Value digestFunction;
 
     PathMetadata(
@@ -131,6 +132,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         boolean symlink,
         boolean remote,
         boolean isBuildToolLog,
+        boolean specialFile,
         DigestFunction.Value digestFunction) {
       this.path = path;
       this.digest = digest;
@@ -138,6 +140,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       this.symlink = symlink;
       this.remote = remote;
       this.isBuildToolLog = isBuildToolLog;
+      this.specialFile = specialFile;
       this.digestFunction = digestFunction;
     }
 
@@ -165,6 +168,10 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       return isBuildToolLog;
     }
 
+    boolean isSpecialFile() {
+      return specialFile;
+    }
+
     public DigestFunction.Value getDigestFunction() {
       return digestFunction;
     }
@@ -190,6 +197,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
               /* symlink= */ false,
               /* remote= */ false,
               /* isBuildToolLog= */ false,
+              /* specialFile= */ false,
               digestFunction);
         }
         case SYMLINK -> {
@@ -200,6 +208,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
               /* symlink= */ true,
               /* remote= */ false,
               /* isBuildToolLog= */ false,
+              /* specialFile= */ false,
               digestFunction);
         }
         case REGULAR_FILE -> {
@@ -211,6 +220,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                 /* symlink= */ false,
                 /* remote= */ metadata.isRemote(),
                 isBuildToolLog,
+                /* specialFile= */ false,
                 digestFunction);
           }
         }
@@ -229,6 +239,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
           /* symlink= */ false,
           /* remote= */ false,
           /* isBuildToolLog= */ false,
+          /* specialFile= */ false,
           digestFunction);
     }
     if (file.type == LocalFileType.OUTPUT_SYMLINK) {
@@ -239,6 +250,18 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
           /* symlink= */ true,
           /* remote= */ false,
           /* isBuildToolLog= */ false,
+          /* specialFile= */ false,
+          digestFunction);
+    }
+    if (path.isSpecialFile()) {
+      return new PathMetadata(
+          path,
+          /* digest= */ null,
+          /* directory= */ false,
+          /* symlink= */ false,
+          /* remote= */ false,
+          /* isBuildToolLog= */ false,
+          /* specialFile= */ true,
           digestFunction);
     }
 
@@ -250,6 +273,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         /* symlink= */ false,
         isRemoteFile(path),
         isBuildToolLog,
+        /* specialFile= */ false,
         digestFunction);
   }
 
@@ -269,6 +293,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                 file.isSymlink(),
                 /* remote= */ true,
                 file.isBuildToolLog(),
+                file.isSpecialFile(),
                 file.getDigestFunction());
         knownRemotePaths.add(remotePathMetadata);
       }
@@ -277,7 +302,11 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
 
   private boolean shouldUpload(PathMetadata path) {
     boolean result =
-        path.getDigest() != null && !path.isRemote() && !path.isDirectory() && !path.isSymlink();
+        path.getDigest() != null
+            && !path.isRemote()
+            && !path.isDirectory()
+            && !path.isSymlink()
+            && !path.isSpecialFile();
 
     if (remoteBuildEventUploadMode == RemoteBuildEventUploadMode.MINIMAL) {
       result = result && (path.isBuildToolLog() || isBuildOrTestLog(path));
@@ -362,6 +391,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                               // scheme to convert the URI for this file
                               /* remote= */ true,
                               path.isBuildToolLog(),
+                              path.isSpecialFile(),
                               path.getDigestFunction()))
                   .onErrorResumeNext(
                       error -> {
@@ -417,6 +447,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                             /* symlink= */ false,
                             /* remote= */ false,
                             /* isBuildToolLog= */ false,
+                            /* specialFile= */ false,
                             DigestFunction.Value.SHA256);
                       }
                     })
@@ -486,6 +517,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
           } else {
             localPaths.add(path);
           }
+        } else if (metadata.isSpecialFile()) {
+          localPaths.add(path);
         } else {
           skippedPaths.add(path);
         }
