@@ -1627,7 +1627,7 @@ EOF
     >& "$TEST_log" && fail "Expected failure"
   expect_log "unsuccessful-because-of-illegal-load.*Label '//no/such/package:f.bzl' is invalid because 'no/such/package' is not a package"
   expect_log "unsuccessful-because-of-BUILD-file-syntax-error.*invalid character: '@'"
-  expect_log "Error in fail: bad"
+  expect_log "Error: bad"
 
   # On this invocation, Bazel attempts to load exactly 5 packages.
   expect_log_n "PROGRESS.*Loading package" 5
