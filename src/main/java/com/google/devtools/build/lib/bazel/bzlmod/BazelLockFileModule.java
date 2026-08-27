@@ -307,7 +307,8 @@ public class BazelLockFileModule extends BlazeModule {
    * @param lockfileRoot Root under which the lockfile is located
    * @param updatedLockfile The updated lockfile data to save
    */
-  private static void updateLockfile(Path lockfileRoot, BazelLockFileValue updatedLockfile) {
+  @VisibleForTesting
+  static void updateLockfile(Path lockfileRoot, BazelLockFileValue updatedLockfile) {
     RootedPath lockfilePath =
         RootedPath.toRootedPath(Root.fromPath(lockfileRoot), LabelConstants.MODULE_LOCKFILE_NAME);
     try {
