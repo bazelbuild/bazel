@@ -317,7 +317,6 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
         """);
 
     useConfiguration(
-        "--experimental_platform_in_output_dir",
         "--extra_execution_platforms=//platforms:mock_platform",
         "--experimental_override_name_platform_in_output_dir=//platforms:mock_platform=mock_platform_path_string");
     BuildConfigurationValue execConfig =

@@ -676,10 +676,10 @@ package_group(
 EOF
   cat > test/rule.bzl <<'EOF'
 def _trans_impl(settings, attr):
-  return {'//command_line_option:cpu': '//bad:cpu'}
+  return {'//command_line_option:platform_suffix': '//bad:suffix'}
 
 my_transition = transition(implementation = _trans_impl, inputs = [],
-  outputs = ['//command_line_option:cpu'])
+  outputs = ['//command_line_option:platform_suffix'])
 
 def _impl(ctx):
   return []
@@ -693,9 +693,10 @@ EOF
 load('//test:rule.bzl', 'my_rule')
 my_rule(name = 'test')
 EOF
+  local exit_code=0
   bazel build //test:test >& "$TEST_log" || exit_code="$?"
   assert_equals 1 "$exit_code" || fail "Expected exit code 1"
-  expect_log "CPU/Platform descriptor '//bad:cpu'"
+  expect_log "Platform suffix '//bad:suffix'"
   expect_log "is invalid as part of a path: must not contain /"
 }
 

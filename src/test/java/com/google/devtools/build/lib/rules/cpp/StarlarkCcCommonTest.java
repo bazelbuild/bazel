@@ -6097,7 +6097,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     useConfiguration(
         "--nostamp",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
         String.format(
             "--experimental_override_name_platform_in_output_dir=%s=k8",
             TestConstants.PLATFORM_LABEL));
@@ -6110,7 +6109,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     useConfiguration(
         "--nostamp",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
         String.format(
             "--experimental_override_name_platform_in_output_dir=%s=k8",
             TestConstants.PLATFORM_LABEL));
@@ -6123,7 +6121,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     useConfiguration(
         "--stamp",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
         String.format(
             "--experimental_override_name_platform_in_output_dir=%s=k8",
             TestConstants.PLATFORM_LABEL));
@@ -6136,7 +6133,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     useConfiguration(
         "--nostamp",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
         String.format(
             "--experimental_override_name_platform_in_output_dir=%s=k8",
             TestConstants.PLATFORM_LABEL));
@@ -6149,7 +6145,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     useConfiguration(
         "--stamp",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
         String.format(
             "--experimental_override_name_platform_in_output_dir=%s=k8",
             TestConstants.PLATFORM_LABEL));
