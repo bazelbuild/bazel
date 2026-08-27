@@ -25,6 +25,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.Runnables;
 import com.google.devtools.build.lib.actions.Action;
@@ -44,6 +45,7 @@ import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -1565,6 +1567,79 @@ public final class FilesystemValueCheckerTest {
     } else {
       assertThat(dirtyActionKeys).containsExactly(actionKey1);
     }
+  }
+
+  @Test
+  public void testCompletionValueWithMaterializedOutputs() throws Exception {
+    // Test that a completion value recording materialized outputs is invalidated iff one of those
+    // files is deleted or modified.
+    Artifact out = createDerivedArtifact("foo");
+    FileSystemUtils.writeContentAsLatin1(out.getPath(), "foo-content");
+    SkyKey completionKey =
+        TargetCompletionValue.key(
+            ConfiguredTargetKey.builder().setLabel(Label.parseCanonical("//foo:bar")).build(),
+            new TopLevelArtifactContext(
+                /* runTestsExclusively= */ false,
+                /* expandFilesets= */ false,
+                ImmutableSortedSet.of()),
+            /* willTest= */ false);
+    var completionValue =
+        TargetCompletionValue.create(
+            ImmutableMap.of(out, FileContentsProxy.create(out.getPath().stat())));
+    differencer.inject(ImmutableMap.of(completionKey, Delta.justNew(completionValue)));
+
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setParallelism(1)
+            .setEventHandler(NullEventHandler.INSTANCE)
+            .build();
+    assertThat(evaluator.evaluate(ImmutableList.of(completionKey), evaluationContext).hasError())
+        .isFalse();
+
+    assertThat(
+            new FilesystemValueChecker(
+                    /* tsgm= */ null,
+                    SyscallCache.NO_CACHE,
+                    XattrProviderOverrider.NO_OVERRIDE,
+                    FSVC_THREADS_FOR_TEST)
+                .getDirtyActionValues(
+                    evaluator.getValues(),
+                    /* batchStatter= */ null,
+                    ModifiedFileSet.EVERYTHING_MODIFIED,
+                    OutputChecker.TRUST_ALL,
+                    (ignored, ignored2) -> {}))
+        .isEmpty();
+
+    out.getPath().delete();
+    assertThat(
+            new FilesystemValueChecker(
+                    /* tsgm= */ null,
+                    SyscallCache.NO_CACHE,
+                    XattrProviderOverrider.NO_OVERRIDE,
+                    FSVC_THREADS_FOR_TEST)
+                .getDirtyActionValues(
+                    evaluator.getValues(),
+                    /* batchStatter= */ null,
+                    ModifiedFileSet.EVERYTHING_MODIFIED,
+                    OutputChecker.TRUST_ALL,
+                    (ignored, ignored2) -> {}))
+        .containsExactly(completionKey);
+
+    FileSystemUtils.writeContentAsLatin1(out.getPath(), "modified-content");
+    assertThat(
+            new FilesystemValueChecker(
+                    /* tsgm= */ null,
+                    SyscallCache.NO_CACHE,
+                    XattrProviderOverrider.NO_OVERRIDE,
+                    FSVC_THREADS_FOR_TEST)
+                .getDirtyActionValues(
+                    evaluator.getValues(),
+                    /* batchStatter= */ null,
+                    ModifiedFileSet.EVERYTHING_MODIFIED,
+                    OutputChecker.TRUST_ALL,
+                    (ignored, ignored2) -> {}))
+        .containsExactly(completionKey);
   }
 
   @Test

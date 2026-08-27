@@ -102,10 +102,12 @@ public final class SkyFunctions {
   static final SkyFunctionName TOP_LEVEL_ASPECTS =
       SkyFunctionName.createHermetic("TOP_LEVEL_ASPECTS");
   static final SkyFunctionName LOAD_ASPECTS = SkyFunctionName.createHermetic("LOAD_ASPECTS");
+  // Non-hermetic because completion values record the local materialization state of top-level
+  // outputs, which the FilesystemValueChecker invalidates when it diverges from the filesystem.
   public static final SkyFunctionName TARGET_COMPLETION =
-      SkyFunctionName.createHermetic("TARGET_COMPLETION");
+      SkyFunctionName.createNonHermetic("TARGET_COMPLETION");
   public static final SkyFunctionName ASPECT_COMPLETION =
-      SkyFunctionName.createHermetic("ASPECT_COMPLETION");
+      SkyFunctionName.createNonHermetic("ASPECT_COMPLETION");
   static final SkyFunctionName TEST_COMPLETION = SkyFunctionName.createHermetic("TEST_COMPLETION");
   public static final SkyFunctionName BUILD_CONFIGURATION =
       SkyFunctionName.createHermetic("BUILD_CONFIGURATION");

@@ -1620,6 +1620,8 @@ java_library(
         "FilesystemValueChecker.java",
     ],
     deps = [
+        ":target_completion_value",
+        ":aspect_completion_value",
         ":action_execution_value",
         ":action_output_metadata_store",
         ":directory_listing_state_value",

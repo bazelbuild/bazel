@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
@@ -32,6 +33,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
@@ -45,6 +47,7 @@ import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresen
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -259,6 +262,21 @@ public class FilesystemValueChecker {
                 }
               }
             });
+
+    try (SilentCloseable c =
+        Profiler.instance().profile("getDirtyActionValues/materializedOutputs")) {
+      valuesMap.entrySet().parallelStream()
+          .forEach(
+              e -> {
+                ImmutableMap<Artifact, FileContentsProxy> materializedOutputs =
+                    getMaterializedOutputs(e.getValue());
+                if (materializedOutputs != null
+                    && materializedOutputsAreDirty(
+                        materializedOutputs, knownModifiedOutputFiles, modifiedOutputsReceiver)) {
+                  dirtyKeys.add(e.getKey());
+                }
+              });
+    }
 
     boolean interrupted;
     try (SilentCloseable c = Profiler.instance().profile("getDirtyActionValues/statFiles")) {
@@ -612,6 +630,51 @@ public class FilesystemValueChecker {
           "Failed to get modified time for output at: %s", path);
       return -1;
     }
+  }
+
+  @Nullable
+  private static ImmutableMap<Artifact, FileContentsProxy> getMaterializedOutputs(SkyValue value) {
+    if (value instanceof TargetCompletionValue targetCompletionValue) {
+      return targetCompletionValue.getMaterializedOutputs();
+    }
+    if (value instanceof AspectCompletionValue aspectCompletionValue) {
+      return aspectCompletionValue.getMaterializedOutputs();
+    }
+    return null;
+  }
+
+  /**
+   * Checks whether the outputs recorded as locally materialized by a completion value still match
+   * the local filesystem. If a file is missing or modified, the completion node is invalidated so
+   * that its reevaluation can restore the file in case the current invocation wants it locally -
+   * without invalidating the generating action, whose outputs didn't change.
+   */
+  private static boolean materializedOutputsAreDirty(
+      ImmutableMap<Artifact, FileContentsProxy> materializedOutputs,
+      @Nullable ImmutableSet<PathFragment> knownModifiedOutputFiles,
+      ModifiedOutputsReceiver modifiedOutputsReceiver) {
+    boolean isDirty = false;
+    for (Map.Entry<Artifact, FileContentsProxy> entry : materializedOutputs.entrySet()) {
+      Artifact artifact = entry.getKey();
+      if (!shouldCheckFile(knownModifiedOutputFiles, artifact)) {
+        continue;
+      }
+      long maybeModifiedTime = -1;
+      try {
+        FileStatus stat = artifact.getPath().statIfFound(Symlinks.FOLLOW);
+        if (stat != null) {
+          if (FileContentsProxy.create(stat).equals(entry.getValue())) {
+            continue;
+          }
+          maybeModifiedTime = stat.getLastModifiedTime();
+        }
+      } catch (IOException e) {
+        // Treat an unexpected stat failure like a modification.
+      }
+      modifiedOutputsReceiver.reportModifiedOutputFile(maybeModifiedTime, artifact);
+      isDirty = true;
+    }
+    return isDirty;
   }
 
   private static boolean shouldCheckFile(
