@@ -106,6 +106,8 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("TARGET_COMPLETION");
   public static final SkyFunctionName ASPECT_COMPLETION =
       SkyFunctionName.createHermetic("ASPECT_COMPLETION");
+  public static final SkyFunctionName TOPLEVEL_OUTPUTS_DOWNLOAD =
+      SkyFunctionName.createNonHermetic("TOPLEVEL_OUTPUTS_DOWNLOAD");
   static final SkyFunctionName TEST_COMPLETION = SkyFunctionName.createHermetic("TEST_COMPLETION");
   public static final SkyFunctionName BUILD_CONFIGURATION =
       SkyFunctionName.createHermetic("BUILD_CONFIGURATION");
