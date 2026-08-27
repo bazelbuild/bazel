@@ -146,6 +146,19 @@ java_test(
 )
 
 java_test(
+    name = "CoreOptionConvertersTest",
+    srcs = ["CoreOptionConvertersTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_option_converters",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "CoreOptionsTest",
     srcs = ["CoreOptionsTest.java"],
     deps = [
