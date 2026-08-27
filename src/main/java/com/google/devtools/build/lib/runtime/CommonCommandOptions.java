@@ -349,8 +349,8 @@ public abstract class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
-          "Includes the extra \"out\" attribute in action events that contains the exec path "
-              + "to the action's primary output.")
+          "Includes the extra \"out\" attribute in action and critical-path events that contains"
+              + " the exec path to the action's primary output.")
   public abstract boolean getIncludePrimaryOutput();
 
   @Option(
@@ -358,7 +358,7 @@ public abstract class CommonCommandOptions extends OptionsBase {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
-      help = "Includes target label in action events' JSON profile data.")
+      help = "Includes target label in action and critical-path events' JSON profile data.")
   public abstract boolean getProfileIncludeTargetLabel();
 
   @Option(
@@ -366,7 +366,9 @@ public abstract class CommonCommandOptions extends OptionsBase {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
-      help = "Includes target configuration hash in action events' JSON profile data.")
+      help =
+          "Includes target configuration hash in action and critical-path events' JSON profile"
+              + " data.")
   public abstract boolean getProfileIncludeTargetConfiguration();
 
   @Option(
