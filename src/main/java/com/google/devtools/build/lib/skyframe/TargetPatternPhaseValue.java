@@ -46,6 +46,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
   private final ImmutableSet<Label> targetLabels;
   @Nullable private final ImmutableSet<Label> testsToRunLabels;
   private final ImmutableSet<Label> nonExpandedLabels;
+  private final ImmutableSet<Label> explicitTargetLabels;
   private final boolean hasError;
   private final boolean hasPostExpansionError;
 
@@ -53,11 +54,13 @@ public final class TargetPatternPhaseValue implements SkyValue {
       ImmutableSet<Label> targetLabels,
       ImmutableSet<Label> testsToRunLabels,
       ImmutableSet<Label> nonExpandedLabels,
+      ImmutableSet<Label> explicitTargetLabels,
       boolean hasError,
       boolean hasPostExpansionError) {
     this.targetLabels = targetLabels;
     this.testsToRunLabels = testsToRunLabels;
     this.nonExpandedLabels = nonExpandedLabels;
+    this.explicitTargetLabels = explicitTargetLabels;
     this.hasError = hasError;
     this.hasPostExpansionError = hasPostExpansionError;
   }
@@ -89,6 +92,11 @@ public final class TargetPatternPhaseValue implements SkyValue {
 
   public ImmutableSet<Label> getNonExpandedLabels() {
     return nonExpandedLabels;
+  }
+
+  /** Returns labels resolved from explicit (non-wildcard) target patterns. */
+  public ImmutableSet<Label> getExplicitTargetLabels() {
+    return explicitTargetLabels;
   }
 
   public ImmutableSet<Target> getTestsToRun(
@@ -124,6 +132,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
     }
     return Objects.equals(this.targetLabels, that.targetLabels)
         && Objects.equals(this.testsToRunLabels, that.testsToRunLabels)
+        && Objects.equals(this.explicitTargetLabels, that.explicitTargetLabels)
         && this.hasError == that.hasError
         && this.hasPostExpansionError == that.hasPostExpansionError;
   }
@@ -133,6 +142,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
     return Objects.hash(
         this.targetLabels,
         this.testsToRunLabels,
+        this.explicitTargetLabels,
         this.hasError,
         this.hasPostExpansionError);
   }

@@ -154,6 +154,7 @@ sh_test(
 sh_test(
     name = "pass_on_foo1_bar2",
     srcs = ["pass.sh"],
+    tags = ["build_filter_excluded"],
     target_compatible_with = [
         ":foo1",
         ":bar2",
@@ -526,6 +527,7 @@ function test_failure_on_incompatible_top_level_target() {
   # Validate a variety of ways to refer to the same target.
   local -r -a incompatible_targets=(
       :pass_on_foo1_bar2
+      pass_on_foo1_bar2
       //target_skipping:pass_on_foo1_bar2
       @//target_skipping:pass_on_foo1_bar2
   )
@@ -551,6 +553,18 @@ function test_failure_on_incompatible_top_level_target() {
     expect_log 'Target //target_skipping:pass_on_foo1_bar2 is incompatible and cannot be built.'
   done
 
+  # Also exercise the non-Skymeld analysis path with shorthand syntax.
+  bazel test \
+    --noexperimental_merged_skyframe_analysis_execution \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    pass_on_foo1_bar2 &> "${TEST_log}" \
+    && fail "Bazel passed unexpectedly."
+
+  expect_log 'ERROR:.* Target //target_skipping:pass_on_foo1_bar2 is incompatible and cannot be built'
+  expect_log '^ERROR: Build did NOT complete successfully'
+
   # Run an additional (passing) test and make sure we still fail the build.
   # This is intended to validate that --keep_going works as expected.
   bazel test \
@@ -563,6 +577,33 @@ function test_failure_on_incompatible_top_level_target() {
 
   expect_log '^//target_skipping:pass_on_foo1  *  PASSED in'
   expect_log '^ERROR: command succeeded, but not all targets were analyzed'
+  expect_log '^ERROR: Build did NOT complete successfully'
+}
+
+function test_failure_on_incompatible_top_level_target_with_slash_shorthand() {
+  bazel test \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    target_skipping/pass_on_foo1_bar2 &> "${TEST_log}" \
+    && fail "Bazel passed unexpectedly."
+
+  expect_log 'ERROR:.* Target //target_skipping:pass_on_foo1_bar2 is incompatible and cannot be built'
+  expect_log '^ERROR: Build did NOT complete successfully'
+}
+
+function test_failure_on_explicit_incompatible_test_readded_after_build_tag_filtering() {
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  bazel test \
+    --show_result=10 \
+    --build_tag_filters=-build_filter_excluded \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    :pass_on_foo1_bar2 &> "${TEST_log}" \
+    && fail "Bazel passed unexpectedly."
+
+  expect_log 'ERROR:.* Target //target_skipping:pass_on_foo1_bar2 is incompatible and cannot be built'
   expect_log '^ERROR: Build did NOT complete successfully'
 }
 
