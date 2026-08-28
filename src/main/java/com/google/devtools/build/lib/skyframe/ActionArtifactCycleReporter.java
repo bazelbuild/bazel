@@ -14,10 +14,13 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.base.Predicates;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.skyframe.TestCompletionValue.TestCompletionKey;
 import com.google.devtools.build.skyframe.CycleInfo;
@@ -65,6 +68,13 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
       case TestCompletionKey testCompletionKey
           when skyFunctionName.equals(SkyFunctions.TEST_COMPLETION) ->
           "test target: " + testCompletionKey.configuredTargetKey().getLabel();
+      case ArtifactNestedSetKey artifactNestedSetKey ->
+          "files: "
+              + artifactNestedSetKey.expandToArtifacts().stream()
+                  .limit(5)
+                  .map(Artifact::getRootRelativePathString)
+                  .collect(joining(", "))
+              + (artifactNestedSetKey.expandToArtifacts().size() > 5 ? ", ..." : "");
       default ->
           throw new IllegalStateException(
               "Argument is not Action, TargetCompletion, AspectCompletion, or TestCompletion: "
@@ -95,6 +105,8 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
       case TestCompletionKey testCompletionKey
           when key.functionName().equals(SkyFunctions.TEST_COMPLETION) ->
           testCompletionKey.configuredTargetKey().getLabel();
+      case ArtifactNestedSetKey artifactNestedSetKey ->
+          artifactNestedSetKey.expandToArtifacts().get(0).getOwner();
       default ->
           throw new IllegalStateException(
               "Argument is not Action, TargetCompletion, AspectCompletion, or TestCompletion: "
