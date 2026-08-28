@@ -103,6 +103,13 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
         "bool_setting(name = 'visible_for_testing', build_setting_default = False)");
     config.overwrite("rules_python_workspace/python/private/common/BUILD");
     config.overwrite(
+        "rules_python_workspace/python/private/zipapp/BUILD",
+        "filegroup(",
+        "    name = 'zip_main_template',",
+        "    srcs = ['zip_main_template.py'],",
+        "    visibility = ['//visibility:public'],",
+        ")");
+    config.overwrite(
         "rules_python_workspace/python/config_settings/BUILD.bazel",
         "load('@bazel_skylib//rules:common_settings.bzl', 'string_flag', 'bool_flag')",
         "load('@rules_python//python/private:flags.bzl', rp_string_flag = 'string_flag')",
