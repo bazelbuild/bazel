@@ -18,7 +18,7 @@
 
 load("@rules_graalvm//graalvm:repositories.bzl", "graalvm_repository")
 load("//:distdir.bzl", "repo_cache_tar")
-load("//:repositories.bzl", "DIST_ARCHIVE_REPOS", "embedded_jdk_repositories")
+load("//:repositories.bzl", "DIST_ARCHIVE_REPOS", "PROTOBUF_PREBUILT_PROTOC_ARTIFACTS", "embedded_jdk_repositories")
 load("//src/tools/bzlmod:utils.bzl", "parse_bazel_module_repos")
 load("//tools/distributions/debian:deps.bzl", "debian_deps")
 
@@ -39,6 +39,7 @@ def _bazel_build_deps(ctx):
     BAZEL_TOOLS_DEPS_REPOS = parse_bazel_module_repos(ctx, ctx.path(Label("//src/test/tools/bzlmod:MODULE.bazel.lock")))
     repo_cache_tar(
         name = "bazel_tools_repo_cache",
+        additional_artifacts = PROTOBUF_PREBUILT_PROTOC_ARTIFACTS,
         repos = BAZEL_TOOLS_DEPS_REPOS,
         lockfiles = ["//src/test/tools/bzlmod:MODULE.bazel.lock"],
     )

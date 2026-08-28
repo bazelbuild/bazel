@@ -75,6 +75,25 @@ DIST_ARCHIVE_REPOS = [
     "bats_core",
 ]]
 
+# Protobuf's prebuilt protoc repositories are reproducible custom repository
+# rules, so their downloads are not recorded in MODULE.bazel.lock. Keep these
+# in sync with @com_google_protobuf//bazel/private/oss/toolchains/prebuilt:
+# tool_integrity.bzl.
+PROTOBUF_PREBUILT_PROTOC_ARTIFACTS = {
+    "https://github.com/protocolbuffers/protobuf/releases/download/v36.0/{}".format(filename): sha256
+    for filename, sha256 in {
+        "protoc-36.0-linux-aarch_64.zip": "4a00ec5e256d20a3deadd9e77d56da0ac04c72367c3c959f6d08e110a368400a",
+        "protoc-36.0-linux-ppcle_64.zip": "9bd9154c503928c8a48b6b5dee8c82881c650d753f644af75e1156ebab0c1df2",
+        "protoc-36.0-linux-s390_64.zip": "27556b282e33d6e04300d05ed4c38bf85e5a92d7080efedd5c41fd02cf9e3f5b",
+        "protoc-36.0-linux-x86_32.zip": "60fc1d382cbbad06584761e1bf1a79e4eeefa33a8667aad5a4184e4d31c45ddb",
+        "protoc-36.0-linux-x86_64.zip": "bc8211ce760bd43ee21ddc145d6d9dbaeeabae205267a79d9054a240e367d4b4",
+        "protoc-36.0-osx-aarch_64.zip": "b6bc4afdcb880124bf342851d05155b6e3d9b6e661236d87b9c614250d26ae00",
+        "protoc-36.0-osx-x86_64.zip": "2847d952ecd1c466769ae3ca319c9cd34c3613542eba335dc9b02c49537f6c70",
+        "protoc-36.0-win32.zip": "50b904fe09980eb44d566755eb65b4693a0deac30998ea3323c6901d9540e60d",
+        "protoc-36.0-win64.zip": "510fb2369a4720adb457783768c5e1481a0e1137d9e7694478dfe9b8fe445dc1",
+    }.items()
+}
+
 ##################################################################################
 #
 # Make sure all URLs below are mirrored to https://mirror.bazel.build
