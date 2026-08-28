@@ -44,6 +44,13 @@ def _repo_cache_tar_impl(ctx):
     """
     lockfile_paths = [ctx.path(lockfile) for lockfile in ctx.attr.lockfiles]
     http_artifacts = parse_http_artifacts(ctx, lockfile_paths, ctx.attr.repos)
+    http_artifacts += [
+        {
+            "sha256": sha256,
+            "url": url,
+        }
+        for url, sha256 in ctx.attr.additional_artifacts.items()
+    ]
     registry_files = parse_registry_files(ctx, lockfile_paths)
 
     archive_files = []
@@ -88,6 +95,7 @@ def _repo_cache_tar_impl(ctx):
     )
 
 _repo_cache_tar_attrs = {
+    "additional_artifacts": attr.string_dict(),
     "lockfiles": attr.label_list(),
     "dirname": attr.string(default = "repository_cache"),
     "repos": attr.string_list(),
