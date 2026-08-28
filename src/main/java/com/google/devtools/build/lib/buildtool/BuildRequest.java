@@ -428,7 +428,8 @@ public class BuildRequest implements OptionsProvider {
         OutputGroupInfo.determineOutputGroups(
             buildOptions.getOutputGroups(),
             validationMode(),
-            /* shouldRunTests= */ shouldRunTests()));
+            /* shouldRunTests= */ shouldRunTests()),
+        buildOptions.getIncompatibleFailOnUnknownOutputGroups());
   }
 
   public ImmutableList<String> getAspects() {

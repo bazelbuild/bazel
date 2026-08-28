@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -337,20 +338,21 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     buildLanguageOptions.setExperimentalDormantDeps(true);
 
     ImmutableList<BuildFileName> buildFilesByPriority = skyframeExecutor.getBuildFilesByPriority();
-    PathPackageLocator packageLocator =
-        useVirtualSourceRoot()
-            ? PathPackageLocator.createWithoutExistenceCheck(
-                /* outputBase= */ null,
-                ImmutableList.of(directories.getVirtualSourceRoot()),
-                buildFilesByPriority)
-            : PathPackageLocator.create(
-                directories.getOutputBase(),
-                packageOptions.getPackagePath(),
-                getReporter(),
-                directories.getWorkspace().asFragment(),
-                rootDirectory,
-                buildFilesByPriority);
+    PathPackageLocator packageLocator;
     try {
+      packageLocator =
+          useVirtualSourceRoot()
+              ? PathPackageLocator.createWithoutExistenceCheck(
+                  /* outputBase= */ null,
+                  ImmutableList.of(directories.getVirtualSourceRoot()),
+                  buildFilesByPriority)
+              : PathPackageLocator.create(
+                  directories.getOutputBase(),
+                  packageOptions.getPackagePath(),
+                  getReporter(),
+                  directories.getWorkspace().asFragment(),
+                  rootDirectory,
+                  buildFilesByPriority);
       skyframeExecutor.sync(
           getReporter(),
           packageLocator,
@@ -404,6 +406,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             .setActionKeyContext(actionKeyContext)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setSyscallCache(delegatingSyscallCache)
+            .setCompressionService(new CompressionServiceImpl())
             .build();
     skyframeExecutor.injectExtraPrecomputedValues(extraPrecomputedValues);
     SkyframeExecutorTestHelper.process(skyframeExecutor);

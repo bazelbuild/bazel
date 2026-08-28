@@ -1217,7 +1217,7 @@ public final class SkyframeBuildView {
     return cts.build();
   }
 
-  private static ImmutableMap<AspectKey, ConfiguredAspect> getSuccessfulAspectMap(
+  private ImmutableMap<AspectKey, ConfiguredAspect> getSuccessfulAspectMap(
       int expectedSize,
       EvaluationResult<SkyValue> evaluationResult,
       Set<BuildDriverKey> buildDriverAspectKeys,
@@ -1231,12 +1231,23 @@ public final class SkyframeBuildView {
         continue;
       }
       BuildDriverValue value = (BuildDriverValue) evaluationResult.get(bdAspectKey);
-      if (value == null) {
-        // Skip aspects that couldn't be applied to targets.
-        continue;
+      TopLevelAspectsValue topLevelAspectsValue = null;
+      if (value != null) {
+        topLevelAspectsValue = (TopLevelAspectsValue) value.getWrappedSkyValue();
+      } else {
+        try {
+          topLevelAspectsValue =
+              (TopLevelAspectsValue)
+                  skyframeExecutor.getDoneSkyValueForIntrospection(
+                      bdAspectKey.getActionLookupKey());
+        } catch (FailureToRetrieveIntrospectedValueException e) {
+          // Skip aspects that couldn't be analyzed.
+          continue;
+        }
       }
-      TopLevelAspectsValue topLevelAspectsValue = (TopLevelAspectsValue) value.getWrappedSkyValue();
-      aspects.putAll(topLevelAspectsValue.getTopLevelAspectsMap());
+      if (topLevelAspectsValue != null) {
+        aspects.putAll(topLevelAspectsValue.getTopLevelAspectsMap());
+      }
     }
     return aspects.buildOrThrow();
   }

@@ -1410,16 +1410,14 @@ EOF
   bazel build -c fastbuild \
     --experimental_output_paths=strip \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_platform_in_output_dir=yes \
-    --experimental_override_platform_cpu_name=//${pkg}:my.platform.one=my.platform.one \
+    --override_platform_cpu_name=//${pkg}:my.platform.one=my.platform.one \
     --platforms=//${pkg}:my.platform.one \
     "//${pkg}:lib" &> $TEST_log || fail "First build failed"
 
   bazel build -c fastbuild \
     --experimental_output_paths=strip \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_platform_in_output_dir=yes \
-    --experimental_override_platform_cpu_name=//${pkg}:my.platform.two=my.platform.two \
+    --override_platform_cpu_name=//${pkg}:my.platform.two=my.platform.two \
     --platforms=//${pkg}:my.platform.two \
     "//${pkg}:lib" &> $TEST_log || fail "Second build failed"
 
@@ -1525,7 +1523,6 @@ EOF
   bazel build \
     --experimental_output_paths=strip \
     --disk_cache="$cache_dir" \
-    --experimental_platform_in_output_dir \
     --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping,CppArchive=+supports-path-mapping \
     --//$pkg:setting=b \
     "//$pkg:main" &>"$TEST_log"

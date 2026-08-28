@@ -14,10 +14,13 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.base.Predicates;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.skyframe.TestCompletionValue.TestCompletionKey;
 import com.google.devtools.build.skyframe.CycleInfo;
@@ -25,9 +28,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.function.Predicate;
 
-/**
- * Reports cycles between Actions and Artifacts. These indicates cycles within a rule.
- */
+/** Reports cycles between Actions and Artifacts. These indicates cycles within a rule. */
 public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
   public static final Predicate<SkyKey> ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP =
       Predicates.or(
@@ -54,22 +55,31 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
    * #shouldSkipOnPathToCycle}
    */
   private static String prettyPrint(SkyFunctionName skyFunctionName, Object arg) {
-    if (arg instanceof Artifact artifact) {
-      return prettyPrintArtifact(artifact);
-    } else if (arg instanceof ActionLookupData) {
-      return "action from: " + arg;
-    } else if (arg instanceof TopLevelActionLookupKeyWrapper key) {
-      if (skyFunctionName.equals(SkyFunctions.TARGET_COMPLETION)) {
-        return "configured target: " + key.actionLookupKey().getLabel();
+    return switch (arg) {
+      case Artifact artifact -> prettyPrintArtifact(artifact);
+      case ActionLookupData actionLookupData -> "action from: " + actionLookupData;
+      case TopLevelActionLookupKeyWrapper key -> {
+        if (skyFunctionName.equals(SkyFunctions.TARGET_COMPLETION)) {
+          yield "configured target: " + key.actionLookupKey().getLabel();
+        }
+        yield "top-level aspect: "
+            + ((AspectCompletionValue.AspectCompletionKey) key).actionLookupKey().prettyPrint();
       }
-      return "top-level aspect: "
-          + ((AspectCompletionValue.AspectCompletionKey) key).actionLookupKey().prettyPrint();
-    } else if (arg instanceof TestCompletionKey
-        && skyFunctionName.equals(SkyFunctions.TEST_COMPLETION)) {
-      return "test target: " + ((TestCompletionKey) arg).configuredTargetKey().getLabel();
-    }
-    throw new IllegalStateException(
-        "Argument is not Action, TargetCompletion, AspectCompletion, or TestCompletion: " + arg);
+      case TestCompletionKey testCompletionKey
+          when skyFunctionName.equals(SkyFunctions.TEST_COMPLETION) ->
+          "test target: " + testCompletionKey.configuredTargetKey().getLabel();
+      case ArtifactNestedSetKey artifactNestedSetKey ->
+          "files: "
+              + artifactNestedSetKey.expandToArtifacts().stream()
+                  .limit(5)
+                  .map(Artifact::getRootRelativePathString)
+                  .collect(joining(", "))
+              + (artifactNestedSetKey.expandToArtifacts().size() > 5 ? ", ..." : "");
+      default ->
+          throw new IllegalStateException(
+              "Argument is not Action, TargetCompletion, AspectCompletion, or TestCompletion: "
+                  + arg);
+    };
   }
 
   private static String prettyPrintArtifact(Artifact artifact) {
@@ -87,18 +97,21 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
   @Override
   protected Label getLabel(SkyKey key) {
     Object arg = key.argument();
-    if (arg instanceof Artifact artifact) {
-      return artifact.getOwner();
-    } else if (arg instanceof ActionLookupData actionLookupData) {
-      return actionLookupData.getLabel();
-    } else if (arg instanceof TopLevelActionLookupKeyWrapper topLevelActionLookupKeyWrapper) {
-      return topLevelActionLookupKeyWrapper.actionLookupKey().getLabel();
-    } else if (arg instanceof TestCompletionKey testCompletionKey
-        && key.functionName().equals(SkyFunctions.TEST_COMPLETION)) {
-      return ((TestCompletionKey) arg).configuredTargetKey().getLabel();
-    }
-    throw new IllegalStateException(
-        "Argument is not Action, TargetCompletion, AspectCompletion, or TestCompletion: " + arg);
+    return switch (arg) {
+      case Artifact artifact -> artifact.getOwner();
+      case ActionLookupData actionLookupData -> actionLookupData.getLabel();
+      case TopLevelActionLookupKeyWrapper topLevelActionLookupKeyWrapper ->
+          topLevelActionLookupKeyWrapper.actionLookupKey().getLabel();
+      case TestCompletionKey testCompletionKey
+          when key.functionName().equals(SkyFunctions.TEST_COMPLETION) ->
+          testCompletionKey.configuredTargetKey().getLabel();
+      case ArtifactNestedSetKey artifactNestedSetKey ->
+          artifactNestedSetKey.expandToArtifacts().get(0).getOwner();
+      default ->
+          throw new IllegalStateException(
+              "Argument is not Action, TargetCompletion, AspectCompletion, or TestCompletion: "
+                  + arg);
+    };
   }
 
   @Override

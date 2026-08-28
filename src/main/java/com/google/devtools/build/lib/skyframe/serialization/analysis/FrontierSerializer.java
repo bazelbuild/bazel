@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -137,6 +138,9 @@ public final class FrontierSerializer {
       return Optional.empty();
     }
 
+    CompressionService compressionService =
+        serializationDependenciesProvider.getCompressionService();
+
     FingerprintValueService fingerprintValueService =
         serializationDependenciesProvider.getFingerprintValueService();
     if (fingerprintValueService == null) {
@@ -200,6 +204,7 @@ public final class FrontierSerializer {
             codecs,
             frontierVersion,
             selectedKeys,
+            compressionService,
             fingerprintValueService,
             fileInvalidationWriter,
             shouldDiscardMemory,

@@ -44,6 +44,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
@@ -85,6 +87,9 @@ import org.junit.runners.JUnit4;
 /** Tests for Starlark aspects */
 @RunWith(JUnit4.class)
 public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
+
+  private static final CompressionService COMPRESSION_SERVICE = new CompressionServiceImpl();
+
   protected boolean keepGoing() {
     return false;
   }
@@ -9967,6 +9972,69 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
   }
 
   @Test
+  public void testAspectHasDirectDependencyOnAspectHints() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        HintInfo = provider(fields = ["val"])
+
+        def _hint_impl(ctx):
+          return [HintInfo(val = ctx.attr.val)]
+
+        hint = rule(
+          implementation = _hint_impl,
+          attrs = {"val": attr.string()},
+          provides = [HintInfo],
+        )
+
+        def _aspect_impl(target, ctx):
+          return []
+
+        my_aspect = aspect(
+          implementation = _aspect_impl,
+          attr_aspects = ["deps"],
+          required_aspect_hints_providers = [HintInfo],
+        )
+
+        def _rule_impl(ctx):
+          pass
+
+        my_rule = rule(
+          implementation = _rule_impl,
+          attrs = {
+            "deps": attr.label_list(),
+          },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "hint", "my_rule")
+
+        hint(name = "my_hint", val = "foo")
+        my_rule(name = "other", deps = [":my_hint"])
+        my_rule(name = "t1", deps = [":t2"])
+        my_rule(name = "t2", aspect_hints = [":my_hint"])
+        """);
+
+    var _ = update(ImmutableList.of("//test:defs.bzl%my_aspect"), "//test:other", "//test:t1");
+
+    InMemoryNodeEntry aspectNode =
+        findOnlyNodeEntry(
+            k -> k instanceof AspectKey aspectKey && aspectKey.getLabel().getName().equals("t2"));
+    assertThat(aspectNode).isNotNull();
+
+    ImmutableList<String> configuredTargetsDeps =
+        stream(Iterables.filter(aspectNode.getDirectDeps(), ConfiguredTargetKey.class))
+            .map(k -> k.getLabel().getName())
+            .collect(toImmutableList());
+
+    // The aspect on t2 MUST directly depend on the aspect hint target and the base target t2,
+    // even when //test:other already evaluated the hint target as a normal dependency.
+    assertThat(configuredTargetsDeps).containsExactly("my_hint", "t2");
+  }
+
+  @Test
   public void testTopLevelAspectNotDependsOnConfigeredTopLevelTarget() throws Exception {
     scratch.file(
         "test/defs.bzl",
@@ -10313,7 +10381,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     var myAspect =
         (StarlarkDefinedAspect) checkNotNull(aspectBzl.getModule().getGlobal("MyAspect"));
 
-    var deserialized = RoundTripping.roundTripWithSkyframe(this::getDoneValue, myAspect);
+    var deserialized =
+        RoundTripping.roundTripWithSkyframe(COMPRESSION_SERVICE, this::getDoneValue, myAspect);
     assertThat(myAspect).isSameInstanceAs(deserialized);
   }
 

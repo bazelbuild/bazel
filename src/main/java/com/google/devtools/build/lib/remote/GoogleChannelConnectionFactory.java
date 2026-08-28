@@ -58,7 +58,6 @@ public class GoogleChannelConnectionFactory
   private final AuthAndTLSOptions options;
   private final List<ClientInterceptor> interceptors;
   private final int maxConcurrency;
-  private final boolean verboseFailures;
   private final Reporter reporter;
   @Nullable private final RemoteServerCapabilities remoteServerCapabilities;
   private final RemoteOptions remoteOptions;
@@ -75,7 +74,6 @@ public class GoogleChannelConnectionFactory
       AuthAndTLSOptions options,
       List<ClientInterceptor> interceptors,
       int maxConcurrency,
-      boolean verboseFailures,
       Reporter reporter,
       @Nullable RemoteServerCapabilities remoteServerCapabilities,
       Value digestFunction,
@@ -90,7 +88,6 @@ public class GoogleChannelConnectionFactory
     this.options = options;
     this.interceptors = interceptors;
     this.maxConcurrency = maxConcurrency;
-    this.verboseFailures = verboseFailures;
     this.reporter = reporter;
     this.remoteServerCapabilities = remoteServerCapabilities;
     this.remoteOptions = remoteOptions;

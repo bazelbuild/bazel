@@ -35,6 +35,7 @@
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 
@@ -198,6 +199,50 @@ static bool GetStartTime(const string& pid, string* start_time) {
   }
 
   return true;
+}
+
+std::string ParseProcStatDiagnosis(absl::string_view statline, int pid) {
+  size_t last_parenthesis = statline.rfind(')');
+  if (last_parenthesis == string::npos) {
+    return "";
+  }
+
+  absl::string_view remainder = statline.substr(last_parenthesis + 1);
+  vector<absl::string_view> stat_entries =
+      absl::StrSplit(remainder, ' ', absl::SkipEmpty());
+  if (stat_entries.size() < 2) {
+    return "";
+  }
+
+  absl::string_view state = stat_entries[0];
+  absl::string_view ppid = stat_entries[1];
+
+  if (state == "Z") {
+    return absl::StrCat(
+        "Process ", pid,
+        " is a zombie process (state 'Z'). It has already terminated, but "
+        "its parent process (pid=",
+        ppid,
+        ") has not reaped it. If running inside a container (such as "
+        "Docker), ensure an init process is used (e.g., 'docker run --init').");
+  } else if (state == "D") {
+    return absl::StrCat(
+        "Process ", pid,
+        " is in uninterruptible disk/kernel sleep (state 'D'). This is "
+        "typically caused by a hanging filesystem or I/O call (such as "
+        "FUSE or network mount), which prevents SIGKILL from taking effect.");
+  }
+  return absl::StrCat("Process state: ", state, " (parent pid=", ppid, ").");
+}
+
+std::string GetProcessTerminationDiagnosis(int pid) {
+  string statfile = absl::StrCat("/proc/", pid, "/stat");
+  string statline;
+
+  if (!blaze_util::ReadFile(statfile, &statline)) {
+    return "";
+  }
+  return ParseProcStatDiagnosis(statline, pid);
 }
 
 int ConfigureDaemonProcess(posix_spawnattr_t* attrp,

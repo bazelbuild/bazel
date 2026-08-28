@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
@@ -60,6 +59,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory.InvalidPackagePathSymlinkException;
 import com.google.devtools.build.lib.server.FailureDetails.BuildReport;
@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -102,6 +103,7 @@ import javax.annotation.Nullable;
 public class ExecutionGraphModule extends BlazeModule {
 
   private static final String ACTION_DUMP_NAME = "execution_graph_dump.proto.zst";
+  private static final PathFragment WORKSPACE_PREFIX = PathFragment.create("%workspace%");
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -131,7 +133,8 @@ public class ExecutionGraphModule extends BlazeModule {
                 + " experimental_enable_execution_graph_log is disabled, there will be an error. If"
                 + " this is unset while BEP uploads are disabled and"
                 + " experimental_enable_execution_graph_log is enabled, the log will be written to"
-                + " a local default.")
+                + " a local default. The path can be absolute, relative to the current working"
+                + " directory, or prefixed with %workspace% to be relative to the workspace root.")
     public abstract String getExecutionGraphLogPath();
 
     @Option(
@@ -701,6 +704,7 @@ public class ExecutionGraphModule extends BlazeModule {
       }
     }
 
+    private final CompressionService compressionService;
     private final BugReporter bugReporter;
     private final EventBus eventBus;
     private final boolean localLockFreeOutputEnabled;
@@ -735,6 +739,7 @@ public class ExecutionGraphModule extends BlazeModule {
     private static final int OUTPUT_BUFFER_SIZE = 1 << 21;
 
     ActionDumpWriter(
+        CompressionService compressionService,
         BugReporter bugReporter,
         EventBus eventBus,
         boolean localLockFreeOutputEnabled,
@@ -743,6 +748,7 @@ public class ExecutionGraphModule extends BlazeModule {
         DependencyInfo depType,
         int queueSize,
         int queuedBytesLimit) {
+      this.compressionService = compressionService;
       this.bugReporter = bugReporter;
       this.eventBus = eventBus;
       this.localLockFreeOutputEnabled = localLockFreeOutputEnabled;
@@ -890,14 +896,14 @@ public class ExecutionGraphModule extends BlazeModule {
 
     /** Test hook to allow injecting failures in tests. */
     @VisibleForTesting
-    ZstdOutputStream createCompressingOutputStream() throws IOException {
+    OutputStream createCompressingOutputStream() throws IOException {
       // zstd compression at the default level produces 20% smaller outputs than gzip, while being
       // faster to compress and decompress. Higher levels get slower quickly, without much benefit
       // in size. For example, level 4 produces 1% smaller outputs, but takes twice as long to
       // compress in standalone benchmarks. Lower levels quickly increase size, without much benefit
       // in speed. For example, level -3 produces 60% bigger outputs, but only runs 10% faster in
       // standalone benchmarks.
-      return new ZstdOutputStream(outStream);
+      return compressionService.newZstdOutputStream(outStream);
     }
 
     /**
@@ -952,9 +958,14 @@ public class ExecutionGraphModule extends BlazeModule {
         checkNotNull(parsingResult.getOptions(BuildEventProtocolOptions.class));
     ExecutionGraphOptions executionGraphOptions =
         checkNotNull(parsingResult.getOptions(ExecutionGraphOptions.class));
+    CompressionService compressionService =
+        checkNotNull(
+            env.getRuntime().getBlazeService(CompressionService.class),
+            "expected CompressionService to be available");
     if (bepOptions.getStreamingLogFileUploads()
         && executionGraphOptions.getExecutionGraphLogPath().isBlank()) {
       return new StreamingActionDumpWriter(
+          compressionService,
           env.getRuntime().getBugReporter(),
           env.getEventBus(),
           env.getOptions().getOptions(LocalExecutionOptions.class).getLocalLockfreeOutput(),
@@ -966,12 +977,15 @@ public class ExecutionGraphModule extends BlazeModule {
     }
 
     String path = executionGraphOptions.getExecutionGraphLogPath();
+    Path actionGraphFile;
     if (path.isBlank()) {
-      path = ACTION_DUMP_NAME;
+      actionGraphFile = env.getOutputBase().getRelative(ACTION_DUMP_NAME);
+    } else {
+      actionGraphFile = getAbsolutePath(PathFragment.create(path), env);
     }
-    Path actionGraphFile = env.getOutputBase().getRelative(path);
     try {
       return new FilesystemActionDumpWriter(
+          compressionService,
           env.getRuntime().getBugReporter(),
           env.getEventBus(),
           env.getOptions().getOptions(LocalExecutionOptions.class).getLocalLockfreeOutput(),
@@ -985,10 +999,27 @@ public class ExecutionGraphModule extends BlazeModule {
     }
   }
 
+  /**
+   * If the given path is an absolute path, leave it as it is. If the given path is a relative path,
+   * it is relative to the current working directory. If the given path starts with '%workspace%',
+   * it is relative to the workspace root, which is the output of `bazel info workspace`.
+   */
+  private static Path getAbsolutePath(PathFragment path, CommandEnvironment env) {
+    if (env.getWorkspace() != null && path.startsWith(WORKSPACE_PREFIX)) {
+      return env.getWorkspace().getRelative(path.relativeTo(WORKSPACE_PREFIX));
+    }
+    if (!path.isAbsolute()) {
+      return env.getWorkingDirectory().getRelative(path);
+    }
+
+    return env.getRuntime().getFileSystem().getPath(path);
+  }
+
   private static final class FilesystemActionDumpWriter extends ActionDumpWriter {
     private final Path actionGraphFile;
 
     FilesystemActionDumpWriter(
+        CompressionService compressionService,
         BugReporter bugReporter,
         EventBus eventBus,
         boolean localLockFreeOutputEnabled,
@@ -999,6 +1030,7 @@ public class ExecutionGraphModule extends BlazeModule {
         int queuedBytesLimit)
         throws IOException {
       super(
+          compressionService,
           bugReporter,
           eventBus,
           localLockFreeOutputEnabled,
@@ -1039,6 +1071,7 @@ public class ExecutionGraphModule extends BlazeModule {
     private final UploadContext uploadContext;
 
     public StreamingActionDumpWriter(
+        CompressionService compressionService,
         BugReporter bugReporter,
         EventBus eventBus,
         boolean localLockFreeOutputEnabled,
@@ -1048,6 +1081,7 @@ public class ExecutionGraphModule extends BlazeModule {
         int queueSize,
         int queuedBytesLimit) {
       super(
+          compressionService,
           bugReporter,
           eventBus,
           localLockFreeOutputEnabled,

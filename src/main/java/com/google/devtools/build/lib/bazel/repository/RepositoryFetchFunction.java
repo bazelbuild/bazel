@@ -724,7 +724,13 @@ public final class RepositoryFetchFunction implements SkyFunction {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
 
-    if (!outputDirectory.isDirectory()) {
+    boolean isDirectory;
+    try {
+      isDirectory = outputDirectory.isDirectory();
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+    if (!isDirectory) {
       throw new RepositoryFunctionException(
           new IOException(repoDefinition.name() + " must create a directory"),
           Transience.TRANSIENT);
@@ -732,7 +738,13 @@ public final class RepositoryFetchFunction implements SkyFunction {
 
     // Make sure the fetched repo has a boundary file.
     if (!RepositoryUtils.isValidRepoRoot(outputDirectory)) {
-      if (outputDirectory.isSymbolicLink()) {
+      boolean isSymbolicLink;
+      try {
+        isSymbolicLink = outputDirectory.isSymbolicLink();
+      } catch (IOException e) {
+        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      }
+      if (isSymbolicLink) {
         // The created repo is actually just a symlink to somewhere else (think local_repository).
         // In this case, we shouldn't try to create the repo boundary file ourselves, but report an
         // error instead.
@@ -804,12 +816,12 @@ public final class RepositoryFetchFunction implements SkyFunction {
       String userDefinedPath,
       Environment env)
       throws RepositoryFunctionException, InterruptedException {
-    if (source.isDirectory(Symlinks.NOFOLLOW)) {
-      try {
+    try {
+      if (source.isDirectory(Symlinks.NOFOLLOW)) {
         source.deleteTree();
-      } catch (IOException e) {
-        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
     try {
       FileSystemUtils.ensureSymbolicLink(source, destination);

@@ -19,7 +19,7 @@ java_plugin(
     deps = [
         ":annotation_preprocessor_lib",
         "//src/main/java/net/starlark/java/annot",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 

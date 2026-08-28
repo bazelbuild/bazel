@@ -29,7 +29,9 @@ java_library(
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:jarhelper",
         "//src/main/protobuf:java_compilation_java_proto",
-        "//third_party:guava",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 

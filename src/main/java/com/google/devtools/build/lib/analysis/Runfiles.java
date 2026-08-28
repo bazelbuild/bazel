@@ -918,8 +918,26 @@ public final class Runfiles implements RunfilesApi {
   /** Fingerprint this {@link Runfiles} tree, including the absolute paths of artifacts. */
   public void fingerprint(
       ActionKeyContext actionKeyContext, Fingerprint fp, boolean digestAbsolutePaths) {
+    fingerprint(actionKeyContext, fp, digestAbsolutePaths, null);
+  }
+
+  /**
+   * Fingerprint this {@link Runfiles} tree, including the absolute paths of artifacts.
+   *
+   * @param originatingTargetRoot the root of the originating target configuration, if available.
+   *     This is used to match runfiles to the configuration of the depending rule in the event of
+   *     conflicts.
+   */
+  public void fingerprint(
+      ActionKeyContext actionKeyContext,
+      Fingerprint fp,
+      boolean digestAbsolutePaths,
+      @Nullable ArtifactRoot originatingTargetRoot) {
     fp.addInt(conflictPolicy.ordinal());
     fp.addString(prefix);
+    if (originatingTargetRoot != null) {
+      fp.addString(originatingTargetRoot.getExecPathString());
+    }
 
     actionKeyContext.addNestedSetToFingerprint(
         digestAbsolutePaths ? SYMLINK_ENTRY_ABSOLUTE_PATH_MAP_FN : SYMLINK_ENTRY_EXEC_PATH_MAP_FN,
@@ -939,8 +957,16 @@ public final class Runfiles implements RunfilesApi {
 
   /** Describes the inputs {@link #fingerprint} uses to aid describeKey() descriptions. */
   String describeFingerprint(boolean digestAbsolutePaths) {
+    return describeFingerprint(digestAbsolutePaths, null);
+  }
+
+  String describeFingerprint(
+      boolean digestAbsolutePaths, @Nullable ArtifactRoot originatingTargetRoot) {
     return String.format("conflictPolicy: %s\n", conflictPolicy)
         + String.format("prefix: %s\n", prefix)
+        + String.format(
+            "originatingTargetRoot: %s\n",
+            originatingTargetRoot == null ? "null" : originatingTargetRoot.getExecPathString())
         + String.format(
             "symlinks: %s\n",
             describeNestedSetFingerprint(

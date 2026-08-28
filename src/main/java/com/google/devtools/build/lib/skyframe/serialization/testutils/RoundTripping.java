@@ -18,6 +18,7 @@ import static com.google.common.util.concurrent.Uninterruptibles.getUninterrupti
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
@@ -106,10 +107,13 @@ public class RoundTripping {
   }
 
   public static ByteString toBytesMemoizedAndBlocking(
-      ObjectCodecs codecs, FingerprintValueService fingerprintValueService, Object subject)
+      ObjectCodecs codecs,
+      CompressionService compressionService,
+      FingerprintValueService fingerprintValueService,
+      Object subject)
       throws SerializationException {
     SerializationResult<ByteString> result =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject);
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, subject);
     ListenableFuture<?> futureToBlockWritesOn = result.getFutureToBlockWritesOn();
     if (futureToBlockWritesOn != null) {
       try {
@@ -123,11 +127,13 @@ public class RoundTripping {
 
   public static Object fromBytesWithSkyframe(
       ObjectCodecs codecs,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       EnvironmentForUtilities.ResultProvider resultProvider,
       ByteString data)
       throws SerializationException, SkyframeDependencyException, MissingResultException {
-    Object result = codecs.deserializeWithSkyframe(fingerprintValueService, data);
+    Object result =
+        codecs.deserializeWithSkyframe(compressionService, fingerprintValueService, data);
     if (result instanceof ListenableFuture<?> futureContinuation) {
       SkyframeLookupContinuation continuation;
       try {
@@ -184,19 +190,28 @@ public class RoundTripping {
 
   public static Object roundTripWithSkyframe(
       ObjectCodecs codecs,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       EnvironmentForUtilities.ResultProvider resultProvider,
       Object subject)
       throws SerializationException, SkyframeDependencyException, MissingResultException {
-    ByteString bytes = toBytesMemoizedAndBlocking(codecs, fingerprintValueService, subject);
-    return fromBytesWithSkyframe(codecs, fingerprintValueService, resultProvider, bytes);
+    ByteString bytes =
+        toBytesMemoizedAndBlocking(codecs, compressionService, fingerprintValueService, subject);
+    return fromBytesWithSkyframe(
+        codecs, compressionService, fingerprintValueService, resultProvider, bytes);
   }
 
   public static Object roundTripWithSkyframe(
-      EnvironmentForUtilities.ResultProvider resultProvider, Object subject)
+      CompressionService compressionService,
+      EnvironmentForUtilities.ResultProvider resultProvider,
+      Object subject)
       throws SerializationException, SkyframeDependencyException, MissingResultException {
     return roundTripWithSkyframe(
-        new ObjectCodecs(), FingerprintValueService.createForTesting(), resultProvider, subject);
+        new ObjectCodecs(),
+        compressionService,
+        FingerprintValueService.createForTesting(),
+        resultProvider,
+        subject);
   }
 
   private static class KeyRecordingResultProvider

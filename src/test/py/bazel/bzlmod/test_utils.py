@@ -493,3 +493,8 @@ class _Handler(http.server.SimpleHTTPRequestHandler):
   def do_GET(self):
     if self.check_auth():
       return super().do_GET()
+
+  def log_message(self, *args, **kwargs):
+    # Suppress logging to prevent dumping hundreds of 404s to stderr
+    # when Bazel queries fallback registries.
+    pass

@@ -32,6 +32,7 @@ import static org.mockito.Mockito.when;
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
 import build.bazel.remote.execution.v2.Digest;
@@ -44,6 +45,8 @@ import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
 import build.bazel.remote.execution.v2.GetActionResultRequest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
+import build.bazel.remote.execution.v2.SplitBlobRequest;
+import build.bazel.remote.execution.v2.SplitBlobResponse;
 import build.bazel.remote.execution.v2.Tree;
 import build.bazel.remote.execution.v2.UpdateActionResultRequest;
 import com.github.luben.zstd.Zstd;
@@ -75,6 +78,8 @@ import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.common.ActionKey;
+import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
+import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
@@ -313,7 +318,8 @@ public class GrpcCacheClientTest {
             /* diskCacheClient= */ null,
             /* symlinkTemplate= */ null,
             DIGEST_UTIL,
-            /* chunkingFunction= */ null);
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
     PathFragment execPath = PathFragment.create("my/exec/path");
     var virtualActionInput =
         new VirtualActionInput() {
@@ -601,7 +607,8 @@ public class GrpcCacheClientTest {
             /* diskCacheClient= */ null,
             /* symlinkTemplate= */ null,
             DIGEST_UTIL,
-            /* chunkingFunction= */ null);
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
 
     Digest fooDigest = DIGEST_UTIL.computeAsUtf8("foo-contents");
     Digest barDigest = DIGEST_UTIL.computeAsUtf8("bar-contents");
@@ -631,7 +638,8 @@ public class GrpcCacheClientTest {
             /* diskCacheClient= */ null,
             /* symlinkTemplate= */ null,
             DIGEST_UTIL,
-            /* chunkingFunction= */ null);
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -705,7 +713,8 @@ public class GrpcCacheClientTest {
             /* diskCacheClient= */ null,
             /* symlinkTemplate= */ null,
             DIGEST_UTIL,
-            /* chunkingFunction= */ null);
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
 
     final Digest barDigest =
         fakeFileCache.createScratchInputDirectory(
@@ -754,7 +763,8 @@ public class GrpcCacheClientTest {
             /* diskCacheClient= */ null,
             /* symlinkTemplate= */ null,
             DIGEST_UTIL,
-            /* chunkingFunction= */ null);
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
 
     final Digest wobbleDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar/test/wobble"), "xyz");
@@ -923,7 +933,8 @@ public class GrpcCacheClientTest {
             /* diskCacheClient= */ null,
             /* symlinkTemplate= */ null,
             DIGEST_UTIL,
-            /* chunkingFunction= */ null);
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
     var unused =
         combinedCache.downloadActionResult(
             context,
@@ -942,7 +953,8 @@ public class GrpcCacheClientTest {
             /* diskCacheClient= */ null,
             /* symlinkTemplate= */ null,
             DIGEST_UTIL,
-            /* chunkingFunction= */ null);
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -1024,7 +1036,8 @@ public class GrpcCacheClientTest {
             /* diskCacheClient= */ null,
             /* symlinkTemplate= */ null,
             DIGEST_UTIL,
-            /* chunkingFunction= */ null);
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -1095,7 +1108,8 @@ public class GrpcCacheClientTest {
             /* diskCacheClient= */ null,
             /* symlinkTemplate= */ null,
             DIGEST_UTIL,
-            /* chunkingFunction= */ null);
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -1455,6 +1469,29 @@ public class GrpcCacheClientTest {
   }
 
   @Test
+  public void downloadBlobFailsWhenServerCompletesBeforeExpectedSize() throws IOException {
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.setRemoteVerifyDownloads(false);
+    GrpcCacheClient client = newClient(remoteOptions);
+    Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            responseObserver.onNext(
+                ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("abc")).build());
+            responseObserver.onCompleted();
+          }
+        });
+
+    OutputDigestMismatchException e =
+        assertThrows(
+            OutputDigestMismatchException.class, () -> downloadBlob(context, client, digest));
+    assertThat(e).hasMessageThat().contains(digest.getHash());
+    assertThat(e).hasMessageThat().contains("received 3 bytes");
+  }
+
+  @Test
   public void compressedDownloadBlobIsRetriedWithProgress()
       throws IOException, InterruptedException {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
@@ -1495,6 +1532,46 @@ public class GrpcCacheClientTest {
           }
         });
     assertThat(new String(downloadBlob(context, client, digest), UTF_8)).isEqualTo("abcdefg");
+  }
+
+  @Test
+  public void compressedDownloadFailsWhenServerIgnoresReadOffset() throws IOException {
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.setCacheCompression(true);
+    remoteOptions.setCacheCompressionThreshold(0);
+    remoteOptions.setRemoteVerifyDownloads(false);
+    GrpcCacheClient client = newClient(remoteOptions);
+    Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    ByteString compressedPrefix = ByteString.copyFrom(Zstd.compress("abcd".getBytes(UTF_8)));
+    ByteString compressedBlob = ByteString.copyFrom(Zstd.compress("abcdefg".getBytes(UTF_8)));
+    AtomicInteger readCalls = new AtomicInteger();
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            int readCall = readCalls.getAndIncrement();
+            if (readCall == 0) {
+              assertThat(request.getReadOffset()).isEqualTo(0);
+              responseObserver.onNext(ReadResponse.newBuilder().setData(compressedPrefix).build());
+              responseObserver.onError(Status.DEADLINE_EXCEEDED.asException());
+              return;
+            }
+            // Simulate a noncompliant compressed ByteStream server that ignores the uncompressed
+            // read offset and replays the blob from the beginning.
+            assertThat(readCall).isEqualTo(1);
+            assertThat(request.getReadOffset()).isEqualTo(4);
+            responseObserver.onNext(ReadResponse.newBuilder().setData(compressedBlob).build());
+            responseObserver.onCompleted();
+          }
+        });
+
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    IOException e =
+        assertThrows(
+            IOException.class, () -> getFromFuture(client.downloadBlob(context, digest, out)));
+    assertThat(e).hasMessageThat().contains("Received more bytes than expected");
+    assertThat(out.size()).isAtMost(Math.toIntExact(digest.getSizeBytes()));
+    assertThat(readCalls.get()).isEqualTo(2);
   }
 
   @Test
@@ -1628,5 +1705,54 @@ public class GrpcCacheClientTest {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
 
     assertThat(GrpcCacheClient.isRemoteCacheOptions(options)).isFalse();
+  }
+
+  @Test
+  public void splitBlob_serverCannotSplit_failsWithBlobNotSplittable(
+      @TestParameter({"NOT_FOUND", "UNIMPLEMENTED"}) Status.Code code) throws Exception {
+    RemoteOptions options =
+        Options.parse(RemoteOptions.class, "--experimental_remote_cache_chunking").getOptions();
+    GrpcCacheClient client = newClient(options);
+    Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    serviceRegistry.addService(
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void splitBlob(
+              SplitBlobRequest request, StreamObserver<SplitBlobResponse> responseObserver) {
+            responseObserver.onError(code.toStatus().asRuntimeException());
+          }
+        });
+
+    assertThrows(
+        BlobNotSplittableException.class,
+        () ->
+            getFromFuture(client.splitBlob(context, digest, ChunkingFunction.Value.FAST_CDC_2020)));
+  }
+
+  @Test
+  public void testDownloadFailsWhenServerIgnoresReadOffset() throws Exception {
+    Backoff mockBackoff = Mockito.mock(Backoff.class);
+    Mockito.when(mockBackoff.nextDelayMillis(any(Exception.class))).thenReturn(-1L);
+    GrpcCacheClient client = newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);
+    final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            if (request.getReadOffset() == 0) {
+              // First attempt: send partial data and fail
+              responseObserver.onNext(
+                  ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("abcd")).build());
+              responseObserver.onError(Status.DEADLINE_EXCEEDED.asException());
+            } else {
+              // Retry attempt: server ignores read_offset and sends full 7 bytes from offset 0
+              responseObserver.onNext(
+                  ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("abcdefg")).build());
+              responseObserver.onCompleted();
+            }
+          }
+        });
+    IOException e = assertThrows(IOException.class, () -> downloadBlob(context, client, digest));
+    assertThat(e).hasMessageThat().contains("Received more bytes than expected");
   }
 }

@@ -222,9 +222,11 @@ public final class VendorCommand implements BlazeCommand {
         env.getSkyframeExecutor().prepareAndGet(ImmutableSet.of(fetchKey), evaluationContext);
     if (evaluationResult.hasError()) {
       Exception e = evaluationResult.getError().getException();
-      return createFailedBlazeCommandResult(
-          env.getReporter(),
-          e != null ? e.getMessage() : "Unexpected error during fetching all external deps.");
+      String errorMessage =
+          e != null && e.getMessage() != null
+              ? e.getMessage()
+              : "Unexpected error during fetching all external deps.";
+      return createFailedBlazeCommandResult(env.getReporter(), errorMessage);
     }
 
     BazelFetchAllValue fetchAllValue = (BazelFetchAllValue) evaluationResult.get(fetchKey);
@@ -244,7 +246,9 @@ public final class VendorCommand implements BlazeCommand {
       return createFailedBlazeCommandResult(
           env.getReporter(), "Invalid repo name: " + e.getMessage(), e.getDetailedExitCode());
     } catch (RepositoryFetcherException e) {
-      return createFailedBlazeCommandResult(env.getReporter(), e.getMessage());
+      String errorMessage =
+          e.getMessage() != null ? e.getMessage() : "Unexpected error during repository fetching.";
+      return createFailedBlazeCommandResult(env.getReporter(), errorMessage);
     }
 
     // Split repos to found and not found, vendor found ones and report others

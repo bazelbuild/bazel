@@ -89,17 +89,21 @@ public class AsynchronousTreeDeleter implements TreeDeleter {
 
   @Override
   public void deleteTree(Path path) throws IOException {
-    if (!trashBaseCreated) {
-      trashBase.createDirectory();
-      trashBaseCreated = true;
-    }
     if (!path.exists()) {
       return;
+    }
+    if (path.getFileSystem() != trashBase.getFileSystem()) {
+      path.deleteTree();
+      return;
+    }
+    if (!trashBaseCreated) {
+      trashBase.createDirectoryAndParents();
+      trashBaseCreated = true;
     }
     Path trashPath = trashBase.getRelative(Integer.toString(trashCount.getAndIncrement()));
     try {
       path.renameTo(trashPath);
-    } catch (IOException e) {
+    } catch (IOException | IllegalArgumentException e) {
       logger.atWarning().withCause(e).log(
           "Failed to rename %s -> %s for asynchronous removal. Removing synchronously.",
           path, trashPath);
@@ -123,6 +127,13 @@ public class AsynchronousTreeDeleter implements TreeDeleter {
     if (service != null) {
       logger.atInfo().log("Finishing %d pending async tree deletions", service.getTaskCount());
       service.shutdown();
+      try {
+        service.awaitTermination(Long.MAX_VALUE, TimeUnit.SECONDS);
+      } catch (InterruptedException e) {
+        logger.atWarning().withCause(e).log(
+            "Interrupted while waiting for async tree deletions to finish");
+        Thread.currentThread().interrupt();
+      }
       service = null;
     }
   }

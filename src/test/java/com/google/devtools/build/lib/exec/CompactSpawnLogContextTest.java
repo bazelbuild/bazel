@@ -21,9 +21,11 @@ import static com.google.devtools.build.lib.testutil.TestConstants.WORKSPACE_NAM
 import com.github.luben.zstd.ZstdInputStream;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -33,10 +35,13 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
@@ -239,6 +244,34 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
   }
 
   @Test
+  public void testUnmaterializedEmptyTreeInput() throws Exception {
+    SpecialArtifact treeInput =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputDir, "tree");
+
+    // Deliberately don't create the directory: an empty tree artifact may not be materialized on
+    // disk, so its (empty) contents are only known to in-memory metadata.
+    assertThat(treeInput.getPath().exists()).isFalse();
+
+    TreeArtifactValue treeMetadata = TreeArtifactValue.newBuilder(treeInput).build();
+    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
+    inputMetadataProvider.put(treeInput, treeMetadata.getMetadata());
+    inputMetadataProvider.putTreeArtifact(treeInput, treeMetadata);
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        defaultSpawnBuilder().withInputs(treeInput).build(),
+        inputMetadataProvider,
+        // SpawnInputExpander keeps empty tree artifacts in the input map.
+        ImmutableSortedMap.of(treeInput.getExecPath(), treeInput),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(context, defaultSpawnExecBuilder().build());
+  }
+
+  @Test
   public void testUnreadableOutputs(@TestParameter OutputsMode outputsMode) throws Exception {
     Artifact readableFile = ActionsTestUtil.createArtifact(outputDir, "readable");
     Artifact unreadableFile = ActionsTestUtil.createArtifact(outputDir, "unreadable");
@@ -332,6 +365,7 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
             Options.getDefaults(RemoteOptions.class),
             DigestHashFunction.SHA256,
             SyscallCache.NO_CACHE,
+            new CompressionServiceImpl(),
             UUID.fromString("00000000-0000-0000-0000-000000000000"),
             storedEventHandler,
             /* logSpawnPredicate= */ s -> true);
@@ -388,6 +422,7 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
         remoteOptions,
         DigestHashFunction.SHA256,
         SyscallCache.NO_CACHE,
+        new CompressionServiceImpl(),
         UUID.fromString("00000000-0000-0000-0000-000000000000"),
         storedEventHandler,
         logSpawnPredicate);

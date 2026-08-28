@@ -52,6 +52,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import net.starlark.java.syntax.Location;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
@@ -240,6 +241,56 @@ public class UiEventHandlerTest {
       uiEventHandler.handle(output(" there!\nmore text"));
 
       output.assertFlushed("hello there!\n");
+    }
+
+    @Test
+    public void handleActionExecutionError_outputsErrorHeaderThenSubprocessStderr() {
+      Event errorEvent =
+          Event.error(
+              Location.fromFileLineColumn("pkg/foo/BUILD.bazel", 10, 5),
+              "Action failed: command failed");
+      Event.ProcessOutput processOutput =
+          new Event.ProcessOutput() {
+            @Override
+            public String getStdOutPath() {
+              return "stdout.log";
+            }
+
+            @Override
+            public long getStdOutSize() {
+              return 0;
+            }
+
+            @Override
+            public byte[] getStdOut() {
+              return new byte[0];
+            }
+
+            @Override
+            public String getStdErrPath() {
+              return "stderr.log";
+            }
+
+            @Override
+            public long getStdErrSize() {
+              return "compiler error: syntax error\n".length();
+            }
+
+            @Override
+            public byte[] getStdErr() {
+              return "compiler error: syntax error\n".getBytes(UTF_8);
+            }
+          };
+
+      uiEventHandler.handle(errorEvent.withProcessOutput(processOutput));
+
+      if (outputKind == EventKind.STDERR) {
+        output.assertFlushed(
+            "\033[31m\033[1mERROR: \033[0mpkg/foo/BUILD.bazel:10:5: Action failed: command"
+                + " failed"
+                + System.lineSeparator(),
+            "compiler error: syntax error\n");
+      }
     }
 
     // This test only exercises progress bar code when testing stderr output, since we don't make

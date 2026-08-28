@@ -357,7 +357,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "include('//java:java.MODULE.bazel')",
         "bazel_dep(name='foo', version='1.0')",
         "register_toolchains('//:whatever')",
-        "include('//python:python.MODULE.bazel')");
+        "include('//python:python.MODULE.bazel', dev_dependency=True)");
     scratch.overwriteFile(rootDirectory.getRelative("java/BUILD").getPathString());
     scratch.overwriteFile(
         rootDirectory.getRelative("java/java.MODULE.bazel").getPathString(),
@@ -400,6 +400,33 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             "java-foo",
             SingleVersionOverride.create(
                 Version.parse("2.0"), "", ImmutableList.of(), ImmutableList.of(), 0));
+  }
+
+  @Test
+  public void testRootModule_devIncludeIgnoredWithIgnoreDevDependency() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "bazel_dep(name='foo', version='1.0')",
+        "include('//missing:dev.MODULE.bazel', dev_dependency=True)",
+        "include('//prod:prod.MODULE.bazel')");
+    scratch.overwriteFile(rootDirectory.getRelative("prod/BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("prod/prod.MODULE.bazel").getPathString(),
+        "bazel_dep(name='bar', version='2.0')",
+        "include('//missing:nested-dev.MODULE.bazel', dev_dependency=True)");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).module().getDeps())
+        .containsExactly("foo", createModuleKey("foo", "1.0"), "bar", createModuleKey("bar", "2.0"))
+        .inOrder();
   }
 
   @Test
@@ -702,6 +729,25 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             evaluationContext);
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().toString()).contains("but it can only be used in the root module");
+  }
+
+  @Test
+  public void testRegistryModuleDevIncludeIsIgnored() throws Exception {
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/foo")
+            .addModule(
+                createModuleKey("foo", "1.0"),
+                "module(name='foo',version='1.0')",
+                "include('//missing:dev.MODULE.bazel', dev_dependency=True)");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    SkyKey skyKey = ModuleFileValue.key(createModuleKey("foo", "1.0"));
+    EvaluationResult<ModuleFileValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(skyKey).module().getName()).isEqualTo("foo");
   }
 
   @Ignore(

@@ -18,12 +18,12 @@ java_library(
         "ParserOptions.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/exec:spawn_log_context_utils",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_log_reconstructor",
         "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:spawn_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -34,11 +34,12 @@ java_library(
         "ExecLogConverter.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/exec:spawn_log_context_utils",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_log_reconstructor",
+        "//src/main/java/com/google/devtools/build/lib/exec:stable_sort",
         "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:spawn_java_proto",
-        "//third_party:auto_value",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )

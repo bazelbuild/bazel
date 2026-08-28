@@ -354,15 +354,6 @@ public class InMemoryFileSystem extends FileSystem {
     };
   }
 
-  @Override
-  @Nullable
-  public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
-    return switch (inodeStatErrno(path, followSymlinks)) {
-      case InMemoryContentInfo inode -> inode;
-      case Errno ignored -> null;
-    };
-  }
-
   /** Version of stat that returns an InodeOrErrno of the input path. */
   @CheckReturnValue
   protected InodeOrErrno inodeStatErrno(PathFragment path, boolean followSymlinks) {
@@ -401,7 +392,11 @@ public class InMemoryFileSystem extends FileSystem {
 
   @Override
   public boolean exists(PathFragment path, boolean followSymlinks) {
-    return statNullable(path, followSymlinks) != null;
+    try {
+      return statIfFound(path, followSymlinks) != null;
+    } catch (IOException e) {
+      return false;
+    }
   }
 
   @Override

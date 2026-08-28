@@ -25,14 +25,24 @@ public final class TopLevelArtifactContext {
   private final boolean runTestsExclusively;
   private final boolean expandFilesets;
   private final ImmutableSortedSet<String> outputGroups;
+  private final boolean failOnUnknownOutputGroups;
 
   public TopLevelArtifactContext(
       boolean runTestsExclusively,
       boolean expandFilesets,
       ImmutableSortedSet<String> outputGroups) {
+    this(runTestsExclusively, expandFilesets, outputGroups, false);
+  }
+
+  public TopLevelArtifactContext(
+      boolean runTestsExclusively,
+      boolean expandFilesets,
+      ImmutableSortedSet<String> outputGroups,
+      boolean failOnUnknownOutputGroups) {
     this.runTestsExclusively = runTestsExclusively;
     this.expandFilesets = expandFilesets;
     this.outputGroups = outputGroups;
+    this.failOnUnknownOutputGroups = failOnUnknownOutputGroups;
   }
 
   /** Whether to run tests in exclusive mode. */
@@ -50,6 +60,9 @@ public final class TopLevelArtifactContext {
     return outputGroups;
   }
 
+  public boolean failOnUnknownOutputGroups() {
+    return failOnUnknownOutputGroups;
+  }
 
   // TopLevelArtifactContexts are stored in maps in BuildView,
   // so equals() and hashCode() need to work.
@@ -58,7 +71,8 @@ public final class TopLevelArtifactContext {
     if (other instanceof TopLevelArtifactContext otherContext) {
       return runTestsExclusively == otherContext.runTestsExclusively
           && expandFilesets == otherContext.expandFilesets
-          && outputGroups.equals(otherContext.outputGroups);
+          && outputGroups.equals(otherContext.outputGroups)
+          && failOnUnknownOutputGroups == otherContext.failOnUnknownOutputGroups;
     } else {
       return false;
     }
@@ -66,6 +80,7 @@ public final class TopLevelArtifactContext {
 
   @Override
   public int hashCode() {
-    return Objects.hash(runTestsExclusively, expandFilesets, outputGroups);
+    return Objects.hash(
+        runTestsExclusively, expandFilesets, outputGroups, failOnUnknownOutputGroups);
   }
 }

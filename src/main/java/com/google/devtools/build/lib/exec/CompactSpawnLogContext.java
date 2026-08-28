@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.SPAWN_LOG;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
-import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -38,6 +37,7 @@ import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.exec.Protos.Platform;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.io.AsynchronousMessageOutputStream;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
@@ -150,6 +151,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     ExecLogEntry.Builder get() throws IOException, InterruptedException;
   }
 
+  private final CompressionService compressionService;
   private final PathFragment execRoot;
   private final String workspaceName;
   private final boolean siblingRepositoryLayout;
@@ -184,6 +186,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       @Nullable RemoteOptions remoteOptions,
       DigestHashFunction digestHashFunction,
       XattrProvider xattrProvider,
+      CompressionService compressionService,
       UUID invocationId,
       ExtendedEventHandler reporter,
       Predicate<Spawn> logSpawnPredicate)
@@ -195,6 +198,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     this.remoteOptions = remoteOptions;
     this.digestHashFunction = digestHashFunction;
     this.xattrProvider = xattrProvider;
+    this.compressionService = compressionService;
     this.invocationId = invocationId;
     this.reporter = reporter;
     this.outputStream = getOutputStream(out, displayName);
@@ -202,11 +206,11 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     logInvocation();
   }
 
-  private static MessageOutputStream<ExecLogEntry> getOutputStream(OutputStream out, String name)
+  private MessageOutputStream<ExecLogEntry> getOutputStream(OutputStream out, String name)
       throws IOException {
     // Use an AsynchronousMessageOutputStream so that compression and I/O occur in a separate
     // thread. This ensures concurrent writes don't tear and avoids blocking execution.
-    return new AsynchronousMessageOutputStream<>(name, new ZstdOutputStream(out));
+    return new AsynchronousMessageOutputStream<>(name, compressionService.newZstdOutputStream(out));
   }
 
   private void logInvocation() throws IOException, InterruptedException {
@@ -549,7 +553,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
                 .setDirectory(
                     ExecLogEntry.Directory.newBuilder()
                         .setPath(internalToUnicode(input.getExecPathString()))
-                        .addAllFiles(expandDirectory(root, inputMetadataProvider))));
+                        .addAllFiles(expandDirectory(input, root, inputMetadataProvider))));
   }
 
   /**
@@ -620,11 +624,54 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   /**
    * Expands a directory.
    *
+   * @param input the input representing the directory
    * @param root the path to the directory
    * @param inputMetadataProvider provides metadata for inputs; null if logging an output
    * @return the list of files transitively contained in the directory
    */
   private List<ExecLogEntry.File> expandDirectory(
+      ActionInput input, Path root, @Nullable InputMetadataProvider inputMetadataProvider)
+      throws IOException, InterruptedException {
+    if (inputMetadataProvider != null
+        && input instanceof Artifact artifact
+        && artifact.isTreeArtifact()) {
+      TreeArtifactValue treeMetadata = inputMetadataProvider.getTreeMetadata(artifact);
+      if (treeMetadata != null) {
+        // Using the metadata over a filesystem traversal is not just an optimization: an empty tree
+        // artifact may not be materialized on disk.
+        return expandTreeArtifact(treeMetadata, root, inputMetadataProvider);
+      }
+    }
+    return expandDirectoryFromFileSystem(root, inputMetadataProvider);
+  }
+
+  /** Expands a tree artifact into its contents as recorded in its metadata. */
+  private List<ExecLogEntry.File> expandTreeArtifact(
+      TreeArtifactValue treeMetadata, Path root, InputMetadataProvider inputMetadataProvider)
+      throws IOException {
+    var files = new ArrayList<ExecLogEntry.File>(treeMetadata.getChildren().size());
+    for (var child : treeMetadata.getChildren()) {
+      PathFragment parentRelativePath = child.getParentRelativePath();
+      Digest digest =
+          computeDigest(
+              child,
+              root.getRelative(parentRelativePath),
+              inputMetadataProvider,
+              xattrProvider,
+              digestHashFunction,
+              /* includeHashFunctionName= */ false);
+      files.add(
+          ExecLogEntry.File.newBuilder()
+              .setPath(internalToUnicode(parentRelativePath.getPathString()))
+              .setDigest(digest)
+              .build());
+    }
+    files.sort(EXEC_LOG_ENTRY_FILE_COMPARATOR);
+    return files;
+  }
+
+  /** Expands a directory by traversing it on the filesystem. */
+  private List<ExecLogEntry.File> expandDirectoryFromFileSystem(
       Path root, @Nullable InputMetadataProvider inputMetadataProvider)
       throws IOException, InterruptedException {
     ArrayList<ExecLogEntry.File> files = new ArrayList<>();

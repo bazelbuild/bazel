@@ -197,6 +197,17 @@ public abstract class BuildRequestOptions extends OptionsBase {
   public abstract List<String> getOutputGroups();
 
   @Option(
+      name = "incompatible_fail_on_unknown_output_groups",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, building explicitly requested output groups that are not present on any"
+              + " top-level target or aspect fails the build.")
+  public abstract boolean getIncompatibleFailOnUnknownOutputGroups();
+
+  @Option(
       name = "run_validations",
       oldName = "experimental_run_validations",
       defaultValue = "true",

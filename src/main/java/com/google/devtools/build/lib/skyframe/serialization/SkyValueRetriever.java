@@ -19,10 +19,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.StateEvictedException;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpNodeMemoizingLookup;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.LookupResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheChannelStateAdvisor;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissReason;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
@@ -39,27 +41,26 @@ import javax.annotation.Nullable;
 /** Fetches remotely stored {@link SkyValue}s by {@link SkyKey}. */
 public final class SkyValueRetriever {
 
+  private final CompressionService compressionService;
   private final FingerprintValueService fingerprintValueService;
   private final ObjectCodecs codecs;
   private final FrontierNodeVersion frontierNodeVersion;
   @Nullable private final FileOpNodeMemoizingLookup fileOpNodes;
+  private final SkycacheChannelStateAdvisor channelStateAdvisor;
 
   public SkyValueRetriever(
-      FingerprintValueService fingerprintValueService,
-      ObjectCodecs codecs,
-      FrontierNodeVersion frontierNodeVersion) {
-    this(fingerprintValueService, codecs, frontierNodeVersion, null);
-  }
-
-  public SkyValueRetriever(
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       ObjectCodecs codecs,
       FrontierNodeVersion frontierNodeVersion,
-      @Nullable FileOpNodeMemoizingLookup fileOpNodes) {
+      @Nullable FileOpNodeMemoizingLookup fileOpNodes,
+      SkycacheChannelStateAdvisor channelStateAdvisor) {
+    this.compressionService = compressionService;
     this.fingerprintValueService = fingerprintValueService;
     this.codecs = codecs;
     this.frontierNodeVersion = frontierNodeVersion;
     this.fileOpNodes = fileOpNodes;
+    this.channelStateAdvisor = Preconditions.checkNotNull(channelStateAdvisor);
   }
 
   /**
@@ -295,9 +296,19 @@ public final class SkyValueRetriever {
       while (true) {
         switch (serializationState) {
           case InitialQuery unused -> {
+            if (channelStateAdvisor.isSaturated()) {
+              var result = new NoCachedData(MissReason.MISS_REASON_CACHE_SATURATED);
+              serializationState = retrievalContext.transitionTo(result);
+              return result;
+            }
+
             PackedFingerprint cacheKey =
                 FingerprintValueService.computeFingerprint(
-                    this.fingerprintValueService, this.codecs, key, this.frontierNodeVersion);
+                    compressionService,
+                    fingerprintValueService,
+                    this.codecs,
+                    key,
+                    this.frontierNodeVersion);
             ListenableFuture<LookupResult> futureResponse =
                 analysisCacheClient.lookup(cacheKey.toBytes());
 
@@ -332,7 +343,9 @@ public final class SkyValueRetriever {
             }
             Object value =
                 codecs.deserializeWithSkyframe(
-                    this.fingerprintValueService, CodedInputStream.newInstance(result.value()));
+                    compressionService,
+                    fingerprintValueService,
+                    CodedInputStream.newInstance(result.value()));
             if (!(value instanceof ListenableFuture)) {
               if (fileOpNodes != null) {
                 fileOpNodes.registerRemoteFingerprint(

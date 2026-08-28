@@ -252,6 +252,13 @@ bool VerifyServerProcess(int pid, const blaze_util::Path &output_base) {
   return killpg(pid, 0) == 0;
 }
 
+std::string ParseProcStatDiagnosis(absl::string_view /*statline*/,
+                                   int /*pid*/) {
+  return "";
+}
+
+std::string GetProcessTerminationDiagnosis(int /*pid*/) { return ""; }
+
 // Sets a flag on path to exclude the path from Apple's automatic backup service
 // (Time Machine)
 void ExcludePathFromBackup(const blaze_util::Path &path) {

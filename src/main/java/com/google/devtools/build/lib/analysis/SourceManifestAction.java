@@ -363,7 +363,11 @@ public final class SourceManifestAction extends AbstractFileWriteAction
       Fingerprint fp) {
     fp.addString(GUID);
     fp.addBoolean(remotableSourceManifestActions);
-    runfiles.fingerprint(actionKeyContext, fp, manifestWriter.emitsAbsolutePaths());
+    runfiles.fingerprint(
+        actionKeyContext,
+        fp,
+        manifestWriter.emitsAbsolutePaths(),
+        preferTargetConfigurationRunfiles ? getPrimaryOutput().getRoot() : null);
     fp.addBoolean(repoMappingManifest != null);
     if (repoMappingManifest != null) {
       fp.addPath(repoMappingManifest.getExecPath());
@@ -376,7 +380,9 @@ public final class SourceManifestAction extends AbstractFileWriteAction
         "GUID: %s\nremotableSourceManifestActions: %s\nrunfiles: %s\n",
         GUID,
         remotableSourceManifestActions,
-        runfiles.describeFingerprint(manifestWriter.emitsAbsolutePaths()));
+        runfiles.describeFingerprint(
+            manifestWriter.emitsAbsolutePaths(),
+            preferTargetConfigurationRunfiles ? getPrimaryOutput().getRoot() : null));
   }
 
   /** Supported manifest writing strategies. */

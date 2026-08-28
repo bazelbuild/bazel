@@ -141,9 +141,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             "--cpu=piii",
             "--platforms=" + TestConstants.PLATFORM_LABEL,
             "--incompatible_target_cpu_from_platform",
-            "--experimental_override_platform_cpu_name="
-                + TestConstants.PLATFORM_LABEL
-                + "=new_cpu");
+            "--override_platform_cpu_name=" + TestConstants.PLATFORM_LABEL + "=new_cpu");
     assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu");
   }
 
@@ -154,12 +152,8 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             "--cpu=piii",
             "--platforms=" + TestConstants.PLATFORM_LABEL,
             "--incompatible_target_cpu_from_platform",
-            "--experimental_override_platform_cpu_name="
-                + TestConstants.PLATFORM_LABEL
-                + "=new_cpu_1",
-            "--experimental_override_platform_cpu_name="
-                + TestConstants.PLATFORM_LABEL
-                + "=new_cpu_2");
+            "--override_platform_cpu_name=" + TestConstants.PLATFORM_LABEL + "=new_cpu_1",
+            "--override_platform_cpu_name=" + TestConstants.PLATFORM_LABEL + "=new_cpu_2");
     assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu_2");
   }
 
@@ -180,9 +174,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             "--cpu=x86_64",
             "--host_platform=" + TestConstants.PIII_PLATFORM_LABEL,
             "--incompatible_target_cpu_from_platform",
-            "--experimental_override_platform_cpu_name="
-                + TestConstants.PIII_PLATFORM_LABEL
-                + "=new_cpu");
+            "--override_platform_cpu_name=" + TestConstants.PIII_PLATFORM_LABEL + "=new_cpu");
     assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu");
   }
 
@@ -798,7 +790,6 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   public void testPlatformInOutputDir_legacy_defaultPlatform() throws Exception {
     BuildConfigurationValue config =
         create(
-            "--experimental_platform_in_output_dir",
             "--experimental_use_platforms_in_output_dir_legacy_heuristic",
             "--cpu=k8");
 
@@ -811,7 +802,6 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     scratch.file("platform/BUILD", "platform(name = 'alpha')");
     BuildConfigurationValue config =
         create(
-            "--experimental_platform_in_output_dir",
             "--experimental_use_platforms_in_output_dir_legacy_heuristic",
             "--platforms=//platform:alpha");
 
@@ -823,7 +813,6 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   public void testPlatformInOutputDir_defaultPlatform() throws Exception {
     BuildConfigurationValue config =
         create(
-            "--experimental_platform_in_output_dir",
             "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
             "--cpu=k8");
     // See tests of these flags with platform_mappings for more realistic results.
@@ -836,7 +825,6 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     scratch.file("platform/BUILD", "platform(name = 'alpha')");
     BuildConfigurationValue config =
         create(
-            "--experimental_platform_in_output_dir",
             "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
             "--platforms=//platform:alpha");
 
@@ -849,7 +837,6 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     scratch.file("platform/BUILD", "platform(name = 'alpha')");
     BuildConfigurationValue config =
         create(
-            "--experimental_platform_in_output_dir",
             "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
             "--experimental_override_name_platform_in_output_dir=//platform:alpha=alpha",
             "--platforms=//platform:alpha");
@@ -863,7 +850,6 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     scratch.file("platform/BUILD", "platform(name = 'alpha')");
     BuildConfigurationValue config =
         create(
-            "--experimental_platform_in_output_dir",
             "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
             "--experimental_override_name_platform_in_output_dir=//platform:beta=beta",
             "--platforms=//platform:alpha");

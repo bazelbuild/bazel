@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.getDone;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie.PathFragmentPrefixTrieException;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeFutures;
 import com.google.devtools.build.lib.events.Event;
@@ -177,6 +179,11 @@ public final class RemoteAnalysisCacheFactory {
 
     // Create various objects we need
 
+    var compressionService =
+        checkNotNull(
+            env.getRuntime().getBlazeService(CompressionService.class),
+            "expected CompressionService to be available");
+
     RemoteAnalysisCachingServicesSupplier servicesSupplier =
         env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
     try {
@@ -219,6 +226,7 @@ public final class RemoteAnalysisCacheFactory {
             servicesSupplier,
             env.getRemoteAnalysisCachingEventListener(),
             objectCodecs,
+            compressionService,
             frontierNodeVersion,
             activeDirectoriesMatcher,
             options.getSerializedFrontierProfile(),
@@ -236,6 +244,7 @@ public final class RemoteAnalysisCacheFactory {
             clientId,
             frontierNodeVersion,
             objectCodecs,
+            compressionService,
             deps.getFingerprintValueServiceFuture(),
             servicesSupplier.getAnalysisCacheClient(),
             env.getRemoteAnalysisCachingEventListener(),
@@ -372,6 +381,7 @@ public final class RemoteAnalysisCacheFactory {
       ClientId clientId,
       FrontierNodeVersion frontierNodeVersion,
       ListenableFuture<? extends ObjectCodecs> objectCodecs,
+      CompressionService compressionService,
       ListenableFuture<? extends FingerprintValueService> fingerprintValueService,
       ListenableFuture<? extends RemoteAnalysisCacheClient> analysisCacheClient,
       RemoteAnalysisCachingEventListener eventListener,
@@ -385,6 +395,7 @@ public final class RemoteAnalysisCacheFactory {
             new AnalysisCacheInvalidator(
                 getDone(analysisCacheClient),
                 getDone(objectCodecs),
+                compressionService,
                 getDone(fingerprintValueService),
                 frontierNodeVersion,
                 clientId,

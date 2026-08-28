@@ -306,7 +306,8 @@ BOOL WINAPI ConsoleCtrlHandler(_In_ DWORD ctrlType) {
         if (SignalHandler::Get().GetServerProcessInfo()->server_pid_ != -1) {
           KillServerProcess(
               SignalHandler::Get().GetServerProcessInfo()->server_pid_,
-              SignalHandler::Get().GetOutputBase());
+              SignalHandler::Get().GetOutputBase(),
+              /*from_signal_handler=*/true);
         }
         _exit(1);
       }
@@ -846,7 +847,15 @@ bool VerifyServerProcess(int pid, const blaze_util::Path& output_base) {
          recorded_start_time == blaze_util::ToString(start_time);
 }
 
-bool KillServerProcess(int pid, const blaze_util::Path& output_base) {
+std::string ParseProcStatDiagnosis(absl::string_view /*statline*/,
+                                   int /*pid*/) {
+  return "";
+}
+
+std::string GetProcessTerminationDiagnosis(int /*pid*/) { return ""; }
+
+bool KillServerProcess(int pid, const blaze_util::Path& output_base,
+                       bool from_signal_handler) {
   AutoHandle process(::OpenProcess(
       PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid));
   DWORD exitcode = 0;
@@ -858,12 +867,21 @@ bool KillServerProcess(int pid, const blaze_util::Path& output_base) {
   }
 
   BOOL result = TerminateProcess(process, /*uExitCode*/ 0);
-  if (!result || !AwaitServerProcessTermination(pid, output_base,
-                                                kPostKillGracePeriodSeconds)) {
+  if (!result || !AwaitServerProcessTermination(
+                     pid, output_base, kPostKillGracePeriodSeconds,
+                     TerminationReason::kKillSignal)) {
     string err = GetLastErrorString();
+    string diagnosis;
+    if (!from_signal_handler) {
+      diagnosis = GetProcessTerminationDiagnosis(pid);
+      if (!diagnosis.empty()) {
+        diagnosis = " Diagnosis: " + diagnosis;
+      }
+    }
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Cannot terminate server process with PID " << pid
-        << ", output_base=(" << output_base.AsPrintablePath() << "): " << err;
+        << ", output_base=(" << output_base.AsPrintablePath() << "): " << err
+        << diagnosis;
   }
   return result;
 }

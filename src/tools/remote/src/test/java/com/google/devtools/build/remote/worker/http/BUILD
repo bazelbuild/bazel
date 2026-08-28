@@ -19,7 +19,7 @@ java_test(
     test_class = "com.google.devtools.build.remote.worker.http.AbstractHttpCacheServerHandlerTest",
     deps = [
         "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker/http",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )

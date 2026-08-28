@@ -33,8 +33,6 @@ import static com.google.devtools.build.lib.vfs.RootedPath.toRootedPath;
 import static java.lang.Math.max;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.github.luben.zstd.RecyclingBufferPool;
-import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -45,6 +43,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.BundledFileSystem;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeFutures;
 import com.google.devtools.build.lib.profiler.CounterSeriesCollector;
@@ -165,6 +164,7 @@ final class FileDependencySerializer {
 
   @VisibleForTesting public static final int COMPRESSION_NUM_BYTES_THRESHOLD = 580;
 
+  private final CompressionService compressionService;
   private final LongVersionGetter versionGetter;
   private final InMemoryGraph graph;
   private final KeyValueWriter writer;
@@ -192,12 +192,14 @@ final class FileDependencySerializer {
   FileDependencySerializer(
       LongVersionGetter versionGetter,
       InMemoryGraph graph,
+      CompressionService compressionService,
       KeyValueWriter writer,
       SafeExecutor executor,
       @Nullable ProfileCollector profileCollector) {
     this.versionGetter = versionGetter;
     this.graph = graph;
     this.writer = writer;
+    this.compressionService = compressionService;
     this.executor = executor;
     this.counters = new Counters();
     this.profileCollector = profileCollector;
@@ -837,12 +839,12 @@ final class FileDependencySerializer {
         SafeFutures.call(Futures.whenAllSucceed(allFutures), dependencyHandler, executor));
   }
 
-  static OutputStream getCompressedOutputStream(OutputStream outputStream) throws IOException {
+  OutputStream getCompressedOutputStream(OutputStream outputStream) throws IOException {
     // The default level and the fastest level (-7) results in 35% and 19% wall time overhead when
     // not using a threshold to compress, the default level provided a 2x better compression. Since
     // we do use a threshold and there is no wall time regression, we favor the better compression
     // ratio.
-    return new ZstdOutputStream(outputStream, RecyclingBufferPool.INSTANCE);
+    return compressionService.newZstdOutputStream(outputStream);
   }
 
   /**
@@ -1051,7 +1053,7 @@ final class FileDependencySerializer {
       ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
       MagicBytes.writeMagicBytes(outputStream);
       try (OutputStream compressedBytesStream =
-          FileDependencySerializer.getCompressedOutputStream(outputStream)) {
+          compressionService.newZstdOutputStream(outputStream)) {
         compressedBytesStream.write(nodeBytes);
       }
       return outputStream.toByteArray();

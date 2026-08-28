@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.Reporter;
@@ -308,6 +309,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
                 /* allowExternalRepositories= */ false,
                 /* repoContentsCachePathSupplier= */ () -> null,
                 SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE,
+                new CompressionServiceImpl(),
                 BugReporter.defaultInstance());
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(

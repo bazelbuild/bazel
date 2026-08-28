@@ -523,7 +523,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   @Override
-  public void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter) throws IOException {
+  public void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter)
+      throws IOException, InterruptedException {
     VirtualCgroup.deleteInstance();
     // Delete the inaccessible files synchronously, bypassing the treeDeleter. They are only a
     // couple of files that can be deleted fast, and ensuring they are gone at the end of every

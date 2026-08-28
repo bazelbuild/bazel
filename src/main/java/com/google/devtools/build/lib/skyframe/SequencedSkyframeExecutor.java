@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.PooledInterner;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
@@ -178,6 +179,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile,
       boolean shouldUseRepoDotBazel,
       SkyKeyStateReceiver skyKeyStateReceiver,
+      CompressionService compressionService,
       BugReporter bugReporter,
       boolean globUnderSingleDep,
       Optional<DiffCheckNotificationOptions> diffCheckNotificationOptions) {
@@ -201,6 +203,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         new PackageProgressReceiver(),
         new AnalysisProgressReceiver(),
         skyKeyStateReceiver,
+        compressionService,
         bugReporter,
         diffAwarenessFactories,
         workspaceInfoFromDiffReceiver,
@@ -885,6 +888,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     private Supplier<Path> repoContentsCachePathSupplier = () -> null;
     private Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit = skyframeExecutor -> {};
     private SkyFunction ignoredSubdirectoriesFunction;
+    private CompressionService compressionService;
     private BugReporter bugReporter = BugReporter.defaultInstance();
     private SkyKeyStateReceiver skyKeyStateReceiver = SkyKeyStateReceiver.NULL_INSTANCE;
     private SyscallCache syscallCache = null;
@@ -926,6 +930,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
               actionOnFilesystemErrorCodeLoadingBzlFile,
               shouldUseRepoDotBazel,
               skyKeyStateReceiver,
+              compressionService,
               bugReporter,
               globUnderSingleDep,
               Optional.ofNullable(diffCheckNotificationOptions));
@@ -960,6 +965,12 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     @CanIgnoreReturnValue
     public Builder setIgnoredSubdirectories(SkyFunction ignoredSubdirectoriesFunction) {
       this.ignoredSubdirectoriesFunction = ignoredSubdirectoriesFunction;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setCompressionService(CompressionService compressionService) {
+      this.compressionService = compressionService;
       return this;
     }
 

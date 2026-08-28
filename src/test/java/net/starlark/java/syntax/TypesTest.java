@@ -400,7 +400,7 @@ public class TypesTest {
     // ANY_CALLABLE is assignable to and from any other callable type.
     assertLtAndGt(
         Types.ANY_CALLABLE,
-        Types.simpleCallable(ImmutableList.of(Types.INT, Types.STR), true, Types.BOOL));
+        Types.simpleCallable(ImmutableList.of(Types.INT, Types.STR), false, Types.BOOL));
     assertLtAndGt(
         Types.ANY_CALLABLE,
         Types.generalCallable(

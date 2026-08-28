@@ -350,12 +350,12 @@ public class RemoteOutputChecker implements OutputChecker {
       // If Bazel should download this file, but it does not exist locally, returns false to rerun
       // the generating action to trigger the download (just like in the normal build, when local
       // outputs are missing).
-      if (lastRemoteOutputChecker != null) {
-        // This is an incremental build. If the file was downloaded by previous build and is now
-        // missing, invalidate the action.
-        if (lastRemoteOutputChecker.shouldDownloadOutput(file, metadata)) {
-          return false;
-        }
+      //
+      // Under Skymeld, this check may run before analysis has registered the current build's
+      // toplevel targets. Checks the toplevel outputs tracked by the previous build's checker.
+      if (lastRemoteOutputChecker != null
+          && lastRemoteOutputChecker.pathsToDownload.contains(file.getExecPath())) {
+        return false;
       }
 
       if (shouldDownloadOutput(file, metadata)) {

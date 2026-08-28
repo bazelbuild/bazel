@@ -903,8 +903,8 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
               + " local filesystem or internal caches; a clean build is required to reexecute"
               + " affected actions.\n\n"
               + "In order to successfully use this feature, you likely want to set a custom"
-              + " --host_platform together with --experimental_platform_in_output_dir (to normalize"
-              + " output prefixes). An empty value disables scrubbing.")
+              + " --host_platform (to normalize output prefixes). An empty value disables"
+              + " scrubbing.")
   public abstract Scrubber getScrubber();
 
   public abstract void setScrubber(Scrubber value);

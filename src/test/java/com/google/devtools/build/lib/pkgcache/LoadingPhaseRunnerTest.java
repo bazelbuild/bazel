@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Pat
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -1635,32 +1636,32 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void testPackageLoadingError_keepGoing_explicitTarget() throws Exception {
-    runTestPackageLoadingError(/*keepGoing=*/ true, "//bad:BUILD");
+    runTestPackageLoadingError(/* keepGoing= */ true, "//bad:BUILD");
   }
 
   @Test
   public void testPackageLoadingError_noKeepGoing_explicitTarget() throws Exception {
-    runTestPackageLoadingError(/*keepGoing=*/ false, "//bad:BUILD");
+    runTestPackageLoadingError(/* keepGoing= */ false, "//bad:BUILD");
   }
 
   @Test
   public void testPackageLoadingError_keepGoing_targetsInPackage() throws Exception {
-    runTestPackageLoadingError(/*keepGoing=*/ true, "//bad:all");
+    runTestPackageLoadingError(/* keepGoing= */ true, "//bad:all");
   }
 
   @Test
   public void testPackageLoadingError_noKeepGoing_targetsInPackage() throws Exception {
-    runTestPackageLoadingError(/*keepGoing=*/ false, "//bad:all");
+    runTestPackageLoadingError(/* keepGoing= */ false, "//bad:all");
   }
 
   @Test
   public void testPackageLoadingError_keepGoing_targetsBeneathDirectory() throws Exception {
-    runTestPackageLoadingError(/*keepGoing=*/ true, "//bad/...");
+    runTestPackageLoadingError(/* keepGoing= */ true, "//bad/...");
   }
 
   @Test
   public void testPackageLoadingError_noKeepGoing_targetsBeneathDirectory() throws Exception {
-    runTestPackageLoadingError(/*keepGoing=*/ false, "//bad/...");
+    runTestPackageLoadingError(/* keepGoing= */ false, "//bad/...");
   }
 
   @Test
@@ -1800,7 +1801,7 @@ public final class LoadingPhaseRunnerTest {
 
     private final MockToolsConfig mockToolsConfig;
 
-    LoadingPhaseTester() throws IOException, OptionsParsingException {
+    LoadingPhaseTester() throws IOException, OptionsParsingException, AbruptExitException {
       this.workspace = fs.getPath("/workspace");
       workspace.createDirectory();
       mockToolsConfig = new MockToolsConfig(workspace);
@@ -1827,6 +1828,7 @@ public final class LoadingPhaseRunnerTest {
               .setActionKeyContext(new ActionKeyContext())
               .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
               .setSyscallCache(SyscallCache.NO_CACHE)
+              .setCompressionService(new CompressionServiceImpl())
               .build();
       SkyframeExecutorTestHelper.process(skyframeExecutor);
       PathPackageLocator pkgLocator =
@@ -1911,19 +1913,19 @@ public final class LoadingPhaseRunnerTest {
     }
 
     public TargetPatternPhaseValue load(String... patterns) throws Exception {
-      return loadWithFlags(/*keepGoing=*/ false, /*determineTests=*/ false, patterns);
+      return loadWithFlags(/* keepGoing= */ false, /* determineTests= */ false, patterns);
     }
 
     TargetPatternPhaseValue loadKeepGoing(String... patterns) throws Exception {
-      return loadWithFlags(/*keepGoing=*/ true, /*determineTests=*/ false, patterns);
+      return loadWithFlags(/* keepGoing= */ true, /* determineTests= */ false, patterns);
     }
 
     TargetPatternPhaseValue loadTests(String... patterns) throws Exception {
-      return loadWithFlags(/*keepGoing=*/ false, /*determineTests=*/ true, patterns);
+      return loadWithFlags(/* keepGoing= */ false, /* determineTests= */ true, patterns);
     }
 
     TargetPatternPhaseValue loadTestsKeepGoing(String... patterns) throws Exception {
-      return loadWithFlags(/*keepGoing=*/ true, /*determineTests=*/ true, patterns);
+      return loadWithFlags(/* keepGoing= */ true, /* determineTests= */ true, patterns);
     }
 
     TargetPatternPhaseValue loadWithFlags(

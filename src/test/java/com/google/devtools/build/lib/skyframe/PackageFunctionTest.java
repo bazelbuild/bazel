@@ -378,7 +378,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         \t\tmy_macro = macro(implementation = _impl)
         \tFile "/workspace/pkg/my_macro.bzl", line 3, column 9, in _impl
         \t\tfail("fail fail fail")
-        Error in fail: fail fail fail\
+        Error: fail fail fail\
         """);
     if (computationMode.equals(ComputationMode.MONOLITHIC_PACKAGE)) {
       assertThat(eventCollector.filtered(EventKind.ERROR)).hasSize(1);

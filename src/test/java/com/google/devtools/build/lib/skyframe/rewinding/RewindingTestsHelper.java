@@ -246,7 +246,7 @@ public class RewindingTestsHelper {
   }
 
   public final ExecResult createLostInputsExecException(
-      ActionExecutionContext context, ImmutableList<ActionInput> lostInputs) throws IOException {
+      ActionExecutionContext context, List<ActionInput> lostInputs) throws IOException {
     ImmutableSetMultimap.Builder<String, ActionInput> builder = ImmutableSetMultimap.builder();
     for (ActionInput lostInput : lostInputs) {
       builder.put(getHexDigest(lostInput, context), lostInput);

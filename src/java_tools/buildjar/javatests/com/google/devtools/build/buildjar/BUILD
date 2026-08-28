@@ -16,9 +16,11 @@ java_test(
     srcs = ["VanillaJavaBuilderTest.java"],
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:vanilla_java_builder",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:io",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -28,7 +30,7 @@ java_test(
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:dependency",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:processing",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )

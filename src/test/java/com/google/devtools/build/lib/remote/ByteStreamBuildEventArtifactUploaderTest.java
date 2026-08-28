@@ -197,6 +197,28 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   }
 
   @Test
+  public void uploadsShouldIgnoreSpecialFiles() throws Exception {
+    Path file = Mockito.spy(fs.getPath("/fifo"));
+    Mockito.doReturn(true).when(file).isSpecialFile();
+
+    Map<Path, LocalFile> filesToUpload = new HashMap<>();
+    filesToUpload.put(file, new LocalFile(file, LocalFileType.LOG, /* artifactMetadata= */ null));
+
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
+
+    PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
+    String conversion = pathConverter.apply(file);
+    assertThat(conversion).isEqualTo("file:///fifo");
+
+    artifactUploader.release();
+  }
+
+  @Test
   public void uploadsShouldWork_fewerPermitsThanUploads() throws Exception {
     int numUploads = 2;
     Map<HashCode, byte[]> blobsByHash = new HashMap<>();
@@ -702,7 +724,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
         DIGEST_UTIL,
-        /* chunkingFunction= */ null);
+        /* chunkingFunction= */ null,
+        new ChunkLocationMap());
   }
 
   private ByteStreamBuildEventArtifactUploader newArtifactUploader(CombinedCache combinedCache) {

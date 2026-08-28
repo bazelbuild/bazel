@@ -276,11 +276,16 @@ int WaitableProcess::WaitFor(int64_t timeout_msec,
   if (job_.IsValid()) {
     // Wait for the job object to complete, signalling that all subprocesses
     // have exited.
+    // Use a finite timeout (5 seconds) instead of INFINITE to prevent Bazel
+    // from hanging forever if a child process (such as MSVC's vctip.exe
+    // telemetry uploader) becomes a zombie or refuses to terminate after
+    // TerminateJobObject. See https://github.com/bazelbuild/bazel/issues/15094.
+    static constexpr DWORD kJobCompletionTimeoutMsec = 5000;
     DWORD CompletionCode;
     ULONG_PTR CompletionKey;
     LPOVERLAPPED Overlapped;
-    while (GetQueuedCompletionStatus(ioport_, &CompletionCode,
-                                     &CompletionKey, &Overlapped, INFINITE) &&
+    while (GetQueuedCompletionStatus(ioport_, &CompletionCode, &CompletionKey,
+                                     &Overlapped, kJobCompletionTimeoutMsec) &&
            !((HANDLE)CompletionKey == (HANDLE)job_ &&
              CompletionCode == JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO)) {
       // Still waiting...

@@ -101,8 +101,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     useConfiguration(
         "--apple_platform_type=ios",
         "--ios_multi_cpus=x86_64",
-        "--platforms=" + MockObjcSupport.IOS_X86_64,
-        "--experimental_platform_in_output_dir");
+        "--platforms=" + MockObjcSupport.IOS_X86_64);
 
     ConfiguredTarget cc = getConfiguredTarget("//bin:cc");
     Artifact objcObject =
@@ -2731,7 +2730,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     args.add(
         "--apple_platform_type=ios",
         "--platforms=" + MockObjcSupport.IOS_ARM64,
-        "--experimental_platform_in_output_dir",
         "--cpu=ios_arm64");
     useConfiguration(args.build().toArray(new String[0]));
 
@@ -2776,7 +2774,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     args.add(
         "--apple_platform_type=ios",
         "--platforms=" + MockObjcSupport.IOS_ARM64,
-        "--experimental_platform_in_output_dir",
         "--host_cpu=darwin_arm64",
         "--host_platform=" + MockObjcSupport.DARWIN_ARM64);
     useConfiguration(args.build().toArray(new String[0]));

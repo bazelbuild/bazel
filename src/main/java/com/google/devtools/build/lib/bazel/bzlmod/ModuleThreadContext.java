@@ -329,8 +329,11 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     }
   }
 
-  public void include(String includeLabel, StarlarkThread thread)
+  public void include(String includeLabel, boolean devDependency, StarlarkThread thread)
       throws InterruptedException, EvalException {
+    if (shouldIgnoreDevDeps() && devDependency) {
+      return;
+    }
     if (includeLabelToCompiledModuleFile == null) {
       // This should never happen because compiling the non-root module file should have failed, way
       // before evaluation started.

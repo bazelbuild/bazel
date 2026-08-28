@@ -136,6 +136,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.PooledInterner;
@@ -359,6 +360,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected final FileSystem fileSystem;
   protected final BlazeDirectories directories;
   final ExternalFilesHelper externalFilesHelper;
+  private final CompressionService compressionService;
   protected final BugReporter bugReporter;
 
   /**
@@ -715,6 +717,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       @Nullable PackageProgressReceiver packageProgress,
       @Nullable AnalysisProgressReceiver analysisProgress,
       SkyKeyStateReceiver skyKeyStateReceiver,
+      CompressionService compressionService,
       BugReporter bugReporter,
       @Nullable Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       @Nullable WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver,
@@ -782,6 +785,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.allowExternalRepositories = allowExternalRepositories;
     this.globUnderSingleDep = globUnderSingleDep;
     this.diffCheckNotificationOptions = diffCheckNotificationOptions;
+    this.compressionService = compressionService;
   }
 
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions() {
@@ -4464,6 +4468,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting
   ActionExecutionStatusReporter getActionExecutionStatusReporterForTesting() {
     return statusReporterRef.get();
+  }
+
+  @VisibleForTesting
+  public CompressionService getCompressionServiceForTesting() {
+    return compressionService;
   }
 
   @VisibleForTesting

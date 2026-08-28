@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.buildtool.SkyframeMemoryDumper.DumpFailedEx
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -863,11 +865,18 @@ public class DumpCommand implements BlazeCommand {
     }
 
     ObjectCodecs codecs = getObjectCodecs(env);
+
+    CompressionService compressionService =
+        checkNotNull(
+            env.getRuntime().getBlazeService(CompressionService.class),
+            "expected CompressionService to be available");
+
     try {
       ImmutableList<Edge> edges =
           GraphDumper.collectEdgesForSkyValue(
               env.getSkyframeExecutor().getEvaluator().getInMemoryGraph(),
               codecs,
+              compressionService,
               store,
               entry,
               targetFingerprint);

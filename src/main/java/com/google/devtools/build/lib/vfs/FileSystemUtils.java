@@ -37,7 +37,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /** Helper functions that implement often-used complex operations on file systems. */
@@ -526,14 +525,22 @@ public class FileSystemUtils {
 
   /* Directory tree operations. */
 
+  /** Determines whether a tree traversal should visit a path. */
+  @FunctionalInterface
+  public interface TraverseTreePredicate {
+    /** Returns whether a tree traversal should visit the given path. */
+    boolean shouldTraverse(Path path) throws IOException;
+  }
+
   /**
    * Returns a new collection containing all of the paths below a given root path, for which the
    * given predicate is true. Symbolic links are not followed, and may appear in the result.
    *
-   * @throws IOException If the root does not denote a directory
+   * @throws IOException if the root does not denote a directory, or if the predicate throws an
+   *     IOException
    */
   @ThreadSafe
-  public static Collection<Path> traverseTree(Path root, Predicate<Path> predicate)
+  public static Collection<Path> traverseTree(Path root, TraverseTreePredicate predicate)
       throws IOException {
     List<Path> paths = new ArrayList<>();
     traverseTree(paths, root, predicate);
@@ -547,11 +554,11 @@ public class FileSystemUtils {
    * @throws IOException If the root does not denote a directory
    */
   @ThreadSafe
-  public static void traverseTree(Collection<Path> paths, Path root, Predicate<Path> predicate)
-      throws IOException {
+  public static void traverseTree(
+      Collection<Path> paths, Path root, TraverseTreePredicate predicate) throws IOException {
     for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
       Path childPath = root.getChild(dirent.getName());
-      if (predicate.test(childPath)) {
+      if (predicate.shouldTraverse(childPath)) {
         paths.add(childPath);
       }
       if (dirent.getType() == Dirent.Type.DIRECTORY) {

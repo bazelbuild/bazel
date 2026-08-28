@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.ActionLookupSummaryKey;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
 import com.google.devtools.build.lib.concurrent.safeexecutor.RejectionHandlingRunnable;
 import com.google.devtools.build.lib.profiler.CounterSeriesCollector;
@@ -205,6 +206,7 @@ final class SelectedEntrySerializer {
   private final ObjectCodecs codecs;
   private final FrontierNodeVersion frontierVersion;
 
+  private final CompressionService compressionService;
   private final FingerprintValueService fingerprintValueService;
 
   private final FileOpNodeMemoizingLookup fileOpNodes;
@@ -236,6 +238,7 @@ final class SelectedEntrySerializer {
       ObjectCodecs codecs,
       FrontierNodeVersion frontierVersion,
       ImmutableSet<SkyKey> selection,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       KeyValueWriter fileInvalidationWriter,
       boolean shouldDiscardMemory,
@@ -267,6 +270,7 @@ final class SelectedEntrySerializer {
         new FileDependencySerializer(
             versionGetter,
             graph,
+            compressionService,
             fileInvalidationWriter,
             fingerprintValueService.getExecutor(),
             profileCollector);
@@ -276,6 +280,7 @@ final class SelectedEntrySerializer {
             graph,
             codecs,
             frontierVersion,
+            compressionService,
             fingerprintValueService,
             fileOpNodes,
             fileDependencySerializer,
@@ -308,6 +313,7 @@ final class SelectedEntrySerializer {
       InMemoryGraph graph,
       ObjectCodecs codecs,
       FrontierNodeVersion frontierVersion,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       FileOpNodeMemoizingLookup fileOpNodes,
       FileDependencySerializer fileDependencySerializer,
@@ -321,6 +327,7 @@ final class SelectedEntrySerializer {
     this.graph = graph;
     this.codecs = codecs;
     this.frontierVersion = frontierVersion;
+    this.compressionService = compressionService;
     this.fingerprintValueService = fingerprintValueService;
     this.fileOpNodes = fileOpNodes;
     this.fileDependencySerializer = fileDependencySerializer;
@@ -485,10 +492,11 @@ final class SelectedEntrySerializer {
 
         this.keyResultTask =
             codecs.serializeMemoizedAsync(
-                fingerprintValueService, key, /* profileCollector= */ null);
+                compressionService, fingerprintValueService, key, /* profileCollector= */ null);
         fingerprintValueService.getExecutor().execute(keyResultTask);
         this.valueResultTask =
-            codecs.serializeMemoizedAsync(fingerprintValueService, value, profileCollector);
+            codecs.serializeMemoizedAsync(
+                compressionService, fingerprintValueService, value, profileCollector);
         fingerprintValueService.getExecutor().execute(valueResultTask);
 
         keyResultTask.addListener(
