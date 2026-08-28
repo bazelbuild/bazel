@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
@@ -196,7 +195,6 @@ public class IncludeScanningModule extends BlazeModule {
       SwigIncludeScanner scanner =
           new SwigIncludeScanner(
               includePool.get(),
-              shouldShuffle(env),
               spawnScannerSupplier.get(),
               cache,
               swigIncludePaths,
@@ -347,7 +345,6 @@ public class IncludeScanningModule extends BlazeModule {
           new IncludeScannerSupplier(
               env.getDirectories(),
               includePool,
-              shouldShuffle(env),
               env.getSkyframeBuildView().getArtifactFactory(),
               spawnScannerSupplier,
               env.getExecRoot());
@@ -355,16 +352,5 @@ public class IncludeScanningModule extends BlazeModule {
       spawnScannerSupplier.get().setOutputService(env.getOutputService());
       spawnScannerSupplier.get().setInMemoryOutput(options.getInMemoryIncludesFiles());
     }
-  }
-
-  private static boolean useAsyncExecution(CommandEnvironment env) {
-    var buildRequestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
-    return buildRequestOptions != null && buildRequestOptions.getUseAsyncExecution();
-  }
-
-  private static boolean shouldShuffle(CommandEnvironment env) {
-    // Don't shuffle if using virtual threads, otherwise it introduces high CPU regression on
-    // machines with large number of cores.
-    return !useAsyncExecution(env);
   }
 }

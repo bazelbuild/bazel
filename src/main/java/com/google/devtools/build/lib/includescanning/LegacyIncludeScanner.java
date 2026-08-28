@@ -50,13 +50,13 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
-import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -444,11 +444,6 @@ public class LegacyIncludeScanner implements IncludeScanner {
   private final PathExistenceCache pathCache;
 
   private final ExecutorService includePool;
-  private final boolean shouldShuffle;
-
-  // We are using this Random just for shuffling, so keep the order deterministic by hardcoding
-  // the seed.
-  private static final Random CONSTANT_SEED_RANDOM = new Random(88);
 
   /**
    * Constructs a new IncludeScanner
@@ -462,7 +457,6 @@ public class LegacyIncludeScanner implements IncludeScanner {
   LegacyIncludeScanner(
       IncludeParser parser,
       ExecutorService includePool,
-      boolean shouldShuffle,
       ConcurrentMap<Artifact, ListenableFuture<Collection<Inclusion>>> cache,
       PathExistenceCache pathCache,
       List<PathFragment> quoteIncludePaths,
@@ -474,7 +468,6 @@ public class LegacyIncludeScanner implements IncludeScanner {
       Supplier<SpawnIncludeScanner> spawnIncludeScannerSupplier) {
     this.parser = parser;
     this.includePool = includePool;
-    this.shouldShuffle = shouldShuffle;
     this.fileParseCache = cache;
     this.pathCache = pathCache;
     this.artifactFactory = Preconditions.checkNotNull(artifactFactory);
@@ -816,21 +809,15 @@ public class LegacyIncludeScanner implements IncludeScanner {
         }
       }
 
-      Collection<Inclusion> maybeShuffledInclusions;
-      if (shouldShuffle) {
-        // Shuffle the inclusions to get better parallelism. See b/62200470.
-        List<Inclusion> shuffledInclusions = new ArrayList<>(inclusions);
-        Collections.shuffle(shuffledInclusions, CONSTANT_SEED_RANDOM);
-        maybeShuffledInclusions = shuffledInclusions;
-      } else {
-        maybeShuffledInclusions = inclusions;
-      }
+      // Shuffle the inclusions to get better parallelism. See b/62200470.
+      List<Inclusion> shuffledInclusions = new ArrayList<>(inclusions);
+      Collections.shuffle(shuffledInclusions, ThreadLocalRandom.current());
 
       // For each inclusion: get or locate its target file & recursively process
       IncludeScannerHelper helper =
           new IncludeScannerHelper(includePaths, quoteIncludePaths, source);
       PathFragment parent = source.getExecPath().getParentDirectory();
-      for (Inclusion inclusion : maybeShuffledInclusions) {
+      for (Inclusion inclusion : shuffledInclusions) {
         findAndProcess(
             helper.createInclusionWithContext(inclusion, contextPathPos, contextKind),
             source,
