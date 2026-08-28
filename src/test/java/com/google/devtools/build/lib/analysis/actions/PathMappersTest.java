@@ -227,6 +227,38 @@ public class PathMappersTest extends BuildViewTestCase {
   }
 
   @Test
+  public void starlarkRule_heuristicPathMappingNotAllowedViaExecutionRequirements()
+      throws Exception {
+    useConfiguration("--experimental_output_paths=strip");
+    addStarlarkRule(
+        Dict.<String, String>builder()
+            .put("supports-heuristic-path-mapping", "1")
+            .buildImmutable());
+
+    checkError(
+        "//pkg:my_rule",
+        "execution requirement 'supports-heuristic-path-mapping' cannot be set directly; it can"
+            + " only be enabled via --modify_execution_info");
+  }
+
+  @Test
+  public void starlarkRule_heuristicPathMappingAllowedViaModifyExecutionInfo() throws Exception {
+    useConfiguration(
+        "--experimental_output_paths=strip",
+        "--modify_execution_info=MyRuleAction=+supports-heuristic-path-mapping");
+    addStarlarkRule(Dict.empty());
+
+    SpawnAction action = (SpawnAction) getGeneratingActionForLabel("//pkg:my_rule");
+    Spawn spawn =
+        action.getSpawn(
+            new ActionExecutionContextBuilder()
+                .setMetadataProvider(new FakeActionInputFileCache())
+                .build());
+
+    assertThat(spawn.getPathMapper().isNoop()).isFalse();
+  }
+
+  @Test
   public void starlarkRule_stringExecutablePath() throws Exception {
     scratch.file("defs/BUILD");
     scratch.file(

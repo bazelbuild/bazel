@@ -402,6 +402,16 @@ public class ExecutionRequirements {
    */
   public static final String SUPPORTS_PATH_MAPPING = "supports-path-mapping";
 
+  /**
+   * Indicates that the action is compatible with heuristic path mapping, e.g., removing the
+   * configuration segment from the paths of all inputs and outputs and all custom arguments
+   * containing them.
+   *
+   * <p>This requirement cannot be declared in rules/tags and can only be set via {@code
+   * --modify_execution_info}.
+   */
+  public static final String SUPPORTS_HEURISTIC_PATH_MAPPING = "supports-heuristic-path-mapping";
+
   /** Indicates that the action was created as part of a {@code map_directory()} call. */
   public static final String MAP_DIRECTORY_ACTION = "internal-map-directory-action";
 }
