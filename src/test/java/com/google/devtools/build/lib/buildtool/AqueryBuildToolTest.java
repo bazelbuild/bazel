@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Action;
@@ -239,5 +241,187 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
               }
             });
     return stdout;
+  }
+
+  private void setupTwoOutputsPackage() throws Exception {
+    write(
+        "test/defs.bzl",
+        """
+        def _two_outputs_impl(ctx):
+            out1 = ctx.actions.declare_file(ctx.label.name + ".out1")
+            out2 = ctx.actions.declare_file(ctx.label.name + ".out2")
+            ctx.actions.run_shell(
+                outputs = [out1],
+                command = "echo 1 > " + out1.path,
+                mnemonic = "ActionOne",
+            )
+            ctx.actions.run_shell(
+                outputs = [out2],
+                command = "echo 2 > " + out2.path,
+                mnemonic = "ActionTwo",
+            )
+            return [
+                DefaultInfo(files = depset([out1])),
+                OutputGroupInfo(extra = depset([out2])),
+            ]
+
+        two_outputs = rule(implementation = _two_outputs_impl)
+        """);
+    write(
+        "test/BUILD",
+        """
+        load(":defs.bzl", "two_outputs")
+        two_outputs(name = "my_target")
+        """);
+  }
+
+  @Test
+  public void testPruneUnusedActionsFalse_emitsAllActions() throws Exception {
+    setupTwoOutputsPackage();
+    ByteArrayOutputStream stdout = captureReporterStdout();
+
+    addOptions("--output=proto", "--noprune_unused_actions");
+    runtimeWrapper.runAqueryExprCommand("//test:my_target");
+
+    ActionGraphContainer actionGraphContainer =
+        ActionGraphContainer.parseFrom(stdout.toByteArray(), ExtensionRegistry.getEmptyRegistry());
+    ImmutableList<String> mnemonics =
+        actionGraphContainer.getActionsList().stream()
+            .map(Action::getMnemonic)
+            .collect(toImmutableList());
+    assertThat(mnemonics).containsExactly("ActionOne", "ActionTwo");
+  }
+
+  @Test
+  public void testPruneUnusedActionsTrue_prunesUnusedActions() throws Exception {
+    setupTwoOutputsPackage();
+    ByteArrayOutputStream stdout = captureReporterStdout();
+
+    addOptions("--output=proto", "--prune_unused_actions");
+    runtimeWrapper.runAqueryExprCommand("//test:my_target");
+
+    ActionGraphContainer actionGraphContainer =
+        ActionGraphContainer.parseFrom(stdout.toByteArray(), ExtensionRegistry.getEmptyRegistry());
+    ImmutableList<String> mnemonics =
+        actionGraphContainer.getActionsList().stream()
+            .map(Action::getMnemonic)
+            .collect(toImmutableList());
+    assertThat(mnemonics).containsExactly("ActionOne");
+  }
+
+  @Test
+  public void testPruneUnusedActionsTrue_withOutputGroups_prunesActionsNotInOutputGroup()
+      throws Exception {
+    setupTwoOutputsPackage();
+    ByteArrayOutputStream stdout = captureReporterStdout();
+
+    addOptions("--output=proto", "--prune_unused_actions", "--output_groups=extra");
+    runtimeWrapper.runAqueryExprCommand("//test:my_target");
+
+    ActionGraphContainer actionGraphContainer =
+        ActionGraphContainer.parseFrom(stdout.toByteArray(), ExtensionRegistry.getEmptyRegistry());
+    ImmutableList<String> mnemonics =
+        actionGraphContainer.getActionsList().stream()
+            .map(Action::getMnemonic)
+            .collect(toImmutableList());
+    assertThat(mnemonics).containsExactly("ActionTwo");
+  }
+
+  @Test
+  public void testPruneUnusedActionsTrue_textOutput_prunesUnusedActions() throws Exception {
+    setupTwoOutputsPackage();
+    ByteArrayOutputStream stdout = captureReporterStdout();
+
+    addOptions("--output=text", "--prune_unused_actions");
+    runtimeWrapper.runAqueryExprCommand("//test:my_target");
+
+    String outputText = stdout.toString(UTF_8);
+    assertThat(outputText).contains("ActionOne");
+    assertThat(outputText).doesNotContain("ActionTwo");
+  }
+
+  @Test
+  public void testPruneUnusedActionsTrue_summaryOutput_prunesUnusedActions() throws Exception {
+    setupTwoOutputsPackage();
+    ByteArrayOutputStream stdout = captureReporterStdout();
+
+    addOptions("--output=summary", "--prune_unused_actions");
+    runtimeWrapper.runAqueryExprCommand("//test:my_target");
+
+    String outputText = stdout.toString(UTF_8);
+    assertThat(outputText).contains("ActionOne");
+    assertThat(outputText).doesNotContain("ActionTwo");
+  }
+
+  @Test
+  public void testPruneUnusedActions_depsQuery_prunesTransitiveUnusedActions() throws Exception {
+    write(
+        "deps_test/defs.bzl",
+        """
+        def _dep_rule_impl(ctx):
+            out1 = ctx.actions.declare_file(ctx.label.name + ".out1")
+            out2 = ctx.actions.declare_file(ctx.label.name + ".out2")
+            ctx.actions.run_shell(
+                outputs = [out1],
+                command = "echo 1 > " + out1.path,
+                mnemonic = "DepUsedAction",
+            )
+            ctx.actions.run_shell(
+                outputs = [out2],
+                command = "echo 2 > " + out2.path,
+                mnemonic = "DepUnusedAction",
+            )
+            return [DefaultInfo(files = depset([out1]))]
+
+        dep_rule = rule(implementation = _dep_rule_impl)
+
+        def _top_rule_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name + ".out")
+            inputs = ctx.files.deps
+            ctx.actions.run_shell(
+                inputs = inputs,
+                outputs = [out],
+                command = "cat " + " ".join([f.path for f in inputs]) + " > " + out.path,
+                mnemonic = "TopAction",
+            )
+            return [DefaultInfo(files = depset([out]))]
+
+        top_rule = rule(
+            implementation = _top_rule_impl,
+            attrs = {"deps": attr.label_list()},
+        )
+        """);
+    write(
+        "deps_test/BUILD",
+        """
+        load(":defs.bzl", "dep_rule", "top_rule")
+        dep_rule(name = "dep_target")
+        top_rule(name = "top_target", deps = [":dep_target"])
+        """);
+
+    ByteArrayOutputStream stdout = captureReporterStdout();
+    addOptions("--output=proto", "--prune_unused_actions");
+    runtimeWrapper.runAqueryExprCommand("deps(//deps_test:top_target)", "//deps_test:top_target");
+
+    ActionGraphContainer actionGraphContainer =
+        ActionGraphContainer.parseFrom(stdout.toByteArray(), ExtensionRegistry.getEmptyRegistry());
+    ImmutableList<String> mnemonics =
+        actionGraphContainer.getActionsList().stream()
+            .map(Action::getMnemonic)
+            .collect(toImmutableList());
+    assertThat(mnemonics).containsExactly("TopAction", "DepUsedAction");
+  }
+
+  @Test
+  public void testDumpActionGraphFromSkyframe_pruneUnusedActionsTrue_returnsFailure()
+      throws Exception {
+    addOptions("--output=proto", "--prune_unused_actions", "--skyframe_state");
+    CommandEnvironment env = runtimeWrapper.newCommand(AqueryCommand.class);
+    AqueryProcessor aqueryProcessor = new AqueryProcessor(null, TargetPattern.defaultParser());
+    BlazeCommandResult result = aqueryProcessor.dumpActionGraphFromSkyframe(env);
+
+    assertThat(result.isSuccess()).isFalse();
+    assertThat(result.getDetailedExitCode().getFailureDetail().getActionQuery().getCode())
+        .isEqualTo(Code.SKYFRAME_STATE_PREREQ_UNMET);
   }
 }

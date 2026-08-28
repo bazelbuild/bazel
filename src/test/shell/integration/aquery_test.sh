@@ -2146,4 +2146,41 @@ EOF
   assert_contains "Unknown configuration ID 'unknown_config'" "$TEST_log"
 }
 
+function test_prune_unused_actions() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg"
+  cat > "$pkg/defs.bzl" <<'EOF'
+def _impl(ctx):
+    out1 = ctx.actions.declare_file(ctx.label.name + ".out1")
+    out2 = ctx.actions.declare_file(ctx.label.name + ".out2")
+    ctx.actions.run_shell(
+        outputs = [out1],
+        command = "touch " + out1.path,
+        mnemonic = "ActionOne",
+    )
+    ctx.actions.run_shell(
+        outputs = [out2],
+        command = "touch " + out2.path,
+        mnemonic = "ActionTwo",
+    )
+    return [DefaultInfo(files = depset([out1]))]
+
+two_outputs = rule(implementation = _impl)
+EOF
+
+  cat > "$pkg/BUILD" <<'EOF'
+load(":defs.bzl", "two_outputs")
+two_outputs(name = "my_target")
+EOF
+
+  bazel aquery "//$pkg:my_target" > output 2> "$TEST_log" || fail "Expected success"
+  assert_contains "Mnemonic: ActionOne" output
+  assert_contains "Mnemonic: ActionTwo" output
+
+  bazel aquery --prune_unused_actions "//$pkg:my_target" > output 2> "$TEST_log" || fail "Expected success"
+  assert_contains "Mnemonic: ActionOne" output
+  assert_not_contains "Mnemonic: ActionTwo" output
+}
+
 run_suite "${PRODUCT_NAME} action graph query tests"
+
