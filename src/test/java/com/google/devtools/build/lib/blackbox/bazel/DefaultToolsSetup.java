@@ -58,12 +58,6 @@ public class DefaultToolsSetup implements ToolsSetup {
     // explicitly.
     lines.add("common --repo_contents_cache=");
 
-    if (OS.getCurrent() == OS.WINDOWS) {
-      // Match rules_python's Windows default so its transition doesn't place
-      // executable outputs outside the directory reported by bazel-bin.
-      lines.add("common --enable_runfiles");
-    }
-
     if (OS.getCurrent() == OS.DARWIN && hasIpv6DefaultRouteOnDarwin()) {
       // Prefer IPv6 network on macOS only when an IPv6 default route exists.
       lines.add("startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true");
