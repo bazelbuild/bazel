@@ -24,7 +24,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.util.concurrent.Runnables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -197,9 +196,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     ActionEventRecorder recorder = new ActionEventRecorder();
     eventBus.register(recorder);
 
-    Action action =
-        registerAction(
-            new TestAction(Runnables.doNothing(), emptyNestedSet, ImmutableSet.of(pear)));
+    Action action = registerAction(new TestAction(() -> {}, emptyNestedSet, ImmutableSet.of(pear)));
 
     buildArtifacts(createBuilder(DEFAULT_NUM_JOBS, true), pear);
     assertThat(recorder.actionExecutedEvents).hasSize(1);
