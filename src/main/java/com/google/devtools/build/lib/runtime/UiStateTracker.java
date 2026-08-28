@@ -108,7 +108,7 @@ class UiStateTracker {
 
   // Desired maximal width of the progress bar, if positive.
   // Non-positive values indicate not to aim for a particular width.
-  protected final int targetWidth;
+  protected int targetWidth;
 
   /**
    * Tracker of strategy names to unique IDs and viceversa.
@@ -408,6 +408,11 @@ class UiStateTracker {
   /** Set the progress bar sample size. */
   void setProgressSampleSize(int sampleSize) {
     this.sampleSize = Math.max(1, sampleSize);
+  }
+
+  /** Set the desired maximal width of the progress bar. */
+  synchronized void setTargetWidth(int targetWidth) {
+    this.targetWidth = targetWidth;
   }
 
   void setNewStatsSummary(boolean newStatsSummary) {

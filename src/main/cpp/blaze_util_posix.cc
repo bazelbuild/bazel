@@ -184,6 +184,9 @@ static void handler(int signum) {
                     .c_str());
       kill(SignalHandler::Get().GetServerProcessInfo()->server_pid_, SIGQUIT);
       break;
+    case SIGWINCH:
+      SignalHandler::Get().TerminalSizeChanged();
+      break;
   }
 
   errno = saved_errno;
@@ -192,11 +195,13 @@ static void handler(int signum) {
 void SignalHandler::Install(const string& product_name,
                             const blaze_util::Path& output_base,
                             const ServerProcessInfo* server_process_info,
-                            SignalHandler::Callback cancel_server) {
+                            SignalHandler::Callback cancel_server,
+                            SignalHandler::Callback terminal_size_changed) {
   product_name_ = product_name;
   output_base_ = output_base;
   server_process_info_ = server_process_info;
   cancel_server_ = cancel_server;
+  terminal_size_changed_ = terminal_size_changed;
 
   // Unblock all signals.
   sigset_t sigset;
@@ -204,12 +209,13 @@ void SignalHandler::Install(const string& product_name,
   sigprocmask(SIG_SETMASK, &sigset, nullptr);
 
   // SIGWINCH is reserved for Bazel server internal use and cannot be passed to
-  // it. The JVM is not attached to a terminal, making a signal insufficient to
-  // react to window size change event anyway.
+  // it. The JVM is not attached to a terminal, so the client forwards terminal
+  // size changes over the command RPC channel.
   signal(SIGINT, handler);
   signal(SIGTERM, handler);
   signal(SIGPIPE, handler);
   signal(SIGQUIT, handler);
+  signal(SIGWINCH, handler);
 }
 
 ATTRIBUTE_NORETURN void SignalHandler::PropagateSignalOrExit(int exit_code) {
