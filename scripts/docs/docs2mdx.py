@@ -61,7 +61,6 @@ _HEADING_TAG_RE = re.compile(
 )
 _HEADING_ID_ATTR_RE = re.compile(r"""\bid=(["'])([^"']+)\1""")
 _ESCAPED_HEADING_ANCHOR_RE = re.compile(r" &lcub;#([^&]+)&rcub;")
-
 # Across code blocks and similar pre-formatted blocks, these
 # characters must be converted to HTML entities so they don't
 # look like JavaScript blocks.
@@ -95,8 +94,42 @@ def _escape_chars(text, replacements):
   return text
 
 
+# Table cells containing these elements cannot be represented as plain markdown
+# table cell text. Preserve their inner HTML so MDX renders them correctly.
+_COMPLEX_CELL_TAGS = frozenset(["ul", "ol", "table", "pre"])
+
+
+def _cell_has_complex_content(cell):
+  """Returns True if a table cell contains content that needs HTML preservation."""
+  return cell.find(list(_COMPLEX_CELL_TAGS)) is not None
+
+
+def _cell_inner_html(cell):
+  """Returns the raw inner HTML of a table cell."""
+  return "".join(str(child) for child in cell.children).strip()
+
+
+def _format_table_cell(cell, content):
+  """Formats table cell content as a markdown table cell."""
+  colspan = 1
+  if "colspan" in cell.attrs and cell["colspan"].isdigit():
+    colspan = max(1, min(1000, int(cell["colspan"])))
+  # Markdown table rows must be single-line; HTML in cells is fine on one line.
+  return " " + content.replace("\n", " ") + " |" * colspan
+
+
 class AcornSafeMarkdownConverter(markdownify.MarkdownConverter):
   """Custom converter that produces Acorn-parsable MDX output."""
+
+  def convert_td(self, el, text, parent_tags):
+    if _cell_has_complex_content(el):
+      return _format_table_cell(el, _cell_inner_html(el))
+    return super().convert_td(el, text, parent_tags)
+
+  def convert_th(self, el, text, parent_tags):
+    if _cell_has_complex_content(el):
+      return _format_table_cell(el, _cell_inner_html(el))
+    return super().convert_th(el, text, parent_tags)
 
   def convert_code(self, node, text, parent_tags):
     """Normalize whitespace in inline code before converting.
