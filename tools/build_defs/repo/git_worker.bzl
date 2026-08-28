@@ -214,13 +214,8 @@ def update_submodules(ctx, git_repo, recursive = False):
     start = ["-c", "protocol.file.allow=always", "submodule", "update"]
     flags = ["--init", "--checkout", "--force"]
     if recursive:
-        flags = ["--init", "--recursive", "--checkout", "--force"]
+        flags.append("--recursive")
 
-    # `--depth=1` / `--shallow-since` are flags of `submodule update`, not of
-    # `git submodule`. `_git_maybe_shallow` inserts the shallow arg after its
-    # first token, which is correct for `fetch` but produced `git -c --depth=1
-    # ...` or `git submodule --depth=1 update` here. It also ignored nonzero
-    # exits, so a failed submodule update was still cached as a successful repo.
     if git_repo.shallow:
         st = _execute(ctx, git_repo, start + [git_repo.shallow] + flags)
         if st.return_code == 0:
