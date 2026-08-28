@@ -485,6 +485,10 @@ public final class SandboxModule extends BlazeModule {
     // Try to clean up as much garbage as possible, if there happens to be any. This will delay
     // server termination but it's the nice thing to do. If the user gets impatient, they can always
     // kill us again.
+    if (sandboxBase != null) {
+      SandboxStash.clean(treeDeleter, sandboxBase);
+    }
+
     if (treeDeleter != null) {
       try {
         treeDeleter.shutdown();
