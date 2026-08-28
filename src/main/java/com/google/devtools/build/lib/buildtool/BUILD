@@ -230,6 +230,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:keep_state_after_build_option",
         "//src/main/java/com/google/devtools/build/lib/runtime:starlark_options_parser",
         "//src/main/java/com/google/devtools/build/lib/runtime:ui_options",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_options",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_inactivity_watchdog",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_result_listener",
