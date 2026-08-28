@@ -21,7 +21,6 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
-import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser.ArgAndFallbackData;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
@@ -61,15 +60,14 @@ public final class OptionsParserTest {
     public boolean foo2;
   }
 
-  @OptionsClass
-  public abstract static class ExampleAliasOptions extends OptionsBase {
+  public static class ExampleAliasOptions extends OptionsBase {
     @Option(
         name = "flag_alias",
         allowMultiple = true,
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP})
-    public abstract List<String> getFlagAliases();
+    public List<String> flagAliases;
   }
 
   @Test
