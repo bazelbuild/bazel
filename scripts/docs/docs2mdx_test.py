@@ -22,6 +22,74 @@ from absl.testing import parameterized
 from scripts.docs import docs2mdx
 
 
+class Docs2MdxTableCellTest(parameterized.TestCase):
+
+  @parameterized.named_parameters(
+      (
+          "list_in_table_cell",
+          """
+<table>
+  <tr>
+    <td><code>aspect_hints</code></td>
+    <td>
+      <p>Some text.</p>
+      <p>Best practices:</p>
+      <ul>
+        <li>Targets listed in aspect_hints should be lightweight.</li>
+        <li>Language-specific logic should consider only aspect hints.</li>
+      </ul>
+    </td>
+  </tr>
+</table>
+""",
+          "<ul>",
+          "* Targets listed",
+      ),
+      (
+          "nested_table_in_cell",
+          """
+<table>
+  <tr>
+    <td><code>size</code></td>
+    <td>
+      <p>Test sizes:</p>
+      <table>
+        <tr><th>Size</th><th>RAM (in MB)</th></tr>
+        <tr><td>small</td><td>20</td></tr>
+      </table>
+    </td>
+  </tr>
+</table>
+""",
+          "<table>",
+          "| Size | RAM",
+      ),
+      (
+          "pre_in_table_cell",
+          """
+<table>
+  <tr><th>Attribute</th><th>Description</th></tr>
+  <tr>
+    <td><code>url</code></td>
+    <td>
+      <p>URL of the file.</p>
+      <pre><code>https://example.com/file.tar.gz</code></pre>
+    </td>
+  </tr>
+</table>
+""",
+          "<pre><code>",
+          "```",
+      ),
+  )
+  def testComplexTableCellContent(
+      self, html, expected_substr, unexpected_substr
+  ):
+    actual = docs2mdx._html2md(html)
+    self.assertIn(expected_substr, actual)
+    self.assertNotIn(unexpected_substr, actual)
+
+
 class Docs2MdxHeadingAnchorTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
