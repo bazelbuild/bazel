@@ -601,7 +601,6 @@ class MethodLibrary {
               + "int(\"0xFF\", 16) == 255\n"
               + "int(\"10\", 0) == 10\n"
               + "int(\"-0x10\", 0) == -16\n"
-              + "int(\"-0x10\", 0) == -16\n"
               + "int(\"123.456\") == 123\n"
               + "</pre>",
       parameters = {
