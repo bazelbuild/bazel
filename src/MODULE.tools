@@ -36,7 +36,7 @@ use_repo(buildozer_binary, "buildozer_binary")
 # The locations below include subpackages and sources bundled in bazel_tools.
 
 # //tools/proto (defaults of --proto_compiler etc.), //src/main/protobuf.
-bazel_dep(name = "protobuf", version = "33.4", repo_name = "com_google_protobuf")
+bazel_dep(name = "protobuf", version = "36.0.bcr.1", repo_name = "com_google_protobuf")
 
 # //tools/{jdk,java,build_rules}, //tools/build_defs/repo, //src/main/native,
 # //src/java_tools/{buildjar,import_deps_checker}, and java_toolchains above.
