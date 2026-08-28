@@ -35,16 +35,21 @@ public final class ConsumedArtifactsTracker implements EphemeralCheckIfOutputCon
   }
 
   void unregisterOutputsAfterExecutionDone(Collection<Artifact> outputs) {
-    consumed.removeAll(outputs);
+    for (Artifact artifact : outputs) {
+      consumed.remove(representative(artifact));
+    }
   }
 
   /** Register the provided artifact as "consumed". */
   void registerConsumedArtifact(Artifact artifact) {
-    // We should only store the consumed status of artifacts that will later on be checked for
-    // orphaned status directly. This is an optimization to keep the set smaller.
-    if (!artifact.isSourceArtifact() // Source artifacts won't be orphaned.
-        && !artifact.hasParent()) { // Will be checked through the parent artifact.
-      consumed.add(artifact);
+    if (artifact.isSourceArtifact()) {
+      return; // Source artifacts are never orphaned, so we don't track them.
     }
+    consumed.add(representative(artifact));
+  }
+
+  private static Artifact representative(Artifact artifact) {
+    // Tree artifact children are checked through the parent artifact.
+    return artifact.hasParent() ? artifact.getParent() : artifact;
   }
 }
