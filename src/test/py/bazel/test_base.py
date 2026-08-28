@@ -109,9 +109,6 @@ class TestBase(absltest.TestCase):
         f.write('build --jvmopt=-Djava.net.preferIPv6Addresses\n')
 
       if TestBase.IsWindows():
-        # Match rules_python's Windows default so its transition doesn't place
-        # executable outputs outside the directory reported by bazel-bin.
-        f.write('common --enable_runfiles\n')
         # Use a specific Python toolchain on Windows to avoid blowing up the
         # size of py_binary and py_test which slowed down tests significantly.
         # pylint: disable=line-too-long
@@ -317,6 +314,22 @@ class TestBase(absltest.TestCase):
       raise ArgumentError(('path="%s" may not be absolute and may not contain '
                            'uplevel references') % path)
     return os.path.join(self._test_cwd, path)
+
+  def GetTargetExecutable(self, target):
+    """Returns the configured executable output path for a target."""
+    _, outputs, _ = self.RunBazel(['cquery', target, '--output=files'])
+    target_name = target.rsplit(':', 1)[-1]
+    if target_name == target:
+      target_name = target.rstrip('/').rsplit('/', 1)[-1]
+    if self.IsWindows():
+      target_name += '.exe'
+    executables = [
+        output
+        for output in outputs
+        if os.path.basename(output) == target_name
+    ]
+    self.assertLen(executables, 1, str(outputs))
+    return self.Path(executables[0])
 
   def Rlocation(self, runfile):
     """Returns the absolute path to a runfile."""
