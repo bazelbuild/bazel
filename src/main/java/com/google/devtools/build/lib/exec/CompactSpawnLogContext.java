@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.SPAWN_LOG;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
-import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -38,6 +37,7 @@ import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
@@ -151,6 +151,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     ExecLogEntry.Builder get() throws IOException, InterruptedException;
   }
 
+  private final CompressionService compressionService;
   private final PathFragment execRoot;
   private final String workspaceName;
   private final boolean siblingRepositoryLayout;
@@ -185,6 +186,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       @Nullable RemoteOptions remoteOptions,
       DigestHashFunction digestHashFunction,
       XattrProvider xattrProvider,
+      CompressionService compressionService,
       UUID invocationId,
       ExtendedEventHandler reporter,
       Predicate<Spawn> logSpawnPredicate)
@@ -196,6 +198,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     this.remoteOptions = remoteOptions;
     this.digestHashFunction = digestHashFunction;
     this.xattrProvider = xattrProvider;
+    this.compressionService = compressionService;
     this.invocationId = invocationId;
     this.reporter = reporter;
     this.outputStream = getOutputStream(out, displayName);
@@ -203,11 +206,11 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     logInvocation();
   }
 
-  private static MessageOutputStream<ExecLogEntry> getOutputStream(OutputStream out, String name)
+  private MessageOutputStream<ExecLogEntry> getOutputStream(OutputStream out, String name)
       throws IOException {
     // Use an AsynchronousMessageOutputStream so that compression and I/O occur in a separate
     // thread. This ensures concurrent writes don't tear and avoids blocking execution.
-    return new AsynchronousMessageOutputStream<>(name, new ZstdOutputStream(out));
+    return new AsynchronousMessageOutputStream<>(name, compressionService.newZstdOutputStream(out));
   }
 
   private void logInvocation() throws IOException, InterruptedException {

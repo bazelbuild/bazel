@@ -19,8 +19,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers.waitForDeserializationFuture;
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
-import com.github.luben.zstd.RecyclingBufferPool;
-import com.github.luben.zstd.ZstdInputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.util.concurrent.AbstractFuture;
@@ -28,6 +26,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec.DeferredValue;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs.DebugContext;
@@ -52,10 +51,17 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
   static SharedValueDeserializationContext createForTesting(
       ObjectCodecRegistry codecRegistry,
       ImmutableClassToInstanceMap<Object> dependencies,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService) {
     return new SharedValueDeserializationContext(
-        codecRegistry, dependencies, fingerprintValueService, /* skyframeLookupCollector= */ null);
+        codecRegistry,
+        dependencies,
+        compressionService,
+        fingerprintValueService,
+        /* skyframeLookupCollector= */ null);
   }
+
+  private final CompressionService compressionService;
 
   private final FingerprintValueService fingerprintValueService;
 
@@ -101,18 +107,27 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
   private SharedValueDeserializationContext(
       ObjectCodecRegistry codecRegistry,
       ImmutableClassToInstanceMap<Object> dependencies,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       @Nullable SkyframeLookupCollector skyframeLookupCollector) {
-    this(codecRegistry, dependencies, fingerprintValueService, skyframeLookupCollector, null);
+    this(
+        codecRegistry,
+        dependencies,
+        compressionService,
+        fingerprintValueService,
+        skyframeLookupCollector,
+        null);
   }
 
   private SharedValueDeserializationContext(
       ObjectCodecRegistry codecRegistry,
       ImmutableClassToInstanceMap<Object> dependencies,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       @Nullable SkyframeLookupCollector skyframeLookupCollector,
       @Nullable DebugContext debugContext) {
     super(codecRegistry, dependencies);
+    this.compressionService = compressionService;
     this.fingerprintValueService = fingerprintValueService;
     this.skyframeLookupCollector = skyframeLookupCollector;
     this.debugContext = debugContext;
@@ -121,6 +136,7 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
   static Object deserializeWithSharedValues(
       ObjectCodecRegistry codecRegistry,
       ImmutableClassToInstanceMap<Object> dependencies,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       ByteString bytes)
       throws SerializationException {
@@ -130,6 +146,7 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
           new SharedValueDeserializationContext(
               codecRegistry,
               dependencies,
+              compressionService,
               fingerprintValueService,
               /* skyframeLookupCollector= */ null));
     } catch (SerializationException e) {
@@ -158,11 +175,12 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
   static Object deserializeWithSkyframe(
       ObjectCodecRegistry codecRegistry,
       ImmutableClassToInstanceMap<Object> dependencies,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       CodedInputStream codedIn)
       throws SerializationException {
     return deserializeWithSkyframe(
-        codecRegistry, dependencies, fingerprintValueService, codedIn, null);
+        codecRegistry, dependencies, compressionService, fingerprintValueService, codedIn, null);
   }
 
   @Nullable
@@ -170,6 +188,7 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
   static Object deserializeWithSkyframe(
       ObjectCodecRegistry codecRegistry,
       ImmutableClassToInstanceMap<Object> dependencies,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       CodedInputStream codedIn,
       @Nullable DebugContext debugContext)
@@ -181,7 +200,12 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
     var lookupCollector = new SkyframeLookupCollector();
     var context =
         new SharedValueDeserializationContext(
-            codecRegistry, dependencies, fingerprintValueService, lookupCollector, debugContext);
+            codecRegistry,
+            dependencies,
+            compressionService,
+            fingerprintValueService,
+            lookupCollector,
+            debugContext);
     Object result;
     try {
       result = context.processTagAndDeserialize(codedIn);
@@ -455,13 +479,13 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
     }
   }
 
-  private static InputStream maybeDecompressBytes(byte[] bytes) throws IOException {
+  private InputStream maybeDecompressBytes(byte[] bytes) throws IOException {
     ByteArrayInputStream byteArrayInputStream =
         new ByteArrayInputStream(bytes, 1, bytes.length - 1);
     if (bytes[0] == (byte) 0) {
       return byteArrayInputStream;
     }
-    return new ZstdInputStream(byteArrayInputStream, RecyclingBufferPool.INSTANCE);
+    return compressionService.newZstdInputStream(byteArrayInputStream);
   }
 
   @Override
@@ -469,13 +493,19 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
     // This overload is only used for nested set deserialization outside of remote analysis caching
     // so it's fine to nop out the debug context
     return new SharedValueDeserializationContext(
-        getRegistry(), getDependencies(), fingerprintValueService, skyframeLookupCollector, null);
+        getRegistry(),
+        getDependencies(),
+        compressionService,
+        fingerprintValueService,
+        skyframeLookupCollector,
+        null);
   }
 
   public SharedValueDeserializationContext getFreshContext(PackedFingerprint childFingerprint) {
     return new SharedValueDeserializationContext(
         getRegistry(),
         getDependencies(),
+        compressionService,
         fingerprintValueService,
         skyframeLookupCollector,
         debugContext == null

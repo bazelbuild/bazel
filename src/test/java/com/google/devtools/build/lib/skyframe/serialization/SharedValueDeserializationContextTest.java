@@ -26,6 +26,8 @@ import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NestedArrayCodec;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNestedSetCodec;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNestedSetDeferredCodec;
@@ -84,6 +86,7 @@ public final class SharedValueDeserializationContextTest {
     // should not block each other.
 
     GetRecordingStore store = new GetRecordingStore();
+    var compressionService = new CompressionServiceImpl();
     FingerprintValueService fingerprintValueService =
         FingerprintValueService.createForTesting(store);
     ObjectCodecs codecs = createObjectCodecs();
@@ -97,7 +100,7 @@ public final class SharedValueDeserializationContextTest {
             });
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject);
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, subject);
     ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       // If it is asynchronous, writing should complete without throwing any exceptions.
@@ -105,7 +108,8 @@ public final class SharedValueDeserializationContextTest {
     }
 
     ListenableFuture<Object> result =
-        deserializeWithExecutor(codecs, fingerprintValueService, serialized.getObject());
+        deserializeWithExecutor(
+            codecs, compressionService, fingerprintValueService, serialized.getObject());
 
     // There are 4 nested arrays. The top-level one and its 3 child arrays. The child arrays aren't
     // requested until the top-level array is requested. Completes the top-level request.
@@ -277,6 +281,7 @@ public final class SharedValueDeserializationContextTest {
   @Test
   public void missingSharedValueData_producesSpecificError() throws Exception {
     GetRecordingStore store = new GetRecordingStore();
+    var compressionService = new CompressionServiceImpl();
     FingerprintValueService fingerprintValueService =
         FingerprintValueService.createForTesting(store);
     ObjectCodecs codecs = createObjectCodecs();
@@ -285,7 +290,7 @@ public final class SharedValueDeserializationContextTest {
     var subject = new NotNestedSet(new Object[] {createRandomLeafArray(rng, Random::nextInt)});
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject);
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, subject);
     ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       // If it is asynchronous, writing should complete without throwing any exceptions.
@@ -293,7 +298,8 @@ public final class SharedValueDeserializationContextTest {
     }
 
     ListenableFuture<Object> result =
-        deserializeWithExecutor(codecs, fingerprintValueService, serialized.getObject());
+        deserializeWithExecutor(
+            codecs, compressionService, fingerprintValueService, serialized.getObject());
 
     // Completes the request for shared value bytes with null bytes, indicating missing data.
     store.takeFirstRequest().completeWithNullBytes();
@@ -307,6 +313,7 @@ public final class SharedValueDeserializationContextTest {
   @Test
   public void getSharedValue_missingBytesFromCache_notifiesLookupCollector() throws Exception {
     GetRecordingStore store = new GetRecordingStore();
+    var compressionService = new CompressionServiceImpl();
     FingerprintValueService fingerprintValueService =
         FingerprintValueService.createForTesting(store);
     ObjectCodecs codecs = createObjectCodecs();
@@ -315,7 +322,7 @@ public final class SharedValueDeserializationContextTest {
     var subject = new NotNestedSet(new Object[] {createRandomLeafArray(rng, Random::nextInt)});
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject);
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, subject);
     ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       // If the write is asynchronous, writing should complete without throwing any exceptions.
@@ -328,6 +335,7 @@ public final class SharedValueDeserializationContextTest {
             SharedValueDeserializationContext.deserializeWithSkyframe(
                 codecs.getCodecRegistry(),
                 ImmutableClassToInstanceMap.of(),
+                compressionService,
                 fingerprintValueService,
                 serialized.getObject().newCodedInput());
 
@@ -345,6 +353,7 @@ public final class SharedValueDeserializationContextTest {
   @Test
   public void sharedValueIsDecompressed(@TestParameter boolean compress) throws Exception {
     GetRecordingStore store = new GetRecordingStore();
+    var compressionService = new CompressionServiceImpl();
     FingerprintValueService fingerprintValueService =
         FingerprintValueService.createForTesting(store);
     ObjectCodecs codecs = createObjectCodecs();
@@ -356,14 +365,15 @@ public final class SharedValueDeserializationContextTest {
             });
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject);
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, subject);
     ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       writeStatus.get();
     }
 
     ListenableFuture<Object> result =
-        deserializeWithExecutor(codecs, fingerprintValueService, serialized.getObject());
+        deserializeWithExecutor(
+            codecs, compressionService, fingerprintValueService, serialized.getObject());
 
     ImmutableList<byte[]> storeValues =
         ImmutableList.copyOf(store.getFingerprintToContents().values());
@@ -489,10 +499,15 @@ public final class SharedValueDeserializationContextTest {
   }
 
   private ListenableFuture<Object> deserializeWithExecutor(
-      ObjectCodecs codecs, FingerprintValueService fingerprintValueService, ByteString data) {
+      ObjectCodecs codecs,
+      CompressionService compressionService,
+      FingerprintValueService fingerprintValueService,
+      ByteString data) {
     var task =
         ListenableFutureTask.create(
-            () -> codecs.deserializeMemoizedAndBlocking(fingerprintValueService, data));
+            () ->
+                codecs.deserializeMemoizedAndBlocking(
+                    compressionService, fingerprintValueService, data));
     executor.execute(task);
     return task;
   }

@@ -241,6 +241,7 @@ java_test(
     name = "JavaInfoCodecTest",
     srcs = ["JavaInfoCodecTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:depsutils",

@@ -35,6 +35,8 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
@@ -68,6 +70,8 @@ import org.junit.runner.RunWith;
 /** Tests for {@link Artifact}. */
 @RunWith(TestParameterInjector.class)
 public final class ArtifactTest {
+
+  private static final CompressionService COMPRESSION_SERVICE = new CompressionServiceImpl();
 
   private final Scratch scratch = new Scratch();
   private Path execDir;
@@ -323,9 +327,10 @@ public final class ArtifactTest {
                 .put(RootCodecDependencies.class, new RootCodecDependencies(artifactRoot.getRoot()))
                 .build());
 
-    FingerprintValueService service = null;
+    FingerprintValueService fingerprintValueService = null;
     if (useSharedValues) {
-      service = FingerprintValueService.createForTesting(new InMemoryFingerprintValueStore());
+      fingerprintValueService =
+          FingerprintValueService.createForTesting(new InMemoryFingerprintValueStore());
       for (ObjectCodec<? extends Artifact> codec : ArtifactCodecs.VALUE_SHARING_CODECS) {
         objectCodecs = objectCodecs.withCodecOverridesForTesting(ImmutableList.of(codec));
       }
@@ -341,13 +346,21 @@ public final class ArtifactTest {
       deserialized1 =
           (SourceArtifact)
               objectCodecs.deserializeMemoizedAndBlocking(
-                  service,
-                  objectCodecs.serializeMemoizedAndBlocking(service, sourceArtifact).getObject());
+                  COMPRESSION_SERVICE,
+                  fingerprintValueService,
+                  objectCodecs
+                      .serializeMemoizedAndBlocking(
+                          COMPRESSION_SERVICE, fingerprintValueService, sourceArtifact)
+                      .getObject());
       deserialized2 =
           (SourceArtifact)
               objectCodecs.deserializeMemoizedAndBlocking(
-                  service,
-                  objectCodecs.serializeMemoizedAndBlocking(service, sourceArtifact).getObject());
+                  COMPRESSION_SERVICE,
+                  fingerprintValueService,
+                  objectCodecs
+                      .serializeMemoizedAndBlocking(
+                          COMPRESSION_SERVICE, fingerprintValueService, sourceArtifact)
+                      .getObject());
     } else {
       deserialized1 =
           (SourceArtifact) objectCodecs.deserialize(objectCodecs.serialize(sourceArtifact));
@@ -363,9 +376,11 @@ public final class ArtifactTest {
       deserialized =
           (Artifact)
               objectCodecs.deserializeMemoizedAndBlocking(
-                  service,
+                  COMPRESSION_SERVICE,
+                  fingerprintValueService,
                   objectCodecs
-                      .serializeMemoizedAndBlocking(service, sourceArtifactFromFactory)
+                      .serializeMemoizedAndBlocking(
+                          COMPRESSION_SERVICE, fingerprintValueService, sourceArtifactFromFactory)
                       .getObject());
     } else {
       deserialized =

@@ -333,7 +333,10 @@ java_library(
     srcs = [
         "SkyframeExecutorTestHelper.java",
     ],
-    deps = ["//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+    ],
 )
 
 java_library(

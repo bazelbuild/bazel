@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NestedArrayCodec;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNestedSetCodec;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SettableWriteStatus;
@@ -44,6 +46,8 @@ public final class SharedValueSerializationContextTest {
 
   private final ForkJoinPool executor = new ForkJoinPool(CONCURRENCY);
   private final Random rng = new Random(0);
+
+  private static final CompressionService COMPRESSION_SERVICE = new CompressionServiceImpl();
 
   private static final class PutRecordingStore implements FingerprintValueStore {
     private final ArrayList<SettableWriteStatus> putResponses = new ArrayList<>();
@@ -74,6 +78,7 @@ public final class SharedValueSerializationContextTest {
     // The result is available prior to completion of the put operations and that completion of the
     // put operations propagates to the SerializationResult's future.
     PutRecordingStore store = new PutRecordingStore();
+    var compressionService = new CompressionServiceImpl();
     FingerprintValueService fingerprintValueService =
         FingerprintValueService.createForTesting(store);
     ObjectCodecs codecs = createObjectCodecs();
@@ -90,7 +95,7 @@ public final class SharedValueSerializationContextTest {
     Object[] a = new Object[] {b, c};
     NotNestedSet diamond = new NotNestedSet(a);
     SerializationResult<ByteString> result =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, diamond);
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, diamond);
 
     // 4 remote arrays were written because d is memoized via the cache, despite the fact that d
     // occurs twice in the traversal.
@@ -119,6 +124,7 @@ public final class SharedValueSerializationContextTest {
     // When a shared value is serialized by two different callers, the 2nd caller's
     // SerializationResult.futureToBlockWritingOn also waits for writes to complete.
     PutRecordingStore store = new PutRecordingStore();
+    var compressionService = new CompressionServiceImpl();
     FingerprintValueService fingerprintValueService =
         FingerprintValueService.createForTesting(store);
     ObjectCodecs codecs = createObjectCodecs();
@@ -128,14 +134,14 @@ public final class SharedValueSerializationContextTest {
     NotNestedSet set2 = new NotNestedSet(shared);
 
     SerializationResult<ByteString> result1 =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, set1);
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, set1);
     ListenableFuture<?> writeStatus1 = result1.getFutureToBlockWritesOn();
     assertThat(writeStatus1.isDone()).isFalse();
 
     assertThat(store.putResponses).hasSize(1);
 
     SerializationResult<ByteString> result2 =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, set2);
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, set2);
     ListenableFuture<?> writeStatus2 = result2.getFutureToBlockWritesOn();
     assertThat(writeStatus2.isDone()).isFalse();
 
@@ -164,7 +170,8 @@ public final class SharedValueSerializationContextTest {
 
     // Serializes `sharedArray`, which is registered to block on `sharedBlocker`.
     ListenableFuture<SerializationResult<ByteString>> first =
-        serializeWithExecutor(codecs, fingerprintValueService, new NotNestedSet(sharedArray));
+        serializeWithExecutor(
+            codecs, COMPRESSION_SERVICE, fingerprintValueService, new NotNestedSet(sharedArray));
     sharedEntered.await(); // Waits for the above thread take ownership of `sharedArray`.
 
     Object[] myArray = createRandomLeafArray();
@@ -175,7 +182,10 @@ public final class SharedValueSerializationContextTest {
 
     ListenableFuture<SerializationResult<ByteString>> second =
         serializeWithExecutor(
-            codecs, fingerprintValueService, new NotNestedSet(new Object[] {sharedArray, myArray}));
+            codecs,
+            COMPRESSION_SERVICE,
+            fingerprintValueService,
+            new NotNestedSet(new Object[] {sharedArray, myArray}));
 
     // Completing the line below means that the serialization of `myArray` can start even though
     // serialization of `sharedArray` is blocked.
@@ -228,6 +238,7 @@ public final class SharedValueSerializationContextTest {
             throw new UnsupportedOperationException();
           }
         };
+    var compressionService = new CompressionServiceImpl();
     FingerprintValueService fingerprintValueService =
         FingerprintValueService.createForTesting(blockingStore);
 
@@ -248,7 +259,7 @@ public final class SharedValueSerializationContextTest {
       NotNestedSet set = new NotNestedSet(arrays);
       // Each thread will acquire ownership of a unique `sharedArrays` element then block when it
       // hits the `putPermits`.
-      results.add(serializeWithExecutor(codecs, fingerprintValueService, set));
+      results.add(serializeWithExecutor(codecs, compressionService, fingerprintValueService, set));
     }
     // When the following await has succeeded, each thread has acquired ownership of one of the
     // `sharedArrays`.
@@ -308,6 +319,7 @@ public final class SharedValueSerializationContextTest {
   public void errorInSharedPut() throws Exception {
     // When a shared value is serialized in error by one thread, another thread serializing the
     // same shared value reports the same error.
+    var compressionService = new CompressionServiceImpl();
     FingerprintValueService fingerprintValueService = FingerprintValueService.createForTesting();
     var codecs =
         new ObjectCodecs(
@@ -316,26 +328,33 @@ public final class SharedValueSerializationContextTest {
     var thrown1 =
         assertThrows(
             SerializationException.class,
-            () -> codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject1));
+            () ->
+                codecs.serializeMemoizedAndBlocking(
+                    compressionService, fingerprintValueService, subject1));
 
     var subject2 = new SharedValueExample(subject1.sharedData());
     var thrown2 =
         assertThrows(
             SerializationException.class,
-            () -> codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject2));
+            () ->
+                codecs.serializeMemoizedAndBlocking(
+                    compressionService, fingerprintValueService, subject2));
     assertThat(thrown2).isSameInstanceAs(thrown1);
   }
 
   @Test
   public void sharedValueIsCompressed(@TestParameter boolean compress) throws Exception {
     InMemoryFingerprintValueStore store = new InMemoryFingerprintValueStore();
+    var compressionService = new CompressionServiceImpl();
     FingerprintValueService fingerprintValueService =
         FingerprintValueService.createForTesting(store);
     ObjectCodecs codecs = createObjectCodecs();
     byte[] byteArray = new byte[compress ? 2000 : 1000];
     Object[] a = new Object[] {byteArray};
 
-    var unused = codecs.serializeMemoizedAndBlocking(fingerprintValueService, new NotNestedSet(a));
+    var unused =
+        codecs.serializeMemoizedAndBlocking(
+            compressionService, fingerprintValueService, new NotNestedSet(a));
 
     ImmutableList<ByteString> storeValues =
         ImmutableList.copyOf(store.fingerprintToContents.values());
@@ -400,10 +419,15 @@ public final class SharedValueSerializationContextTest {
   }
 
   private ListenableFuture<SerializationResult<ByteString>> serializeWithExecutor(
-      ObjectCodecs codecs, FingerprintValueService fingerprintValueService, Object subject) {
+      ObjectCodecs codecs,
+      CompressionService compressionService,
+      FingerprintValueService fingerprintValueService,
+      Object subject) {
     var task =
         ListenableFutureTask.create(
-            () -> codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject));
+            () ->
+                codecs.serializeMemoizedAndBlocking(
+                    compressionService, fingerprintValueService, subject));
     executor.execute(task);
     return task;
   }

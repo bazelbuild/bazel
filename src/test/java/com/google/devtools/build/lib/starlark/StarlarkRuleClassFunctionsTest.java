@@ -52,6 +52,8 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -131,6 +133,8 @@ import org.junit.runner.RunWith;
 /** Tests for StarlarkRuleClassFunctions. */
 @RunWith(TestParameterInjector.class)
 public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
+
+  private static final CompressionService COMPRESSION_SERVICE = new CompressionServiceImpl();
 
   private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
 
@@ -7386,7 +7390,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     var fooBzl = (BzlLoadValue) getDoneValue(bzlLoadKey);
     var myRule = (StarlarkRuleFunction) checkNotNull(fooBzl.getModule().getGlobal("my_rule"));
 
-    var deserialized = RoundTripping.roundTripWithSkyframe(this::getDoneValue, myRule);
+    var deserialized =
+        RoundTripping.roundTripWithSkyframe(COMPRESSION_SERVICE, this::getDoneValue, myRule);
     assertThat(myRule).isSameInstanceAs(deserialized);
   }
 

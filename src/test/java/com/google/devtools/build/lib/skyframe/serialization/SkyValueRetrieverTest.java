@@ -31,6 +31,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec.DeferredValue;
 import com.google.devtools.build.lib.skyframe.serialization.DependOnFutureShim.ObservedFutureStatus;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.PeerFailedException;
@@ -73,6 +75,9 @@ import org.junit.runner.RunWith;
 
 @RunWith(TestParameterInjector.class)
 public final class SkyValueRetrieverTest {
+
+  private static final CompressionService COMPRESSION_SERVICE = new CompressionServiceImpl();
+
   /** Default implementation that errors if any keys are requested. */
   private static final EnvironmentForUtilities NO_LOOKUP_ENVIRONMENT =
       new EnvironmentForUtilities(
@@ -96,6 +101,7 @@ public final class SkyValueRetrieverTest {
       FrontierNodeVersion frontierNodeVersion,
       SkycacheChannelStateAdvisor channelStateAdvisor) {
     return new SkyValueRetriever(
+        COMPRESSION_SERVICE,
         fingerprintValueService,
         codecs,
         frontierNodeVersion,
@@ -203,7 +209,6 @@ public final class SkyValueRetrieverTest {
     FUTURE_VALUE
   }
 
-
   @Test
   public void initialQueryState_withAnalysisCacheService_progressesToWaiting(
       @TestParameter InitialQueryCases testCase) throws Exception {
@@ -221,7 +226,7 @@ public final class SkyValueRetrieverTest {
 
     var key = new TrivialKey("a");
     SerializationResult<ByteString> keyBytes =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, key);
+        codecs.serializeMemoizedAndBlocking(COMPRESSION_SERVICE, fingerprintValueService, key);
     assertThat(keyBytes.getFutureToBlockWritesOn()).isNull();
 
     if (testCase.equals(InitialQueryCases.IMMEDIATE_EMPTY_VALUE)) {
@@ -255,7 +260,6 @@ public final class SkyValueRetrieverTest {
     }
   }
 
-
   @Test
   public void waitingForCacheServiceResponse_returnsValue() throws Exception {
     var fingerprintValueService = FingerprintValueService.createForAnalysisCacheTesting();
@@ -267,7 +271,8 @@ public final class SkyValueRetrieverTest {
     var key = new TrivialKey("a");
     var value = new TrivialValue("abc");
 
-    uploadKeyValuePair(key, value, fingerprintValueService, analysisCacheServiceData);
+    uploadKeyValuePair(
+        key, value, COMPRESSION_SERVICE, fingerprintValueService, analysisCacheServiceData);
 
     RetrievalResult result =
         createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
@@ -312,7 +317,6 @@ public final class SkyValueRetrieverTest {
     return previousResult;
   }
 
-
   private PackedFingerprint fingerprintObject(
       FingerprintValueService fingerprintValueService, Object o) throws Exception {
     @SuppressWarnings("unchecked") // codec() returns ObjectCodec<?>
@@ -345,7 +349,8 @@ public final class SkyValueRetrieverTest {
     var v4 = new ValueWithReference(4, v3);
 
     PackedFingerprint skyValueFingerprint =
-        uploadKeyValuePair(key, v4, fingerprintValueService, analysisCacheServiceData);
+        uploadKeyValuePair(
+            key, v4, COMPRESSION_SERVICE, fingerprintValueService, analysisCacheServiceData);
     PackedFingerprint v1Fingerprint = fingerprintObject(fingerprintValueService, v1);
 
     store.remove(v1Fingerprint);
@@ -389,7 +394,8 @@ public final class SkyValueRetrieverTest {
 
     var key = new TrivialKey("a");
     var value = new TrivialValue("abc");
-    uploadKeyValuePair(key, value, fingerprintValueService, analysisCacheServiceData);
+    uploadKeyValuePair(
+        key, value, COMPRESSION_SERVICE, fingerprintValueService, analysisCacheServiceData);
 
     RetrievalResult result =
         createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
@@ -443,7 +449,8 @@ public final class SkyValueRetrieverTest {
 
     var key = new ExampleKey("a");
     var value = new ExampleValue(key, 10);
-    uploadKeyValuePair(key, value, fingerprintValueService, analysisCacheServiceData);
+    uploadKeyValuePair(
+        key, value, COMPRESSION_SERVICE, fingerprintValueService, analysisCacheServiceData);
 
     var capturedKey = new SkyKey[1];
 
@@ -572,7 +579,8 @@ public final class SkyValueRetrieverTest {
 
     var key = new ExampleKey("a");
     var value = new ExampleValue(key, 10);
-    uploadKeyValuePair(key, value, fingerprintValueService, analysisCacheServiceData);
+    uploadKeyValuePair(
+        key, value, COMPRESSION_SERVICE, fingerprintValueService, analysisCacheServiceData);
 
     var capturedKey = new SkyKey[1];
 
@@ -633,7 +641,12 @@ public final class SkyValueRetrieverTest {
     var lookupKey1 = new ExampleKey("b");
     var multiLookupValue =
         new MultiLookupValue(new ExampleValue(lookupKey0, 3), new ExampleValue(lookupKey1, 5));
-    uploadKeyValuePair(key, multiLookupValue, fingerprintValueService, analysisCacheServiceData);
+    uploadKeyValuePair(
+        key,
+        multiLookupValue,
+        COMPRESSION_SERVICE,
+        fingerprintValueService,
+        analysisCacheServiceData);
 
     var capturedKeys = new ArrayList<SkyKey>();
 
@@ -704,7 +717,8 @@ public final class SkyValueRetrieverTest {
 
     var key = new TrivialKey("k");
     var value = new TrivialValue("v");
-    uploadKeyValuePair(key, value, fingerprintValueService, analysisCacheServiceData);
+    uploadKeyValuePair(
+        key, value, COMPRESSION_SERVICE, fingerprintValueService, analysisCacheServiceData);
 
     var thrown =
         assertThrows(
@@ -924,11 +938,17 @@ public final class SkyValueRetrieverTest {
   private PackedFingerprint uploadKeyValuePair(
       SkyKey key,
       SkyValue value,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       @Nullable Map<ByteString, ByteString> analysisCacheServiceData)
       throws SerializationException, InterruptedException, ExecutionException {
     return uploadKeyValuePair(
-        key, CONSTANT_FOR_TESTING, value, fingerprintValueService, analysisCacheServiceData);
+        key,
+        CONSTANT_FOR_TESTING,
+        value,
+        compressionService,
+        fingerprintValueService,
+        analysisCacheServiceData);
   }
 
   @CanIgnoreReturnValue
@@ -936,18 +956,19 @@ public final class SkyValueRetrieverTest {
       SkyKey key,
       FrontierNodeVersion version,
       SkyValue value,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       @Nullable Map<ByteString, ByteString> analysisCacheServiceData)
       throws SerializationException, InterruptedException, ExecutionException {
     SerializationResult<ByteString> keyBytes =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, key);
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, key);
     ListenableFuture<?> writeStatus = keyBytes.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       var unused = writeStatus.get();
     }
 
     SerializationResult<ByteString> valueBytes =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, value);
+        codecs.serializeMemoizedAndBlocking(compressionService, fingerprintValueService, value);
     writeStatus = keyBytes.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       var unused = writeStatus.get();

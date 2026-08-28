@@ -50,6 +50,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/cmdline:srcs",
         "//src/main/java/com/google/devtools/build/lib/collect:srcs",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:srcs",
+        "//src/main/java/com/google/devtools/build/lib/compress:srcs",
         "//src/main/java/com/google/devtools/build/lib/concurrent:srcs",
         "//src/main/java/com/google/devtools/build/lib/dynamic:srcs",
         "//src/main/java/com/google/devtools/build/lib/events:srcs",

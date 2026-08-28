@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
@@ -60,6 +59,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory.InvalidPackagePathSymlinkException;
 import com.google.devtools.build.lib.server.FailureDetails.BuildReport;
@@ -704,6 +704,7 @@ public class ExecutionGraphModule extends BlazeModule {
       }
     }
 
+    private final CompressionService compressionService;
     private final BugReporter bugReporter;
     private final EventBus eventBus;
     private final boolean localLockFreeOutputEnabled;
@@ -738,6 +739,7 @@ public class ExecutionGraphModule extends BlazeModule {
     private static final int OUTPUT_BUFFER_SIZE = 1 << 21;
 
     ActionDumpWriter(
+        CompressionService compressionService,
         BugReporter bugReporter,
         EventBus eventBus,
         boolean localLockFreeOutputEnabled,
@@ -746,6 +748,7 @@ public class ExecutionGraphModule extends BlazeModule {
         DependencyInfo depType,
         int queueSize,
         int queuedBytesLimit) {
+      this.compressionService = compressionService;
       this.bugReporter = bugReporter;
       this.eventBus = eventBus;
       this.localLockFreeOutputEnabled = localLockFreeOutputEnabled;
@@ -893,14 +896,14 @@ public class ExecutionGraphModule extends BlazeModule {
 
     /** Test hook to allow injecting failures in tests. */
     @VisibleForTesting
-    ZstdOutputStream createCompressingOutputStream() throws IOException {
+    OutputStream createCompressingOutputStream() throws IOException {
       // zstd compression at the default level produces 20% smaller outputs than gzip, while being
       // faster to compress and decompress. Higher levels get slower quickly, without much benefit
       // in size. For example, level 4 produces 1% smaller outputs, but takes twice as long to
       // compress in standalone benchmarks. Lower levels quickly increase size, without much benefit
       // in speed. For example, level -3 produces 60% bigger outputs, but only runs 10% faster in
       // standalone benchmarks.
-      return new ZstdOutputStream(outStream);
+      return compressionService.newZstdOutputStream(outStream);
     }
 
     /**
@@ -955,9 +958,14 @@ public class ExecutionGraphModule extends BlazeModule {
         checkNotNull(parsingResult.getOptions(BuildEventProtocolOptions.class));
     ExecutionGraphOptions executionGraphOptions =
         checkNotNull(parsingResult.getOptions(ExecutionGraphOptions.class));
+    CompressionService compressionService =
+        checkNotNull(
+            env.getRuntime().getBlazeService(CompressionService.class),
+            "expected CompressionService to be available");
     if (bepOptions.getStreamingLogFileUploads()
         && executionGraphOptions.getExecutionGraphLogPath().isBlank()) {
       return new StreamingActionDumpWriter(
+          compressionService,
           env.getRuntime().getBugReporter(),
           env.getEventBus(),
           env.getOptions().getOptions(LocalExecutionOptions.class).getLocalLockfreeOutput(),
@@ -977,6 +985,7 @@ public class ExecutionGraphModule extends BlazeModule {
     }
     try {
       return new FilesystemActionDumpWriter(
+          compressionService,
           env.getRuntime().getBugReporter(),
           env.getEventBus(),
           env.getOptions().getOptions(LocalExecutionOptions.class).getLocalLockfreeOutput(),
@@ -1010,6 +1019,7 @@ public class ExecutionGraphModule extends BlazeModule {
     private final Path actionGraphFile;
 
     FilesystemActionDumpWriter(
+        CompressionService compressionService,
         BugReporter bugReporter,
         EventBus eventBus,
         boolean localLockFreeOutputEnabled,
@@ -1020,6 +1030,7 @@ public class ExecutionGraphModule extends BlazeModule {
         int queuedBytesLimit)
         throws IOException {
       super(
+          compressionService,
           bugReporter,
           eventBus,
           localLockFreeOutputEnabled,
@@ -1060,6 +1071,7 @@ public class ExecutionGraphModule extends BlazeModule {
     private final UploadContext uploadContext;
 
     public StreamingActionDumpWriter(
+        CompressionService compressionService,
         BugReporter bugReporter,
         EventBus eventBus,
         boolean localLockFreeOutputEnabled,
@@ -1069,6 +1081,7 @@ public class ExecutionGraphModule extends BlazeModule {
         int queueSize,
         int queuedBytesLimit) {
       super(
+          compressionService,
           bugReporter,
           eventBus,
           localLockFreeOutputEnabled,

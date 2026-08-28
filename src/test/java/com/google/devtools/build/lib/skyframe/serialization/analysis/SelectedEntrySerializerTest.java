@@ -25,6 +25,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -78,6 +80,8 @@ import org.mockito.junit.MockitoRule;
 
 @RunWith(JUnit4.class)
 public final class SelectedEntrySerializerTest {
+
+  private static final CompressionService COMPRESSION_SERVICE = new CompressionServiceImpl();
 
   @Rule public final MockitoRule mocks = MockitoJUnit.rule();
 
@@ -258,6 +262,7 @@ public final class SelectedEntrySerializerTest {
         codecs,
         FrontierNodeVersion.CONSTANT_FOR_TESTING,
         ImmutableSet.copyOf(keysToSerialize),
+        COMPRESSION_SERVICE,
         fingerprintValueService,
         invalidationStore,
         /* shouldDiscardMemory= */ false,

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupSummaryKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
@@ -46,6 +47,7 @@ public final class SkycacheUploadClient {
   private final SelectedEntrySerializer.SerializationStatus writeStatuses;
 
   public SkycacheUploadClient(
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       ObjectCodecs codecs,
       FrontierNodeVersion frontierNodeVersion,
@@ -59,6 +61,7 @@ public final class SkycacheUploadClient {
         new FileDependencySerializer(
             versionGetter,
             graph,
+            compressionService,
             fingerprintValueService,
             fingerprintValueService.getExecutor(),
             /* profileCollector= */ null);
@@ -71,6 +74,7 @@ public final class SkycacheUploadClient {
             graph,
             codecs,
             frontierNodeVersion,
+            compressionService,
             fingerprintValueService,
             fileOpNodes,
             fileDependencySerializer,

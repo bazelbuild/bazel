@@ -27,6 +27,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics.InvalidationLookupMetrics;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
@@ -55,6 +57,8 @@ import org.mockito.junit.MockitoRule;
 @RunWith(TestParameterInjector.class)
 public final class AnalysisCacheInvalidatorTest {
 
+  private static final CompressionService COMPRESSION_SERVICE = new CompressionServiceImpl();
+
   @Rule public final MockitoRule mocks = MockitoJUnit.rule();
   @Mock private RemoteAnalysisCacheClient mockAnalysisCacheClient;
   @Mock private ExtendedEventHandler mockEventHandler;
@@ -72,6 +76,7 @@ public final class AnalysisCacheInvalidatorTest {
         new AnalysisCacheInvalidator(
             mockAnalysisCacheClient,
             objectCodecs,
+            COMPRESSION_SERVICE,
             fingerprintService,
             /* currentVersion= */ frontierNodeVersion,
             baseClientId,
@@ -92,7 +97,7 @@ public final class AnalysisCacheInvalidatorTest {
     TrivialKey key = new TrivialKey("hit_key");
     PackedFingerprint fingerprint =
         FingerprintValueService.computeFingerprint(
-            fingerprintService, objectCodecs, key, frontierNodeVersion);
+            COMPRESSION_SERVICE, fingerprintService, objectCodecs, key, frontierNodeVersion);
 
     // Simulate a cache hit by returning a non-empty response.
     when(mockAnalysisCacheClient.lookup(fingerprint.toBytes()))
@@ -105,6 +110,7 @@ public final class AnalysisCacheInvalidatorTest {
         new AnalysisCacheInvalidator(
             mockAnalysisCacheClient,
             objectCodecs,
+            COMPRESSION_SERVICE,
             fingerprintService,
             /* currentVersion= */ frontierNodeVersion,
             baseClientId,
@@ -125,7 +131,7 @@ public final class AnalysisCacheInvalidatorTest {
     TrivialKey key = new TrivialKey("miss_key");
     PackedFingerprint fingerprint =
         FingerprintValueService.computeFingerprint(
-            fingerprintService, objectCodecs, key, frontierNodeVersion);
+            COMPRESSION_SERVICE, fingerprintService, objectCodecs, key, frontierNodeVersion);
 
     // Simulate a cache miss by returning an empty response.
     when(mockAnalysisCacheClient.lookup(fingerprint.toBytes()))
@@ -137,6 +143,7 @@ public final class AnalysisCacheInvalidatorTest {
         new AnalysisCacheInvalidator(
             mockAnalysisCacheClient,
             objectCodecs,
+            COMPRESSION_SERVICE,
             fingerprintService,
             /* currentVersion= */ frontierNodeVersion,
             baseClientId,
@@ -159,10 +166,10 @@ public final class AnalysisCacheInvalidatorTest {
 
     PackedFingerprint hitFingerprint =
         FingerprintValueService.computeFingerprint(
-            fingerprintService, objectCodecs, hitKey, frontierNodeVersion);
+            COMPRESSION_SERVICE, fingerprintService, objectCodecs, hitKey, frontierNodeVersion);
     PackedFingerprint missFingerprint =
         FingerprintValueService.computeFingerprint(
-            fingerprintService, objectCodecs, missKey, frontierNodeVersion);
+            COMPRESSION_SERVICE, fingerprintService, objectCodecs, missKey, frontierNodeVersion);
 
     // Simulate a cache hit _and_ miss for looking up multiple keys.
     when(mockAnalysisCacheClient.lookup(hitFingerprint.toBytes()))
@@ -179,6 +186,7 @@ public final class AnalysisCacheInvalidatorTest {
         new AnalysisCacheInvalidator(
             mockAnalysisCacheClient,
             objectCodecs,
+            COMPRESSION_SERVICE,
             fingerprintService,
             /* currentVersion= */ frontierNodeVersion,
             baseClientId,
@@ -221,6 +229,7 @@ public final class AnalysisCacheInvalidatorTest {
         new AnalysisCacheInvalidator(
             mockAnalysisCacheClient,
             objectCodecs,
+            COMPRESSION_SERVICE,
             fingerprintService,
             currentVersion,
             baseClientId,
@@ -266,6 +275,7 @@ public final class AnalysisCacheInvalidatorTest {
         new AnalysisCacheInvalidator(
             mockAnalysisCacheClient,
             objectCodecs,
+            COMPRESSION_SERVICE,
             fingerprintService,
             currentVersion,
             baseClientId,
@@ -328,7 +338,7 @@ public final class AnalysisCacheInvalidatorTest {
     TrivialKey key = new TrivialKey("key");
     PackedFingerprint packedFingerprint =
         FingerprintValueService.computeFingerprint(
-            fingerprintService, objectCodecs, key, frontierNodeVersion);
+            COMPRESSION_SERVICE, fingerprintService, objectCodecs, key, frontierNodeVersion);
     when(mockAnalysisCacheClient.lookup(packedFingerprint.toBytes()))
         .thenReturn(
             immediateFuture(
@@ -338,6 +348,7 @@ public final class AnalysisCacheInvalidatorTest {
         new AnalysisCacheInvalidator(
             mockAnalysisCacheClient,
             objectCodecs,
+            COMPRESSION_SERVICE,
             fingerprintService,
             /* currentVersion= */ frontierNodeVersion,
             testCase.currentClientId,
@@ -362,7 +373,7 @@ public final class AnalysisCacheInvalidatorTest {
     TrivialKey key = new TrivialKey("timeout_key");
     PackedFingerprint fingerprint =
         FingerprintValueService.computeFingerprint(
-            fingerprintService, objectCodecs, key, frontierNodeVersion);
+            COMPRESSION_SERVICE, fingerprintService, objectCodecs, key, frontierNodeVersion);
 
     SettableFuture<LookupResult> neverCompletes = SettableFuture.create();
     when(mockAnalysisCacheClient.lookup(fingerprint.toBytes())).thenReturn(neverCompletes);
@@ -371,6 +382,7 @@ public final class AnalysisCacheInvalidatorTest {
         new AnalysisCacheInvalidator(
             mockAnalysisCacheClient,
             objectCodecs,
+            COMPRESSION_SERVICE,
             fingerprintService,
             /* currentVersion= */ frontierNodeVersion,
             baseClientId,
@@ -400,10 +412,10 @@ public final class AnalysisCacheInvalidatorTest {
     TrivialKey key2 = new TrivialKey("hit_key2");
     PackedFingerprint fp1 =
         FingerprintValueService.computeFingerprint(
-            fingerprintService, objectCodecs, key1, frontierNodeVersion);
+            COMPRESSION_SERVICE, fingerprintService, objectCodecs, key1, frontierNodeVersion);
     PackedFingerprint fp2 =
         FingerprintValueService.computeFingerprint(
-            fingerprintService, objectCodecs, key2, frontierNodeVersion);
+            COMPRESSION_SERVICE, fingerprintService, objectCodecs, key2, frontierNodeVersion);
 
     when(mockAnalysisCacheClient.lookup(fp1.toBytes()))
         .thenReturn(
@@ -420,6 +432,7 @@ public final class AnalysisCacheInvalidatorTest {
         new AnalysisCacheInvalidator(
             mockAnalysisCacheClient,
             objectCodecs,
+            COMPRESSION_SERVICE,
             fingerprintService,
             frontierNodeVersion,
             baseClientId,
@@ -448,10 +461,10 @@ public final class AnalysisCacheInvalidatorTest {
     TrivialKey missKey = new TrivialKey("miss_key_metrics");
     PackedFingerprint hitFp =
         FingerprintValueService.computeFingerprint(
-            fingerprintService, objectCodecs, hitKey, frontierNodeVersion);
+            COMPRESSION_SERVICE, fingerprintService, objectCodecs, hitKey, frontierNodeVersion);
     PackedFingerprint missFp =
         FingerprintValueService.computeFingerprint(
-            fingerprintService, objectCodecs, missKey, frontierNodeVersion);
+            COMPRESSION_SERVICE, fingerprintService, objectCodecs, missKey, frontierNodeVersion);
 
     when(mockAnalysisCacheClient.lookup(hitFp.toBytes()))
         .thenReturn(
@@ -467,6 +480,7 @@ public final class AnalysisCacheInvalidatorTest {
         new AnalysisCacheInvalidator(
             mockAnalysisCacheClient,
             objectCodecs,
+            COMPRESSION_SERVICE,
             fingerprintService,
             frontierNodeVersion,
             baseClientId,
@@ -495,10 +509,10 @@ public final class AnalysisCacheInvalidatorTest {
     TrivialKey key2 = new TrivialKey("miss_key2");
     PackedFingerprint fp1 =
         FingerprintValueService.computeFingerprint(
-            fingerprintService, objectCodecs, key1, frontierNodeVersion);
+            COMPRESSION_SERVICE, fingerprintService, objectCodecs, key1, frontierNodeVersion);
     PackedFingerprint fp2 =
         FingerprintValueService.computeFingerprint(
-            fingerprintService, objectCodecs, key2, frontierNodeVersion);
+            COMPRESSION_SERVICE, fingerprintService, objectCodecs, key2, frontierNodeVersion);
 
     when(mockAnalysisCacheClient.lookup(fp1.toBytes()))
         .thenReturn(
@@ -513,6 +527,7 @@ public final class AnalysisCacheInvalidatorTest {
         new AnalysisCacheInvalidator(
             mockAnalysisCacheClient,
             objectCodecs,
+            COMPRESSION_SERVICE,
             fingerprintService,
             frontierNodeVersion,
             baseClientId,
@@ -541,7 +556,7 @@ public final class AnalysisCacheInvalidatorTest {
     TrivialKey key = new TrivialKey("error_key");
     PackedFingerprint fingerprint =
         FingerprintValueService.computeFingerprint(
-            fingerprintService, objectCodecs, key, frontierNodeVersion);
+            COMPRESSION_SERVICE, fingerprintService, objectCodecs, key, frontierNodeVersion);
 
     when(mockAnalysisCacheClient.lookup(fingerprint.toBytes()))
         .thenReturn(immediateFailedFuture(new RuntimeException("injected failure")));
@@ -550,6 +565,7 @@ public final class AnalysisCacheInvalidatorTest {
         new AnalysisCacheInvalidator(
             mockAnalysisCacheClient,
             objectCodecs,
+            COMPRESSION_SERVICE,
             fingerprintService,
             /* currentVersion= */ frontierNodeVersion,
             baseClientId,

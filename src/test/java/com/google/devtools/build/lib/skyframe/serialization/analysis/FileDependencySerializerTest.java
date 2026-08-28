@@ -20,6 +20,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
@@ -56,6 +58,8 @@ public final class FileDependencySerializerTest {
 
   private static final int THREAD_COUNT = 10;
 
+  private static final CompressionService COMPRESSION_SERVICE = new CompressionServiceImpl();
+
   private final SafeExecutorOwner executor = new SafeExecutorOwner(new ForkJoinPool(THREAD_COUNT));
   @Mock private LongVersionGetter versionGetter;
   @Mock private InMemoryGraph graph;
@@ -70,7 +74,9 @@ public final class FileDependencySerializerTest {
     FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     root = Root.fromPath(fs.getPath("/root"));
     root.asPath().createDirectoryAndParents();
-    serializer = new FileDependencySerializer(versionGetter, graph, writer, executor, null);
+    serializer =
+        new FileDependencySerializer(
+            versionGetter, graph, COMPRESSION_SERVICE, writer, executor, null);
   }
 
   @Test
@@ -136,7 +142,8 @@ public final class FileDependencySerializerTest {
   public void registerFileDependency_recordsSamples() throws Exception {
     ProfileCollector profileCollector = new ProfileCollector();
     serializer =
-        new FileDependencySerializer(versionGetter, graph, writer, executor, profileCollector);
+        new FileDependencySerializer(
+            versionGetter, graph, COMPRESSION_SERVICE, writer, executor, profileCollector);
 
     PathFragment filePathFragment = PathFragment.create("file.txt");
     RootedPath rootedPath = RootedPath.toRootedPath(root, filePathFragment);
