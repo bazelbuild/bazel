@@ -192,7 +192,7 @@ public class SymlinkForestTest {
         toRoot.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION).getRelative(repoName));
   }
 
-  private static void assertIsDir(Path root, String relpart) {
+  private static void assertIsDir(Path root, String relpart) throws IOException {
     assertThat(root.getRelative(relpart).isDirectory(Symlinks.NOFOLLOW)).isTrue();
   }
 

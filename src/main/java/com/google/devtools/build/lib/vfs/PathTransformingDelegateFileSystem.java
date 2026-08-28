@@ -121,22 +121,22 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   }
 
   @Override
-  public boolean isSymbolicLink(PathFragment path) {
+  public boolean isSymbolicLink(PathFragment path) throws IOException {
     return delegateFs.isSymbolicLink(toDelegatePath(path));
   }
 
   @Override
-  public boolean isDirectory(PathFragment path, boolean followSymlinks) {
+  public boolean isDirectory(PathFragment path, boolean followSymlinks) throws IOException {
     return delegateFs.isDirectory(toDelegatePath(path), followSymlinks);
   }
 
   @Override
-  public boolean isFile(PathFragment path, boolean followSymlinks) {
+  public boolean isFile(PathFragment path, boolean followSymlinks) throws IOException {
     return delegateFs.isFile(toDelegatePath(path), followSymlinks);
   }
 
   @Override
-  public boolean isSpecialFile(PathFragment path, boolean followSymlinks) {
+  public boolean isSpecialFile(PathFragment path, boolean followSymlinks) throws IOException {
     return delegateFs.isSpecialFile(toDelegatePath(path), followSymlinks);
   }
 

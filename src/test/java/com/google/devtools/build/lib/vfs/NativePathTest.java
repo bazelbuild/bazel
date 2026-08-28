@@ -84,12 +84,12 @@ public class NativePathTest {
   }
 
   @Test
-  public void testIsFileIsTrueForFile() {
+  public void testIsFileIsTrueForFile() throws Exception {
     assertThat(fs.getPath(aFile.getPath()).isFile()).isTrue();
   }
 
   @Test
-  public void testIsFileIsFalseForDirectory() {
+  public void testIsFileIsFalseForDirectory() throws Exception {
     assertThat(fs.getPath(aDirectory.getPath()).isFile()).isFalse();
   }
 
@@ -104,7 +104,7 @@ public class NativePathTest {
   }
 
   @Test
-  public void testIsDirectory() {
+  public void testIsDirectory() throws Exception {
     assertThat(fs.getPath(aDirectory.getPath()).isDirectory()).isTrue();
     assertThat(fs.getPath(aFile.getPath()).isDirectory()).isFalse();
     assertThat(fs.getPath("/does/not/exist").isDirectory()).isFalse();

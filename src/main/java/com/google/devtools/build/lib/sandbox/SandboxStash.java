@@ -413,7 +413,12 @@ public class SandboxStash {
   /** Cleans up the entire current stash, if any. Cleaning may be asynchronous. */
   static void clean(TreeDeleter treeDeleter, Path sandboxBase) {
     Path stashDir = getStashBase(sandboxBase);
-    if (!stashDir.isDirectory()) {
+    try {
+      if (!stashDir.isDirectory()) {
+        return;
+      }
+    } catch (IOException e) {
+      logger.atWarning().withCause(e).log("Failed to stat sandbox stash %s", stashDir);
       return;
     }
     Path stashTrashDir = stashDir.getChild("__trash");

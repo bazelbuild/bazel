@@ -269,31 +269,22 @@ public abstract class FileSystem {
       try {
         entries = getDirectoryEntries(dir);
       } catch (IOException e) {
-        // If we couldn't read the directory, it may be because it's not readable. Try granting this
-        // permission and retry. If the retry fails, give up.
+        // If we couldn't read the directory, it may be because it's not readable or executable.
+        // Try granting these permissions and retry. If the retry also fails, give up.
         setReadable(dir, true);
         setExecutable(dir, true);
         entries = getDirectoryEntries(dir);
       }
-
       Iterator<String> iterator = entries.iterator();
       if (iterator.hasNext()) {
         PathFragment first = dir.getChild(iterator.next());
-        deleteTreesBelow(first);
         try {
-          // If the directory is not executable, delete(), depending on implementation, may decide
-          // that the directory entry does not exist and return false without throwing.
-          if (!delete(first)) {
-            throw new IOException(
-                "Unable to delete \"" + first + "\": directory entry does not exist");
-          }
+          deleteTreesBelow(first);
+          delete(first);
         } catch (IOException e) {
           // If we couldn't delete the first entry in a directory, it may be because the directory
           // (not the entry!) is not writable or executable. Try granting this permission and retry.
-          // If the retry fails, give up. Note that we have to retry deleteTreesBelow() too in case
-          // first is itself a directory; if the directory were not executable, the initial
-          // first.deleteTreesBelow() call would have been a silent no-op (since first.isDirectory()
-          // would have returned false) and sub-entries of first would not have been deleted.
+          // If the retry also fails, give up.
           setWritable(dir, true);
           setExecutable(dir, true);
           deleteTreesBelow(first);
@@ -485,57 +476,45 @@ public abstract class FileSystem {
   /**
    * Returns true iff {@code path} denotes an existing regular or special file. See {@link
    * Path#isFile(Symlinks)} for specification.
+   *
+   * @throws IOException if an error occurs while determining existence
    */
-  public boolean isFile(PathFragment path, boolean followSymlinks) {
-    try {
-      FileStatus stat = statIfFound(path, followSymlinks);
-      return stat != null && stat.isFile();
-    } catch (IOException e) {
-      // TODO(tjgq): Do not swallow exceptions (requires fixing the signature).
-      return false;
-    }
+  public boolean isFile(PathFragment path, boolean followSymlinks) throws IOException {
+    FileStatus stat = statIfFound(path, followSymlinks);
+    return stat != null && stat.isFile();
   }
 
   /**
    * Returns true iff {@code path} denotes an existing special file. See {@link
    * Path#isSpecialFile(Symlinks)} for specification.
+   *
+   * @throws IOException if an error occurs while determining existence
    */
-  public boolean isSpecialFile(PathFragment path, boolean followSymlinks) {
-    try {
-      FileStatus stat = statIfFound(path, followSymlinks);
+  public boolean isSpecialFile(PathFragment path, boolean followSymlinks) throws IOException {
+    FileStatus stat = statIfFound(path, followSymlinks);
     return stat != null && stat.isSpecialFile();
-    } catch (IOException e) {
-      // TODO(tjgq): Do not swallow exceptions (requires fixing the signature).
-      return false;
-    }
   }
 
   /**
    * Returns true iff {@code path} denotes an existing symbolic link. See {@link
    * Path#isSymbolicLink()} for specification.
+   *
+   * @throws IOException if an error occurs while determining existence
    */
-  public boolean isSymbolicLink(PathFragment path) {
-    try {
-      FileStatus stat = statIfFound(path, false);
-      return stat != null && stat.isSymbolicLink();
-    } catch (IOException e) {
-      // TODO(tjgq): Do not swallow exceptions (requires fixing the signature).
-      return false;
-    }
+  public boolean isSymbolicLink(PathFragment path) throws IOException {
+    FileStatus stat = statIfFound(path, false);
+    return stat != null && stat.isSymbolicLink();
   }
 
   /**
    * Returns true iff {@code path} denotes an existing directory. See {@link
    * Path#isDirectory(Symlinks)} for specification.
+   *
+   * @throws IOException if an error occurs while determining existence
    */
-  public boolean isDirectory(PathFragment path, boolean followSymlinks) {
-    try {
-      FileStatus stat = statIfFound(path, followSymlinks);
-      return stat != null && stat.isDirectory();
-    } catch (IOException e) {
-      // TODO(tjgq): Do not swallow exceptions (requires fixing the signature).
-      return false;
-    }
+  public boolean isDirectory(PathFragment path, boolean followSymlinks) throws IOException {
+    FileStatus stat = statIfFound(path, followSymlinks);
+    return stat != null && stat.isDirectory();
   }
 
   /**

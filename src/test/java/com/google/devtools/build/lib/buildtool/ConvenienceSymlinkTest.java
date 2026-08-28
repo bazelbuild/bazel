@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -297,18 +298,14 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
   /** Gets a mapping from the workspace-relative paths of symlinks to the paths they point to. */
   private ImmutableMap<String, Path> getConvenienceSymlinks() throws IOException {
-    return getWorkspace().getDirectoryEntries().stream()
-        .filter(Path::isSymbolicLink)
-        .collect(
-            toImmutableMap(
-                (path) -> path.relativeTo(getWorkspace()).toString(),
-                (path) -> {
-                  try {
-                    return getWorkspace().getRelative(path.readSymbolicLinkUnchecked());
-                  } catch (IOException ex) {
-                    throw new RuntimeException(ex);
-                  }
-                }));
+    ImmutableMap.Builder<String, Path> symlinks = ImmutableMap.builder();
+    for (Dirent entry : getWorkspace().readdir(Symlinks.NOFOLLOW)) {
+      if (entry.getType().equals(Dirent.Type.SYMLINK)) {
+        Path target = getWorkspace().getRelative(entry.getName()).resolveSymbolicLinks();
+        symlinks.put(entry.getName(), target);
+      }
+    }
+    return symlinks.buildOrThrow();
   }
 
   @Test

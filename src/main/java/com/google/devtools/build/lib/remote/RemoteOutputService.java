@@ -127,20 +127,20 @@ public class RemoteOutputService implements OutputService {
     // is valid. If the previous OutputService redirected the output path to a remote location, we
     // must undo this.
     Path outputPath = directories.getOutputPath(workspaceName);
-    if (outputPath.isSymbolicLink()) {
-      try {
+    try {
+      if (outputPath.isSymbolicLink()) {
         outputPath.delete();
-      } catch (IOException e) {
-        throw new AbruptExitException(
-            DetailedExitCode.of(
-                FailureDetail.newBuilder()
-                    .setMessage(
-                        String.format("Couldn't remove output path symlink: %s", e.getMessage()))
-                    .setExecution(
-                        Execution.newBuilder().setCode(Code.LOCAL_OUTPUT_DIRECTORY_SYMLINK_FAILURE))
-                    .build()),
-            e);
       }
+    } catch (IOException e) {
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(
+                      String.format("Couldn't remove output path symlink: %s", e.getMessage()))
+                  .setExecution(
+                      Execution.newBuilder().setCode(Code.LOCAL_OUTPUT_DIRECTORY_SYMLINK_FAILURE))
+                  .build()),
+          e);
     }
     return ModifiedFileSet.EVERYTHING_MODIFIED;
   }

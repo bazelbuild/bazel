@@ -846,6 +846,8 @@ message Sandbox {
     FORBIDDEN_INPUT = 11 [(metadata) = { exit_code: 1 }];
     COPY_INPUTS_IO_EXCEPTION = 12 [(metadata) = { exit_code: 36 }];
     COPY_OUTPUTS_IO_EXCEPTION = 13 [(metadata) = { exit_code: 36 }];
+    MOUNT_SOURCE_STAT_ERROR = 14 [(metadata) = { exit_code: 36 }];
+    MOUNT_TARGET_STAT_ERROR = 15 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;

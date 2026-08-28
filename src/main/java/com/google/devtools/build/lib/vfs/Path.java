@@ -352,8 +352,12 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
     return fileSystem.statIfFound(asFragment(), followSymlinks.toBoolean());
   }
 
-  /** Returns true iff this path denotes an existing directory. Follows symbolic links. */
-  public boolean isDirectory() {
+  /**
+   * Returns true iff this path denotes an existing directory. Follows symbolic links.
+   *
+   * @throws IOException if an error occurs while determining existence
+   */
+  public boolean isDirectory() throws IOException {
     return fileSystem.isDirectory(asFragment(), true);
   }
 
@@ -362,8 +366,9 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    *
    * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a symbolic link, the
    *     link is dereferenced until a file other than a symbolic link is found
+   * @throws IOException if an error occurs while determining existence
    */
-  public boolean isDirectory(Symlinks followSymlinks) {
+  public boolean isDirectory(Symlinks followSymlinks) throws IOException {
     return fileSystem.isDirectory(asFragment(), followSymlinks.toBoolean());
   }
 
@@ -372,8 +377,10 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    *
    * <p>For our purposes, "file" includes special files (socket, fifo, block or char devices) too;
    * it excludes symbolic links and directories.
+   *
+   * @throws IOException if an error occurs while determining existence
    */
-  public boolean isFile() {
+  public boolean isFile() throws IOException {
     return fileSystem.isFile(asFragment(), true);
   }
 
@@ -385,16 +392,19 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    *
    * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a symbolic link, the
    *     link is dereferenced until a file other than a symbolic link is found.
+   * @throws IOException if an error occurs while determining existence
    */
-  public boolean isFile(Symlinks followSymlinks) {
+  public boolean isFile(Symlinks followSymlinks) throws IOException {
     return fileSystem.isFile(asFragment(), followSymlinks.toBoolean());
   }
 
   /**
    * Returns true iff this path denotes an existing special file (e.g. fifo). Follows symbolic
    * links.
+   *
+   * @throws IOException if an error occurs while determining existence
    */
-  public boolean isSpecialFile() {
+  public boolean isSpecialFile() throws IOException {
     return fileSystem.isSpecialFile(asFragment(), true);
   }
 
@@ -403,15 +413,18 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    *
    * @param followSymlinks if {@link Symlinks#FOLLOW}, and this path denotes a symbolic link, the
    *     link is dereferenced until a path other than a symbolic link is found.
+   * @throws IOException if an error occurs while determining existence
    */
-  public boolean isSpecialFile(Symlinks followSymlinks) {
+  public boolean isSpecialFile(Symlinks followSymlinks) throws IOException {
     return fileSystem.isSpecialFile(asFragment(), followSymlinks.toBoolean());
   }
 
   /**
    * Returns true iff this path denotes an existing symbolic link. Does not follow symbolic links.
+   *
+   * @throws IOException if an error occurs while determining existence
    */
-  public boolean isSymbolicLink() {
+  public boolean isSymbolicLink() throws IOException {
     return fileSystem.isSymbolicLink(asFragment());
   }
 

@@ -1700,8 +1700,13 @@ public final class SkyframeActionExecutor {
                           "declared output '%s' is not a symlink", output.prettyPrint())));
             } else {
               // Are all other exceptions caught due to missing files?
-              reportMissingOutputFile(
-                  action, output, reporter, output.getPath().isSymbolicLink(), e);
+              boolean isSymlink = false;
+              try {
+                isSymlink = output.getPath().isSymbolicLink();
+              } catch (IOException ignored) {
+                // Ignore, since it's just for informational purposes.
+              }
+              reportMissingOutputFile(action, output, reporter, isSymlink, e);
             }
           }
         }

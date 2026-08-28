@@ -478,15 +478,15 @@ public class FilesystemValueChecker {
   private boolean treeArtifactIsDirty(Artifact artifact, TreeArtifactValue value)
       throws InterruptedException {
     Path path = artifact.getPath();
-    if (path.isSymbolicLink()) {
-      return true; // TreeArtifacts may not be symbolic links.
-    }
 
     // This could be improved by short-circuiting as soon as we see a child that is not present in
     // the TreeArtifactValue, but it doesn't seem to be a major source of overhead.
     // visitTree() is called from multiple threads in parallel so this need to be a concurrent set
     Set<PathFragment> currentLocalChildren = Sets.newConcurrentHashSet();
     try {
+      if (path.isSymbolicLink()) {
+        return true; // TreeArtifacts may not be symbolic links.
+      }
       TreeArtifactValue.visitTree(
           path,
           (child, type, traversedSymlink) -> {

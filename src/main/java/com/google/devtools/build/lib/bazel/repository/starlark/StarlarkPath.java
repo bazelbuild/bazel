@@ -184,8 +184,12 @@ public final class StarlarkPath implements StarlarkValue {
           extension to be sensitive to whether the path is a directory or a file, use the \
           <code>watch()</code> method on the context object.
           """)
-  public boolean isDir() {
-    return path.isDirectory();
+  public boolean isDir() throws RepositoryFunctionException {
+    try {
+      return path.isDirectory();
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
   }
 
   @StarlarkMethod(
