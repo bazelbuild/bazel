@@ -801,7 +801,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
         try {
           inclusions = Preconditions.checkNotNull(previous.get(), source);
         } catch (ExecutionException e) {
-          // An exception occured when some other thread tried to load the same file that we are
+          // An exception occurred when some other thread tried to load the same file that we are
           // waiting for. If this is a MissingDepExecException, we have to simply retry as otherwise
           // we'd end up in an unexpected state (not requesting any deps, but claiming that there
           // are missing ones). For other exceptions, this might not be necessary but is safe to do
