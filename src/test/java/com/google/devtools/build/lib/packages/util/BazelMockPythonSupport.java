@@ -144,7 +144,13 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
     config.create("rules_python_internal_workspace/BUILD");
     config.create(
         "rules_python_internal_workspace/rules_python_config.bzl",
-        "config = struct(enable_pystar = True, BuiltinPyInfo = None, BuiltinPyRuntimeInfo = None)");
+        "config = struct(",
+        "    enable_pystar = True,",
+        "    bazel_9_or_later = True,",
+        "    bazel_10_or_later = True,",
+        "    BuiltinPyInfo = None,",
+        "    BuiltinPyRuntimeInfo = None,",
+        ")");
 
     config.create(
         "rules_python_internal_workspace/py_internal.bzl",
