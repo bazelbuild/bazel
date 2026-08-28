@@ -48,7 +48,9 @@ class RunfilesTest(test_base.TestBase):
 
     self.RunBazel(["build", "--verbose_failures", "//foo:runfiles-" + family])
 
-    if test_base.TestBase.IsWindows():
+    if family == "py":
+      bin_path = self.GetTargetExecutable("//foo:runfiles-py")
+    elif test_base.TestBase.IsWindows():
       bin_path = os.path.join(bazel_bin, "foo/runfiles-%s.exe" % family)
     else:
       bin_path = os.path.join(bazel_bin, "foo/runfiles-" + family)
@@ -130,7 +132,9 @@ class RunfilesTest(test_base.TestBase):
 
     for lang in [("py", "Python", "bar.py"), ("java", "Java", "Bar.java"),
                  ("sh", "Bash", "bar.sh"), ("cc", "C++", "bar.cc")]:
-      if test_base.TestBase.IsWindows():
+      if lang[0] == "py":
+        bin_path = self.GetTargetExecutable("//bar:bar-py")
+      elif test_base.TestBase.IsWindows():
         bin_path = os.path.join(bazel_bin, "bar/bar-%s.exe" % lang[0])
       else:
         bin_path = os.path.join(bazel_bin, "bar/bar-" + lang[0])

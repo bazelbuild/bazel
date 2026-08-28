@@ -33,9 +33,6 @@ source "$(rlocation "io_bazel/src/test/shell/bazel/coverage_helpers.sh")" \
 COVERAGE_GENERATOR_WORKSPACE_FILE="$1"; shift
 if [[ "${COVERAGE_GENERATOR_WORKSPACE_FILE}" != "released" ]]; then
   COVERAGE_GENERATOR_DIR="$(dirname "$(rlocation $COVERAGE_GENERATOR_WORKSPACE_FILE)")"
-  if is_windows; then
-    COVERAGE_GENERATOR_DIR="$(cygpath -m "${COVERAGE_GENERATOR_DIR}")"
-  fi
   add_to_bazelrc "build --override_repository=bazel_tools+remote_coverage_tools_extension+remote_coverage_tools=${COVERAGE_GENERATOR_DIR}"
 fi
 
