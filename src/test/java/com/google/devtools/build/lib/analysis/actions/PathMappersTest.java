@@ -18,12 +18,21 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.String.format;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import net.starlark.java.eval.Dict;
@@ -224,6 +233,79 @@ public class PathMappersTest extends BuildViewTestCase {
             "-source",
             "<pkg/source.txt:pkg/source.txt::pkg>")
         .inOrder();
+  }
+
+  @Test
+  public void starlarkRule_heuristicPathMappingNotAllowedViaExecutionRequirements()
+      throws Exception {
+    useConfiguration("--experimental_output_paths=strip");
+    addStarlarkRule(
+        Dict.<String, String>builder()
+            .put("supports-heuristic-path-mapping", "1")
+            .buildImmutable());
+
+    checkError(
+        "//pkg:my_rule",
+        "execution requirement 'supports-heuristic-path-mapping' cannot be set directly; it can"
+            + " only be enabled via --modify_execution_info");
+  }
+
+  @Test
+  public void starlarkRule_heuristicPathMappingAllowedViaModifyExecutionInfo() throws Exception {
+    useConfiguration(
+        "--experimental_output_paths=strip",
+        "--modify_execution_info=MyRuleAction=+supports-heuristic-path-mapping");
+    addStarlarkRule(Dict.empty());
+
+    SpawnAction action = (SpawnAction) getGeneratingActionForLabel("//pkg:my_rule");
+    Spawn spawn =
+        action.getSpawn(
+            new ActionExecutionContextBuilder()
+                .setMetadataProvider(new FakeActionInputFileCache())
+                .build());
+
+    assertThat(spawn.getPathMapper().isNoop()).isFalse();
+  }
+
+  @Test
+  public void addToFingerprint_differentiatesHeuristicPathMapping() throws Exception {
+    ActionKeyContext actionKeyContext = new ActionKeyContext();
+    NestedSet<Artifact> emptyArtifacts = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+
+    Fingerprint fpOff = new Fingerprint();
+    PathMappers.addToFingerprint(
+        "Mnemonic",
+        ImmutableMap.of(),
+        emptyArtifacts,
+        actionKeyContext,
+        OutputPathsMode.STRIP,
+        fpOff);
+
+    Fingerprint fpStructured = new Fingerprint();
+    PathMappers.addToFingerprint(
+        "Mnemonic",
+        ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, ""),
+        emptyArtifacts,
+        actionKeyContext,
+        OutputPathsMode.STRIP,
+        fpStructured);
+
+    Fingerprint fpHeuristic = new Fingerprint();
+    PathMappers.addToFingerprint(
+        "Mnemonic",
+        ImmutableMap.of(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING, ""),
+        emptyArtifacts,
+        actionKeyContext,
+        OutputPathsMode.STRIP,
+        fpHeuristic);
+
+    String digestOff = fpOff.hexDigestAndReset();
+    String digestStructured = fpStructured.hexDigestAndReset();
+    String digestHeuristic = fpHeuristic.hexDigestAndReset();
+
+    assertThat(digestOff).isNotEqualTo(digestStructured);
+    assertThat(digestStructured).isNotEqualTo(digestHeuristic);
+    assertThat(digestOff).isNotEqualTo(digestHeuristic);
   }
 
   @Test
