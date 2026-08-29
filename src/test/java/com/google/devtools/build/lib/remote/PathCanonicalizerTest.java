@@ -266,6 +266,28 @@ public final class PathCanonicalizerTest {
   }
 
   @Test
+  public void testSymlinksAfterMissingParent() throws Exception {
+    createNonSymlink("/target/file");
+    createSymlink("/missing/link", "../target");
+    createSymlink("/missing/loop", "loop");
+    PathCanonicalizer sparseCanonicalizer =
+        new PathCanonicalizer(
+            path -> {
+              // Model a union filesystem that knows the children but has no parent metadata.
+              if (path.equals(pathFragment("/missing"))) {
+                throw new FileNotFoundException(path.getPathString());
+              }
+              return resolve(path);
+            });
+
+    assertThat(sparseCanonicalizer.resolveSymbolicLinks(pathFragment("/missing/link/file")))
+        .isEqualTo(pathFragment("/target/file"));
+    assertThrows(
+        FileSymlinkLoopException.class,
+        () -> sparseCanonicalizer.resolveSymbolicLinks(pathFragment("/missing/loop")));
+  }
+
+  @Test
   public void testEmpty() throws Exception {
     assertFailure(IllegalArgumentException.class, "");
   }
