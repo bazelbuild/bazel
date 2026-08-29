@@ -64,10 +64,11 @@ public interface DefaultInfoApi extends StructApi {
   @StarlarkMethod(
       name = "executable",
       doc =
-          "The executable <a href='../builtins/File.html'><code>File</code></a> associated with"
-              + " this provider, or <code>None</code> if no executable is available. This field is"
-              + " available on a <code>DefaultInfo</code> returned directly by a rule"
-              + " implementation, including through <code>ctx.super()</code>.",
+          "A <a href='../builtins/File.html'><code>File</code></a> object representing the"
+              + " executable that should be executed to run the target, or <code>None</code> if"
+              + " unset. Should be set only for <a"
+              + " href='../globals/bzl.html#rule.executable'><code>executable</code></a> and <a"
+              + " href='../globals/bzl.html#rule.test'><code>test</code></a> targets.",
       structField = true,
       allowReturnNones = true)
   @Nullable
