@@ -104,7 +104,7 @@ import javax.annotation.Nullable;
  * sources, such as the same path existing in multiple underlying sources with different type or
  * contents.
  */
-public class RemoteActionFileSystem extends FileSystem implements PathCanonicalizer.Resolver {
+public class RemoteActionFileSystem extends FileSystem {
   private final PathFragment execRoot;
   private final PathFragment outputBase;
   private final InputMetadataProvider inputArtifactData;
@@ -248,10 +248,22 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
     this.outputBase = execRoot.getRelative(checkNotNull(relativeOutputPath, "relativeOutputPath"));
     this.inputArtifactData = checkNotNull(inputArtifactData, "inputArtifactData");
     this.inputTreeArtifactDirectoryCache = new TreeArtifactDirectoryCache();
-    this.pathCanonicalizer = new PathCanonicalizer(this);
     this.inputFetcher = checkNotNull(inputFetcher, "inputFetcher");
     this.localFs = checkNotNull(localFs, "localFs");
     this.remoteOutputTree = new RemoteInMemoryFileSystem(getDigestFunction());
+    this.pathCanonicalizer =
+        new PathCanonicalizer(
+            new PathCanonicalizer.Resolver() {
+              @Override
+              public FileStatus statNoFollow(PathFragment path) throws IOException {
+                return statComponentNoFollow(path);
+              }
+
+              @Override
+              public PathFragment readSymlink(PathFragment path) throws IOException {
+                return readSymbolicLinkInternal(path);
+              }
+            });
   }
 
   @Override
@@ -331,6 +343,10 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
   @Override
   @Nullable
   public PathFragment resolveOneLink(PathFragment path) throws IOException {
+    return statComponentNoFollow(path).isSymbolicLink() ? readSymbolicLinkInternal(path) : null;
+  }
+
+  private FileStatus statComponentNoFollow(PathFragment path) throws IOException {
     // The base implementation attempts to readSymbolicLink first and falls back to stat, but that
     // unnecessarily allocates a NotASymlinkException in the overwhelmingly likely non-symlink case.
     // It's more efficient to stat unconditionally.
@@ -342,23 +358,14 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
     if (stat == null) {
       throw new FileNotFoundException(path.getPathString() + " (No such file or directory)");
     }
-    return stat.isSymbolicLink() ? readSymbolicLinkInternal(path) : null;
-  }
-
-  // Like resolveSymbolicLinks(), except that only the parent path is canonicalized.
-  private PathFragment resolveSymbolicLinksForParent(PathFragment path) throws IOException {
-    PathFragment parentPath = path.getParentDirectory();
-    if (parentPath != null) {
-      return resolveSymbolicLinks(parentPath).asFragment().getChild(path.getBaseName());
-    }
-    return path;
+    return stat;
   }
 
   @Override
   public boolean delete(PathFragment path) throws IOException {
     PathFragment originalPath = path;
     try {
-      path = resolveSymbolicLinksForParent(path);
+      path = pathCanonicalizer.resolveSymbolicLinksForParent(path);
     } catch (FileNotFoundException ignored) {
       // Failure to delete a nonexistent path is not an error.
       pathCanonicalizer.clearPrefix(originalPath);
@@ -566,7 +573,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
 
   @Override
   public PathFragment readSymbolicLink(PathFragment path) throws IOException {
-    return readSymbolicLinkInternal(resolveSymbolicLinksForParent(path));
+    return readSymbolicLinkInternal(pathCanonicalizer.resolveSymbolicLinksForParent(path));
   }
 
   // Like readSymbolicLink(), except that the parent path is assumed to be already canonical.
@@ -603,7 +610,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
   public void createSymbolicLink(
       PathFragment linkPath, PathFragment targetFragment, SymlinkTargetType type)
       throws IOException {
-    linkPath = resolveSymbolicLinksForParent(linkPath);
+    linkPath = pathCanonicalizer.resolveSymbolicLinksForParent(linkPath);
 
     if (isOutput(linkPath)) {
       remoteOutputTree.getPath(linkPath).createSymbolicLink(targetFragment, type);
@@ -659,10 +666,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
       if (followMode == FollowMode.FOLLOW_ALL) {
         path = resolveSymbolicLinks(path).asFragment();
       } else if (followMode == FollowMode.FOLLOW_PARENT) {
-        PathFragment parent = path.getParentDirectory();
-        if (parent != null) {
-          path = resolveSymbolicLinks(parent).asFragment().getChild(path.getBaseName());
-        }
+        path = pathCanonicalizer.resolveSymbolicLinksForParent(path);
       }
     } catch (FileNotFoundException e) {
       return null;
@@ -759,8 +763,8 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
 
   @Override
   public void renameTo(PathFragment srcPath, PathFragment dstPath) throws IOException {
-    srcPath = resolveSymbolicLinksForParent(srcPath);
-    dstPath = resolveSymbolicLinksForParent(dstPath);
+    srcPath = pathCanonicalizer.resolveSymbolicLinksForParent(srcPath);
+    dstPath = pathCanonicalizer.resolveSymbolicLinksForParent(dstPath);
 
     checkArgument(isOutput(srcPath), "srcPath must be an output path");
     checkArgument(isOutput(dstPath), "dstPath must be an output path");
