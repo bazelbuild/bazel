@@ -262,15 +262,9 @@ cc_test(
 
 cc_test(
     name = "options_test",
-    srcs = [
-        "options.h",
-        "options_test.cc",
-    ],
+    srcs = ["options_test.cc"],
     deps = [
         ":options",
-        ":token_stream",
-        "//src/main/cpp/util",
-        "@abseil-cpp//absl/container:flat_hash_set",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -471,10 +465,7 @@ cc_library(
 
 cc_library(
     name = "options",
-    srcs = [
-        "options.cc",
-        "options.h",
-    ],
+    srcs = ["options.cc"],
     hdrs = ["options.h"],
     deps = [
         ":diag",
