@@ -2256,6 +2256,51 @@ class ModUpgradeCommandTest(test_base.TestBase):
     stderr_str = '\n'.join(stderr)
     self.assertEqual(stderr_str.count('Upgraded aaa from 1.0 to 2.0'), 1)
 
+  def testUpgradePinnedAtLatestWithStaleDepLineHidden(self):
+    """A pin at the latest version is up to date even when the bazel_dep line
+    declares an older version: the pin decides what is installed."""
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "aaa", version = "1.0")',
+            'bazel_dep(name = "ddd", version = "1.0")',
+            'single_version_override(',
+            '  module_name = "ddd",',
+            '  version = "2.0",',
+            ')',
+        ],
+    )
+    _, stdout, _ = self.RunBazel(['mod', 'upgrade'])
+    stdout_str = '\n'.join(stdout)
+    self.assertNotIn('ddd', stdout_str)
+
+  def testUpgradePinnedAheadOfLatestShown(self):
+    """A pin ahead of the latest non-yanked version stays visible with the pin
+    as the installed version, even when the bazel_dep line declares the
+    version that happens to be the latest."""
+    self.main_registry.createShModule('eee', '2.0')
+    self.main_registry.createShModule('eee', '3.0')
+    self.main_registry.addMetadata(
+        'eee',
+        versions=['2.0', '3.0'],
+        yanked_versions={'3.0': 'broken'},
+    )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "eee", version = "2.0")',
+            'single_version_override(',
+            '  module_name = "eee",',
+            '  version = "3.0",',
+            ')',
+        ],
+    )
+    _, stdout, _ = self.RunBazel(['mod', 'upgrade'])
+    stdout_str = '\n'.join(stdout)
+    self.assertRegex(stdout_str, r'eee\s+3\.0\s+2\.0\s+pinned')
+
   def testUpgradeMultipleIndirectDepsKeepSortedOrder(self):
     """Promoting several indirect deps at once keeps the nodep group sorted,
     regardless of the order the modules are named on the command line."""

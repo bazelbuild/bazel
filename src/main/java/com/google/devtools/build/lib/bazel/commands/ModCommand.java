@@ -927,10 +927,12 @@ public final class ModCommand implements BlazeCommand {
 
       boolean isDirect = directDepKeys.contains(moduleKey);
       boolean isPinned = pinnedModules.contains(moduleKey.name());
-      // For direct deps, "installed" is the version declared in MODULE.bazel (what an upgrade
-      // rewrites); for transitive deps it is the resolved version, since they aren't declared there.
+      // "Installed" is the version an upgrade would rewrite: for direct deps the version declared
+      // in MODULE.bazel, except that a pinned module's installed version is the override's pin
+      // (which resolution selected, regardless of what the bazel_dep line declares); for
+      // transitive deps it is the resolved version, since they aren't declared there.
       Version installed =
-          isDirect
+          isDirect && !isPinned
               ? declaredDirectVersions.getOrDefault(moduleKey.name(), moduleKey.version())
               : moduleKey.version();
       ModuleVersionEntry entry =
