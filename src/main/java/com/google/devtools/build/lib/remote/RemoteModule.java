@@ -296,7 +296,7 @@ public final class RemoteModule extends BlazeModule {
             combinedCacheClient.diskCacheClient(),
             Strings.emptyToNull(remoteOptions.remoteDownloadSymlinkTemplate),
             digestUtil,
-            remoteOptions.experimentalRemoteCacheChunking);
+            remoteOptions.getEffectiveChunkingFunction());
     actionContextProvider =
         RemoteActionContextProvider.createForRemoteCaching(
             env,
@@ -814,7 +814,7 @@ public final class RemoteModule extends BlazeModule {
               diskCacheClient,
               Strings.emptyToNull(remoteOptions.remoteDownloadSymlinkTemplate),
               digestUtil,
-              remoteOptions.experimentalRemoteCacheChunking);
+              remoteOptions.getEffectiveChunkingFunction());
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteExecution(
               env,
@@ -844,7 +844,7 @@ public final class RemoteModule extends BlazeModule {
               diskCacheClient,
               Strings.emptyToNull(remoteOptions.remoteDownloadSymlinkTemplate),
               digestUtil,
-              remoteOptions.experimentalRemoteCacheChunking);
+              remoteOptions.getEffectiveChunkingFunction());
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteCaching(
               env,
