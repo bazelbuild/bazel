@@ -50,6 +50,8 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleOverride;
+import com.google.devtools.build.lib.bazel.bzlmod.MultipleVersionOverride;
+import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.Registry;
 import com.google.devtools.build.lib.bazel.bzlmod.RootModuleFileFixup;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionValue;
@@ -852,12 +854,14 @@ public final class ModCommand implements BlazeCommand {
       }
       ModuleOverride override = overrides.get(moduleKey.name());
       // A single_version_override with an explicit version pins the module. We still query its
-      // latest version so a stale pin stays visible, but never upgrade it automatically.
+      // latest version so a stale pin stays visible, but never upgrade it automatically. Without
+      // a version, the override only selects a registry or adds patches; the version still comes
+      // from bazel_dep, so the module stays a normal upgradeable dep.
       boolean versionPinned =
-          override instanceof SingleVersionOverride svo && !svo.version().equals(Version.EMPTY);
-      if (override != null && !versionPinned) {
-        // Any other override (non-registry, registry-only, multiple_version_override) means the
-        // user controls the version and there's no meaningful latest to show, so skip it.
+          override instanceof SingleVersionOverride svo && !svo.version().isEmpty();
+      if (override instanceof MultipleVersionOverride || override instanceof NonRegistryOverride) {
+        // These overrides control the module's version or source themselves, so there is no
+        // meaningful upgrade to offer.
         overriddenModulesBuilder.add(moduleKey.name());
         continue;
       }
@@ -1046,6 +1050,19 @@ public final class ModCommand implements BlazeCommand {
     if (toUpgrade.isEmpty() && toPromote.isEmpty()) {
       env.getReporter().handle(Event.info("All specified modules are already up to date."));
       return BlazeCommandResult.success();
+    }
+
+    for (ModuleVersionEntry entry : Iterables.concat(toUpgrade, toPromote)) {
+      if (overrides.get(entry.name()) instanceof SingleVersionOverride svo
+          && (!svo.patches().isEmpty() || !svo.patchCmds().isEmpty())) {
+        env.getReporter()
+            .handle(
+                Event.warn(
+                    String.format(
+                        "%s has patches or patch commands in its single_version_override; they"
+                            + " may need updating for the new version.",
+                        entry.name())));
+      }
     }
 
     // Generate buildozer commands for all MODULE.bazel modifications.

@@ -128,7 +128,7 @@ public record Version(
    * Whether this is just the "empty string" version, which signifies a non-registry override for
    * the module.
    */
-  boolean isEmpty() {
+  public boolean isEmpty() {
     return getNormalized().isEmpty();
   }
 

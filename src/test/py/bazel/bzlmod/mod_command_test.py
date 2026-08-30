@@ -1942,6 +1942,99 @@ class ModUpgradeCommandTest(test_base.TestBase):
     stdout_str = '\n'.join(stdout)
     self.assertNotIn('3 modules total', stdout_str)
 
+  def testUpgradeWithRegistryOnlySingleVersionOverride(self):
+    """A single_version_override without a version does not pin the module."""
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "ddd", version = "1.0")',
+            'single_version_override(',
+            '  module_name = "ddd",',
+            '  registry = "%s",' % self.main_registry.getURL(),
+            ')',
+        ],
+    )
+    # The module version still comes from bazel_dep, so it is shown as a
+    # normal upgradeable dep, not as pinned.
+    _, stdout, _ = self.RunBazel(['mod', 'upgrade'])
+    stdout_str = '\n'.join(stdout)
+    self.assertIn('ddd', stdout_str)
+    self.assertIn('upgrade available', stdout_str)
+    self.assertNotIn('pinned', stdout_str)
+
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', 'ddd'])
+    self.assertIn('Upgraded ddd from 1.0 to 2.0', '\n'.join(stderr))
+    with open('MODULE.bazel', 'r') as f:
+      contents = f.read()
+    self.assertIn('bazel_dep(name = "ddd", version = "2.0")', contents)
+    # Resolution must still succeed after the upgrade (RunBazel asserts exit 0).
+    self.RunBazel(['mod', 'upgrade'])
+
+  def testUpgradeWithPatchedSingleVersionOverride(self):
+    """A patches-only single_version_override upgrades normally with a warning."""
+    self.ScratchFile(
+        'ddd.patch',
+        [
+            '--- a/ddd.sh',
+            '+++ b/ddd.sh',
+            '@@ -1,5 +1,5 @@',
+            ' function hello_ddd {',
+            '     caller_name="${1}"',
+            '-    lib_name="ddd@1.0"',
+            '+    lib_name="ddd@1.0 (patched)"',
+            '     echo "${caller_name} => ${lib_name}"',
+            ' }',
+        ],
+    )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "ddd", version = "1.0")',
+            'single_version_override(',
+            '  module_name = "ddd",',
+            '  patches = ["//:ddd.patch"],',
+            '  patch_strip = 1,',
+            ')',
+        ],
+    )
+    _, stdout, _ = self.RunBazel(['mod', 'upgrade'])
+    stdout_str = '\n'.join(stdout)
+    self.assertIn('ddd', stdout_str)
+    self.assertNotIn('pinned', stdout_str)
+
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', 'ddd'])
+    stderr_str = '\n'.join(stderr)
+    self.assertIn('Upgraded ddd from 1.0 to 2.0', stderr_str)
+    self.assertIn('patches', stderr_str)
+    self.assertIn('may need updating', stderr_str)
+    with open('MODULE.bazel', 'r') as f:
+      contents = f.read()
+    self.assertIn('bazel_dep(name = "ddd", version = "2.0")', contents)
+
+  def testUpgradeWithPatchCmdsSingleVersionOverride(self):
+    """A patch_cmds-only single_version_override upgrades with a warning."""
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "ddd", version = "1.0")',
+            'single_version_override(',
+            '  module_name = "ddd",',
+            '  patch_cmds = ["sed -i.bak s/1.0/1.0-patched/ ddd.sh"],',
+            ')',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', 'ddd'])
+    stderr_str = '\n'.join(stderr)
+    self.assertIn('Upgraded ddd from 1.0 to 2.0', stderr_str)
+    self.assertIn('patch commands', stderr_str)
+    self.assertIn('may need updating', stderr_str)
+    with open('MODULE.bazel', 'r') as f:
+      contents = f.read()
+    self.assertIn('bazel_dep(name = "ddd", version = "2.0")', contents)
+
   def testUpgradePinnedAtLatestHidden(self):
     """A version pin already at the latest version is hidden (nothing to do)."""
     self.ScratchFile(
