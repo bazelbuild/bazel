@@ -2065,7 +2065,7 @@ class ModUpgradeCommandTest(test_base.TestBase):
     )
     _, _, stderr = self.RunBazel(['mod', 'upgrade', '--all'])
     stderr_str = '\n'.join(stderr)
-    self.assertIn('All specified modules are already up to date', stderr_str)
+    self.assertIn('All modules are already up to date', stderr_str)
 
   def testUpgradeSkipsYankedLatest(self):
     """A yanked latest version is never offered; the newest non-yanked wins."""
@@ -2093,6 +2093,66 @@ class ModUpgradeCommandTest(test_base.TestBase):
       contents = f.read()
     self.assertIn('"2.0"', contents)
     self.assertNotIn('"3.0"', contents)
+
+  def testUpgradeInstalledNewerThanLatest(self):
+    """A dep ahead of the newest non-yanked version is shown, not hidden."""
+    # eee@3.0 is installed but yanked, so the newest available version is 2.0.
+    self.main_registry.createShModule('eee', '1.0')
+    self.main_registry.createShModule('eee', '2.0')
+    self.main_registry.createShModule('eee', '3.0')
+    self.main_registry.addMetadata(
+        'eee',
+        versions=['1.0', '2.0', '3.0'],
+        yanked_versions={'3.0': 'broken'},
+    )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "eee", version = "3.0")',
+        ],
+    )
+    _, stdout, _ = self.RunBazel(['mod', 'upgrade'])
+    stdout_str = '\n'.join(stdout)
+    self.assertIn('eee', stdout_str)
+    self.assertIn('newer than latest', stdout_str)
+
+    # Explicitly naming the module must not claim 3.0 is the latest version.
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', 'eee'])
+    stderr_str = '\n'.join(stderr)
+    self.assertIn(
+        'eee is at version 3.0, which is newer than the latest available'
+        ' version 2.0',
+        stderr_str,
+    )
+    self.assertNotIn('already up to date', stderr_str)
+    with open('MODULE.bazel', 'r') as f:
+      contents = f.read()
+    self.assertIn('bazel_dep(name = "eee", version = "3.0")', contents)
+
+  def testUpgradeAllWhenOnlyModuleIsAheadOfLatest(self):
+    """--all with only ahead modules must not claim everything is up to date."""
+    self.main_registry.createShModule('eee', '2.0')
+    self.main_registry.createShModule('eee', '3.0')
+    self.main_registry.addMetadata(
+        'eee',
+        versions=['2.0', '3.0'],
+        yanked_versions={'3.0': 'broken'},
+    )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "eee", version = "3.0")',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', '--all'])
+    stderr_str = '\n'.join(stderr)
+    self.assertIn('newer than the latest available version', stderr_str)
+    self.assertNotIn('up to date', stderr_str)
+    with open('MODULE.bazel', 'r') as f:
+      contents = f.read()
+    self.assertIn('bazel_dep(name = "eee", version = "3.0")', contents)
 
   def testUpgradeUsesDeclaredVersionNotResolved(self):
     """Upgrade compares against the version declared in MODULE.bazel, not the

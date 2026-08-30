@@ -130,6 +130,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** Queries the Bzlmod external dependency graph. */
@@ -998,10 +999,7 @@ public final class ModCommand implements BlazeCommand {
             continue;
           }
           if (entry.latest().compareTo(entry.installed()) <= 0) {
-            String msg =
-                String.format(
-                    "%s is already at the latest version %s.", moduleName, entry.installed());
-            env.getReporter().handle(Event.info(msg));
+            env.getReporter().handle(Event.info(notUpgradeableMessage(moduleName, entry)));
             continue;
           }
           toUpgradeBuilder.add(entry);
@@ -1034,10 +1032,7 @@ public final class ModCommand implements BlazeCommand {
           continue;
         }
         if (entry.latest().compareTo(entry.installed()) <= 0) {
-          String msg =
-              String.format(
-                  "%s is already at the latest version %s.", moduleName, entry.installed());
-          env.getReporter().handle(Event.info(msg));
+          env.getReporter().handle(Event.info(notUpgradeableMessage(moduleName, entry)));
           continue;
         }
         toPromoteBuilder.add(entry);
@@ -1048,7 +1043,28 @@ public final class ModCommand implements BlazeCommand {
     ImmutableList<ModuleVersionEntry> toPromote = toPromoteBuilder.build();
 
     if (toUpgrade.isEmpty() && toPromote.isEmpty()) {
-      env.getReporter().handle(Event.info("All specified modules are already up to date."));
+      // Named modules have each already been reported with their exact no-op reason above, so a
+      // summary would only repeat (or contradict) those messages. For --all, report whether the
+      // no-op is due to everything being up to date or some modules being ahead of the registry.
+      if (args.isEmpty()) {
+        long aheadCount =
+            Stream.concat(directDeps.stream(), transitiveDeps.stream())
+                .filter(entry -> !entry.isPinned() && entry.latest() != null)
+                .filter(ModuleVersionEntry::isDirect)
+                .filter(entry -> entry.latest().compareTo(entry.installed()) < 0)
+                .count();
+        if (aheadCount > 0) {
+          env.getReporter()
+              .handle(
+                  Event.info(
+                      String.format(
+                          "Nothing to upgrade: %d module%s newer than the latest available"
+                              + " version.",
+                          aheadCount, aheadCount == 1 ? " is" : "s are")));
+        } else {
+          env.getReporter().handle(Event.info("All modules are already up to date."));
+        }
+      }
       return BlazeCommandResult.success();
     }
 
@@ -1123,6 +1139,21 @@ public final class ModCommand implements BlazeCommand {
                     "%d module%s upgraded.", totalChanges, totalChanges == 1 ? "" : "s")));
 
     return BlazeCommandResult.success();
+  }
+
+  /**
+   * Returns the message for a module that was named on the command line but has no upgrade: it is
+   * either exactly at the latest available version, or ahead of it (e.g. the installed version was
+   * yanked in the registry).
+   */
+  private static String notUpgradeableMessage(String moduleName, ModuleVersionEntry entry) {
+    if (entry.latest().compareTo(entry.installed()) < 0) {
+      return String.format(
+          "%s is at version %s, which is newer than the latest available version %s.",
+          moduleName, entry.installed(), entry.latest());
+    }
+    return String.format(
+        "%s is already at the latest version %s.", moduleName, entry.installed());
   }
 
   /**

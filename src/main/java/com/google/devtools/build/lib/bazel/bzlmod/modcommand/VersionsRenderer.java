@@ -141,6 +141,7 @@ public final class VersionsRenderer {
     String sep = useUtf8 ? StringEncoding.unicodeToInternal("\u2500") : "-";
     String separator = sep.repeat(totalWidth);
     int upgradeable = 0;
+    int newerThanLatest = 0;
     int unknown = 0;
     int pinned = 0;
 
@@ -151,6 +152,7 @@ public final class VersionsRenderer {
       for (ModuleVersionEntry info : displayDirectDeps) {
         switch (printRow(fmt, info)) {
           case UPGRADE_AVAILABLE -> upgradeable++;
+          case NEWER_THAN_LATEST -> newerThanLatest++;
           case UNKNOWN -> unknown++;
           case PINNED -> pinned++;
           default -> {}
@@ -168,6 +170,7 @@ public final class VersionsRenderer {
       for (ModuleVersionEntry info : displayTransitiveDeps) {
         switch (printRow(fmt, info)) {
           case UPGRADE_AVAILABLE -> upgradeable++;
+          case NEWER_THAN_LATEST -> newerThanLatest++;
           case UNKNOWN -> unknown++;
           case PINNED -> pinned++;
           default -> {}
@@ -178,9 +181,12 @@ public final class VersionsRenderer {
     // Print summary.
     out.println();
     out.printf("%s%d%s modules total", bold, totalCount, reset);
-    if (upgradeable > 0 || pinned > 0) {
+    if (upgradeable > 0 || pinned > 0 || newerThanLatest > 0) {
       if (upgradeable > 0) {
         out.printf(", %s%s%d%s with upgrades available", yellow, bold, upgradeable, reset);
+      }
+      if (newerThanLatest > 0) {
+        out.printf(", %s%d newer than latest%s", dim, newerThanLatest, reset);
       }
       if (pinned > 0) {
         out.printf(", %s%d pinned%s", cyan, pinned, reset);
@@ -204,12 +210,13 @@ public final class VersionsRenderer {
   }
 
   private static boolean isUpToDate(ModuleVersionEntry entry) {
-    return entry.latest() != null && entry.latest().compareTo(entry.installed()) <= 0;
+    return entry.latest() != null && entry.latest().compareTo(entry.installed()) == 0;
   }
 
   private enum VersionStatus {
     UP_TO_DATE,
     UPGRADE_AVAILABLE,
+    NEWER_THAN_LATEST,
     UNKNOWN,
     PINNED
   }
@@ -238,6 +245,13 @@ public final class VersionsRenderer {
       status = "upgrade available";
       lineColor = yellow;
       result = VersionStatus.UPGRADE_AVAILABLE;
+    } else if (info.latest().compareTo(info.installed()) < 0) {
+      // Installed ahead of the newest available version (e.g. the installed version was yanked
+      // in the registry). Not actionable as an upgrade, but must not be hidden as up to date.
+      latestStr = info.latest().toString();
+      status = "newer than latest";
+      lineColor = dim;
+      result = VersionStatus.NEWER_THAN_LATEST;
     } else {
       latestStr = info.latest().toString();
       status = "up to date";

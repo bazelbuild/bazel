@@ -163,6 +163,29 @@ public class VersionsRendererTest {
   }
 
   @Test
+  public void render_installedNewerThanLatest() throws ParseException {
+    List<ModuleVersionEntry> directDeps =
+        List.of(
+            // Installed ahead of the newest non-yanked registry version (e.g. the installed
+            // version was yanked): shown, but not offered as an upgrade or hidden as up to date.
+            new ModuleVersionEntry(
+                "ahead_module", Version.parse("3.0"), Version.parse("2.0"), true));
+
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    new VersionsRenderer(out, /* useColor= */ false, /* useUtf8= */ false)
+        .render(directDeps, List.of());
+    String output = out.toString();
+
+    assertThat(output).contains("ahead_module");
+    assertThat(output).contains("3.0");
+    assertThat(output).contains("2.0");
+    assertThat(output).contains("newer than latest");
+    assertThat(output).doesNotContain("upgrade available");
+    assertThat(output).contains("1 modules total, 1 newer than latest");
+    assertThat(output).doesNotContain("all up to date");
+  }
+
+  @Test
   public void render_pinnedModule() throws ParseException {
     List<ModuleVersionEntry> directDeps =
         List.of(
