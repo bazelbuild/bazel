@@ -16,6 +16,7 @@
 
 import json
 import os
+import re
 import tempfile
 from typing import Dict, List, Optional, Union
 from absl.testing import absltest
@@ -1937,10 +1938,14 @@ class ModUpgradeCommandTest(test_base.TestBase):
     # Only aaa, bbb and ccc remain in the table once builtins are hidden.
     self.assertIn('3 modules total', stdout_str)
 
-    # --include_builtin brings the bazel_tools closure back.
+    # --include_builtin brings the bazel_tools closure back. Assert only on the
+    # module count: the closure's names, versions and statuses come from the
+    # live registry and must not leak into the assertions.
     _, stdout, _ = self.RunBazel(['mod', 'upgrade', '--include_builtin'])
     stdout_str = '\n'.join(stdout)
-    self.assertNotIn('3 modules total', stdout_str)
+    total = re.search(r'(\d+) modules total', stdout_str)
+    self.assertIsNotNone(total)
+    self.assertGreater(int(total.group(1)), 3)
 
   def testUpgradeWithRegistryOnlySingleVersionOverride(self):
     """A single_version_override without a version does not pin the module."""
