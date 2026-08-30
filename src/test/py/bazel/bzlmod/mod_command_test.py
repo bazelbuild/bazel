@@ -2126,6 +2126,39 @@ class ModUpgradeCommandTest(test_base.TestBase):
     self.assertIn('"2.0"', contents)
     self.assertLess(contents.rindex('"mmm"'), contents.index('"nnn"'))
 
+  def testUpgradePreservesNonAsciiCommentOnFirstNodepEntry(self):
+    """Promoting a new first nodep entry keeps the moved comment's encoding."""
+    self.main_registry.createShModule('abc', '1.0')
+    self.main_registry.createShModule('abc', '2.0')
+    self.main_registry.addMetadata('abc', versions=['1.0', '2.0'])
+    self.main_registry.createShModule('mmm', '1.0')
+    self.main_registry.addMetadata('mmm', versions=['1.0'])
+    self.main_registry.createShModule(
+        'parent', '1.0', deps={'abc': '1.0', 'mmm': '1.0'}
+    )
+    self.main_registry.addMetadata('parent', versions=['1.0'])
+
+    # "abc" sorts before "mmm", so promoting it moves the comment from the
+    # current first nodep entry onto the new one.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "parent", version = "1.0")',
+            '# héllo',
+            'bazel_dep(name = "mmm", version = "1.0", repo_name = None)',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', 'abc'])
+    self.assertIn('Upgraded abc from 1.0 to 2.0', '\n'.join(stderr))
+
+    with open('MODULE.bazel', 'rb') as f:
+      contents = f.read().decode('utf-8', errors='replace')
+    self.assertIn('héllo', contents)
+    self.assertIn('"abc"', contents)
+    self.assertIn('"2.0"', contents)
+    self.assertLess(contents.index('"abc"'), contents.index('"mmm"'))
+
   def testUpgradeInstalledNewerThanLatest(self):
     """A dep ahead of the newest non-yanked version is shown, not hidden."""
     # eee@3.0 is installed but yanked, so the newest available version is 2.0.

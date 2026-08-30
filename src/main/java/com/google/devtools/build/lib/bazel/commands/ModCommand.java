@@ -1306,7 +1306,9 @@ public final class ModCommand implements BlazeCommand {
               .addArg("//MODULE.bazel:" + ruleName)
               .build()
               .execute();
-      String comment = new String(result.getStdout(), UTF_8).trim();
+      // Decode as Latin-1 to keep the raw bytes intact: executeBuildozer re-encodes the command
+      // input as Latin-1, so any other charset here corrupts non-ASCII comment text.
+      String comment = new String(result.getStdout(), ISO_8859_1).trim();
       return comment.isEmpty() ? null : comment;
     } catch (CommandException e) {
       return null;
