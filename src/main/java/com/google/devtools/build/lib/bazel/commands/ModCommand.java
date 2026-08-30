@@ -974,6 +974,33 @@ public final class ModCommand implements BlazeCommand {
         overriddenModulesBuilder.add(moduleKey.name());
       }
     }
+
+    // A nodep entry whose module is not otherwise in the dependency graph is unfulfilled:
+    // resolution removes it entirely. Its bazel_dep line still exists in MODULE.bazel, so it is
+    // still shown and upgraded like any other declared entry, with the registry lookup resolution
+    // would use if the entry were fulfilled.
+    ImmutableSet<String> graphModuleNames =
+        resolvedGraph.keySet().stream().map(ModuleKey::name).collect(toImmutableSet());
+    for (String moduleName : declaredNodepVersions.keySet()) {
+      if (graphModuleNames.contains(moduleName)) {
+        continue;
+      }
+      ModuleOverride override = overrides.get(moduleName);
+      if (override instanceof MultipleVersionOverride
+          || override instanceof NonRegistryOverride
+          || (override instanceof SingleVersionOverride svo && !svo.version().isEmpty())) {
+        overriddenModulesBuilder.add(moduleName);
+        continue;
+      }
+      ImmutableList<Registry> lookupRegistries = configuredRegistries;
+      if (override instanceof RegistryOverride registryOverride
+          && !registryOverride.getRegistry().isEmpty()) {
+        lookupRegistries =
+            ImmutableList.of(
+                Objects.requireNonNull(registriesByUrl.get(registryOverride.getRegistry())));
+      }
+      registriesByModule.putIfAbsent(moduleName, lookupRegistries);
+    }
     ImmutableSet<String> overriddenModules = overriddenModulesBuilder.build();
     ImmutableSet<String> pinnedModules = pinnedModulesBuilder.build();
 
@@ -1029,6 +1056,22 @@ public final class ModCommand implements BlazeCommand {
       } else {
         transitiveDepsBuilder.add(entry);
       }
+    }
+
+    // Unfulfilled nodep entries have no dep graph node; build their entries from the declared
+    // version and the registry lookup prepared above.
+    for (Entry<String, Version> nodepDep : declaredNodepVersions.entrySet()) {
+      String moduleName = nodepDep.getKey();
+      if (graphModuleNames.contains(moduleName) || !registriesByModule.containsKey(moduleName)) {
+        continue;
+      }
+      Version latest = null;
+      Optional<ImmutableList<Version>> availableVersions = availableVersionsMap.get(moduleName);
+      if (availableVersions != null && availableVersions.isPresent()) {
+        latest = VersionsRenderer.findLatestStable(availableVersions.get());
+      }
+      transitiveDepsBuilder.add(
+          new ModuleVersionEntry(moduleName, nodepDep.getValue(), latest, false, false));
     }
 
     ImmutableList<ModuleVersionEntry> directDeps = directDepsBuilder.build();

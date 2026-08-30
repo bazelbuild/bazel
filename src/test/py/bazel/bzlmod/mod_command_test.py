@@ -2339,6 +2339,31 @@ class ModUpgradeCommandTest(test_base.TestBase):
     self.assertIn('repo_name = None', nnn_line)
     with open('MODULE.bazel', 'r') as f:
       self.assertNotIn('"nnn"', f.read())
+
+  def testUpgradeAllIncludesUnfulfilledNodepEntries(self):
+    """--all upgrades nodep lines that resolution drops as unfulfilled."""
+    self.main_registry.createShModule('nnn', '1.0')
+    self.main_registry.createShModule('nnn', '2.0')
+    self.main_registry.addMetadata('nnn', versions=['1.0', '2.0'])
+    # No other module depends on nnn, so its nodep edge is unfulfilled and
+    # resolution removes it from the dependency graph entirely.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "bbb", version = "1.0")',
+            'bazel_dep(name = "nnn", version = "1.0", repo_name = None)',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', '--all'])
+    self.assertIn('Upgraded nnn from 1.0 to 2.0', '\n'.join(stderr))
+
+    with open('MODULE.bazel', 'r') as f:
+      contents = f.read()
+    nnn_line = next(l for l in contents.splitlines() if '"nnn"' in l)
+    self.assertIn('"2.0"', nnn_line)
+    self.assertIn('repo_name = None', nnn_line)
+
   def testUpgradeFindsLatestAcrossRegistries(self):
     """The latest version lookup covers all registries, like resolution."""
     # The extra registry, listed after the main one, has fff@2.0; the main

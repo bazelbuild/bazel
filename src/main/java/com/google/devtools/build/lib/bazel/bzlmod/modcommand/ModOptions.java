@@ -234,7 +234,9 @@ public abstract class ModOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.MOD_COMMAND,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
-          "For `mod upgrade`: upgrade all direct dependencies to their latest available versions.")
+          "For `mod upgrade`: upgrade all dependencies declared in the MODULE.bazel file (direct"
+              + " dependencies and `bazel_dep` entries with `repo_name = None`) to their latest"
+              + " available versions.")
   public abstract boolean getAll();
 
   public abstract void setAll(boolean value);
