@@ -523,6 +523,33 @@ public class IndexRegistryTest extends FoundationTestCase {
   }
 
   @Test
+  public void testGetAvailableVersionsSkipsYankedSpelledWithBuildMetadata() throws Exception {
+    server.serve(
+        "/modules/red-pill/metadata.json",
+        "{\n"
+            + "    'versions': [\n"
+            + "        '1.0',\n"
+            + "        '2.0+bcr.1'\n"
+            + "    ],\n"
+            + "    'yanked_versions': {"
+            + "        '2.0': 'red-pill 2.0 is yanked'\n"
+            + "    }\n"
+            + "}");
+    server.start();
+    Registry registry =
+        registryFactory.createRegistry(
+            server.getUrl(),
+            LockfileMode.UPDATE,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            ImmutableSet.of());
+    Optional<ImmutableList<Version>> availableVersions =
+        registry.getAvailableVersions("red-pill", reporter, downloadManager);
+    assertThat(availableVersions).hasValue(ImmutableList.of(Version.parse("1.0")));
+  }
+
+  @Test
   public void testArchiveWithExplicitType() throws Exception {
     server.serve(
         "/modules/archive_type/1.0/source.json",

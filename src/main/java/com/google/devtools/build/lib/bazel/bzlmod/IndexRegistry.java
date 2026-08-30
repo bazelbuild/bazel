@@ -710,16 +710,22 @@ public class IndexRegistry implements Registry {
     }
 
     try {
-      // Yanked versions are never offered as upgrade targets, so exclude them here.
-      ImmutableSet<String> yankedVersions =
-          metadataJson.get().yankedVersions != null
-              ? ImmutableSet.copyOf(metadataJson.get().yankedVersions.keySet())
-              : ImmutableSet.of();
+      // Yanked versions are never offered as upgrade targets, so exclude them here. Compare
+      // parsed versions, not raw strings: Version strips build metadata, so e.g. "1.0+bcr.1"
+      // in the versions list is the same version as a yanked "1.0".
+      ImmutableSet.Builder<Version> yankedVersionsBuilder = new ImmutableSet.Builder<>();
+      if (metadataJson.get().yankedVersions != null) {
+        for (String v : metadataJson.get().yankedVersions.keySet()) {
+          yankedVersionsBuilder.add(Version.parse(v));
+        }
+      }
+      ImmutableSet<Version> yankedVersions = yankedVersionsBuilder.build();
       ImmutableList.Builder<Version> versionsBuilder = new ImmutableList.Builder<>();
       if (metadataJson.get().versions != null) {
         for (String v : metadataJson.get().versions) {
-          if (!yankedVersions.contains(v)) {
-            versionsBuilder.add(Version.parse(v));
+          Version version = Version.parse(v);
+          if (!yankedVersions.contains(version)) {
+            versionsBuilder.add(version);
           }
         }
       }
