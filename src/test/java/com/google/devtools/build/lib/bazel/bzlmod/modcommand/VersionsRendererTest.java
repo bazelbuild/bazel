@@ -88,7 +88,7 @@ public class VersionsRendererTest {
     // Header for transitive deps.
     assertThat(output).contains("Module (Indirect)");
 
-    // Direct deps rows — only upgradeable modules shown.
+    // Direct deps rows: only upgradeable modules shown.
     assertThat(output).contains("rules_java");
     assertThat(output).contains("7.6.5");
     assertThat(output).contains("8.0.0");
@@ -98,7 +98,7 @@ public class VersionsRendererTest {
     assertThat(output).doesNotContain("rules_python");
     assertThat(output).doesNotContain("platforms");
 
-    // Transitive deps rows — only upgradeable modules shown.
+    // Transitive deps rows: only upgradeable modules shown.
     assertThat(output).contains("abseil-cpp");
     assertThat(output).contains("20240116.2");
     assertThat(output).contains("20240722.0");

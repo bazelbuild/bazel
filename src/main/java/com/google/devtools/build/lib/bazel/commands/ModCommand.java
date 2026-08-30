@@ -39,10 +39,10 @@ import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModTidyValue;
-import com.google.devtools.build.lib.bazel.bzlmod.BuildozerBinaryValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
+import com.google.devtools.build.lib.bazel.bzlmod.BuildozerBinaryValue;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule;
 import com.google.devtools.build.lib.bazel.bzlmod.Module;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
@@ -1174,7 +1174,7 @@ public final class ModCommand implements BlazeCommand {
     ImmutableList.Builder<ModuleVersionEntry> newEntriesBuilder = ImmutableList.builder();
     for (ModuleVersionEntry entry : toPromote) {
       if (existingIndirectDeps.contains(entry.name())) {
-        // Already has a bazel_dep(..., repo_name = None) — just update version in-place.
+        // Already has a bazel_dep(..., repo_name = None), just update version in-place.
         appendSetVersion(buildozerInput, entry.name(), entry.latest());
       } else {
         newEntriesBuilder.add(entry);
@@ -1212,7 +1212,7 @@ public final class ModCommand implements BlazeCommand {
       return;
     }
 
-    // Sorted — merge new entries into the sorted order.
+    // Sorted: merge new entries into the sorted order.
     List<String> allNames = new ArrayList<>(indirectDeps);
     for (ModuleVersionEntry entry : newEntries) {
       allNames.add(entry.name());

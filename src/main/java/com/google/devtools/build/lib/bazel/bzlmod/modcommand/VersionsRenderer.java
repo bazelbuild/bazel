@@ -105,7 +105,7 @@ public final class VersionsRenderer {
       return;
     }
 
-    // Filter out up-to-date modules — only show entries that need attention.
+    // Filter out up-to-date modules: only show entries that need attention.
     ImmutableList<ModuleVersionEntry> displayDirectDeps =
         sortedDirectDeps.stream().filter(e -> !isUpToDate(e)).collect(toImmutableList());
     ImmutableList<ModuleVersionEntry> displayTransitiveDeps =
