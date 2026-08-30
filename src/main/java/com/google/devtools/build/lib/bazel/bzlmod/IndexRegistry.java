@@ -701,7 +701,7 @@ public class IndexRegistry implements Registry {
   }
 
   @Override
-  public Optional<ImmutableList<Version>> getAvailableVersions(
+  public Optional<KnownVersions> getKnownVersions(
       String moduleName, ExtendedEventHandler eventHandler, DownloadManager downloadManager)
       throws IOException, InterruptedException {
     Optional<MetadataJson> metadataJson = grabMetadata(moduleName, eventHandler, downloadManager);
@@ -710,9 +710,9 @@ public class IndexRegistry implements Registry {
     }
 
     try {
-      // Yanked versions are never offered as upgrade targets, so exclude them here. Compare
-      // parsed versions, not raw strings: Version strips build metadata, so e.g. "1.0+bcr.1"
-      // in the versions list is the same version as a yanked "1.0".
+      // Yanked versions are never offered as upgrade targets, so exclude them from the available
+      // list. Compare parsed versions, not raw strings: Version strips build metadata, so e.g.
+      // "1.0+bcr.1" in the versions list is the same version as a yanked "1.0".
       ImmutableSet.Builder<Version> yankedVersionsBuilder = new ImmutableSet.Builder<>();
       if (metadataJson.get().yankedVersions != null) {
         for (String v : metadataJson.get().yankedVersions.keySet()) {
@@ -729,7 +729,7 @@ public class IndexRegistry implements Registry {
           }
         }
       }
-      return Optional.of(versionsBuilder.build());
+      return Optional.of(new KnownVersions(versionsBuilder.build(), yankedVersions));
     } catch (ParseException e) {
       throw new IOException(
           String.format(

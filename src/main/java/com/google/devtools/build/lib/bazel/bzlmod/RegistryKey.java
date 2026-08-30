@@ -24,15 +24,15 @@ import com.google.devtools.build.skyframe.SkyKey;
 
 /** The key for {@link RegistryFunction}. */
 @AutoCodec
-record RegistryKey(String url) implements SkyKey {
-  RegistryKey {
+public record RegistryKey(String url) implements SkyKey {
+  public RegistryKey {
     requireNonNull(url, "url");
   }
 
   private static final SkyKeyInterner<RegistryKey> interner = SkyKey.newInterner();
 
   @AutoCodec.Instantiator
-  static RegistryKey create(String url) {
+  public static RegistryKey create(String url) {
     return interner.intern(new RegistryKey(url));
   }
 

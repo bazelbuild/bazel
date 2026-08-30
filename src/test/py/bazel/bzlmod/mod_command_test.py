@@ -2339,6 +2339,48 @@ class ModUpgradeCommandTest(test_base.TestBase):
     self.assertIn('repo_name = None', nnn_line)
     with open('MODULE.bazel', 'r') as f:
       self.assertNotIn('"nnn"', f.read())
+  def testUpgradeFindsLatestAcrossRegistries(self):
+    """The latest version lookup covers all registries, like resolution."""
+    # The extra registry, listed after the main one, has fff@2.0; the main
+    # registry only has fff@1.0. Resolution takes fff@2.0 from the extra
+    # registry, so the upgrade must offer it.
+    extra_registry = BazelRegistry(
+        os.path.join(self.registries_work_dir, 'extra')
+    )
+    extra_registry.start()
+    extra_registry.setModuleBasePath('projects')
+    try:
+      self.main_registry.createShModule('fff', '1.0')
+      self.main_registry.addMetadata('fff', versions=['1.0'])
+      extra_registry.createShModule('fff', '2.0')
+      extra_registry.addMetadata('fff', versions=['2.0'])
+      self.ScratchFile(
+          '.bazelrc',
+          [
+              'mod --registry=' + self.main_registry.getURL(),
+              'mod --registry=' + extra_registry.getURL(),
+              'mod --registry=https://bcr.bazel.build',
+              'mod --allow_yanked_versions=all',
+              'mod --charset=ascii',
+          ],
+      )
+      self.ScratchFile(
+          'MODULE.bazel',
+          [
+              'module(name = "my_project", version = "1.0")',
+              'bazel_dep(name = "fff", version = "1.0")',
+          ],
+      )
+      _, _, stderr = self.RunBazel(['mod', 'upgrade', 'fff'])
+      self.assertIn('Upgraded fff from 1.0 to 2.0', '\n'.join(stderr))
+
+      with open('MODULE.bazel', 'r') as f:
+        contents = f.read()
+      self.assertIn('bazel_dep(name = "fff", version = "2.0")', contents)
+      # Resolution must find fff@2.0 in the extra registry.
+      self.RunBazel(['mod', 'upgrade'])
+    finally:
+      extra_registry.stop()
 
   def testUpgradePinnedAtLatestWithStaleDepLineHidden(self):
     """A pin at the latest version is up to date even when the bazel_dep line

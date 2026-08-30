@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BuildozerBinaryValue;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule;
 import com.google.devtools.build.lib.bazel.bzlmod.Module;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
@@ -53,6 +54,9 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.MultipleVersionOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.Registry;
+import com.google.devtools.build.lib.bazel.bzlmod.Registry.KnownVersions;
+import com.google.devtools.build.lib.bazel.bzlmod.RegistryKey;
+import com.google.devtools.build.lib.bazel.bzlmod.RegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.RootModuleFileFixup;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionValue;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleVersionOverride;
@@ -94,6 +98,7 @@ import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.skyframe.BzlLoadCycleReporter;
 import com.google.devtools.build.lib.skyframe.BzlmodRepoCycleReporter;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -321,6 +326,7 @@ public final class ModCommand implements BlazeCommand {
     @Nullable BuildozerBinaryValue buildozerBinaryValue;
     @Nullable BazelModuleResolutionValue resolutionValue;
     @Nullable RootModuleFileValue rootModuleFileValue;
+    @Nullable ImmutableSet<String> configuredRegistryUrls;
     ImmutableList<RepositoryMappingValue> repoMappingValues;
 
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
@@ -343,7 +349,10 @@ public final class ModCommand implements BlazeCommand {
       } else {
         keys.add(BazelDepGraphValue.KEY, BazelModuleInspectorValue.KEY);
         if (subcommand.equals(ModSubcommand.UPGRADE)) {
-          keys.add(BazelModuleResolutionValue.KEY, ModuleFileValue.KEY_FOR_ROOT_MODULE);
+          keys.add(
+              BazelModuleResolutionValue.KEY,
+              ModuleFileValue.KEY_FOR_ROOT_MODULE,
+              ModuleFileFunction.REGISTRIES.getKey());
           // Only request BuildozerBinaryValue when we'll actually modify files.
           if (!args.isEmpty() || modOptions.getAll()) {
             keys.add(BuildozerBinaryValue.KEY);
@@ -384,6 +393,13 @@ public final class ModCommand implements BlazeCommand {
 
       rootModuleFileValue =
           (RootModuleFileValue) evaluationResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
+
+      PrecomputedValue registriesValue =
+          (PrecomputedValue) evaluationResult.get(ModuleFileFunction.REGISTRIES.getKey());
+      @SuppressWarnings("unchecked")
+      ImmutableSet<String> castRegistryUrls =
+          registriesValue == null ? null : (ImmutableSet<String>) registriesValue.get();
+      configuredRegistryUrls = castRegistryUrls;
 
       repoMappingValues =
           repoMappingKeys.stream()
@@ -432,7 +448,7 @@ public final class ModCommand implements BlazeCommand {
         return runTidy(env, modTidyValue);
       }
     } else if (subcommand == ModSubcommand.UPGRADE) {
-      if (resolutionValue == null) {
+      if (resolutionValue == null || configuredRegistryUrls == null) {
         return reportAndCreateFailureResult(
             env, "Failed to compute module resolution.", Code.MOD_COMMAND_UNKNOWN);
       }
@@ -443,6 +459,46 @@ public final class ModCommand implements BlazeCommand {
             "Failed to compute buildozer path for MODULE.bazel modification.",
             Code.MOD_COMMAND_UNKNOWN);
       }
+
+      // The latest version of a module must be looked up in every registry that resolution would
+      // consult: the configured registries in order, plus any registry named in a
+      // single_version_override. Registry objects come from Skyframe so they share the lockfile
+      // and vendor configuration with resolution.
+      ImmutableSet.Builder<String> registryUrlsBuilder = ImmutableSet.builder();
+      registryUrlsBuilder.addAll(configuredRegistryUrls);
+      for (ModuleOverride override : rootModuleFileValue.overrides().values()) {
+        if (override instanceof RegistryOverride registryOverride
+            && !registryOverride.getRegistry().isEmpty()) {
+          registryUrlsBuilder.add(registryOverride.getRegistry());
+        }
+      }
+      ImmutableSet<String> registryUrls = registryUrlsBuilder.build();
+      ImmutableMap<String, Registry> registriesByUrl;
+      try {
+        EvaluationResult<SkyValue> registryResult =
+            skyframeExecutor.prepareAndGet(
+                registryUrls.stream()
+                    .map(url -> (SkyKey) RegistryKey.create(url))
+                    .collect(toImmutableSet()),
+                evaluationContext);
+        if (registryResult.hasError()) {
+          Exception e = registryResult.getError().getException();
+          return reportAndCreateFailureResult(
+              env,
+              e != null ? e.getMessage() : "Unexpected error while creating registries.",
+              Code.MOD_COMMAND_UNKNOWN);
+        }
+        registriesByUrl =
+            registryUrls.stream()
+                .collect(
+                    toImmutableMap(
+                        url -> url, url -> (Registry) registryResult.get(RegistryKey.create(url))));
+      } catch (InterruptedException e) {
+        return handleInterrupted(env, e);
+      }
+      ImmutableList<Registry> configuredRegistries =
+          configuredRegistryUrls.stream().map(registriesByUrl::get).collect(toImmutableList());
+
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.BZLMOD, "execute mod " + subcommand)) {
         return runUpgrade(
@@ -452,6 +508,8 @@ public final class ModCommand implements BlazeCommand {
             moduleInspector,
             resolutionValue,
             rootModuleFileValue,
+            configuredRegistries,
+            registriesByUrl,
             modOptions,
             buildozerBinaryValue);
       }
@@ -815,6 +873,8 @@ public final class ModCommand implements BlazeCommand {
       BazelModuleInspectorValue moduleInspector,
       BazelModuleResolutionValue resolutionValue,
       RootModuleFileValue rootModuleFileValue,
+      ImmutableList<Registry> configuredRegistries,
+      ImmutableMap<String, Registry> registriesByUrl,
       ModOptions modOptions,
       @Nullable BuildozerBinaryValue buildozerBinaryValue) {
     ImmutableMap<String, ModuleOverride> overrides = rootModuleFileValue.overrides();
@@ -855,10 +915,12 @@ public final class ModCommand implements BlazeCommand {
             ? resolvedGraph.keySet()
             : collectKeysReachableWithoutBazelTools(resolvedGraph);
 
-    // Collect registries for each non-root module in the resolved graph.
+    // Collect the registries to consult for each non-root module in the resolved graph: the
+    // single registry named in its override, or all configured registries in order, mirroring how
+    // resolution locates a module version.
     // Track modules that are skipped due to overrides (single_version_override,
     // multiple_version_override, non-registry overrides like local_path_override, etc.).
-    LinkedHashMap<String, Registry> registryByModule = new LinkedHashMap<>();
+    LinkedHashMap<String, ImmutableList<Registry>> registriesByModule = new LinkedHashMap<>();
     ImmutableSet.Builder<String> overriddenModulesBuilder = ImmutableSet.builder();
     ImmutableSet.Builder<String> pinnedModulesBuilder = ImmutableSet.builder();
     HashSet<String> seenModuleNames = new HashSet<>();
@@ -893,13 +955,19 @@ public final class ModCommand implements BlazeCommand {
         overriddenModulesBuilder.add(moduleKey.name());
         continue;
       }
-      Registry registry = interim.getRegistry();
-      if (registry == null) {
+      if (interim.getRegistry() == null) {
         // Module has a non-registry override (e.g. local_path_override), skip.
         overriddenModulesBuilder.add(moduleKey.name());
         continue;
       }
-      registryByModule.putIfAbsent(moduleKey.name(), registry);
+      ImmutableList<Registry> lookupRegistries = configuredRegistries;
+      if (override instanceof RegistryOverride registryOverride
+          && !registryOverride.getRegistry().isEmpty()) {
+        lookupRegistries =
+            ImmutableList.of(
+                Objects.requireNonNull(registriesByUrl.get(registryOverride.getRegistry())));
+      }
+      registriesByModule.putIfAbsent(moduleKey.name(), lookupRegistries);
       if (versionPinned) {
         // Pinned: show it, but treat it as overridden so it is never upgraded automatically.
         pinnedModulesBuilder.add(moduleKey.name());
@@ -916,7 +984,7 @@ public final class ModCommand implements BlazeCommand {
             Executors.newThreadPerTaskExecutor(
                 Thread.ofVirtual().name("mod-upgrade-version-fetch-", 0).factory())) {
       availableVersionsMap =
-          fetchAllAvailableVersions(registryByModule, executor, env.getReporter());
+          fetchAllAvailableVersions(registriesByModule, executor, env.getReporter());
     } catch (InterruptedException e) {
       return handleInterrupted(env, e);
     }
@@ -929,7 +997,7 @@ public final class ModCommand implements BlazeCommand {
       if (moduleKey.equals(ModuleKey.ROOT)) {
         continue;
       }
-      if (!registryByModule.containsKey(moduleKey.name())) {
+      if (!registriesByModule.containsKey(moduleKey.name())) {
         continue;
       }
 
@@ -1536,12 +1604,12 @@ public final class ModCommand implements BlazeCommand {
   }
 
   private ImmutableMap<String, Optional<ImmutableList<Version>>> fetchAllAvailableVersions(
-      Map<String, Registry> registryByModule,
+      Map<String, ImmutableList<Registry>> registriesByModule,
       ExecutorService executor,
       ExtendedEventHandler reporter)
       throws InterruptedException {
     var futures = ImmutableMap.<String, Future<Optional<ImmutableList<Version>>>>builder();
-    for (var entry : registryByModule.entrySet()) {
+    for (var entry : registriesByModule.entrySet()) {
       futures.put(
           entry.getKey(),
           executor.submit(
@@ -1566,12 +1634,16 @@ public final class ModCommand implements BlazeCommand {
   }
 
   private Optional<ImmutableList<Version>> fetchAvailableVersions(
-      String moduleName, Registry registry, ExtendedEventHandler eventHandler)
+      String moduleName, ImmutableList<Registry> registries, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
     try (SilentCloseable c =
         Profiler.instance()
             .profile(ProfilerTask.BZLMOD, () -> "getting available versions: " + moduleName)) {
-      return registry.getAvailableVersions(moduleName, eventHandler, downloadManager);
+      List<Optional<KnownVersions>> perRegistry = new ArrayList<>(registries.size());
+      for (Registry registry : registries) {
+        perRegistry.add(registry.getKnownVersions(moduleName, eventHandler, downloadManager));
+      }
+      return Registry.mergeKnownVersions(perRegistry);
     }
   }
 

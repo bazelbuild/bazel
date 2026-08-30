@@ -523,7 +523,7 @@ public class IndexRegistryTest extends FoundationTestCase {
   }
 
   @Test
-  public void testGetAvailableVersionsSkipsYankedSpelledWithBuildMetadata() throws Exception {
+  public void testGetKnownVersionsSkipsYankedSpelledWithBuildMetadata() throws Exception {
     server.serve(
         "/modules/red-pill/metadata.json",
         "{\n"
@@ -544,9 +544,68 @@ public class IndexRegistryTest extends FoundationTestCase {
             ImmutableMap.of(),
             Optional.empty(),
             ImmutableSet.of());
-    Optional<ImmutableList<Version>> availableVersions =
-        registry.getAvailableVersions("red-pill", reporter, downloadManager);
-    assertThat(availableVersions).hasValue(ImmutableList.of(Version.parse("1.0")));
+    Optional<Registry.KnownVersions> knownVersions =
+        registry.getKnownVersions("red-pill", reporter, downloadManager);
+    assertThat(knownVersions)
+        .hasValue(
+            new Registry.KnownVersions(
+                ImmutableList.of(Version.parse("1.0")), ImmutableSet.of(Version.parse("2.0"))));
+  }
+
+  @Test
+  public void testMergeKnownVersionsUnionsRegistries() throws Exception {
+    Optional<ImmutableList<Version>> merged =
+        Registry.mergeKnownVersions(
+            ImmutableList.of(
+                Optional.of(
+                    new Registry.KnownVersions(
+                        ImmutableList.of(Version.parse("1.0")), ImmutableSet.of())),
+                Optional.of(
+                    new Registry.KnownVersions(
+                        ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")),
+                        ImmutableSet.of()))));
+    assertThat(merged).hasValue(ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")));
+  }
+
+  @Test
+  public void testMergeKnownVersionsFirstRegistryYankWins() throws Exception {
+    // 3.0 is yanked in the first registry that lists it, so a later registry offering it as
+    // available must not bring it back: resolution would fetch it from the first registry and
+    // then fail the yanked-version check.
+    Optional<ImmutableList<Version>> merged =
+        Registry.mergeKnownVersions(
+            ImmutableList.of(
+                Optional.of(
+                    new Registry.KnownVersions(
+                        ImmutableList.of(Version.parse("1.0")),
+                        ImmutableSet.of(Version.parse("3.0")))),
+                Optional.of(
+                    new Registry.KnownVersions(
+                        ImmutableList.of(Version.parse("2.0"), Version.parse("3.0")),
+                        ImmutableSet.of()))));
+    assertThat(merged).hasValue(ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")));
+  }
+
+  @Test
+  public void testMergeKnownVersionsLaterRegistryYankDoesNotHide() throws Exception {
+    // 2.0 is available in the first registry that lists it; a later registry yanking its own
+    // copy is irrelevant because resolution never gets there.
+    Optional<ImmutableList<Version>> merged =
+        Registry.mergeKnownVersions(
+            ImmutableList.of(
+                Optional.of(
+                    new Registry.KnownVersions(
+                        ImmutableList.of(Version.parse("2.0")), ImmutableSet.of())),
+                Optional.of(
+                    new Registry.KnownVersions(
+                        ImmutableList.of(), ImmutableSet.of(Version.parse("2.0"))))));
+    assertThat(merged).hasValue(ImmutableList.of(Version.parse("2.0")));
+  }
+
+  @Test
+  public void testMergeKnownVersionsAllUnknown() throws Exception {
+    assertThat(Registry.mergeKnownVersions(ImmutableList.of(Optional.empty(), Optional.empty())))
+        .isEmpty();
   }
 
   @Test

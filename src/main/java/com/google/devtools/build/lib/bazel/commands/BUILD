@@ -32,6 +32,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:registry",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution_impl",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:root_module_file_fixup",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:tidy",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:vendor",
