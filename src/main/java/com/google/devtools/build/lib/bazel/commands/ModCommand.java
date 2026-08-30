@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.modcommand.VersionsRenderer;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.VersionsRenderer.ModuleVersionEntry;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -450,7 +451,7 @@ public final class ModCommand implements BlazeCommand {
             depGraphValue,
             moduleInspector,
             resolutionValue,
-            rootModuleFileValue.overrides(),
+            rootModuleFileValue,
             modOptions,
             buildozerBinaryValue);
       }
@@ -813,9 +814,10 @@ public final class ModCommand implements BlazeCommand {
       BazelDepGraphValue depGraphValue,
       BazelModuleInspectorValue moduleInspector,
       BazelModuleResolutionValue resolutionValue,
-      ImmutableMap<String, ModuleOverride> overrides,
+      RootModuleFileValue rootModuleFileValue,
       ModOptions modOptions,
       @Nullable BuildozerBinaryValue buildozerBinaryValue) {
+    ImmutableMap<String, ModuleOverride> overrides = rootModuleFileValue.overrides();
     ImmutableMap<ModuleKey, Module> resolvedGraph = depGraphValue.getDepGraph();
     ImmutableMap<ModuleKey, InterimModule> unprunedGraph = resolutionValue.getUnprunedDepGraph();
 
@@ -831,6 +833,19 @@ public final class ModCommand implements BlazeCommand {
     ImmutableMap<String, Version> declaredDirectVersions =
         unprunedGraph.get(ModuleKey.ROOT).getOriginalDeps().values().stream()
             .collect(toImmutableMap(ModuleKey::name, ModuleKey::version, (a, b) -> a));
+
+    // The version each nodep entry is declared with in MODULE.bazel, taken from the root module
+    // file before resolution: the unpruned graph's nodep edges have already been stripped of
+    // unfulfilled entries and rewritten to the MVS-selected versions. Upgrades compare against and
+    // rewrite this declared version, like for direct deps. Duplicate nodep lines for the same
+    // module are allowed; the highest declared version wins, matching resolution.
+    ImmutableMap<String, Version> declaredNodepVersions =
+        rootModuleFileValue.module().getNodepDeps().stream()
+            .collect(
+                toImmutableMap(
+                    ModuleKey::name,
+                    ModuleKey::version,
+                    (a, b) -> a.compareTo(b) >= 0 ? a : b));
 
     // Hide builtin modules (bazel_tools and everything only reachable through it), matching the
     // other mod subcommands. Modules also reachable from the root on a path that avoids
@@ -927,14 +942,18 @@ public final class ModCommand implements BlazeCommand {
 
       boolean isDirect = directDepKeys.contains(moduleKey);
       boolean isPinned = pinnedModules.contains(moduleKey.name());
-      // "Installed" is the version an upgrade would rewrite: for direct deps the version declared
-      // in MODULE.bazel, except that a pinned module's installed version is the override's pin
-      // (which resolution selected, regardless of what the bazel_dep line declares); for
-      // transitive deps it is the resolved version, since they aren't declared there.
-      Version installed =
-          isDirect && !isPinned
-              ? declaredDirectVersions.getOrDefault(moduleKey.name(), moduleKey.version())
-              : moduleKey.version();
+      // "Installed" is the version an upgrade would rewrite: for a pinned module the override's
+      // pin (which resolution selected, regardless of what any bazel_dep line declares), for
+      // direct deps and nodep entries the version declared in MODULE.bazel, and for other
+      // transitive deps the resolved version, since they aren't declared anywhere.
+      Version installed;
+      if (isPinned) {
+        installed = moduleKey.version();
+      } else if (isDirect) {
+        installed = declaredDirectVersions.getOrDefault(moduleKey.name(), moduleKey.version());
+      } else {
+        installed = declaredNodepVersions.getOrDefault(moduleKey.name(), moduleKey.version());
+      }
       ModuleVersionEntry entry =
           new ModuleVersionEntry(moduleKey.name(), installed, latest, isDirect, isPinned);
       if (isDirect) {
@@ -980,12 +999,22 @@ public final class ModCommand implements BlazeCommand {
     ImmutableList.Builder<ModuleVersionEntry> toPromoteBuilder = ImmutableList.builder();
 
     if (modOptions.getAll()) {
-      // Upgrade all direct deps that have a newer version available (skipping pinned ones).
+      // Upgrade all deps declared in MODULE.bazel that have a newer version available (skipping
+      // pinned ones): direct deps, and nodep entries via the promotion path, which updates their
+      // existing bazel_dep(..., repo_name = None) lines in-place.
       for (ModuleVersionEntry entry : directDeps) {
         if (!entry.isPinned()
             && entry.latest() != null
             && entry.latest().compareTo(entry.installed()) > 0) {
           toUpgradeBuilder.add(entry);
+        }
+      }
+      for (ModuleVersionEntry entry : transitiveDeps) {
+        if (declaredNodepVersions.containsKey(entry.name())
+            && !entry.isPinned()
+            && entry.latest() != null
+            && entry.latest().compareTo(entry.installed()) > 0) {
+          toPromoteBuilder.add(entry);
         }
       }
     } else {
@@ -1053,7 +1082,8 @@ public final class ModCommand implements BlazeCommand {
         long aheadCount =
             Stream.concat(directDeps.stream(), transitiveDeps.stream())
                 .filter(entry -> !entry.isPinned() && entry.latest() != null)
-                .filter(ModuleVersionEntry::isDirect)
+                .filter(
+                    entry -> entry.isDirect() || declaredNodepVersions.containsKey(entry.name()))
                 .filter(entry -> entry.latest().compareTo(entry.installed()) < 0)
                 .count();
         if (aheadCount > 0) {
@@ -1089,7 +1119,8 @@ public final class ModCommand implements BlazeCommand {
 
     // Direct dep upgrades: update version in-place.
     for (ModuleVersionEntry entry : toUpgrade) {
-      appendSetVersion(buildozerInput, entry.name(), entry.latest());
+      appendSetVersion(
+          buildozerInput, LabelConstants.MODULE_DOT_BAZEL_FILE_NAME, entry.name(), entry.latest());
     }
 
     // Indirect dep promotions: create new bazel_dep entries with repo_name = None,
@@ -1097,8 +1128,7 @@ public final class ModCommand implements BlazeCommand {
     boolean changesMade;
     try {
       if (!toPromote.isEmpty()) {
-        generatePromoteCommands(
-            env, buildozerBinaryValue, resolutionValue, toPromote, buildozerInput);
+        generatePromoteCommands(env, buildozerBinaryValue, toPromote, buildozerInput);
       }
       // Run a format pass on all module file paths.
       for (PathFragment moduleFilePath : buildozerBinaryValue.moduleFilePaths()) {
@@ -1194,24 +1224,34 @@ public final class ModCommand implements BlazeCommand {
   private static void generatePromoteCommands(
       CommandEnvironment env,
       BuildozerBinaryValue buildozerBinaryValue,
-      BazelModuleResolutionValue resolutionValue,
       List<ModuleVersionEntry> toPromote,
       StringBuilder buildozerInput)
       throws InterruptedException {
-    // Get existing indirect deps (bazel_dep with repo_name = None) from Skyframe. Module
-    // resolution accepts duplicate nodep lines for the same module; keep the duplicates, since
-    // the anchor selection below needs to know where they sit in the group.
-    InterimModule rootInterim = resolutionValue.getUnprunedDepGraph().get(ModuleKey.ROOT);
-    ImmutableList<String> indirectDeps =
-        rootInterim.getNodepDeps().stream().map(ModuleKey::name).collect(toImmutableList());
+    // Find the existing indirect deps (bazel_dep with repo_name = None) by querying each module
+    // file via buildozer: resolution's nodep list has unfulfilled entries stripped and does not
+    // say which file declares an entry, but in-place upgrades must target the declaring file and
+    // insertion anchors must match the root file's actual nodep group, duplicates included.
+    LinkedHashMap<String, PathFragment> nodepDeclarationFiles = new LinkedHashMap<>();
+    ImmutableList<String> indirectDeps = ImmutableList.of();
+    for (PathFragment moduleFilePath : buildozerBinaryValue.moduleFilePaths()) {
+      ImmutableList<String> nodepDeps =
+          listNodepDeps(env, buildozerBinaryValue.buildozer(), moduleFilePath);
+      for (String name : nodepDeps) {
+        nodepDeclarationFiles.putIfAbsent(name, moduleFilePath);
+      }
+      if (moduleFilePath.equals(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)) {
+        indirectDeps = nodepDeps;
+      }
+    }
 
-    // Separate entries that already exist (just need version update) from truly new ones.
-    ImmutableSet<String> existingIndirectDeps = ImmutableSet.copyOf(indirectDeps);
+    // Separate entries that already exist (just need a version update in their declaring file)
+    // from truly new ones.
     ImmutableList.Builder<ModuleVersionEntry> newEntriesBuilder = ImmutableList.builder();
     for (ModuleVersionEntry entry : toPromote) {
-      if (existingIndirectDeps.contains(entry.name())) {
+      PathFragment declarationFile = nodepDeclarationFiles.get(entry.name());
+      if (declarationFile != null) {
         // Already has a bazel_dep(..., repo_name = None), just update version in-place.
-        appendSetVersion(buildozerInput, entry.name(), entry.latest());
+        appendSetVersion(buildozerInput, declarationFile, entry.name(), entry.latest());
       } else {
         newEntriesBuilder.add(entry);
       }
@@ -1317,11 +1357,43 @@ public final class ModCommand implements BlazeCommand {
     }
   }
 
+  /**
+   * Lists the names of the {@code bazel_dep(..., repo_name = None)} entries declared in the given
+   * module file via {@code buildozer 'print name repo_name'}, in file order and including
+   * duplicate lines. Returns an empty list if the file declares none or buildozer fails.
+   */
+  private static ImmutableList<String> listNodepDeps(
+      CommandEnvironment env, Path buildozer, PathFragment moduleFilePath)
+      throws InterruptedException {
+    try {
+      CommandResult result =
+          new CommandBuilder(env.getClientEnv())
+              .setWorkingDir(env.getWorkspace())
+              .addArg(buildozer.getPathString())
+              .addArg("print name repo_name")
+              .addArg("//" + moduleFilePath + ":%bazel_dep")
+              .build()
+              .execute();
+      ImmutableList.Builder<String> names = ImmutableList.builder();
+      for (String line : new String(result.getStdout(), ISO_8859_1).split("\n")) {
+        String[] fields = line.trim().split(" ");
+        if (fields.length == 2 && fields[1].equals("None") && !fields[0].equals("(missing)")) {
+          names.add(fields[0]);
+        }
+      }
+      return names.build();
+    } catch (CommandException e) {
+      return ImmutableList.of();
+    }
+  }
+
   /** Appends a buildozer command that sets the {@code version} attribute of a bazel_dep. */
   private static void appendSetVersion(
-      StringBuilder buildozerInput, String name, Version version) {
+      StringBuilder buildozerInput, PathFragment moduleFilePath, String name, Version version) {
     buildozerInput
-        .append("//MODULE.bazel:")
+        .append("//")
+        .append(moduleFilePath)
+        .append(":")
         .append(name)
         .append("|set version \"")
         .append(version)

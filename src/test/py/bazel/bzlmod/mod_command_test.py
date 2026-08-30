@@ -2256,6 +2256,90 @@ class ModUpgradeCommandTest(test_base.TestBase):
     stderr_str = '\n'.join(stderr)
     self.assertEqual(stderr_str.count('Upgraded aaa from 1.0 to 2.0'), 1)
 
+  def testUpgradeNodepDepUsesDeclaredVersionNotResolved(self):
+    """Upgrade of a nodep entry compares against the declared version, not the
+    MVS-resolved one, so a nodep line already bumped by MVS is still
+    rewritten."""
+    # parent depends on nnn@2.0, so MVS resolves nnn to 2.0 even though the
+    # root's nodep line still declares 1.0.
+    self.main_registry.createShModule('nnn', '1.0')
+    self.main_registry.createShModule('nnn', '2.0')
+    self.main_registry.addMetadata('nnn', versions=['1.0', '2.0'])
+    self.main_registry.createShModule('parent', '1.0', deps={'nnn': '2.0'})
+    self.main_registry.addMetadata('parent', versions=['1.0'])
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "parent", version = "1.0")',
+            'bazel_dep(name = "nnn", version = "1.0", repo_name = None)',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', 'nnn'])
+    self.assertIn('Upgraded nnn from 1.0 to 2.0', '\n'.join(stderr))
+
+    with open('MODULE.bazel', 'r') as f:
+      contents = f.read()
+    nnn_line = next(l for l in contents.splitlines() if '"nnn"' in l)
+    self.assertIn('"2.0"', nnn_line)
+    self.assertIn('repo_name = None', nnn_line)
+
+  def testUpgradeAllIncludesNodepEntries(self):
+    """--all also upgrades nodep bazel_dep lines declared in MODULE.bazel."""
+    self.main_registry.createShModule('nnn', '1.0')
+    self.main_registry.createShModule('nnn', '2.0')
+    self.main_registry.addMetadata('nnn', versions=['1.0', '2.0'])
+    self.main_registry.createShModule('parent', '1.0', deps={'nnn': '1.0'})
+    self.main_registry.addMetadata('parent', versions=['1.0'])
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "parent", version = "1.0")',
+            'bazel_dep(name = "nnn", version = "1.0", repo_name = None)',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', '--all'])
+    self.assertIn('Upgraded nnn from 1.0 to 2.0', '\n'.join(stderr))
+
+    with open('MODULE.bazel', 'r') as f:
+      contents = f.read()
+    nnn_line = next(l for l in contents.splitlines() if '"nnn"' in l)
+    self.assertIn('"2.0"', nnn_line)
+    self.assertIn('repo_name = None', nnn_line)
+
+  def testUpgradeNodepEntryInIncludedModuleFile(self):
+    """A nodep line declared via include() is upgraded in its own file."""
+    self.main_registry.createShModule('nnn', '1.0')
+    self.main_registry.createShModule('nnn', '2.0')
+    self.main_registry.addMetadata('nnn', versions=['1.0', '2.0'])
+    self.main_registry.createShModule('parent', '1.0', deps={'nnn': '1.0'})
+    self.main_registry.addMetadata('parent', versions=['1.0'])
+    self.ScratchFile(
+        'deps.MODULE.bazel',
+        [
+            'bazel_dep(name = "nnn", version = "1.0", repo_name = None)',
+        ],
+    )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'include("//:deps.MODULE.bazel")',
+            'bazel_dep(name = "parent", version = "1.0")',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', '--all'])
+    self.assertIn('Upgraded nnn from 1.0 to 2.0', '\n'.join(stderr))
+
+    with open('deps.MODULE.bazel', 'r') as f:
+      deps_contents = f.read()
+    nnn_line = next(l for l in deps_contents.splitlines() if '"nnn"' in l)
+    self.assertIn('"2.0"', nnn_line)
+    self.assertIn('repo_name = None', nnn_line)
+    with open('MODULE.bazel', 'r') as f:
+      self.assertNotIn('"nnn"', f.read())
+
   def testUpgradePinnedAtLatestWithStaleDepLineHidden(self):
     """A pin at the latest version is up to date even when the bazel_dep line
     declares an older version: the pin decides what is installed."""

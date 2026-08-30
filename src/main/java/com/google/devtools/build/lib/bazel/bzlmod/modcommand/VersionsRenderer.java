@@ -268,7 +268,8 @@ public final class VersionsRenderer {
     out.println();
     out.printf(
         "%sHint: Run 'bazel mod upgrade <module>' to upgrade specific modules,%n"
-            + "      or 'bazel mod upgrade --all' to upgrade all direct dependencies.%s%n",
+            + "      or 'bazel mod upgrade --all' to upgrade all dependencies declared in"
+            + " MODULE.bazel.%s%n",
         dim, reset);
     out.flush();
   }
