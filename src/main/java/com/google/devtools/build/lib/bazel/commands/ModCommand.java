@@ -113,6 +113,7 @@ import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -827,6 +828,14 @@ public final class ModCommand implements BlazeCommand {
         unprunedGraph.get(ModuleKey.ROOT).getOriginalDeps().values().stream()
             .collect(toImmutableMap(ModuleKey::name, ModuleKey::version, (a, b) -> a));
 
+    // Hide builtin modules (bazel_tools and everything only reachable through it), matching the
+    // other mod subcommands. Modules also reachable from the root on a path that avoids
+    // bazel_tools stay visible.
+    ImmutableSet<ModuleKey> visibleKeys =
+        modOptions.getIncludeBuiltin()
+            ? resolvedGraph.keySet()
+            : collectKeysReachableWithoutBazelTools(resolvedGraph);
+
     // Collect registries for each non-root module in the resolved graph.
     // Track modules that are skipped due to overrides (single_version_override,
     // multiple_version_override, non-registry overrides like local_path_override, etc.).
@@ -836,6 +845,9 @@ public final class ModCommand implements BlazeCommand {
     HashSet<String> seenModuleNames = new HashSet<>();
     for (ModuleKey moduleKey : resolvedGraph.keySet()) {
       if (moduleKey.equals(ModuleKey.ROOT)) {
+        continue;
+      }
+      if (!visibleKeys.contains(moduleKey)) {
         continue;
       }
       ModuleOverride override = overrides.get(moduleKey.name());
@@ -1094,6 +1106,29 @@ public final class ModCommand implements BlazeCommand {
                     "%d module%s upgraded.", totalChanges, totalChanges == 1 ? "" : "s")));
 
     return BlazeCommandResult.success();
+  }
+
+  /**
+   * Returns the modules reachable from the root without going through {@code bazel_tools}, i.e.
+   * everything except the builtin modules that are only in the graph because Bazel itself needs
+   * them.
+   */
+  private static ImmutableSet<ModuleKey> collectKeysReachableWithoutBazelTools(
+      ImmutableMap<ModuleKey, Module> depGraph) {
+    ModuleKey bazelTools = new ModuleKey("bazel_tools", Version.EMPTY);
+    HashSet<ModuleKey> seen = new HashSet<>();
+    ArrayDeque<ModuleKey> toVisit = new ArrayDeque<>();
+    seen.add(ModuleKey.ROOT);
+    toVisit.add(ModuleKey.ROOT);
+    while (!toVisit.isEmpty()) {
+      Module module = depGraph.get(toVisit.remove());
+      for (ModuleKey dep : module.getDeps().values()) {
+        if (!dep.equals(bazelTools) && seen.add(dep)) {
+          toVisit.add(dep);
+        }
+      }
+    }
+    return ImmutableSet.copyOf(seen);
   }
 
   /**

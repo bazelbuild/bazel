@@ -1927,6 +1927,21 @@ class ModUpgradeCommandTest(test_base.TestBase):
     self.assertIn("has an override and won't be upgraded automatically",
                   stderr_str)
 
+  def testUpgradeHidesBuiltinModules(self):
+    """Builtin modules (the bazel_tools closure) are hidden by default."""
+    self._setupSimpleProject()
+    _, stdout, _ = self.RunBazel(['mod', 'upgrade'])
+    stdout_str = '\n'.join(stdout)
+    for builtin in ('protobuf', 'rules_java', 'rules_cc', 'platforms'):
+      self.assertNotIn(builtin, stdout_str)
+    # Only aaa, bbb and ccc remain in the table once builtins are hidden.
+    self.assertIn('3 modules total', stdout_str)
+
+    # --include_builtin brings the bazel_tools closure back.
+    _, stdout, _ = self.RunBazel(['mod', 'upgrade', '--include_builtin'])
+    stdout_str = '\n'.join(stdout)
+    self.assertNotIn('3 modules total', stdout_str)
+
   def testUpgradePinnedAtLatestHidden(self):
     """A version pin already at the latest version is hidden (nothing to do)."""
     self.ScratchFile(
