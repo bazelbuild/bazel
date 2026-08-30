@@ -118,6 +118,7 @@ import java.io.Writer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -1195,7 +1196,9 @@ public final class ModCommand implements BlazeCommand {
       List<ModuleVersionEntry> toPromote,
       StringBuilder buildozerInput)
       throws InterruptedException {
-    // Get existing indirect deps (bazel_dep with repo_name = None) from Skyframe.
+    // Get existing indirect deps (bazel_dep with repo_name = None) from Skyframe. Module
+    // resolution accepts duplicate nodep lines for the same module; keep the duplicates, since
+    // the anchor selection below needs to know where they sit in the group.
     InterimModule rootInterim = resolutionValue.getUnprunedDepGraph().get(ModuleKey.ROOT);
     ImmutableList<String> indirectDeps =
         rootInterim.getNodepDeps().stream().map(ModuleKey::name).collect(toImmutableList());
@@ -1243,29 +1246,25 @@ public final class ModCommand implements BlazeCommand {
       return;
     }
 
-    // Sorted: merge new entries into the sorted order.
-    List<String> allNames = new ArrayList<>(indirectDeps);
-    for (ModuleVersionEntry entry : newEntries) {
-      allNames.add(entry.name());
-    }
-    allNames.sort(String::compareTo);
-
-    ImmutableMap.Builder<String, Integer> nameToIndexBuilder = ImmutableMap.builder();
-    for (int i = 0; i < allNames.size(); i++) {
-      nameToIndexBuilder.put(allNames.get(i), i);
-    }
-    ImmutableMap<String, Integer> nameToIndex = nameToIndexBuilder.buildOrThrow();
+    // Sorted: merge new entries into the sorted order. Buildozer's "after <name>" and
+    // "before <name>" anchors resolve to the first rule with that name, so with duplicate lines
+    // in the group an entry must be anchored "before" its successor, which in a sorted group is
+    // always that name's first occurrence. An entry that sorts after everything can only use an
+    // "after" anchor when the last name is not duplicated; otherwise let buildozer append it at
+    // the end of the file, which is after the whole group.
+    List<String> occurrences = new ArrayList<>(indirectDeps);
 
     // If any new entry would be first, we need to read the comment from the current first entry
     // so we can move it to the new first entry after insertion.
-    String currentFirst = indirectDeps.getFirst();
+    String currentFirst = occurrences.getFirst();
     String firstEntryComment = readComment(env, buildozerBinaryValue.buildozer(), currentFirst);
 
     for (ModuleVersionEntry entry : newEntries) {
-      int idx = nameToIndex.get(entry.name());
-      if (idx > 0) {
-        appendNewBazelDep(buildozerInput, entry, " after " + allNames.get(idx - 1));
-      } else {
+      int idx = 0;
+      while (idx < occurrences.size() && occurrences.get(idx).compareTo(entry.name()) < 0) {
+        idx++;
+      }
+      if (idx == 0) {
         // First in sorted order. Move the comment from the current first entry to the new one.
         if (firstEntryComment != null && !firstEntryComment.isEmpty()) {
           buildozerInput.append("//MODULE.bazel:").append(currentFirst).append("|remove_comment\n");
@@ -1280,7 +1279,14 @@ public final class ModCommand implements BlazeCommand {
               .append(escaped)
               .append("\n");
         }
+      } else if (idx < occurrences.size()) {
+        appendNewBazelDep(buildozerInput, entry, " before " + occurrences.get(idx));
+      } else if (Collections.frequency(occurrences, occurrences.getLast()) == 1) {
+        appendNewBazelDep(buildozerInput, entry, " after " + occurrences.getLast());
+      } else {
+        appendNewBazelDep(buildozerInput, entry, "");
       }
+      occurrences.add(idx, entry.name());
     }
   }
 

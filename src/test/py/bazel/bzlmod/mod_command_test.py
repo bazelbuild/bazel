@@ -2094,6 +2094,38 @@ class ModUpgradeCommandTest(test_base.TestBase):
     self.assertIn('"2.0"', contents)
     self.assertNotIn('"3.0"', contents)
 
+  def testUpgradeWithDuplicateNodepEntries(self):
+    """Two identical nodep bazel_dep lines must not crash the promotion."""
+    self.main_registry.createShModule('mmm', '1.0')
+    self.main_registry.addMetadata('mmm', versions=['1.0'])
+    self.main_registry.createShModule('nnn', '1.0')
+    self.main_registry.createShModule('nnn', '2.0')
+    self.main_registry.addMetadata('nnn', versions=['1.0', '2.0'])
+    self.main_registry.createShModule(
+        'parent', '1.0', deps={'mmm': '1.0', 'nnn': '1.0'}
+    )
+    self.main_registry.addMetadata('parent', versions=['1.0'])
+
+    # Both nodep lines are fulfilled (parent depends on mmm), so both survive
+    # into the resolved nodep group.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "my_project", version = "1.0")',
+            'bazel_dep(name = "parent", version = "1.0")',
+            'bazel_dep(name = "mmm", version = "1.0", repo_name = None)',
+            'bazel_dep(name = "mmm", version = "1.0", repo_name = None)',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['mod', 'upgrade', 'nnn'])
+    self.assertIn('Upgraded nnn from 1.0 to 2.0', '\n'.join(stderr))
+
+    with open('MODULE.bazel', 'r') as f:
+      contents = f.read()
+    self.assertIn('"nnn"', contents)
+    self.assertIn('"2.0"', contents)
+    self.assertLess(contents.rindex('"mmm"'), contents.index('"nnn"'))
+
   def testUpgradeInstalledNewerThanLatest(self):
     """A dep ahead of the newest non-yanked version is shown, not hidden."""
     # eee@3.0 is installed but yanked, so the newest available version is 2.0.
