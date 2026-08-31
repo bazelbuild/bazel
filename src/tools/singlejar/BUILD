@@ -138,6 +138,7 @@ cc_test(
         ":combiners",
         ":input_jar",
         ":test_util",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
         "@zlib",
     ],
@@ -156,6 +157,7 @@ cc_test(
         ":combiners",
         ":input_jar",
         ":test_util",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
         "@rules_cc//cc/runfiles",
     ],
@@ -172,6 +174,7 @@ cc_test(
         ":combiners",
         ":desugar_checking",
         ":input_jar",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
         "@zlib",
     ],
@@ -189,6 +192,7 @@ cc_test(
         ":input_jar",
         ":test_util",
         "//src/main/cpp/util",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -206,6 +210,7 @@ cc_test(
         ":input_jar",
         ":test_util",
         "//src/main/cpp/util",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -228,6 +233,7 @@ cc_test(
     deps = [
         ":input_jar",
         ":test_util",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -244,6 +250,7 @@ cc_test(
     deps = [
         ":input_jar",
         ":test_util",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -256,6 +263,7 @@ cc_test(
     deps = [
         ":input_jar",
         ":test_util",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -271,6 +279,7 @@ cc_test(
         ":token_stream",
         "//src/main/cpp/util",
         "@abseil-cpp//absl/container:flat_hash_set",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -315,6 +324,7 @@ cc_test(
         ":test_util",
         "//src/main/cpp/util",
         "@abseil-cpp//absl/strings",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -327,6 +337,7 @@ cc_test(
     deps = [
         ":test_util",
         ":token_stream",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -344,6 +355,7 @@ cc_test(
     deps = [
         ":input_jar",
         ":test_util",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
         "@zlib",
     ],
@@ -357,6 +369,7 @@ cc_test(
         ":zip_headers",
     ],
     deps = [
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -368,6 +381,7 @@ cc_test(
         ":zlib_interface",
     ],
     deps = [
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
         "@zlib",
     ],
@@ -513,6 +527,7 @@ cc_library(
     hdrs = ["test_util.h"],
     deps = [
         "//src/main/cpp/util",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
         "@rules_cc//cc/runfiles",
     ],
