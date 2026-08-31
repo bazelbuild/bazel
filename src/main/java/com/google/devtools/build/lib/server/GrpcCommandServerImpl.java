@@ -48,6 +48,7 @@ import java.net.SocketAddress;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * The {@link GrpcCommandServer} implementation.
@@ -73,11 +74,27 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
    * <p>It does not react to the interrupt flag in order to allow Bazel to complete the current
    * command while printing output as well as sending the final exit code to the client. However, it
    * maintains the interrupt flag if it is already set.
+   *
+   * <p>Once the client is gone, the thread handling the RPC is interrupted a single time, so that
+   * the command it runs unwinds. Interrupting on every {@link #onNext} call instead livelocks a
+   * command that retries an interruptible step, see
+   * https://github.com/bazelbuild/bazel/issues/30435.
    */
   @VisibleForTesting
   static class BlockingStreamObserver<T extends Message> implements GrpcCommandServer.Responder {
     private final ServerCallStreamObserver<T> observer;
     private final Parser<T> parser;
+
+    /**
+     * The thread handling the RPC, taken from the first {@link #onNext} call, which CommandServer
+     * makes before any output can reach this observer.
+     */
+    @GuardedBy("this")
+    @Nullable
+    private Thread rpcThread;
+
+    @GuardedBy("this")
+    private boolean cancelReported;
 
     BlockingStreamObserver(StreamObserver<T> observer, T responseType) {
       this((ServerCallStreamObserver<T>) observer, responseType);
@@ -100,6 +117,9 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
 
     @Override
     public synchronized void onNext(byte[] response) throws IOException {
+      if (rpcThread == null) {
+        rpcThread = Thread.currentThread();
+      }
       boolean interrupted = false;
       while (!observer.isReady() && !observer.isCancelled()) {
         try {
@@ -122,9 +142,12 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
       } catch (StatusRuntimeException e) {
         throw new IOException(e.getMessage(), e);
       } finally {
-        // Restore the interrupt bit.
-        if (interrupted || observer.isCancelled()) {
+        if (interrupted) {
+          // Restore the interrupt bit.
           Thread.currentThread().interrupt();
+        } else if (observer.isCancelled() && !cancelReported) {
+          cancelReported = true;
+          rpcThread.interrupt(); // not the caller: the command is the one that has to unwind
         }
       }
     }

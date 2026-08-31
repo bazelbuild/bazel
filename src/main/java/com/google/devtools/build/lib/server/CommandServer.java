@@ -479,7 +479,8 @@ public class CommandServer implements GrpcCommandServer.Callback {
       commandId = command.getId();
 
       try {
-        // Send the client the command id as soon as we know it.
+        // Send the client the command id as soon as we know it, also telling BlockingStreamObserver
+        // which thread to interrupt.
         responder.onNext(
             RunResponse.newBuilder()
                 .setCookie(responseCookie)

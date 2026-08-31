@@ -29,6 +29,7 @@ import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -320,6 +321,94 @@ public final class GrpcCommandServerImplTest {
     serverDone.await();
     clientDone.await();
     assertThat(sentCount.get()).isEqualTo(receiveCount.get());
+    server.shutdown();
+    server.awaitTermination();
+  }
+
+  @Test
+  public void testBlockingStreamObserverInterruptsOnceOnClientCancel() throws Exception {
+    // This test attempts to verify that BlockingStreamObserver interrupts the writing thread only
+    // once after the client prematurely closes the connection. Re-interrupting it on every call
+    // livelocks any command that retries an interruptible step, because the retry is interrupted
+    // again as soon as it reports progress: see https://github.com/bazelbuild/bazel/issues/30435.
+    CountDownLatch serverDone = new CountDownLatch(1);
+    CountDownLatch clientDone = new CountDownLatch(1);
+    AtomicInteger receiveCount = new AtomicInteger();
+    AtomicBoolean reinterrupted = new AtomicBoolean();
+    CommandServerGrpc.CommandServerImplBase serverImpl =
+        new CommandServerGrpc.CommandServerImplBase() {
+          @Override
+          public void run(RunRequest request, StreamObserver<RunResponse> observer) {
+            ServerCallStreamObserver<RunResponse> serverCallStreamObserver =
+                (ServerCallStreamObserver<RunResponse>) observer;
+            BlockingStreamObserver<RunResponse> blockingStreamObserver =
+                new BlockingStreamObserver<>(
+                    serverCallStreamObserver, RunResponse.getDefaultInstance());
+            Thread t =
+                new Thread(
+                    () -> {
+                      try {
+                        RunResponse response =
+                            RunResponse.newBuilder()
+                                .setStandardOutput(ByteString.copyFrom(new byte[1024]))
+                                .build();
+                        // Send until the client cancel interrupts us, clearing the interrupt bit.
+                        while (!Thread.interrupted()) {
+                          blockingStreamObserver.onNext(response.toByteArray());
+                        }
+                        // Calls past the cancel must leave the interrupt bit alone, the way the
+                        // command retrying an interruptible step needs it.
+                        for (int i = 0; i < 10; i++) {
+                          blockingStreamObserver.onNext(response.toByteArray());
+                        }
+                        reinterrupted.set(Thread.currentThread().isInterrupted());
+                        serverDone.countDown();
+                      } catch (IOException e) {
+                        throw new IllegalStateException(e);
+                      }
+                    });
+            t.start();
+          }
+        };
+
+    String uniqueName = InProcessServerBuilder.generateName();
+    // Do not use .directExecutor here, as it makes both client and server run in the same thread.
+    Server server =
+        InProcessServerBuilder.forName(uniqueName)
+            .addService(serverImpl)
+            .executor(Executors.newFixedThreadPool(4))
+            .build()
+            .start();
+    ManagedChannel channel =
+        InProcessChannelBuilder.forName(uniqueName)
+            .executor(Executors.newFixedThreadPool(4))
+            .build();
+
+    CommandServerStub stub = CommandServerGrpc.newStub(channel);
+    stub.run(
+        RunRequest.getDefaultInstance(),
+        new StreamObserver<RunResponse>() {
+          @Override
+          public void onNext(RunResponse value) {
+            if (receiveCount.get() > 3) {
+              channel.shutdownNow();
+            }
+            receiveCount.incrementAndGet();
+          }
+
+          @Override
+          public void onError(Throwable t) {
+            clientDone.countDown();
+          }
+
+          @Override
+          public void onCompleted() {
+            clientDone.countDown();
+          }
+        });
+    serverDone.await();
+    clientDone.await();
+    assertThat(reinterrupted.get()).isFalse();
     server.shutdown();
     server.awaitTermination();
   }
