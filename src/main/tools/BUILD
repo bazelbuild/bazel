@@ -97,7 +97,6 @@ cc_binary(
         "//conditions:default": [
             ":logging",
             ":process-tools",
-            "//src/main/cpp/util",
         ],
     }),
 )

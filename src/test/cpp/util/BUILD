@@ -15,7 +15,6 @@ cc_test(
     name = "md5_test",
     srcs = ["md5_test.cc"],
     deps = [
-        "//src/main/cpp/util",
         "//src/main/cpp/util:md5",
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
@@ -90,7 +89,8 @@ cc_test(
     name = "numbers_test",
     srcs = ["numbers_test.cc"],
     deps = [
-        "//src/main/cpp/util",
+        "//src/main/cpp/util:numbers",
+        "//src/main/cpp/util:port",
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
