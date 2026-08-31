@@ -455,6 +455,7 @@ class StaticHTTPServer:
 
   def __exit__(self, exc_type, exc_value, traceback):
     self.httpd.shutdown()
+    self.httpd.server_close()
     self.thread.join()
 
   def getURL(self):
