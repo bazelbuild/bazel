@@ -42,6 +42,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.StringReader;
+import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -1170,6 +1171,43 @@ public class HttpDownloaderTest {
     assertThat(times.get()).isEqualTo(4);
     String content = new String(result.getInputStream().readAllBytes(), UTF_8);
     assertThat(content).isEqualTo("content");
+  }
+
+  @Test
+  public void download_connectException_doesNotRetry() throws Exception {
+    Downloader downloader = mock(Downloader.class);
+    HttpDownloader httpDownloader = mock(HttpDownloader.class);
+    DownloadManager downloadManager =
+        new DownloadManager(downloadCache, downloader, httpDownloader, eventHandler);
+    downloadManager.setRetries(5);
+    AtomicInteger times = new AtomicInteger(0);
+    doAnswer(
+            (Answer<Void>)
+                invocationOnMock -> {
+                  times.getAndIncrement();
+                  IOException e = new IOException();
+                  e.addSuppressed(new ConnectException("Connection refused"));
+                  throw e;
+                })
+        .when(downloader)
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
+
+    assertThrows(
+        IOException.class,
+        () ->
+            download(
+                downloadManager,
+                ImmutableList.of(URI.create("http://localhost")),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                Optional.empty(),
+                "testCanonicalId",
+                Optional.empty(),
+                fs.getPath(workingDir.newFile().getAbsolutePath()),
+                ImmutableMap.of(),
+                "testRepo"));
+
+    assertThat(times.get()).isEqualTo(1);
   }
 
   @Test
