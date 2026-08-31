@@ -460,7 +460,7 @@ final class ByteStreamUploader {
       if (finishedWriting) {
         uploadResult.set(committedSize);
       } else {
-        // Server completed succesfully before we finished writing all the data, meaning the blob
+        // Server completed successfully before we finished writing all the data, meaning the blob
         // already exists. The server is supposed to set committed_size to the size of the blob (for
         // uncompressed uploads) or -1 (for compressed uploads), but we do not verify this.
         requestObserver.cancel("server has returned early", null);
