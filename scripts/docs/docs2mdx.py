@@ -55,6 +55,17 @@ _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 _ANGLE_BRACKET_LINK_RE = re.compile(r"<(https?://[^>]+)>")
 _HTML_STYLE_PATTERN = re.compile(r"^</?style>", re.MULTILINE)
 _MD_FRONT_MATTER_PATTERN = re.compile(r"^---", re.MULTILINE)
+# Flag docs wrap the anchor link inside <code>, which markdownify drops.
+# Move the link outside <code> so it survives conversion to MDX definition
+# lists.
+_CODE_FLAG_LINK_RE = re.compile(
+    r'<code(?:\s[^>]*)?><a href="(#[^"]+)">(.*?)</a>(.*?)</code>',
+    re.DOTALL,
+)
+# Definition-list flag terms that should expose a copyable deep-link anchor.
+_FLAG_TERM_LINK_RE = re.compile(
+    r"^\[`([^`]+)`\]\(#((?:[^)]*-)?flag--[^)]+)\)",
+)
 _HEADING_TAG_RE = re.compile(
     r"<h([1-6])([^>]*)>(.*?)</h\1>", re.DOTALL | re.IGNORECASE
 )
@@ -223,7 +234,27 @@ def _pre_markdown_transforms(content):
   # Remove Project: and Book: lines
   no_metadata = _METADATA_PATTERN.sub("", no_comments, count=2).lstrip()
   no_templates = _TEMPLATE_RE.sub("", no_metadata)
-  return _convert_heading_ids_to_mdx_anchors(no_templates)
+  heading_anchors = _convert_heading_ids_to_mdx_anchors(no_templates)
+  return _move_flag_links_outside_code(heading_anchors)
+
+
+def _move_flag_links_outside_code(content):
+  """Moves in-code flag anchor links outside of <code> tags.
+
+  HtmlUtils.getUsageHtml() renders flags as
+  <code><a href="#flag--name">--name</a>...</code>. Markdownify discards links
+  nested inside inline code, so restructure the HTML before conversion.
+
+  Args:
+    content: str; HTML content before markdown conversion.
+
+  Returns:
+    Content with flag links moved outside of <code> tags.
+  """
+  return _CODE_FLAG_LINK_RE.sub(
+      r'<a href="\1"><code>\2\3</code></a>',
+      content,
+  )
 
 
 def _convert_heading_ids_to_mdx_anchors(content):
@@ -273,7 +304,35 @@ def _post_markdown_transforms(content):
   )
   front_matter_first = _remove_anything_before_front_matter(fixed_headings)
   no_styles = _remove_style_sections(front_matter_first)
-  return _restore_heading_anchors(no_styles)
+  restored_headings = _restore_heading_anchors(no_styles)
+  return _add_flag_anchor_targets(restored_headings)
+
+
+def _add_flag_anchor_targets(content):
+  """Inserts explicit anchor targets for copyable per-flag deep links.
+
+  After markdown conversion, flag terms look like
+  [`--flag_name`](#flag--flag_name). Mintlify needs an element with a matching
+  id attribute for those links (and copied URLs) to resolve.
+
+  Args:
+    content: str; MDX content after markdown conversion.
+
+  Returns:
+    Content with <a id="..."></a> targets inserted before each flag term.
+  """
+  seen_anchor_ids = set()
+  lines = []
+  for line in content.split("\n"):
+    match = _FLAG_TERM_LINK_RE.match(line)
+    if match:
+      anchor_id = match.group(2)
+      if anchor_id not in seen_anchor_ids:
+        seen_anchor_ids.add(anchor_id)
+        lines.append(f'<a id="{anchor_id}"></a>')
+        lines.append("")
+    lines.append(line)
+  return "\n".join(lines)
 
 
 def _restore_heading_anchors(content):
