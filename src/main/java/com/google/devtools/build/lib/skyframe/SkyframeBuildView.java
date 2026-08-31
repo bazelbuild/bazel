@@ -797,13 +797,19 @@ public final class SkyframeBuildView {
         // Coverage report generation should only be requested after all tests have executed.
         // When --nokeep_going and there's an earlier error, we should skip this and fail fast.
         if ((!mainEvaluationResult.hasError() && !hasExclusiveTestsError) || keepGoing) {
+          if (Thread.currentThread().isInterrupted()) {
+            throw new InterruptedException();
+          }
           ImmutableSet<Artifact> coverageReportArtifacts =
               coverageReportActionsWrapperSupplier.getCoverageReportArtifacts(
                   buildResultListener.getAnalyzedTargets(), buildResultListener.getAnalyzedTests());
           eventBus.post(CoverageArtifactsKnownEvent.create(coverageReportArtifacts));
           additionalArtifactsResult =
-              skyframeExecutor.evaluateSkyKeys(
-                  eventHandler, Artifact.keys(coverageReportArtifacts), keepGoing);
+              skyframeExecutor.evaluate(
+                  Artifact.keys(coverageReportArtifacts),
+                  keepGoing,
+                  executors.executionParallelism(),
+                  eventHandler);
           if (additionalArtifactsResult.hasError()) {
             detailedExitCodes.add(
                 SkyframeErrorProcessor.processErrors(
