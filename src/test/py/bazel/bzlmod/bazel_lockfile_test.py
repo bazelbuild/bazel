@@ -3467,6 +3467,231 @@ class BazelLockfileTest(test_base.TestBase):
     # Should not have "has changed its facts" error
     self.assertNotIn('has changed its facts', stderr)
 
+  def _setUpExtensionWithFacts(self, reproducible):
+    """Sets up a workspace with an extension producing two facts entries."""
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel', ['filegroup(name = "unrelated")'])
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
+            'repo_rule = repository_rule(',
+            '    implementation = impl,',
+            '    attrs = {"hash": attr.string()},',
+            ')',
+            'def _mod_ext_impl(ctx):',
+            '    print("lockfile_ext is being evaluated")',
+            '    metadata = {',
+            '        "1.25.0": {"hash": "olleh"},',
+            '        "1.26.1": {"hash": "hello"},',
+            '    }',
+            '    repo_rule(',
+            '        name = "hello",',
+            '        hash = metadata["1.26.1"]["hash"],',
+            '    )',
+            '    return ctx.extension_metadata(',
+            '        reproducible = %s,' % repr(reproducible),
+            '        facts = metadata,',
+            '    )',
+            'lockfile_ext = module_extension(implementation = _mod_ext_impl)',
+        ],
+    )
+
+    # Initial build to generate the lockfile with facts.
+    self.RunBazel(['build', '@hello//:all', '--lockfile_mode=update'])
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+    extension_id = '//:extension.bzl%lockfile_ext'
+    self.assertEqual(
+        lockfile['facts'][extension_id],
+        {'1.25.0': {'hash': 'olleh'}, '1.26.1': {'hash': 'hello'}},
+    )
+    return extension_id
+
+  def _dropFactsFromLockfile(self, extension_id, fact_key=None):
+    """Deletes facts from the workspace lockfile, entirely or a single key."""
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+    if fact_key is None:
+      del lockfile['facts'][extension_id]
+    else:
+      del lockfile['facts'][extension_id][fact_key]
+    with open(self.Path('MODULE.bazel.lock'), 'w') as f:
+      json.dump(lockfile, f, indent=2)
+
+  def _addFactToLockfile(self, extension_id, fact_key, fact_value):
+    """Adds a facts entry to the workspace lockfile.
+
+    Simulates the workspace lockfile changing underneath a warm output base,
+    e.g. due to a branch switch or pull that brings in facts produced by an
+    evaluation of the extension on a different machine.
+    """
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+    lockfile['facts'][extension_id][fact_key] = fact_value
+    with open(self.Path('MODULE.bazel.lock'), 'w') as f:
+      json.dump(lockfile, f, indent=2)
+
+  def testDeletedFactsRegeneratedByUpdateMode(self):
+    """Facts deleted from the workspace lockfile are restored by UPDATE mode.
+
+    Regression test for https://github.com/bazelbuild/bazel/issues/29161. For a
+    non-reproducible extension, the deleted facts are restored from the hidden
+    lockfile's copy without rerunning the extension: its cached result is
+    locked in the workspace lockfile, so a cold machine would not rerun it
+    either.
+    """
+    extension_id = self._setUpExtensionWithFacts(reproducible=False)
+    self._dropFactsFromLockfile(extension_id)
+
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all', '--lockfile_mode=update']
+    )
+    self.assertNotIn('lockfile_ext is being evaluated', '\n'.join(stderr))
+
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+    self.assertEqual(
+        lockfile['facts'][extension_id],
+        {'1.25.0': {'hash': 'olleh'}, '1.26.1': {'hash': 'hello'}},
+    )
+
+  def testPartiallyDeletedFactsRegeneratedByUpdateMode(self):
+    """Individual facts entries deleted from the lockfile are regenerated.
+
+    Regression test for https://github.com/bazelbuild/bazel/issues/29161: the
+    original report deleted a single entry (e.g. "1.25.0") from an extension's
+    facts while keeping the others, so the extension's facts key itself is
+    still present in the lockfile.
+    """
+    extension_id = self._setUpExtensionWithFacts(reproducible=True)
+    self._dropFactsFromLockfile(extension_id, fact_key='1.25.0')
+
+    self.RunBazel(['build', '@hello//:all', '--lockfile_mode=update'])
+
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+    self.assertEqual(
+        lockfile['facts'][extension_id],
+        {'1.25.0': {'hash': 'olleh'}, '1.26.1': {'hash': 'hello'}},
+    )
+
+  def testDeletedFactsRegeneratedByUpdateModeAfterUnrelatedBuild(self):
+    """Facts are regenerated even if an unrelated build runs after the edit.
+
+    The unrelated build must not overwrite the hidden lockfile's record of the
+    facts produced by the extension's most recent evaluation with the manually
+    edited workspace facts, as that record is what allows a later build to
+    detect that the extension has to be rerun.
+    """
+    extension_id = self._setUpExtensionWithFacts(reproducible=True)
+    self._dropFactsFromLockfile(extension_id, fact_key='1.25.0')
+
+    # This build does not evaluate the extension.
+    self.RunBazel(['build', '//:unrelated', '--lockfile_mode=update'])
+
+    self.RunBazel(['build', '@hello//:all', '--lockfile_mode=update'])
+
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+    self.assertEqual(
+        lockfile['facts'][extension_id],
+        {'1.25.0': {'hash': 'olleh'}, '1.26.1': {'hash': 'hello'}},
+    )
+
+  def testExternallyUpdatedFactsKeptByUpdateModeForNonReproducibleExtension(
+      self,
+  ):
+    """UPDATE mode keeps updated facts of a non-reproducible extension.
+
+    The hidden lockfile records the facts produced by the most recent local
+    evaluation of the extension. If the workspace lockfile's facts for a
+    non-reproducible extension change without any of its inputs changing (e.g.
+    a branch switch or pull brings in a re-pin performed on another machine),
+    the cached result must be reused with the new facts as is: a cold machine
+    would not rerun the extension either and a rerun could require network
+    access or credentials that are only available to the person updating the
+    pins.
+    """
+    extension_id = self._setUpExtensionWithFacts(reproducible=False)
+    self._addFactToLockfile(extension_id, '1.27.0', {'hash': 'hola'})
+
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all', '--lockfile_mode=update']
+    )
+    self.assertNotIn('lockfile_ext is being evaluated', '\n'.join(stderr))
+
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+    self.assertEqual(
+        lockfile['facts'][extension_id],
+        {
+            '1.25.0': {'hash': 'olleh'},
+            '1.26.1': {'hash': 'hello'},
+            '1.27.0': {'hash': 'hola'},
+        },
+    )
+
+  def testExternallyUpdatedFactsRegenerateReproducibleExtension(self):
+    """UPDATE mode reruns a reproducible extension on changed facts.
+
+    A reproducible extension's facts can only legitimately change together
+    with its inputs, so facts that differ from the record of its most recent
+    evaluation despite unchanged inputs indicate an edited workspace lockfile
+    and the extension is rerun to regenerate them. This is safe: a reproducible
+    extension's result is only ever cached in the machine-local hidden
+    lockfile, so a cold machine would rerun it anyway.
+    """
+    extension_id = self._setUpExtensionWithFacts(reproducible=True)
+    self._addFactToLockfile(extension_id, '1.27.0', {'hash': 'hola'})
+
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all', '--lockfile_mode=update']
+    )
+    self.assertIn('lockfile_ext is being evaluated', '\n'.join(stderr))
+
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+    self.assertEqual(
+        lockfile['facts'][extension_id],
+        {'1.25.0': {'hash': 'olleh'}, '1.26.1': {'hash': 'hello'}},
+    )
+
+  def testDeletedFactsDetectedByErrorModeForReproducibleExtension(self):
+    """ERROR mode reruns a reproducible extension on edited facts and fails.
+
+    Regression test for https://github.com/bazelbuild/bazel/issues/29161
+    """
+    extension_id = self._setUpExtensionWithFacts(reproducible=True)
+    self._dropFactsFromLockfile(extension_id, fact_key='1.25.0')
+
+    exit_code, stdout, stderr = self.RunBazel(
+        ['build', '@hello//:all', '--lockfile_mode=error'], allow_failure=True
+    )
+    stderr = ''.join(stderr)
+    self.AssertExitCode(exit_code, 48, stderr, stdout)
+    self.assertIn('has changed its facts', stderr)
+
+  def testDeletedFactsIgnoredByErrorModeForNonReproducibleExtension(self):
+    """ERROR mode does not fail on edited facts of a non-reproducible extension.
+
+    A non-reproducible extension must not be rerun in ERROR mode and failing
+    based on the hidden lockfile's purely machine-local record could produce
+    false positives after a rollback of the extension together with the
+    workspace lockfile (https://github.com/bazelbuild/bazel/issues/28717).
+    """
+    extension_id = self._setUpExtensionWithFacts(reproducible=False)
+    self._dropFactsFromLockfile(extension_id)
+
+    self.RunBazel(['build', '@hello//:all', '--lockfile_mode=error'])
+
 
 if __name__ == '__main__':
   absltest.main()

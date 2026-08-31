@@ -115,6 +115,14 @@ public class BazelLockFileModule extends BlazeModule {
     combinedFacts.putAll(oldLockfile.getFacts());
     var combinedFactsVersions = new HashMap<ModuleExtensionId, Integer>(numExtensions);
     combinedFactsVersions.putAll(oldLockfile.getFactsVersions());
+    // The hidden lockfile's facts serve as the record of the facts produced by the most recent
+    // actual evaluation of each extension, which SingleExtensionEvalFunction compares against the
+    // workspace lockfile's facts to detect manual edits. They must thus only be combined with
+    // results of the current build, never with the workspace lockfile's (possibly edited) facts.
+    var combinedHiddenFacts = new HashMap<ModuleExtensionId, Facts>(numExtensions);
+    combinedHiddenFacts.putAll(oldHiddenLockfile.getFacts());
+    var combinedHiddenFactsVersions = new HashMap<ModuleExtensionId, Integer>(numExtensions);
+    combinedHiddenFactsVersions.putAll(oldHiddenLockfile.getFactsVersions());
     var doneValues = evaluator.getDoneValues();
     for (var extensionId : depGraphValue.getExtensionUsagesTable().rowKeySet()) {
       if (extensionId.isInnate()) {
@@ -126,26 +134,15 @@ public class BazelLockFileModule extends BlazeModule {
         newExtensionInfos.put(extensionId, value.lockFileInfo().get());
         combinedFacts.put(extensionId, value.facts());
         combinedFactsVersions.put(extensionId, value.factsVersion());
+        combinedHiddenFacts.put(extensionId, value.facts());
+        combinedHiddenFactsVersions.put(extensionId, value.factsVersion());
       }
     }
-    var relevantFacts =
-        ImmutableSortedMap.copyOf(
-            Maps.filterEntries(
-                combinedFacts,
-                entry ->
-                    depGraphValue.getExtensionUsagesTable().containsRow(entry.getKey())
-                        && !entry.getValue().equals(Facts.EMPTY)),
-            ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR);
-    // Only store non-zero versions for extensions that have facts persisted; the default is 0.
-    var relevantFactsVersions =
-        ImmutableSortedMap.copyOf(
-            Maps.filterEntries(
-                combinedFactsVersions,
-                entry ->
-                    relevantFacts.containsKey(entry.getKey())
-                        && entry.getValue() != null
-                        && entry.getValue() != 0),
-            ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR);
+    var relevantFacts = filterRelevantFacts(combinedFacts, depGraphValue);
+    var relevantFactsVersions = filterRelevantFactsVersions(combinedFactsVersions, relevantFacts);
+    var relevantHiddenFacts = filterRelevantFacts(combinedHiddenFacts, depGraphValue);
+    var relevantHiddenFactsVersions =
+        filterRelevantFactsVersions(combinedHiddenFactsVersions, relevantHiddenFacts);
 
     Thread updateLockfile =
         Thread.startVirtualThread(
@@ -206,8 +203,8 @@ public class BazelLockFileModule extends BlazeModule {
                   BazelLockFileValue.builder()
                       .setSelectedYankedVersions(ImmutableMap.of())
                       .setModuleExtensions(reproducibleExtensionInfos)
-                      .setFacts(relevantFacts)
-                      .setFactsVersions(relevantFactsVersions)
+                      .setFacts(relevantHiddenFacts)
+                      .setFactsVersions(relevantHiddenFactsVersions)
                       .build();
 
               if (!newHiddenLockfile.equals(oldHiddenLockfileFinal)) {
@@ -223,6 +220,31 @@ public class BazelLockFileModule extends BlazeModule {
       logger.atSevere().withCause(e).log(
           "Interrupted while updating MODULE.bazel.lock file: %s", e.getMessage());
     }
+  }
+
+  private static ImmutableSortedMap<ModuleExtensionId, Facts> filterRelevantFacts(
+      Map<ModuleExtensionId, Facts> combinedFacts, BazelDepGraphValue depGraphValue) {
+    return ImmutableSortedMap.copyOf(
+        Maps.filterEntries(
+            combinedFacts,
+            entry ->
+                depGraphValue.getExtensionUsagesTable().containsRow(entry.getKey())
+                    && !entry.getValue().equals(Facts.EMPTY)),
+        ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR);
+  }
+
+  /** Only keeps non-zero versions for extensions that have facts persisted; the default is 0. */
+  private static ImmutableSortedMap<ModuleExtensionId, Integer> filterRelevantFactsVersions(
+      Map<ModuleExtensionId, Integer> combinedFactsVersions,
+      ImmutableSortedMap<ModuleExtensionId, Facts> relevantFacts) {
+    return ImmutableSortedMap.copyOf(
+        Maps.filterEntries(
+            combinedFactsVersions,
+            entry ->
+                relevantFacts.containsKey(entry.getKey())
+                    && entry.getValue() != null
+                    && entry.getValue() != 0),
+        ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR);
   }
 
   /**
