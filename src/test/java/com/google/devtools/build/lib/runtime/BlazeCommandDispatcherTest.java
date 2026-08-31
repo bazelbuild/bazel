@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
+import static com.google.devtools.build.lib.bazel.BazelServices.BAZEL_SERVICES;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -29,7 +30,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
@@ -103,15 +103,18 @@ public final class BlazeCommandDispatcherTest {
     ServerDirectories serverDirectories =
         new ServerDirectories(
             scratch.dir("install_base"), scratch.dir("output_base"), scratch.dir("user_root"));
+    OptionsParsingResult startupOptionsProvider =
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
+    for (var service : BAZEL_SERVICES) {
+      service.globalInit(startupOptionsProvider, BAZEL_SERVICES);
+    }
     // no ConfiguredTargetFactory is needed for testing command dispatch
     BlazeRuntime.Builder builder =
         new BlazeRuntime.Builder()
             .setFileSystem(scratch.getFileSystem())
             .setServerDirectories(serverDirectories)
             .setProductName(productName)
-            .setStartupOptionsProvider(
-                OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
-            .addBlazeService(new CompressionServiceImpl())
+            .setStartupOptionsProvider(startupOptionsProvider)
             .addBlazeModule(
                 new BlazeModule() {
                   @Override
@@ -126,6 +129,9 @@ public final class BlazeCommandDispatcherTest {
                     }
                   }
                 });
+    for (var service : BAZEL_SERVICES) {
+      builder.addBlazeService(service);
+    }
     for (BlazeModule module : additionalModules) {
       builder.addBlazeModule(module);
     }
@@ -143,8 +149,12 @@ public final class BlazeCommandDispatcherTest {
   @After
   public void stopProfilers() throws Exception {
     // Needs to be done because we are simulating crashes but keeping the jvm alive.
-    Profiler.instance().stop();
-    MemoryProfiler.instance().stop();
+    try {
+      Profiler.instance().stop();
+      MemoryProfiler.instance().stop();
+    } finally {
+      Profiler.setTraceProfilerService(null);
+    }
   }
 
   /** Options for {@link FooCommand}. */
