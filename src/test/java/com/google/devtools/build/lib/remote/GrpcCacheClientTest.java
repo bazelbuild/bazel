@@ -1371,7 +1371,7 @@ public class GrpcCacheClientTest {
   @Test
   public void downloadBlobFailsWhenServerCompletesBeforeExpectedSize() throws IOException {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
-    remoteOptions.setRemoteVerifyDownloads(false);
+    remoteOptions.remoteVerifyDownloads = false;
     GrpcCacheClient client = newClient(remoteOptions);
     Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     serviceRegistry.addService(
@@ -1439,7 +1439,7 @@ public class GrpcCacheClientTest {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.setCacheCompression(true);
     remoteOptions.setCacheCompressionThreshold(0);
-    remoteOptions.setRemoteVerifyDownloads(false);
+    remoteOptions.remoteVerifyDownloads = false;
     GrpcCacheClient client = newClient(remoteOptions);
     Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     ByteString compressedPrefix = ByteString.copyFrom(Zstd.compress("abcd".getBytes(UTF_8)));
