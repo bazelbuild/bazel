@@ -34,10 +34,12 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -49,7 +51,11 @@ import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InterruptedIOException;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.syntax.Types;
@@ -1288,9 +1294,86 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         "in call to requires_int(), parameter 'x' got value of type 'str', want 'int'");
   }
 
+  @Test
+  public void bzlCompileCacheHitFromNodeWithOtherKeyKind_registersFileDep() throws Exception {
+    // Regression test for https://github.com/bazelbuild/bazel/issues/30900: the KeyForBuild and
+    // KeyForBzlmod variants of the same .bzl share a single entry in BzlLoadFunction's
+    // bzlCompileCache. A node that gets a cache hit for an entry computed on behalf of the other
+    // variant must still register a dependency on the .bzl's FileValue; otherwise it isn't
+    // invalidated when the file changes and keeps serving stale contents.
+    CustomInMemoryFs fs = (CustomInMemoryFs) fileSystem;
+    scratch.file("pkg/BUILD");
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        load(":bar.bzl", "x")
+
+        y = x
+        """);
+    Path barBzl = scratch.file("pkg/bar.bzl", "x = 1");
+
+    // Evaluate the KeyForBuild node on another thread and interrupt the evaluation while it is
+    // blocked statting bar.bzl. At that point foo.bzl has already been compiled and cached in the
+    // bzlCompileCache (a .bzl is compiled before its load() deps are requested), and the interrupt
+    // strands the entry there since it is only released when the owning BzlLoadValue node
+    // completes. This simulates a .bzl file compiled on behalf of one BzlLoadValue node while a
+    // node for the other key variant of the same file is in flight.
+    SkyKey keyForBuild = key("//pkg:foo.bzl");
+    fs.pathToBlockOnStat = barBzl;
+    AtomicBoolean evaluationInterrupted = new AtomicBoolean(false);
+    Thread evalThread =
+        new Thread(
+            () -> {
+              try {
+                SkyframeExecutorTestUtils.evaluate(
+                    getSkyframeExecutor(), keyForBuild, /* keepGoing= */ false, reporter);
+              } catch (InterruptedException e) {
+                evaluationInterrupted.set(true);
+              }
+            });
+    evalThread.start();
+    assertThat(fs.blockedStatReached.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+        .isTrue();
+    evalThread.interrupt();
+    evalThread.join();
+    assertThat(evaluationInterrupted.get()).isTrue();
+    fs.pathToBlockOnStat = null;
+    fs.blockedStatMayProceed.countDown();
+
+    // The interrupted evaluation may have committed an error for bar.bzl's FileStateValue (the
+    // blocked stat throws InterruptedIOException when the evaluation shuts down). Invalidate it so
+    // that the next evaluation stats the file afresh.
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter,
+            ModifiedFileSet.builder().modify(PathFragment.create("pkg/bar.bzl")).build(),
+            Root.fromPath(rootDirectory));
+
+    // The KeyForBzlmod node gets a bzlCompileCache hit for the entry compiled on behalf of the
+    // KeyForBuild node above.
+    SkyKey keyForBzlmod = BzlLoadValue.keyForBzlmod(Label.parseCanonical("//pkg:foo.bzl"));
+    EvaluationResult<BzlLoadValue> result = get(keyForBzlmod);
+    assertThat(result.get(keyForBzlmod).getModule().getGlobals())
+        .containsEntry("y", StarlarkInt.of(1));
+
+    // Change foo.bzl. The KeyForBzlmod node must pick up the new file contents.
+    scratch.overwriteFile("pkg/foo.bzl", "y = 2");
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter,
+            ModifiedFileSet.builder().modify(PathFragment.create("pkg/foo.bzl")).build(),
+            Root.fromPath(rootDirectory));
+    result = get(keyForBzlmod);
+    assertThat(result.get(keyForBzlmod).getModule().getGlobals())
+        .containsEntry("y", StarlarkInt.of(2));
+  }
+
   private static class CustomInMemoryFs extends InMemoryFileSystem {
     @Nullable private Path badPathForStat;
     @Nullable private Path badPathForRead;
+    @Nullable private volatile Path pathToBlockOnStat;
+    private final CountDownLatch blockedStatReached = new CountDownLatch(1);
+    private final CountDownLatch blockedStatMayProceed = new CountDownLatch(1);
 
     CustomInMemoryFs() {
       super(DigestHashFunction.SHA256);
@@ -1300,6 +1383,16 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
       if (badPathForStat != null && badPathForStat.asFragment().equals(path)) {
         throw new IOException("bad");
+      }
+      Path blockedPath = pathToBlockOnStat;
+      if (blockedPath != null && blockedPath.asFragment().equals(path)) {
+        blockedStatReached.countDown();
+        try {
+          blockedStatMayProceed.await();
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new InterruptedIOException();
+        }
       }
       return super.statIfFound(path, followSymlinks);
     }

@@ -287,6 +287,32 @@ public class BzlCompileFunction implements SkyFunction {
   }
 
   /**
+   * Requests the {@link FileValue} for the .bzl file denoted by {@code key} so that the requesting
+   * Skyframe node depends on it, without using the result.
+   *
+   * <p>Used by {@code BzlLoadFunction.InliningAndCachingGetter} on a {@code bzlCompileCache} hit:
+   * the cached value may have been computed on behalf of a different {@code BzlLoadValue} node that
+   * shares the same compile key (e.g. the {@code KeyForBuild} and {@code KeyForBzlmod} variants of
+   * the same label), in which case the node consuming the cache hit doesn't yet depend on the file
+   * and would miss invalidation when it changes.
+   *
+   * @return false if the {@link FileValue} is not yet available
+   */
+  static boolean requestFileDepOnCacheHit(BzlCompileValue.Key key, Environment env)
+      throws FailedIOException, InterruptedException {
+    if (key.kind == BzlCompileValue.Kind.EMPTY_PRELUDE) {
+      // Does not correspond to a file.
+      return true;
+    }
+    RootedPath rootedPath = RootedPath.toRootedPath(key.root, key.label.toPathFragment());
+    try {
+      return env.getValueOrThrow(FileValue.key(rootedPath), IOException.class) != null;
+    } catch (IOException e) {
+      throw new FailedIOException(e, Transience.PERSISTENT);
+    }
+  }
+
+  /**
    * Replays the syntax errors from a file onto an event handler, adding more context if necessary.
    */
   private static void addSyntaxErrorsToListener(
