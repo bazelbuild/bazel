@@ -2676,6 +2676,71 @@ public class ParallelEvaluatorTest {
   }
 
   @Test
+  public void buildDriverNode_receivesNewValueWhenUnchanged() throws Exception {
+    record CustomSkyKey(SkyFunctionName functionName, String name) implements SkyKey {
+      @Override
+      public Object argument() {
+        return name;
+      }
+    }
+
+    SkyFunctionName buildDriverType = SkyFunctionName.createHermetic("BUILD_DRIVER");
+    SkyKey buildDriverKey = new CustomSkyKey(buildDriverType, "driver");
+    SkyKey depKey = GraphTester.skyKey("dep");
+
+    tester.getOrCreate(buildDriverKey).setComputedValue(CONCATENATE).addDependency(depKey);
+    tester.set(depKey, new StringValue("depVal"));
+
+    AtomicReference<SkyValue> evaluatedNewValue = new AtomicReference<>();
+    EvaluationProgressReceiver progressReceiver =
+        new EvaluationProgressReceiver() {
+          @Override
+          public void evaluated(
+              SkyKey skyKey,
+              EvaluationState state,
+              @Nullable SkyValue newValue,
+              @Nullable ErrorInfo newError,
+              @Nullable GroupedDeps directDeps) {
+            if (skyKey.equals(buildDriverKey)) {
+              evaluatedNewValue.set(newValue);
+            }
+          }
+        };
+
+    MemoizingEvaluator evaluator =
+        new InMemoryMemoizingEvaluator(
+            ImmutableMap.of(
+                GraphTester.NODE_TYPE, tester.getFunction(), buildDriverType, tester.getFunction()),
+            new SequencedRecordingDifferencer(),
+            progressReceiver);
+
+    ExtendedEventHandler reporter =
+        new Reporter(
+            EventBusEventHandler.createWithNewEventBus(),
+            e -> {
+              throw new IllegalStateException();
+            });
+
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setParallelism(1)
+            .setEventHandler(reporter)
+            .build();
+
+    // First evaluation: node is evaluated freshly (versionChanged == true).
+    evaluator.evaluate(ImmutableList.of(buildDriverKey), evaluationContext);
+    assertThat(evaluatedNewValue.get()).isEqualTo(new StringValue("depVal"));
+
+    evaluatedNewValue.set(null);
+
+    // Second evaluation without changes: versionChanged == false.
+    // For BUILD_DRIVER nodes, newValue must be passed as non-null.
+    evaluator.evaluate(ImmutableList.of(buildDriverKey), evaluationContext);
+    assertThat(evaluatedNewValue.get()).isEqualTo(new StringValue("depVal"));
+  }
+
+  @Test
   public void runDepOnErrorHaltsNoKeepGoingBuildEagerly(
       @TestParameter boolean childErrorCached, @TestParameter boolean handleChildError)
       throws Exception {

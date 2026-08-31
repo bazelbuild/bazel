@@ -353,12 +353,17 @@ abstract class AbstractParallelEvaluator {
           // Replay events once change-pruned.
           replay(ValueWithMetadata.getEvents(valueMaybeWithMetadata));
           // Tell the receiver that the value was not actually changed this run.
+          // BUILD_DRIVER nodes are an exception: even when change-pruned (versionChanged == false),
+          // their value must be passed to the progress receiver so that ExecutionProgressReceiver
+          // can post completion events. See BuildDriverKey.
           evaluatorContext
               .getProgressReceiver()
               .evaluated(
                   skyKey,
                   EvaluationState.get(valueMaybeWithMetadata, /* versionChanged= */ false),
-                  /* newValue= */ null,
+                  /* newValue= */ skyKey.functionName().getName().equals("BUILD_DRIVER")
+                      ? ValueWithMetadata.justValue(valueMaybeWithMetadata)
+                      : null,
                   /* newError= */ null,
                   /* directDeps= */ null);
           if (!evaluatorContext.keepGoing(skyKey) && nodeEntry.getErrorInfo() != null) {

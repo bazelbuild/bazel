@@ -320,6 +320,79 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     }
   }
 
+  @Test
+  public void sequentialBuilds_sameTarget_noNullPointerException(
+      @TestParameter boolean mergedAnalysisExecution) throws Exception {
+    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt"],
+            outs = ["out"],
+            cmd = "cat $< > $@",
+        )
+        """);
+
+    buildTarget("//hello:target");
+    buildTarget("//hello:target");
+  }
+
+  @Test
+  public void sequentialBuilds_sameTargetWithAspect_noNullPointerException(
+      @TestParameter boolean mergedAnalysisExecution) throws Exception {
+    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+    addOptions("--aspects=//foo:aspect.bzl%simple_aspect");
+    write(
+        "foo/aspect.bzl",
+        """
+        def _aspect_impl(target, ctx):
+            return []
+
+        simple_aspect = aspect(implementation = _aspect_impl)
+        """);
+    write(
+        "foo/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = [],
+            outs = ["out"],
+            cmd = "touch $@",
+        )
+        """);
+
+    buildTarget("//foo:target");
+    buildTarget("//foo:target");
+  }
+
+  @Test
+  public void sequentialBuilds_multipleTargets_noNullPointerException(
+      @TestParameter boolean mergedAnalysisExecution) throws Exception {
+    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target1",
+            srcs = ["x.txt"],
+            outs = ["out1"],
+            cmd = "cat $< > $@",
+        )
+        genrule(
+            name = "target2",
+            srcs = ["x.txt"],
+            outs = ["out2"],
+            cmd = "cat $< > $@",
+        )
+        """);
+
+    buildTarget("//hello:target1", "//hello:target2");
+    buildTarget("//hello:target1", "//hello:target2");
+  }
 
   @Test
   public void aspectAnalysisFailure_consistentWithNonSkymeld(

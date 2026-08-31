@@ -129,7 +129,8 @@ public interface EvaluationProgressReceiver {
    *
    * @param state the current state of the node for {@code skyKey}
    * @param newValue the node's value if {@link EvaluationState#versionChanged()} and {@link
-   *     EvaluationState#succeeded()}, otherwise {@code null}
+   *     EvaluationState#succeeded()}, or if {@code skyKey} is a {@code BUILD_DRIVER} node (see
+   *     {@code BuildDriverKey}); otherwise {@code null}
    * @param newError the node's error if it has one and {@link EvaluationState#versionChanged()}
    * @param directDeps direct dependencies of {@code skyKey} if the node was just built, otherwise
    *     {@code null}
