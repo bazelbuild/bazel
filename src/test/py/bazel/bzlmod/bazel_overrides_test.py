@@ -877,7 +877,7 @@ class BazelOverridesTest(test_base.TestBase):
       )
     else:
       expected_msg = (
-          "Skipping '@@my_repo//:target': no such package '@@my_repo//':"
+          "no such package '@@my_repo//':"
           ' the repository @@my_repo does not exist, but has been specified'
           ' as overridden with --override_repository. Use --inject_repository'
           ' instead to add a new repository.'

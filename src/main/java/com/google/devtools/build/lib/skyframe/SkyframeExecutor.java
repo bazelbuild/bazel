@@ -3229,7 +3229,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       throws TargetParsingException, InterruptedException {
     SkyKey key =
         TargetPatternPhaseValue.keyWithoutFilters(
-            ImmutableList.copyOf(targetPatterns), relativeWorkingDirectory);
+            ImmutableList.copyOf(targetPatterns), relativeWorkingDirectory, keepGoing);
     return getTargetPatternPhaseValue(eventHandler, targetPatterns, threadCount, keepGoing, key);
   }
 
@@ -3262,7 +3262,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             ImmutableList.copyOf(options.getBuildTagFilterList()),
             options.getBuildManualTests(),
             options.getExpandTestSuites(),
-            TestFilter.forOptions(options));
+            TestFilter.forOptions(options),
+            keepGoing);
     return getTargetPatternPhaseValue(eventHandler, targetPatterns, threadCount, keepGoing, key);
   }
 

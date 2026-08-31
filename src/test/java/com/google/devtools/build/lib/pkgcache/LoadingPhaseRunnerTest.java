@@ -269,6 +269,14 @@ public final class LoadingPhaseRunnerTest {
   }
 
   @Test
+  public void testEmptyTargetKeepGoing() throws Exception {
+    TargetPatternPhaseValue result = tester.loadKeepGoing("");
+    assertThat(result.hasError()).isTrue();
+    tester.assertContainsError("Skipping '': invalid target name '': empty target name");
+    tester.assertContainsWarning("Target pattern parsing failed.");
+  }
+
+  @Test
   public void testMistypedTargetKeepGoing() throws Exception {
     TargetPatternPhaseValue result = tester.loadKeepGoing("foo//bar:missing");
     assertThat(result.hasError()).isTrue();
