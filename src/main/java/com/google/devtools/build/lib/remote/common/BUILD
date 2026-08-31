@@ -64,6 +64,10 @@ java_library(
             "LostInputsEvent.java",
         ],
     ),
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":action_key",
         "//src/main/java/com/google/devtools/build/lib/actions",

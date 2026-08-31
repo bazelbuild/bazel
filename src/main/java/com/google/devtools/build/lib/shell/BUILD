@@ -26,6 +26,10 @@ java_library(
         ["*.java"],
         exclude = WINDOWS_SRCS,
     ),
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:describable_execution_unit",
@@ -47,6 +51,10 @@ java_library(
 java_library(
     name = "windows_subprocess_factory",
     srcs = WINDOWS_SRCS,
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker:__pkg__",
+    ],
     deps = [
         ":shell",
         "//src/main/java/com/google/devtools/build/lib/util:cleaner",

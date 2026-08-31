@@ -32,6 +32,9 @@ TESTUTIL_FILES = [
 java_library(
     name = "testutil",
     srcs = TESTUTIL_FILES,
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/events",

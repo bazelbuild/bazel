@@ -21,6 +21,7 @@ java_library(
         "SafeExecutorOwner.java",
         "SafeFutures.java",
     ],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//third_party/java/error_prone:annotations",

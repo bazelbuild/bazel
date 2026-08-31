@@ -16,6 +16,9 @@ filegroup(
 java_library(
     name = "WorkspaceRuleEventTest_lib",
     srcs = ["WorkspaceRuleEventTest.java"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/bazel:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:workspace-rule-event",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:workspace_log_java_proto",

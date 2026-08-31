@@ -565,6 +565,7 @@ java_library(
 java_library(
     name = "glob_test_base",
     srcs = ["GlobTestBase.java"],
+    visibility = ["//visibility:private"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
@@ -617,6 +618,7 @@ java_library(
 java_library(
     name = "file_system_value_checker_inferring_ancestors_test_base",
     srcs = ["FileSystemValueCheckerInferringAncestorsTestBase.java"],
+    visibility = ["//visibility:private"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/skyframe:default_syscall_cache",
@@ -638,6 +640,7 @@ java_test(
     name = "StarlarkFileContentHashTests",
     timeout = "short",
     srcs = ["StarlarkFileContentHashTests.java"],
+    visibility = ["//visibility:private"],
     deps = [
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib/clock",
@@ -665,6 +668,7 @@ java_test(
 java_library(
     name = "artifact_function_test_case",
     srcs = ["ArtifactFunctionTestCase.java"],
+    visibility = ["//visibility:private"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",

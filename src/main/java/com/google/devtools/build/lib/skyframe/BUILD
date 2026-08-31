@@ -732,6 +732,9 @@ java_library(
 java_library(
     name = "skyvalue_retriever_utils",
     srcs = ["SkyValueRetrieverUtils.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
@@ -2763,6 +2766,12 @@ java_library(
 java_library(
     name = "skyfocus_options",
     srcs = ["SkyfocusOptions.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/buildtool:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/runtime:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
+    ],
     deps = ["//src/main/java/com/google/devtools/common/options"],
 )
 

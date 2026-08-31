@@ -31,11 +31,21 @@ java_library(
 java_library(
     name = "globber",
     srcs = ["Globber.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:package_loader_access",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:__pkg__",
+    ],
 )
 
 java_library(
     name = "globber_utils",
     srcs = ["GlobberUtils.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:package_loader_access",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:__pkg__",
+    ],
     deps = [
         ":globber",
         "//third_party/java/error_prone:annotations",
@@ -74,6 +84,10 @@ java_library(
             "StructProvider.java",
         ],
     ),
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:package_loader_access",
+    ],
     deps = [
         ":bzl_visibility",
         ":declared_exec_group",

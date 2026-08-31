@@ -14,6 +14,9 @@ filegroup(
 java_library(
     name = "cpu_profiler_module",
     srcs = ["CpuProfilerModule.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/bazel:__pkg__",
+    ],
     deps = [
         ":cpu_profiler_service",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
@@ -37,6 +40,10 @@ java_library(
 java_library(
     name = "cpu_profiler_service_impl",
     srcs = ["CpuProfilerServiceImpl.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/bazel:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/testutil:__pkg__",
+    ],
     deps = [
         ":cpu_profiler_service",
         "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",

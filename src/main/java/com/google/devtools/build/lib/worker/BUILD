@@ -18,6 +18,9 @@ java_library(
         "ProtoWorkerProtocol.java",
         "WorkerProtocolImpl.java",
     ],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/worker:__pkg__",
+    ],
     deps = [
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party/java/gson",
@@ -29,6 +32,9 @@ java_library(
 java_library(
     name = "worker_files_hash",
     srcs = ["WorkerFilesHash.java"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/worker:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
@@ -137,6 +143,7 @@ java_library(
         "ProtoWorkerMessageProcessor.java",
         "WorkRequestHandler.java",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party/java/error_prone:annotations",
@@ -186,6 +193,11 @@ java_library(
 java_library(
     name = "worker_options",
     srcs = ["WorkerOptions.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib/remote:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/worker:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util:ram_resource_converter",
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",

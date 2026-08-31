@@ -228,6 +228,7 @@ java_library(
 filegroup(
     name = "bazel-docgen-src",
     srcs = glob(["**/*.java"]),
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 filegroup(

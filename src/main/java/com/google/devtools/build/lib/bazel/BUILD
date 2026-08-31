@@ -99,6 +99,12 @@ java_library(
         "BazelStartupOptionsModule.java",
         "BazelWorkspaceStatusModule.java",
     ],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/bazel:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/buildtool:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/runtime:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -134,6 +140,8 @@ java_library(
     name = "spawn_log_module",
     srcs = [
         "SpawnLogModule.java",
+    ],
+    visibility = [
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_prefetcher",
@@ -188,6 +196,9 @@ java_library(
 java_library(
     name = "main",
     srcs = ["Bazel.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
     deps = [
         ":bazel_filesystem_module",
         ":bazel_services",
@@ -245,6 +256,7 @@ java_binary(
         "-Xlint:all",
     ],
     main_class = "com.google.devtools.build.lib.bazel.Bazel",
+    visibility = ["//src:__subpackages__"],
     runtime_deps = [
         ":main",
         "//src/main/java/com/google/devtools/build/lib/util:simple_log_handler",  # See startup_options.cc

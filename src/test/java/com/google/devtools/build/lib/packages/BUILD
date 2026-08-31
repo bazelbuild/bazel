@@ -130,6 +130,8 @@ java_test(
 java_library(
     name = "DocumentationTestUtil",
     srcs = ["DocumentationTestUtil.java"],
+    visibility = [
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -161,6 +163,9 @@ java_library(
         "@rules_cc//cc/private:srcs",
         "@rules_cc//cc/private/rules_impl:srcs",
         "@rules_cc//cc/toolchains:srcs",
+    ],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",

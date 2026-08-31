@@ -40,6 +40,7 @@ java_library(
 java_library(
     name = "thread_safety",
     srcs = ["ThreadSafety.java"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 java_library(

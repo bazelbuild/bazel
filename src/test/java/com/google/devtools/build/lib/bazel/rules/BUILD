@@ -20,6 +20,9 @@ filegroup(
 java_library(
     name = "BazelRuleTests_lib",
     srcs = glob(["*.java"]),
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/bazel:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",

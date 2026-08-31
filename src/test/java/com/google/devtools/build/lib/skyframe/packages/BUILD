@@ -16,6 +16,7 @@ filegroup(
 java_library(
     name = "AbstractPackageLoaderTest",
     srcs = ["AbstractPackageLoaderTest.java"],
+    visibility = ["//visibility:public"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",

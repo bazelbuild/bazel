@@ -22,6 +22,10 @@ java_library(
         "FileSystems.java",
         "FsApparatus.java",
     ],
+    visibility = [
+        "//src:__subpackages__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
@@ -39,6 +43,7 @@ java_library(
     name = "test_glob_path_discriminator",
     testonly = 1,
     srcs = ["TestUnixGlobPathDiscriminator.java"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__subpackages__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party/java/error_prone:annotations",

@@ -15,6 +15,10 @@ filegroup(
 java_library(
     name = "file",
     srcs = ["WindowsFileOperations.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//third_party/bazel_rules/rules_android/src/tools/java/com/google/devtools/build/android/junctions:__pkg__",
+    ],
     deps = [
         ":windows_path_operations",
         "//src/main/java/com/google/devtools/build/lib/jni",
@@ -39,6 +43,10 @@ java_library(
     name = "windows",
     srcs = [
         "WindowsFileSystem.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/test/java/com/google/devtools/build/lib/windows:__subpackages__",
     ],
     deps = [
         ":file",

@@ -67,12 +67,18 @@ java_library(
 java_binary(
     name = "ExampleWorker",
     main_class = "com.google.devtools.build.lib.worker.ExampleWorker",
+    visibility = [
+        "//src/test/shell/integration:__pkg__",
+    ],
     runtime_deps = [":ExampleWorker_lib"],
 )
 
 java_binary(
     name = "ExampleWorkerMultiplexer",
     main_class = "com.google.devtools.build.lib.worker.ExampleWorkerMultiplexer",
+    visibility = [
+        "//src/test/shell/integration:__pkg__",
+    ],
     runtime_deps = [":ExampleWorker_lib"],
 )
 

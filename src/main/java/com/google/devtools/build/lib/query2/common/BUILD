@@ -16,6 +16,9 @@ java_library(
     srcs = [
         "CqueryNode.java",
     ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:config_matching_provider",
@@ -32,6 +35,9 @@ java_library(
     name = "abstract-blaze-query-env",
     srcs = [
         "AbstractBlazeQueryEnvironment.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bugreport",

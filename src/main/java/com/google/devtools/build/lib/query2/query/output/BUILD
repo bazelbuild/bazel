@@ -14,6 +14,11 @@ filegroup(
 java_library(
     name = "output",
     srcs = glob(["*.java"]),
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
+        "//src/main/java/com/google/devtools/build/lib/rules/genquery:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect:equivalence_relation",

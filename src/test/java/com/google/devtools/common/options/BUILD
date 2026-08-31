@@ -21,6 +21,9 @@ java_library(
         "InvocationPolicyEnforcerTestBase.java",
         "TestOptions.java",
     ],
+    visibility = [
+        "//src/test/java:__subpackages__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_server_startup_options",
         "//src/main/java/com/google/devtools/common/options",

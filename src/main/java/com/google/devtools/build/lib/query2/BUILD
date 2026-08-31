@@ -25,6 +25,10 @@ java_library(
             "FakeLoadTarget.java",
         ],
     ),
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib/rules/genquery:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
@@ -150,6 +154,9 @@ java_library(
     srcs = [
         "aquery/AqueryActionFilter.java",
         "aquery/AqueryUtils.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",

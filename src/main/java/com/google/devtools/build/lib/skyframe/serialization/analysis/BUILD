@@ -14,6 +14,13 @@ filegroup(
 java_library(
     name = "event_listener",
     srcs = ["RemoteAnalysisCachingEventListener.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/buildtool:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/metrics:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/runtime:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
+    ],
     deps = [
         ":client_id",
         ":remote_analysis_cache_client",
@@ -38,6 +45,10 @@ java_library(
 java_library(
     name = "serialization_dependencies_provider",
     srcs = ["SerializationDependenciesProvider.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
     deps = [
         ":file_op_node_map",
         ":remote_analysis_cache_mode",
@@ -55,6 +66,16 @@ java_library(
     srcs = [
         "RemoteAnalysisCacheReaderDepsProvider.java",
         "RemoteAnalysisCachingDependenciesProvider.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
     ],
     deps = [
         ":frontier_serializer",
@@ -75,6 +96,10 @@ java_library(
     name = "graph_dumper",
     srcs = [
         "GraphDumper.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
     ],
     deps = [
         ":file_dependency_deserializer",
@@ -99,6 +124,12 @@ java_library(
         "SelectedEntrySerializer.java",
         "SkyValueUploadedEvent.java",
         "SkycacheUploadClient.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/buildtool:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
     ],
     deps = [
         ":event_listener",
@@ -159,6 +190,10 @@ java_library(
 java_library(
     name = "file_op_node_map",
     srcs = ["FileOpNodeMemoizingLookup.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
+    ],
     deps = [
         ":missing_skyframe_entry_exception",
         ":value_or_future_map",
@@ -184,6 +219,9 @@ java_library(
 java_library(
     name = "file_dependency_serializer",
     srcs = ["FileDependencySerializer.java"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
+    ],
     deps = [
         ":file_dependency_key_support",
         ":invalidation_data_reference_or_future",
@@ -220,6 +258,9 @@ java_library(
 java_library(
     name = "invalidation_data_reference_or_future",
     srcs = ["InvalidationDataInfoOrFuture.java"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent:settable_future_keyed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
@@ -237,6 +278,10 @@ java_library(
         "FileSystemDependencies.java",
         "ListingDependencies.java",
         "NestedDependencies.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/runtime:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
     ],
     deps = [
         ":file_dependency_key_support",
@@ -278,6 +323,9 @@ java_library(
         "NoMatch.java",
         "VersionedChangesValidator.java",
     ],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
+    ],
     deps = [
         ":file_dependency_deserializer",
         ":value_or_future_map",
@@ -293,6 +341,9 @@ java_library(
 java_library(
     name = "file_dependency_key_support",
     srcs = ["FileDependencyKeySupport.java"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/versioning:long_version_getter",
@@ -305,11 +356,21 @@ java_library(
 java_library(
     name = "remote_analysis_cache_storage_type",
     srcs = ["RemoteAnalysisCacheStorageType.java"],
+    visibility = [
+    ],
 )
 
 java_library(
     name = "remote_analysis_cache_mode",
     srcs = ["RemoteAnalysisCacheMode.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
     ],
@@ -319,6 +380,15 @@ java_library(
     name = "options",
     srcs = [
         "RemoteAnalysisCachingOptions.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/runtime:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:__pkg__",
     ],
     deps = [
         ":remote_analysis_cache_mode",
@@ -334,6 +404,15 @@ java_library(
     srcs = [
         "RemoteAnalysisCachingServicesOptions.java",
     ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/runtime:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:__pkg__",
+    ],
     deps = [
         ":remote_analysis_cache_storage_type",
         "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
@@ -348,12 +427,22 @@ java_library(
         "AbstractValueOrFutureMap.java",
         "ValueOrFutureMap.java",
     ],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
+    ],
     deps = ["//src/main/java/com/google/devtools/build/lib/concurrent:settable_future_keyed_value"],
 )
 
 java_library(
     name = "client_id",
     srcs = ["ClientId.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/buildtool:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/runtime:__subpackages__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib/runtime:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:__subpackages__",
+    ],
     deps = [
         "//third_party/java/error_prone:annotations",
         # Do NOT add Bazel-specific dependencies here.
@@ -363,6 +452,9 @@ java_library(
 java_library(
     name = "versioned_changes",
     srcs = ["VersionedChanges.java"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
+    ],
     deps = [
         "//third_party/java/guava:annotations",
         "//third_party/java/jsr305_annotations",
@@ -372,6 +464,9 @@ java_library(
 java_library(
     name = "magic_bytes",
     srcs = ["MagicBytes.java"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
+    ],
     deps = ["//third_party/java/guava:annotations"],
 )
 
@@ -380,6 +475,11 @@ java_library(
     srcs = [
         "LookupResult.java",
         "LookupTopLevelTargetsResult.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
@@ -390,6 +490,15 @@ java_library(
 java_library(
     name = "remote_analysis_cache_client",
     srcs = ["RemoteAnalysisCacheClient.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/buildtool:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/metrics:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/metrics:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
+    ],
     deps = [
         ":lookup_result",
         "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
@@ -406,6 +515,11 @@ java_library(
         "LookupResultImpl.java",
         "LookupTopLevelTargetsResultImpl.java",
     ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
+    ],
     deps = [
         ":lookup_result",
         "//third_party/java/jsr305_annotations",
@@ -415,6 +529,15 @@ java_library(
 java_library(
     name = "remote_analysis_caching_services_supplier",
     srcs = ["RemoteAnalysisCachingServicesSupplier.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/buildtool:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/metrics:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/runtime:__subpackages__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/metrics:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/runtime:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
+    ],
     deps = [
         ":client_id",
         ":remote_analysis_cache_client",
@@ -436,12 +559,21 @@ java_library(
 java_library(
     name = "skycache_channel_state_advisor",
     srcs = ["SkycacheChannelStateAdvisor.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
+    ],
     deps = ["//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface"],
 )
 
 java_library(
     name = "long_version_getter_test_injection",
     srcs = ["LongVersionGetterTestInjection.java"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/versioning:long_version_getter",
@@ -452,6 +584,11 @@ java_library(
 java_library(
     name = "analysis_cache_invalidator",
     srcs = ["AnalysisCacheInvalidator.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/buildtool:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
+    ],
     deps = [
         ":client_id",
         ":event_listener",
@@ -478,6 +615,11 @@ java_library(
 java_library(
     name = "remote_analysis_caching_server_state",
     srcs = ["RemoteAnalysisCachingServerState.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/buildtool:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
+    ],
     deps = [
         ":client_id",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
@@ -489,6 +631,10 @@ java_library(
 java_library(
     name = "remote_analysis_metadata_writer",
     srcs = ["RemoteAnalysisMetadataWriter.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/buildtool:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/runtime:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
     ],
@@ -497,6 +643,9 @@ java_library(
 java_library(
     name = "missing_skyframe_entry_exception",
     srcs = ["MissingSkyframeEntryException.java"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
@@ -505,6 +654,13 @@ java_library(
 java_library(
     name = "remote_analysis_cache_manager",
     srcs = ["RemoteAnalysisCacheManager.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:__pkg__",
+    ],
     deps = [
         ":analysis_cache_invalidator",
         ":dependencies_provider",
@@ -529,6 +685,11 @@ java_library(
 java_library(
     name = "remote_analysis_cache_factory",
     srcs = ["RemoteAnalysisCacheFactory.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/buildtool:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:__pkg__",
+    ],
     deps = [
         ":analysis_cache_invalidator",
         ":client_id",
@@ -581,6 +742,13 @@ java_library(
 java_library(
     name = "remote_analysis_cache_deps",
     srcs = ["RemoteAnalysisCacheDeps.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:__pkg__",
+    ],
     deps = [
         ":dependencies_provider",
         ":event_listener",

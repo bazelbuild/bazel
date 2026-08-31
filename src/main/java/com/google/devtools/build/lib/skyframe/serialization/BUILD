@@ -124,6 +124,10 @@ java_library(
     add_opens = [
         "java.base/java.lang.invoke",
     ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
     deps = [
         ":codec-scanning-constants",
         ":constants",
@@ -180,6 +184,9 @@ java_library(
 java_library(
     name = "deserialized-sky-value",
     srcs = ["DeserializedSkyValue.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
@@ -285,6 +292,10 @@ java_library(
     srcs = [
         "StatsImpl.java",
     ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
     deps = [
         ":fingerprint_value_store",
         "//src/main/java/com/google/devtools/build/lib/util:bucket",
@@ -300,6 +311,13 @@ java_library(
 java_library(
     name = "skyvalue_retriever",
     srcs = ["SkyValueRetriever.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/metrics:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib/metrics:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
+    ],
     deps = [
         ":depend_on_future_shim",
         ":frontier_node_version",

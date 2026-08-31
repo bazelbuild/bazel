@@ -28,6 +28,9 @@ java_library(
     name = "util_internal",
     srcs = glob(["*.java"]),
     data = ["//src/main/protobuf/project:project_proto_scl_filegroup"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/analysis/mock:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",

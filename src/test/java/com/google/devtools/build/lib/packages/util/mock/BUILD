@@ -9,7 +9,10 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
-exports_files([
-    "android_cc_toolchain_config.bzl",
-    "osx_cc_toolchain_config.bzl",
-])
+exports_files(
+    [
+        "android_cc_toolchain_config.bzl",
+        "osx_cc_toolchain_config.bzl",
+    ],
+    visibility = ["//visibility:public"],
+)

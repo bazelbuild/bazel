@@ -48,6 +48,7 @@ java_library(
     name = "SkycacheIntegrationTestBase",
     testonly = True,
     srcs = ["SkycacheIntegrationTestBase.java"],
+    visibility = ["//visibility:public"],
     deps = [
         ":SkycacheIntegrationTestHelpers",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
@@ -79,6 +80,7 @@ java_library(
     name = "SkycacheIntegrationTestHelpers",
     testonly = True,
     srcs = ["SkycacheIntegrationTestHelpers.java"],
+    visibility = ["//visibility:public"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_result",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",

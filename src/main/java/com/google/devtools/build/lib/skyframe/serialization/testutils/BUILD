@@ -32,6 +32,11 @@ java_library(
             "SerializationDepsUtils.java",
         ],
     ),
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/collect:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/skyframe:__subpackages__",
+    ],
     runtime_deps = [
         "//src/test/java/com/google/devtools/build/lib/vfs/util",  # For FileSystem modules
     ],

@@ -17,6 +17,9 @@ java_library(
     srcs = glob([
         "*.java",
     ]),
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",

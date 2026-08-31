@@ -20,6 +20,8 @@ java_library(
     name = "AllowlistUtil",
     testonly = 1,
     srcs = ["AllowlistDummyRule.java"],
+    visibility = [
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",

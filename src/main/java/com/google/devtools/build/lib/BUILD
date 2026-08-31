@@ -27,6 +27,28 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
+# Package groups matching definitions in internal lib/BUILD to satisfy
+# visibility attributes of targets in subpackages (e.g. actions, util, etc.).
+package_group(
+    name = "build_lib",
+    packages = ["//src/..."],
+)
+
+package_group(
+    name = "full_access",
+    includes = [":build_lib"],
+)
+
+package_group(
+    name = "package_loader_access",
+    includes = [":full_access"],
+)
+
+package_group(
+    name = "starlark_access",
+    includes = [":package_loader_access"],
+)
+
 # Generate list of all srcs via:
 # bazel query 'filter("srcs", kind("filegroup rule", //src/main/java/com/google/devtools/build/lib/...))' | sort | sed -e "s/^/\"/" | sed -e "s/$/\",/" | fgrep -v "build/lib:srcs"
 filegroup(

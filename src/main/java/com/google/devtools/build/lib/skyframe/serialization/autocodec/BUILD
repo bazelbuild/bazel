@@ -39,6 +39,7 @@ java_library(
 java_library(
     name = "registered-singleton",
     srcs = ["RegisteredSingletonDoNotUse.java"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__"],
 )
 
 java_library(
@@ -53,11 +54,13 @@ java_library(
 java_library(
     name = "serialization-constant-annotation",
     srcs = ["SerializationConstant.java"],
+    visibility = ["//visibility:private"],
 )
 
 java_plugin(
     name = "serialization-constant-plugin",
     processor_class = "com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstantProcessor",
+    visibility = ["//visibility:private"],
     deps = [
         ":serialization-constant-processor",
     ],
@@ -66,12 +69,14 @@ java_plugin(
 java_library(
     name = "serialization-processing-exception",
     srcs = ["SerializationProcessingException.java"],
+    visibility = ["//visibility:private"],
     deps = ["//third_party/java/error_prone:annotations"],
 )
 
 java_library(
     name = "type-operations",
     srcs = ["TypeOperations.java"],
+    visibility = ["//visibility:private"],
     deps = [
         ":serialization-processing-exception",
         "//third_party/java/guava:base",
@@ -84,6 +89,7 @@ java_library(
 java_library(
     name = "serialization-constant-processor",
     srcs = ["SerializationConstantProcessor.java"],
+    visibility = ["//visibility:private"],
     deps = [
         ":registered-singleton",
         ":serialization-constant-annotation",
@@ -101,6 +107,7 @@ java_library(
 java_library(
     name = "autocodec-annotation",
     srcs = ["AutoCodec.java"],
+    visibility = ["//visibility:private"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
     ],
@@ -110,6 +117,7 @@ java_library(
 java_plugin(
     name = "autocodec-plugin",
     processor_class = "com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodecProcessor",
+    visibility = ["//visibility:private"],
     deps = [
         ":autocodec-processor",
     ],

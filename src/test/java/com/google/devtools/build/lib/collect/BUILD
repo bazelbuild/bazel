@@ -101,7 +101,10 @@ java_test(
     ],
 )
 
-test_suite(name = "all_tests")
+test_suite(
+    name = "all_tests",
+    visibility = ["//visibility:private"],
+)
 
 test_suite(
     name = "CollectTests",

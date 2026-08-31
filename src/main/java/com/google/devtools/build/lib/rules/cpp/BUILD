@@ -14,6 +14,7 @@ filegroup(
 filegroup(
     name = "docgen_srcs",
     srcs = glob(["**"]),  # cpp/proto is explicitly not included.
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__subpackages__"],
 )
 
 INTERFACE_SOURCES = [

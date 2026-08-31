@@ -34,6 +34,10 @@ java_library(
         "TargetPattern.java",
         "TargetPatternResolver.java",
     ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:package_loader_access",
+    ],
     deps = [
         ":LabelValidator",
         ":batch_callback",
@@ -77,6 +81,9 @@ java_library(
 java_library(
     name = "parallel_visitor",
     srcs = ["ParallelVisitor.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
     deps = [
         ":batch_callback",
         ":query_exception_marker_interface",
@@ -90,6 +97,9 @@ java_library(
 java_library(
     name = "batch_callback",
     srcs = ["BatchCallback.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
     deps = [
         ":query_exception_marker_interface",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
@@ -99,6 +109,10 @@ java_library(
 java_library(
     name = "query_exception_marker_interface",
     srcs = ["QueryExceptionMarkerInterface.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:package_loader_access",
+    ],
 )
 
 # LabelValidator provides validation of Bazel build labels.
@@ -107,6 +121,7 @@ java_library(
 java_library(
     name = "LabelValidator",
     srcs = ["LabelValidator.java"],
+    visibility = ["//visibility:public"],
     deps = [
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",

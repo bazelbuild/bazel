@@ -40,6 +40,10 @@ filegroup(
 java_library(
     name = "workspace-rule-event",
     srcs = ["WorkspaceRuleEvent.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
     deps = [
         ":workspace_log_java_proto",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -51,6 +55,9 @@ java_library(
 java_library(
     name = "workspace-rule-module",
     srcs = ["WorkspaceRuleModule.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+    ],
     deps = [
         ":debugging-options",
         ":workspace-rule-event",
