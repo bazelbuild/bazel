@@ -461,6 +461,75 @@ EOF
   fi
 }
 
+# Kills the client of a build blocked in an action, then reports how many seconds the
+# server took to release the command lock, or nothing at all if it never did.
+function kill_client_of_blocked_build() {
+  local -r extra_flag="$1"
+  # Before anything takes the lock: asking later would queue behind the very command
+  # this function is about to abandon.
+  local -r server_pid_file="$(bazel info output_base)/server/server.pid.txt"
+  local -r ready="${TEST_TMPDIR}/ready"  # entered by the genrule
+  local -r lock="${TEST_TMPDIR}/lock"  # waited on by the genrule
+  mkfifo "${ready}" || fail "couldn't create fifo ready"
+  mkfifo "${lock}" || fail "couldn't create fifo lock"
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(name = "a", outs = ["a.out"],
+        cmd = "cat ${ready} >/dev/null; cat ${lock} >/dev/null; touch \$@")
+EOF
+
+  # Local strategy, so that the action reaches both fifos.
+  bazel --client_debug build --spawn_strategy=local ${extra_flag} //a:a >"$TEST_log" 2>&1 &
+
+  # This write returns once the action reads it, which then blocks on the lock fifo.
+  echo entered > "${ready}"
+  local -r client_pid="$(cat "$TEST_log" | scrape_client_pid)"
+
+  # SIGKILL rather than SIGTERM, which would let the client send a Cancel RPC: the server
+  # has always acted upon those, so these tests would then pass either way.
+  kill -9 "${client_pid}" || fail "couldn't kill client ${client_pid}"
+
+  local exit_code=0
+  local i
+  for i in $(seq 1 30); do
+    exit_code=0
+    bazel --client_debug --noblock_for_lock info >"$TEST_log-2" 2>&1 || exit_code=$?
+    if [[ "${exit_code}" -eq 0 ]]; then
+      break
+    fi
+    sleep 1
+  done
+
+  # Free the slot *before* the caller checks expectations, otherwise the rest of the suite
+  # waits for this very command. Writing to the lock fifo would hang once the action is gone,
+  # leaving the server as the only way to release the lock, as on a CI runner holding a stale one.
+  kill "$(cat "${server_pid_file}")"
+  rm -rf a "${ready}" "${lock}"
+
+  cat "$TEST_log-2" >> "$TEST_log"
+  return "${exit_code}"
+}
+
+function test_command_lock_released_when_client_dies() {
+  # A command whose client is killed must not keep the server's command lock: the next
+  # invocation would then wait for a command nobody waits for, until its own timeout.
+  # Progress reporting gives the server a write, hence a chance to notice the client is
+  # gone, but that interrupt has to reach the command rather than the reporting thread.
+  # See https://github.com/bazelbuild/bazel/issues/30954.
+  local exit_code=0
+  kill_client_of_blocked_build "" || exit_code=$?
+  assert_equals 0 "${exit_code}" # 9 would be LOCK_HELD_NOBLOCK_FOR_LOCK
+}
+
+function test_command_lock_released_when_client_dies_without_further_output() {
+  # Same, for a command that reports nothing at all: with no write left to carry it, the
+  # interrupt has to come from the cancellation itself.
+  # See https://github.com/bazelbuild/bazel/issues/30954.
+  local exit_code=0
+  kill_client_of_blocked_build "--noshow_progress" || exit_code=$?
+  assert_equals 0 "${exit_code}" # 9 would be LOCK_HELD_NOBLOCK_FOR_LOCK
+}
+
 function test_noblock_for_lock_reuse_server() {
   # Use a FIFO to spoonfeed the Bazel server.
   mkdir -p a && mkfifo a/BUILD || fail "couldn't create fifo a"
