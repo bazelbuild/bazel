@@ -2138,4 +2138,9 @@ public class CppCompileAction extends AbstractAction
     return actionName.equals(CppActionNames.CPP20_MODULE_COMPILE)
         || actionName.equals(CppActionNames.CPP20_MODULE_CODEGEN);
   }
+
+  @Override
+  public boolean usesSplitMandatoryInputsActionCacheCheck() {
+    return isCpp20ModuleCompilationAction(actionName);
+  }
 }
