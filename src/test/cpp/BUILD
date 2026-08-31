@@ -25,6 +25,7 @@ cc_test(
     deps = [
         "//src/main/cpp:blaze_util",
         "//src/main/cpp/util",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -40,6 +41,7 @@ cc_test(
         "//src/main/cpp:option_processor",
         "//src/main/cpp:workspace_layout",
         "//src/main/cpp/util",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -56,6 +58,7 @@ cc_test(
         "//src/main/cpp:rc_file",
         "//src/main/cpp:workspace_layout",
         "//src/main/cpp/util",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -70,6 +73,7 @@ cc_test(
         "//src/main/cpp:sem_ver",
         "//src/main/cpp:workspace_layout",
         "//src/main/cpp/util",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -81,6 +85,7 @@ cc_test(
     deps = [
         "//src/main/cpp:sem_ver",
         "@abseil-cpp//absl/strings:str_format",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -92,6 +97,7 @@ cc_library(
     hdrs = ["test_util.h"],
     deps = [
         "//src/main/cpp:startup_options",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -105,6 +111,7 @@ cc_test(
         "//src/main/cpp:blaze_util",
         "//src/main/cpp:startup_options",
         "//src/main/cpp:workspace_layout",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ] + select({
         "//src/conditions:linux": ["//src/main/cpp/util"],
@@ -121,6 +128,7 @@ cc_test(
         "//src/main/cpp:bazel_startup_options",
         "//src/main/cpp:blaze_util",
         "//src/main/cpp:workspace_layout",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -133,6 +141,7 @@ cc_test(
         "//src/main/cpp:blaze_util",
         "//src/main/cpp:workspace_layout",
         "//src/main/cpp/util",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )

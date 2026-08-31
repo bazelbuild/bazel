@@ -20,6 +20,7 @@ cc_test(
     }),
     deps = [
         "//src/main/tools:process-tools",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
