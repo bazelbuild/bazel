@@ -9,7 +9,7 @@ exports_files(
     [
         "command-line-reference-prefix.html",
         "command-line-reference-suffix.html",
-        "docs/user-manual.md",
+        "docs/user-manual.mdx",
     ],
     visibility = [
         "//scripts/docs:__pkg__",
