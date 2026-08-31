@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
@@ -155,6 +156,33 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             "--override_platform_cpu_name=" + TestConstants.PLATFORM_LABEL + "=new_cpu_1",
             "--override_platform_cpu_name=" + TestConstants.PLATFORM_LABEL + "=new_cpu_2");
     assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu_2");
+  }
+
+  @Test
+  public void testTargetCpuFromPlatform_platformFlagsAppendedAndDeduplicated() throws Exception {
+    scratch.overwriteFile(
+        "test_platforms/BUILD",
+        "platform(",
+        "    name = 'custom',",
+        "    flags = [",
+        "       " + " '--override_platform_cpu_name=//test_platforms:custom=platform_override',",
+        "    ],",
+        ")");
+    BuildConfigurationValue config =
+        create(
+            "--platforms=//test_platforms:custom",
+            "--override_platform_cpu_name=//test_platforms:other=foo",
+            "--override_platform_cpu_name=//test_platforms:custom=cli_override");
+
+    // The platform flags should be appended to CLI flags rather than replacing them,
+    // and duplicate entries for the same platform label should be replaced by the latest override.
+    assertThat(config.getOptions().get(CoreOptions.class).getOverridePlatformCpuName())
+        .containsExactly(
+            Maps.immutableEntry(Label.parseCanonicalUnchecked("//test_platforms:other"), "foo"),
+            Maps.immutableEntry(
+                Label.parseCanonicalUnchecked("//test_platforms:custom"), "platform_override"))
+        .inOrder();
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "platform_override");
   }
 
   @Test
