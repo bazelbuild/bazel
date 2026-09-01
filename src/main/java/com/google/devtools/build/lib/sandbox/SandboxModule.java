@@ -461,6 +461,14 @@ public final class SandboxModule extends BlazeModule {
         checkNotNull(sandboxBase, "shouldCleanupSandboxBase implies sandboxBase has been set");
         for (SpawnRunner spawnRunner : spawnRunners) {
           spawnRunner.cleanupSandboxBase(sandboxBase, treeDeleter);
+          Path runnerDir = sandboxBase.getChild(spawnRunner.getName());
+          if (runnerDir.exists()) {
+            if (treeDeleter != null) {
+              treeDeleter.deleteTree(runnerDir);
+            } else {
+              runnerDir.deleteTree();
+            }
+          }
         }
         shouldCleanupSandboxBase = false;
         checkSandboxBaseTopOnlyContainsPersistentDirs(sandboxBase);
