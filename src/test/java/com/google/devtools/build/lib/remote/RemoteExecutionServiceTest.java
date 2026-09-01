@@ -72,7 +72,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
 import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
@@ -2639,8 +2638,9 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     // The synchronizer keys registrations by the generating action key of the owner's primary
     // output, which the FakeOwner used by newSpawn does not have.
-    DerivedArtifact primaryOutput = mock(DerivedArtifact.class);
-    when(primaryOutput.getGeneratingActionKey()).thenReturn(mock(ActionLookupData.class));
+    DerivedArtifact primaryOutput =
+        (DerivedArtifact) ActionsTestUtil.createArtifact(artifactRoot, "primary_output");
+    primaryOutput.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
     Spawn spawn =
         new SimpleSpawn(
             new FakeOwner("foo", "bar", "//dummy:label") {

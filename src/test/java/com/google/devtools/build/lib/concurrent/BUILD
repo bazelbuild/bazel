@@ -35,6 +35,7 @@ java_library(
         "//third_party/java/junit",
         "//third_party/java/mockito",
         "//third_party/java/truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 

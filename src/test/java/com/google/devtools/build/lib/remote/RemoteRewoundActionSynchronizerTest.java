@@ -26,9 +26,14 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Before;
 import org.junit.Test;
@@ -139,8 +144,11 @@ public final class RemoteRewoundActionSynchronizerTest {
 
   private static Action newAction() {
     Action action = mock(Action.class);
-    DerivedArtifact output = mock(DerivedArtifact.class);
-    when(output.getGeneratingActionKey()).thenReturn(mock(ActionLookupData.class));
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    ArtifactRoot outputRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
+    DerivedArtifact output = (DerivedArtifact) ActionsTestUtil.createArtifact(outputRoot, "output");
+    output.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
     when(action.getPrimaryOutput()).thenReturn(output);
     when(action.getOutputs()).thenReturn(ImmutableList.of(output));
     return action;
