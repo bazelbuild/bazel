@@ -21,7 +21,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.SplitBlobResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -74,6 +74,12 @@ public class ChunkedBlobDownloader {
     }
   }
 
+  /**
+   * Returns the chunks the blob is composed of.
+   *
+   * @throws BlobNotSplittableException if the server cannot describe the blob as a sequence of
+   *     chunks, in which case the caller may fall back to downloading the whole blob
+   */
   private List<Digest> getChunkDigests(RemoteActionExecutionContext context, Digest blobDigest)
       throws IOException, InterruptedException {
     if (blobDigest.getSizeBytes() == 0) {
@@ -82,11 +88,11 @@ public class ChunkedBlobDownloader {
     ListenableFuture<SplitBlobResponse> splitResponseFuture =
         grpcCacheClient.splitBlob(context, blobDigest);
     if (splitResponseFuture == null) {
-      throw new CacheNotFoundException(blobDigest);
+      throw new BlobNotSplittableException(blobDigest);
     }
     List<Digest> chunkDigests = getFromFuture(splitResponseFuture).getChunkDigestsList();
     if (chunkDigests.isEmpty()) {
-      throw new CacheNotFoundException(blobDigest);
+      throw new BlobNotSplittableException(blobDigest);
     }
     return chunkDigests;
   }

@@ -44,6 +44,8 @@ import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
 import build.bazel.remote.execution.v2.GetActionResultRequest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
+import build.bazel.remote.execution.v2.SplitBlobRequest;
+import build.bazel.remote.execution.v2.SplitBlobResponse;
 import build.bazel.remote.execution.v2.Tree;
 import build.bazel.remote.execution.v2.UpdateActionResultRequest;
 import com.github.luben.zstd.Zstd;
@@ -74,6 +76,7 @@ import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
+import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
@@ -1625,5 +1628,27 @@ public class GrpcCacheClientTest {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
 
     assertThat(GrpcCacheClient.isRemoteCacheOptions(options)).isFalse();
+  }
+
+  @Test
+  public void splitBlob_serverCannotSplit_failsWithBlobNotSplittable(
+      @TestParameter({"NOT_FOUND", "UNIMPLEMENTED"}) Status.Code code) throws Exception {
+    RemoteOptions options =
+        Options.parse(RemoteOptions.class, "--experimental_remote_cache_chunking").getOptions();
+    GrpcCacheClient client = newClient(options);
+    Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    serviceRegistry.addService(
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void splitBlob(
+              SplitBlobRequest request, StreamObserver<SplitBlobResponse> responseObserver) {
+            responseObserver.onError(code.toStatus().asRuntimeException());
+          }
+        });
+
+    assertThrows(
+        BlobNotSplittableException.class,
+        () ->
+            getFromFuture(client.splitBlob(context, digest)));
   }
 }
