@@ -120,7 +120,21 @@ public class BazelLockFileFunction implements SkyFunction {
       Matcher matcher = LOCKFILE_VERSION_PATTERN.matcher(json);
       int version = matcher.find() ? Integer.parseInt(matcher.group(1)) : -1;
       if (version == BazelLockFileValue.LOCK_FILE_VERSION) {
-        return GsonTypeAdapterUtil.LOCKFILE_GSON.fromJson(json, BazelLockFileValue.class);
+        BazelLockFileValue lockFileValue =
+            GsonTypeAdapterUtil.LOCKFILE_GSON.fromJson(json, BazelLockFileValue.class);
+        if (!isValidLockfile(lockFileValue)) {
+          if (lockfileMode == LockfileMode.ERROR) {
+            throw new BazelLockfileFunctionException(
+                ExternalDepsException.withMessage(
+                    Code.BAD_LOCKFILE,
+                    "The version of MODULE.bazel.lock is not supported by this version of Bazel."
+                        + " Please run `bazel mod deps --lockfile_mode=update` to update your"
+                        + " lockfile."),
+                Transience.PERSISTENT);
+          }
+          return BazelLockFileValue.EMPTY_LOCKFILE;
+        }
+        return lockFileValue;
       } else {
         // This is an old version, its information can't be used.
         if (lockfileMode == LockfileMode.ERROR) {
@@ -137,6 +151,28 @@ public class BazelLockFileFunction implements SkyFunction {
     } catch (FileNotFoundException e) {
       return BazelLockFileValue.EMPTY_LOCKFILE;
     }
+  }
+
+  private static boolean isValidLockfile(@Nullable BazelLockFileValue lockFileValue) {
+    if (lockFileValue == null || lockFileValue.getModuleExtensions() == null) {
+      return false;
+    }
+    for (var extensionMap : lockFileValue.getModuleExtensions().values()) {
+      if (extensionMap == null) {
+        return false;
+      }
+      for (LockFileModuleExtension extension : extensionMap.values()) {
+        if (extension == null || extension.getGeneratedRepoSpecs() == null) {
+          return false;
+        }
+        for (RepoSpec repoSpec : extension.getGeneratedRepoSpecs().values()) {
+          if (repoSpec == null || repoSpec.repoRuleId() == null) {
+            return false;
+          }
+        }
+      }
+    }
+    return true;
   }
 
   static final class BazelLockfileFunctionException extends SkyFunctionException {
