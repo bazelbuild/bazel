@@ -23,6 +23,9 @@ java_library(
         "InvocationPolicyEnforcer.java",
         "InvocationPolicyParser.java",
     ],
+    visibility = [
+        "//src:__subpackages__",
+    ],
     deps = [
         ":options_internal",
         "//src/main/protobuf:invocation_policy_java_proto",
@@ -41,6 +44,9 @@ java_library(
         "//src/main/java/com/google/devtools/common/options/processor:options_preprocessor",
         "//src/main/java/com/google/devtools/common/options/processor:options_class_processor",
     ],
+    visibility = [
+        "//src:__subpackages__",
+    ],
     exports = [":options_internal"],
 )
 
@@ -54,6 +60,10 @@ java_library(
             "InvocationPolicyParser.java",
         ],
     ),
+    visibility = [
+        "//src/main/java/com/google/devtools/common/options/processor:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
@@ -74,6 +84,9 @@ java_library(
 java_library(
     name = "html_utils",
     srcs = ["HtmlUtils.java"],
+    visibility = [
+        "//src:__subpackages__",
+    ],
     deps = [
         ":options_internal",
         "//src/main/java/com/google/devtools/build/lib/util:markdown",

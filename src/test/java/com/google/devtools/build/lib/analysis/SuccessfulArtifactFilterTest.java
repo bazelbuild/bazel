@@ -70,7 +70,11 @@ public class SuccessfulArtifactFilterTest {
     groupProvider = OutputGroupInfo.fromBuilders(outputGroups);
     ctx =
         new TopLevelArtifactContext(
-            false, false, ImmutableSortedSet.copyOf(groupProvider), /* forRunCommand= */ false);
+            false,
+            false,
+            ImmutableSortedSet.copyOf(groupProvider),
+            /* failOnUnknownOutputGroups= */ false,
+            /* forRunCommand= */ false);
   }
 
   @Test

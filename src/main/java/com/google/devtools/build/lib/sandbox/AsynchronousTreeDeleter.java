@@ -89,17 +89,21 @@ public class AsynchronousTreeDeleter implements TreeDeleter {
 
   @Override
   public void deleteTree(Path path) throws IOException {
-    if (!trashBaseCreated) {
-      trashBase.createDirectory();
-      trashBaseCreated = true;
-    }
     if (!path.exists()) {
       return;
+    }
+    if (path.getFileSystem() != trashBase.getFileSystem()) {
+      path.deleteTree();
+      return;
+    }
+    if (!trashBaseCreated) {
+      trashBase.createDirectoryAndParents();
+      trashBaseCreated = true;
     }
     Path trashPath = trashBase.getRelative(Integer.toString(trashCount.getAndIncrement()));
     try {
       path.renameTo(trashPath);
-    } catch (IOException e) {
+    } catch (IOException | IllegalArgumentException e) {
       logger.atWarning().withCause(e).log(
           "Failed to rename %s -> %s for asynchronous removal. Removing synchronously.",
           path, trashPath);

@@ -896,6 +896,9 @@ static int IsSubdir(JNIEnv* env, const std::vector<std::string>& dir_path,
 // Returns 0 on success. Returns -1 on error and posts an exception.
 static int DeleteTreesBelow(JNIEnv* env, std::vector<std::string>* dir_path,
                             const int dir_fd, const char* entry) {
+  if (env->ExceptionOccurred() != nullptr) {
+    return -1;
+  }
   DIROrError dir_or_error = ForceOpendir(env, *dir_path, dir_fd, entry);
   DIR *dir = dir_or_error.dir;
   if (dir == nullptr) {
@@ -952,6 +955,9 @@ static int DeleteTreesBelow(JNIEnv* env, std::vector<std::string>* dir_path,
   }
   if (env->ExceptionOccurred() == nullptr) {
     for (const auto &file : dir_files) {
+      if (env->ExceptionOccurred() != nullptr) {
+        break;
+      }
       if (ForceDelete(env, *dir_path, dirfd(dir), file.c_str(), false) == -1) {
         BAZEL_CHECK_NE(env->ExceptionOccurred(), nullptr);
         break;
@@ -962,6 +968,9 @@ static int DeleteTreesBelow(JNIEnv* env, std::vector<std::string>* dir_path,
   }
   if (env->ExceptionOccurred() == nullptr) {
     for (const auto &subdir : dir_subdirs) {
+      if (env->ExceptionOccurred() != nullptr) {
+        break;
+      }
       if (DeleteTreesBelow(env, dir_path, dirfd(dir), subdir.c_str()) == -1) {
         BAZEL_CHECK_NE(env->ExceptionOccurred(), nullptr);
         break;

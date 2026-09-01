@@ -2115,4 +2115,72 @@ function assert_matches() {
   [[ "$2" =~ $1 ]] || fail "Expected to match '$1', was: $2"
 }
 
+function test_config_function() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "dep",
+    srcs = ["dep.in"],
+    outs = ["dep.out"],
+    cmd = "cat $(SRCS) > $(OUTS)",
+)
+
+genrule(
+    name = "foo",
+    srcs = ["foo.in", ":dep"],
+    outs = ["foo.out"],
+    cmd = "cat $(SRCS) > $(OUTS)",
+)
+EOF
+  touch "$pkg/foo.in" "$pkg/dep.in"
+
+  bazel aquery "config(deps(//$pkg:foo), target)" > output 2> "$TEST_log" || fail "Expected success"
+  assert_contains "//$pkg:foo" output
+  assert_contains "//$pkg:dep" output
+
+  bazel aquery "config(//$pkg:foo, null)" > output 2> "$TEST_log" && fail "Expected failure"
+  assert_contains "No target (in) //$pkg:foo could be found in the 'null' configuration" "$TEST_log"
+
+  bazel aquery "config(//$pkg:foo, unknown_config)" > output 2> "$TEST_log" && fail "Expected failure"
+  assert_contains "Unknown configuration ID 'unknown_config'" "$TEST_log"
+}
+
+function test_prune_unused_actions() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg"
+  cat > "$pkg/defs.bzl" <<'EOF'
+def _impl(ctx):
+    out1 = ctx.actions.declare_file(ctx.label.name + ".out1")
+    out2 = ctx.actions.declare_file(ctx.label.name + ".out2")
+    ctx.actions.run_shell(
+        outputs = [out1],
+        command = "touch " + out1.path,
+        mnemonic = "ActionOne",
+    )
+    ctx.actions.run_shell(
+        outputs = [out2],
+        command = "touch " + out2.path,
+        mnemonic = "ActionTwo",
+    )
+    return [DefaultInfo(files = depset([out1]))]
+
+two_outputs = rule(implementation = _impl)
+EOF
+
+  cat > "$pkg/BUILD" <<'EOF'
+load(":defs.bzl", "two_outputs")
+two_outputs(name = "my_target")
+EOF
+
+  bazel aquery "//$pkg:my_target" > output 2> "$TEST_log" || fail "Expected success"
+  assert_contains "Mnemonic: ActionOne" output
+  assert_contains "Mnemonic: ActionTwo" output
+
+  bazel aquery --prune_unused_actions "//$pkg:my_target" > output 2> "$TEST_log" || fail "Expected success"
+  assert_contains "Mnemonic: ActionOne" output
+  assert_not_contains "Mnemonic: ActionTwo" output
+}
+
 run_suite "${PRODUCT_NAME} action graph query tests"
+

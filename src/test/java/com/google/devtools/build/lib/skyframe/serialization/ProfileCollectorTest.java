@@ -25,6 +25,8 @@ import static java.util.concurrent.ForkJoinPool.commonPool;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.errorprone.annotations.Keep;
 import com.google.perftools.profiles.ProfileProto;
 import com.google.perftools.profiles.ProfileProto.Line;
@@ -47,6 +49,8 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public final class ProfileCollectorTest {
+
+  private static final CompressionService COMPRESSION_SERVICE = new CompressionServiceImpl();
 
   @Test
   public void toProto_hasExpectedMetadata() {
@@ -291,7 +295,10 @@ public final class ProfileCollectorTest {
                   try {
                     AsyncSerializationTask asyncTask =
                         codecs.serializeMemoizedAsync(
-                            fingerprintValueService, subject, profileCollector);
+                            COMPRESSION_SERVICE,
+                            fingerprintValueService,
+                            subject,
+                            profileCollector);
                     asyncTask.run();
                     asyncTask.registerWriteStatus(WriteStatuses.immediateWriteStatus());
                     result = waitForSerializationFuture(asyncTask);

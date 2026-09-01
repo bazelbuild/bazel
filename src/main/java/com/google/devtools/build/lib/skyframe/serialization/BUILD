@@ -116,6 +116,7 @@ java_library(
             "SerializationModule.java",
             "SkycacheMetadataParams.java",
             "SkyValueRetriever.java",
+            "PlatformConfigurationProvider.java",
             "VisibleForSerialization.java",
             "WriteStatus.java",
             "WriteStatuses.java",
@@ -123,6 +124,10 @@ java_library(
     ),
     add_opens = [
         "java.base/java.lang.invoke",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
     ],
     deps = [
         ":codec-scanning-constants",
@@ -133,6 +138,7 @@ java_library(
         ":write_status",
         ":write_statuses",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_miss_reason_java_proto",
@@ -159,7 +165,6 @@ java_library(
         "//third_party/java/jsr305_annotations",
         "//third_party/java/protobuf",
         "//third_party/java/protobuf:protobuf_lite",
-        "//third_party/java/zstd_jni",
         "//third_party/pprof:profile_java_proto",
     ],
 )
@@ -173,6 +178,16 @@ java_library(
 )
 
 java_library(
+    name = "platform_providers",
+    srcs = ["PlatformConfigurationProvider.java"],
+    deps = [
+        ":serialization",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+    ],
+)
+
+java_library(
     name = "visible-for-serialization",
     srcs = ["VisibleForSerialization.java"],
 )
@@ -180,6 +195,9 @@ java_library(
 java_library(
     name = "deserialized-sky-value",
     srcs = ["DeserializedSkyValue.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
@@ -285,6 +303,10 @@ java_library(
     srcs = [
         "StatsImpl.java",
     ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
     deps = [
         ":fingerprint_value_store",
         "//src/main/java/com/google/devtools/build/lib/util:bucket",
@@ -300,16 +322,25 @@ java_library(
 java_library(
     name = "skyvalue_retriever",
     srcs = ["SkyValueRetriever.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/metrics:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib/metrics:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
+    ],
     deps = [
         ":depend_on_future_shim",
         ":frontier_node_version",
         ":serialization",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_op_node_map",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:lookup_result",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:skycache_channel_state_advisor",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_miss_reason_java_proto",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",

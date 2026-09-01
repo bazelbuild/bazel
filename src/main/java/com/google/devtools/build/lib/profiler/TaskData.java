@@ -88,16 +88,30 @@ class TaskData implements TraceData {
     }
     jsonWriter.name("pid").value(1);
 
-    if (this instanceof ActionTaskData actionTaskData) {
-      if (actionTaskData.primaryOutputPath != null) {
-        // Primary outputs are non-mergeable, thus incompatible with slim profiles.
-        jsonWriter.name("out").value(actionTaskData.primaryOutputPath);
+    if (this instanceof ActionTaskData actionTaskData && actionTaskData.primaryOutputPath != null) {
+      // Primary outputs are non-mergeable, thus incompatible with slim profiles.
+      jsonWriter.name("out").value(actionTaskData.primaryOutputPath);
+    }
+
+    boolean isCriticalPath = type == ProfilerTask.CRITICAL_PATH_COMPONENT;
+    ActionTaskData actionTaskData = (this instanceof ActionTaskData data) ? data : null;
+    boolean hasActionArgs =
+        actionTaskData != null
+            && (actionTaskData.targetLabel != null
+                || actionTaskData.mnemonic != null
+                || actionTaskData.configuration != null);
+
+    // Chrome Trace Format allows only a single "args" object per trace event.
+    // Critical path events record their original execution thread ID in "args.tid",
+    // while action events record target label, mnemonic, and configuration hash in "args".
+    // Merge them into a single "args" object when either is present.
+    if (isCriticalPath || hasActionArgs) {
+      jsonWriter.name("args");
+      jsonWriter.beginObject();
+      if (isCriticalPath) {
+        jsonWriter.name("tid").value(threadId);
       }
-      if (actionTaskData.targetLabel != null
-          || actionTaskData.mnemonic != null
-          || actionTaskData.configuration != null) {
-        jsonWriter.name("args");
-        jsonWriter.beginObject();
+      if (hasActionArgs) {
         if (actionTaskData.targetLabel != null) {
           jsonWriter.name("target").value(actionTaskData.targetLabel);
         }
@@ -107,13 +121,7 @@ class TaskData implements TraceData {
         if (actionTaskData.configuration != null) {
           jsonWriter.name("configuration").value(actionTaskData.configuration);
         }
-        jsonWriter.endObject();
       }
-    }
-    if (type == ProfilerTask.CRITICAL_PATH_COMPONENT) {
-      jsonWriter.name("args");
-      jsonWriter.beginObject();
-      jsonWriter.name("tid").value(threadId);
       jsonWriter.endObject();
     }
     jsonWriter
@@ -127,8 +135,8 @@ class TaskData implements TraceData {
 
   /**
    * Similar to TaskData, specific for profiled actions. Depending on options, adds additional
-   * action specific information such as primary output path and target label. This is only meant to
-   * be used for ProfilerTask.ACTION.
+   * action specific information such as primary output path and target label. This is meant to be
+   * used for ProfilerTask.ACTION and ProfilerTask.CRITICAL_PATH_COMPONENT.
    */
   static final class ActionTaskData extends TaskData {
     @Nullable final String primaryOutputPath;

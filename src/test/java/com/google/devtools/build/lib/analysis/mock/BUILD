@@ -52,4 +52,9 @@ java_library(
     ],
 )
 
-exports_files(["cc_toolchain_config.bzl"])
+exports_files(
+    ["cc_toolchain_config.bzl"],
+    visibility = [
+        "//src/test/java:__subpackages__",
+    ],
+)

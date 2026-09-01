@@ -28,4 +28,5 @@ public record TopLevelArtifactContext(
     boolean runTestsExclusively,
     boolean expandFilesets,
     ImmutableSortedSet<String> outputGroups,
+    boolean failOnUnknownOutputGroups,
     boolean forRunCommand) {}

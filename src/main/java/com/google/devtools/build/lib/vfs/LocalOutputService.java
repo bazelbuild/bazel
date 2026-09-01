@@ -61,26 +61,24 @@ public class LocalOutputService implements OutputService {
       throws AbruptExitException {
     Path outputPath = directories.getOutputPath(workspaceName);
     Path localOutputPath = directories.getLocalOutputPath();
-
-    if (outputPath.isSymbolicLink()) {
-      try {
+    try {
+      if (outputPath.isSymbolicLink()) {
         // Remove the existing symlink first.
         outputPath.delete();
-        if (localOutputPath.exists()) {
-          // Pre-existing local output directory. Move to outputPath.
-          localOutputPath.renameTo(outputPath);
-        }
-      } catch (IOException e) {
-        throw new AbruptExitException(
-            DetailedExitCode.of(
-                FailureDetail.newBuilder()
-                    .setMessage(
-                        "Couldn't handle local output directory symlinks: " + e.getMessage())
-                    .setExecution(
-                        Execution.newBuilder().setCode(Code.LOCAL_OUTPUT_DIRECTORY_SYMLINK_FAILURE))
-                    .build()),
-            e);
       }
+      if (localOutputPath.exists()) {
+        // Pre-existing local output directory. Move to outputPath.
+        localOutputPath.renameTo(outputPath);
+      }
+    } catch (IOException e) {
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage("Couldn't handle local output directory symlinks: " + e.getMessage())
+                  .setExecution(
+                      Execution.newBuilder().setCode(Code.LOCAL_OUTPUT_DIRECTORY_SYMLINK_FAILURE))
+                  .build()),
+          e);
     }
     return ModifiedFileSet.EVERYTHING_MODIFIED;
   }

@@ -27,6 +27,28 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
+# Package groups matching definitions in internal lib/BUILD to satisfy
+# visibility attributes of targets in subpackages (e.g. actions, util, etc.).
+package_group(
+    name = "build_lib",
+    packages = ["//src/..."],
+)
+
+package_group(
+    name = "full_access",
+    includes = [":build_lib"],
+)
+
+package_group(
+    name = "package_loader_access",
+    includes = [":full_access"],
+)
+
+package_group(
+    name = "starlark_access",
+    includes = [":package_loader_access"],
+)
+
 # Generate list of all srcs via:
 # bazel query 'filter("srcs", kind("filegroup rule", //src/main/java/com/google/devtools/build/lib/...))' | sort | sed -e "s/^/\"/" | sed -e "s/$/\",/" | fgrep -v "build/lib:srcs"
 filegroup(
@@ -50,6 +72,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/cmdline:srcs",
         "//src/main/java/com/google/devtools/build/lib/collect:srcs",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:srcs",
+        "//src/main/java/com/google/devtools/build/lib/compress:srcs",
         "//src/main/java/com/google/devtools/build/lib/concurrent:srcs",
         "//src/main/java/com/google/devtools/build/lib/dynamic:srcs",
         "//src/main/java/com/google/devtools/build/lib/events:srcs",
@@ -198,12 +221,12 @@ genrule(
 genrule(
     name = "gen_command-line-reference",
     srcs = [
-        "//site:command-line-reference-prefix.html",
-        "//site:command-line-reference-suffix.html",
+        "//docs:command-line-reference-prefix.html",
+        "//docs:command-line-reference-suffix.html",
     ],
     outs = ["command-line-reference.html"],
     cmd = (
-        "cat $(location //site:command-line-reference-prefix.html) > $@ && " +
+        "cat $(location //docs:command-line-reference-prefix.html) > $@ && " +
         "TMP=$$(mktemp -d $${TMPDIR:-/tmp}/tmp.XXXXXXXXXX) && " +
         # TODO(#11179): Remove when the stub template fix is released.
         "export JARBIN=$(JAVABASE)/bin/jar && " +
@@ -212,7 +235,7 @@ genrule(
         "--install_base=$${TMP} --output_base=$${TMP}/output/ --output_user_root=$${TMP} " +
         "--failure_detail_out=$${TMP}/output/failure_detail.rawproto " +
         "help everything-as-html >> $@ 2>$${TMP}/stderr && " +
-        "cat $(location //site:command-line-reference-suffix.html) >> $@"
+        "cat $(location //docs:command-line-reference-suffix.html) >> $@"
     ),
     toolchains = ["@rules_java//toolchains:current_host_java_runtime"],
     tools = [

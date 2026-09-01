@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.buildtool.BuildResult.BuildToolLogCollectio
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
@@ -504,6 +505,7 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
       @TestParameter FailingOutputStreamFactory failingOutputStream) {
     ActionDumpWriter writer =
         new ActionDumpWriter(
+            new CompressionServiceImpl(),
             BugReporter.defaultInstance(),
             new EventBus(),
             /* localLockFreeOutputEnabled= */ false,
@@ -546,6 +548,7 @@ public final class ExecutionGraphModuleTest extends FoundationTestCase {
       DependencyInfo depType) {
     ActionDumpWriter writer =
         new ActionDumpWriter(
+            new CompressionServiceImpl(),
             bugReporter,
             eventBus,
             localLockFreeOutputEnabled,

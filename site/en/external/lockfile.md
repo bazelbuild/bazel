@@ -45,11 +45,13 @@ lockfile. The available modes are:
     changed.
 *   `refresh`: Like `update`, but mutable information is always refreshed when
     switching to this mode and roughly every hour while in this mode.
-*   `error`: Like `update`, but if any information is missing or out-of-date,
-    Bazel will fail with an error. This mode never changes the lockfile or
-    performs network requests during resolution. Module extensions that marked
-    themselves as `reproducible` may still perform network requests, but are
-    expected to always produce the same result.
+*   `error`: Like `update`, but if any information consulted during resolution
+    is missing or out-of-date, Bazel will fail with an error. This mode never
+    changes the lockfile or performs network requests during resolution. Module
+    extensions that marked themselves as `reproducible` may still perform
+    network requests, but are expected to always produce the same result. Note
+    that superfluous information is ignored, not reported, so a lockfile that
+    passes in this mode may nevertheless be rewritten (pruned) by `update`.
 *   `off`: The lockfile is neither checked nor updated.
 
 ## Lockfile Benefits {:#lockfile-benefits}

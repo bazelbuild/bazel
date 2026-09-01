@@ -76,37 +76,49 @@ public final class BaselineOptionsFunction implements SkyFunction {
       rawBaselineOptions = TestTrimmingLogic.trim(rawBaselineOptions);
     }
 
-    // First, make sure platform_mappings applied to the top-level baseline option.
+    // Make sure platform-based flags (the platform() rule's flags attribute) and platform mappings
+    // are applied to the baseline, since these are de facto practical baselines.
+    //
+    // If this is a target configuration, BuildTool.addPlatformFlags already handled platform-based
+    // flags but not platform mappings. Re-applying platform-based flags is redundant but harmless.
+    //
+    // If this is an exec configuration, the platform is likely different than the target platform.
+    // So both platform-based flags and platform mappings must be applied.
+    //
+    // The reason we don't do everything in BuildTool.addPlatformFlags is because that method
+    // supplies the values of BASELINE_CONFIGURATION and BASELINE_EXEC_CONFIGURATION. That happens
+    // before analysis, when we can't call BuildConfigurationKeyValue like below because that
+    // analyzes platform() configured targets.
     BuildOptions mappedBaselineOptions = mapBuildOptions(env, rawBaselineOptions);
     if (mappedBaselineOptions == null) {
       return null;
     }
     BuildOptions adjustedBaselineOptions = mappedBaselineOptions;
 
-    if (key.newPlatform() != null) {
-      // Clone for safety as-is the standard for all transitions.
-      adjustedBaselineOptions = adjustedBaselineOptions.clone();
-      adjustedBaselineOptions
-          .get(PlatformOptions.class)
-          .setPlatforms(ImmutableList.of(key.newPlatform()));
+    if (key.newPlatform() == null) {
+      return BaselineOptionsValue.create(mappedBaselineOptions);
     }
 
-    // Re-apply platform_mappings if we updated the platform.
-    // This initially seems somewhat redundant with the application above; however, this is meant to
-    // better track how the top-level build options will initially have platform mappings applied
-    // before some transition (e.g exec transition) changes the platform to cause another
-    // application of platform mappings. Platforms in platform_mappings may change different sets of
-    // options so applying both should lead to better baselines.
-    // TODO(twigg,jcater): Evaluate and reconsider this 'scenario'.
-    BuildOptions remappedAdjustedBaselineOptions = adjustedBaselineOptions;
-    if (key.newPlatform() != null) {
-      remappedAdjustedBaselineOptions = mapBuildOptions(env, remappedAdjustedBaselineOptions);
-      if (remappedAdjustedBaselineOptions == null) {
-        return null;
-      }
-    }
+    // Callers only set key.newPlatform() when the platform is directly part of
+    // blaze-out/<platform_id>-.../ paths. This is important for the remapping logic below.
 
-    return BaselineOptionsValue.create(remappedAdjustedBaselineOptions);
+    // Clone for safety as-is the standard for all transitions.
+    adjustedBaselineOptions = adjustedBaselineOptions.clone();
+    adjustedBaselineOptions
+        .get(PlatformOptions.class)
+        .setPlatforms(ImmutableList.of(key.newPlatform()));
+
+    // Re-apply platform_mappings if the current platform is different than the baseline platform.
+    //
+    // This is because the new platform may set flags, like --foo=bar. The baseline doesn't have
+    // --foo=bar so a naive diff(baseline, currentFlags) would notice --foo is in that diff and add
+    // an ST-<hash>. But --foo=bar is an intrinsic property of newPlatform, so
+    // blaze-out/<new_platform_id>/ is already safely unique.
+    BuildOptions remappedForNewPlatformOptions = mapBuildOptions(env, adjustedBaselineOptions);
+    if (remappedForNewPlatformOptions == null) {
+      return null;
+    }
+    return BaselineOptionsValue.create(remappedForNewPlatformOptions);
   }
 
   @Nullable

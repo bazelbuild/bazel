@@ -2025,7 +2025,8 @@ void BlazeServer::KillRunningServer() {
   // If it does not terminate itself gracefully within 1m, terminate it.
   if (process_info_.server_pid_ > 0 &&
       !AwaitServerProcessTermination(process_info_.server_pid_, output_base_,
-                                     kPostShutdownGracePeriodSeconds)) {
+                                     kPostShutdownGracePeriodSeconds,
+                                     TerminationReason::kShutdownRequest)) {
     if (!status.ok()) {
       BAZEL_LOG(WARNING)
           << "Shutdown request failed, server still alive: (error code: "
@@ -2166,7 +2167,8 @@ unsigned int BlazeServer::Communicate(
     // See http://b/143860035.
     client_.reset();
     if (!AwaitServerProcessTermination(process_info_.server_pid_, output_base_,
-                                       kPostShutdownGracePeriodSeconds)) {
+                                       kPostShutdownGracePeriodSeconds,
+                                       TerminationReason::kShutdownRequest)) {
       KillServerProcess(process_info_.server_pid_, output_base_);
     }
   }

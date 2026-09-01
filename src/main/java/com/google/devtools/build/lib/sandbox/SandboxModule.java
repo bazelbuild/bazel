@@ -461,15 +461,23 @@ public final class SandboxModule extends BlazeModule {
         checkNotNull(sandboxBase, "shouldCleanupSandboxBase implies sandboxBase has been set");
         for (SpawnRunner spawnRunner : spawnRunners) {
           spawnRunner.cleanupSandboxBase(sandboxBase, treeDeleter);
-          sandboxBase.getChild(spawnRunner.getName()).delete();
+          Path runnerDir = sandboxBase.getChild(spawnRunner.getName());
+          if (runnerDir.exists()) {
+            if (treeDeleter != null) {
+              treeDeleter.deleteTree(runnerDir);
+            } else {
+              runnerDir.deleteTree();
+            }
+          }
         }
+        shouldCleanupSandboxBase = false;
+        checkSandboxBaseTopOnlyContainsPersistentDirs(sandboxBase);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
       } catch (IOException e) {
         env.getReporter()
             .handle(Event.warn("Failed to delete contents of sandbox " + sandboxBase + ": " + e));
       }
-      shouldCleanupSandboxBase = false;
-
-      checkSandboxBaseTopOnlyContainsPersistentDirs(sandboxBase);
       // We intentionally keep sandboxBase around, without resetting it to null, in case we have
       // asynchronous deletions going on. In that case, we'd still want to retry this during
       // shutdown.
@@ -485,6 +493,10 @@ public final class SandboxModule extends BlazeModule {
     // Try to clean up as much garbage as possible, if there happens to be any. This will delay
     // server termination but it's the nice thing to do. If the user gets impatient, they can always
     // kill us again.
+    if (sandboxBase != null) {
+      SandboxStash.clean(treeDeleter, sandboxBase);
+    }
+
     if (treeDeleter != null) {
       try {
         treeDeleter.shutdown();

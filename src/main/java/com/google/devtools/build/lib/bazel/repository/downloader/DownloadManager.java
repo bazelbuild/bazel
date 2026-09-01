@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.net.ConnectException;
 import java.net.SocketException;
 import java.net.URI;
 import java.net.UnknownHostException;
@@ -388,8 +389,10 @@ public class DownloadManager {
   }
 
   private boolean isRetryableException(Throwable e) {
+    // HttpConnector already retries connection attempts. Retrying a final ConnectException here
+    // repeats its entire backoff sequence.
     return e instanceof ContentLengthMismatchException
-        || e instanceof SocketException
+        || (e instanceof SocketException && !(e instanceof ConnectException))
         || e instanceof UnknownHostException;
   }
 

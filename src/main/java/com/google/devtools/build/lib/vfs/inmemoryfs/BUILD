@@ -15,6 +15,10 @@ filegroup(
 java_library(
     name = "inmemoryfs",
     srcs = glob(["*.java"]),
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/collect:collection_utils",

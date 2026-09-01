@@ -455,6 +455,7 @@ class StaticHTTPServer:
 
   def __exit__(self, exc_type, exc_value, traceback):
     self.httpd.shutdown()
+    self.httpd.server_close()
     self.thread.join()
 
   def getURL(self):
@@ -493,3 +494,8 @@ class _Handler(http.server.SimpleHTTPRequestHandler):
   def do_GET(self):
     if self.check_auth():
       return super().do_GET()
+
+  def log_message(self, *args, **kwargs):
+    # Suppress logging to prevent dumping hundreds of 404s to stderr
+    # when Bazel queries fallback registries.
+    pass

@@ -40,6 +40,7 @@ java_library(
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
         "//third_party/java/protobuf",
+        "//third_party/java/protobuf:protobuf_lite",
         "//third_party/java/protobuf/util:json",
     ],
 )

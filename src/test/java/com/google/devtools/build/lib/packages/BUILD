@@ -130,6 +130,8 @@ java_test(
 java_library(
     name = "DocumentationTestUtil",
     srcs = ["DocumentationTestUtil.java"],
+    visibility = [
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -162,6 +164,9 @@ java_library(
         "@rules_cc//cc/private/rules_impl:srcs",
         "@rules_cc//cc/toolchains:srcs",
     ],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -173,6 +178,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/python",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:rule_visibility",

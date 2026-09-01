@@ -20,6 +20,7 @@ java_binary(
         "//src/conditions:darwin": ["-Djava.net.preferIPv6Addresses=true"],
         "//conditions:default": [],
     }),
+    visibility = ["//src/test/shell/bazel:__pkg__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",

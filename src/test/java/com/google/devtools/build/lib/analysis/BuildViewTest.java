@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -1616,5 +1617,168 @@ public class BuildViewTest extends BuildViewTestBase {
     reporter.setOutputFilter(RegexOutputFilter.forPattern(Pattern.compile("^//pkg")));
     update("//pkg:foo");
     assertContainsEvent("DEBUG /workspace/pkg/BUILD:5:6: [\"foo\"]");
+  }
+
+  @CanIgnoreReturnValue
+  private AnalysisResult updateWithOutputGroups(
+      String target, List<String> outputGroups, boolean failOnUnknownOutputGroups)
+      throws Exception {
+    return updateWithAspectsAndOutputGroups(
+        ImmutableList.of(), outputGroups, failOnUnknownOutputGroups, target);
+  }
+
+  @CanIgnoreReturnValue
+  private AnalysisResult updateWithAspectsAndOutputGroups(
+      List<String> aspects,
+      List<String> outputGroups,
+      boolean failOnUnknownOutputGroups,
+      String... targets)
+      throws Exception {
+    TopLevelArtifactContext context =
+        new TopLevelArtifactContext(
+            false,
+            false,
+            OutputGroupInfo.determineOutputGroups(
+                outputGroups, OutputGroupInfo.ValidationMode.OFF, /* shouldRunTests= */ false),
+            failOnUnknownOutputGroups,
+            /* forRunCommand= */ false);
+    return update(context, ImmutableList.copyOf(aspects), targets);
+  }
+
+  @Test
+  public void testUnknownOutputGroupWarning() throws Exception {
+    scratch.file("pkg/BUILD", "genrule(name = 'foo', cmd = '', srcs = [], outs = ['a.out'])");
+    updateWithOutputGroups("//pkg:foo", ImmutableList.of("+unknown_group"), false);
+    assertContainsEvent(
+        "Output group 'unknown_group' was requested, but was not present on any top-level target or"
+            + " aspect");
+  }
+
+  @Test
+  public void testUnknownOutputGroupError() throws Exception {
+    scratch.file("pkg/BUILD", "genrule(name = 'foo', cmd = '', srcs = [], outs = ['a.out'])");
+    reporter.removeHandler(failFastHandler);
+    ViewCreationFailedException e =
+        assertThrows(
+            ViewCreationFailedException.class,
+            () -> updateWithOutputGroups("//pkg:foo", ImmutableList.of("+unknown_group"), true));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Output group 'unknown_group' was requested, but was not present on any top-level"
+                + " target or aspect");
+    assertContainsEvent(
+        "Output group 'unknown_group' was requested, but was not present on any top-level target"
+            + " or aspect");
+  }
+
+  @Test
+  public void testKnownOutputGroupNoError() throws Exception {
+    scratch.file(
+        "pkg/rules.bzl",
+        """
+        def _impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name + ".out")
+            ctx.actions.write(out, "hello")
+            return [OutputGroupInfo(my_group = depset([out]))]
+        my_rule = rule(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":rules.bzl", "my_rule")
+        my_rule(name = "foo")
+        """);
+    updateWithOutputGroups("//pkg:foo", ImmutableList.of("+my_group"), true);
+    assertNoEvents();
+  }
+
+  @Test
+  public void testKnownOutputGroupFromAspectNoError() throws Exception {
+    scratch.file(
+        "pkg/rules.bzl",
+        """
+        def _aspect_impl(target, ctx):
+            out = ctx.actions.declare_file(ctx.label.name + ".aspect.out")
+            ctx.actions.write(out, "hello")
+            return [OutputGroupInfo(my_aspect_group = depset([out]))]
+        my_aspect = aspect(implementation = _aspect_impl)
+        """);
+    scratch.file("pkg/BUILD", "genrule(name = 'foo', cmd = '', srcs = [], outs = ['a.out'])");
+    updateWithAspectsAndOutputGroups(
+        ImmutableList.of("//pkg:rules.bzl%my_aspect"),
+        ImmutableList.of("+my_aspect_group"),
+        true,
+        "//pkg:foo");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testRemovedOutputGroupNoError() throws Exception {
+    scratch.file("pkg/BUILD", "genrule(name = 'foo', cmd = '', srcs = [], outs = ['a.out'])");
+    updateWithOutputGroups("//pkg:foo", ImmutableList.of("-unknown_group"), true);
+    assertNoEvents();
+  }
+
+  @Test
+  public void testMultipleUnknownOutputGroupsWarning() throws Exception {
+    scratch.file("pkg/BUILD", "genrule(name = 'foo', cmd = '', srcs = [], outs = ['a.out'])");
+    updateWithOutputGroups(
+        "//pkg:foo", ImmutableList.of("+unknown_group1", "+unknown_group2"), false);
+    assertContainsEvent(
+        "Output group 'unknown_group1' was requested, but was not present on any top-level target"
+            + " or aspect");
+    assertContainsEvent(
+        "Output group 'unknown_group2' was requested, but was not present on any top-level target"
+            + " or aspect");
+  }
+
+  @Test
+  public void testMultipleUnknownOutputGroupsError() throws Exception {
+    scratch.file("pkg/BUILD", "genrule(name = 'foo', cmd = '', srcs = [], outs = ['a.out'])");
+    reporter.removeHandler(failFastHandler);
+    ViewCreationFailedException e =
+        assertThrows(
+            ViewCreationFailedException.class,
+            () ->
+                updateWithOutputGroups(
+                    "//pkg:foo", ImmutableList.of("+unknown_group1", "+unknown_group2"), true));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Output groups 'unknown_group1', 'unknown_group2' were requested, but were not present"
+                + " on any top-level target or aspect");
+    assertContainsEvent(
+        "Output group 'unknown_group1' was requested, but was not present on any top-level target"
+            + " or aspect");
+    assertContainsEvent(
+        "Output group 'unknown_group2' was requested, but was not present on any top-level target"
+            + " or aspect");
+  }
+
+  @Test
+  public void testCustomUnderscoreOutputGroup_checked() throws Exception {
+    scratch.file("pkg/BUILD", "genrule(name = 'foo', cmd = '', srcs = [], outs = ['a.out'])");
+    reporter.removeHandler(failFastHandler);
+    ViewCreationFailedException e =
+        assertThrows(
+            ViewCreationFailedException.class,
+            () -> updateWithOutputGroups("//pkg:foo", ImmutableList.of("+_custom_unknown"), true));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Output group '_custom_unknown' was requested, but was not present on any top-level"
+                + " target or aspect");
+  }
+
+  @Test
+  public void testValidationOutputGroups_noError() throws Exception {
+    scratch.file("pkg/BUILD", "genrule(name = 'foo', cmd = '', srcs = [], outs = ['a.out'])");
+    updateWithOutputGroups("//pkg:foo", ImmutableList.of("+" + OutputGroupInfo.VALIDATION), true);
+    updateWithOutputGroups(
+        "//pkg:foo", ImmutableList.of("+" + OutputGroupInfo.VALIDATION_TOP_LEVEL), true);
+    updateWithOutputGroups(
+        "//pkg:foo", ImmutableList.of("+" + OutputGroupInfo.VALIDATION_TRANSITIVE), true);
+    assertNoEvents();
   }
 }

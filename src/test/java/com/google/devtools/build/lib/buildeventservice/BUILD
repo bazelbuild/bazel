@@ -21,6 +21,9 @@ ABSTRACT_TEST_SRCS = [
 java_library(
     name = "AbstractBuildEventServiceTransportTest",
     srcs = ABSTRACT_TEST_SRCS,
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice:build_event_service_options",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice:build_event_service_transport",
@@ -93,6 +96,8 @@ java_test(
 java_library(
     name = "BuildEventServiceTransportGrpcTestLib",
     srcs = ["BuildEventServiceTransportGrpcTest.java"],
+    visibility = [
+    ],
     deps = [
         ":AbstractBuildEventServiceTransportTest",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_client",
@@ -178,6 +183,8 @@ java_library(
     name = "build_event_service_test_utils",
     srcs = [
         "DelayingPublishBuildEventService.java",
+    ],
+    visibility = [
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",

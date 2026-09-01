@@ -7,10 +7,13 @@ licenses(["notice"])
 
 exports_files(
     [
+        "command-line-reference-prefix.html",
+        "command-line-reference-suffix.html",
         "docs/user-manual.md",
     ],
     visibility = [
         "//scripts/docs:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib:__pkg__",
         "//src/test/java/com/google/devtools/build/lib/packages:__pkg__",
     ],
 )

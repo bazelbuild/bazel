@@ -18,10 +18,12 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
 import java.io.IOException;
@@ -30,6 +32,8 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
+import javax.annotation.Nullable;
 
 /** Output callback for aquery, prints a human readable summary. */
 class ActionGraphSummaryOutputFormatterCallback extends AqueryThreadsafeCallback {
@@ -45,8 +49,10 @@ class ActionGraphSummaryOutputFormatterCallback extends AqueryThreadsafeCallback
       AqueryOptions options,
       OutputStream out,
       TargetAccessor<ConfiguredTargetValue> accessor,
-      AqueryActionFilter actionFilters) {
-    super(eventHandler, options, out, accessor);
+      AqueryActionFilter actionFilters,
+      TopLevelConfigurations topLevelConfigurations,
+      @Nullable TopLevelArtifactContext topLevelArtifactContext) {
+    super(eventHandler, options, out, accessor, topLevelConfigurations, topLevelArtifactContext);
     this.actionFilters = actionFilters;
   }
 
@@ -58,7 +64,9 @@ class ActionGraphSummaryOutputFormatterCallback extends AqueryThreadsafeCallback
   @Override
   public void processOutput(Iterable<ConfiguredTargetValue> partialResult)
       throws IOException, InterruptedException {
+    Set<ActionAnalysisMetadata> reachableActions = getReachableActions(partialResult);
     // Enabling includeParamFiles should enable includeCommandline by default.
+
     options.setIncludeCommandline(
         options.getIncludeCommandline() || options.getIncludeParamFiles());
 
@@ -70,21 +78,23 @@ class ActionGraphSummaryOutputFormatterCallback extends AqueryThreadsafeCallback
       }
       for (ActionAnalysisMetadata action :
           ((RuleConfiguredTargetValue) configuredTargetValue).getActions()) {
-        processAction(action);
+        processAction(action, reachableActions);
       }
       if (options.getUseAspects()) {
         for (AspectValue aspectValue : accessor.getAspectValues(configuredTargetValue)) {
           for (ActionAnalysisMetadata action : aspectValue.getActions()) {
-            processAction(action);
+            processAction(action, reachableActions);
           }
         }
       }
     }
   }
 
-  private void processAction(ActionAnalysisMetadata action) throws InterruptedException {
+  private void processAction(
+      ActionAnalysisMetadata action, @Nullable Set<ActionAnalysisMetadata> reachableActions)
+      throws InterruptedException {
     if (!AqueryUtils.matchesAqueryFilters(
-        action, actionFilters, options.getIncludePrunedInputs())) {
+        action, actionFilters, options.getIncludePrunedInputs(), reachableActions)) {
       return;
     }
 
@@ -93,7 +103,7 @@ class ActionGraphSummaryOutputFormatterCallback extends AqueryThreadsafeCallback
     if (actionOwner != null) {
       BuildEvent configuration = actionOwner.getBuildConfigurationEvent();
       BuildEventStreamProtos.Configuration configProto =
-          configuration.asStreamProto(/*context=*/ null).getConfiguration();
+          configuration.asStreamProto(/* context= */ null).getConfiguration();
       configurationToCount.merge(configProto.getMnemonic(), 1, Integer::sum);
 
       if (actionOwner.getExecutionPlatform() != null) {

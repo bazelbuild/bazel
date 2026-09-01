@@ -261,7 +261,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
    * this doesn't happen in {@link #injectRecursively}.
    */
   private void addSymlinkTargetsToPrefetch(
-      List<PathFragment> symlinks, Set<PathFragment> filesToPrefetch) {
+      List<PathFragment> symlinks, Set<PathFragment> filesToPrefetch) throws IOException {
     for (var symlink : symlinks) {
       Path target;
       try {
@@ -767,33 +767,27 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
 
   @Nullable
   @Override
-  public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
-    return fsForPath(path).statNullable(path, followSymlinks);
-  }
-
-  @Nullable
-  @Override
   public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
     return fsForPath(path).statIfFound(path, followSymlinks);
   }
 
   @Override
-  public boolean isFile(PathFragment path, boolean followSymlinks) {
+  public boolean isFile(PathFragment path, boolean followSymlinks) throws IOException {
     return fsForPath(path).isFile(path, followSymlinks);
   }
 
   @Override
-  public boolean isSpecialFile(PathFragment path, boolean followSymlinks) {
+  public boolean isSpecialFile(PathFragment path, boolean followSymlinks) throws IOException {
     return fsForPath(path).isSpecialFile(path, followSymlinks);
   }
 
   @Override
-  public boolean isSymbolicLink(PathFragment path) {
+  public boolean isSymbolicLink(PathFragment path) throws IOException {
     return fsForPath(path).isSymbolicLink(path);
   }
 
   @Override
-  public boolean isDirectory(PathFragment path, boolean followSymlinks) {
+  public boolean isDirectory(PathFragment path, boolean followSymlinks) throws IOException {
     return fsForPath(path).isDirectory(path, followSymlinks);
   }
 

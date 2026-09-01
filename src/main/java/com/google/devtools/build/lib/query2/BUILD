@@ -25,6 +25,10 @@ java_library(
             "FakeLoadTarget.java",
         ],
     ),
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib/rules/genquery:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
@@ -39,6 +43,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:constraints/incompatible_target_checker",
         "//src/main/java/com/google/devtools/build/lib/analysis:dependency_kind",
+        "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:required_config_fragments_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:target_and_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
@@ -150,12 +155,17 @@ java_library(
         "aquery/AqueryActionFilter.java",
         "aquery/AqueryUtils.java",
     ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/template_expansion_action",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )

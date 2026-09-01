@@ -17,6 +17,12 @@ filegroup(
 java_library(
     name = "PackageLoader",
     srcs = ["PackageLoader.java"],
+    visibility = [
+        ":__subpackages__",
+        "//src/main/java/com/google/devtools/build/lib:package_loader_access",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/packages:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/testutil:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -34,6 +40,9 @@ java_library(
 java_library(
     name = "AbstractPackageLoader",
     srcs = ["AbstractPackageLoader.java"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/skyframe/packages:__pkg__",
+    ],
     deps = [
         ":PackageLoader",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -87,6 +96,11 @@ java_library(
 java_library(
     name = "BazelPackageLoader",
     srcs = ["BazelPackageLoader.java"],
+    visibility = [
+        ":__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/packages:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/testutil:__pkg__",
+    ],
     deps = [
         ":AbstractPackageLoader",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -123,6 +137,13 @@ java_library(
 java_library(
     name = "PackageFactoryBuilderWithSkyframeForTesting",
     srcs = ["PackageFactoryBuilderWithSkyframeForTesting.java"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/analysis/util:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/packages:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/query2/testutil:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/testutil:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",

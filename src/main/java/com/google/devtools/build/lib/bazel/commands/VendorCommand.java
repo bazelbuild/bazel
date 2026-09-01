@@ -177,11 +177,16 @@ public final class VendorCommand implements BlazeCommand {
         result = vendorAll(env, threadsOption);
       }
     } catch (InterruptedException e) {
-      return createFailedBlazeCommandResult(
-          env.getReporter(), "Vendor interrupted: " + e.getMessage());
+      String message =
+          e.getMessage() != null ? "Vendor interrupted: " + e.getMessage() : "Vendor interrupted";
+      return createFailedBlazeCommandResult(env.getReporter(), message);
     } catch (IOException e) {
+      String message =
+          e.getMessage() != null
+              ? "Error while vendoring repos: " + e.getMessage()
+              : "Error while vendoring repos";
       return createFailedBlazeCommandResult(
-          env.getReporter(), "Error while vendoring repos: " + e.getMessage());
+          env.getReporter(), Code.QUERY_EVALUATION_ERROR, message);
     }
 
     env.getEventBus()
@@ -226,7 +231,8 @@ public final class VendorCommand implements BlazeCommand {
           e != null && e.getMessage() != null
               ? e.getMessage()
               : "Unexpected error during fetching all external deps.";
-      return createFailedBlazeCommandResult(env.getReporter(), errorMessage);
+      return createFailedBlazeCommandResult(
+          env.getReporter(), Code.QUERY_EVALUATION_ERROR, errorMessage);
     }
 
     BazelFetchAllValue fetchAllValue = (BazelFetchAllValue) evaluationResult.get(fetchKey);
@@ -248,7 +254,8 @@ public final class VendorCommand implements BlazeCommand {
     } catch (RepositoryFetcherException e) {
       String errorMessage =
           e.getMessage() != null ? e.getMessage() : "Unexpected error during repository fetching.";
-      return createFailedBlazeCommandResult(env.getReporter(), errorMessage);
+      return createFailedBlazeCommandResult(
+          env.getReporter(), Code.QUERY_EVALUATION_ERROR, errorMessage);
     }
 
     // Split repos to found and not found, vendor found ones and report others
@@ -270,7 +277,9 @@ public final class VendorCommand implements BlazeCommand {
     vendor(env, reposToVendor.build());
     if (!notFoundRepoErrors.isEmpty()) {
       return createFailedBlazeCommandResult(
-          env.getReporter(), "Vendoring some repos failed with errors: " + notFoundRepoErrors);
+          env.getReporter(),
+          Code.QUERY_EVALUATION_ERROR,
+          "Vendoring some repos failed with errors: " + notFoundRepoErrors);
     }
     env.getReporter().handle(Event.info("All requested repos vendored successfully."));
     return BlazeCommandResult.success();

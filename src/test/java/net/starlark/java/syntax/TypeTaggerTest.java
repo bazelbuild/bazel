@@ -302,13 +302,8 @@ public class TypeTaggerTest {
         .isEqualTo(Types.simpleCallable(ImmutableList.of(), false, Types.INT));
     assertThat(extractType("Callable[[int, bool], str]"))
         .isEqualTo(Types.simpleCallable(ImmutableList.of(Types.INT, Types.BOOL), false, Types.STR));
-    assertThat(extractType("Callable[[int, bool, ...], str]"))
-        .isEqualTo(Types.simpleCallable(ImmutableList.of(Types.INT, Types.BOOL), true, Types.STR));
-
-    // For the first argument, `...` is syntax sugar for `[...]`.
     assertThat(extractType("Callable[..., int]"))
         .isEqualTo(Types.simpleCallable(ImmutableList.of(), true, Types.INT));
-    assertThat(extractType("Callable[[...], int]")).isEqualTo(extractType("Callable[..., int]"));
 
     // Argument count
     assertExtractTypeFails("Callable[int]", "Callable[] accepts exactly 2 arguments but got 1");

@@ -41,6 +41,9 @@ java_library(
         "TimestampGranularityUtils.java",
         "UnknownRuleConfiguredTarget.java",
     ],
+    visibility = [
+        "//src:__subpackages__",
+    ],
     deps = [
         ":JunitUtils",
         ":TestConstants",
@@ -111,6 +114,7 @@ java_library(
     name = "BazelPackageBuilderHelperForTesting",
     testonly = 0,
     srcs = ["BazelPackageLoadingListenerForTesting.java"],
+    visibility = ["//visibility:private"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
@@ -308,6 +312,7 @@ java_library(
         "RulesCcRepoName.java",
         "TestConstants.java",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
@@ -321,6 +326,7 @@ java_library(
     srcs = [
         "TestServices.java",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bazel:bazel_services",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
@@ -333,7 +339,11 @@ java_library(
     srcs = [
         "SkyframeExecutorTestHelper.java",
     ],
-    deps = ["//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+    ],
 )
 
 java_library(
@@ -341,6 +351,7 @@ java_library(
     srcs = [
         "TestPackageFactoryBuilderFactory.java",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         ":PackageFactoryBuilderFactoryForBazelUnitTests",  # unuseddeps: keep
         "//src/main/java/com/google/devtools/build/lib/packages:builder_factory_for_testing",
@@ -350,6 +361,7 @@ java_library(
 java_library(
     name = "PackageFactoryBuilderFactoryForBazelUnitTests",
     srcs = ["PackageFactoryBuilderFactoryForBazelUnitTests.java"],
+    visibility = ["//visibility:private"],
     deps = [
         ":BazelPackageBuilderHelperForTesting",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",

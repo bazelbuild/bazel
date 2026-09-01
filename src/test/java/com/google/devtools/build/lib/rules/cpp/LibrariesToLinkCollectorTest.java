@@ -120,7 +120,6 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
         "--extra_toolchains=//toolchain:toolchain",
         "--dynamic_mode=fully",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
         String.format(
             "--experimental_override_name_platform_in_output_dir=%s=k8",
             TestConstants.PLATFORM_LABEL));
@@ -233,7 +232,6 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
         "--extra_toolchains=@@toolchain+//:toolchain",
         "--dynamic_mode=fully",
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
         String.format(
             "--experimental_override_name_platform_in_output_dir=%s=k8",
             TestConstants.PLATFORM_LABEL));

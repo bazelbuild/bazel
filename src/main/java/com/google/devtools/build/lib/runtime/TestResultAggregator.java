@@ -250,7 +250,9 @@ final class TestResultAggregator {
         .setRanRemotely(result.getData().getIsRemoteStrategy());
 
     List<String> warnings = new ArrayList<>();
-    if (status == BlazeTestStatus.PASSED) {
+    if (status == BlazeTestStatus.PASSED
+        && !result.isCached()
+        && !result.getData().getRemotelyCached()) {
       boolean unused =
           shouldEmitTestSizeWarningInSummary(
               policy.testVerboseTimeoutWarnings,

@@ -162,6 +162,7 @@ public final class FilesOutputFormatterCallbackTest extends ConfiguredTargetQuer
                 false,
                 false,
                 OutputGroupInfo.determineOutputGroups(outputGroups, ValidationMode.OFF, false),
+                /* failOnUnknownOutputGroups= */ false,
                 /* forRunCommand= */ false));
     env.evaluateQuery(expression, callback);
     return Pattern.compile("\n")

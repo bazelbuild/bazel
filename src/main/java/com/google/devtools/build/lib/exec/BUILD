@@ -275,7 +275,7 @@ java_library(
         "SpawnLogContext.java",
     ],
     deps = [
-        ":spawn_log_context_utils",
+        ":stable_sort",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -288,6 +288,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:platform_utils",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
@@ -309,19 +310,14 @@ java_library(
         "//third_party/java/guava:hash",
         "//third_party/java/jsr305_annotations",
         "//third_party/java/protobuf/util:time",
-        "//third_party/java/zstd_jni",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
 
 java_library(
-    name = "spawn_log_context_utils",
-    srcs = [
-        "SpawnLogReconstructor.java",
-        "StableSort.java",
-    ],
+    name = "spawn_log_reconstructor",
+    srcs = ["SpawnLogReconstructor.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/protobuf:spawn_java_proto",
         "//third_party/java/guava:annotations",
@@ -402,6 +398,17 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "stable_sort",
+    srcs = ["StableSort.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
+        "//src/main/protobuf:spawn_java_proto",
         "//third_party/java/guava:collect",
     ],
 )

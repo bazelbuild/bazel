@@ -511,6 +511,59 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
     }
   }
 
+  private void logActionTask(
+      long startTimeNanos,
+      long duration,
+      ProfilerTask type,
+      String description,
+      String mnemonic,
+      @Nullable String primaryOutput,
+      @Nullable String targetLabel,
+      @Nullable String configuration) {
+    var lane = borrowLane();
+    try {
+      checkNotNull(description);
+      checkState(!description.isEmpty(), "No description -> not helpful");
+      if (duration < 0) {
+        // See note in Clock#nanoTime, which is used by Profiler#nanoTimeMaybe.
+        duration = 0;
+      }
+
+      StatRecorder statRecorder = tasksHistograms[type.ordinal()];
+      if (collectTaskHistograms && statRecorder != null) {
+        statRecorder.addStat((int) Duration.ofNanos(duration).toMillis(), description);
+      }
+
+      if (isActive() && startTimeNanos >= 0 && isProfiling(type)) {
+        JsonTraceFileWriter currentWriter = writerRef.get();
+        if (wasTaskSlowEnoughToRecord(type, duration)) {
+          TaskData data =
+              new ActionTaskData(
+                  getLaneId(lane),
+                  startTimeNanos,
+                  duration,
+                  type,
+                  mnemonic,
+                  description,
+                  primaryOutput,
+                  targetLabel,
+                  configuration);
+          if (currentWriter != null) {
+            currentWriter.enqueue(data);
+          }
+
+          SlowestTaskAggregator aggregator = slowestTasks[type.ordinal()];
+
+          if (aggregator != null) {
+            aggregator.add(data);
+          }
+        }
+      }
+    } finally {
+      releaseLane(lane);
+    }
+  }
+
   @Override
   public void logSimpleTask(long startTimeNanos, ProfilerTask type, String description) {
     if (clock != null) {
@@ -528,6 +581,27 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
   public void logSimpleTaskDuration(
       long startTimeNanos, Duration duration, ProfilerTask type, String description) {
     logTask(startTimeNanos, duration.toNanos(), type, description);
+  }
+
+  @Override
+  public void logActionTaskDuration(
+      long startTimeNanos,
+      Duration duration,
+      ProfilerTask type,
+      String description,
+      String mnemonic,
+      String primaryOutput,
+      String targetLabel,
+      String configuration) {
+    logActionTask(
+        startTimeNanos,
+        duration.toNanos(),
+        type,
+        description,
+        mnemonic,
+        includePrimaryOutput ? primaryOutput : null,
+        includeTargetLabel ? targetLabel : null,
+        includeConfiguration ? configuration : null);
   }
 
   @Override

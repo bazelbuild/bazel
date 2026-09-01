@@ -14,6 +14,7 @@
 
 package net.starlark.java.syntax;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.stream.Collectors.joining;
@@ -464,6 +465,11 @@ public final class Types {
       ImmutableList<StarlarkType> parameterTypes,
       boolean hasVarargsAndKwargs,
       StarlarkType returns) {
+    if (hasVarargsAndKwargs) {
+      // Until we support PEP-612 forms like `Callable[Concatenate[int, ...], int]`.
+      checkArgument(
+          parameterTypes.isEmpty(), "If hasVarargsAndKwargs is true, parameterTypes must be empty");
+    }
     return new AutoValue_Types_SimpleCallableType(parameterTypes, returns, hasVarargsAndKwargs);
   }
 
@@ -777,9 +783,9 @@ public final class Types {
   }
 
   /**
-   * A callable type all of whose parameters are positional-only and mandatory, optionally with
-   * varargs and kwargs. The type produced by a non-nullary application of the {@code Callable} type
-   * constructor.
+   * A callable type all of whose parameters are positional-only and mandatory; or one having no
+   * ordinary parameters, but accepting arbitrary arguments via varargs and kwargs. The type
+   * produced by a non-nullary application of the {@code Callable} type constructor.
    */
   @AutoValue
   abstract static class SimpleCallableType extends CallableType {
@@ -792,9 +798,6 @@ public final class Types {
       } else {
         sb.append("[");
         sb.append(getParameterTypes().stream().map(StarlarkType::toString).collect(joining(", ")));
-        if (hasVarargsAndKwargs()) {
-          sb.append(", ...");
-        }
         sb.append("], ");
       }
       sb.append(getReturnType()).append("]");
@@ -1966,12 +1969,7 @@ public final class Types {
         hasVarargsAndKwargs = true;
         paramTypes = ImmutableList.of();
       } else if (arg1 instanceof TypeConstructor.Term.TypeList typeList) {
-        ImmutableList<TypeConstructor.Term> terms = typeList.getTerms();
-        if (!terms.isEmpty() && terms.getLast() instanceof TypeConstructor.Term.Ellipsis) {
-          hasVarargsAndKwargs = true;
-          terms = terms.subList(0, terms.size() - 1);
-        }
-        paramTypes = toStarlarkTypes("Callable", terms);
+        paramTypes = toStarlarkTypes("Callable", typeList.getTerms());
       } else {
         throw new TypeConstructor.Failure(
             String.format(

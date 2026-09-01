@@ -213,7 +213,7 @@ public final class RunfilesSupport {
     @Override
     public void fingerprint(
         ActionKeyContext actionKeyContext, Fingerprint fp, boolean digestAbsolutePaths) {
-      runfiles.fingerprint(actionKeyContext, fp, digestAbsolutePaths);
+      runfiles.fingerprint(actionKeyContext, fp, digestAbsolutePaths, originatingTargetRoot);
     }
 
     @Override

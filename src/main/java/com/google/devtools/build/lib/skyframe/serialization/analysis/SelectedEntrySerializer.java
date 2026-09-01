@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.ActionLookupSummaryKey;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
 import com.google.devtools.build.lib.concurrent.safeexecutor.RejectionHandlingRunnable;
 import com.google.devtools.build.lib.profiler.CounterSeriesCollector;
@@ -205,6 +206,7 @@ final class SelectedEntrySerializer {
   private final ObjectCodecs codecs;
   private final FrontierNodeVersion frontierVersion;
 
+  private final CompressionService compressionService;
   private final FingerprintValueService fingerprintValueService;
 
   private final FileOpNodeMemoizingLookup fileOpNodes;
@@ -236,6 +238,7 @@ final class SelectedEntrySerializer {
       ObjectCodecs codecs,
       FrontierNodeVersion frontierVersion,
       ImmutableSet<SkyKey> selection,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       KeyValueWriter fileInvalidationWriter,
       boolean shouldDiscardMemory,
@@ -254,9 +257,11 @@ final class SelectedEntrySerializer {
                 if (!(key instanceof ConfiguredTargetKey ctKey)) {
                   return;
                 }
+                var ctValue = (ConfiguredTargetValue) graph.getIfPresent(ctKey).getValue();
                 tempRefcounts
                     .computeIfAbsent(
-                        getActualPackageIdentifier(graph, ctKey), unused -> new AtomicInteger(0))
+                        ctValue.getConfiguredTarget().getLabel().getPackageIdentifier(),
+                        _ -> new AtomicInteger(0))
                     .incrementAndGet();
               });
       packageRefcounts = ImmutableMap.copyOf(tempRefcounts);
@@ -267,6 +272,7 @@ final class SelectedEntrySerializer {
         new FileDependencySerializer(
             versionGetter,
             graph,
+            compressionService,
             fileInvalidationWriter,
             fingerprintValueService.getExecutor(),
             profileCollector);
@@ -276,6 +282,7 @@ final class SelectedEntrySerializer {
             graph,
             codecs,
             frontierVersion,
+            compressionService,
             fingerprintValueService,
             fileOpNodes,
             fileDependencySerializer,
@@ -308,6 +315,7 @@ final class SelectedEntrySerializer {
       InMemoryGraph graph,
       ObjectCodecs codecs,
       FrontierNodeVersion frontierVersion,
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       FileOpNodeMemoizingLookup fileOpNodes,
       FileDependencySerializer fileDependencySerializer,
@@ -321,6 +329,7 @@ final class SelectedEntrySerializer {
     this.graph = graph;
     this.codecs = codecs;
     this.frontierVersion = frontierVersion;
+    this.compressionService = compressionService;
     this.fingerprintValueService = fingerprintValueService;
     this.fileOpNodes = fileOpNodes;
     this.fileDependencySerializer = fileDependencySerializer;
@@ -485,10 +494,11 @@ final class SelectedEntrySerializer {
 
         this.keyResultTask =
             codecs.serializeMemoizedAsync(
-                fingerprintValueService, key, /* profileCollector= */ null);
+                compressionService, fingerprintValueService, key, /* profileCollector= */ null);
         fingerprintValueService.getExecutor().execute(keyResultTask);
         this.valueResultTask =
-            codecs.serializeMemoizedAsync(fingerprintValueService, value, profileCollector);
+            codecs.serializeMemoizedAsync(
+                compressionService, fingerprintValueService, value, profileCollector);
         fingerprintValueService.getExecutor().execute(valueResultTask);
 
         keyResultTask.addListener(
@@ -599,21 +609,23 @@ final class SelectedEntrySerializer {
        */
       @Override
       public void onSuccess(@Nullable InvalidationDataInfo dataInfo) {
-        if (shouldDiscardMemory) {
-          // Reclaim memory early: once a selected entry is successfully serialized and uploaded,
-          // its value is no longer needed in the evaluator. If it's a ConfiguredTargetKey, we
-          // also decrement the refcount of its package. Once all selected configured targets in
-          // the package are uploaded, the PackageValue is also discarded, releasing substantial
-          // memory early.
-          if (key instanceof ConfiguredTargetKey ctKey) {
-            PackageIdentifier pkgId = getActualPackageIdentifier(graph, ctKey);
-            if (packageRefcounts.get(pkgId).decrementAndGet() <= 0) {
-              graph.removeIfDone(pkgId);
-            }
-          }
-          graph.removeIfDone(key);
-        }
         try {
+          if (shouldDiscardMemory) {
+            // Reclaim memory early: once a selected entry is successfully serialized and uploaded,
+            // its value is no longer needed in the evaluator. If it's a ConfiguredTargetKey, we
+            // also decrement the refcount of its package. Once all selected configured targets in
+            // the package are uploaded, the PackageValue is also discarded, releasing substantial
+            // memory early.
+            if (key instanceof ConfiguredTargetKey
+                && value instanceof ConfiguredTargetValue ctValue) {
+              PackageIdentifier pkgId =
+                  ctValue.getConfiguredTarget().getLabel().getPackageIdentifier();
+              if (packageRefcounts.get(pkgId).decrementAndGet() <= 0) {
+                graph.removeIfDone(pkgId);
+              }
+            }
+            graph.removeIfDone(key);
+          }
           ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
           CodedOutputStream codedOut = CodedOutputStream.newInstance(bytesOut);
 
@@ -924,18 +936,5 @@ final class SelectedEntrySerializer {
     }
 
     result.add(key);
-  }
-
-  /**
-   * Returns the real package associated with a configured target.
-   *
-   * <p>The configured target may be an alias where the referent package contains its target data.
-   */
-  private static PackageIdentifier getActualPackageIdentifier(
-      InMemoryGraph graph, ConfiguredTargetKey key) {
-    return ((ConfiguredTargetValue) graph.getIfPresent(key).getValue())
-        .getConfiguredTarget()
-        .getLabel()
-        .getPackageIdentifier();
   }
 }

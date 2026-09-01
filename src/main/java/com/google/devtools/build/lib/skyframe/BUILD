@@ -310,6 +310,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:artifact_nested_set_key",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -443,6 +444,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:artifact_nested_set_key",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -730,6 +732,9 @@ java_library(
 java_library(
     name = "skyvalue_retriever_utils",
     srcs = ["SkyValueRetrieverUtils.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
@@ -2761,6 +2766,12 @@ java_library(
 java_library(
     name = "skyfocus_options",
     srcs = ["SkyfocusOptions.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/buildtool:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/runtime:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
+    ],
     deps = ["//src/main/java/com/google/devtools/common/options"],
 )
 

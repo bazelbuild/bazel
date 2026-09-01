@@ -14,6 +14,7 @@ filegroup(
 java_library(
     name = "supplier",
     srcs = glob(["*.java"]),
+    visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
     deps = [
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:annotations",

@@ -282,8 +282,25 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
       if (!allowNetwork) {
         out.println("(deny network*)");
+        // Binding to any local address must be allowed: servers commonly bind to the wildcard
+        // address (0.0.0.0 or ::), which the "localhost" filter does not match. Outbound
+        // traffic stays restricted to loopback by the rules below, so a sandboxed spawn still
+        // cannot reach another host.
+        //
+        // Inbound traffic cannot be restricted the same way. macOS decides network-inbound
+        // from the local address alone, and "localhost" there matches every address assigned
+        // to the machine rather than just 127.0.0.1 and ::1, so a peer elsewhere on the
+        // network can reach a spawn that listens on a non-loopback address. Filtering
+        // network-inbound on the remote address is not an option: such a rule compiles but
+        // has no effect. The Linux sandbox does not have this gap because its network
+        // namespace only ever has a loopback interface.
+        // See https://github.com/bazelbuild/bazel/issues/14828.
+        out.println("(allow network-bind (local ip \"*:*\"))");
         out.println("(allow network-inbound (local ip \"localhost:*\"))");
         out.println("(allow network* (remote ip \"localhost:*\"))");
+        // Unix domain sockets are filesystem-scoped IPC and cannot reach other hosts, so
+        // allow them in both directions, just like the Linux network namespace does.
+        out.println("(allow network* (local unix-socket))");
         out.println("(allow network* (remote unix-socket))");
       }
 

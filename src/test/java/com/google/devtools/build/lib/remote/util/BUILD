@@ -23,6 +23,7 @@ java_library(
         ["*.java"],
         exclude = INTEGRATION_TEST_UTILS_SRCS + FREE_PORT_FINDER_SRCS,
     ),
+    visibility = ["//visibility:public"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",

@@ -846,6 +846,8 @@ message Sandbox {
     FORBIDDEN_INPUT = 11 [(metadata) = { exit_code: 1 }];
     COPY_INPUTS_IO_EXCEPTION = 12 [(metadata) = { exit_code: 36 }];
     COPY_OUTPUTS_IO_EXCEPTION = 13 [(metadata) = { exit_code: 36 }];
+    MOUNT_SOURCE_STAT_ERROR = 14 [(metadata) = { exit_code: 36 }];
+    MOUNT_TARGET_STAT_ERROR = 15 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
@@ -1149,6 +1151,7 @@ message CppCompile {
     COVERAGE_NOTES_CREATION_FAILURE = 10 [(metadata) = { exit_code: 1 }];
     MODULE_EXPANSION_MISSING_DATA = 11 [(metadata) = { exit_code: 1 }];
     MODMAP_INPUT_FILE_READ_FAILURE = 12 [(metadata) = { exit_code: 36 }];
+    MODULE_EXPANSION_SERIALIZATION_ERROR = 13 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -1299,6 +1302,7 @@ message Analysis {
     ANALYSIS_FAILURE_PROPAGATION_FAILED = 20 [(metadata) = { exit_code: 1 }];
     ANALYSIS_CACHE_DISCARDED = 21 [(metadata) = { exit_code: 1 }];
     INVALID_RUNFILES_TREE = 22 [(metadata) = { exit_code: 1 }];
+    UNKNOWN_OUTPUT_GROUP = 23 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

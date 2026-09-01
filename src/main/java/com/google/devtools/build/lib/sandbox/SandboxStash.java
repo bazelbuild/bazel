@@ -363,16 +363,11 @@ public class SandboxStash {
             new SandboxStash(
                 workspaceName, sandboxBase, options.getExperimentalInMemorySandboxStashes());
       } else {
-        if (!Objects.equals(workspaceName, instance.workspaceName)) {
-          Path stashBase = getStashBase(instance.sandboxBase);
-          try (SilentCloseable c = Profiler.instance().profile("treeDeleter.deleteTree")) {
-            for (Path directoryEntry : stashBase.getDirectoryEntries()) {
-              treeDeleter.deleteTree(directoryEntry);
-            }
-          } catch (IOException e) {
-            instance.turnOffReuse(
-                "Unable to clear old sandbox stash %s: %s\n", stashBase, e.getMessage());
-          }
+        if (!Objects.equals(workspaceName, instance.workspaceName)
+            || !Objects.equals(sandboxBase, instance.sandboxBase)) {
+          clean(
+              !Objects.equals(sandboxBase, instance.sandboxBase) ? null : treeDeleter,
+              instance.sandboxBase);
           instance =
               new SandboxStash(
                   workspaceName, sandboxBase, options.getExperimentalInMemorySandboxStashes());
@@ -380,6 +375,11 @@ public class SandboxStash {
         instance.inMemoryStashes = options.getExperimentalInMemorySandboxStashes();
       }
     } else {
+      if (instance != null) {
+        clean(
+            !Objects.equals(sandboxBase, instance.sandboxBase) ? null : treeDeleter,
+            instance.sandboxBase);
+      }
       instance = null;
     }
   }
@@ -411,35 +411,31 @@ public class SandboxStash {
   }
 
   /** Cleans up the entire current stash, if any. Cleaning may be asynchronous. */
-  static void clean(TreeDeleter treeDeleter, Path sandboxBase) {
-    Path stashDir = getStashBase(sandboxBase);
-    if (!stashDir.isDirectory()) {
-      return;
+  static void clean(@Nullable TreeDeleter treeDeleter, Path sandboxBase) {
+    try (SilentCloseable c = Profiler.instance().profile("SandboxStash.clean")) {
+      Path stashDir = getStashBase(sandboxBase);
+      cleanDir(stashDir, treeDeleter);
+      Path tmpStashDir = sandboxBase.getChild(TEMPORARY_SANDBOX_STASH_BASE);
+      cleanDir(tmpStashDir, treeDeleter);
+
+      if (instance != null) {
+        instance.stashPathToRunfilesDir.clear();
+        instance.pathToContents.clear();
+        instance.sandboxToTarget.clear();
+        instance.pathToLastModified.clear();
+      }
     }
-    Path stashTrashDir = stashDir.getChild("__trash");
-    try {
-      stashDir.renameTo(stashTrashDir);
-    } catch (IOException e) {
-      // If we couldn't move the stashdir away for deletion, we need to delete it synchronously
-      // in place, so we can't use the treeDeleter.
-      treeDeleter = null;
-      stashTrashDir = stashDir;
-    }
-    try {
+  }
+
+  private static void cleanDir(Path dir, @Nullable TreeDeleter treeDeleter) {
+    try (SilentCloseable c = Profiler.instance().profile("treeDeleter.deleteTree")) {
       if (treeDeleter != null) {
-        treeDeleter.deleteTree(stashTrashDir);
+        treeDeleter.deleteTree(dir);
       } else {
-        stashTrashDir.deleteTree();
+        dir.deleteTree();
       }
     } catch (IOException e) {
-      logger.atWarning().withCause(e).log("Failed to clean sandbox stash %s", stashDir);
-    }
-
-    if (instance != null) {
-      instance.stashPathToRunfilesDir.clear();
-      instance.pathToContents.clear();
-      instance.sandboxToTarget.clear();
-      instance.pathToLastModified.clear();
+      logger.atWarning().withCause(e).log("Failed to clean sandbox stash %s", dir);
     }
   }
 

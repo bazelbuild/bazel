@@ -22,4 +22,5 @@ java_library(
 java_library(
     name = "annotations_internal",
     srcs = glob(["*.java"]),
+    visibility = ["//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations/processor:__pkg__"],
 )

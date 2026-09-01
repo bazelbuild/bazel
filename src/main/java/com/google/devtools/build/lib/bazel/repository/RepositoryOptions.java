@@ -357,10 +357,10 @@ public abstract class RepositoryOptions extends OptionsBase {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
           """
-          If true, Bazel ignores `bazel_dep` and `use_extension` declared as `dev_dependency` in
-          the `MODULE.bazel` of the root module. Note that, those dev dependencies are always
-          ignored in the `MODULE.bazel` if it's not the root module regardless of the value
-          of this flag.
+          If true, Bazel ignores `bazel_dep`, `use_extension`, and `include` declared as
+          `dev_dependency` in the `MODULE.bazel` of the root module. Note that these dev
+          dependencies are always ignored in the `MODULE.bazel` if it is not the root module,
+          regardless of the value of this flag.
           """)
   public abstract boolean getIgnoreDevDependency();
 
@@ -426,8 +426,9 @@ public abstract class RepositoryOptions extends OptionsBase {
               + " use the lockfile and update it if there are changes, `refresh` to additionally"
               + " refresh mutable information (yanked versions and previously missing modules)"
               + " from remote registries from time to time, `error` to use the lockfile but throw"
-              + " an error if it's not up-to-date, or `off` to neither read from or write to the"
-              + " lockfile.")
+              + " an error if needed information is not up-to-date (superfluous entries that the"
+              + " current resolution does not consult are ignored, not reported), or `off` to"
+              + " neither read from or write to the lockfile.")
   public abstract LockfileMode getLockfileMode();
 
   @Option(

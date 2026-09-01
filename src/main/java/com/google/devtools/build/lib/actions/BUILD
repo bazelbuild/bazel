@@ -14,6 +14,9 @@ filegroup(
 java_library(
     name = "execution_requirements",
     srcs = ["ExecutionRequirements.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
     deps = [
         ":exec_exception",
         "//src/main/protobuf:failure_details_java_proto",
@@ -117,6 +120,10 @@ java_library(
         "cache/CompactPersistentActionCache.java",
         "cache/PersistentStringIndexer.java",
         "cache/PostableActionCacheStats.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
     ],
     exports = [
         ":action_environment",
@@ -543,6 +550,10 @@ java_library(
 java_library(
     name = "localhost_compute_resources",
     srcs = ["LocalHostComputeResources.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
+    ],
 )
 
 java_library(
@@ -552,6 +563,10 @@ java_library(
         "LocalHostResource.java",
         "ResourceSet.java",
         "ResourceSetOrBuilder.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
     ],
     deps = [
         ":exec_exception",
@@ -633,6 +648,10 @@ java_library(
     srcs = [
         "MachineLoadProvider.java",
         "ResourceManager.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
     ],
     deps = [
         ":actions",
@@ -742,6 +761,10 @@ java_library(
         "SpawnResult.java",
         "StaticInputMetadataProvider.java",
         "cache/OutputMetadataStore.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
     ],
     deps = [
         ":action_input",

@@ -14,6 +14,10 @@ filegroup(
 java_library(
     name = "coverage",
     srcs = glob(["*.java"]),
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/bazel:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib/bazel:__subpackages__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",

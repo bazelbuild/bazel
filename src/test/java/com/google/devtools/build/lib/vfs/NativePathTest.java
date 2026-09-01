@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.Lists;
@@ -83,12 +84,12 @@ public class NativePathTest {
   }
 
   @Test
-  public void testIsFileIsTrueForFile() {
+  public void testIsFileIsTrueForFile() throws Exception {
     assertThat(fs.getPath(aFile.getPath()).isFile()).isTrue();
   }
 
   @Test
-  public void testIsFileIsFalseForDirectory() {
+  public void testIsFileIsFalseForDirectory() throws Exception {
     assertThat(fs.getPath(aDirectory.getPath()).isFile()).isFalse();
   }
 
@@ -103,7 +104,7 @@ public class NativePathTest {
   }
 
   @Test
-  public void testIsDirectory() {
+  public void testIsDirectory() throws Exception {
     assertThat(fs.getPath(aDirectory.getPath()).isDirectory()).isTrue();
     assertThat(fs.getPath(aFile.getPath()).isDirectory()).isFalse();
     assertThat(fs.getPath("/does/not/exist").isDirectory()).isFalse();
@@ -197,7 +198,7 @@ public class NativePathTest {
     String latin1String = new String(allLatin1Chars);
     FileSystemUtils.writeContentAsLatin1(path, latin1String);
     byte[] bytes = FileSystemUtils.readContent(path);
-    assertThat(latin1String).isEqualTo(new String(bytes, "ISO-8859-1"));
+    assertThat(latin1String).isEqualTo(new String(bytes, ISO_8859_1));
   }
 
   @Test

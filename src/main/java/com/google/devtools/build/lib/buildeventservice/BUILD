@@ -173,13 +173,12 @@ java_library(
 IMPL_VISIBILITY = [
     "//src/main/java/com/google/devtools/build/lib/buildeventservice:__pkg__",
     "//src/test/java/com/google/devtools/build/lib/buildeventservice:__pkg__",
-    "//java/com/google/devtools/build/lib/blaze/google/buildeventservice:__subpackages__",
-    "//javatests/com/google/devtools/build/lib/blaze/google/buildeventservice:__subpackages__",
 ]
 
 java_library(
     name = "command_context_impl",
     srcs = ["CommandContextImpl.java"],
+    visibility = IMPL_VISIBILITY,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:command_context",
         "//third_party/java/error_prone:annotations",
@@ -192,6 +191,7 @@ java_library(
 java_library(
     name = "build_enqueued_impl",
     srcs = ["BuildEnqueuedImpl.java"],
+    visibility = IMPL_VISIBILITY,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:lifecycle_event",
         "//third_party/java/guava:base",
@@ -201,6 +201,7 @@ java_library(
 java_library(
     name = "invocation_started_impl",
     srcs = ["InvocationStartedImpl.java"],
+    visibility = IMPL_VISIBILITY,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:lifecycle_event",
         "//third_party/java/guava:base",
@@ -210,6 +211,7 @@ java_library(
 java_library(
     name = "invocation_finished_impl",
     srcs = ["InvocationFinishedImpl.java"],
+    visibility = IMPL_VISIBILITY,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:lifecycle_event",
         "//third_party/java/guava:base",
@@ -219,6 +221,7 @@ java_library(
 java_library(
     name = "build_finished_impl",
     srcs = ["BuildFinishedImpl.java"],
+    visibility = IMPL_VISIBILITY,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:lifecycle_event",
         "//third_party/java/guava:base",
@@ -228,6 +231,7 @@ java_library(
 java_library(
     name = "bazel_event_impl",
     srcs = ["BazelEventImpl.java"],
+    visibility = IMPL_VISIBILITY,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:stream_event",
         "//third_party/java/guava:base",
@@ -237,6 +241,7 @@ java_library(
 java_library(
     name = "stream_finished_impl",
     srcs = ["StreamFinishedImpl.java"],
+    visibility = IMPL_VISIBILITY,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:stream_event",
         "//third_party/java/guava:base",

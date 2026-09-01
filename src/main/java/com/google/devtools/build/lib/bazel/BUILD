@@ -99,6 +99,12 @@ java_library(
         "BazelStartupOptionsModule.java",
         "BazelWorkspaceStatusModule.java",
     ],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/bazel:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/buildtool:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/runtime:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -135,11 +141,14 @@ java_library(
     srcs = [
         "SpawnLogModule.java",
     ],
+    visibility = [
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_prefetcher",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
         "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/exec:executor_builder",
@@ -187,6 +196,9 @@ java_library(
 java_library(
     name = "main",
     srcs = ["Bazel.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
     deps = [
         ":bazel_filesystem_module",
         ":bazel_services",
@@ -244,6 +256,7 @@ java_binary(
         "-Xlint:all",
     ],
     main_class = "com.google.devtools.build.lib.bazel.Bazel",
+    visibility = ["//src:__subpackages__"],
     runtime_deps = [
         ":main",
         "//src/main/java/com/google/devtools/build/lib/util:simple_log_handler",  # See startup_options.cc
@@ -266,6 +279,7 @@ java_library(
     name = "bazel_services",
     srcs = ["BazelServices.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
         "//src/main/java/com/google/devtools/build/lib/platform:platform_native_deps_service_impl",
         "//src/main/java/com/google/devtools/build/lib/profiler:profiler_impl",
         "//src/main/java/com/google/devtools/build/lib/profiler:system_network_stats_service_impl",

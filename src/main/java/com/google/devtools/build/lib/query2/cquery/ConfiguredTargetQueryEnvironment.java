@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
-import com.google.common.base.Joiner;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -38,6 +36,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.query2.ConfigFunction;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.SkyQueryEnvironment;
@@ -51,7 +50,6 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKeyExtractorBackedSetImpl;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
-import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -61,7 +59,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -300,7 +297,8 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
    * Returns the {@link CqueryNode} for the given label and configuration if it exists, else null.
    */
   @Nullable
-  private CqueryNode getConfiguredTarget(
+  @Override
+  protected CqueryNode getConfiguredTarget(
       Label label, @Nullable BuildConfigurationValue configuration) throws InterruptedException {
     BuildConfigurationKey configurationKey = configuration == null ? null : configuration.getKey();
     CqueryNode target =
@@ -389,130 +387,9 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
     return ans.build();
   }
 
-  /**
-   * Processes the targets in {@code targets} with the requested {@code configuration}
-   *
-   * @param pattern the original pattern that {@code targets} were parsed from. Used for error
-   *     message.
-   * @param targetsFuture the set of {@link ConfiguredTarget}s whose labels represent the targets
-   *     being requested.
-   * @param configPrefix the configuration to request {@code targets} in. This can be the
-   *     configuration's checksum, any prefix of its checksum, or the special identifiers "target"
-   *     "anyexec", or "null".
-   * @param callback the callback to receive the results of this method.
-   * @return {@link QueryTaskCallable} that returns the correctly configured targets.
-   */
-  @SuppressWarnings("unchecked")
-  <T> QueryTaskCallable<Void> getConfiguredTargetsForConfigFunction(
-      String pattern,
-      QueryTaskFuture<ThreadSafeMutableSet<T>> targetsFuture,
-      String configPrefix,
-      Callback<CqueryNode> callback) {
-    // There's no technical reason other callers beside ConfigFunction can't call this. But they'd
-    // need to adjust the error messaging below to not make it config()-specific. Please don't just
-    // remove that line: the counter-priority is making error messages as clear, precise, and
-    // actionable as possible.
-    return () -> {
-      ThreadSafeMutableSet<CqueryNode> targets =
-          (ThreadSafeMutableSet<CqueryNode>) targetsFuture.getIfSuccessful();
-      List<CqueryNode> transformedResult = new ArrayList<>();
-      boolean userFriendlyConfigName = true;
-      for (CqueryNode target : targets) {
-        Label label = getCorrectLabel(target);
-        CqueryNode keyedConfiguredTarget = null;
-        switch (configPrefix) {
-          case "host" ->
-              throw new QueryException(
-                  "'host' configuration no longer exists. Use a specific configuration hash"
-                      + " instead",
-                  ConfigurableQuery.Code.INCORRECT_CONFIG_ARGUMENT_ERROR);
-          case "target" -> keyedConfiguredTarget = getTargetConfiguredTarget(label);
-          case "null" -> keyedConfiguredTarget = getNullConfiguredTarget(label);
-          case "anyexec" -> {
-            ImmutableList<BuildConfigurationValue> matchingConfigs =
-                transitiveConfigurations.values().stream()
-                    .filter(BuildConfigurationValue::isExecConfiguration)
-                    .sorted(Comparator.comparing(BuildConfigurationValue::checksum))
-                    .collect(ImmutableList.toImmutableList());
-            if (!matchingConfigs.isEmpty()) {
-              for (var cfg : matchingConfigs) {
-                keyedConfiguredTarget = getConfiguredTarget(label, cfg);
-                if (keyedConfiguredTarget != null) {
-                  break;
-                }
-              }
-            } else {
-              throw new QueryException(
-                  String.format("Unable to identify 'exec' configuration for %s\n", label)
-                      + "config()'s second argument must identify a unique configuration.\n"
-                      + "\n"
-                      + "Valid values:\n"
-                      + " 'target' for the default configuration\n"
-                      + " 'null' for source files (which have no configuration)\n"
-                      + " 'anyexec' for identifying any path to a exec tool configuration\n"
-                      + " an arbitrary configuration's full or short ID\n"
-                      + "\n"
-                      + "A short ID is any prefix of a full ID. cquery shows short IDs. 'bazel "
-                      + "config' shows full IDs.\n"
-                      + "\n"
-                      + "For more help, see https://bazel.build/docs/cquery.",
-                  ConfigurableQuery.Code.INCORRECT_CONFIG_ARGUMENT_ERROR);
-            }
-          }
-          default -> {
-            ImmutableList<String> matchingConfigs =
-                transitiveConfigurations.keySet().stream()
-                    .filter(fullConfig -> fullConfig.startsWith(configPrefix))
-                    .collect(ImmutableList.toImmutableList());
-            if (matchingConfigs.size() == 1) {
-              keyedConfiguredTarget =
-                  getConfiguredTarget(
-                      label,
-                      Verify.verifyNotNull(transitiveConfigurations.get(matchingConfigs.get(0))));
-              userFriendlyConfigName = false;
-            } else if (matchingConfigs.size() >= 2) {
-              throw new QueryException(
-                  String.format(
-                      "Configuration ID '%s' is ambiguous.\n"
-                          + "'%s' is a prefix of multiple configurations:\n %s\n\n"
-                          + "Use a longer prefix to uniquely identify one configuration.",
-                      configPrefix, configPrefix, Joiner.on("\n ").join(matchingConfigs)),
-                  ConfigurableQuery.Code.INCORRECT_CONFIG_ARGUMENT_ERROR);
-            } else {
-              throw new QueryException(
-                  String.format("Unknown configuration ID '%s'.\n", configPrefix)
-                      + "config()'s second argument must identify a unique configuration.\n"
-                      + "\n"
-                      + "Valid values:\n"
-                      + " 'target' for the default configuration\n"
-                      + " 'null' for source files (which have no configuration)\n"
-                      + " an arbitrary configuration's full or short ID\n"
-                      + "\n"
-                      + "A short ID is any prefix of a full ID. cquery shows short IDs. 'bazel "
-                      + "config' shows full IDs.\n"
-                      + "\n"
-                      + "For more help, see https://bazel.build/docs/cquery.",
-                  ConfigurableQuery.Code.INCORRECT_CONFIG_ARGUMENT_ERROR);
-            }
-          }
-        }
-        if (keyedConfiguredTarget != null) {
-          transformedResult.add(keyedConfiguredTarget);
-        }
-      }
-      if (transformedResult.isEmpty()) {
-        throw new QueryException(
-            String.format(
-                "No target (in) %s could be found in the %s",
-                pattern,
-                userFriendlyConfigName
-                    ? "'" + configPrefix + "' configuration"
-                    : "configuration with checksum '" + configPrefix + "'"),
-            ConfigurableQuery.Code.TARGET_MISSING);
-      }
-      callback.process(transformedResult);
-      return null;
-    };
+  @Override
+  protected String getQueryName() {
+    return "cquery";
   }
 
   /**

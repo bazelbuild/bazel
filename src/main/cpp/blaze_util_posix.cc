@@ -157,7 +157,8 @@ static void handler(int signum) {
         if (SignalHandler::Get().GetServerProcessInfo()->server_pid_ != -1) {
           KillServerProcess(
               SignalHandler::Get().GetServerProcessInfo()->server_pid_,
-              SignalHandler::Get().GetOutputBase());
+              SignalHandler::Get().GetOutputBase(),
+              /*from_signal_handler=*/true);
         }
         _exit(1);
       }
@@ -761,7 +762,8 @@ void ReleaseLock(LockHandle lock_handle) {
   close(static_cast<int>(lock_handle));
 }
 
-bool KillServerProcess(int pid, const blaze_util::Path& output_base) {
+bool KillServerProcess(int pid, const blaze_util::Path& output_base,
+                       bool from_signal_handler) {
   // Kill the process and make sure it's dead before proceeding.
   errno = 0;
   if (killpg(pid, SIGKILL) == -1) {
@@ -770,10 +772,19 @@ bool KillServerProcess(int pid, const blaze_util::Path& output_base) {
         << ") using SIGKILL: " << GetLastErrorString();
   }
   if (!AwaitServerProcessTermination(pid, output_base,
-                                     kPostKillGracePeriodSeconds)) {
+                                     kPostKillGracePeriodSeconds,
+                                     TerminationReason::kKillSignal)) {
+    string diagnosis;
+    if (!from_signal_handler) {
+      diagnosis = GetProcessTerminationDiagnosis(pid);
+      if (!diagnosis.empty()) {
+        diagnosis = " Diagnosis: " + diagnosis;
+      }
+    }
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Attempted to kill stale server process (pid=" << pid
-        << ") using SIGKILL, but it did not die in a timely fashion.";
+        << ") using SIGKILL, but it did not die in a timely fashion."
+        << diagnosis;
   }
   return true;
 }

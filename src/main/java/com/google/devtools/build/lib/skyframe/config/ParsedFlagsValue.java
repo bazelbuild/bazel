@@ -35,6 +35,8 @@ import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /** Stores the {@link OptionsParsingResult} from {@link ParsedFlagsFunction}. */
@@ -202,6 +204,25 @@ public class ParsedFlagsValue implements SkyValue {
     // TODO: https://github.com/bazelbuild/bazel/issues/22453 - This will completely overwrite
     //  accumulating flags, which is almost certainly not what users want. Instead this should
     //  intelligently merge options.
+    if (optionDefinition.getOptionName().equals("override_platform_cpu_name")) {
+      List<?> previousValue = (List<?>) optionDefinition.getValue(fragment);
+      List<?> newValue = (List<?>) optionValue.getValue();
+      Map<Object, Map.Entry<?, ?>> combined = new LinkedHashMap<>();
+      if (previousValue != null) {
+        for (Object item : previousValue) {
+          Map.Entry<?, ?> entry = (Map.Entry<?, ?>) item;
+          combined.put(entry.getKey(), entry);
+        }
+      }
+      if (newValue != null) {
+        for (Object item : newValue) {
+          Map.Entry<?, ?> entry = (Map.Entry<?, ?>) item;
+          combined.put(entry.getKey(), entry);
+        }
+      }
+      optionDefinition.setValue(fragment, ImmutableList.copyOf(combined.values()));
+      return;
+    }
     Object value = optionValue.getValue();
     optionDefinition.setValue(fragment, value);
   }

@@ -4,7 +4,6 @@ package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = [
-        "//javatests/com/google/devtools/build/lib:__subpackages__",
         "//src/test/java/com/google/devtools/build/lib:__subpackages__",
     ],
 )
@@ -22,7 +21,7 @@ java_test(
     srcs = ["ExecLogParserTest.java"],
     test_class = "com.google.devtools.build.execlog.ExecLogParserTest",
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/exec:spawn_log_context_utils",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_log_reconstructor",
         "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/protobuf:spawn_java_proto",
         "//src/tools/execlog/src/main/java/com/google/devtools/build/execlog:parser",

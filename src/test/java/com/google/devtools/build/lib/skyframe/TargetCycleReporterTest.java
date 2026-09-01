@@ -18,8 +18,12 @@ import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -102,5 +106,45 @@ public final class TargetCycleReporterTest extends BuildViewTestCase {
         .contains(
             "The cycle is caused by a visibility edge from //foo:b to the non-package_group "
                 + "target //foo:c");
+  }
+
+  @Test
+  public void testArtifactNestedSetInCycle() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        """
+        genrule(
+            name = "a",
+            srcs = [],
+            outs = ["a.o"],
+            cmd = "echo uh > $@",
+        )
+        """);
+    ConfiguredTargetKey ctKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(Label.parseCanonicalUnchecked("//foo:a"))
+            .setConfiguration(targetConfig)
+            .build();
+    ActionArtifactCycleReporter cycleReporter =
+        new ActionArtifactCycleReporter(getPackageManager());
+    Artifact a1 = getSourceArtifact("foo", ctKey);
+    Artifact a2 = getSourceArtifact("bar", ctKey);
+    Artifact a3 = getSourceArtifact("goo", ctKey);
+    NestedSet<Artifact> nestedSet =
+        NestedSetBuilder.<Artifact>stableOrder().add(a1).add(a2).build();
+    ArtifactNestedSetKey nestedSetKey = ArtifactNestedSetKey.create(nestedSet);
+    CycleInfo cycle =
+        CycleInfo.createCycleInfo(
+            ImmutableList.of(nestedSetKey, Artifact.key(a1), Artifact.key(a3)));
+    reporter.removeHandler(failFastHandler);
+    assertThat(cycleReporter.maybeReportCycle(Artifact.key(a1), cycle, false, reporter)).isTrue();
+    assertContainsEvent(
+        """
+        in genrule rule //foo:a: cycle in dependency graph:
+        .-> files: foo, bar
+        |   file: foo
+        |   file: goo
+        `-- files: foo, bar\
+        """);
   }
 }

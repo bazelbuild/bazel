@@ -23,6 +23,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec.DeferredValue;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NestedArrayCodec;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNestedSetCodec;
@@ -48,6 +50,9 @@ import org.junit.runner.RunWith;
 
 @RunWith(TestParameterInjector.class)
 public final class SerializationWithSkyframeTest {
+
+  private static final CompressionService COMPRESSION_SERVICE = new CompressionServiceImpl();
+
   private final ObjectCodecs codecs =
       new ObjectCodecs(
           AutoRegistry.get()
@@ -66,7 +71,7 @@ public final class SerializationWithSkyframeTest {
     var value = new ExampleValue(key, 10);
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, value);
+        codecs.serializeMemoizedAndBlocking(COMPRESSION_SERVICE, fingerprintValueService, value);
     assertThat(serialized.getFutureToBlockWritesOn()).isNull();
 
     // Deserialization always returns a future because there is a Skyframe lookup. The future is
@@ -76,7 +81,7 @@ public final class SerializationWithSkyframeTest {
             Futures.getDone(
                 (ListenableFuture<?>)
                     codecs.deserializeWithSkyframe(
-                        fingerprintValueService, serialized.getObject()));
+                        COMPRESSION_SERVICE, fingerprintValueService, serialized.getObject()));
 
     if (missingValue) {
       // The continuation must resume, returning null, because the value is not in the injected
@@ -110,7 +115,7 @@ public final class SerializationWithSkyframeTest {
     var value = ImmutableList.<ExampleValue>of(value1, value2);
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, value);
+        codecs.serializeMemoizedAndBlocking(COMPRESSION_SERVICE, fingerprintValueService, value);
     assertThat(serialized.getFutureToBlockWritesOn()).isNull();
 
     // Deserialization always returns a future because there is a Skyframe lookup. The future is
@@ -120,7 +125,7 @@ public final class SerializationWithSkyframeTest {
             Futures.getDone(
                 (ListenableFuture<?>)
                     codecs.deserializeWithSkyframe(
-                        fingerprintValueService, serialized.getObject()));
+                        COMPRESSION_SERVICE, fingerprintValueService, serialized.getObject()));
 
     // Evaluates the continuation as if `key1` is already present but `key2` is missing. It returns
     // null, requesting a restart.
@@ -139,13 +144,15 @@ public final class SerializationWithSkyframeTest {
     var sharedValue = new SharedExampleValue(value);
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, sharedValue);
+        codecs.serializeMemoizedAndBlocking(
+            COMPRESSION_SERVICE, fingerprintValueService, sharedValue);
     ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
     writeStatus.get(); // ensures that the future succeeds
 
     var futureResult =
         (ListenableFuture<?>)
-            codecs.deserializeWithSkyframe(fingerprintValueService, serialized.getObject());
+            codecs.deserializeWithSkyframe(
+                COMPRESSION_SERVICE, fingerprintValueService, serialized.getObject());
     assertThat(futureResult.isDone()).isFalse(); // not done because the fetch is blocked
 
     GetRequest request = recordingStore.takeFirstRequest();
@@ -198,7 +205,8 @@ public final class SerializationWithSkyframeTest {
     var serializedBytes = new ArrayList<ByteString>();
     for (Object sharedValue : ImmutableList.of(subject0, subject1)) {
       SerializationResult<ByteString> serialized =
-          codecs.serializeMemoizedAndBlocking(fingerprintValueService, sharedValue);
+          codecs.serializeMemoizedAndBlocking(
+              COMPRESSION_SERVICE, fingerprintValueService, sharedValue);
       ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
       writeStatus.get(); // ensures that the future succeeds
       serializedBytes.add(serialized.getObject());
@@ -207,12 +215,14 @@ public final class SerializationWithSkyframeTest {
     // Deserializing subject0 first makes futureResult0 own deserialization of value0.
     var futureResult0 =
         (ListenableFuture<?>)
-            codecs.deserializeWithSkyframe(fingerprintValueService, serializedBytes.get(0));
+            codecs.deserializeWithSkyframe(
+                COMPRESSION_SERVICE, fingerprintValueService, serializedBytes.get(0));
     // As subject1 deserializes, it'll try to deserialize value0 but see that its deserialization is
     // already owned by another thread.
     var futureResult1 =
         (ListenableFuture<?>)
-            codecs.deserializeWithSkyframe(fingerprintValueService, serializedBytes.get(1));
+            codecs.deserializeWithSkyframe(
+                COMPRESSION_SERVICE, fingerprintValueService, serializedBytes.get(1));
 
     var getRequest0 = recordingStore.takeFirstRequest();
     var getRequest1 = recordingStore.takeFirstRequest();
@@ -305,13 +315,14 @@ public final class SerializationWithSkyframeTest {
             });
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject);
+        codecs.serializeMemoizedAndBlocking(COMPRESSION_SERVICE, fingerprintValueService, subject);
     ListenableFuture<?> writeStatus = serialized.getFutureToBlockWritesOn();
     writeStatus.get(); // ensures that the future succeeds
 
     var futureResult =
         (ListenableFuture<?>)
-            codecs.deserializeWithSkyframe(fingerprintValueService, serialized.getObject());
+            codecs.deserializeWithSkyframe(
+                COMPRESSION_SERVICE, fingerprintValueService, serialized.getObject());
 
     var continuation = (SkyframeLookupContinuation) futureResult.get();
     ListenableFuture<?> futureValue = processWithEntries(continuation, entries);

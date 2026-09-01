@@ -84,6 +84,7 @@ public final class AnalysisTestUtil {
           /* runTestsExclusively= */ false,
           /* expandFilesets= */ false,
           OutputGroupInfo.DEFAULT_GROUPS,
+          /* failOnUnknownOutputGroups= */ false,
           /* forRunCommand= */ false);
 
   /**

@@ -254,7 +254,11 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
   private static ArtifactsToBuild getArtifactsToBuild(ConfiguredTargetAndData ctAndData) {
     TopLevelArtifactContext context =
         new TopLevelArtifactContext(
-            false, false, OutputGroupInfo.DEFAULT_GROUPS, /* forRunCommand= */ false);
+            false,
+            false,
+            OutputGroupInfo.DEFAULT_GROUPS,
+            /* failOnUnknownOutputGroups= */ false,
+            /* forRunCommand= */ false);
     return TopLevelArtifactHelper.getAllArtifactsToBuild(ctAndData.getConfiguredTarget(), context);
   }
 

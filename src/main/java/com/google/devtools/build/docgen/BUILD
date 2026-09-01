@@ -92,9 +92,11 @@ filegroup(
         "templates/**/*.html",
         "templates/**/*.vm",
     ]),
+    visibility = ["//visibility:private"],
 )
 
 filegroup(
     name = "bazel_link_map",
     srcs = ["bazel_link_map.json"],
+    visibility = ["//src:__subpackages__"],
 )

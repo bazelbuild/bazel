@@ -28,6 +28,11 @@ java_library(
         "NestedSetVisitor.java",
         "Order.java",
     ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/skyframe:__subpackages__",
+        "//src/test/java/com/google/devtools/build/skyframe:__subpackages__",
+    ],
     deps = [
         ":nested_sets_should_be_interned_by_equality",
         "//src/main/java/com/google/devtools/build/docgen/annot",
@@ -65,6 +70,7 @@ java_library(
 java_library(
     name = "nested_sets_should_be_interned_by_equality",
     srcs = ["NestedSetsShouldBeInternedByEquality.java"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 java_library(

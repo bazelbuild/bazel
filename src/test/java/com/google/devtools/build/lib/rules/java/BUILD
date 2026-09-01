@@ -241,6 +241,7 @@ java_test(
     name = "JavaInfoCodecTest",
     srcs = ["JavaInfoCodecTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:depsutils",
@@ -259,6 +260,7 @@ java_library(
     name = "java_compile_action_test_helper",
     testonly = 1,
     srcs = ["JavaCompileActionTestHelper.java"],
+    visibility = ["//visibility:public"],
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:optionsparser",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_option_converters",

@@ -22,6 +22,21 @@ import java.util.Objects;
 /**
  * Wraps an {@link ActionLookupKey}. The evaluation of this SkyKey is the entry point of analyzing
  * the {@link ActionLookupKey} and executing the associated actions.
+ *
+ * <p>Under Skymeld ({@code --experimental_merged_skyframe_analysis_execution}), {@link
+ * BuildDriverKey} nodes are evaluated on every build invocation (they depend on {@code
+ * PrecomputedValue.BUILD_ID} and are marked with {@link #valueIsShareable} as {@code false}). When
+ * underlying target dependencies remain unchanged across sequential warm builds, Skyframe
+ * change-prunes the {@link BuildDriverKey} node (i.e. {@code versionChanged == false}).
+ *
+ * <p>Normally, Skyframe evaluators pass {@code newValue = null} to {@link
+ * com.google.devtools.build.skyframe.EvaluationProgressReceiver#evaluated} for change-pruned nodes.
+ * However, {@code ExecutionProgressReceiver} listens for {@link SkyFunctions#BUILD_DRIVER}
+ * evaluations and requires the non-null {@link BuildDriverValue} to post {@code
+ * TopLevelTargetBuiltEvent} or {@code AspectBuiltEvent}. To satisfy this requirement without
+ * disabling change pruning, Skyframe evaluators make an exception for {@link
+ * SkyFunctions#BUILD_DRIVER} nodes and pass the existing value as {@code newValue} even when the
+ * version did not change.
  */
 public final class BuildDriverKey implements SkyKey {
   private final ActionLookupKey actionLookupKey;

@@ -17,6 +17,9 @@ java_library(
         "AllocationTrackerInstaller.java",
         "AllocationTrackerModule.java",
     ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
     deps = [
         ":allocationtracker",
         ":current_rule_tracker",
@@ -36,6 +39,10 @@ java_library(
 java_library(
     name = "current_rule_tracker",
     srcs = ["CurrentRuleTracker.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib/profiler/memory:__subpackages__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party/java/guava:base",
@@ -46,6 +53,10 @@ java_library(
     name = "allocationtracker",
     srcs = [
         "AllocationTracker.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib/profiler/memory:__subpackages__",
     ],
     deps = [
         ":current_rule_tracker",

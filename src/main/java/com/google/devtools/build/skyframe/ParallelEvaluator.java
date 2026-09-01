@@ -121,12 +121,17 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
     // If valueVersion is not equal to graphVersion, it must be less than it (by the
     // Preconditions check above), and so the node is clean.
     boolean changed = valueVersion.equals(evaluatorContext.getGraphVersion());
+    // BUILD_DRIVER nodes are an exception: even when change-pruned (versionChanged == false),
+    // their value must be passed to the progress receiver so that ExecutionProgressReceiver can
+    // post completion events. See BuildDriverKey.
     evaluatorContext
         .getProgressReceiver()
         .evaluated(
             key,
             EvaluationState.get(value, changed),
-            /* newValue= */ changed ? value : null,
+            /* newValue= */ (changed || key.functionName().getName().equals("BUILD_DRIVER"))
+                ? value
+                : null,
             /* newError= */ changed ? error : null,
             /* directDeps= */ null);
   }

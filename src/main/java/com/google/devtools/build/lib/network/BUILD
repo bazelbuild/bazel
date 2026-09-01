@@ -14,6 +14,11 @@ filegroup(
 java_library(
     name = "noop_connectivity",
     srcs = ["NoOpConnectivityModule.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib/buildtool:__subpackages__",
+    ],
     deps = [
         ":connectivity_status",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
@@ -25,5 +30,10 @@ java_library(
     srcs = [
         "ConnectivityStatus.java",
         "ConnectivityStatusProvider.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/buildeventservice:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util:__subpackages__",
     ],
 )

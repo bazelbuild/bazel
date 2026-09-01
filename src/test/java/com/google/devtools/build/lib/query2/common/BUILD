@@ -28,6 +28,9 @@ java_library(
     name = "QueryPreloadingTest_lib",
     testonly = 1,
     srcs = ["QueryPreloadingTestCase.java"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",

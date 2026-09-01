@@ -1,6 +1,6 @@
 <!--
 Thank you for contributing to Bazel!
-Please read the contribution guidelines: https://bazel.build/contribute.html
+Please read the contribution guidelines: https://bazel.build/contribute
 -->
 
 ### Description

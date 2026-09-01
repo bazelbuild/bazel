@@ -797,13 +797,19 @@ public final class SkyframeBuildView {
         // Coverage report generation should only be requested after all tests have executed.
         // When --nokeep_going and there's an earlier error, we should skip this and fail fast.
         if ((!mainEvaluationResult.hasError() && !hasExclusiveTestsError) || keepGoing) {
+          if (Thread.currentThread().isInterrupted()) {
+            throw new InterruptedException();
+          }
           ImmutableSet<Artifact> coverageReportArtifacts =
               coverageReportActionsWrapperSupplier.getCoverageReportArtifacts(
                   buildResultListener.getAnalyzedTargets(), buildResultListener.getAnalyzedTests());
           eventBus.post(CoverageArtifactsKnownEvent.create(coverageReportArtifacts));
           additionalArtifactsResult =
-              skyframeExecutor.evaluateSkyKeys(
-                  eventHandler, Artifact.keys(coverageReportArtifacts), keepGoing);
+              skyframeExecutor.evaluate(
+                  Artifact.keys(coverageReportArtifacts),
+                  keepGoing,
+                  executors.executionParallelism(),
+                  eventHandler);
           if (additionalArtifactsResult.hasError()) {
             detailedExitCodes.add(
                 SkyframeErrorProcessor.processErrors(
@@ -1217,7 +1223,7 @@ public final class SkyframeBuildView {
     return cts.build();
   }
 
-  private static ImmutableMap<AspectKey, ConfiguredAspect> getSuccessfulAspectMap(
+  private ImmutableMap<AspectKey, ConfiguredAspect> getSuccessfulAspectMap(
       int expectedSize,
       EvaluationResult<SkyValue> evaluationResult,
       Set<BuildDriverKey> buildDriverAspectKeys,
@@ -1231,12 +1237,23 @@ public final class SkyframeBuildView {
         continue;
       }
       BuildDriverValue value = (BuildDriverValue) evaluationResult.get(bdAspectKey);
-      if (value == null) {
-        // Skip aspects that couldn't be applied to targets.
-        continue;
+      TopLevelAspectsValue topLevelAspectsValue = null;
+      if (value != null) {
+        topLevelAspectsValue = (TopLevelAspectsValue) value.getWrappedSkyValue();
+      } else {
+        try {
+          topLevelAspectsValue =
+              (TopLevelAspectsValue)
+                  skyframeExecutor.getDoneSkyValueForIntrospection(
+                      bdAspectKey.getActionLookupKey());
+        } catch (FailureToRetrieveIntrospectedValueException e) {
+          // Skip aspects that couldn't be analyzed.
+          continue;
+        }
       }
-      TopLevelAspectsValue topLevelAspectsValue = (TopLevelAspectsValue) value.getWrappedSkyValue();
-      aspects.putAll(topLevelAspectsValue.getTopLevelAspectsMap());
+      if (topLevelAspectsValue != null) {
+        aspects.putAll(topLevelAspectsValue.getTopLevelAspectsMap());
+      }
     }
     return aspects.buildOrThrow();
   }

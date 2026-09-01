@@ -16,6 +16,7 @@ java_library(
     srcs = [
         "FakeLoadTarget.java",
     ],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",

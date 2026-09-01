@@ -16,6 +16,8 @@ filegroup(
 proto_library(
     name = "cgroups_info_proto",
     srcs = ["cgroups_info.proto"],
+    visibility = [
+    ],
 )
 
 java_proto_library(

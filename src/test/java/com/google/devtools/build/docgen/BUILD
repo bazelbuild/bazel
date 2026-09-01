@@ -18,6 +18,7 @@ java_test(
     srcs = ["DocumentationTests.java"],
     shard_count = 1,
     tags = ["docgen"],
+    visibility = ["//visibility:private"],
     runtime_deps = [
         ":documentation-tests",
     ],

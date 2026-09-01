@@ -21,6 +21,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.util.DecimalBucketer;
@@ -114,13 +115,15 @@ public final class FingerprintValueService implements KeyValueWriter {
    * fingerprint, and returns the {@link PackedFingerprint}.
    */
   public static PackedFingerprint computeFingerprint(
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       ObjectCodecs codecs,
       SkyKey key,
       FrontierNodeVersion nodeVersion)
       throws InterruptedException, SerializationException {
     AsyncSerializationTask serializeKeyTask =
-        codecs.serializeMemoizedAsync(fingerprintValueService, key, /* profileCollector= */ null);
+        codecs.serializeMemoizedAsync(
+            compressionService, fingerprintValueService, key, /* profileCollector= */ null);
     serializeKeyTask.run();
 
     ListenableFuture<PackedFingerprint> fingerprintFuture =

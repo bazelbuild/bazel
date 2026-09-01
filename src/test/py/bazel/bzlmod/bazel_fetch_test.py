@@ -261,7 +261,7 @@ class BazelFetchTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(
         ['fetch', '--repo=hello'], allow_failure=True
     )
-    self.AssertExitCode(exit_code, 8, stderr)
+    self.AssertExitCode(exit_code, 2, stderr)
     self.assertIn(
         'ERROR: Invalid repo name: The repo value has to be either apparent'
         " '@repo' or canonical '@@repo' repo name",
@@ -277,7 +277,7 @@ class BazelFetchTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(
         ['fetch', '--repo=@@nono', '--repo=@nana'], allow_failure=True
     )
-    self.AssertExitCode(exit_code, 8, stderr)
+    self.AssertExitCode(exit_code, 2, stderr)
     self.assertIn(
         "ERROR: Fetching some repos failed with errors: Repository '@@nono' is "
         "not defined; No repository visible as '@nana' from main repository",

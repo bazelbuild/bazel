@@ -1836,6 +1836,72 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     checkCriticalPath(6100, "6.10");
   }
 
+  @Test
+  public void testTreeFileDependency_runningParentActionDoesNotDropCompletedDependency()
+      throws Exception {
+    SpecialArtifact treeB =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(derivedArtifactRoot, "treeB");
+
+    ActionLookupKey templateKey1 =
+        ActionTemplateExpansionValue.key(ActionsTestUtil.NULL_ARTIFACT_OWNER, 0);
+
+    // actionA0 -> output treeB/file0.txt (slow: 300ms, completed and sets treeB's component to
+    // 300ms)
+    TreeFileArtifact childB0 = createTemplateExpansionOutput(treeB, "file0.txt", templateKey1, 0);
+    MockAction actionA0 = new MockAction(ImmutableList.of(), ImmutableSet.of(childB0));
+
+    // actionA1 -> output treeB/file1.txt (fast: 100ms, completed)
+    TreeFileArtifact childB1 = createTemplateExpansionOutput(treeB, "file1.txt", templateKey1, 1);
+    MockAction actionA1 = new MockAction(ImmutableList.of(), ImmutableSet.of(childB1));
+
+    // actionB1 (inputs treeB/file1.txt from actionA1, outputs out1.txt, duration: 500ms)
+    Artifact out1 = artifact("out1.txt");
+    MockAction actionB1 = new MockAction(ImmutableList.of(childB1), ImmutableSet.of(out1));
+
+    FakeActionInputFileCache cache = new FakeActionInputFileCache();
+    TreeArtifactValue.Builder treeBBuilder = TreeArtifactValue.newBuilder(treeB);
+    writeChildAndRegister(treeBBuilder, childB0, "content0");
+    writeChildAndRegister(treeBBuilder, childB1, "content1");
+    cache.putTreeArtifact(treeB, treeBBuilder.build());
+
+    // 1. actionA0 completes with 300ms, updating treeB's longest component to actionA0 (300ms)
+    runAction(actionA0, 300, cache, ActionLookupData.create(templateKey1, 0));
+
+    // 2. actionA0 starts running again (e.g. rewound / re-executing)
+    long startA0Rewound = clock.nanoTime();
+    computer.actionStarted(new ActionStartedEvent(actionA0, startA0Rewound));
+
+    // 3. actionA1 completes with 100ms
+    long startA1 = clock.nanoTime();
+    computer.actionStarted(new ActionStartedEvent(actionA1, startA1));
+    clock.advanceMillis(100);
+    computer.actionComplete(
+        new ActionCompletionEvent(
+            startA1,
+            clock.nanoTime(),
+            actionA1,
+            cache,
+            null,
+            ActionLookupData.create(templateKey1, 1)));
+
+    // 4. actionB1 runs for 500ms (t=400ms to t=900ms) consuming childB1 while actionA0 is still
+    // running
+    long startB1 = clock.nanoTime();
+    computer.actionStarted(new ActionStartedEvent(actionB1, startB1));
+    clock.advanceMillis(500);
+    computer.actionComplete(
+        new ActionCompletionEvent(
+            startB1,
+            clock.nanoTime(),
+            actionB1,
+            cache,
+            null,
+            ActionsTestUtil.NULL_ACTION_LOOKUP_DATA));
+
+    // actionB1 must connect to actionA1 (100ms) -> actionB1 (500ms) = 600ms
+    checkCriticalPath(600, "0.60");
+  }
+
   private TreeFileArtifact createTemplateExpansionOutput(
       SpecialArtifact parent, String relativePath, ActionLookupKey templateKey, int actionIndex) {
     TreeFileArtifact child =

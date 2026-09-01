@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
@@ -24,14 +25,22 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
+import com.google.devtools.build.lib.packages.Package.Metadata;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueCache;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueCache.SyncMode;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
@@ -78,6 +87,8 @@ import org.mockito.junit.MockitoRule;
 
 @RunWith(JUnit4.class)
 public final class SelectedEntrySerializerTest {
+
+  private static final CompressionService COMPRESSION_SERVICE = new CompressionServiceImpl();
 
   @Rule public final MockitoRule mocks = MockitoJUnit.rule();
 
@@ -135,7 +146,7 @@ public final class SelectedEntrySerializerTest {
       throws InterruptedException {
     ConfiguredTargetKey targetKey =
         ConfiguredTargetKey.builder().setLabel(Label.parseCanonicalUnchecked(label)).build();
-    addDoneNode(targetKey, new TestSkyValue(sharedData), fileDeps);
+    addDoneNode(targetKey, new TestSkyValue(sharedData, label), fileDeps);
     return targetKey;
   }
 
@@ -177,12 +188,28 @@ public final class SelectedEntrySerializerTest {
   }
 
   /** A fake "configured target value" whose only virtue is that it serializes a shared value. */
-  private static final class TestSkyValue implements SkyValue {
+  private static final class TestSkyValue implements SkyValue, ConfiguredTargetValue {
     @Nullable private final String sharedData;
+    private final ConfiguredTarget configuredTarget;
 
-    TestSkyValue(@Nullable String sharedData) {
+    TestSkyValue(@Nullable String sharedData, String label) {
       this.sharedData = sharedData;
+      this.configuredTarget = mock(ConfiguredTarget.class);
+      when(configuredTarget.getLabel()).thenReturn(Label.parseCanonicalUnchecked(label));
     }
+
+    @Override
+    public ConfiguredTarget getConfiguredTarget() {
+      return configuredTarget;
+    }
+
+    @Override
+    public NestedSet<Metadata> getTransitivePackages() {
+      return null;
+    }
+
+    @Override
+    public void clear(boolean clearEverything) {}
   }
 
   /** A codec for shared strings. */
@@ -245,12 +272,17 @@ public final class SelectedEntrySerializerTest {
 
   private QuiescingFuture<ImmutableList<Throwable>> uploadSelection(List<SkyKey> keysToSerialize)
       throws Exception {
+    return uploadSelection(keysToSerialize, /* shouldDiscardMemory= */ false);
+  }
+
+  private QuiescingFuture<ImmutableList<Throwable>> uploadSelection(
+      List<SkyKey> keysToSerialize, boolean shouldDiscardMemory) throws Exception {
     var fileOpNodeMemoizingLookup =
         new FileOpNodeMemoizingLookup(
             new SafeExecutorOwner(new ForkJoinPool(4)),
             graph,
             ImmutableSet.of(),
-            /* shouldDiscardMemory= */ false,
+            shouldDiscardMemory,
             /* referencedPackages= */ null);
     return SelectedEntrySerializer.uploadSelection(
         graph,
@@ -258,9 +290,10 @@ public final class SelectedEntrySerializerTest {
         codecs,
         FrontierNodeVersion.CONSTANT_FOR_TESTING,
         ImmutableSet.copyOf(keysToSerialize),
+        COMPRESSION_SERVICE,
         fingerprintValueService,
         invalidationStore,
-        /* shouldDiscardMemory= */ false,
+        shouldDiscardMemory,
         eventBus,
         /* profileCollector= */ null,
         new SelectedEntrySerializer.SerializationStats(),
@@ -333,5 +366,128 @@ public final class SelectedEntrySerializerTest {
     // Complete the upload and verify that then the future is marked as successful
     valueStore.getPutStatus(0).markSuccess();
     assertThat(uploadFuture.get()).isEmpty();
+  }
+
+  @Test
+  public void uploadWithDiscardMemory_nodeRemovedConcurrently_succeedsWithoutNPE()
+      throws Exception {
+    FileKey fileKey1 = createFileKey("foo1.txt");
+    FileKey fileKey2 = createFileKey("foo2.txt");
+
+    ConfiguredTargetKey targetKey =
+        createConfiguredTarget("//test:target", null, ImmutableList.of(fileKey1, fileKey2));
+
+    var executorService = new ForkJoinPool(4);
+    var customFingerprintValueService =
+        new FingerprintValueService(
+            new SafeExecutorOwner(executorService),
+            valueStore,
+            new FingerprintValueCache(SyncMode.NOT_LINKED),
+            FingerprintValueService.NONPROD_FINGERPRINTER);
+
+    var fileOpNodeMemoizingLookup =
+        new FileOpNodeMemoizingLookup(
+            new SafeExecutorOwner(new ForkJoinPool(4)),
+            graph,
+            ImmutableSet.of(),
+            /* shouldDiscardMemory= */ true,
+            /* referencedPackages= */ null);
+
+    var uploadFuture =
+        SelectedEntrySerializer.uploadSelection(
+            graph,
+            versionGetter,
+            codecs,
+            FrontierNodeVersion.CONSTANT_FOR_TESTING,
+            ImmutableSet.of(targetKey),
+            COMPRESSION_SERVICE,
+            customFingerprintValueService,
+            invalidationStore,
+            /* shouldDiscardMemory= */ true,
+            eventBus,
+            /* profileCollector= */ null,
+            new SelectedEntrySerializer.SerializationStats(),
+            /* emitUploadedEvents= */ false,
+            fileOpNodeMemoizingLookup);
+
+    invalidationStore.waitForPuts(3);
+
+    // Simulate graph reset/cleanup (e.g. on interrupt during build, resetEvaluator() or
+    // cleanupInterningPools() clears nodes from the in-memory graph).
+    graph.remove(targetKey);
+
+    // Now let the invalidation store complete, which triggers the value upload.
+    invalidationStore.getPutStatus(0).markSuccess();
+    invalidationStore.getPutStatus(1).markSuccess();
+    invalidationStore.getPutStatus(2).markSuccess();
+
+    valueStore.waitForPuts(1);
+    valueStore.getPutStatus(0).markSuccess();
+
+    // Verify that upload completes successfully without throwing NPE.
+    assertThat(uploadFuture.get()).isEmpty();
+  }
+
+  @Test
+  public void uploadWithDiscardMemory_executorShutdownDuringUpload_quiescesCleanlyWithoutNPE()
+      throws Exception {
+    FileKey fileKey1 = createFileKey("foo1.txt");
+    FileKey fileKey2 = createFileKey("foo2.txt");
+
+    ConfiguredTargetKey targetKey =
+        createConfiguredTarget("//test:target", null, ImmutableList.of(fileKey1, fileKey2));
+
+    var executorService = new ForkJoinPool(4);
+    var customFingerprintValueService =
+        new FingerprintValueService(
+            new SafeExecutorOwner(executorService),
+            valueStore,
+            new FingerprintValueCache(SyncMode.NOT_LINKED),
+            FingerprintValueService.NONPROD_FINGERPRINTER);
+
+    var fileOpNodeMemoizingLookup =
+        new FileOpNodeMemoizingLookup(
+            new SafeExecutorOwner(new ForkJoinPool(4)),
+            graph,
+            ImmutableSet.of(),
+            /* shouldDiscardMemory= */ true,
+            /* referencedPackages= */ null);
+
+    var uploadFuture =
+        SelectedEntrySerializer.uploadSelection(
+            graph,
+            versionGetter,
+            codecs,
+            FrontierNodeVersion.CONSTANT_FOR_TESTING,
+            ImmutableSet.of(targetKey),
+            COMPRESSION_SERVICE,
+            customFingerprintValueService,
+            invalidationStore,
+            /* shouldDiscardMemory= */ true,
+            eventBus,
+            /* profileCollector= */ null,
+            new SelectedEntrySerializer.SerializationStats(),
+            /* emitUploadedEvents= */ false,
+            fileOpNodeMemoizingLookup);
+
+    invalidationStore.waitForPuts(3);
+
+    // Simulate executor shutdown during interrupt while uploads are in flight.
+    customFingerprintValueService.shutdown();
+
+    // Simulate graph reset/cleanup (resetEvaluator() or cleanupInterningPools() clears nodes from
+    // the in-memory graph).
+    graph.remove(targetKey);
+
+    // Complete the stores and let tasks/rejections drain.
+    invalidationStore.getPutStatus(0).markSuccess();
+    invalidationStore.getPutStatus(1).markSuccess();
+    invalidationStore.getPutStatus(2).markSuccess();
+
+    valueStore.waitForPuts(1);
+    valueStore.getPutStatus(0).markSuccess();
+
+    // Verify that upload future completes without unhandled NullPointerException.
+    assertThat(uploadFuture.get()).isNotNull();
   }
 }

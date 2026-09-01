@@ -136,6 +136,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.PooledInterner;
@@ -359,6 +360,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected final FileSystem fileSystem;
   protected final BlazeDirectories directories;
   final ExternalFilesHelper externalFilesHelper;
+  private final CompressionService compressionService;
   protected final BugReporter bugReporter;
 
   /**
@@ -575,6 +577,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return remoteAnalysisCacheReaderDepsProvider;
   }
 
+  /** Represents the baseline target and exec configurations. */
+  public record BaselineConfigurations(BuildOptions targetBaseline, BuildOptions execBaseline) {}
+
   public void setRemoteAnalysisCachingDependenciesProvider(
       RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider,
       RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDepsProvider) {
@@ -715,6 +720,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       @Nullable PackageProgressReceiver packageProgress,
       @Nullable AnalysisProgressReceiver analysisProgress,
       SkyKeyStateReceiver skyKeyStateReceiver,
+      CompressionService compressionService,
       BugReporter bugReporter,
       @Nullable Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       @Nullable WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver,
@@ -782,6 +788,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.allowExternalRepositories = allowExternalRepositories;
     this.globUnderSingleDep = globUnderSingleDep;
     this.diffCheckNotificationOptions = diffCheckNotificationOptions;
+    this.compressionService = compressionService;
   }
 
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions() {
@@ -1578,11 +1585,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.STAMP_SETTING_MARKER.inject(injectable());
   }
 
-  public void setBaselineConfiguration(BuildOptions buildOptions, ExtendedEventHandler eventHandler)
+  @CanIgnoreReturnValue
+  public BaselineConfigurations setBaselineConfiguration(
+      BuildOptions buildOptions, ExtendedEventHandler eventHandler)
       throws InvalidConfigurationException, InterruptedException {
+    BuildOptions execBaseline = adjustForExec(buildOptions, eventHandler);
     BaselineOptionsFunction.BASELINE_CONFIGURATION.set(injectable(), buildOptions);
-    BaselineOptionsFunction.BASELINE_EXEC_CONFIGURATION.set(
-        injectable(), adjustForExec(buildOptions, eventHandler));
+    BaselineOptionsFunction.BASELINE_EXEC_CONFIGURATION.set(injectable(), execBaseline);
+    return new BaselineConfigurations(buildOptions, execBaseline);
   }
 
   private BuildOptions adjustForExec(BuildOptions buildOptions, ExtendedEventHandler eventHandler)
@@ -3225,7 +3235,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       throws TargetParsingException, InterruptedException {
     SkyKey key =
         TargetPatternPhaseValue.keyWithoutFilters(
-            ImmutableList.copyOf(targetPatterns), relativeWorkingDirectory);
+            ImmutableList.copyOf(targetPatterns), relativeWorkingDirectory, keepGoing);
     return getTargetPatternPhaseValue(eventHandler, targetPatterns, threadCount, keepGoing, key);
   }
 
@@ -3258,7 +3268,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             ImmutableList.copyOf(options.getBuildTagFilterList()),
             options.getBuildManualTests(),
             options.getExpandTestSuites(),
-            TestFilter.forOptions(options));
+            TestFilter.forOptions(options),
+            keepGoing);
     return getTargetPatternPhaseValue(eventHandler, targetPatterns, threadCount, keepGoing, key);
   }
 
@@ -4464,6 +4475,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting
   ActionExecutionStatusReporter getActionExecutionStatusReporterForTesting() {
     return statusReporterRef.get();
+  }
+
+  @VisibleForTesting
+  public CompressionService getCompressionServiceForTesting() {
+    return compressionService;
   }
 
   @VisibleForTesting

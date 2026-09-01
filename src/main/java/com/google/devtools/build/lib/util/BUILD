@@ -50,17 +50,30 @@ java_library(
 java_library(
     name = "os",
     srcs = ["OS.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",  # exposed to jcg/devtools/build/rpcs
+    ],
 )
 
 java_library(
     name = "classpath",
     srcs = ["Classpath.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/docgen:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/test/java/com/google/devtools/build/lib/testutil:__pkg__",
+        "//src/test/java/com/google/devtools/common/options:__pkg__",
+    ],
     deps = ["//third_party/java/guava:reflect"],
 )
 
 java_library(
     name = "env_var",
     srcs = ["EnvVar.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/common/options",
@@ -381,6 +394,10 @@ java_library(
 java_library(
     name = "TestType",
     srcs = ["TestType.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/main/java/com/google/devtools/build/skyframe:__subpackages__",
+    ],
 )
 
 java_library(
@@ -458,6 +475,9 @@ java_library(
     srcs = [
         "ExitCode.java",
     ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
     deps = [
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:base",
@@ -488,6 +508,9 @@ java_library(
 java_library(
     name = "detailed_exit_code",
     srcs = ["DetailedExitCode.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
     deps = [
         ":exit_code",
         "//src/main/protobuf:failure_details_java_proto",
@@ -570,6 +593,9 @@ java_library(
 java_library(
     name = "value_or_exception",
     srcs = ["ValueOrException.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
     deps = [
         "//third_party/java/guava:base",
     ],

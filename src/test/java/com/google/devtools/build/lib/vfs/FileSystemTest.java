@@ -246,19 +246,19 @@ public abstract class FileSystemTest {
   // Here the tests begin.
 
   @Test
-  public void testIsFileForNonexistingPath() {
+  public void testIsFileForNonexistingPath() throws Exception {
     Path nonExistingPath = testFS.getPath("/something/strange");
     assertThat(nonExistingPath.isFile()).isFalse();
   }
 
   @Test
-  public void testIsDirectoryForNonexistingPath() {
+  public void testIsDirectoryForNonexistingPath() throws Exception {
     Path nonExistingPath = testFS.getPath("/something/strange");
     assertThat(nonExistingPath.isDirectory()).isFalse();
   }
 
   @Test
-  public void testIsLinkForNonexistingPath() {
+  public void testIsLinkForNonexistingPath() throws Exception {
     Path nonExistingPath = testFS.getPath("/something/strange");
     assertThat(nonExistingPath.isSymbolicLink()).isFalse();
   }
@@ -301,7 +301,7 @@ public abstract class FileSystemTest {
 
   // The following tests check the handling of the root directory
   @Test
-  public void testRootIsDirectory() {
+  public void testRootIsDirectory() throws Exception {
     Path rootPath = testFS.getPath("/");
     assertThat(rootPath.isDirectory()).isTrue();
   }
@@ -1609,7 +1609,7 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testCantRenameDirToExistingFile() {
+  public void testCantRenameDirToExistingFile() throws Exception {
     IOException e = assertThrows(IOException.class, () -> xEmptyDirectory.renameTo(xFile));
     assertThat(e)
         .hasMessageThat()
@@ -1617,7 +1617,7 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testCantRenameDirToExistingFileNothingChanged() {
+  public void testCantRenameDirToExistingFileNothingChanged() throws Exception {
     assertThrows(IOException.class, () -> xEmptyDirectory.renameTo(xFile));
 
     assertThat(xEmptyDirectory.isDirectory()).isTrue();
@@ -1631,7 +1631,7 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testCantRenameFileToExistingDirNothingChanged() {
+  public void testCantRenameFileToExistingDirNothingChanged() throws Exception {
     assertThrows(IOException.class, () -> xFile.renameTo(xEmptyDirectory));
 
     assertThat(xEmptyDirectory.isDirectory()).isTrue();
@@ -1869,13 +1869,8 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testStatFailsFastOnNonExistingFiles() throws Exception {
+  public void testStatThrowsForNonExistingFiles() throws Exception {
     assertThrows(IOException.class, () -> xNothing.stat());
-  }
-
-  @Test
-  public void testStatNullableFailsFastOnNonExistingFiles() throws Exception {
-    assertThat(xNothing.statNullable()).isNull();
   }
 
   @Test

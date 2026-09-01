@@ -44,6 +44,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
@@ -85,6 +87,9 @@ import org.junit.runners.JUnit4;
 /** Tests for Starlark aspects */
 @RunWith(JUnit4.class)
 public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
+
+  private static final CompressionService COMPRESSION_SERVICE = new CompressionServiceImpl();
+
   protected boolean keepGoing() {
     return false;
   }
@@ -10376,7 +10381,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     var myAspect =
         (StarlarkDefinedAspect) checkNotNull(aspectBzl.getModule().getGlobal("MyAspect"));
 
-    var deserialized = RoundTripping.roundTripWithSkyframe(this::getDoneValue, myAspect);
+    var deserialized =
+        RoundTripping.roundTripWithSkyframe(COMPRESSION_SERVICE, this::getDoneValue, myAspect);
     assertThat(myAspect).isSameInstanceAs(deserialized);
   }
 

@@ -14,6 +14,7 @@ filegroup(
 filegroup(
     name = "docgen_srcs",
     srcs = glob(["**"]),  # cpp/proto is explicitly not included.
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__subpackages__"],
 )
 
 INTERFACE_SOURCES = [
@@ -90,6 +91,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages:provider",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
+        "//src/main/java/com/google/devtools/build/lib/remote/common:cache_not_found_exception",
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",

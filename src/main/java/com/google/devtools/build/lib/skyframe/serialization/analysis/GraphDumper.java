@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueCache;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
@@ -139,6 +140,7 @@ public final class GraphDumper {
   public static ImmutableList<Edge> collectEdgesForSkyValue(
       InMemoryGraph graph,
       ObjectCodecs codecs,
+      CompressionService compressionService,
       FingerprintValueStore fingerprintValueStore,
       SkyValueEntry skyValue,
       PackedFingerprint targetFingerprint)
@@ -156,6 +158,7 @@ public final class GraphDumper {
 
     Object deserialized =
         codecs.deserializeWithSkyframe(
+            compressionService,
             fingerprintValueService,
             skyValue.rawValueBytes().newCodedInput(),
             new DebugContext(targetFingerprint, edgeReceiver));

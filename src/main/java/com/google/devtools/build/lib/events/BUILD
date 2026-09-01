@@ -17,6 +17,10 @@ java_library(
         ["*.java"],
         exclude = ["EventBusEventHandler.java"],
     ),
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:starlark_access",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
@@ -33,6 +37,9 @@ java_library(
 java_library(
     name = "event_bus_event_handler",
     srcs = ["EventBusEventHandler.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
     deps = [
         ":events",
         "//third_party/java/guava:eventbus",

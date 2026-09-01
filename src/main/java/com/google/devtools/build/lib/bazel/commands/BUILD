@@ -21,6 +21,10 @@ java_library(
         "mod.txt",
         "vendor.txt",
     ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib/bazel/commands:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:no_build_event",

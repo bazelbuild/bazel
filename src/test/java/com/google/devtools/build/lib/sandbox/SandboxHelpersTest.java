@@ -508,5 +508,22 @@ public class SandboxHelpersTest {
 
     assertThat(trashBase.getDirectoryEntries()).isEmpty();
   }
+
+  @Test
+  public void asynchronousTreeDeleter_differentFileSystem_deletesSynchronously() throws Exception {
+    FileSystem fs1 = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    FileSystem fs2 = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path trashBase = fs1.getPath("/trash");
+    Path dir = fs2.getPath("/dir");
+    dir.createDirectoryAndParents();
+    dir.getChild("file.txt").createDirectoryAndParents();
+
+    AsynchronousTreeDeleter deleter = new AsynchronousTreeDeleter(trashBase);
+    deleter.deleteTree(dir);
+    deleter.shutdown();
+
+    assertThat(dir.exists()).isFalse();
+    assertThat(trashBase.exists()).isFalse();
+  }
 }
 

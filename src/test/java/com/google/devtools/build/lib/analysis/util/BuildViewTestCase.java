@@ -115,6 +115,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -333,6 +334,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setSyscallCache(SyscallCache.NO_CACHE)
+            .setCompressionService(new CompressionServiceImpl())
             .setDiffAwarenessFactories(diffAwarenessFactories)
             .allowExternalRepositories(allowExternalRepositories())
             .setGlobUnderSingleDep(globUnderSingleDep)
@@ -495,7 +497,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     assertContainsEvent(expectedError);
   }
 
-  private void setUpSkyframe() {
+  private void setUpSkyframe() throws AbruptExitException {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             outputBase,

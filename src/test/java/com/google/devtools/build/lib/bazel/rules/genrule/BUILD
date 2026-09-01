@@ -16,6 +16,9 @@ filegroup(
 java_library(
     name = "GenruleTests_lib",
     srcs = glob(["*.java"]),
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/bazel:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",

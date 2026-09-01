@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -49,9 +48,7 @@ public final class SkycacheChannelStateAdvisor {
     inFlightRequests.addAndGet(-delta);
   }
 
-  @VisibleForTesting
-  // While this could be package private, that's forbidden for SkybridgeInterface classes.
-  public long getInFlightRequestsForTesting() {
+  public long getInFlightRequests() {
     return inFlightRequests.get();
   }
 

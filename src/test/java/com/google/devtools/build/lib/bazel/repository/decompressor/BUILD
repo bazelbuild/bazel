@@ -22,6 +22,9 @@ java_library(
         "test_decompress_archive.zip",
         "test_files.ar",
     ],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/bazel:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:exception",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/decompressor",

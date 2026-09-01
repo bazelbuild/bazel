@@ -264,7 +264,7 @@ class ModCommandTest(test_base.TestBase):
         'ERROR: Results may be incomplete as 1 extension failed.', stderr
     )
     self.assertIn('\t\tfail("ext failed")', stderr)
-    self.assertIn('Error in fail: ext failed', stderr)
+    self.assertIn('Error: ext failed', stderr)
     self.assertListEqual(
         stdout,
         [
@@ -1430,7 +1430,7 @@ class ModCommandTest(test_base.TestBase):
     stderr = '\n'.join(stderr)
     self.assertIn('ext1 is being evaluated', stderr)
     self.assertIn('ext2 is being evaluated', stderr)
-    self.assertIn('Error in fail: ext2 failed', stderr)
+    self.assertIn('Error: ext2 failed', stderr)
     self.assertIn(
         'Not imported, but reported as direct dependencies by the extension'
         ' (may cause the build to fail):\nmissing_dep',

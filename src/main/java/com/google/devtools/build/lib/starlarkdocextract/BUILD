@@ -34,6 +34,7 @@ java_library(
 java_library(
     name = "starlarkfunctioninfoextractor",
     srcs = ["StarlarkFunctionInfoExtractor.java"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/starlarkdocextract:__subpackages__"],
     deps = [
         ":extractionexception",
         ":labelrenderer",

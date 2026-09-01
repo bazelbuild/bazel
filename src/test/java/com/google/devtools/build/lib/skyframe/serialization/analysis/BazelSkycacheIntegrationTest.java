@@ -24,6 +24,7 @@ import static org.mockito.Mockito.mock;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -125,7 +126,9 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
 
   @Override
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
-    return super.getRuntimeBuilder().addBlazeModule(new ModuleWithOverrides());
+    return super.getRuntimeBuilder()
+        .addBlazeModule(new ModuleWithOverrides())
+        .addBlazeService(new CompressionServiceImpl());
   }
 
   @Test

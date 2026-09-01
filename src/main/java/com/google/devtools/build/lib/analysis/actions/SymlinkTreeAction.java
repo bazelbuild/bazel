@@ -243,7 +243,11 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
     // safe to add more fields in the future.
     fp.addBoolean(runfiles != null);
     if (runfiles != null) {
-      runfiles.fingerprint(actionKeyContext, fp, /* digestAbsolutePaths= */ true);
+      runfiles.fingerprint(
+          actionKeyContext,
+          fp,
+          /* digestAbsolutePaths= */ true,
+          preferTargetConfigurationRunfiles ? outputManifest.getRoot() : null);
     }
     fp.addBoolean(repoMappingManifest != null);
     if (repoMappingManifest != null) {

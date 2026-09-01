@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.sandbox.SandboxOptions;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -71,10 +72,20 @@ class BuildResultPrinter {
     boolean ok =
         outputTargets(
             request, result, configuredTargets, configuredTargetsToSkip, aspects, targetRootCauses);
-    if (!ok && !request.getOptions(ExecutionOptions.class).getVerboseFailures()) {
-      request
-          .getOutErr()
-          .printErr("Use --verbose_failures to see the command lines of failed build steps.\n");
+    if (!ok) {
+      if (!request.getOptions(ExecutionOptions.class).getVerboseFailures()) {
+        request
+            .getOutErr()
+            .printErr("Use --verbose_failures to see the command lines of failed build steps.\n");
+      }
+      SandboxOptions sandboxOptions = request.getOptions(SandboxOptions.class);
+      if (sandboxOptions != null && !sandboxOptions.getSandboxDebug()) {
+        request
+            .getOutErr()
+            .printErr(
+                "Use --sandbox_debug to see verbose messages from the sandbox and retain the"
+                    + " sandbox build root for debugging\n");
+      }
     }
   }
 

@@ -141,32 +141,13 @@ public class UnixFileSystem extends DiskBackedFileSystem {
     }
   }
 
-  // Like stat(), but returns null instead of throwing.
-  // This is a performance optimization in the case where clients
-  // catch and don't re-throw.
-  @Override
-  @Nullable
-  public FileStatus statNullable(PathFragment path, boolean followSymlinks) {
-    String name = path.getPathString();
-    long startTime = Profiler.instance().nanoTimeMaybe();
-    var comp = Blocker.begin();
-    try {
-      NativePosixFilesService.Stat stat =
-          followSymlinks
-              ? nativePosixFilesService.stat(name, StatErrorHandling.NEVER_THROW)
-              : nativePosixFilesService.lstat(name, StatErrorHandling.NEVER_THROW);
-      return stat != null ? new UnixFileStatus(stat) : null;
-    } catch (NativePosixFilesException e) {
-      throw new IllegalStateException("unexpected exception", e);
-    } finally {
-      Blocker.end(comp);
-      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, name);
-    }
-  }
-
   @Override
   public boolean exists(PathFragment path, boolean followSymlinks) {
-    return statNullable(path, followSymlinks) != null;
+    try {
+      return statIfFound(path, followSymlinks) != null;
+    } catch (IOException e) {
+      return false;
+    }
   }
 
   /**

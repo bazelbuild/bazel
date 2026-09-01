@@ -261,7 +261,7 @@ public final class ActionOutputDirectoryHelper {
 
     // If the output root has not been created yet, do so now.
     if (!knownDirectories.containsKey(root)) {
-      FileStatus stat = rootPath.statNullable(Symlinks.NOFOLLOW);
+      FileStatus stat = rootPath.statIfFound(Symlinks.NOFOLLOW);
       if (stat == null) {
         rootPath.createDirectoryAndParents();
         knownDirectories.put(root, DirectoryState.CREATED);

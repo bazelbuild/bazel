@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
-import com.google.common.util.concurrent.Runnables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -773,14 +772,14 @@ public final class FilesystemValueCheckerTest {
                 Delta.justNew(
                     actionValue(
                         new TestAction(
-                            Runnables.doNothing(),
+                            () -> {},
                             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
                             ImmutableSet.of(out1)))),
             actionKey2,
                 Delta.justNew(
                     actionValue(
                         new TestAction(
-                            Runnables.doNothing(),
+                            () -> {},
                             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
                             ImmutableSet.of(out2))))));
     assertThat(evaluator.evaluate(ImmutableList.of(), evaluationContext).hasError()).isFalse();

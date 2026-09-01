@@ -391,7 +391,6 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         "--compilation_mode=fastbuild",
         "--platforms=//platforms:alpha",
         "--platform_mappings=tools/platform_mappings",
-        "--experimental_platform_in_output_dir",
         "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
         "--experimental_override_name_platform_in_output_dir=//platforms:alpha=alpha",
         "--experimental_override_name_platform_in_output_dir=//platforms:beta=beta");
@@ -493,7 +492,6 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         "--compilation_mode=fastbuild",
         "--platforms=//platforms:alpha",
         "--platform_mappings=tools/platform_mappings",
-        "--experimental_platform_in_output_dir",
         "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
         "--experimental_override_name_platform_in_output_dir=//platforms:alpha=alpha",
         "--experimental_override_name_platform_in_output_dir=//platforms:beta=beta");
@@ -560,7 +558,6 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         "--compilation_mode=fastbuild",
         "--platforms=//platforms:alpha",
         "--host_platform=//platforms:alpha",
-        "--experimental_platform_in_output_dir",
         "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
         "--experimental_override_name_platform_in_output_dir=//platforms:alpha=alpha-override");
     ConfiguredTarget test = getConfiguredTarget("//test");
@@ -573,84 +570,6 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
     // The platform name override is used in dep with exec config
     assertThat(getMnemonic(dep)).contains("alpha-override-opt-exec");
     assertThat(getMnemonic(dep)).doesNotContain("-ST-");
-  }
-
-  @Test
-  @TestParameters({
-    "{platformInOutputDir: True, nonExecMnemonic:"
-        + " alpha-override-fastbuild, execMnemonic: alpha-override-opt-exec}",
-    "{platformInOutputDir: False, nonExecMnemonic:"
-        + " alpha-fastbuild, execMnemonic: alpha-opt-exec}",
-    "{platformInOutputDir: Auto, nonExecMnemonic:"
-        + " alpha-fastbuild, execMnemonic: alpha-override-opt-exec}",
-  })
-  public void testDifferentStatesOfPlatformInOutputDir(
-      String platformInOutputDir, String nonExecMnemonic, String execMnemonic) throws Exception {
-    writeAllowlistFile();
-    scratch.file(
-        "test/rules.bzl",
-        """
-        load("//myinfo:myinfo.bzl", "MyInfo")
-
-        def _impl(ctx):
-            return MyInfo(exec_dep = ctx.attr.exec_dep, non_exec_dep = ctx.attr.non_exec_dep)
-
-        my_rule = rule(
-            implementation = _impl,
-            attrs = {
-                "exec_dep": attr.label(cfg = 'exec'),
-                "non_exec_dep": attr.label(),
-            },
-        )
-        """);
-    scratch.file(
-        "test/BUILD",
-        """
-        load("//test:rules.bzl", "my_rule")
-
-        my_rule(
-            name = "test",
-            exec_dep = ":exec_dep",
-            non_exec_dep = ":non_exec_dep",
-        )
-
-        my_rule(
-            name = "exec_dep",
-        )
-
-        my_rule(
-            name = "non_exec_dep",
-        )
-        """);
-    scratch.file(
-        "platforms/BUILD",
-        """
-        platform(name = "alpha_platform")
-        """);
-
-    useConfiguration(
-        "--compilation_mode=fastbuild",
-        "--platforms=//platforms:alpha_platform",
-        "--cpu=alpha",
-        "--host_platform=//platforms:alpha_platform",
-        "--host_cpu=alpha",
-        "--experimental_platform_in_output_dir=" + platformInOutputDir,
-        "--experimental_override_name_platform_in_output_dir=//platforms:alpha_platform=alpha-override");
-    ConfiguredTarget test = getConfiguredTarget("//test");
-
-    assertThat(getMnemonic(test)).contains(nonExecMnemonic);
-    assertThat(getMnemonic(test)).doesNotContain("-ST-");
-
-    ConfiguredTarget dep = (ConfiguredTarget) getMyInfoFromTarget(test).getValue("exec_dep");
-    // The platform name override is used in dep with exec config
-    assertThat(getMnemonic(dep)).contains(execMnemonic);
-    assertThat(getMnemonic(dep)).doesNotContain("-ST-");
-
-    ConfiguredTarget nonExecDep =
-        (ConfiguredTarget) getMyInfoFromTarget(test).getValue("non_exec_dep");
-    // The platform name override is used in dep with non-exec config
-    assertThat(getMnemonic(nonExecDep)).contains(nonExecMnemonic);
-    assertThat(getMnemonic(nonExecDep)).doesNotContain("-ST-");
   }
 
   @Test
@@ -737,7 +656,6 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         "--cpu=p1_cpu",
         "--host_platform=//platforms:p2",
         "--host_cpu=p2_cpu",
-        "--experimental_platform_in_output_dir",
         "--incompatible_limit_platforms_in_output_dir_to="
             + String.join(",", limitOutputDirToPlatforms));
 

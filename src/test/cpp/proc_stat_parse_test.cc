@@ -42,4 +42,32 @@ TEST(ProcStatParse, InvalidStatLine) {
   EXPECT_FALSE(blaze::ParseProcStat("12345 (java) S 1 2 3", &start_time));
 }
 
+TEST(ProcStatParse, ZombieDiagnosis) {
+  std::string statline =
+      "12345 (blaze) Z 1 12345 12345 34816 12345 4194560 111 0 222 0 333 444 0 "
+      "0 20 0 1 0 424242 10000 500\n";
+  std::string diagnosis = blaze::ParseProcStatDiagnosis(statline, 12345);
+  EXPECT_NE(diagnosis.find("is a zombie process (state 'Z')"),
+            std::string::npos);
+  EXPECT_NE(diagnosis.find("parent process (pid=1)"), std::string::npos);
+}
+
+TEST(ProcStatParse, UninterruptibleSleepDiagnosis) {
+  std::string statline =
+      "259127 (blaze) D 5360 259127 259127 0 -1 4194368 1690 657 0 0 45 1 0 0 "
+      "20 0 2 0 8509179 15511289856 196892\n";
+  std::string diagnosis = blaze::ParseProcStatDiagnosis(statline, 259127);
+  EXPECT_NE(
+      diagnosis.find("is in uninterruptible disk/kernel sleep (state 'D')"),
+      std::string::npos);
+}
+
+TEST(ProcStatParse, OtherStateDiagnosis) {
+  std::string statline =
+      "12345 (blaze) S 1 12345 12345 34816 12345 4194560 111 0 222 0 333 444 0 "
+      "0 20 0 1 0 424242 10000 500\n";
+  std::string diagnosis = blaze::ParseProcStatDiagnosis(statline, 12345);
+  EXPECT_EQ(diagnosis, "Process state: S (parent pid=1).");
+}
+
 }  // namespace

@@ -15,6 +15,10 @@ filegroup(
 java_library(
     name = "compacthashset",
     srcs = ["CompactHashSet.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/skyframe:__subpackages__",
+    ],
     deps = [
         "//third_party/java/guava:base",
         "//third_party/java/guava:primitives",
@@ -25,6 +29,9 @@ java_library(
 java_library(
     name = "compacthashset_codec",
     srcs = ["CompactHashSetCodec.java"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/collect/compacthashset:__pkg__",
+    ],
     deps = [
         ":compacthashset",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",

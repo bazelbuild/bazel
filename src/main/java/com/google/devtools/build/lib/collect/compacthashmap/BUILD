@@ -15,6 +15,10 @@ filegroup(
 java_library(
     name = "compacthashmap",
     srcs = ["CompactHashMap.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/skyframe:__subpackages__",
+    ],
     deps = [
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:base",

@@ -167,26 +167,6 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
   public abstract boolean getExcludeStarlarkFlagsFromExecConfig();
 
   @Option(
-      name = "experimental_platform_in_output_dir",
-      defaultValue = "Auto",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          """
-          If true, a shortname for the target platform is used in the output directory name
-          instead of the CPU. The exact scheme is experimental and subject to change:
-          1. First, in the rare case the `--platforms` option does not have exactly one value, a
-             hash of the platforms option is used.
-          2. Next, if any shortname for the current platform was registered by
-             `--experimental_override_name_platform_in_output_dir`, then that shortname is used.
-          3. Then, if `--experimental_use_platforms_in_output_dir_legacy_heuristic` is set, use a
-             shortname based off the current platform Label.
-          4. Finally, a hash of the platform option is used as a last resort.
-          """)
-  public abstract TriState getPlatformInOutputDir();
-
-  @Option(
       name = "experimental_use_platforms_in_output_dir_legacy_heuristic",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -201,7 +181,7 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
   public abstract boolean getUsePlatformsInOutputDirLegacyHeuristic();
 
   @Option(
-      name = "experimental_override_platform_cpu_name",
+      name = "override_platform_cpu_name",
       oldName = "experimental_override_name_platform_in_output_dir",
       oldNameWarning = false,
       converter = LabelToStringEntryConverter.class,
@@ -209,13 +189,11 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           """
           Each entry should be of the form `label=value` where label refers to a platform and values
           is the desired shortname to override the platform's CPU name in `$(TARGET_CPU)`
-          make variable and output path. Only used when
-          `--experimental_platform_in_output_dir`, `--incompatible_target_cpu_from_platform` or
+          make variable and output path. Only used when `--incompatible_target_cpu_from_platform` or
           `--incompatible_bep_cpu_from_platform` is true. Has highest naming priority.
           """)
   public abstract List<Map.Entry<Label, String>> getOverridePlatformCpuName();
@@ -230,10 +208,10 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
-          "Added for gradual rollout of --experimental_platform_in_output_dir to non-exec"
-              + " configurations. Takes a comma-separated list of platform labels. If set,"
-              + " --experimental_platform_in_output_dir is only enabled for platforms in this list."
-              + " Otherwise, --experimental_platform_in_output_dir applies to all platforms.")
+          "Added for gradual rollout of platform in output directory to non-exec configurations."
+              + " Takes a comma-separated list of platform labels. If set, platform in output"
+              + " directory is only enabled for platforms in this list. Otherwise, it applies to"
+              + " all platforms.")
   public abstract List<Label> getLimitOutputDirToPlatforms();
 
   @Option(
@@ -1037,15 +1015,11 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
 
   public final boolean usePlatformInOutputDir(Label platform) {
     if (getIsExec()) {
-      return getPlatformInOutputDir() == TriState.YES || getPlatformInOutputDir() == TriState.AUTO;
+      return true;
     }
 
-    if (getPlatformInOutputDir() == TriState.YES) {
-      return getLimitOutputDirToPlatforms().isEmpty()
-          || getLimitOutputDirToPlatforms().contains(platform);
-    }
-
-    return false;
+    return getLimitOutputDirToPlatforms().isEmpty()
+        || getLimitOutputDirToPlatforms().contains(platform);
   }
 
   private static final LoadingCache<List<Map.Entry<String, Label>>, ImmutableMap<String, Label>>

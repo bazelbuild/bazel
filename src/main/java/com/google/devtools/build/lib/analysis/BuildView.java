@@ -22,6 +22,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
@@ -91,16 +92,20 @@ import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BaselineConfigurations;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.DefaultPlatformConfigurationProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheDeps;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheManager;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SettablePlatformConfigurationProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -281,8 +286,20 @@ public class BuildView {
               viewOptions.getMaxConfigChangesToShow(),
               viewOptions.getAllowAnalysisCacheDiscards(),
               additionalConfigurationChangeEvent);
-      skyframeExecutor.setBaselineConfiguration(targetOptions, eventHandler);
+      BaselineConfigurations baselines =
+          skyframeExecutor.setBaselineConfiguration(targetOptions, eventHandler);
       topLevelConfig = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
+
+      Label topLevelPlatform =
+          topLevelConfig.getOptions().get(PlatformOptions.class).computeTargetPlatform();
+
+      SettablePlatformConfigurationProvider platformConfigProvider =
+          remoteAnalysisCachingDependenciesProvider.getPlatformConfigurationProvider();
+      if (platformConfigProvider != null) {
+        platformConfigProvider.setOnce(
+            new DefaultPlatformConfigurationProvider(
+                topLevelPlatform, baselines.targetBaseline(), baselines.execBaseline()));
+      }
     }
 
     if (remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.DOWNLOAD) {
@@ -655,11 +672,20 @@ public class BuildView {
       Set<ConfiguredTarget> targetsToSkip,
       ImmutableMap<Label, Target> labelToTargetMap,
       boolean includeExecutionPhase)
-      throws InterruptedException {
+      throws InterruptedException, ViewCreationFailedException {
     ImmutableSet<Label> testsToRun = loadingResult.getTestsToRunLabels();
     Set<ConfiguredTarget> configuredTargets =
         new LinkedHashSet<>(skyframeAnalysisResult.getConfiguredTargets());
     ImmutableMap<AspectKey, ConfiguredAspect> aspects = skyframeAnalysisResult.getAspects();
+
+    boolean hasError =
+        skyframeAnalysisResult.hasAnalysisError()
+            || skyframeAnalysisResult.hasLoadingError()
+            || skyframeAnalysisResult.hasActionConflicts();
+
+    if (!hasError) {
+      checkUnknownOutputGroups(configuredTargets, aspects.values(), topLevelOptions, eventHandler);
+    }
 
     Set<ConfiguredTarget> allTargetsToTest = null;
     if (testsToRun != null) {
@@ -951,6 +977,61 @@ public class BuildView {
   @FunctionalInterface
   public interface BuildConfigurationsCreated {
     void run(BuildConfigurationValue buildConfiguration);
+  }
+
+  private static void checkUnknownOutputGroups(
+      Collection<ConfiguredTarget> configuredTargets,
+      Collection<ConfiguredAspect> configuredAspects,
+      TopLevelArtifactContext topLevelOptions,
+      ExtendedEventHandler eventHandler)
+      throws ViewCreationFailedException {
+    if (configuredTargets.isEmpty() && configuredAspects.isEmpty()) {
+      return;
+    }
+    List<String> unknownOutputGroups = new ArrayList<>();
+    for (String outputGroup : topLevelOptions.outputGroups()) {
+      if (OutputGroupInfo.IGNORED_OUTPUT_GROUPS.contains(outputGroup)) {
+        continue;
+      }
+      boolean found = false;
+      for (ProviderCollection provider : Iterables.concat(configuredTargets, configuredAspects)) {
+        OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(provider);
+        if (outputGroupInfo != null && outputGroupInfo.containsOutputGroup(outputGroup)) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        unknownOutputGroups.add(outputGroup);
+        String message =
+            String.format(
+                "Output group '%s' was requested, but was not present on any top-level target or"
+                    + " aspect",
+                outputGroup);
+        if (topLevelOptions.failOnUnknownOutputGroups()) {
+          eventHandler.handle(Event.error(message));
+        } else {
+          eventHandler.handle(Event.warn(message));
+        }
+      }
+    }
+    if (!unknownOutputGroups.isEmpty() && topLevelOptions.failOnUnknownOutputGroups()) {
+      String errorMessage =
+          unknownOutputGroups.size() == 1
+              ? String.format(
+                  "Output group '%s' was requested, but was not present on any top-level target or"
+                      + " aspect",
+                  unknownOutputGroups.get(0))
+              : String.format(
+                  "Output groups %s were requested, but were not present on any top-level target or"
+                      + " aspect",
+                  unknownOutputGroups.stream()
+                      .map(g -> "'" + g + "'")
+                      .collect(Collectors.joining(", ")));
+      throw new ViewCreationFailedException(
+          errorMessage,
+          createAnalysisFailureDetail(errorMessage, Analysis.Code.UNKNOWN_OUTPUT_GROUP));
+    }
   }
 
   /**

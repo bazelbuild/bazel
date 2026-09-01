@@ -995,12 +995,17 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     // was evaluated this run, and so was changed. Otherwise, it is less than evaluationVersion, by
     // the Preconditions check above, and was not actually changed this run -- when it was written
     // above, its version stayed below this update's version, so its value remains the same.
+    // BUILD_DRIVER nodes are an exception: even when change-pruned (versionChanged == false),
+    // their value must be passed to the progress receiver so that ExecutionProgressReceiver can
+    // post completion events. See BuildDriverKey.
     evaluatorContext
         .getProgressReceiver()
         .evaluated(
             skyKey,
             EvaluationState.get(value, changed),
-            /* newValue= */ changed ? value : null,
+            /* newValue= */ (changed || skyKey.functionName().getName().equals("BUILD_DRIVER"))
+                ? value
+                : null,
             /* newError= */ changed ? errorInfo : null,
             temporaryDirectDeps);
 
