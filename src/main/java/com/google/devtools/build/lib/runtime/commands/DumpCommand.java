@@ -26,6 +26,7 @@ import com.google.common.io.BaseEncoding;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.buildtool.SkyframeMemoryDumper;
@@ -57,19 +58,23 @@ import com.google.devtools.build.lib.server.FailureDetails.DumpCommand.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrerequisitePackageFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyKeyStats;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeStats;
+import com.google.devtools.build.lib.skyframe.config.BaselineOptionsFunction;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
+import com.google.devtools.build.lib.skyframe.serialization.PlatformConfigurationProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.LongVersionClientId;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.DefaultPlatformConfigurationProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.GraphDumper;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.GraphDumper.Edge;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.GraphDumper.InvalidationGraph;
@@ -699,29 +704,23 @@ public class DumpCommand implements BlazeCommand {
   @Nullable
   private static SkyKey getMemoryDumpSkyKey(CommandEnvironment env, MemoryMode memoryMode) {
     try {
-      switch (memoryMode.type()) {
-        case PACKAGE -> {
-          return PackageIdentifier.parse(memoryMode.subject);
-        }
-        case STARLARK_MODULE -> {
-          return BzlLoadValue.keyForBuild(Label.parseCanonical(memoryMode.subject));
-        }
+      return switch (memoryMode.type()) {
+        case PACKAGE -> PackageIdentifier.parse(memoryMode.subject);
+        case STARLARK_MODULE -> BzlLoadValue.keyForBuild(Label.parseCanonical(memoryMode.subject));
         case CONFIGURED_TARGET -> {
           String[] labelAndConfig = memoryMode.subject.split("@", 2);
           BuildConfigurationKey configurationKey =
               getConfigurationKey(env, labelAndConfig.length == 2 ? labelAndConfig[1] : null);
-          return ConfiguredTargetKey.builder()
+          yield ConfiguredTargetKey.builder()
               .setConfigurationKey(configurationKey)
               .setLabel(Label.parseCanonical(labelAndConfig[0]))
               .build();
         }
-      }
+      };
     } catch (LabelSyntaxException e) {
       env.getReporter().error(null, "Cannot parse label: " + e.getMessage());
       return null;
     }
-
-    throw new IllegalStateException();
   }
 
   private static Optional<BlazeCommandResult> dumpSkyframeMemory(
@@ -1059,6 +1058,30 @@ public class DumpCommand implements BlazeCommand {
     BuildConfigurationValue buildConfiguration = env.getSkyframeBuildView().getBuildConfiguration();
     if (buildConfiguration != null) {
       serializationDeps.put(BuildOptions.class, buildConfiguration.getOptions());
+      try {
+        PrecomputedValue targetPrecomputed =
+            (PrecomputedValue)
+                skyframeExecutor
+                    .getEvaluator()
+                    .getExistingValue(BaselineOptionsFunction.BASELINE_CONFIGURATION.getKey());
+        PrecomputedValue execPrecomputed =
+            (PrecomputedValue)
+                skyframeExecutor
+                    .getEvaluator()
+                    .getExistingValue(BaselineOptionsFunction.BASELINE_EXEC_CONFIGURATION.getKey());
+        if (targetPrecomputed != null && execPrecomputed != null) {
+          BuildOptions targetBaseline = (BuildOptions) targetPrecomputed.get();
+          BuildOptions execBaseline = (BuildOptions) execPrecomputed.get();
+          Label topLevelPlatform =
+              buildConfiguration.getOptions().get(PlatformOptions.class).computeTargetPlatform();
+          serializationDeps.put(
+              PlatformConfigurationProvider.class,
+              new DefaultPlatformConfigurationProvider(
+                  topLevelPlatform, targetBaseline, execBaseline));
+        }
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
     }
 
     return new ObjectCodecs(registry, serializationDeps.build());

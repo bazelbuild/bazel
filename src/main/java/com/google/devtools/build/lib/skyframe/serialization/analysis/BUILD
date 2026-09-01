@@ -72,12 +72,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildtool:__pkg__",
         "//src/main/java/com/google/devtools/build/lib/skyframe:__pkg__",
         "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
         "//src/test/java/com/google/devtools/build/lib/analysis/util:__pkg__",
         "//src/test/java/com/google/devtools/build/lib/skyframe:__pkg__",
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
     ],
     deps = [
+        ":default_platform_configuration_provider",
         ":frontier_serializer",
         ":remote_analysis_cache_client",
         ":remote_analysis_cache_mode",
@@ -206,6 +208,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe:rule_configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/config:sky_functions",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party/java/guava:base",
@@ -663,6 +666,7 @@ java_library(
     ],
     deps = [
         ":analysis_cache_invalidator",
+        ":default_platform_configuration_provider",
         ":dependencies_provider",
         ":frontier_serializer",
         ":lookup_result",
@@ -679,6 +683,34 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "default_platform_configuration_provider",
+    srcs = [
+        "DefaultPlatformConfigurationProvider.java",
+        "SettablePlatformConfigurationProvider.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/config:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/test_trimming_logic",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:platform_providers",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -693,6 +725,7 @@ java_library(
     deps = [
         ":analysis_cache_invalidator",
         ":client_id",
+        ":default_platform_configuration_provider",
         ":event_listener",
         ":options",
         ":remote_analysis_cache_client",
@@ -724,6 +757,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_info",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:platform_providers",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:skycache_metadata_params",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",

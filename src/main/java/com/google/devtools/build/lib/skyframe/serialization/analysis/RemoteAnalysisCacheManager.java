@@ -33,6 +33,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /** A collection of dependencies and minor bits of functionality for remote analysis caching. */
 // Non-final for mockability
@@ -52,6 +53,8 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
   private boolean bailedOut;
 
   private final boolean minimizeMemory;
+
+  private final SettablePlatformConfigurationProvider platformConfigurationProvider;
 
   /**
    * A collection of various parts of this class that various parts of Bazel (cache reading, cache
@@ -75,6 +78,7 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
     this.minimizeMemory = false;
     this.eventHandler = null;
     this.skycacheMetadataParams = null;
+    this.platformConfigurationProvider = null;
   }
 
   RemoteAnalysisCacheManager(
@@ -85,7 +89,8 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
       Future<? extends AnalysisCacheInvalidator> analysisCacheInvalidator,
       Collection<Label> topLevelTargets,
       Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher,
-      boolean minimizeMemory) {
+      boolean minimizeMemory,
+      SettablePlatformConfigurationProvider platformConfigurationProvider) {
     this.mode = mode;
     this.analysisCacheClient = analysisCacheClient;
     this.analysisCacheInvalidator = analysisCacheInvalidator;
@@ -94,6 +99,7 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
     this.minimizeMemory = minimizeMemory;
     this.eventHandler = eventHandler;
     this.skycacheMetadataParams = skycacheMetadataParams;
+    this.platformConfigurationProvider = platformConfigurationProvider;
   }
 
   @Override
@@ -191,5 +197,12 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
   public boolean shouldMinimizeMemory() {
     checkEnabled();
     return minimizeMemory;
+  }
+
+  /** Returns the provider, or null when remote analysis caching is disabled. */
+  @Override
+  @Nullable
+  public SettablePlatformConfigurationProvider getPlatformConfigurationProvider() {
+    return platformConfigurationProvider;
   }
 }

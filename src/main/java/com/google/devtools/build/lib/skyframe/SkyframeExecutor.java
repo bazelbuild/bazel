@@ -577,6 +577,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return remoteAnalysisCacheReaderDepsProvider;
   }
 
+  /** Represents the baseline target and exec configurations. */
+  public record BaselineConfigurations(BuildOptions targetBaseline, BuildOptions execBaseline) {}
+
   public void setRemoteAnalysisCachingDependenciesProvider(
       RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider,
       RemoteAnalysisCacheReaderDepsProvider remoteAnalysisCacheReaderDepsProvider) {
@@ -1582,11 +1585,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.STAMP_SETTING_MARKER.inject(injectable());
   }
 
-  public void setBaselineConfiguration(BuildOptions buildOptions, ExtendedEventHandler eventHandler)
+  @CanIgnoreReturnValue
+  public BaselineConfigurations setBaselineConfiguration(
+      BuildOptions buildOptions, ExtendedEventHandler eventHandler)
       throws InvalidConfigurationException, InterruptedException {
+    BuildOptions execBaseline = adjustForExec(buildOptions, eventHandler);
     BaselineOptionsFunction.BASELINE_CONFIGURATION.set(injectable(), buildOptions);
-    BaselineOptionsFunction.BASELINE_EXEC_CONFIGURATION.set(
-        injectable(), adjustForExec(buildOptions, eventHandler));
+    BaselineOptionsFunction.BASELINE_EXEC_CONFIGURATION.set(injectable(), execBaseline);
+    return new BaselineConfigurations(buildOptions, execBaseline);
   }
 
   private BuildOptions adjustForExec(BuildOptions buildOptions, ExtendedEventHandler eventHandler)

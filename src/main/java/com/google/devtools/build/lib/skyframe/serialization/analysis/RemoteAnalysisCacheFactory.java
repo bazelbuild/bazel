@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueServ
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.PlatformConfigurationProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataParams;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.LongVersionClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheManager.AnalysisDeps;
@@ -195,8 +196,10 @@ public final class RemoteAnalysisCacheFactory {
 
     SafeExecutor commandExecutor = servicesSupplier.getCommandExecutor();
 
+    var platformConfigurationProvider = new SettablePlatformConfigurationProvider();
+
     ListenableFuture<ObjectCodecs> objectCodecs =
-        createObjectCodecs(env, topLevelOptions, commandExecutor);
+        createObjectCodecs(env, topLevelOptions, commandExecutor, platformConfigurationProvider);
 
     // Set up parameters for the metadata store, if needed
 
@@ -259,7 +262,8 @@ public final class RemoteAnalysisCacheFactory {
             analysisCacheInvalidator,
             topLevelTargets,
             activeDirectoriesMatcher,
-            options.getSkycacheMinimizeMemory());
+            options.getSkycacheMinimizeMemory(),
+            platformConfigurationProvider);
 
     // Bail out if needed
 
@@ -330,7 +334,8 @@ public final class RemoteAnalysisCacheFactory {
       RuleClassProvider ruleClassProvider,
       SkyframeExecutor skyframeExecutor,
       BlazeDirectories directories,
-      BuildOptions topLevelOptions) {
+      BuildOptions topLevelOptions,
+      SettablePlatformConfigurationProvider platformConfigurationProvider) {
     var roots = ImmutableList.<Root>builder().add(Root.fromPath(directories.getWorkspace()));
     if (directories.isBlaze()) {
       roots.add(Root.fromPath(directories.getBlazeExecRoot()));
@@ -346,13 +351,17 @@ public final class RemoteAnalysisCacheFactory {
             .put(PackagePathCodecDependencies.class, skyframeExecutor::getPackagePathEntries)
             // This is needed to determine TargetData for a ConfiguredTarget during serialization.
             .put(PrerequisitePackageFunction.class, skyframeExecutor::getExistingPackage)
+            .put(PlatformConfigurationProvider.class, platformConfigurationProvider)
             .put(BuildOptions.class, topLevelOptions);
 
     return new ObjectCodecs(registry, serializationDeps.build());
   }
 
   private static ListenableFuture<ObjectCodecs> createObjectCodecs(
-      CommandEnvironment env, BuildOptions topLevelOptions, SafeExecutor commandExecutor) {
+      CommandEnvironment env,
+      BuildOptions topLevelOptions,
+      SafeExecutor commandExecutor,
+      SettablePlatformConfigurationProvider platformConfigurationProvider) {
     return SafeFutures.submit(
         () ->
             initAnalysisObjectCodecs(
@@ -361,7 +370,8 @@ public final class RemoteAnalysisCacheFactory {
                 env.getRuntime().getRuleClassProvider(),
                 env.getBlazeWorkspace().getSkyframeExecutor(),
                 env.getDirectories(),
-                topLevelOptions),
+                topLevelOptions,
+                platformConfigurationProvider),
         commandExecutor);
   }
 

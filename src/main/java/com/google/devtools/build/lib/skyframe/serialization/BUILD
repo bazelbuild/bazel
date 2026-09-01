@@ -116,6 +116,7 @@ java_library(
             "SerializationModule.java",
             "SkycacheMetadataParams.java",
             "SkyValueRetriever.java",
+            "PlatformConfigurationProvider.java",
             "VisibleForSerialization.java",
             "WriteStatus.java",
             "WriteStatuses.java",
@@ -173,6 +174,16 @@ java_library(
     srcs = ["SerializationConstants.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
+    ],
+)
+
+java_library(
+    name = "platform_providers",
+    srcs = ["PlatformConfigurationProvider.java"],
+    deps = [
+        ":serialization",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
     ],
 )
 

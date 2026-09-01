@@ -92,12 +92,15 @@ import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BaselineConfigurations;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.DefaultPlatformConfigurationProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheDeps;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheManager;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.SettablePlatformConfigurationProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
@@ -283,8 +286,20 @@ public class BuildView {
               viewOptions.getMaxConfigChangesToShow(),
               viewOptions.getAllowAnalysisCacheDiscards(),
               additionalConfigurationChangeEvent);
-      skyframeExecutor.setBaselineConfiguration(targetOptions, eventHandler);
+      BaselineConfigurations baselines =
+          skyframeExecutor.setBaselineConfiguration(targetOptions, eventHandler);
       topLevelConfig = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
+
+      Label topLevelPlatform =
+          topLevelConfig.getOptions().get(PlatformOptions.class).computeTargetPlatform();
+
+      SettablePlatformConfigurationProvider platformConfigProvider =
+          remoteAnalysisCachingDependenciesProvider.getPlatformConfigurationProvider();
+      if (platformConfigProvider != null) {
+        platformConfigProvider.setOnce(
+            new DefaultPlatformConfigurationProvider(
+                topLevelPlatform, baselines.targetBaseline(), baselines.execBaseline()));
+      }
     }
 
     if (remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.DOWNLOAD) {
