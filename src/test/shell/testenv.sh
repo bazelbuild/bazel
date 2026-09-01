@@ -578,6 +578,24 @@ bazel_dep(name = "$1", version = "$version")
 EOF
 }
 
+function add_rules_cc_pr_863_override() {
+  local module_dot_bazel=$1
+  local rules_cc_commit=1ab54487e4e37fe0a6e867cf6d426a6badc99345
+  if grep -Fq "$rules_cc_commit" "$module_dot_bazel"; then
+    return
+  fi
+  cat >> "$module_dot_bazel" <<EOF
+
+# Test rules_cc PR #863.
+archive_override(
+    module_name = "rules_cc",
+    integrity = "sha256-IKSf/5DlwFfGdwMrpY/7Y+EXq4uSnp2eRK0bTrhJxXg=",
+    strip_prefix = "rules_cc-$rules_cc_commit",
+    urls = ["https://github.com/bazelbuild/rules_cc/archive/$rules_cc_commit.tar.gz"],
+)
+EOF
+}
+
 function add_platforms() {
   add_bazel_dep "platforms" "$1"
 }
@@ -588,6 +606,7 @@ function add_bazel_skylib() {
 
 function add_rules_cc() {
   add_bazel_dep "rules_cc" "$1"
+  add_rules_cc_pr_863_override "$1"
 }
 
 function add_rules_shell() {
@@ -638,6 +657,7 @@ function setup_module_dot_bazel() {
   cat > $module_dot_bazel <<EOF
 module(name = 'test')
 EOF
+  add_rules_cc_pr_863_override "$module_dot_bazel"
   cp -f $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) "$(dirname ${module_dot_bazel})/MODULE.bazel.lock"
   echo $module_dot_bazel
 }

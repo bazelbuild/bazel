@@ -29,6 +29,26 @@ from absl.testing import absltest
 import runfiles
 
 
+_RULES_CC_PR_863_COMMIT = '1ab54487e4e37fe0a6e867cf6d426a6badc99345'
+_RULES_CC_PR_863_OVERRIDE = [
+    '',
+    '# Test rules_cc PR #863.',
+    'archive_override(',
+    '    module_name = "rules_cc",',
+    (
+        '    integrity = '
+        '"sha256-IKSf/5DlwFfGdwMrpY/7Y+EXq4uSnp2eRK0bTrhJxXg=",'
+    ),
+    f'    strip_prefix = "rules_cc-{_RULES_CC_PR_863_COMMIT}",',
+    (
+        '    urls = ['
+        f'"https://github.com/bazelbuild/rules_cc/archive/{_RULES_CC_PR_863_COMMIT}.tar.gz"'
+        '],'
+    ),
+    ')',
+]
+
+
 def _HasIpv6DefaultRoute():
   """Returns True if an IPv6 default route exists on Darwin."""
   try:
@@ -120,9 +140,10 @@ class TestBase(absltest.TestCase):
         if python_exe:
           f.write(f'common --python_path="{python_exe}"\n')
 
-    # An empty MODULE.bazel and a corresponding MODULE.bazel.lock will prevent
-    # tests from accessing BCR
+    # A minimal MODULE.bazel and a corresponding MODULE.bazel.lock minimize
+    # tests' accesses to BCR.
     self.ScratchFile('MODULE.bazel')
+    self.AddRulesCcPr863Override()
     self.CopyFile(
         self.Rlocation('io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock'),
         'MODULE.bazel.lock',
@@ -164,6 +185,21 @@ class TestBase(absltest.TestCase):
         [
             f'bazel_dep(name = "{module}", version = "{version}")',
         ],
+        mode='a',
+    )
+    if module == 'rules_cc':
+      self.AddRulesCcPr863Override(path)
+
+  def AddRulesCcPr863Override(self, path=''):
+    module_file = os.path.join(path, 'MODULE.bazel')
+    module_abspath = self.Path(module_file)
+    if os.path.exists(module_abspath):
+      with open(module_abspath, 'r', encoding='utf-8') as f:
+        if _RULES_CC_PR_863_COMMIT in f.read():
+          return
+    self.ScratchFile(
+        module_file,
+        _RULES_CC_PR_863_OVERRIDE,
         mode='a',
     )
 

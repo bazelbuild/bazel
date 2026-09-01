@@ -62,6 +62,7 @@ class BazelApiTest(test_base.TestBase):
     self.ScratchFile(
         'MODULE.bazel', ["bazel_dep(name = 'rules_cc', version = '0.2.14')"]
     )
+    self.AddRulesCcPr863Override()
     self.ScratchFile(
         'testapp/BUILD',
         [
