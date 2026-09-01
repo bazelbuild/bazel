@@ -257,9 +257,11 @@ final class SelectedEntrySerializer {
                 if (!(key instanceof ConfiguredTargetKey ctKey)) {
                   return;
                 }
+                var ctValue = (ConfiguredTargetValue) graph.getIfPresent(ctKey).getValue();
                 tempRefcounts
                     .computeIfAbsent(
-                        getActualPackageIdentifier(graph, ctKey), unused -> new AtomicInteger(0))
+                        ctValue.getConfiguredTarget().getLabel().getPackageIdentifier(),
+                        _ -> new AtomicInteger(0))
                     .incrementAndGet();
               });
       packageRefcounts = ImmutableMap.copyOf(tempRefcounts);
@@ -607,21 +609,23 @@ final class SelectedEntrySerializer {
        */
       @Override
       public void onSuccess(@Nullable InvalidationDataInfo dataInfo) {
-        if (shouldDiscardMemory) {
-          // Reclaim memory early: once a selected entry is successfully serialized and uploaded,
-          // its value is no longer needed in the evaluator. If it's a ConfiguredTargetKey, we
-          // also decrement the refcount of its package. Once all selected configured targets in
-          // the package are uploaded, the PackageValue is also discarded, releasing substantial
-          // memory early.
-          if (key instanceof ConfiguredTargetKey ctKey) {
-            PackageIdentifier pkgId = getActualPackageIdentifier(graph, ctKey);
-            if (packageRefcounts.get(pkgId).decrementAndGet() <= 0) {
-              graph.removeIfDone(pkgId);
-            }
-          }
-          graph.removeIfDone(key);
-        }
         try {
+          if (shouldDiscardMemory) {
+            // Reclaim memory early: once a selected entry is successfully serialized and uploaded,
+            // its value is no longer needed in the evaluator. If it's a ConfiguredTargetKey, we
+            // also decrement the refcount of its package. Once all selected configured targets in
+            // the package are uploaded, the PackageValue is also discarded, releasing substantial
+            // memory early.
+            if (key instanceof ConfiguredTargetKey
+                && value instanceof ConfiguredTargetValue ctValue) {
+              PackageIdentifier pkgId =
+                  ctValue.getConfiguredTarget().getLabel().getPackageIdentifier();
+              if (packageRefcounts.get(pkgId).decrementAndGet() <= 0) {
+                graph.removeIfDone(pkgId);
+              }
+            }
+            graph.removeIfDone(key);
+          }
           ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
           CodedOutputStream codedOut = CodedOutputStream.newInstance(bytesOut);
 
@@ -932,18 +936,5 @@ final class SelectedEntrySerializer {
     }
 
     result.add(key);
-  }
-
-  /**
-   * Returns the real package associated with a configured target.
-   *
-   * <p>The configured target may be an alias where the referent package contains its target data.
-   */
-  private static PackageIdentifier getActualPackageIdentifier(
-      InMemoryGraph graph, ConfiguredTargetKey key) {
-    return ((ConfiguredTargetValue) graph.getIfPresent(key).getValue())
-        .getConfiguredTarget()
-        .getLabel()
-        .getPackageIdentifier();
   }
 }
