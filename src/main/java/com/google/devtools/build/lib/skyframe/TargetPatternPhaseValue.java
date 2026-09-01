@@ -41,29 +41,14 @@ import javax.annotation.Nullable;
 @Immutable
 @ThreadSafe
 @VisibleForTesting
-public final class TargetPatternPhaseValue implements SkyValue {
-
-  private final ImmutableSet<Label> targetLabels;
-  @Nullable private final ImmutableSet<Label> testsToRunLabels;
-  private final ImmutableSet<Label> nonExpandedLabels;
-  private final ImmutableSet<Label> explicitTargetLabels;
-  private final boolean hasError;
-  private final boolean hasPostExpansionError;
-
-  TargetPatternPhaseValue(
-      ImmutableSet<Label> targetLabels,
-      ImmutableSet<Label> testsToRunLabels,
-      ImmutableSet<Label> nonExpandedLabels,
-      ImmutableSet<Label> explicitTargetLabels,
-      boolean hasError,
-      boolean hasPostExpansionError) {
-    this.targetLabels = targetLabels;
-    this.testsToRunLabels = testsToRunLabels;
-    this.nonExpandedLabels = nonExpandedLabels;
-    this.explicitTargetLabels = explicitTargetLabels;
-    this.hasError = hasError;
-    this.hasPostExpansionError = hasPostExpansionError;
-  }
+public record TargetPatternPhaseValue(
+    ImmutableSet<Label> targetLabels,
+    @Nullable ImmutableSet<Label> testsToRunLabels,
+    ImmutableSet<Label> nonExpandedLabels,
+    ImmutableSet<Label> explicitTargetLabels,
+    boolean hasError,
+    boolean hasPostExpansionError)
+    implements SkyValue {
 
   /** Expensive. Results in a Skyframe evaluation. */
   private static ImmutableSet<Target> getTargetsFromLabels(
@@ -112,39 +97,6 @@ public final class TargetPatternPhaseValue implements SkyValue {
   @Nullable
   public ImmutableSet<Label> getTestsToRunLabels() {
     return testsToRunLabels;
-  }
-
-  public boolean hasError() {
-    return hasError;
-  }
-
-  public boolean hasPostExpansionError() {
-    return hasPostExpansionError;
-  }
-
-  @Override
-  public boolean equals(Object obj) {
-    if (this == obj) {
-      return true;
-    }
-    if (!(obj instanceof TargetPatternPhaseValue that)) {
-      return false;
-    }
-    return Objects.equals(this.targetLabels, that.targetLabels)
-        && Objects.equals(this.testsToRunLabels, that.testsToRunLabels)
-        && Objects.equals(this.explicitTargetLabels, that.explicitTargetLabels)
-        && this.hasError == that.hasError
-        && this.hasPostExpansionError == that.hasPostExpansionError;
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(
-        this.targetLabels,
-        this.testsToRunLabels,
-        this.explicitTargetLabels,
-        this.hasError,
-        this.hasPostExpansionError);
   }
 
   /** Create a target pattern phase value key. */
