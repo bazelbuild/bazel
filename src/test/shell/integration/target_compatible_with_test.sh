@@ -615,6 +615,7 @@ function test_success_on_incompatible_top_level_target_with_skipping() {
   # Validate a variety of ways to refer to the same target.
   local -r -a incompatible_targets=(
       :pass_on_foo1_bar2
+      pass_on_foo1_bar2
       //target_skipping:pass_on_foo1_bar2
       @//target_skipping:pass_on_foo1_bar2
   )
