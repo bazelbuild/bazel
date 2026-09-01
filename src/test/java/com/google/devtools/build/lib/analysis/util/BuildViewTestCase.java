@@ -174,7 +174,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
-import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -456,7 +455,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     // This is being done outside of BuildView, potentially even before the BuildView was
     // constructed and thus cannot rely on BuildView having injected this for us.
-    skyframeExecutor.setBaselineConfiguration(buildOptions, reporter);
+    skyframeExecutor.setBaselineConfiguration(buildOptions, reporter, true);
     return skyframeExecutor.createConfiguration(reporter, buildOptions, false);
   }
 
@@ -679,7 +678,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         getTargetConfiguration());
 
     skyframeExecutor.handleAnalysisInvalidatingChange();
-    skyframeExecutor.setBaselineConfiguration(targetConfig.getOptions(), reporter);
+    skyframeExecutor.setBaselineConfiguration(targetConfig.getOptions(), reporter, true);
 
     view = new BuildViewForTesting(directories, ruleClassProvider, skyframeExecutor, null);
     view.setConfigurationForTesting(targetConfig);
