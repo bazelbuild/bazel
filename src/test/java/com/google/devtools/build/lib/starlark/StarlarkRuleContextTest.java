@@ -976,6 +976,66 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_dict() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = {\"cpu\": 4, \"memory\": 512},",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 0))
+        .isEqualTo(ResourceSet.create(512, 4, 0));
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.DARWIN, 100))
+        .isEqualTo(ResourceSet.create(512, 4, 0));
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_dictAllKeys() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    ev.exec(
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  resource_set = {\"cpu\": 8, \"memory\": 1024, \"local_test\": 2},",
+        "  executable = 'executable')");
+    StarlarkAction action =
+        (StarlarkAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 0))
+        .isEqualTo(ResourceSet.create(1024, 8, 2));
+  }
+
+  @Test
+  public void testCreateStarlarkActionArgumentsWithResourceSet_dictIllegalKeys() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+
+    EvalException thrown =
+        assertThrows(
+            EvalException.class,
+            () ->
+                ev.exec(
+                    "ruleContext.actions.run(",
+                    "  inputs = ruleContext.files.srcs,",
+                    "  outputs = ruleContext.files.srcs,",
+                    "  resource_set = {\"cpu\": 4, \"gpu\": 1},",
+                    "  executable = 'executable')"));
+    assertThat(thrown).hasMessageThat().contains("Illegal resource keys: (gpu)");
+  }
+
+  @Test
   public void testCreateStarlarkActionArgumentsWithoutUnusedInputsList() throws Exception {
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
