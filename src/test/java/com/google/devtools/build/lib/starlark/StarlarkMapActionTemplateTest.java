@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -420,6 +422,46 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
     assertThat(action1.getEnvironment().getFixedEnv()).containsEntry("SOME_ENV", "ENV_VALUE");
     assertThat(action2.getEnvironment().getFixedEnv()).containsEntry("SOME_ENV", "ENV_VALUE");
     assertThat(action3.getEnvironment().getFixedEnv()).containsEntry("SOME_ENV", "ENV_VALUE");
+  }
+
+  @Test
+  public void resourceSetPropagatedToExpandedActions() throws Exception {
+    SkyframeExecutorTestHelper.process(getSkyframeExecutor());
+    write(
+        "test/rule_def.bzl",
+        """
+        load(":helpers.bzl", "create_seed_dir", "simple_map_impl")
+
+        def resource_set(_os, _inputs_size):
+            return {"cpu": 3, "memory": 768}
+
+        def rule_impl(ctx):
+            input_dir = create_seed_dir(ctx, "input_dir", 1, 3)
+            output_dir = ctx.actions.declare_directory(ctx.attr.name + "_output_dir")
+            ctx.actions.map_directory(
+                implementation = simple_map_impl,
+                input_directories = {
+                    "input_dir": input_dir,
+                },
+                output_directories = {
+                    "output_dir": output_dir,
+                },
+                tools = {
+                    "tool": ctx.attr.tool.files_to_run,
+                },
+                resource_set = resource_set,
+            )
+            return [DefaultInfo(files = depset([output_dir]))]
+        """);
+    buildTarget("//test:target");
+    SpecialArtifact outputTree = assertTreeBuilt("test/target_output_dir");
+    for (int index = 0; index < 3; ++index) {
+      TreeFileArtifact output =
+          getTreeFileArtifact(outputTree, "input_dir_f" + (index + 1) + ".out", index);
+      SpawnAction action = (SpawnAction) getGeneratingAction(output);
+      assertThat(action.getResourceSetOrBuilder().buildResourceSet(OS.DARWIN, 2))
+          .isEqualTo(ResourceSet.create(768, 3, 0));
+    }
   }
 
   @Test
