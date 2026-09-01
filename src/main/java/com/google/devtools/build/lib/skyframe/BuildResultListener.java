@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.AllowConcurrentEvents;
@@ -30,9 +31,11 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedE
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetBuiltEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.annotation.Nullable;
 
 /**
  * Listens to the various status events of the top level targets/aspects.
@@ -53,6 +56,14 @@ public class BuildResultListener {
   private final Set<AspectKey> builtAspects = ConcurrentHashMap.newKeySet();
   private final Map<ConfiguredTargetKey, NestedSet<Cause>> targetRootCauses =
       new ConcurrentHashMap<>();
+
+  @GuardedBy("this")
+  @Nullable
+  private Stopwatch analysisTimer;
+
+  @GuardedBy("this")
+  @Nullable
+  private Stopwatch executionTimer;
 
   @Subscribe
   @AllowConcurrentEvents
@@ -124,5 +135,35 @@ public class BuildResultListener {
 
   public ImmutableMap<ConfiguredTargetKey, NestedSet<Cause>> getTargetRootCauses() {
     return ImmutableMap.copyOf(targetRootCauses);
+  }
+
+  public synchronized void setAnalysisTimer(Stopwatch timer) {
+    this.analysisTimer = timer;
+  }
+
+  public synchronized void stopAnalysisTimer() {
+    if (analysisTimer != null && analysisTimer.isRunning()) {
+      analysisTimer.stop();
+    }
+  }
+
+  @SuppressWarnings("GoodTime") // logged as a long
+  public synchronized long getAnalysisPhaseTimeInMillis() {
+    return analysisTimer != null ? analysisTimer.elapsed().toMillis() : 0;
+  }
+
+  public synchronized void setExecutionTimer(Stopwatch timer) {
+    this.executionTimer = timer;
+  }
+
+  public synchronized void stopExecutionTimer() {
+    if (executionTimer != null && executionTimer.isRunning()) {
+      executionTimer.stop();
+    }
+  }
+
+  @SuppressWarnings("GoodTime") // logged as a long
+  public synchronized long getExecutionPhaseTimeInMillis() {
+    return executionTimer != null ? executionTimer.elapsed().toMillis() : 0;
   }
 }

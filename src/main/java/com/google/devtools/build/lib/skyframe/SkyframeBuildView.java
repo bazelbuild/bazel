@@ -642,7 +642,7 @@ public final class SkyframeBuildView {
           ViewCreationFailedException,
           BuildFailedException,
           TestExecException {
-    Stopwatch analysisWorkTimer = Stopwatch.createStarted();
+    buildResultListener.setAnalysisTimer(Stopwatch.createStarted());
     EvaluationResult<SkyValue> mainEvaluationResult;
 
     var newKeys =
@@ -710,17 +710,22 @@ public final class SkyframeBuildView {
             eventBus,
             /* lowerThresholdToSignalForExecution= */ (float)
                 (topLevelKeys.size() * skymeldAnalysisOverlapPercentage / 100.0),
-            /* finisher= */ () ->
-                analysisFinishedCallback(
-                    eventBus,
-                    buildResultListener,
-                    skyframeExecutor,
-                    ctKeys,
-                    /* shouldDiscardAnalysisCache= */ shouldDiscardAnalysisCache,
-                    /* shouldClearSyscallCache= */ shouldClearSyscallCache,
-                    /* measuredAnalysisTime= */ analysisWorkTimer.stop().elapsed().toMillis(),
-                    /* conflictCheckingMode= */ conflictCheckingMode),
-            /* executionGoAheadCallback= */ executor::launchQueuedUpExecutionPhaseTasks)) {
+            /* finisher= */ () -> {
+              buildResultListener.stopAnalysisTimer();
+              analysisFinishedCallback(
+                  eventBus,
+                  buildResultListener,
+                  skyframeExecutor,
+                  ctKeys,
+                  /* shouldDiscardAnalysisCache= */ shouldDiscardAnalysisCache,
+                  /* shouldClearSyscallCache= */ shouldClearSyscallCache,
+                  /* measuredAnalysisTime= */ buildResultListener.getAnalysisPhaseTimeInMillis(),
+                  /* conflictCheckingMode= */ conflictCheckingMode);
+            },
+            /* executionGoAheadCallback= */ () -> {
+              buildResultListener.setExecutionTimer(Stopwatch.createStarted());
+              executor.launchQueuedUpExecutionPhaseTasks();
+            })) {
 
       try {
         skyframeExecutor.getIsBuildingExclusiveArtifacts().set(false);
@@ -740,6 +745,7 @@ public final class SkyframeBuildView {
                   executors.executionParallelism(),
                   executor);
         } finally {
+          buildResultListener.stopAnalysisTimer();
           if (shouldClearSyscallCache) {
             skyframeExecutor.clearSyscallCache();
           }
@@ -826,6 +832,8 @@ public final class SkyframeBuildView {
         }
       } finally {
         // No more action execution beyond this point.
+        buildResultListener.stopExecutionTimer();
+        buildResultListener.stopAnalysisTimer();
         skyframeExecutor.clearExecutionStatesSkymeld(eventHandler);
         // Also releases thread locks.
         resourceManager.resetResourceUsage();

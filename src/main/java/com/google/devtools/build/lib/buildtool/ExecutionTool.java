@@ -384,136 +384,143 @@ public class ExecutionTool {
       TopLevelArtifactContext topLevelArtifactContext)
       throws BuildFailedException, InterruptedException, TestExecException, AbruptExitException {
     Stopwatch timer = Stopwatch.createStarted();
-    prepare(packageRoots);
-
-    ActionGraph actionGraph = analysisResult.getActionGraph();
-
-    OutputService outputService = env.getOutputService();
-    ModifiedFileSet modifiedOutputFiles =
-        startBuildAndDetermineModifiedOutputFiles(buildId, outputService);
-
-    if (outputService.actionFileSystemType().supportsLocalActions()) {
-      // Must be created after the output path is created above.
-      createActionLogDirectory(outputService.bulkDeleter());
-    }
-
-    buildResult.setConvenienceSymlinks(
-        handleConvenienceSymlinks(
-            analysisResult.getTargetsToBuild(), analysisResult.getConfiguration()));
-
-    BuildRequestOptions options = request.getBuildOptions();
-    ActionCache actionCache = null;
-    if (options.getUseActionCache()) {
-      actionCache = getOrLoadActionCache();
-      actionCache.resetStatistics();
-    }
-    SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
-    Builder builder;
-    try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
-      builder = createBuilder(request, actionCache, skyframeExecutor, modifiedOutputFiles);
-    }
-
-    //
-    // Execution proper.  All statements below are logically nested in
-    // begin/end pairs.  No early returns or exceptions please!
-    //
-
-    Collection<ConfiguredTarget> configuredTargets = buildResult.getActualTargets();
-    try (SilentCloseable c = Profiler.instance().profile("ExecutionStartingEvent")) {
-      env.getEventBus().post(new ExecutionStartingEvent(configuredTargets));
-    }
-
-    getReporter().handle(Event.progress("Building..."));
-
-    // Conditionally record dependency-checker log:
-    ExplanationHandler explanationHandler =
-        installExplanationHandler(
-            request.getBuildOptions().getExplanationPath(), request.getOptionsDescription());
-
-    announceEnteringDirIfEmacs();
-
-    Throwable catastrophe = null;
-    boolean buildCompleted = false;
+    env.getBuildResultListener().setExecutionTimer(timer);
     try {
-      boolean shouldDiscardAnalysisCache =
-          request.getViewOptions().getDiscardAnalysisCache()
-              || !skyframeExecutor.tracksStateForIncrementality();
-      if (shouldDiscardAnalysisCache) {
-        if (skyframeExecutor
-            .getRemoteAnalysisCacheReaderDepsProvider()
-            .mode()
-            .isRetrievalEnabled()) {
-          // When remote analysis value retrieval is enabled, it is possible for analysis to occur
-          // during the logical execution phase. Discarding the analysis cache fully can lead to
-          // crashes.
-          //
-          // TODO: b/466388360 - consider alternatives
-          getReporter()
-              .handle(
-                  Event.warn(
-                      "Remote analysis caching is enabled. Performing only a partial analysis cache"
-                          + " discard."));
-        }
-      }
-      if (shouldDiscardAnalysisCache) {
-        // Free memory by removing cache entries that aren't going to be needed.
-        try (SilentCloseable c = Profiler.instance().profile("clearAnalysisCache")) {
-          env.getSkyframeBuildView()
-              .clearAnalysisCache(
-                  analysisResult.getTargetsToBuild(), analysisResult.getAspectsMap().keySet());
-        }
+      prepare(packageRoots);
+
+      ActionGraph actionGraph = analysisResult.getActionGraph();
+
+      OutputService outputService = env.getOutputService();
+      ModifiedFileSet modifiedOutputFiles =
+          startBuildAndDetermineModifiedOutputFiles(buildId, outputService);
+
+      if (outputService.actionFileSystemType().supportsLocalActions()) {
+        // Must be created after the output path is created above.
+        createActionLogDirectory(outputService.bulkDeleter());
       }
 
-      for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
-        try (SilentCloseable c =
-            Profiler.instance().profile(executorLifecycleListener + ".executionPhaseStarting")) {
-          executorLifecycleListener.executionPhaseStarting(
-              actionGraph,
-              // If this supplier is ever consumed by more than one ActionContextProvider, it can be
-              // pulled out of the loop and made a memoizing supplier.
-              () -> TopLevelArtifactHelper.findAllTopLevelArtifacts(analysisResult),
-              skyframeExecutor.getEphemeralCheckIfOutputConsumed());
+      buildResult.setConvenienceSymlinks(
+          handleConvenienceSymlinks(
+              analysisResult.getTargetsToBuild(), analysisResult.getConfiguration()));
+
+      BuildRequestOptions options = request.getBuildOptions();
+      ActionCache actionCache = null;
+      if (options.getUseActionCache()) {
+        actionCache = getOrLoadActionCache();
+        actionCache.resetStatistics();
+      }
+      SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
+      Builder builder;
+      try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
+        builder = createBuilder(request, actionCache, skyframeExecutor, modifiedOutputFiles);
+      }
+
+      //
+      // Execution proper.  All statements below are logically nested in
+      // begin/end pairs.  No early returns or exceptions please!
+      //
+
+      Collection<ConfiguredTarget> configuredTargets = buildResult.getActualTargets();
+      try (SilentCloseable c = Profiler.instance().profile("ExecutionStartingEvent")) {
+        env.getEventBus().post(new ExecutionStartingEvent(configuredTargets));
+      }
+
+      getReporter().handle(Event.progress("Building..."));
+
+      // Conditionally record dependency-checker log:
+      ExplanationHandler explanationHandler =
+          installExplanationHandler(
+              request.getBuildOptions().getExplanationPath(), request.getOptionsDescription());
+
+      announceEnteringDirIfEmacs();
+
+      Throwable catastrophe = null;
+      boolean buildCompleted = false;
+      try {
+        boolean shouldDiscardAnalysisCache =
+            request.getViewOptions().getDiscardAnalysisCache()
+                || !skyframeExecutor.tracksStateForIncrementality();
+        if (shouldDiscardAnalysisCache) {
+          if (skyframeExecutor
+              .getRemoteAnalysisCacheReaderDepsProvider()
+              .mode()
+              .isRetrievalEnabled()) {
+            // When remote analysis value retrieval is enabled, it is possible for analysis to occur
+            // during the logical execution phase. Discarding the analysis cache fully can lead to
+            // crashes.
+            //
+            // TODO: b/466388360 - consider alternatives
+            getReporter()
+                .handle(
+                    Event.warn(
+                        "Remote analysis caching is enabled. Performing only a partial analysis"
+                            + " cache discard."));
+          }
         }
-      }
-      skyframeExecutor.drainChangedFiles();
+        if (shouldDiscardAnalysisCache) {
+          // Free memory by removing cache entries that aren't going to be needed.
+          try (SilentCloseable c = Profiler.instance().profile("clearAnalysisCache")) {
+            env.getSkyframeBuildView()
+                .clearAnalysisCache(
+                    analysisResult.getTargetsToBuild(), analysisResult.getAspectsMap().keySet());
+          }
+        }
 
-      try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {
-        configureResourceManager(env.getLocalResourceManager(), request);
-      }
+        for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
+          try (SilentCloseable c =
+              Profiler.instance().profile(executorLifecycleListener + ".executionPhaseStarting")) {
+            executorLifecycleListener.executionPhaseStarting(
+                actionGraph,
+                // If this supplier is ever consumed by more than one ActionContextProvider, it can
+                // be
+                // pulled out of the loop and made a memoizing supplier.
+                () -> TopLevelArtifactHelper.findAllTopLevelArtifacts(analysisResult),
+                skyframeExecutor.getEphemeralCheckIfOutputConsumed());
+          }
+        }
+        skyframeExecutor.drainChangedFiles();
 
-      MemoryProfiler.instance().markPhase(ProfilePhase.EXECUTE);
-      Profiler.instance().markPhase(ProfilePhase.EXECUTE);
-      var outputChecker =
-          env.getOutputService() != null
-              ? env.getOutputService().getOutputChecker()
-              : OutputChecker.TRUST_LOCAL_ONLY;
-      builder.buildArtifacts(
-          env.getReporter(),
-          analysisResult.getArtifactsToBuild(),
-          analysisResult.getParallelTests(),
-          Sets.union(analysisResult.getExclusiveTests(), analysisResult.getExclusiveIfLocalTests()),
-          analysisResult.getTargetsToBuild(),
-          analysisResult.getTargetsToSkip(),
-          analysisResult.getAspectsMap().keySet(),
-          executor,
-          request,
-          env.getBlazeWorkspace().getLastExecutionTimeRange(),
-          topLevelArtifactContext,
-          outputChecker);
-      buildCompleted = true;
-    } catch (BuildFailedException | TestExecException e) {
-      buildCompleted = true;
-      throw e;
-    } catch (Error | RuntimeException e) {
-      catastrophe = e;
+        try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {
+          configureResourceManager(env.getLocalResourceManager(), request);
+        }
+
+        MemoryProfiler.instance().markPhase(ProfilePhase.EXECUTE);
+        Profiler.instance().markPhase(ProfilePhase.EXECUTE);
+        var outputChecker =
+            env.getOutputService() != null
+                ? env.getOutputService().getOutputChecker()
+                : OutputChecker.TRUST_LOCAL_ONLY;
+        builder.buildArtifacts(
+            env.getReporter(),
+            analysisResult.getArtifactsToBuild(),
+            analysisResult.getParallelTests(),
+            Sets.union(
+                analysisResult.getExclusiveTests(), analysisResult.getExclusiveIfLocalTests()),
+            analysisResult.getTargetsToBuild(),
+            analysisResult.getTargetsToSkip(),
+            analysisResult.getAspectsMap().keySet(),
+            executor,
+            request,
+            env.getBlazeWorkspace().getLastExecutionTimeRange(),
+            topLevelArtifactContext,
+            outputChecker);
+        buildCompleted = true;
+      } catch (BuildFailedException | TestExecException e) {
+        buildCompleted = true;
+        throw e;
+      } catch (Error | RuntimeException e) {
+        catastrophe = e;
+      } finally {
+        unconditionalExecutionPhaseFinalizations(timer, skyframeExecutor);
+
+        if (catastrophe != null) {
+          Throwables.throwIfUnchecked(catastrophe);
+        }
+        // NOTE: No finalization activities below will run in the event of a catastrophic error!
+        nonCatastrophicFinalizations(buildResult, actionCache, explanationHandler, buildCompleted);
+      }
     } finally {
-      unconditionalExecutionPhaseFinalizations(timer, skyframeExecutor);
-
-      if (catastrophe != null) {
-        Throwables.throwIfUnchecked(catastrophe);
-      }
-      // NOTE: No finalization activities below will run in the event of a catastrophic error!
-      nonCatastrophicFinalizations(buildResult, actionCache, explanationHandler, buildCompleted);
+      env.getBuildResultListener().stopExecutionTimer();
     }
   }
 
@@ -637,9 +644,11 @@ public class ExecutionTool {
     // Sometimes there's no execution in the build: e.g. when there's only 1 target, and we fail at
     // the analysis phase. In such a case, we shouldn't send out this event. This is consistent with
     // the noskymeld behavior.
-    if (executionTimer.isRunning()) {
-      env.getEventBus()
-          .post(new ExecutionPhaseCompleteEvent(executionTimer.stop().elapsed().toMillis()));
+    BuildResultListener buildResultListener = env.getBuildResultListener();
+    buildResultListener.stopExecutionTimer();
+    long executionTime = buildResultListener.getExecutionPhaseTimeInMillis();
+    if (executionTime > 0) {
+      env.getEventBus().post(new ExecutionPhaseCompleteEvent(executionTime));
     }
   }
 

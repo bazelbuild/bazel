@@ -1040,8 +1040,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/causes",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
         "//third_party/java/guava:eventbus",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
