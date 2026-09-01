@@ -28,6 +28,7 @@ import com.google.devtools.common.options.Converters.AssignmentConverter;
 import com.google.devtools.common.options.Converters.BooleanConverter;
 import com.google.devtools.common.options.Converters.ByteSizeConverter;
 import com.google.devtools.common.options.Converters.DurationConverter;
+import com.google.devtools.common.options.Converters.EmptyToNullStringConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -50,11 +51,13 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       name = "remote_proxy",
       oldName = "remote_cache_proxy",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Connect to the remote cache through a proxy. Currently this flag can only be used to "
-              + "configure a Unix domain socket (unix:/path/to/socket).")
+              + "configure a Unix domain socket (unix:/path/to/socket). An empty value resets the"
+              + " flag to its default.")
   public abstract String getRemoteProxy();
 
   public abstract void setRemoteProxy(String value);
@@ -96,13 +99,14 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   @Option(
       name = "remote_executor",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "HOST or HOST:PORT of a remote execution endpoint. The supported schemes are grpc, "
               + "grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If no scheme is "
               + "provided Bazel will default to grpcs. Specify grpc:// or unix: scheme to "
-              + "disable TLS.")
+              + "disable TLS. An empty value resets the flag to its default.")
   public abstract String getRemoteExecutor();
 
   public abstract void setRemoteExecutor(String value);
@@ -122,8 +126,10 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      converter = OptionsUtils.PathFragmentConverter.class,
-      help = "A path to a directory where the corrupted outputs will be captured to.")
+      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
+      help =
+          "A path to a directory where the corrupted outputs will be captured to. An empty value"
+              + " resets the flag to its default.")
   public abstract PathFragment getRemoteCaptureCorruptedOutputs();
 
   @Option(
@@ -143,13 +149,15 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       name = "remote_cache",
       oldName = "remote_http_cache",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "A URI of a caching endpoint. The supported schemes are http, https, grpc, grpcs "
-              + "(grpc with TLS enabled) and unix (local UNIX sockets). If no scheme is provided "
-              + "Bazel will default to grpcs. Specify grpc://, http:// or unix: scheme to disable "
-              + "TLS. See https://bazel.build/remote/caching")
+          "A URI of a caching endpoint. The supported schemes are http, https, grpc, grpcs (grpc"
+              + " with TLS enabled) and unix (local UNIX sockets). If no scheme is provided Bazel"
+              + " will default to grpcs. Specify grpc://, http:// or unix: scheme to disable TLS."
+              + " An empty value resets the flag to its default. See"
+              + " https://bazel.build/remote/caching")
   public abstract String getRemoteCache();
 
   public abstract void setRemoteCache(String value);
@@ -158,12 +166,14 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       name = "remote_downloader",
       oldName = "experimental_remote_downloader",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "A Remote Asset API endpoint URI, to be used as a remote download proxy. The supported"
               + " schemes are grpc, grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If"
-              + " no scheme is provided Bazel will default to grpcs. See: "
+              + " no scheme is provided Bazel will default to grpcs. An empty value resets the flag"
+              + " to its default. See: "
               + "https://github.com/bazelbuild/remote-apis/blob/master/build/bazel/remote/asset/v1/remote_asset.proto")
   public abstract String getRemoteDownloader();
 
@@ -303,6 +313,7 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   @Option(
       name = "remote_bytestream_uri_prefix",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -310,7 +321,8 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
               + "build event streams. This option can be set when builds are performed using a "
               + "proxy, which causes the values of --remote_executor and --remote_instance_name "
               + "to no longer correspond to the canonical name of the remote execution service. "
-              + "When not set, it will default to \"${hostname}/${instance_name}\".")
+              + "When not set, it will default to \"${hostname}/${instance_name}\". An empty"
+              + " value resets the flag to its default.")
   public abstract String getRemoteBytestreamUriPrefix();
 
   @Option(
@@ -982,13 +994,14 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   @Option(
       name = "experimental_remote_output_service",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "HOST or HOST:PORT of a remote output service endpoint. The supported schemes are grpc, "
               + "grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If no scheme is "
               + "provided Bazel will default to grpcs. Specify grpc:// or unix: scheme to "
-              + "disable TLS.")
+              + "disable TLS. An empty value resets the flag to its default.")
   public abstract String getRemoteOutputService();
 
   public abstract void setRemoteOutputService(String value);
