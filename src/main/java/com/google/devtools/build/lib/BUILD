@@ -163,6 +163,7 @@ filegroup(
     srcs = [
         "//src/main/java/com/google/devtools/build/lib:gen_buildencyclopedia",
         "//src/main/java/com/google/devtools/build/lib:gen_command-line-reference",
+        "//src/main/java/com/google/devtools/build/lib:gen_command_line_reference_proto",
         "//src/main/java/com/google/devtools/build/lib:gen_skylarklibrary",
     ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
@@ -245,6 +246,40 @@ genrule(
 )
 
 genrule(
+    name = "gen_command_line_reference_mdx",
+    outs = ["command-line-reference.mdx"],
+    srcs = [
+        ":command-line-reference.pb.b64"
+    ],
+    cmd = "$(location //scripts/docs:create_cli_reference) $(location :command-line-reference.pb.b64) -o $@",
+    tools = [
+        "//scripts/docs:create_cli_reference",
+    ],
+    visibility = ["//site:__pkg__"],
+)
+
+genrule(
+    name = "gen_command_line_reference_proto",
+    outs = ["command-line-reference.pb.b64"],
+    cmd = (
+        "TMP=$$(mktemp -d $${TMPDIR:-/tmp}/tmp.XXXXXXXXXX) && " +
+        # TODO(#11179): Remove when the stub template fix is released.
+        "export JARBIN=$(JAVABASE)/bin/jar && " +
+        "$(location //src/main/java/com/google/devtools/build/lib/bazel:BazelServer) " +
+        "--batch " +
+        "--install_base=$${TMP} --output_base=$${TMP}/output/ --output_user_root=$${TMP} " +
+        "--failure_detail_out=$${TMP}/output/failure_detail.rawproto " +
+        "help flags-as-proto >> $@ 2>$${TMP}/stderr"
+    ),
+    toolchains = ["@rules_java//toolchains:current_host_java_runtime"],
+    tools = [
+        "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer",
+    ],
+    visibility = ["//site:__pkg__"],
+)
+
+
+genrule(
     name = "gen_skylarklibrary",
     srcs = ["//src/main/java/com/google/devtools/build/docgen:bazel_link_map"],
     outs = ["skylark-library.zip"],
@@ -289,13 +324,13 @@ genrule(
     name = "gen_mdx_reference_docs",
     srcs = [
         ":build-encyclopedia.zip",
-        ":command-line-reference.html",
+        ":command-line-reference.mdx",
         ":skylark-library.zip",
         "//tools/build_defs/repo:doc",
     ],
     outs = ["mdx-reference-docs.zip"],
     cmd = "mkdir -p $(@D)/html_for_mdx/reference/be && " +
-          "cp $(location :command-line-reference.html) $(@D)/html_for_mdx/reference/ && " +
+          "cp $(location :command-line-reference.mdx) $(@D)/html_for_mdx/reference/ && " +
           "unzip -q -d $(@D)/html_for_mdx/reference/be/ $(location :build-encyclopedia.zip) && " +
           "mkdir -p $(@D)/html_for_mdx/rules/lib/repo && " +
           "unzip -q -d $(@D)/html_for_mdx/rules/lib/ $(location :skylark-library.zip) && " +
