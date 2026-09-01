@@ -261,11 +261,13 @@ public class DiskCacheClient {
       try (var in = toPath(treeDigest, Store.CAS).getInputStream()) {
         tree = Tree.parseFrom(in, ExtensionRegistryLite.getEmptyRegistry());
       } catch (FileNotFoundException e) {
-        // The tree was deleted after the existence check update above, most likely by a concurrent
-        // garbage collection. Report it as a cache miss rather than a real I/O error.
-        var cacheNotFoundException = new CacheNotFoundException(treeDigest);
-        cacheNotFoundException.addSuppressed(e);
-        throw cacheNotFoundException;
+        // The tree was deleted between the refresh above and the read, most likely by a concurrent
+        // garbage collection. Treat it as missing rather than as a real I/O error.
+        if (stopAtFirstMissing) {
+          return false;
+        }
+        allPresent = false;
+        continue;
       }
       allPresent &= refreshOutputDirectory(tree.getRoot(), stopAtFirstMissing);
       if (!allPresent && stopAtFirstMissing) {

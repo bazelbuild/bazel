@@ -256,7 +256,9 @@ public class DiskCacheClientTest {
   @Test
   public void downloadBlob_whenDeletedAfterRefresh_throwsCacheNotFoundException() throws Exception {
     var raceFs = new DeleteOnMtimeUpdateFileSystem();
-    var raceClient = new DiskCacheClient(raceFs.getPath("/disk_cache"), DIGEST_UTIL);
+    var raceClient =
+        new DiskCacheClient(
+            raceFs.getPath("/disk_cache"), DIGEST_UTIL, /* checkActionResultIntegrity= */ true);
     try {
       Digest digest = getDigest("contents");
       Path casPath = populateCas(raceClient, digest, "contents".getBytes(UTF_8));
@@ -274,7 +276,9 @@ public class DiskCacheClientTest {
   public void downloadBlob_toPathBackedStream_whenDeletedAfterRefresh_throwsCacheNotFoundException()
       throws Exception {
     var raceFs = new DeleteOnMtimeUpdateFileSystem();
-    var raceClient = new DiskCacheClient(raceFs.getPath("/disk_cache"), DIGEST_UTIL);
+    var raceClient =
+        new DiskCacheClient(
+            raceFs.getPath("/disk_cache"), DIGEST_UTIL, /* checkActionResultIntegrity= */ true);
     try {
       Digest digest = getDigest("contents");
       Path casPath = populateCas(raceClient, digest, "contents".getBytes(UTF_8));
@@ -326,7 +330,9 @@ public class DiskCacheClientTest {
   @Test
   public void downloadActionResult_whenTreeDeletedAfterRefresh_returnsNull() throws Exception {
     var raceFs = new DeleteOnMtimeUpdateFileSystem();
-    var raceClient = new DiskCacheClient(raceFs.getPath("/disk_cache"), DIGEST_UTIL);
+    var raceClient =
+        new DiskCacheClient(
+            raceFs.getPath("/disk_cache"), DIGEST_UTIL, /* checkActionResultIntegrity= */ true);
     try {
       Digest treeFileDigest = getDigest("tree file contents");
       Tree tree = getTreeWithFile(treeFileDigest);
