@@ -340,6 +340,58 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .collect(MoreCollectors.onlyElement());
     assertThat(attempt.getExecutionInfo().getStrategy()).isEqualTo("test");
     assertThat(attempt.getExecutionInfo().getHostname()).isEqualTo("");
+    assertThat(attempt.getExecutionInfo().getResourceUsageList()).isEmpty();
+  }
+
+  @Test
+  public void testRunTestOnceReportsMeasuredPeakMemory() throws Exception {
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    TestSummaryOptions testSummaryOptions = TestSummaryOptions.DEFAULTS;
+    Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    TestedStandaloneTestStrategy standaloneTestStrategy =
+        new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
+
+    // setup a test action
+    scratch.file("standalone/simple_test.sh", "this does not get executed, it is mocked out");
+    scratch.file(
+        "standalone/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "simple_test",
+            size = "small",
+            srcs = ["simple_test.sh"],
+        )
+        """);
+    TestRunnerAction testRunnerAction = getTestAction("//standalone:simple_test");
+
+    SpawnResult expectedSpawnResult =
+        new SpawnResult.Builder()
+            .setStatus(Status.SUCCESS)
+            .setWallTimeInMs(10)
+            .setMemoryInKb(2048)
+            .setRunnerName("test")
+            .build();
+    when(spawnStrategy.exec(any(), any())).thenReturn(ImmutableList.of(expectedSpawnResult));
+
+    ActionExecutionContext actionExecutionContext =
+        new FakeActionExecutionContext(
+            createTempOutErr(tmpDirRoot), inputMetadataFor(testRunnerAction), spawnStrategy);
+
+    // actual StandaloneTestStrategy execution
+    execute(testRunnerAction, actionExecutionContext, standaloneTestStrategy);
+
+    TestAttempt attempt =
+        storedEvents.getPosts().stream()
+            .filter(TestAttempt.class::isInstance)
+            .map(TestAttempt.class::cast)
+            .collect(MoreCollectors.onlyElement());
+    assertThat(attempt.getExecutionInfo().getResourceUsageList())
+        .containsExactly(
+            ExecutionInfo.ResourceUsage.newBuilder()
+                .setName("memory_bytes")
+                .setValue(2048L * 1024)
+                .build());
   }
 
   @Test
