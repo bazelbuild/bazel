@@ -113,7 +113,7 @@ java_test(
     name = "BazelDocumentationTests",
     size = "medium",
     srcs = ["BazelDocumentationTest.java"],
-    data = ["//site/en:docs/user-manual.md"],
+    data = ["//docs:docs/user-manual.mdx"],
     test_class = "com.google.devtools.build.lib.packages.BazelDocumentationTest",
     deps = [
         ":DocumentationTestUtil",
