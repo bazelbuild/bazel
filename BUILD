@@ -6,6 +6,7 @@ load("@rules_license//rules:license.bzl", "license")
 load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//src:release_archive.bzl", "MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION", "MINIMUM_JAVA_RUNTIME_VERSION")
 load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
@@ -100,6 +101,22 @@ genrule(
     ]),
     tags = ["requires-network"],
     tools = ["//src:bazel"],
+)
+
+sh_test(
+    name = "verify_module_bazel_lock",
+    timeout = "long",
+    srcs = ["verify_module_bazel_lock.sh"],
+    data = [
+        ".bazelversion",
+        "MODULE.bazel",
+        "MODULE.bazel.lock",
+        "//third_party:patches",
+        "//third_party:remoteapis/MODULE.bazel",
+    ],
+    tags = ["requires-network"],
+    visibility = ["//visibility:private"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
 pkg_tar(
