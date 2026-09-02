@@ -246,7 +246,7 @@ public abstract class CppOptions extends FragmentOptions {
           "Determines whether C++ binaries will be linked dynamically.  'default' means "
               + "Bazel will choose whether to link dynamically.  'fully' means all libraries "
               + "will be linked dynamically. 'off' means that all libraries will be linked "
-              + "in mostly static mode.")
+              + "in mostly static mode, the exception being dynamically linked system libraries.")
   public abstract DynamicMode getDynamicMode();
 
   @Option(
