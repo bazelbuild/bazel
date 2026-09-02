@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.EXECUTES;
 
 import com.google.common.collect.ImmutableList;
@@ -167,12 +168,7 @@ public class TestCommand implements BlazeCommand {
 
     BuildResult buildResult = new BuildTool(env).processRequest(request, null, options);
 
-    Collection<ConfiguredTarget> testTargets = buildResult.getTestTargets();
-    // TODO(bazel-team): don't handle isEmpty here or fix up a bunch of tests
-    if (buildResult.getSuccessfulTargets() == null) {
-      // This can happen if there were errors in the target parsing or loading phase
-      // (original exitcode=BUILD_FAILURE) or if there weren't but --noanalyze was given
-      // (original exitcode=SUCCESS).
+    if (!request.getBuildOptions().getPerformAnalysisPhase()) {
       String message = "Couldn't start the build. Unable to run tests";
       env.getReporter().handle(Event.error(message));
       DetailedExitCode detailedExitCode =
@@ -184,6 +180,41 @@ public class TestCommand implements BlazeCommand {
                           FailureDetails.TestCommand.newBuilder().setCode(Code.TEST_WITH_NOANALYZE))
                       .build())
               : buildResult.getDetailedExitCode();
+      env.getEventBus()
+          .post(
+              new TestingCompleteEvent(detailedExitCode.getExitCode(), buildResult.getStopTime()));
+      return BlazeCommandResult.detailedExitCode(detailedExitCode);
+    }
+
+    Collection<ConfiguredTarget> testTargets = buildResult.getTestTargets();
+    // TODO(bazel-team): don't handle isEmpty here or fix up a bunch of tests
+    if (buildResult.getSuccessfulTargets() == null) {
+      if (buildResult.getSuccess() && !request.getBuildOptions().getPerformExecutionPhase()) {
+        if (testTargets.isEmpty()) {
+          String message = "No test targets were found, yet testing was requested";
+          env.getReporter().handle(Event.error(null, message));
+
+          DetailedExitCode detailedExitCode =
+              DetailedExitCode.of(
+                  FailureDetail.newBuilder()
+                      .setMessage(message)
+                      .setTestCommand(
+                          FailureDetails.TestCommand.newBuilder().setCode(Code.NO_TEST_TARGETS))
+                      .build());
+          env.getEventBus()
+              .post(new NoTestsFound(detailedExitCode.getExitCode(), buildResult.getStopTime()));
+          return BlazeCommandResult.detailedExitCode(detailedExitCode);
+        }
+        env.getEventBus()
+            .post(
+                new TestingCompleteEvent(
+                    buildResult.getDetailedExitCode().getExitCode(), buildResult.getStopTime()));
+        return BlazeCommandResult.detailedExitCode(buildResult.getDetailedExitCode());
+      }
+      // This can happen if there were errors in the target parsing or loading phase.
+      String message = "Couldn't start the build. Unable to run tests";
+      env.getReporter().handle(Event.error(message));
+      DetailedExitCode detailedExitCode = buildResult.getDetailedExitCode();
       env.getEventBus()
           .post(
               new TestingCompleteEvent(detailedExitCode.getExitCode(), buildResult.getStopTime()));
@@ -246,9 +277,9 @@ public class TestCommand implements BlazeCommand {
     if (buildRequest.useValidationAspect()) {
       validatedTargets =
           buildResult.getSuccessfulAspects().stream()
-              .filter(key -> AspectCollection.VALIDATION_ASPECT_NAME.equals(key.getAspectName()))
+              .filter(key -> key.getAspectName().equals(AspectCollection.VALIDATION_ASPECT_NAME))
               .map(AspectKey::getBaseConfiguredTargetKey)
-              .collect(ImmutableSet.toImmutableSet());
+              .collect(toImmutableSet());
     } else {
       validatedTargets = null;
     }
