@@ -52,6 +52,10 @@ py_library(
 py_test(
     name = "aquery_differ_test",
     srcs = ["aquery_differ_test.py"],
+    data = [
+        "@bazel_tools//tools/bash/runfiles",
+        "@platforms//:host",
+    ],
     deps = [
         ":aquery_differ_main_lib",
         "//src/main/protobuf:analysis_v2_py_proto",
