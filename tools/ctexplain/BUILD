@@ -1,5 +1,3 @@
-# Description:
-#   Tool for measuring how configuration transitions affect build graph size.
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
 package(default_visibility = ["//visibility:public"])
@@ -56,7 +54,6 @@ py_library(
     ],
     srcs_version = "PY3ONLY",
     deps = [
-        # Backport for Python < 3.7.
         "//third_party/py/frozendict",
     ],
 )
