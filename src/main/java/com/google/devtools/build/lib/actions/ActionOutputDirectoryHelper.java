@@ -97,7 +97,10 @@ public final class ActionOutputDirectoryHelper {
           /* Fall through to plan B. */
         }
 
-        Path rootPath = artifactPathResolver.convertPath(outputFile.getRoot().getRoot().asPath());
+        PathFragment rootPath =
+            artifactPathResolver
+                .convertPath(outputFile.getRoot().getRoot().asPath())
+                .asFragment();
         forceCreateDirectoryAndParents(outputDir, rootPath);
       }
     }
@@ -157,7 +160,7 @@ public final class ActionOutputDirectoryHelper {
       }
 
       if (done.add(outputDir)) {
-        createOutputDirectory(outputDir, outputFile.getRoot().getRoot().asPath());
+        createOutputDirectory(outputDir, outputFile.getRoot().getRoot().asPath().asFragment());
       }
     }
   }
@@ -177,7 +180,7 @@ public final class ActionOutputDirectoryHelper {
    * @throws CreateOutputDirectoryException if the output directory or one of its ancestor
    *     directories fails to be created
    */
-  public void createOutputDirectory(Path outputDir, Path rootPath)
+  public void createOutputDirectory(Path outputDir, PathFragment rootPath)
       throws CreateOutputDirectoryException {
     try {
       createAndCheckForSymlinks(outputDir, rootPath);
@@ -187,7 +190,7 @@ public final class ActionOutputDirectoryHelper {
     }
   }
 
-  private void forceCreateDirectoryAndParents(Path outputDir, Path rootPath)
+  private void forceCreateDirectoryAndParents(Path outputDir, PathFragment rootPath)
       throws CreateOutputDirectoryException {
     // Possibly some direct ancestors are not directories.  In that case, we traverse the
     // ancestors downward, deleting any non-directories. This handles the case where a file
@@ -199,9 +202,10 @@ public final class ActionOutputDirectoryHelper {
     // outputs from previous builds. See bug [incremental build of Fileset fails if
     // Fileset.out was changed to be a subdirectory of the old value].
     try {
-      Path p = rootPath;
-      for (String segment : outputDir.relativeTo(p).segments()) {
+      PathFragment p = rootPath;
+      for (String segment : outputDir.asFragment().relativeTo(p).segments()) {
         p = p.getRelative(segment);
+        Path path = outputDir.getFileSystem().getPath(p);
 
         // This lock ensures that the only thread that observes a filesystem transition in
         // which the path p first exists and then does not is the thread that calls
@@ -221,21 +225,21 @@ public final class ActionOutputDirectoryHelper {
         // A calls p.delete(), thread B may create a directory at p, and then either create a
         // subdirectory beneath it or add outputs to it. Then when thread A tries to delete p,
         // it would fail.
-        Lock lock = outputDirectoryDeletionLock.get(p);
+        Lock lock = outputDirectoryDeletionLock.get(path);
         lock.lock();
         try {
-          FileStatus stat = p.statIfFound(Symlinks.NOFOLLOW);
+          FileStatus stat = path.statIfFound(Symlinks.NOFOLLOW);
           if (stat == null) {
             // Missing entry: Break out and create expected directories.
             break;
           }
           if (stat.isDirectory()) {
             // If this directory used to be a tree artifact it won't be writable.
-            p.setWritable(true);
-            knownDirectories.put(p.asFragment(), DirectoryState.FOUND);
+            path.setWritable(true);
+            knownDirectories.put(p, DirectoryState.FOUND);
           } else {
             // p may be a file or symlink (possibly from a Fileset in a previous build).
-            p.delete(); // throws IOException
+            path.delete(); // throws IOException
             break;
           }
         } finally {
@@ -256,11 +260,10 @@ public final class ActionOutputDirectoryHelper {
    * @throws IOException if any of the path components between the output root and the output file
    *     already exists but is not a directory
    */
-  private void createAndCheckForSymlinks(Path dir, Path rootPath) throws IOException {
-    PathFragment root = rootPath.asFragment();
-
+  private void createAndCheckForSymlinks(Path dir, PathFragment root) throws IOException {
     // If the output root has not been created yet, do so now.
     if (!knownDirectories.containsKey(root)) {
+      Path rootPath = dir.getFileSystem().getPath(root);
       FileStatus stat = rootPath.statIfFound(Symlinks.NOFOLLOW);
       if (stat == null) {
         rootPath.createDirectoryAndParents();
@@ -271,22 +274,24 @@ public final class ActionOutputDirectoryHelper {
     }
 
     // Walk up until the first known directory is found (must be root or below).
-    List<Path> checkDirs = new ArrayList<>();
-    while (!dir.equals(rootPath) && !knownDirectories.containsKey(dir.asFragment())) {
-      checkDirs.add(dir);
-      dir = dir.getParentDirectory();
+    List<PathFragment> checkDirs = new ArrayList<>();
+    PathFragment dirFragment = dir.asFragment();
+    while (!dirFragment.equals(root) && !knownDirectories.containsKey(dirFragment)) {
+      checkDirs.add(dirFragment);
+      dirFragment = dirFragment.getParentDirectory();
     }
 
     // Check in reverse order (parent directory first).
-    boolean parentCreated = knownDirectories.get(dir.asFragment()) == DirectoryState.CREATED;
-    for (Path path : Lists.reverse(checkDirs)) {
+    boolean parentCreated = knownDirectories.get(dirFragment) == DirectoryState.CREATED;
+    for (PathFragment pathFragment : Lists.reverse(checkDirs)) {
+      Path path = dir.getFileSystem().getPath(pathFragment);
       if (parentCreated) {
         // If we have created this directory's parent, we know that it doesn't exist or else we
         // would know about it already. Even if a parallel thread has created it in the meantime,
         // createDirectory() will succeed and we can assume that a regular directory exists
         // afterwards.
         path.createDirectory();
-        knownDirectories.put(path.asFragment(), DirectoryState.CREATED);
+        knownDirectories.put(pathFragment, DirectoryState.CREATED);
         continue;
       }
       // Otherwise, check whether the directory already exists.
@@ -307,13 +312,13 @@ public final class ActionOutputDirectoryHelper {
         } else if ((perms & 0700) != 0700) {
           path.chmod(perms | 0700);
         }
-        knownDirectories.put(path.asFragment(), DirectoryState.FOUND);
+        knownDirectories.put(pathFragment, DirectoryState.FOUND);
       } else {
         // Create the directory. Even if a parallel thread has created it in the meantime,
         // createDirectory() will succeed and we can assume that a regular directory exists
         // afterwards.
         path.createDirectory();
-        knownDirectories.put(path.asFragment(), DirectoryState.CREATED);
+        knownDirectories.put(pathFragment, DirectoryState.CREATED);
       }
     }
   }

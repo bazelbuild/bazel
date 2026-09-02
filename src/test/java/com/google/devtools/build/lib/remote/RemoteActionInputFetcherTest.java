@@ -253,6 +253,34 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
         .isEqualTo("hello world");
   }
 
+  @Test
+  public void prefetchFiles_execRootOnOverlayFileSystem_replacesParentFile() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Artifact a = createRemoteArtifact("dir/file", "hello world", metadata, cas);
+    FileSystemUtils.writeContent(a.getPath().getParentDirectory(), StandardCharsets.UTF_8, "stale");
+    RemoteExternalOverlayFileSystem overlayFs =
+        new RemoteExternalOverlayFileSystem(PathFragment.create("/output_base/external"), fs);
+    RemoteActionInputFetcher actionInputFetcher =
+        new RemoteActionInputFetcher(
+            new Reporter(new EventBusEventHandler(eventBus)),
+            "none",
+            "none",
+            newCombinedCache(digestUtil, cas),
+            overlayFs.getPath(execRoot.getPathString()),
+            tempPathGenerator,
+            DUMMY_REMOTE_OUTPUT_CHECKER,
+            ActionOutputDirectoryHelper.createForTesting(),
+            OutputPermissions.READONLY);
+
+    wait(
+        actionInputFetcher.prefetchFilesInterruptibly(
+            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+
+    assertThat(FileSystemUtils.readContent(a.getPath(), StandardCharsets.UTF_8))
+        .isEqualTo("hello world");
+  }
+
   private CombinedCache newCombinedCache(DigestUtil digestUtil, Map<HashCode, byte[]> cas) {
     Map<Digest, byte[]> cacheEntries = Maps.newHashMapWithExpectedSize(cas.size());
     for (Map.Entry<HashCode, byte[]> entry : cas.entrySet()) {
