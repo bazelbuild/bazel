@@ -19,7 +19,7 @@ import tempfile
 import unittest
 
 from google.protobuf import proto
-from third_party.py import mock
+import mock
 
 from src.main.protobuf import analysis_v2_pb2
 from tools.aquery_differ import aquery_differ
