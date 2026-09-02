@@ -238,9 +238,11 @@ void ReleaseLock(LockHandle lock_handle);
 bool VerifyServerProcess(int pid, const blaze_util::Path& output_base);
 
 // Parses the content of /proc/[pid]/stat (passed as statline) to extract the
-// start time (field 22). Returns true on success and writes the start time to
-// 'start_time'. Returns false on failure.
-bool ParseProcStat(absl::string_view statline, std::string* start_time);
+// start time (field 22) and optionally the process state (field 3). Returns
+// true on success and writes the start time to 'start_time' and state to
+// 'state'. Returns false on failure.
+bool ParseProcStat(absl::string_view statline, std::string* start_time,
+                   char* state = nullptr);
 
 // Parses the content of /proc/[pid]/stat (passed as statline) to generate a
 // diagnostic message explaining why process `pid` has not terminated.

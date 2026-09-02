@@ -162,7 +162,8 @@ string GetSystemJavabase() {
   return blaze_util::Dirname(blaze_util::Dirname(java_dir));
 }
 
-bool ParseProcStat(absl::string_view statline, string* start_time) {
+bool ParseProcStat(absl::string_view statline, string* start_time,
+                   char* state) {
   size_t last_parenthesis = statline.rfind(')');
   if (last_parenthesis == absl::string_view::npos) {
     return false;
@@ -179,13 +180,21 @@ bool ParseProcStat(absl::string_view statline, string* start_time) {
     return false;
   }
 
+  if (state != nullptr) {
+    if (stat_entries[0].empty()) {
+      return false;
+    }
+    *state = stat_entries[0][0];
+  }
+
   // Start time since startup in jiffies.
   *start_time = string(stat_entries[kStartTimeIndexInRemainder]);
   return true;
 }
 
 // Called from a signal handler!
-static bool GetStartTime(const string& pid, string* start_time) {
+static bool GetStartTime(const string& pid, string* start_time,
+                         char* state = nullptr) {
   string statfile = "/proc/" + pid + "/stat";
   string statline;
 
@@ -193,7 +202,7 @@ static bool GetStartTime(const string& pid, string* start_time) {
     return false;
   }
 
-  if (!ParseProcStat(statline, start_time)) {
+  if (!ParseProcStat(statline, start_time, state)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Format of stat file at " << statfile << " is unknown";
   }
@@ -275,9 +284,16 @@ void WriteSystemSpecificProcessIdentifier(const blaze_util::Path &server_dir,
 // than there are PIDs available within a single jiffy.
 bool VerifyServerProcess(int pid, const blaze_util::Path &output_base) {
   string start_time;
-  if (!GetStartTime(blaze_util::ToString(pid), &start_time)) {
+  char state = '\0';
+  if (!GetStartTime(blaze_util::ToString(pid), &start_time, &state)) {
     // Cannot read PID file from /proc . Process died meantime, all is good. No
     // stale server is present.
+    return false;
+  }
+
+  // If the process is a Zombie ('Z') or Dead ('X'/'x'), it has already
+  // terminated and is no longer running.
+  if (state == 'Z' || state == 'X' || state == 'x') {
     return false;
   }
 

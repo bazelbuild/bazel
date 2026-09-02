@@ -21,11 +21,15 @@
 
 namespace {
 
-std::string MakeStatLine(absl::string_view comm) {
+std::string MakeStatLineWithState(absl::string_view comm, char state) {
   return absl::StrCat(
-      "12345 (", comm,
-      ") S 1 12345 12345 34816 12345 4194560 111 0 222 0 333 444 0 0 20 0 1 0 "
+      "12345 (", comm, ") ", std::string(1, state),
+      " 1 12345 12345 34816 12345 4194560 111 0 222 0 333 444 0 0 20 0 1 0 "
       "424242 10000 500\n");
+}
+
+std::string MakeStatLine(absl::string_view comm) {
+  return MakeStatLineWithState(comm, 'S');
 }
 
 TEST(ProcStatParse, ValidStatLine) {
@@ -33,6 +37,17 @@ TEST(ProcStatParse, ValidStatLine) {
   for (const auto* comm : {"java", "blaze(a b)", ") 7 6 5 4 3 2 1", "a  b"}) {
     EXPECT_TRUE(blaze::ParseProcStat(MakeStatLine(comm), &start_time));
     EXPECT_EQ(start_time, "424242");
+  }
+}
+
+TEST(ProcStatParse, ExtractsState) {
+  std::string start_time;
+  char state = '\0';
+  for (char expected_state : {'S', 'R', 'D', 'T', 'Z', 'X', 'x'}) {
+    EXPECT_TRUE(blaze::ParseProcStat(
+        MakeStatLineWithState("java", expected_state), &start_time, &state));
+    EXPECT_EQ(start_time, "424242");
+    EXPECT_EQ(state, expected_state);
   }
 }
 
