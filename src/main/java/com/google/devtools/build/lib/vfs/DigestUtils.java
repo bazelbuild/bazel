@@ -119,22 +119,8 @@ public class DigestUtils {
    * <p>If {@link Path#getFastDigest} has already been attempted and was not available, call {@link
    * #manuallyComputeDigest} to skip an additional attempt to obtain the fast digest.
    *
-   * <p>Prefer calling {@link #manuallyComputeDigest(Path, FileStatus)} when a recently obtained
-   * {@link FileStatus} is available.
-   *
    * @param path the file path
-   */
-  public static byte[] getDigestWithManualFallback(Path path, XattrProvider xattrProvider)
-      throws IOException {
-    return getDigestWithManualFallback(path, xattrProvider, null);
-  }
-
-  /**
-   * Same as {@link #getDigestWithManualFallback(Path, XattrProvider)}, but providing the ability to
-   * reuse a recently obtained {@link FileStatus}.
-   *
-   * @param path the file path
-   * @param status a recently obtained file status, if available
+   * @param status a recently obtained file status, if available. Used to skip a stat.
    */
   public static byte[] getDigestWithManualFallback(
       Path path, XattrProvider xattrProvider, @Nullable FileStatus status) throws IOException {

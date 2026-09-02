@@ -444,16 +444,20 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     // We don't have an injected digest and there is no digest in the file value (which attempts a
     // fast digest). Manually compute the digest instead.
     var path = statAndValue.pathNoFollow();
-    // The file exists and is not an unresolved symlink, so it must have been stat'ed.
-    if (checkNotNull(statAndValue.statNoFollow(), statAndValue).isSymbolicLink()) {
+    // The file exists and is not an unresolved symlink, so it must have been stat'ed. Since the
+    // stat was taken without following symlinks, it only describes the file we are about to digest
+    // as long as the path isn't a symlink.
+    var stat = checkNotNull(statAndValue.statNoFollow(), statAndValue);
+    if (stat.isSymbolicLink()) {
       // If the file is a symlink, we compute the digest using the target path so that it's
       // possible to hit the digest cache - we probably already computed the digest for the
       // target during previous action execution.
       // The case of an unresolved symlink has been handled above, so realPath() is never null.
       path = checkNotNull(statAndValue.realPath(), statAndValue);
+      stat = null;
     }
     return FileArtifactValue.createFromInjectedDigest(
-        value, DigestUtils.manuallyComputeDigest(path));
+        value, DigestUtils.manuallyComputeDigest(path, stat));
   }
 
   /**
