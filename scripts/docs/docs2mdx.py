@@ -217,6 +217,8 @@ def _transform(path, content):
 
 
 def _html2md(content):
+  # HTML content needs a few extra transforms.
+  content = _move_flag_links_outside_code(content)
   return AcornSafeMarkdownConverter(heading_style="ATX").convert(content)
 
 
@@ -234,8 +236,7 @@ def _pre_markdown_transforms(content):
   # Remove Project: and Book: lines
   no_metadata = _METADATA_PATTERN.sub("", no_comments, count=2).lstrip()
   no_templates = _TEMPLATE_RE.sub("", no_metadata)
-  heading_anchors = _convert_heading_ids_to_mdx_anchors(no_templates)
-  return _move_flag_links_outside_code(heading_anchors)
+  return _convert_heading_ids_to_mdx_anchors(no_templates)
 
 
 def _move_flag_links_outside_code(content):
