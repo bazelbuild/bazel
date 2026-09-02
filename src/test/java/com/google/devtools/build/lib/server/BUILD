@@ -25,6 +25,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/server:install_base_garbage_collector",
         "//src/main/java/com/google/devtools/build/lib/server:pid_file_watcher",
         "//src/main/java/com/google/devtools/build/lib/server:shutdown_hooks",
+        "//src/main/java/com/google/devtools/build/lib/server:terminal_size_monitor",
         "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",

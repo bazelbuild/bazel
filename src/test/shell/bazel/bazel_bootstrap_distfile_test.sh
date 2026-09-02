@@ -102,6 +102,13 @@ function test_bootstrap() {
 
     JAVABASE=$(echo reduced*)
 
+    # TODO: Remove once rules_python exports runtime_env_toolchain_interpreter.sh
+    # See https://github.com/bazel-contrib/rules_python/pull/3471
+    # TODO: Enable macOS layering_check when dependencies are updated
+    export EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS:-} \
+      --noincompatible_no_implicit_file_export \
+      --repo_env=APPLE_SUPPORT_LAYERING_CHECK_BETA=0"
+
     ./compile.sh || fail "Expected to be able to bootstrap bazel.\
  If you updated MODULE.bazel, see the NOTE in that file."
 
@@ -144,6 +151,7 @@ EOF
     ./output/bazel \
       --server_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \
       build --nobuild --repository_cache=derived/repository_cache --repo_contents_cache= \
+      --repo_env=APPLE_SUPPORT_LAYERING_CHECK_BETA=0 \
       --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
       --java_language_version=${JAVA_VERSION} --tool_java_language_version=${JAVA_VERSION} \
       --java_runtime_version=local_jdk --tool_java_runtime_version=local_jdk \

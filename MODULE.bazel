@@ -41,7 +41,7 @@ bazel_dep(name = "zstd-jni", version = "1.5.6-9")
 
 # Depend on apple_support first and then rules_cc so that the Xcode toolchain
 # from apple_support wins over the generic Unix toolchain from rules_cc.
-bazel_dep(name = "apple_support", version = "1.24.5")
+bazel_dep(name = "apple_support", version = "2.5.2")
 bazel_dep(name = "rules_cc", version = "0.2.17")
 
 # The starlark rules in @rules_cc are hidden behind macros but docgen needs to
@@ -426,7 +426,7 @@ use_repo(
 # Other Bazel testing dependencies
 # =========================================
 
-bazel_dep(name = "bazel_ci_rules", version = "2.0.0")
+bazel_dep(name = "bazel_ci_rules", version = "2.1.1")
 bazel_dep(name = "rules_fuzzing", version = "0.6.0")
 bazel_dep(name = "wabt", version = "1.0.37")
 

@@ -25,6 +25,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.SplitBlobResponse;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -68,10 +69,47 @@ public class ChunkedBlobDownloaderTest {
   }
 
   @Test
-  public void downloadChunked_splitBlobReturnsNull_throwsCacheNotFound() {
+  public void downloadChunked_splitBlobReturnsNull_throwsBlobNotSplittable() {
     Digest blobDigest = DIGEST_UTIL.compute(new byte[] {1, 2, 3});
     when(grpcCacheClient.splitBlob(any(), eq(blobDigest))).thenReturn(null);
 
+    assertThrows(
+        BlobNotSplittableException.class,
+        () -> downloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream()));
+  }
+
+  @Test
+  public void downloadChunked_serverReturnsNoChunks_throwsBlobNotSplittable() {
+    Digest blobDigest = DIGEST_UTIL.compute(new byte[] {1, 2, 3});
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest)))
+        .thenReturn(Futures.immediateFuture(SplitBlobResponse.getDefaultInstance()));
+
+    assertThrows(
+        BlobNotSplittableException.class,
+        () -> downloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream()));
+  }
+
+  @Test
+  public void downloadChunked_chunkMissing_propagatesCacheNotFound() throws Exception {
+    byte[] chunk1Data = new byte[] {1, 2, 3};
+    byte[] chunk2Data = new byte[] {4, 5, 6};
+    Digest chunk1Digest = DIGEST_UTIL.compute(chunk1Data);
+    Digest chunk2Digest = DIGEST_UTIL.compute(chunk2Data);
+    Digest blobDigest = DIGEST_UTIL.compute(new byte[] {1, 2, 3, 4, 5, 6});
+
+    SplitBlobResponse splitResponse =
+        SplitBlobResponse.newBuilder()
+            .addChunkDigests(chunk1Digest)
+            .addChunkDigests(chunk2Digest)
+            .build();
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest)))
+        .thenReturn(Futures.immediateFuture(splitResponse));
+    when(combinedCache.downloadBlob(any(), eq(chunk1Digest)))
+        .thenReturn(Futures.immediateFuture(chunk1Data));
+    when(combinedCache.downloadBlob(any(), eq(chunk2Digest)))
+        .thenReturn(Futures.immediateFailedFuture(new CacheNotFoundException(chunk2Digest)));
+
+    // A missing chunk is a missing blob, not an invitation to retry the download differently.
     assertThrows(
         CacheNotFoundException.class,
         () -> downloader.downloadChunked(context, blobDigest, new ByteArrayOutputStream()));
@@ -349,6 +387,10 @@ public class ChunkedBlobDownloaderTest {
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     assertThrows(IOException.class, () -> downloader.downloadChunked(context, blobDigest, out));
+
+    // Chunks are written as they arrive, so a failed download leaves a prefix of the blob behind.
+    // Callers must not restart the download into the same stream.
+    assertThat(out.toByteArray()).isEqualTo(chunk1Data);
   }
 
   @Test

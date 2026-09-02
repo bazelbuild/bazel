@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createDepSpec;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -358,7 +359,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "include('//java:java.MODULE.bazel')",
         "bazel_dep(name='foo', version='1.0')",
         "register_toolchains('//:whatever')",
-        "include('//python:python.MODULE.bazel')");
+        "include('//python:python.MODULE.bazel', dev_dependency=True)");
     scratch.overwriteFile(rootDirectory.getRelative("java/BUILD").getPathString());
     scratch.overwriteFile(
         rootDirectory.getRelative("java/java.MODULE.bazel").getPathString(),
@@ -401,6 +402,35 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             "java-foo",
             SingleVersionOverride.create(
                 Version.parse("2.0"), "", ImmutableList.of(), ImmutableList.of(), 0));
+  }
+
+  @Test
+  public void testRootModule_devIncludeIgnoredWithIgnoreDevDependency() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "bazel_dep(name='foo', version='1.0')",
+        "include('//missing:dev.MODULE.bazel', dev_dependency=True)",
+        "include('//prod:prod.MODULE.bazel')");
+    scratch.overwriteFile(rootDirectory.getRelative("prod/BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("prod/prod.MODULE.bazel").getPathString(),
+        "bazel_dep(name='bar', version='2.0')",
+        "include('//missing:nested-dev.MODULE.bazel', dev_dependency=True)");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).module().getDeps())
+        .containsExactly(
+            "foo", createDepSpec("foo", "1.0", -1),
+            "bar", createDepSpec("bar", "2.0", -1))
+        .inOrder();
   }
 
   @Test
@@ -483,6 +513,89 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().toString()).contains("bad include label");
+  }
+
+  @Test
+  public void testRootModule_include_bad_selfCycle() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "include('//java:java.MODULE.bazel')");
+    scratch.overwriteFile(rootDirectory.getRelative("java/BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("java/java.MODULE.bazel").getPathString(),
+        "include('//java:java.MODULE.bazel')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent(
+        "include() cycle detected: //java:java.MODULE.bazel -> //java:java.MODULE.bazel");
+  }
+
+  @Test
+  public void testRootModule_include_bad_indirectCycle() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "include('//java:java.MODULE.bazel')");
+    scratch.overwriteFile(rootDirectory.getRelative("java/BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("java/java.MODULE.bazel").getPathString(),
+        "include('//python:python.MODULE.bazel')");
+    scratch.overwriteFile(rootDirectory.getRelative("python/BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("python/python.MODULE.bazel").getPathString(),
+        "include('//java:java.MODULE.bazel')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent(
+        "include() cycle detected: //java:java.MODULE.bazel -> //python:python.MODULE.bazel ->"
+            + " //java:java.MODULE.bazel");
+  }
+
+  @Test
+  public void testRootModule_include_sameFileMultipleTimes() throws Exception {
+    // The same file can be reached via multiple include() paths; it is then executed once per path,
+    // just as if its contents had been inlined at each call site.
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "include('//java:java.MODULE.bazel')",
+        "include('//python:python.MODULE.bazel')");
+    scratch.overwriteFile(rootDirectory.getRelative("java/BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("java/java.MODULE.bazel").getPathString(),
+        "include('//common:common.MODULE.bazel')");
+    scratch.overwriteFile(rootDirectory.getRelative("python/BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("python/python.MODULE.bazel").getPathString(),
+        "include('//common:common.MODULE.bazel')");
+    scratch.overwriteFile(rootDirectory.getRelative("common/BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("common/common.MODULE.bazel").getPathString(),
+        "register_toolchains('//:common-toolchain')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).module().getToolchainsToRegister())
+        .containsExactly("//:common-toolchain", "//:common-toolchain");
   }
 
   @Test
@@ -620,6 +733,25 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             evaluationContext);
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().toString()).contains("but it can only be used in the root module");
+  }
+
+  @Test
+  public void testRegistryModuleDevIncludeIsIgnored() throws Exception {
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/foo")
+            .addModule(
+                createModuleKey("foo", "1.0"),
+                "module(name='foo',version='1.0')",
+                "include('//missing:dev.MODULE.bazel', dev_dependency=True)");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    SkyKey skyKey = ModuleFileValue.key(createModuleKey("foo", "1.0"));
+    EvaluationResult<ModuleFileValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(skyKey).module().getName()).isEqualTo("foo");
   }
 
   @Ignore(
