@@ -751,6 +751,21 @@ class TestWrapperTest(test_base.TestBase):
         + flags
     )
 
+  def _AssertEmptyEnv(self, flags):
+    # Test that empty environment variables (such as --action_env=PATH= or
+    # --test_env=USER=) do not cause the Windows test wrapper to fail.
+    # See https://github.com/bazelbuild/bazel/issues/15364
+    self.RunBazel(
+        [
+            'test',
+            '//foo:passing_test',
+            '-t-',
+            '--action_env=PATH=',
+            '--test_env=USER=',
+        ]
+        + flags
+    )
+
   def testTestExecutionWithTestWrapperExe(self):
     self._CreateMockWorkspace()
     flags = ['--shell_executable=']
@@ -768,6 +783,7 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertXmlGeneration(flags)
     self._AssertXmlGeneratedByTestIsRetained(flags)
     self._AssertAddCurrentDirectoryToPathTest(flags)
+    self._AssertEmptyEnv(flags)
 
   # Test that chdir'ing into a runfiles directory longer than MAX_PATH works.
   # See https://github.com/bazelbuild/bazel/issues/30609
