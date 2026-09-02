@@ -360,6 +360,7 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
       path = resolveSymbolicLinksForParent(path);
     } catch (FileNotFoundException ignored) {
       // Failure to delete a nonexistent path is not an error.
+      pathCanonicalizer.clearPrefix(originalPath);
       return false;
     }
 
