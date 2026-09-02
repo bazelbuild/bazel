@@ -374,6 +374,30 @@ public class RemoteOutputChecker implements OutputChecker {
     return true;
   }
 
+  @Override
+  public boolean shouldTrustCachedMetadata(ActionInput file, FileArtifactValue metadata) {
+    // Local metadata is always trusted.
+    if (!metadata.isRemote()) {
+      return true;
+    }
+
+    if (!metadata.isInMemoryOutput()) {
+      // For ActionCache validation in the current build, only check whether this file is
+      // requested for download in the CURRENT build (do NOT check lastRemoteOutputChecker,
+      // which would incorrectly invalidate intermediate outputs that were temporarily top-level
+      // in a previous build, e.g. rules_xcodeproj index builds, see issue #26924).
+      if (shouldDownloadOutput(file, metadata)) {
+        return false;
+      }
+    }
+
+    if (clock != null) {
+      return isAlive(metadata);
+    }
+
+    return true;
+  }
+
   private boolean isAlive(FileArtifactValue metadata) {
     var expirationTime = metadata.getExpirationTime();
     return expirationTime == null || expirationTime.isAfter(clock.now());

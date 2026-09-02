@@ -824,7 +824,8 @@ public final class ActionCacheCheckerTest {
             outputChecker,
             /* useArchivedTreeArtifacts= */ false);
     verify(outputChecker)
-        .shouldTrustMetadata(argThat(arg -> arg.getExecPathString().endsWith("bin/dummy")), any());
+        .shouldTrustCachedMetadata(
+            argThat(arg -> arg.getExecPathString().endsWith("bin/dummy")), any());
     // Not cached since local file changed
     runAction(
         action,
@@ -882,7 +883,7 @@ public final class ActionCacheCheckerTest {
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
 
     OutputChecker outputChecker = mock(OutputChecker.class);
-    when(outputChecker.shouldTrustMetadata(any(), any())).thenReturn(false);
+    when(outputChecker.shouldTrustCachedMetadata(any(), any())).thenReturn(false);
 
     runAction(
         action,
@@ -1171,7 +1172,7 @@ public final class ActionCacheCheckerTest {
     runAction(action);
     writeIsoLatin1(output.getPath().getRelative("file2"), "modified_local");
     var outputChecker = mock(OutputChecker.class);
-    when(outputChecker.shouldTrustMetadata(any(), any())).thenReturn(true);
+    when(outputChecker.shouldTrustCachedMetadata(any(), any())).thenReturn(true);
     var token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
@@ -1185,9 +1186,11 @@ public final class ActionCacheCheckerTest {
             outputChecker,
             /* useArchivedTreeArtifacts= */ false);
     verify(outputChecker)
-        .shouldTrustMetadata(argThat(arg -> arg.getExecPathString().endsWith("file1")), any());
+        .shouldTrustCachedMetadata(
+            argThat(arg -> arg.getExecPathString().endsWith("file1")), any());
     verify(outputChecker)
-        .shouldTrustMetadata(argThat(arg -> arg.getExecPathString().endsWith("file2")), any());
+        .shouldTrustCachedMetadata(
+            argThat(arg -> arg.getExecPathString().endsWith("file2")), any());
     // Not cached since local file changed
     runAction(
         action,
@@ -1244,7 +1247,7 @@ public final class ActionCacheCheckerTest {
     writeIsoLatin1(ArchivedTreeArtifact.createForTree(output).getPath(), "modified");
 
     var outputChecker = mock(OutputChecker.class);
-    when(outputChecker.shouldTrustMetadata(any(), any())).thenReturn(true);
+    when(outputChecker.shouldTrustCachedMetadata(any(), any())).thenReturn(true);
     var token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
@@ -1257,7 +1260,7 @@ public final class ActionCacheCheckerTest {
             /* actionExecutionSalt= */ "",
             outputChecker,
             /* useArchivedTreeArtifacts= */ false);
-    when(outputChecker.shouldTrustMetadata(any(), any())).thenReturn(true);
+    when(outputChecker.shouldTrustCachedMetadata(any(), any())).thenReturn(true);
     // Not cached since local file changed
     runAction(
         action,
@@ -1621,7 +1624,7 @@ public final class ActionCacheCheckerTest {
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
 
     OutputChecker outputChecker = mock(OutputChecker.class);
-    when(outputChecker.shouldTrustMetadata(any(), any())).thenReturn(false);
+    when(outputChecker.shouldTrustCachedMetadata(any(), any())).thenReturn(false);
 
     runAction(
         action,

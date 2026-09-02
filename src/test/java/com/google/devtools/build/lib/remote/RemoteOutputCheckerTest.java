@@ -57,7 +57,6 @@ public class RemoteOutputCheckerTest {
             remoteOutputChecker.shouldDownloadOutput(PathFragment.create("out/foo/bar-baz"), null))
         .isTrue();
   }
-
   @Test
   public void shouldTrustMetadata_previousBuildDownloadedAll_trusted() {
     // Outputs that the current build does not want downloaded must not be distrusted
@@ -128,5 +127,29 @@ public class RemoteOutputCheckerTest {
     currentBuildChecker.addOutputToDownload(artifact);
 
     assertThat(currentBuildChecker.shouldTrustMetadata(artifact, metadata)).isFalse();
+  }
+
+  @Test
+  public void testShouldTrustCachedMetadata_ignoresLastRemoteOutputChecker() {
+    RemoteOutputChecker lastChecker =
+        new RemoteOutputChecker("build", RemoteOutputsMode.MINIMAL, ImmutableList.of());
+    lastChecker.addOutputToDownload(ActionsTestUtil.createArtifact(execRoot, "foo/bar-baz"));
+
+    RemoteOutputChecker checker =
+        new RemoteOutputChecker(
+            "build", RemoteOutputsMode.MINIMAL, ImmutableList.of(), lastChecker);
+
+    FileArtifactValue remoteMetadata =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            new byte[] {1, 2, 3}, 10, 1, /* expirationTime= */ null, /* inMemoryOutput= */ false);
+
+    assertThat(
+            checker.shouldTrustCachedMetadata(
+                ActionsTestUtil.createArtifact(execRoot, "foo/bar-baz"), remoteMetadata))
+        .isTrue();
+    assertThat(
+            checker.shouldTrustMetadata(
+                ActionsTestUtil.createArtifact(execRoot, "foo/bar-baz"), remoteMetadata))
+        .isFalse();
   }
 }
