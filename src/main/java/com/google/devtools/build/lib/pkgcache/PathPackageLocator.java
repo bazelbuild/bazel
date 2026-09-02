@@ -226,25 +226,7 @@ public final class PathPackageLocator {
                     + "' wildcard."));
       }
 
-      boolean rootPathExists;
-      try {
-        rootPathExists = rootPath.exists();
-      } catch (IOException e) {
-        throw new AbruptExitException(
-            DetailedExitCode.of(
-                FailureDetail.newBuilder()
-                    .setMessage(
-                        String.format(
-                            "Failed to check whether directory '%s' specified in --package_path"
-                                + " exists: %s",
-                            pathElement, e.getMessage()))
-                    .setPackageOptions(
-                        FailureDetails.PackageOptions.newBuilder()
-                            .setCode(Code.PACKAGE_PATH_IO_EXCEPTION))
-                    .build()));
-      }
-
-      if (rootPathExists) {
+      if (rootPath.exists()) {
         resolvedPaths.add(Root.fromPath(rootPath));
       }
     }

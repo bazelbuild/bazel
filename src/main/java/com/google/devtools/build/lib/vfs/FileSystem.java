@@ -562,24 +562,16 @@ public abstract class FileSystem {
     return readSymbolicLink(path);
   }
 
-  /**
-   * Returns true iff this path denotes an existing file of any kind. Follows symbolic links.
-   *
-   * @throws IOException if an error occurs while determining existence
-   */
-  public boolean exists(PathFragment path) throws IOException {
+  /** Returns true iff this path denotes an existing file of any kind. Follows symbolic links. */
+  public boolean exists(PathFragment path) {
     return exists(path, true);
   }
 
   /**
    * Returns true iff {@code path} denotes an existing file of any kind. See {@link
    * Path#exists(Symlinks)} for specification.
-   *
-   * @throws IOException if an error occurs while determining existence
    */
-  public boolean exists(PathFragment path, boolean followSymlinks) throws IOException {
-    return statIfFound(path, followSymlinks) != null;
-  }
+  public abstract boolean exists(PathFragment path, boolean followSymlinks);
 
   /**
    * Returns a collection containing the names of all entities within the directory denoted by the

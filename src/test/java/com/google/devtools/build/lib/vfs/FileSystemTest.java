@@ -277,7 +277,7 @@ public abstract class FileSystemTest {
     Path child = inaccessible.getChild("child");
     FileSystemUtils.createEmptyFile(child);
     inaccessible.setExecutable(false);
-    assertThrows(IOException.class, () -> child.exists());
+    assertThat(child.exists()).isFalse();
     assertThrows(IOException.class, () -> child.statIfFound());
   }
 

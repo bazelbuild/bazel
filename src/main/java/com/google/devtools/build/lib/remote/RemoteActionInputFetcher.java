@@ -80,7 +80,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
   }
 
   @Override
-  protected boolean canDownloadFile(Path path, FileArtifactValue metadata) throws IOException {
+  protected boolean canDownloadFile(Path path, FileArtifactValue metadata) {
     // Only files and directories have remote-only content that can be downloaded.
     if (metadata.getType() != FileStateType.REGULAR_FILE
         && metadata.getType() != FileStateType.DIRECTORY) {

@@ -42,7 +42,7 @@ public class RepositoryUtils {
 
   private RepositoryUtils() {}
 
-  public static boolean isValidRepoRoot(Path directory) throws IOException {
+  public static boolean isValidRepoRoot(Path directory) {
     // Keep in sync with //src/main/cpp/workspace_layout.h
     return directory.getRelative(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME).exists()
         || directory.getRelative(LabelConstants.WORKSPACE_FILE_NAME).exists()

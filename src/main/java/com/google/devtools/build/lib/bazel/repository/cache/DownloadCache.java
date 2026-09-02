@@ -112,12 +112,12 @@ public class DownloadCache {
    * @param keyType The type of key used. See: KeyType
    * @return true if the cache entry exist, false otherwise.
    */
-  public boolean exists(String cacheKey, KeyType keyType) throws IOException {
+  public boolean exists(String cacheKey, KeyType keyType) {
     Preconditions.checkState(isEnabled());
     return keyType.getCachePath(path).getChild(cacheKey).getChild(DEFAULT_CACHE_FILENAME).exists();
   }
 
-  boolean hasCanonicalId(String cacheKey, KeyType keyType, String canonicalId) throws IOException {
+  boolean hasCanonicalId(String cacheKey, KeyType keyType, String canonicalId) {
     Preconditions.checkState(isEnabled());
     String idHash = keyType.newHasher().putString(canonicalId, UTF_8).hash().toString();
     return keyType.getCachePath(path).getChild(cacheKey).getChild(ID_PREFIX + idHash).exists();

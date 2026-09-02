@@ -103,10 +103,11 @@ public class DigestWriter {
    */
   Optional<String> areRepositoryAndMarkerFileConsistent(Environment env, Path markerPath)
       throws RepositoryFunctionException, InterruptedException {
+    if (!markerPath.exists()) {
+      return Optional.of("repo hasn't been fetched yet");
+    }
+
     try {
-      if (!markerPath.exists()) {
-        return Optional.of("repo hasn't been fetched yet");
-      }
       String content = FileSystemUtils.readContent(markerPath, ISO_8859_1);
       Optional<ImmutableList<RepoRecordedInput.WithValue>> recordedInputValues =
           readMarkerFile(content, Preconditions.checkNotNull(predeclaredInputHash));

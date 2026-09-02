@@ -153,12 +153,12 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   }
 
   @Override
-  public boolean exists(PathFragment path, boolean followSymlinks) throws IOException {
+  public boolean exists(PathFragment path, boolean followSymlinks) {
     return delegateFs.exists(toDelegatePath(path), followSymlinks);
   }
 
   @Override
-  public boolean exists(PathFragment path) throws IOException {
+  public boolean exists(PathFragment path) {
     return delegateFs.exists(toDelegatePath(path));
   }
 

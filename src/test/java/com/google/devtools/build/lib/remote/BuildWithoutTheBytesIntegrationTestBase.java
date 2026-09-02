@@ -2133,7 +2133,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     return getTargetConfiguration().getBinDir().getRoot().getRelative(binRelativePath);
   }
 
-  protected void assertOutputDoesNotExist(String binRelativePath) throws IOException {
+  protected void assertOutputDoesNotExist(String binRelativePath) {
     Path output = getOutputPath(binRelativePath);
     assertThat(output.exists()).isFalse();
   }

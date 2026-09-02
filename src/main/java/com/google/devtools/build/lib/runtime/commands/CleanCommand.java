@@ -180,10 +180,6 @@ public final class CleanCommand implements BlazeCommand {
 
   private static void asyncClean(CommandEnvironment env, Path path, String pathItemName)
       throws IOException, CommandException, InterruptedException {
-    if (!path.exists()) {
-      return;
-    }
-
     String tempBaseName =
         path.getBaseName() + "_tmp_" + ProcessHandle.current().pid() + "_" + UUID.randomUUID();
 
@@ -280,20 +276,22 @@ public final class CleanCommand implements BlazeCommand {
       logger.atInfo().log("Output cleaning...");
       env.getBlazeWorkspace().resetEvaluator();
       Path execroot = outputBase.getRelative("execroot");
-      logger.atFinest().log("Cleaning %s%s", execroot, async ? " asynchronously..." : "");
-      if (async) {
-        try {
-          asyncClean(env, execroot, "Output tree");
-        } catch (IOException e) {
-          throw new CleanException(Code.EXECROOT_TEMP_MOVE_FAILURE, e);
-        } catch (CommandException e) {
-          throw new CleanException(Code.ASYNC_EXECROOT_DELETE_FAILURE, e);
-        }
-      } else {
-        try {
-          execroot.deleteTreesBelow();
-        } catch (IOException e) {
-          throw new CleanException(Code.EXECROOT_DELETE_FAILURE, e);
+      if (execroot.exists()) {
+        logger.atFinest().log("Cleaning %s%s", execroot, async ? " asynchronously..." : "");
+        if (async) {
+          try {
+            asyncClean(env, execroot, "Output tree");
+          } catch (IOException e) {
+            throw new CleanException(Code.EXECROOT_TEMP_MOVE_FAILURE, e);
+          } catch (CommandException e) {
+            throw new CleanException(Code.ASYNC_EXECROOT_DELETE_FAILURE, e);
+          }
+        } else {
+          try {
+            execroot.deleteTreesBelow();
+          } catch (IOException e) {
+            throw new CleanException(Code.EXECROOT_DELETE_FAILURE, e);
+          }
         }
       }
     }

@@ -347,7 +347,7 @@ public class PatchUtil {
 
   private static void checkFilesStatusForRenaming(
       Path oldFile, Path newFile, String oldFileStr, String newFileStr, int loc)
-      throws IOException, PatchFailedException {
+      throws PatchFailedException {
     // If we're doing a renaming,
     // old file should be specified and exists,
     // new file should be specified but doesn't exist yet.
@@ -376,7 +376,7 @@ public class PatchUtil {
       String oldFileStr,
       String newFileStr,
       int loc)
-      throws IOException, PatchFailedException {
+      throws PatchFailedException {
     // At least one of oldFile or newFile should be specified.
     if (oldFile == null && newFile == null) {
       throw new PatchFailedException(

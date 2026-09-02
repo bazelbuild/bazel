@@ -170,12 +170,8 @@ public final class StarlarkPath implements StarlarkValue {
           like the repo rule or module extension to be sensitive to the path's existence, \
           use the <code>watch()</code> method on the context object.
           """)
-  public boolean exists() throws RepositoryFunctionException {
-    try {
-      return path.exists();
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-    }
+  public boolean exists() {
+    return path.exists();
   }
 
   @StarlarkMethod(

@@ -79,7 +79,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.Driver;
-import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Semaphore;
@@ -410,8 +409,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     } catch (ActionConflictException e) {
       // The reporting will be done when going through errors in the build.
       throw new UnreportedException(e);
-    } catch (IOException e) {
-      throw new UnreportedException(e);
     } finally {
       maybeReleaseSemaphore();
     }
@@ -437,10 +434,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       @Nullable NestedSet<Package.Metadata> transitivePackages,
       boolean crashIfExecutionPhase,
       RemoteAnalysisCacheMode remoteAnalysisCacheMode)
-      throws ConfiguredValueCreationException,
-          IOException,
-          InterruptedException,
-          ActionConflictException {
+      throws ConfiguredValueCreationException, InterruptedException, ActionConflictException {
     Target target = ctgValue.getTarget();
     BuildConfigurationValue configuration = ctgValue.getConfiguration();
 

@@ -206,7 +206,7 @@ public final class ActionOutputMetadataStoreTest {
   }
 
   @Test
-  public void withMissingOutputArtifactStatsFileFailsWithException() throws Exception {
+  public void withMissingOutputArtifactStatsFileFailsWithException() {
     Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "foo/bar");
     assertThat(artifact.getPath().exists()).isFalse();
     ActionOutputMetadataStore store = createStore(/* outputs= */ ImmutableSet.of(artifact));

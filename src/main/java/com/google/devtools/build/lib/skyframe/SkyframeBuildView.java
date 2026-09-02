@@ -117,7 +117,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.OptionDefinition;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -1399,8 +1398,7 @@ public final class SkyframeBuildView {
       ExecGroupCollection.Builder execGroupCollectionBuilder,
       boolean crashIfExecutionPhase,
       boolean dependsOnFileKey)
-      throws IOException,
-          InterruptedException,
+      throws InterruptedException,
           ActionConflictException,
           InvalidExecGroupException,
           AnalysisFailurePropagationException,

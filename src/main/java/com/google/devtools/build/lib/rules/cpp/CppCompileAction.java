@@ -1918,14 +1918,8 @@ public class CppCompileAction extends AbstractAction
       return;
     }
     Path outputPath = actionExecutionContext.getInputPath(gcnoFile);
-    try {
-      if (outputPath.exists()) {
-        return;
-      }
-    } catch (IOException e) {
-      String message = "Error checking whether '" + outputPath + "' exists: " + e.getMessage();
-      DetailedExitCode code = createDetailedExitCode(message, Code.COVERAGE_NOTES_CREATION_FAILURE);
-      throw new ActionExecutionException(message, e, this, false, code);
+    if (outputPath.exists()) {
+      return;
     }
     try {
       FileSystemUtils.createEmptyFile(outputPath);

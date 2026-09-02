@@ -108,7 +108,7 @@ public class DownloadCacheTest {
   }
 
   @Test
-  public void testNonExistentCacheValue() throws Exception {
+  public void testNonExistentCacheValue() {
     String fakeHash = "a".repeat(64);
     assertThat(downloadCache.exists(fakeHash, keyType)).isFalse();
   }

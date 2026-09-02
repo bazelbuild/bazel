@@ -625,6 +625,15 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
   }
 
   @Override
+  public boolean exists(PathFragment path, boolean followSymlinks) {
+    try {
+      return statIfFound(path, followSymlinks) != null;
+    } catch (IOException e) {
+      return false;
+    }
+  }
+
+  @Override
   public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
     FileStatus stat = statIfFound(path, followSymlinks);
     if (stat == null) {

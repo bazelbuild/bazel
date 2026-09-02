@@ -395,19 +395,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
       return new Success(Root.fromPath(repoRoot), excludeRepoFromVendoring);
     }
 
-    boolean repoRootExists;
-    try {
-      repoRootExists = repoRoot.exists();
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(
-          new IOException(
-              "error checking whether repository root %s exists: %s"
-                  .formatted(repoRoot, e.getMessage()),
-              e),
-          Transience.TRANSIENT);
-    }
-
-    if (!repoRootExists) {
+    if (!repoRoot.exists()) {
       // The repository isn't on the file system, there is nothing we can do.
       throw new RepositoryFunctionException(
           new IOException(
@@ -439,20 +427,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
       throws RepositoryFunctionException, InterruptedException {
     Path vendorPath = RepositoryDirectoryValue.VENDOR_DIRECTORY.get(env).get();
     Path vendorRepoPath = vendorPath.getRelative(repositoryName.getName());
-
-    boolean vendorRepoExists;
-    try {
-      vendorRepoExists = vendorRepoPath.exists();
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(
-          new IOException(
-              "error checking whether vendored repo %s exists: %s"
-                  .formatted(vendorRepoPath, e.getMessage()),
-              e),
-          Transience.TRANSIENT);
-    }
-
-    if (vendorRepoExists) {
+    if (vendorRepoPath.exists()) {
       Path vendorMarker = vendorPath.getChild(repositoryName.getMarkerFileName());
       if (vendorFile.pinnedRepos().contains(repositoryName)) {
         // pinned repos are used as they are without checking their marker file
@@ -761,15 +736,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
           Transience.TRANSIENT);
     }
 
-    boolean isOutputDirectoryValidRepoRoot;
-    try {
-      isOutputDirectoryValidRepoRoot = RepositoryUtils.isValidRepoRoot(outputDirectory);
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-    }
-
     // Make sure the fetched repo has a boundary file.
-    if (!isOutputDirectoryValidRepoRoot) {
+    if (!RepositoryUtils.isValidRepoRoot(outputDirectory)) {
       boolean isSymbolicLink;
       try {
         isSymbolicLink = outputDirectory.isSymbolicLink();
@@ -909,15 +877,7 @@ public final class RepositoryFetchFunction implements SkyFunction {
     // Check that the directory contains a repo boundary file.
     // Note that we need to do this here since we're not creating a repo boundary file ourselves,
     // but entrusting the entire contents of the repo root to this target directory.
-
-    boolean isDestinationValidRepoRoot;
-    try {
-      isDestinationValidRepoRoot = RepositoryUtils.isValidRepoRoot(destination);
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-    }
-
-    if (!isDestinationValidRepoRoot) {
+    if (!RepositoryUtils.isValidRepoRoot(destination)) {
       throw new RepositoryFunctionException(
           new IOException("No MODULE.bazel, REPO.bazel, or WORKSPACE file found in " + destination),
           Transience.TRANSIENT);

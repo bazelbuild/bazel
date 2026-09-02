@@ -89,7 +89,6 @@ import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.Version;
-import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -322,7 +321,6 @@ public class BuildViewForTesting {
   public RuleContext getRuleContextForTesting(
       ConfiguredTarget target, StoredEventHandler eventHandler)
       throws DependencyResolutionHelpers.Failure,
-          IOException,
           InvalidConfigurationException,
           InterruptedException,
           InconsistentAspectOrderException,
@@ -359,7 +357,6 @@ public class BuildViewForTesting {
   public RuleContext getRuleContextForTesting(
       ExtendedEventHandler eventHandler, ConfiguredTarget configuredTarget, AnalysisEnvironment env)
       throws DependencyResolutionHelpers.Failure,
-          IOException,
           InvalidConfigurationException,
           InterruptedException,
           InconsistentAspectOrderException,

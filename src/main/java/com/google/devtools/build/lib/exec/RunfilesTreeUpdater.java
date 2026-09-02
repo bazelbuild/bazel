@@ -164,11 +164,11 @@ public class RunfilesTreeUpdater {
         new BufferedReader(new InputStreamReader(outputManifest.getInputStream(), ISO_8859_1))) {
       // If it is created at all, the manifest always contains at least one line.
       relativeRunfilePath = Splitter.on(' ').splitToList(reader.readLine()).get(0);
-      // The runfile could be a dangling symlink.
-      return runfilesDir.getRelative(relativeRunfilePath).exists(Symlinks.NOFOLLOW);
     } catch (IOException e) {
       // Instead of failing outright, just assume the runfiles directory is not populated.
       return false;
     }
+    // The runfile could be a dangling symlink.
+    return runfilesDir.getRelative(relativeRunfilePath).exists(Symlinks.NOFOLLOW);
   }
 }

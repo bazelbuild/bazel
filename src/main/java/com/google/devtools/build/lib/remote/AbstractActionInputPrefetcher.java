@@ -288,8 +288,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     return false;
   }
 
-  protected abstract boolean canDownloadFile(Path path, FileArtifactValue metadata)
-      throws IOException;
+  protected abstract boolean canDownloadFile(Path path, FileArtifactValue metadata);
 
   /**
    * If true, then all previously acquired knowledge of the file system state of this path (e.g. the
