@@ -132,11 +132,18 @@ function rlocation() {
   fi
 }
 
-# If RUNFILES_MANIFEST_ONLY is set to 1 and the manifest file does exist,
-# then test programs should use manifest file to find runfiles.
-if [[ "${RUNFILES_MANIFEST_ONLY:-}" == "1" && -e "${RUNFILES_MANIFEST_FILE:-}" ]]; then
+# The _repo_mapping file is an ordinary runfile and is thus present in the runfiles directory if and
+# only if that directory has been fully materialized. If it hasn't, test programs have to use the
+# manifest to find their runfiles. Bazel adds RUNFILES_MANIFEST_ONLY to the environment common to
+# all actions whenever --enable_runfiles is off, which doesn't account for the runfiles directory
+# being materialized by the sandbox or by remote execution, so it has to be cleared if it is.
+if [[ -e "${TEST_SRCDIR}/_repo_mapping" || ! -e "${RUNFILES_MANIFEST_FILE:-}" ]]; then
+  unset RUNFILES_MANIFEST_ONLY
+else
   export RUNFILES_MANIFEST_FILE
-  export RUNFILES_MANIFEST_ONLY
+  # TODO: Remove this once all runfiles libraries determine whether the runfiles directory is
+  #  usable by checking for _repo_mapping.
+  export RUNFILES_MANIFEST_ONLY=1
 fi
 
 DIR="$TEST_SRCDIR"

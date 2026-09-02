@@ -63,6 +63,13 @@ static wstring GetRunfilesDir(const wchar_t* launcher_path) {
   return result;
 }
 
+// Returns true if the runfiles directory has been fully materialized. The
+// _repo_mapping file is an ordinary runfile and is thus present if and only if
+// that is the case.
+static bool IsRunfilesDirectoryPopulated(const wstring& runfiles_dir) {
+  return DoesFilePathExist((runfiles_dir + L"\\_repo_mapping").c_str());
+}
+
 BinaryLauncherBase::BinaryLauncherBase(
     const LaunchDataParser::LaunchInfo& _launch_info,
     const std::wstring& launcher_path, int argc, wchar_t* argv[])
@@ -71,15 +78,13 @@ BinaryLauncherBase::BinaryLauncherBase(
       manifest_file(FindManifestFile(launcher_path.c_str())),
       runfiles_dir(GetRunfilesDir(launcher_path.c_str())),
       workspace_name(GetLaunchInfoByKey(WORKSPACE_NAME)),
-      symlink_runfiles_enabled(GetLaunchInfoByKey(SYMLINK_RUNFILES_ENABLED) ==
-                               L"1") {
+      runfiles_dir_populated(IsRunfilesDirectoryPopulated(runfiles_dir)) {
   for (int i = 0; i < argc; i++) {
     commandline_arguments.push_back(argv[i]);
   }
-  // Prefer to use the runfiles manifest, if it exists, but otherwise the
-  // runfiles directory will be used by default. On Windows, the manifest is
-  // used locally, and the runfiles directory is used remotely.
-  if (!manifest_file.empty()) {
+  // Prefer to resolve runfiles against the runfiles directory and only fall
+  // back to the manifest if the directory hasn't been fully materialized.
+  if (!runfiles_dir_populated && !manifest_file.empty()) {
     ParseManifestFile(&manifest_file_map, manifest_file);
   }
 }
@@ -259,14 +264,17 @@ ExitCode BinaryLauncherBase::LaunchProcess(const wstring& executable,
   if (PrintLauncherCommandLine(executable, escaped_arguments)) {
     return 0;
   }
-  // Set RUNFILES_DIR if:
-  //   1. Symlink runfiles tree is enabled, or
-  //   2. We couldn't find manifest file (which probably means we are running
-  //   remotely).
-  // Otherwise, set RUNFILES_MANIFEST_ONLY and RUNFILES_MANIFEST_FILE
-  if (symlink_runfiles_enabled || manifest_file.empty()) {
+  // Set RUNFILES_DIR if the runfiles directory has been fully materialized or
+  // if there is no manifest to fall back to. Otherwise, point the child at the
+  // manifest.
+  if (runfiles_dir_populated || manifest_file.empty()) {
     SetEnv(L"RUNFILES_DIR", runfiles_dir);
+    // Clear a value inherited from the environment, which may not reflect how
+    // the runfiles of this binary were materialized.
+    SetEnv(L"RUNFILES_MANIFEST_ONLY", L"");
   } else {
+    // TODO: Remove RUNFILES_MANIFEST_ONLY once all runfiles libraries determine
+    // whether the runfiles directory is usable by checking for _repo_mapping.
     SetEnv(L"RUNFILES_MANIFEST_ONLY", L"1");
     SetEnv(L"RUNFILES_MANIFEST_FILE", manifest_file);
   }

@@ -757,7 +757,7 @@ public class CommandEnvironment {
   public RunfilesTreeUpdater getRunfilesTreeUpdater() {
     synchronized (runfilesTreeUpdaterLock) {
       if (runfilesTreeUpdater == null) {
-        runfilesTreeUpdater = new RunfilesTreeUpdater(getExecRoot(), getXattrProvider());
+        runfilesTreeUpdater = new RunfilesTreeUpdater(getExecRoot());
       }
       return runfilesTreeUpdater;
     }

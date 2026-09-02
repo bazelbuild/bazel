@@ -26,8 +26,6 @@ namespace launcher {
 
 typedef int32_t ExitCode;
 static constexpr const char* WORKSPACE_NAME = "workspace_name";
-static constexpr const char* SYMLINK_RUNFILES_ENABLED =
-    "symlink_runfiles_enabled";
 
 // The maximum length of lpCommandLine is 32768 characters.
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms682425(v=vs.85).aspx
@@ -117,8 +115,8 @@ class BinaryLauncherBase {
   // A map to store all entries of the manifest file.
   ManifestFileMap manifest_file_map;
 
-  // If symlink runfiles tree is enabled, this value is true.
-  const bool symlink_runfiles_enabled;
+  // Whether the runfiles directory has been fully materialized.
+  const bool runfiles_dir_populated;
 
   // If --print_launcher_command is presented in arguments,
   // then print the command line.

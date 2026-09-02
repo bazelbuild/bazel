@@ -84,6 +84,80 @@ EOF
   [[ -f bazel-bin/bin.runfiles/MANIFEST ]] || fail "expected output manifest to exist"
 }
 
+# Runfiles libraries rely on _repo_mapping being present in the runfiles directory if and only if
+# it has been fully materialized.
+function test_repo_mapping_signals_materialized_runfiles_directory() {
+  mkdir data && echo "hello" > data/hello
+
+  touch bin.sh
+  chmod 755 bin.sh
+
+  add_rules_shell "MODULE.bazel"
+
+  cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+sh_binary(
+  name = "bin",
+  srcs = ["bin.sh"],
+  data = glob(["data/*"]),
+)
+EOF
+
+  bazel build --enable_runfiles //:bin || fail "Building //:bin failed"
+
+  [[ -f bazel-bin/bin.runfiles/_repo_mapping ]] \
+    || fail "expected _repo_mapping in a materialized runfiles directory"
+  grep -q '^_repo_mapping ' bazel-bin/bin.runfiles/MANIFEST \
+    || fail "expected _repo_mapping in the manifest"
+
+  bazel build --noenable_runfiles //:bin || fail "Building //:bin failed"
+
+  [[ ! -f bazel-bin/bin.runfiles/_repo_mapping ]] \
+    || fail "expected no _repo_mapping in an unmaterialized runfiles directory"
+  grep -q '^_repo_mapping ' bazel-bin/bin.runfiles/MANIFEST \
+    || fail "expected _repo_mapping in the manifest"
+}
+
+# The sandbox materializes the runfiles directory of a tool even with
+# --noenable_runfiles, so _repo_mapping has to be present there.
+function test_repo_mapping_in_sandbox() {
+  mkdir data && echo "hello" > data/hello
+
+  cat > tool.sh <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ -f "$0.runfiles/_repo_mapping" ]] || {
+  echo "_repo_mapping missing from $0.runfiles" >&2
+  exit 1
+}
+touch "$1"
+EOF
+  chmod 755 tool.sh
+
+  add_rules_shell "MODULE.bazel"
+
+  cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+sh_binary(
+  name = "tool",
+  srcs = ["tool.sh"],
+  data = glob(["data/*"]),
+)
+
+genrule(
+  name = "gen",
+  outs = ["gen.txt"],
+  tools = [":tool"],
+  cmd = "$(execpath :tool) $@",
+)
+EOF
+
+  bazel build --spawn_strategy=sandboxed --noenable_runfiles //:gen >& $TEST_log \
+    || fail "Building //:gen failed"
+}
+
 # Test that the local strategy creates a runfiles tree during test if no --nobuild_runfile_links
 # is specified.
 function test_nobuild_runfile_links() {

@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.testutil.TestConstants.WORKSPACE_NAM
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -30,9 +31,11 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.Before;
@@ -138,5 +141,83 @@ public final class SymlinkTreeHelperTest {
     assertThat(treeSymlink.isSymbolicLink()).isTrue();
     assertThat(treeSymlink.readSymbolicLink()).isEqualTo(PathFragment.create("/path/to/target"));
     assertThat(treeMissing.exists()).isFalse();
+  }
+
+  /**
+   * A file system that materializes symbolic links to files as copies of their target, mimicking
+   * Windows without {@code --windows_enable_symlinks}.
+   */
+  private static final class CopyingFileSystem extends InMemoryFileSystem {
+    CopyingFileSystem() {
+      super(DigestHashFunction.SHA256);
+    }
+
+    @Override
+    public boolean supportsSymbolicLinksNatively(PathFragment path) {
+      return false;
+    }
+
+    @Override
+    public void createSymbolicLink(
+        PathFragment linkPath, PathFragment targetFragment, SymlinkTargetType type)
+        throws IOException {
+      PathFragment resolvedTarget =
+          targetFragment.isAbsolute()
+              ? targetFragment
+              : linkPath.getParentDirectory().getRelative(targetFragment);
+      Path target = getPath(resolvedTarget);
+      if (!target.isFile()) {
+        throw new IOException("not a file: " + resolvedTarget);
+      }
+      FileSystemUtils.copyFile(target, getPath(linkPath));
+    }
+  }
+
+  @Test
+  public void createSymlinks_copyingFileSystem(@TestParameter boolean targetModified)
+      throws Exception {
+    FileSystem copyingFs = new CopyingFileSystem();
+    Path copyingExecRoot = copyingFs.getPath("/execroot");
+    ArtifactRoot copyingOutputRoot =
+        ArtifactRoot.asDerivedRoot(copyingExecRoot, RootType.OUTPUT, "out");
+    copyingOutputRoot.getRoot().asPath().createDirectoryAndParents();
+
+    Path treeRoot = copyingExecRoot.getRelative("foo.runfiles");
+    SymlinkTreeHelper helper =
+        new SymlinkTreeHelper(
+            copyingExecRoot.getRelative("foo.runfiles_manifest"),
+            treeRoot.getRelative("MANIFEST"),
+            treeRoot,
+            WORKSPACE_NAME);
+
+    Artifact file = ActionsTestUtil.createArtifact(copyingOutputRoot, "file");
+    FileSystemUtils.writeContent(file.getPath(), UTF_8, "content");
+    file.getPath().setLastModifiedTime(1000);
+
+    Map<PathFragment, Artifact> symlinkMap =
+        ImmutableMap.of(PathFragment.create(WORKSPACE_NAME + "/file"), file);
+    helper.createRunfilesSymlinks(symlinkMap);
+
+    Path treeFile = treeRoot.getRelative(WORKSPACE_NAME + "/file");
+    assertThat(treeFile.isSymbolicLink()).isFalse();
+    assertThat(FileSystemUtils.readContent(treeFile, UTF_8)).isEqualTo("content");
+    treeFile.setLastModifiedTime(2000);
+    long nodeIdBefore = treeFile.stat().getNodeId();
+
+    if (targetModified) {
+      FileSystemUtils.writeContent(file.getPath(), UTF_8, "new content");
+      file.getPath().setLastModifiedTime(3000);
+    }
+
+    helper.createRunfilesSymlinks(symlinkMap);
+
+    if (targetModified) {
+      // The stale copy must be replaced with an up-to-date one.
+      assertThat(FileSystemUtils.readContent(treeFile, UTF_8)).isEqualTo("new content");
+    } else {
+      // The up-to-date copy must be left alone instead of being recreated.
+      assertThat(FileSystemUtils.readContent(treeFile, UTF_8)).isEqualTo("content");
+      assertThat(treeFile.stat().getNodeId()).isEqualTo(nodeIdBefore);
+    }
   }
 }

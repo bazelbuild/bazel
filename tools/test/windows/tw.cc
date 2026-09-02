@@ -338,6 +338,15 @@ bool DirectoryExists(const Path& p) {
          ((attrs & FILE_ATTRIBUTE_DIRECTORY) != 0);
 }
 
+// Returns true if the runfiles directory has been fully materialized. The
+// _repo_mapping file is an ordinary runfile and is thus present if and only if
+// that is the case.
+bool IsRunfilesDirectoryPopulated(const Path& runfiles_dir) {
+  Path repo_mapping;
+  return repo_mapping.Set(runfiles_dir.Get() + L"\\_repo_mapping") &&
+         IsReadableFile(repo_mapping);
+}
+
 // Gets an environment variable's value.
 // Returns:
 // - true, if the envvar is defined and successfully fetched, or it's empty or
@@ -600,18 +609,25 @@ bool ExportRunfiles(const Path& cwd, const Path& test_srcdir,
     return false;
   }
 
-  std::wstring mf_only_str;
-  int mf_only_value = 0;
-  if (!GetIntEnv(L"RUNFILES_MANIFEST_ONLY", &mf_only_str, &mf_only_value)) {
-    return false;
-  }
-  if (mf_only_value == 1) {
-    // If RUNFILES_MANIFEST_ONLY is set to 1 then test programs should use the
-    // manifest file to find their runfiles.
+  // If the runfiles directory hasn't been fully materialized then test programs
+  // have to use the manifest file to find their runfiles. Bazel adds
+  // RUNFILES_MANIFEST_ONLY to the environment common to all actions whenever
+  // --enable_runfiles is off, which doesn't account for the runfiles directory
+  // being materialized by remote execution, so it has to be cleared if it is.
+  if (IsRunfilesDirectoryPopulated(test_srcdir)) {
+    if (!UnsetEnv(L"RUNFILES_MANIFEST_ONLY")) {
+      return false;
+    }
+  } else {
     Path runfiles_mf;
     if (!runfiles_mf.Set(test_srcdir.Get() + L"\\MANIFEST") ||
         (IsReadableFile(runfiles_mf) &&
          !SetPathEnv(env_prefix + L"RUNFILES_MANIFEST_FILE", runfiles_mf))) {
+      return false;
+    }
+    // TODO: Remove this once all runfiles libraries determine whether the
+    // runfiles directory is usable by checking for _repo_mapping.
+    if (!SetEnv(L"RUNFILES_MANIFEST_ONLY", L"1")) {
       return false;
     }
   }
@@ -1192,17 +1208,12 @@ bool FindTestBinary(const Path& argv0, const Path& cwd, std::wstring test_path,
       return false;
     }
 
-    std::wstring mf_only_str;
-    int mf_only_value = 0;
-    if (!GetIntEnv(L"RUNFILES_MANIFEST_ONLY", &mf_only_str, &mf_only_value)) {
-      return false;
-    }
-
-    // If runfiles is enabled on Windows, we use the test binary in the runfiles
-    // tree, which is consistent with the behavior on Linux and macOS.
-    // Otherwise, we use Rlocation function to find the actual test binary
-    // location.
-    if (mf_only_value != 1 && IsReadableFile(test_bin_in_runfiles)) {
+    // If the runfiles directory has been fully materialized, we use the test
+    // binary in the runfiles tree, which is consistent with the behavior on
+    // Linux and macOS. Otherwise, we use the Rlocation function to find the
+    // actual test binary location.
+    if (IsRunfilesDirectoryPopulated(abs_test_srcdir) &&
+        IsReadableFile(test_bin_in_runfiles)) {
       test_path = test_bin_in_runfiles.Get();
     } else {
       std::string utf8_test_path;

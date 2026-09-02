@@ -429,6 +429,49 @@ class RunfilesTest(test_base.TestBase):
     )
     self.assertNotEqual(exit_code, 0)
 
+  def testRepoMappingSignalsMaterializedRunfilesDirectory(self):
+    self.ScratchFile("MODULE.bazel")
+    self.AddBazelDep("rules_shell")
+    self.ScratchFile(
+        "BUILD",
+        [
+            'load("@rules_shell//shell:sh_test.bzl", "sh_test")',
+            "sh_test(",
+            "  name = 'test',",
+            "  srcs = ['test.sh'],",
+            "  data = ['data.txt'],",
+            ")",
+        ],
+    )
+    self.ScratchFile("data.txt")
+    # _repo_mapping is present exactly if the runfiles directory has been
+    # materialized, in which case the test setup must not ask runfiles libraries
+    # to use the manifest.
+    self.ScratchFile(
+        "test.sh",
+        [
+            'if [[ -f "${TEST_SRCDIR}/_repo_mapping" ]]; then',
+            '  [[ -z "${RUNFILES_MANIFEST_ONLY:-}" ]] || exit 1',
+            '  [[ -f "${TEST_SRCDIR}/_main/data.txt" ]] || exit 1',
+            "else",
+            '  [[ "${RUNFILES_MANIFEST_ONLY:-}" == "1" ]] || exit 1',
+            '  [[ -f "${RUNFILES_MANIFEST_FILE}" ]] || exit 1',
+            "fi",
+        ],
+        executable=True,
+    )
+
+    _, stdout, _ = self.RunBazel(["info", "bazel-bin"])
+    repo_mapping = os.path.join(stdout[0], "test.runfiles", "_repo_mapping")
+
+    self.RunBazel(["test", ":test", "--enable_runfiles", "--test_output=errors"])
+    self.assertTrue(os.path.exists(repo_mapping))
+
+    self.RunBazel(
+        ["test", ":test", "--noenable_runfiles", "--test_output=errors"]
+    )
+    self.assertFalse(os.path.exists(repo_mapping))
+
   def testTestsRunWithNoBuildRunfileLinksAndNoEnableRunfiles(self):
     self.ScratchFile("MODULE.bazel")
     self.AddBazelDep("rules_shell")

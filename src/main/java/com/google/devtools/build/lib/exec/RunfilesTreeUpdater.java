@@ -13,24 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
-
-import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
-import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.lib.vfs.XattrProvider;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -45,7 +34,6 @@ import javax.annotation.concurrent.ThreadSafe;
 @ThreadSafe
 public class RunfilesTreeUpdater {
   private final Path execRoot;
-  private final XattrProvider xattrProvider;
 
   /**
    * Deduplicates multiple attempts to update the same runfiles tree.
@@ -58,9 +46,8 @@ public class RunfilesTreeUpdater {
   private final ConcurrentHashMap<PathFragment, CompletableFuture<Void>> updatedTrees =
       new ConcurrentHashMap<>();
 
-  public RunfilesTreeUpdater(Path execRoot, XattrProvider xattrProvider) {
+  public RunfilesTreeUpdater(Path execRoot) {
     this.execRoot = execRoot;
-    this.xattrProvider = xattrProvider;
   }
 
   /** Creates or updates input runfiles trees for a spawn. */
@@ -111,28 +98,15 @@ public class RunfilesTreeUpdater {
     }
     Path outputManifest =
         execRoot.getRelative(RunfilesSupport.outputManifestExecPath(tree.getExecPath()));
-    try {
-      // Avoid rebuilding the runfiles directory if the manifest in it matches the input manifest,
-      // implying the symlinks exist and are already up to date. If the output manifest is a
-      // symbolic link, it is likely a symbolic link to the input manifest, so we cannot trust it as
-      // an up-to-date check.
-      // On Windows, where symlinks may be silently replaced by copies, a previous run in SKIP mode
-      // could have resulted in an output manifest that is an identical copy of the input manifest,
-      // which we must not treat as up to date, but we also don't want to unnecessarily rebuild the
-      // runfiles directory all the time. Instead, check for the presence of the first runfile in
-      // the manifest. If it is present, we can be certain that the previous mode wasn't SKIP.
-      if (tree.getSymlinksMode() == RunfileSymlinksMode.CREATE
-          && !outputManifest.isSymbolicLink()
-          && Arrays.equals(
-              DigestUtils.getDigestWithManualFallback(outputManifest, xattrProvider),
-              DigestUtils.getDigestWithManualFallback(inputManifest, xattrProvider))
-          && (OS.getCurrent() != OS.WINDOWS
-              || isRunfilesDirectoryPopulated(runfilesDir, outputManifest))) {
-        return;
-      }
-    } catch (IOException e) {
-      // Ignore it - we will just try to create runfiles directory.
-    }
+    // Note that the runfiles directory is not checked for being up to date here: the only cheap
+    // signal available for that is the output manifest matching the input manifest, which merely
+    // states that the *set* of runfiles is unchanged. That implies that the tree is up to date only
+    // if it consists of symbolic links, whose targets are the authoritative files. It does not on a
+    // file system that materializes symlinks as copies (Windows without --windows_enable_symlinks),
+    // where the contents of the tree can be stale even though the manifest is unchanged - and since
+    // linkManifest() makes the output manifest a symbolic link on every other file system, that is
+    // the only situation in which such a check would ever apply. Recreating the tree is cheap if it
+    // is already up to date: SymlinkTreeHelper only mutates entries that don't match.
 
     if (!runfilesDir.exists()) {
       runfilesDir.createDirectoryAndParents();
@@ -148,19 +122,5 @@ public class RunfilesTreeUpdater {
       }
       case SKIP -> helper.createMinimalRunfilesDirectory();
     }
-  }
-
-  private static boolean isRunfilesDirectoryPopulated(Path runfilesDir, Path outputManifest) {
-    String relativeRunfilePath;
-    try (BufferedReader reader =
-        new BufferedReader(new InputStreamReader(outputManifest.getInputStream(), ISO_8859_1))) {
-      // If it is created at all, the manifest always contains at least one line.
-      relativeRunfilePath = Splitter.on(' ').splitToList(reader.readLine()).get(0);
-    } catch (IOException e) {
-      // Instead of failing outright, just assume the runfiles directory is not populated.
-      return false;
-    }
-    // The runfile could be a dangling symlink.
-    return runfilesDir.getRelative(relativeRunfilePath).exists(Symlinks.NOFOLLOW);
   }
 }
