@@ -1163,7 +1163,10 @@ java_library(
 
 java_library(
     name = "remote_rewound_action_synchronizer",
-    srcs = ["RemoteRewoundActionSynchronizer.java"],
+    srcs = [
+        "ReadersOrWritersLock.java",
+        "RemoteRewoundActionSynchronizer.java",
+    ],
     deps = [
         ":abstract_action_input_prefetcher",
         "//src/main/java/com/google/devtools/build/lib/actions",
