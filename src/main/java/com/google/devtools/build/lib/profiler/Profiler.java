@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.collect.Extrema;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -487,15 +488,24 @@ public final class Profiler {
 
     JsonTraceFileWriter writer = null;
     if (stream != null && format != null) {
+      long profileStartEpochMillis =
+          BlazeClock.createNanosToMillisSinceEpochConverter(clock)
+              .toEpochMillis(execStartTimeNanos);
       writer =
           switch (format) {
             case JSON_TRACE_FILE_FORMAT ->
                 new JsonTraceFileWriter(
-                    stream, execStartTimeNanos, slimProfile, outputBase, buildID);
+                    stream,
+                    execStartTimeNanos,
+                    profileStartEpochMillis,
+                    slimProfile,
+                    outputBase,
+                    buildID);
             case JSON_TRACE_FILE_COMPRESSED_FORMAT ->
                 new JsonTraceFileWriter(
                     new GZIPOutputStream(stream),
                     execStartTimeNanos,
+                    profileStartEpochMillis,
                     slimProfile,
                     outputBase,
                     buildID);
