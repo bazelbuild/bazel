@@ -34,7 +34,7 @@ cc_library(
         ":ijar",
         "//src/main/cpp:__subpackages__",
         "//src/main/tools:__pkg__",
-        "//src/test/cpp/util:__pkg__",
+        "//src/test/cpp:__subpackages__",
         "//src/test/native/windows:__pkg__",
         "//src/tools/launcher:__subpackages__",
         "//src/tools/singlejar:__pkg__",
@@ -74,8 +74,10 @@ cc_library(
     srcs = ["port.cc"],
     hdrs = ["port.h"],
     visibility = [
+        "//src/main/cpp:__subpackages__",
         "//src/main/native:__pkg__",
         "//src/test/cpp/util:__pkg__",
+        "//src/tools/singlejar:__pkg__",
     ],
 )
 
