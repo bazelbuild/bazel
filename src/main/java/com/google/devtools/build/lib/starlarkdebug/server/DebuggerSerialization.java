@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.starlarkdebug.server;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos;
@@ -23,6 +24,7 @@ import java.util.Map;
 import net.starlark.java.eval.Debug;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
@@ -32,6 +34,10 @@ import net.starlark.java.eval.Structure;
 
 /** Helper class for creating {@link StarlarkDebuggingProtos.Value} from Starlark objects. */
 final class DebuggerSerialization {
+
+  @VisibleForTesting static final int MAX_DESCRIPTION_CHARS = 10_000;
+  @VisibleForTesting static final int MAX_DESCRIPTION_DEPTH = 10;
+  @VisibleForTesting static final int MAX_DESCRIPTION_ELEMENTS = 1_000;
 
   static Value getValueProto(ThreadObjectMap objectMap, String label, Object value) {
     // TODO(bazel-team): prune cycles, and provide a way to limit breadth/depth of children reported
@@ -48,9 +54,18 @@ final class DebuggerSerialization {
 
   private static String getDescription(Object value) {
     if (value instanceof String string) {
+      if (string.length() > MAX_DESCRIPTION_CHARS) {
+        return string.substring(0, MAX_DESCRIPTION_CHARS) + "...";
+      }
       return string;
     }
-    return Starlark.repr(value, StarlarkSemantics.DEFAULT);
+    return new Printer(
+            new StringBuilder(),
+            MAX_DESCRIPTION_CHARS,
+            MAX_DESCRIPTION_DEPTH,
+            MAX_DESCRIPTION_ELEMENTS)
+        .repr(value, StarlarkSemantics.DEFAULT)
+        .toString();
   }
 
   private static boolean hasChildren(Object value) {

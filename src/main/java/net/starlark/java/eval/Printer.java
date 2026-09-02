@@ -33,6 +33,11 @@ public class Printer {
 
   private final StringBuilder buffer;
 
+  private final int maxChars;
+  private final int maxDepth;
+  private final int maxElements;
+  private boolean truncated;
+
   // Stack of values in the middle of being printed.
   // Each renders as "..." if recursively encountered,
   // indicating a cycle.
@@ -44,7 +49,7 @@ public class Printer {
 
   /** Creates a printer that writes to the given buffer. */
   public Printer(StringBuilder buffer) {
-    this.buffer = buffer;
+    this(buffer, Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE);
   }
 
   /** Creates a printer that uses a fresh buffer. */
@@ -52,9 +57,49 @@ public class Printer {
     this(new StringBuilder());
   }
 
+  /**
+   * Creates a printer that writes to the given buffer, with limits on maximum character count,
+   * recursion depth, and elements per collection.
+   */
+  public Printer(StringBuilder buffer, int maxChars, int maxDepth, int maxElements) {
+    this.buffer = buffer;
+    this.maxChars = maxChars;
+    this.maxDepth = maxDepth;
+    this.maxElements = maxElements;
+  }
+
+  /** Returns the maximum number of elements to print per collection. */
+  public int getMaxElements() {
+    return maxElements;
+  }
+
+  /** Returns the maximum recursion depth for compound values. */
+  public int getMaxDepth() {
+    return maxDepth;
+  }
+
+  /** Returns the maximum character length for the output. */
+  public int getMaxChars() {
+    return maxChars;
+  }
+
+  private void markTruncated() {
+    if (!truncated) {
+      buffer.append("...");
+      truncated = true;
+    }
+  }
+
   /** Appends a char to the printer's buffer */
   @CanIgnoreReturnValue
   public final Printer append(char c) {
+    if (truncated) {
+      return this;
+    }
+    if (buffer.length() >= maxChars) {
+      markTruncated();
+      return this;
+    }
     buffer.append(c);
     return this;
   }
@@ -62,13 +107,22 @@ public class Printer {
   /** Appends a char sequence to the printer's buffer */
   @CanIgnoreReturnValue
   public final Printer append(CharSequence s) {
-    buffer.append(s);
-    return this;
+    return append(s, 0, s.length());
   }
 
   /** Appends a char subsequence to the printer's buffer */
   @CanIgnoreReturnValue
   public final Printer append(CharSequence s, int start, int end) {
+    if (truncated) {
+      return this;
+    }
+    int len = end - start;
+    if (buffer.length() + len > maxChars) {
+      int remaining = Math.max(0, maxChars - buffer.length());
+      buffer.append(s, start, start + remaining);
+      markTruncated();
+      return this;
+    }
     buffer.append(s, start, end);
     return this;
   }
@@ -76,15 +130,13 @@ public class Printer {
   /** Appends an integer to the printer's buffer */
   @CanIgnoreReturnValue
   public final Printer append(int i) {
-    buffer.append(i);
-    return this;
+    return append(Integer.toString(i));
   }
 
   /** Appends a long integer to the printer's buffer */
   @CanIgnoreReturnValue
   public final Printer append(long l) {
-    buffer.append(l);
-    return this;
+    return append(Long.toString(l));
   }
 
   /**
@@ -104,9 +156,21 @@ public class Printer {
       String separator,
       String after,
       StarlarkSemantics semantics) {
+    if (truncated) {
+      return this;
+    }
     this.append(before);
     String sep = "";
+    int count = 0;
     for (Object elem : list) {
+      if (truncated) {
+        break;
+      }
+      if (count >= maxElements) {
+        this.append(sep).append("...");
+        break;
+      }
+      count++;
       this.append(sep);
       sep = separator;
       this.repr(elem, semantics);
@@ -127,6 +191,9 @@ public class Printer {
    */
   @CanIgnoreReturnValue
   public Printer debugPrint(Object o, StarlarkThread thread) {
+    if (truncated) {
+      return this;
+    }
     if (o instanceof StarlarkValue) {
       ((StarlarkValue) o).debugPrint(this, thread);
       return this;
@@ -144,6 +211,9 @@ public class Printer {
    */
   @CanIgnoreReturnValue
   public Printer str(Object o, StarlarkSemantics semantics) {
+    if (truncated) {
+      return this;
+    }
     if (o instanceof String) {
       return this.append((String) o);
 
@@ -172,6 +242,9 @@ public class Printer {
    */
   @CanIgnoreReturnValue
   public Printer repr(Object o, StarlarkSemantics semantics) {
+    if (truncated) {
+      return this;
+    }
     // atomic values (leaves of the object graph)
     switch (o) {
       case null -> {
@@ -199,6 +272,10 @@ public class Printer {
     }
 
     // compound values (may form cycles in the object graph)
+
+    if (depth >= maxDepth) {
+      return append("...");
+    }
 
     if (!push(o)) {
       return append("..."); // elided cycle
@@ -229,6 +306,9 @@ public class Printer {
     this.append('"');
     int len = s.length();
     for (int i = 0; i < len; i++) {
+      if (truncated) {
+        return this;
+      }
       char c = s.charAt(i);
       escapeCharacter(c);
     }
@@ -242,6 +322,9 @@ public class Printer {
     this.append(delimiter);
     char otherQuote = (quoteChar == Q2 ? Q1 : Q2);
     for (int i = 0; i < s.length(); i++) {
+      if (truncated) {
+        return this;
+      }
       char c = s.charAt(i);
       if (c == otherQuote || c == '\n') {
         this.append(c);

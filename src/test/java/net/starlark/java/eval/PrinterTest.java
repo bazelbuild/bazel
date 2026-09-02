@@ -269,4 +269,40 @@ public class PrinterTest {
       }
     };
   }
+
+  @Test
+  public void testBudgetedPrinter() throws Exception {
+    // Character limit test
+    Printer charLimited =
+        new Printer(new StringBuilder(), 10, Integer.MAX_VALUE, Integer.MAX_VALUE);
+    charLimited.repr("hello world this is long", DEFAULT);
+    assertThat(charLimited.toString()).isEqualTo("\"hello wor...");
+
+    // Element limit test
+    Printer elementLimited =
+        new Printer(new StringBuilder(), Integer.MAX_VALUE, Integer.MAX_VALUE, 3);
+    elementLimited.repr(StarlarkList.of(null, "a", "b", "c", "d", "e"), DEFAULT);
+    assertThat(elementLimited.toString()).isEqualTo("[\"a\", \"b\", \"c\", ...]");
+
+    // Depth limit test
+    Mutability mu = Mutability.create();
+    StarlarkList<Object> nested = StarlarkList.newList(mu);
+    StarlarkList<Object> current = nested;
+    for (int i = 0; i < 5; i++) {
+      StarlarkList<Object> next = StarlarkList.newList(mu);
+      current.append(next);
+      current = next;
+    }
+    Printer depthLimited =
+        new Printer(new StringBuilder(), Integer.MAX_VALUE, 3, Integer.MAX_VALUE);
+    depthLimited.repr(nested, DEFAULT);
+    assertThat(depthLimited.toString()).isEqualTo("[[[...]]]");
+
+    // Truncated printList short-circuit test
+    Printer truncatedPrinter =
+        new Printer(new StringBuilder(), 5, Integer.MAX_VALUE, Integer.MAX_VALUE);
+    truncatedPrinter.append("123456"); // exceeds maxChars
+    truncatedPrinter.printList(StarlarkList.of(null, "a", "b"), "[", ", ", "]", DEFAULT);
+    assertThat(truncatedPrinter.toString()).isEqualTo("12345...");
+  }
 }
