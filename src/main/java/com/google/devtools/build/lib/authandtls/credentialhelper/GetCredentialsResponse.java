@@ -19,6 +19,7 @@ import static java.util.Objects.requireNonNull;
 import com.google.auto.value.AutoBuilder;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.Immutable;
@@ -131,63 +132,84 @@ public record GetCredentialsResponse(
         String name = reader.nextName();
         switch (name) {
           case "headers" -> {
-            if (reader.peek() != JsonToken.BEGIN_OBJECT) {
-              throw new JsonSyntaxException(
-                  String.format(
-                      Locale.US,
-                      "Expected value of 'headers' to be an object, got %s",
-                      reader.peek()));
-            }
-            reader.beginObject();
+            switch (reader.peek()) {
+              case NULL:
+                // Ignore.
+                reader.skipValue();
+                break;
 
-            while (reader.hasNext()) {
-              String headerName = reader.nextName();
-              ImmutableList.Builder<String> headerValues = ImmutableList.builder();
+              case BEGIN_OBJECT:
+                reader.beginObject();
 
-              if (reader.peek() != JsonToken.BEGIN_ARRAY) {
+                while (reader.hasNext()) {
+                  String headerName = reader.nextName();
+                  ImmutableList.Builder<String> headerValues = ImmutableList.builder();
+
+                  if (reader.peek() != JsonToken.BEGIN_ARRAY) {
+                    throw new JsonSyntaxException(
+                        String.format(
+                            Locale.US,
+                            "Expected value of '%s' header to be an array of strings, got %s",
+                            headerName,
+                            reader.peek()));
+                  }
+                  reader.beginArray();
+                  for (int i = 0; reader.hasNext(); i++) {
+                    if (reader.peek() != JsonToken.STRING) {
+                      throw new JsonSyntaxException(
+                          String.format(
+                              Locale.US,
+                              "Expected value %s of '%s' header to be a string, got %s",
+                              i,
+                              headerName,
+                              reader.peek()));
+                    }
+                    headerValues.add(reader.nextString());
+                  }
+                  reader.endArray();
+
+                  response.headersBuilder().put(headerName, headerValues.build());
+                }
+
+                reader.endObject();
+                break;
+
+              default:
                 throw new JsonSyntaxException(
                     String.format(
                         Locale.US,
-                        "Expected value of '%s' header to be an array of strings, got %s",
-                        headerName,
+                        "Expected value of 'headers' to be an object, got %s",
                         reader.peek()));
-              }
-              reader.beginArray();
-              for (int i = 0; reader.hasNext(); i++) {
-                if (reader.peek() != JsonToken.STRING) {
+            }
+          }
+          case "expires" -> {
+            switch (reader.peek()) {
+              case NULL:
+                // Ignore.
+                reader.skipValue();
+                break;
+
+              case STRING:
+                try {
+                  var expires = reader.nextString();
+                  if (!Strings.isNullOrEmpty(expires)) {
+                    response.setExpires(Instant.from(RFC_3339_FORMATTER.parse(expires)));
+                  }
+                } catch (DateTimeException e) {
                   throw new JsonSyntaxException(
                       String.format(
                           Locale.US,
-                          "Expected value %s of '%s' header to be a string, got %s",
-                          i,
-                          headerName,
-                          reader.peek()));
+                          "Expected value of 'expires' to be a RFC 3339 formatted timestamp: %s",
+                          e.getMessage()));
                 }
-                headerValues.add(reader.nextString());
-              }
-              reader.endArray();
+                break;
 
-              response.headersBuilder().put(headerName, headerValues.build());
-            }
-
-            reader.endObject();
-          }
-          case "expires" -> {
-            if (reader.peek() != JsonToken.STRING) {
-              throw new JsonSyntaxException(
-                  String.format(
-                      Locale.US,
-                      "Expected value of 'expires' to be a string, got %s",
-                      reader.peek()));
-            }
-            try {
-              response.setExpires(Instant.from(RFC_3339_FORMATTER.parse(reader.nextString())));
-            } catch (DateTimeException e) {
-              throw new JsonSyntaxException(
-                  String.format(
-                      Locale.US,
-                      "Expected value of 'expires' to be a RFC 3339 formatted timestamp: %s",
-                      e.getMessage()));
+              default:
+                throw new JsonSyntaxException(
+                    String.format(
+                        Locale.US,
+                        "Expected value of 'expires' to be a string, got %s",
+                        reader.peek()));
             }
           }
           default ->
