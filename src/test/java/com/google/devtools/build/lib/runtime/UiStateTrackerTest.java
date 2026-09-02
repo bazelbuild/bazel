@@ -297,6 +297,44 @@ public class UiStateTrackerTest extends FoundationTestCase {
   }
 
   @Test
+  public void testNoShowLoadingProgress() throws IOException {
+    ManualClock clock = new ManualClock();
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+
+    stateTracker.loadingStarted(new LoadingPhaseStartedEvent(null));
+
+    // During loading phase when package progress receiver is null (--noshow_loading_progress),
+    // should display "Loading: " without package loading progress.
+    LoggingTerminalWriter terminalWriterLoading =
+        new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriterLoading);
+    String loadingOutput = terminalWriterLoading.getTranscript();
+
+    assertThat(loadingOutput).contains("Loading");
+    assertThat(loadingOutput).doesNotContain("packages loaded");
+
+    // When it is configuring targets during analysis phase.
+    stateTracker.loadingComplete(
+        new LoadingPhaseCompleteEvent(
+            ImmutableSet.of(), ImmutableSet.of(), RepositoryMapping.EMPTY));
+    String additionalMessage = "5 targets";
+    stateTracker.additionalMessage = additionalMessage;
+    String analysisProgressString = "5 targets and 0 aspects configured";
+    AnalysisProgressReceiver analysisProgressReceiver = mock(AnalysisProgressReceiver.class);
+    when(analysisProgressReceiver.getProgressString()).thenReturn(analysisProgressString);
+    stateTracker.configurationStarted(new ConfigurationPhaseStartedEvent(analysisProgressReceiver));
+
+    LoggingTerminalWriter terminalWriterLoadingConfiguration =
+        new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriterLoadingConfiguration);
+    String loadingConfigurationOutput = terminalWriterLoadingConfiguration.getTranscript();
+    assertThat(loadingConfigurationOutput).contains("Analyzing");
+    assertThat(loadingConfigurationOutput).contains(additionalMessage);
+    assertThat(loadingConfigurationOutput).doesNotContain("packages loaded");
+    assertThat(loadingConfigurationOutput).contains(analysisProgressString);
+  }
+
+  @Test
   public void testLargeTargetCountFormattedWithCommas() throws IOException {
     // Verify that large target counts in "Analyzing: X targets" are formatted with comma
     // separators.

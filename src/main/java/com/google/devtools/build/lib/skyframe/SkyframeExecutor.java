@@ -3210,7 +3210,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   @Nullable
   public PackageProgressReceiver getPackageProgressReceiver() {
-    return packageProgress;
+    return showLoadingProgress.get() ? packageProgress : null;
   }
 
   public final ImmutableList<BuildFileName> getBuildFilesByPriority() {
@@ -3281,7 +3281,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       SkyKey key)
       throws InterruptedException, TargetParsingException {
     Stopwatch timer = Stopwatch.createStarted();
-    eventHandler.post(new LoadingPhaseStartedEvent(packageProgress));
+    eventHandler.post(new LoadingPhaseStartedEvent(getPackageProgressReceiver()));
     EvaluationResult<TargetPatternPhaseValue> evalResult =
         evaluate(ImmutableList.of(key), keepGoing, threadCount, eventHandler);
     tryThrowTargetParsingException(eventHandler, targetPatterns, key, evalResult);

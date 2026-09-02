@@ -448,8 +448,8 @@ class UiStateTracker {
   }
 
   void loadingStarted(LoadingPhaseStartedEvent event) {
-    status = null;
     packageProgressReceiver = event.getPackageProgressReceiver();
+    status = packageProgressReceiver != null ? null : "Loading";
   }
 
   void configurationStarted(ConfigurationPhaseStartedEvent event) {
@@ -1399,15 +1399,26 @@ class UiStateTracker {
         terminalWriter.failStatus();
       }
       terminalWriter.append(status + ":").normal().append(" " + additionalMessage);
-      if (packageProgressReceiver != null) {
-        Pair<String, String> progress = packageProgressReceiver.progressState();
-        terminalWriter.append(" (" + progress.getFirst());
+      if (packageProgressReceiver != null || analysisProgressReceiver != null) {
+        terminalWriter.append(" (");
+        boolean first = true;
+        if (packageProgressReceiver != null) {
+          Pair<String, String> progress = packageProgressReceiver.progressState();
+          terminalWriter.append(progress.getFirst());
+          first = false;
+        }
         if (analysisProgressReceiver != null) {
-          terminalWriter.append(", " + analysisProgressReceiver.getProgressString());
+          if (!first) {
+            terminalWriter.append(", ");
+          }
+          terminalWriter.append(analysisProgressReceiver.getProgressString());
         }
         terminalWriter.append(")");
-        if (!progress.getSecond().isEmpty() && !shortVersion) {
-          terminalWriter.newline().append("    " + progress.getSecond());
+        if (packageProgressReceiver != null) {
+          Pair<String, String> progress = packageProgressReceiver.progressState();
+          if (!progress.getSecond().isEmpty() && !shortVersion) {
+            terminalWriter.newline().append("    " + progress.getSecond());
+          }
         }
       }
       if (!shortVersion) {
