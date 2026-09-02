@@ -23,6 +23,10 @@ package com.google.devtools.build.lib.remote;
  * other group keep acquiring the lock, that thread may be starved.
  *
  * <p>Both groups are reentrant by counting and do not track thread ownership.
+ *
+ * <p>This class is optimized for low memory usage when there is little contention. If no two
+ * methods are called at the same time, the monitor is never inflated and an instance of the class
+ * has the optimal footprint of just 16 bytes.
  */
 final class ReadersOrWritersLock {
   // Positive values count read holds, negative values count write holds; the lock is free at zero.

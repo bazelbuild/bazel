@@ -105,6 +105,7 @@ import java.util.Map;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
@@ -2078,6 +2079,253 @@ public class RewindingTestsHelper {
     var executedSpawns = ImmutableMultiset.copyOf(getExecutedSpawnDescriptions());
     for (String child : children) {
       assertThat(executedSpawns).hasCount("Mapping foo/mapped_dir " + child, 2);
+    }
+    assertThat(executedSpawns).hasCount("Consuming //foo:losing_consumer", 2);
+  }
+
+  /**
+   * Verifies that an action expanded from an {@link
+   * com.google.devtools.build.lib.actions.ActionTemplate} that consumes an individual file of a
+   * tree artifact populated by a different template is synchronized with the rewound actions of
+   * that template like a consumer of the whole tree artifact.
+   *
+   * <p>Guarding such a consumer only by the key of the action generating the file would let a
+   * rewound sibling of that action re-execute while the consumer is running and could result in a
+   * deadlock (see the proof of deadlock freedom in RemoteRewoundActionSynchronizer).
+   */
+  public final void runActionTemplateExpansionRewound_notConcurrentWithConsumersFromOtherExpansion()
+      throws Exception {
+    // All downstream consumers and the action that reports the lost inputs have to run
+    // concurrently for the upstream actions to be rewound while the file is being consumed.
+    ensureMinimumJobs(CONCURRENT_ACTION_COUNT + 1);
+    testCase.addOptions("--experimental_allow_map_directory");
+    testCase.write(
+        "foo/defs.bzl",
+        """
+        def _copy_tool_impl(ctx):
+            tool = ctx.actions.declare_file(ctx.attr.name + ".bat")
+            ctx.actions.write(tool, r\"\"\"COPY_TOOL_SCRIPT\"\"\", is_executable = True)
+            return DefaultInfo(files = depset([tool]), executable = tool)
+
+        copy_tool = rule(implementation = _copy_tool_impl, executable = True)
+
+        def _copy_child(template_ctx, child, output_directory, tools, suffix = ""):
+            name = child.basename + suffix
+            out = template_ctx.declare_file(name + ".out", directory = output_directory)
+            args = template_ctx.args()
+            args.add_all([out, child])
+            template_ctx.run(
+                inputs = [child],
+                outputs = [out],
+                executable = tools["copy_tool"],
+                arguments = [args],
+                progress_message = "Mapping " + output_directory.basename + " " + name,
+            )
+
+        def _map_all_impl(template_ctx, input_directories, output_directories, tools, **kwargs):
+            for child in input_directories["input"].children:
+                _copy_child(template_ctx, child, output_directories["output"], tools)
+
+        # Copies only the first file, but COPY_COUNT times so that as many actions as possible
+        # consume it concurrently.
+        def _map_first_impl(template_ctx, input_directories, output_directories, tools, **kwargs):
+            for child in input_directories["input"].children:
+                if child.basename != "f1.out":
+                    continue
+                for i in range(COPY_COUNT):
+                    _copy_child(
+                        template_ctx,
+                        child,
+                        output_directories["output"],
+                        tools,
+                        suffix = "." + str(i),
+                    )
+
+        _COPY_TOOL_ATTRS = {
+            "_copy_tool": attr.label(default = ":copy_tool", executable = True, cfg = "exec"),
+        }
+
+        def _upstream_tree_impl(ctx):
+            seed = ctx.actions.declare_directory("seed_dir")
+            ctx.actions.run_shell(
+                inputs = ctx.files.warmup,
+                outputs = [seed],
+                command = "echo seed > $1/f1 && echo seed > $1/f2",
+                arguments = [seed.path],
+                progress_message = "Seeding foo/seed_dir",
+            )
+            upstream = ctx.actions.declare_directory("upstream_dir")
+            ctx.actions.map_directory(
+                implementation = _map_all_impl,
+                input_directories = {"input": seed},
+                output_directories = {"output": upstream},
+                tools = {"copy_tool": ctx.attr._copy_tool.files_to_run},
+                # Ensure that the rewound expansion actions re-execute their spawns instead of
+                # picking up the results of their first executions from the cache.
+                execution_requirements = {"no-cache": "1"},
+            )
+            return DefaultInfo(files = depset([upstream]))
+
+        upstream_tree = rule(
+            implementation = _upstream_tree_impl,
+            attrs = dict(_COPY_TOOL_ATTRS, warmup = attr.label_list(allow_files = True)),
+        )
+
+        def _downstream_tree_impl(ctx):
+            downstream = ctx.actions.declare_directory("downstream_dir")
+            ctx.actions.map_directory(
+                implementation = _map_first_impl,
+                input_directories = {"input": ctx.file.src},
+                output_directories = {"output": downstream},
+                tools = {"copy_tool": ctx.attr._copy_tool.files_to_run},
+            )
+            return DefaultInfo(files = depset([downstream]))
+
+        downstream_tree = rule(
+            implementation = _downstream_tree_impl,
+            attrs = dict(_COPY_TOOL_ATTRS, src = attr.label(allow_single_file = True)),
+        )
+
+        def _consumer_impl(ctx):
+            out = ctx.actions.declare_file(ctx.attr.name + ".out")
+            ctx.actions.run_shell(
+                inputs = ctx.files.srcs,
+                outputs = [out],
+                command = "echo consumed > $1",
+                arguments = [out.path],
+                progress_message = "Consuming //foo:" + ctx.attr.name,
+            )
+            return DefaultInfo(files = depset([out]))
+
+        consumer = rule(
+            implementation = _consumer_impl,
+            attrs = {"srcs": attr.label_list(allow_files = True)},
+        )
+        """
+            .replace("COPY_TOOL_SCRIPT", COPY_TOOL_SCRIPT)
+            .replace("COPY_COUNT", String.valueOf(CONCURRENT_ACTION_COUNT)));
+    testCase.write(
+        "foo/BUILD",
+        """
+        load(":defs.bzl", "consumer", "copy_tool", "downstream_tree", "upstream_tree")
+
+        copy_tool(name = "copy_tool")
+
+        genrule(
+            name = "warmup_gen",
+            outs = ["warmup.out"],
+            cmd = "echo warmup > $@",
+            tags = ["no-cache"],
+        )
+
+        genrule(
+            name = "warmup_consumer",
+            srcs = ["warmup.out"],
+            outs = ["warmup_consumed.out"],
+            cmd = "cp $< $@",
+        )
+
+        upstream_tree(
+            name = "upstream",
+            warmup = ["warmup_consumed.out"],
+        )
+
+        downstream_tree(
+            name = "downstream",
+            src = ":upstream",
+        )
+
+        consumer(
+            name = "losing_consumer",
+            srcs = [":upstream"],
+        )
+        """);
+
+    // The first rewound action of a build waits for all in-flight actions to finish before it
+    // prepares for its re-execution, which would mask the behavior under test. Rewind an unrelated
+    // action first; the upstream tree artifact depends on its output, so nothing else can start
+    // any earlier.
+    addSpawnShim(
+        "Executing genrule //foo:warmup_consumer",
+        (spawn, context) -> createLostInputsExecException(spawn, context, "warmup.out"));
+
+    // A downstream action holds its read locks from before its spawn shim runs until after its
+    // spawn has been executed, so the count is a lower bound on the number of downstream actions
+    // that are consuming the file.
+    AtomicInteger downstreamExecuting = new AtomicInteger();
+    CountDownLatch allDownstreamStarted = new CountDownLatch(CONCURRENT_ACTION_COUNT);
+    AtomicBoolean upstreamSiblingReExecutedConcurrently = new AtomicBoolean();
+    testCase
+        .getRuntimeWrapper()
+        .registerSubscriber(
+            new Object() {
+              @Subscribe
+              @AllowConcurrentEvents
+              @SuppressWarnings("unused")
+              public void accept(SpawnExecutedEvent event) {
+                if (event.getActionMetadata().describe().startsWith("Mapping downstream_dir ")) {
+                  downstreamExecuting.decrementAndGet();
+                }
+              }
+            });
+
+    // The initial executions of the upstream actions pass through unmodified; per description,
+    // shims are consumed in the order in which they were added.
+    for (String child : ImmutableList.of("f1", "f2")) {
+      addSpawnShim("Mapping upstream_dir " + child, (spawn, context) -> ExecResult.delegate());
+    }
+    for (int i = 0; i < CONCURRENT_ACTION_COUNT; i++) {
+      addSpawnShim(
+          "Mapping downstream_dir f1.out." + i,
+          (spawn, context) -> {
+            downstreamExecuting.incrementAndGet();
+            allDownstreamStarted.countDown();
+            return ExecResult.delegate();
+          });
+    }
+    // The upstream action generating the consumed file waits for the downstream actions in any
+    // case, since they at least hold the read lock guarding that file.
+    addSpawnShim("Mapping upstream_dir f1", (spawn, context) -> ExecResult.delegate());
+    // Its sibling must also wait for the downstream actions even though they don't consume any of
+    // its files.
+    addSpawnShim(
+        "Mapping upstream_dir f2",
+        (spawn, context) -> {
+          if (downstreamExecuting.get() > 0) {
+            upstreamSiblingReExecutedConcurrently.set(true);
+          }
+          return ExecResult.delegate();
+        });
+    // Reports all files of the upstream tree artifact as lost once all downstream actions are
+    // executing so that every upstream action has to re-execute regardless of how precisely
+    // rewinding translates lost files into rewound expanded actions. The downstream actions
+    // deliberately don't wait for the rewound upstream actions: making them do so would deadlock
+    // if the synchronization under test works as intended.
+    addSpawnShim(
+        "Consuming //foo:losing_consumer",
+        (spawn, context) -> {
+          allDownstreamStarted.await();
+          SpecialArtifact upstreamTree =
+              SpawnInputUtils.getTreeArtifactWithName(spawn, "upstream_dir");
+          return createLostInputsExecException(
+              context,
+              SpawnInputUtils.getExpandedToArtifact("f1.out", upstreamTree, spawn, context),
+              SpawnInputUtils.getExpandedToArtifact("f2.out", upstreamTree, spawn, context));
+        });
+
+    testCase.buildTarget("//foo:all");
+
+    verifyAllSpawnShimsConsumed();
+    assertWithMessage(
+            "a rewound upstream action re-executed while an action expanded from the downstream"
+                + " template was consuming a file of the upstream tree artifact")
+        .that(upstreamSiblingReExecutedConcurrently.get())
+        .isFalse();
+    var executedSpawns = ImmutableMultiset.copyOf(getExecutedSpawnDescriptions());
+    assertThat(executedSpawns).hasCount("Mapping upstream_dir f1", 2);
+    assertThat(executedSpawns).hasCount("Mapping upstream_dir f2", 2);
+    for (int i = 0; i < CONCURRENT_ACTION_COUNT; i++) {
+      assertThat(executedSpawns).hasCount("Mapping downstream_dir f1.out." + i, 1);
     }
     assertThat(executedSpawns).hasCount("Consuming //foo:losing_consumer", 2);
   }

@@ -80,6 +80,8 @@ java_library(
         ],
     ),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:action_template_expansion_value",
         ":action_input_prefetcher_test_base",
         ":remote_action_file_system_test_base",
         "//src/main/java/com/google/devtools/build/lib/actions",
