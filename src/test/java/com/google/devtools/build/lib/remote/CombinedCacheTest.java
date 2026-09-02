@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
@@ -67,6 +69,7 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
+import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -88,6 +91,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -953,6 +957,7 @@ public class CombinedCacheTest {
     }
   }
 
+
   @Test
   public void downloadBlob_chunkMissingAfterPartialWrite_doesNotRestartIntoSameStream()
       throws Exception {
@@ -1128,6 +1133,97 @@ public class CombinedCacheTest {
         new ChunkLocationMap());
   }
 
+  @Test
+  public void findMissingDigests_onlyQueriesRemoteCache() throws Exception {
+    Path diskRoot = fs.getPath("/diskroot");
+    diskRoot.createDirectoryAndParents();
+    DiskCacheClient diskCacheClient =
+        new DiskCacheClient(diskRoot, digestUtil, /* checkActionResultIntegrity= */ true);
+
+    RemoteCacheClient remoteCacheClient = spy(new InMemoryCacheClient());
+    CombinedCache combinedCache = newCombinedCache(remoteCacheClient, diskCacheClient);
+
+    Digest digestInDisk =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file1"), "disk");
+    Digest digestInRemote =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file2"), "remote");
+    Digest digestMissingFromBoth =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file3"), "missing");
+
+    // Populate disk cache with digestInDisk
+    diskCacheClient.saveFile(
+        digestInDisk, Store.CAS, new ByteArrayInputStream("disk".getBytes(UTF_8)));
+
+    // Populate remote cache with digestInRemote
+    getFromFuture(
+        remoteCacheClient.uploadBlob(
+            remoteActionExecutionContext,
+            digestInRemote,
+            ByteString.copyFromUtf8("remote"),
+            /* force= */ true));
+
+    ImmutableList<Digest> allDigests =
+        ImmutableList.of(digestInDisk, digestInRemote, digestMissingFromBoth);
+
+    // findMissingDigests should only query remoteCacheClient and ignore local disk presence
+    ImmutableSet<Digest> missing =
+        getFromFuture(combinedCache.findMissingDigests(remoteActionExecutionContext, allDigests));
+
+    assertThat(missing).containsExactly(digestInDisk, digestMissingFromBoth);
+    verify(remoteCacheClient).findMissingDigests(any(), any());
+  }
+
+  @Test
+  public void uploadManifest_decoupledDiskAndRemote_uploadsToDiskAndRemoteIndependently()
+      throws Exception {
+    Path diskRoot = fs.getPath("/diskroot2");
+    diskRoot.createDirectoryAndParents();
+    DiskCacheClient diskCacheClient =
+        new DiskCacheClient(diskRoot, digestUtil, /* checkActionResultIntegrity= */ true);
+
+    RemoteCacheClient remoteCacheClient = spy(new InMemoryCacheClient());
+    CombinedCache combinedCache = newCombinedCache(remoteCacheClient, diskCacheClient);
+
+    Path file1 = execRoot.getRelative("file1");
+    FileSystemUtils.writeContent(file1, "hot-remote-cold-disk".getBytes(UTF_8));
+    Digest digest1 = digestUtil.compute(file1);
+
+    Path file2 = execRoot.getRelative("file2");
+    FileSystemUtils.writeContent(file2, "cold-remote-cold-disk".getBytes(UTF_8));
+    Digest digest2 = digestUtil.compute(file2);
+
+    // Pre-populate remote cache with digest1
+    getFromFuture(
+        remoteCacheClient.uploadBlob(
+            remoteActionExecutionContext,
+            digest1,
+            ByteString.copyFromUtf8("hot-remote-cold-disk"),
+            /* force= */ true));
+
+    ActionResult.Builder result = ActionResult.newBuilder();
+    RemotePathResolver remotePathResolver =
+        new RemotePathResolver.DefaultRemotePathResolver(execRoot);
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil, remotePathResolver, result, /* allowAbsoluteSymlinks= */ false);
+    um.addFiles(ImmutableList.of(file1, file2));
+
+    clearInvocations(remoteCacheClient);
+
+    ActionResult actionResult =
+        um.upload(remoteActionExecutionContext, combinedCache, mock(ExtendedEventHandler.class));
+    assertThat(actionResult).isNotNull();
+
+    // Verify remote upload was only called for digest2 (not digest1, which was already in remote
+    // cache)
+    verify(remoteCacheClient, never()).uploadBlobImpl(any(), eq(digest1), any());
+    verify(remoteCacheClient).uploadBlobImpl(any(), eq(digest2), any());
+
+    // Verify disk cache has BOTH files saved
+    assertThat(diskCacheClient.toPath(digest1, Store.CAS).exists()).isTrue();
+    assertThat(diskCacheClient.toPath(digest2, Store.CAS).exists()).isTrue();
+  }
+
   private InMemoryCombinedCache newCombinedCache() {
     return new InMemoryCombinedCache(digestUtil);
   }
@@ -1135,6 +1231,17 @@ public class CombinedCacheTest {
   private InMemoryCombinedCache newCombinedCache(
       Map<Digest, byte[]> casEntries, DigestUtil digestUtil, @Nullable String symlinkTemplate) {
     return new InMemoryCombinedCache(casEntries, digestUtil, symlinkTemplate);
+  }
+
+  private CombinedCache newCombinedCache(
+      RemoteCacheClient remoteCacheClient, DiskCacheClient diskCacheClient) {
+    return new CombinedCache(
+        remoteCacheClient,
+        diskCacheClient,
+        /* symlinkTemplate= */ null,
+        digestUtil,
+        /* chunkingFunction= */ null,
+        new ChunkLocationMap());
   }
 
   private CombinedCache newCombinedCache(RemoteCacheClient remoteCacheClient) {
