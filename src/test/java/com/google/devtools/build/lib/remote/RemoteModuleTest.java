@@ -839,4 +839,65 @@ public final class RemoteModuleTest {
     assertThat(preserved.getFileSize()).isGreaterThan(0L);
     assertThat(log.exists()).isTrue();
   }
+
+  @Test
+  public void testComputeActionExecutionSalt_changesWhenCacheInstanceChanges() throws Exception {
+    RemoteOptions baseOptions =
+        parseRemoteOptions(
+            "--remote_cache=grpc://cache1",
+            "--remote_executor=grpc://exec1",
+            "--remote_instance_name=instance1");
+    String baseSalt = RemoteModule.computeActionExecutionSalt(baseOptions);
+    assertThat(RemoteModule.computeActionExecutionSalt(null)).isNotNull();
+    assertThat(RemoteModule.computeActionExecutionSalt(baseOptions)).isEqualTo(baseSalt);
+
+    RemoteOptions changedInstanceName =
+        parseRemoteOptions(
+            "--remote_cache=grpc://cache1",
+            "--remote_executor=grpc://exec1",
+            "--remote_instance_name=instance2");
+    assertThat(RemoteModule.computeActionExecutionSalt(changedInstanceName)).isNotEqualTo(baseSalt);
+
+    RemoteOptions changedRemoteCache =
+        parseRemoteOptions(
+            "--remote_cache=grpc://cache2",
+            "--remote_executor=grpc://exec1",
+            "--remote_instance_name=instance1");
+    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteCache)).isNotEqualTo(baseSalt);
+
+    RemoteOptions changedRemoteExecutor =
+        parseRemoteOptions(
+            "--remote_cache=grpc://cache1",
+            "--remote_executor=grpc://exec2",
+            "--remote_instance_name=instance1");
+    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteExecutor))
+        .isNotEqualTo(baseSalt);
+
+    RemoteOptions changedRemoteDownloader =
+        parseRemoteOptions(
+            "--remote_cache=grpc://cache1",
+            "--remote_executor=grpc://exec1",
+            "--remote_instance_name=instance1",
+            "--remote_downloader=grpc://downloader1");
+    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteDownloader))
+        .isNotEqualTo(baseSalt);
+
+    RemoteOptions changedBytestreamPrefix =
+        parseRemoteOptions(
+            "--remote_cache=grpc://cache1",
+            "--remote_executor=grpc://exec1",
+            "--remote_instance_name=instance1",
+            "--remote_bytestream_uri_prefix=host/instance2");
+    assertThat(RemoteModule.computeActionExecutionSalt(changedBytestreamPrefix))
+        .isNotEqualTo(baseSalt);
+
+    RemoteOptions changedRemoteProxy =
+        parseRemoteOptions(
+            "--remote_cache=grpc://cache1",
+            "--remote_executor=grpc://exec1",
+            "--remote_instance_name=instance1",
+            "--remote_proxy=unix:/socket2");
+    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteProxy)).isNotEqualTo(baseSalt);
+  }
 }
+
