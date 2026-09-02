@@ -141,15 +141,6 @@ public class UnixFileSystem extends DiskBackedFileSystem {
     }
   }
 
-  @Override
-  public boolean exists(PathFragment path, boolean followSymlinks) {
-    try {
-      return statIfFound(path, followSymlinks) != null;
-    } catch (IOException e) {
-      return false;
-    }
-  }
-
   /**
    * Return true iff the {@code stat} of {@code path} resulted in an {@code ENOENT} or {@code
    * ENOTDIR} error.

@@ -64,14 +64,14 @@ public class NativePathTest {
   }
 
   @Test
-  public void testExists() {
+  public void testExists() throws Exception {
     assertThat(fs.getPath(aDirectory.getPath()).exists()).isTrue();
     assertThat(fs.getPath(aFile.getPath()).exists()).isTrue();
     assertThat(fs.getPath("/does/not/exist").exists()).isFalse();
   }
 
   @Test
-  public void testDirectoryEntriesForDirectory() throws IOException {
+  public void testDirectoryEntriesForDirectory() throws Exception {
     assertThat(fs.getPath(tmpDir.getPath()).getDirectoryEntries()).containsExactly(
       fs.getPath(tmpDir.getPath() + "/a_file"),
       fs.getPath(tmpDir.getPath() + "/a_directory"));

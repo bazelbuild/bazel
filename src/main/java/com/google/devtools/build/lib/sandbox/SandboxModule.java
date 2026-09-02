@@ -555,7 +555,7 @@ public final class SandboxModule extends BlazeModule {
     commonShutdown();
   }
 
-  private Path getStaleTrashDir(Path trashBase) {
+  private Path getStaleTrashDir(Path trashBase) throws IOException {
     int i = 0;
     while (trashBase.getParentDirectory().getChild("stale-trash-" + i++).exists()) {
       ;

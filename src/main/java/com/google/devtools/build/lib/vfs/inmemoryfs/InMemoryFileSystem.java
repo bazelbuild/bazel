@@ -142,7 +142,14 @@ public class InMemoryFileSystem extends FileSystem {
    */
   @Override
   public String getFileSystemType(PathFragment path) {
-    return exists(path.getRelative("/proc/mounts")) ? super.getFileSystemType(path) : "inmemoryfs";
+    boolean procMountExists;
+    try {
+      procMountExists = exists(path.getRelative("/proc/mounts"));
+    } catch (IOException e) {
+      // TODO(tjgq): Propagate exception.
+      procMountExists = false;
+    }
+    return procMountExists ? super.getFileSystemType(path) : "inmemoryfs";
   }
 
   /*
@@ -388,15 +395,6 @@ public class InMemoryFileSystem extends FileSystem {
     // FileSystem.resolveOneLink().
     InMemoryContentInfo status = inodeStat(path, false);
     return status.isSymbolicLink() ? ((InMemoryLinkInfo) status).getLinkContent() : null;
-  }
-
-  @Override
-  public boolean exists(PathFragment path, boolean followSymlinks) {
-    try {
-      return statIfFound(path, followSymlinks) != null;
-    } catch (IOException e) {
-      return false;
-    }
   }
 
   @Override

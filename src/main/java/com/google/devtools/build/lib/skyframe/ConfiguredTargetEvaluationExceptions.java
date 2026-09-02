@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.skyframe.SkyFunctionException;
+import java.io.IOException;
 
 /** Exceptions thrown by {@link ConfiguredTargetFunction}. */
 public final class ConfiguredTargetEvaluationExceptions {
@@ -55,6 +56,10 @@ public final class ConfiguredTargetEvaluationExceptions {
 
     UnreportedException(ActionConflictException e) {
       super(e, Transience.PERSISTENT);
+    }
+
+    UnreportedException(IOException e) {
+      super(e, Transience.TRANSIENT);
     }
   }
 

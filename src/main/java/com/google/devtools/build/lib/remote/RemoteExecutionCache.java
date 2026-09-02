@@ -119,9 +119,16 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
                     },
                     directExecutor());
           }
-          return Futures.transform(
+          return Futures.transformAsync(
               downloadFromDiskCache,
-              unused -> remoteActionFileSystem.getHostFileSystem().exists(path.asFragment()),
+              _ -> {
+                try {
+                  return immediateFuture(
+                      remoteActionFileSystem.getHostFileSystem().exists(path.asFragment()));
+                } catch (IOException e) {
+                  return immediateFailedFuture(e);
+                }
+              },
               directExecutor());
         }
       };

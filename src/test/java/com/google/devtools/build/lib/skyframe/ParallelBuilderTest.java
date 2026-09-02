@@ -476,8 +476,8 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
       return buildTargets;
     }
 
-    public void doSanityChecks(Artifact[] targets, List<Counter> counters,
-        BuildKind kind) {
+    public void doSanityChecks(Artifact[] targets, List<Counter> counters, BuildKind kind)
+        throws IOException {
       // Check that we really did build all the targets.
       for (Artifact file : targets) {
         assertThat(file.getPath().exists()).isTrue();

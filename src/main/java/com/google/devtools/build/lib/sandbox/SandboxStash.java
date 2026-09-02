@@ -191,11 +191,17 @@ public class SandboxStash {
     }
 
     Path sandboxes = instance.getSandboxStashDir(mnemonic, path.getFileSystem());
-    if (sandboxes == null
-        || isTestXmlGenerationOrCoverageSpawn(mnemonic, outputs)
-        || !path.exists()) {
+    try {
+      if (sandboxes == null
+          || isTestXmlGenerationOrCoverageSpawn(mnemonic, outputs)
+          || !path.exists()) {
+        return;
+      }
+    } catch (IOException e) {
+      // TODO(tjgq): Propagate the error.
       return;
     }
+
     String stashName = Integer.toString(stash.incrementAndGet());
 
     if (useInMemoryStashes()) {

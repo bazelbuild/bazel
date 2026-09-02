@@ -106,6 +106,7 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -686,45 +687,43 @@ public class ExecutionTool {
       Path directory, String description, IOException deleteTreeFailure) {
     logger.atWarning().withCause(deleteTreeFailure).log(
         "Failed to delete %s '%s'", description, directory);
-    if (directory.exists()) {
-      try {
-        Collection<Path> entries = directory.getDirectoryEntries();
-        StringBuilder directoryDetails =
-            new StringBuilder("'")
-                .append(directory)
-                .append("' contains ")
-                .append(entries.size())
-                .append(" entries:");
-        for (Path entry : entries) {
-          directoryDetails.append(" '").append(entry.getBaseName()).append("'");
-        }
-        logger.atWarning().log("%s", directoryDetails);
-      } catch (IOException e) {
-        logger.atWarning().withCause(e).log("'%s' exists but could not be read", directory);
+    try {
+      Collection<Path> entries = directory.getDirectoryEntries();
+      StringBuilder directoryDetails =
+          new StringBuilder("'")
+              .append(directory)
+              .append("' contains ")
+              .append(entries.size())
+              .append(" entries:");
+      for (Path entry : entries) {
+        directoryDetails.append(" '").append(entry.getBaseName()).append("'");
       }
-    } else {
-      logger.atWarning().log("'%s' does not exist", directory);
+      logger.atWarning().log("%s", directoryDetails);
+    } catch (FileNotFoundException e) {
+      logger.atWarning().withCause(e).log("'%s' does not exist", directory);
+    } catch (IOException e) {
+      logger.atWarning().withCause(e).log("'%s' exists but could not be read", directory);
     }
   }
 
   private void createActionLogDirectory(@Nullable BulkDeleter bulkDeleter)
       throws AbruptExitException, InterruptedException {
     Path directory = env.getActionTempsDirectory();
-    if (directory.exists()) {
-      try (SilentCloseable c = Profiler.instance().profile("directory.deleteTree")) {
+    try (SilentCloseable c = Profiler.instance().profile("directory.deleteTree")) {
+      if (directory.exists()) {
         if (bulkDeleter != null) {
           bulkDeleter.bulkDelete(ImmutableList.of(directory.relativeTo(getExecRoot())));
         } else {
           directory.deleteTree();
         }
-      } catch (IOException e) {
-        // TODO(b/140567980): Remove when we determine the cause of occasional deleteTree() failure.
-        logDeleteTreeFailure(directory, "action output directory", e);
-        throw createExitException(
-            "Couldn't delete action output directory",
-            Code.TEMP_ACTION_OUTPUT_DIRECTORY_DELETION_FAILURE,
-            e);
       }
+    } catch (IOException e) {
+      // TODO(b/140567980): Remove when we determine the cause of occasional deleteTree() failure.
+      logDeleteTreeFailure(directory, "action output directory", e);
+      throw createExitException(
+          "Couldn't delete action output directory",
+          Code.TEMP_ACTION_OUTPUT_DIRECTORY_DELETION_FAILURE,
+          e);
     }
 
     try (SilentCloseable c = Profiler.instance().profile("directory.createDirectoryAndParents")) {

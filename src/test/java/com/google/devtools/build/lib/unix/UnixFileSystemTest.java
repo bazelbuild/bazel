@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileAccessException;
+import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -88,8 +89,8 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
     Path linkB = absolutize("link-b");
     linkA.createSymbolicLink(linkB);
     linkB.createSymbolicLink(linkA);
-    assertThat(linkA.exists(Symlinks.FOLLOW)).isFalse();
-    assertThrows(IOException.class, () -> linkA.statIfFound(Symlinks.FOLLOW));
+    assertThrows(FileSymlinkLoopException.class, () -> linkA.exists(Symlinks.FOLLOW));
+    assertThrows(FileSymlinkLoopException.class, () -> linkA.statIfFound(Symlinks.FOLLOW));
   }
 
   @Test
