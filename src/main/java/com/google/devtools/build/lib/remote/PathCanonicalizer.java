@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
@@ -92,11 +93,14 @@ final class PathCanonicalizer {
    * @param path the path to canonicalize.
    * @param maxLinks the maximum number of symlinks that can be followed in the process of
    *     canonicalizing the path.
+   * @param allowMissingFinalComponent whether the final component may be missing, as when
+   *     canonicalizing an input's parent path.
    * @throws FileSymlinkLoopException if too many symlinks had to be followed.
    * @throws IOException if an I/O error occurs
    * @return the canonical path.
    */
-  private PathFragment resolveSymbolicLinks(PathFragment path, int maxLinks) throws IOException {
+  private PathFragment resolveSymbolicLinks(
+      PathFragment path, int maxLinks, boolean allowMissingFinalComponent) throws IOException {
     // This code is carefully written to be as fast as possible when the path is already canonical
     // and has been previously cached. Avoid making changes without benchmarking. A tree artifact
     // with hundreds of thousands of files makes for a good benchmark.
@@ -116,7 +120,19 @@ final class PathCanonicalizer {
       Node nextNode = node.get(segment);
       if (nextNode == null) {
         PathFragment naivePath = path.subFragment(0, segmentIndex + 1);
-        PathFragment targetPath = resolver.resolveOneLink(naivePath);
+        PathFragment targetPath;
+        try {
+          targetPath = resolver.resolveOneLink(naivePath);
+        } catch (FileNotFoundException e) {
+          if (segmentIndex + 1 == path.segmentCount() && !allowMissingFinalComponent) {
+            throw e;
+          }
+          // Input metadata can exist without its parent directories. Continue in a detached trie
+          // so this missing prefix and its descendants are rechecked on the next resolution.
+          node = new NonSymlinkNode();
+          segmentIndex++;
+          continue;
+        }
         nextNode =
             node.computeIfAbsent(
                 segment,
@@ -146,7 +162,7 @@ final class PathCanonicalizer {
           // For absolute symlinks, we must start over.
           // For relative symlinks, it would have been possible to restart after the already
           // canonicalized prefix, but they're too rare to be worth optimizing for.
-          return resolveSymbolicLinks(newPath, maxLinks);
+          return resolveSymbolicLinks(newPath, maxLinks, allowMissingFinalComponent);
         }
         case NonSymlinkNode nonSymlinkNode -> {
           node = nonSymlinkNode;
@@ -161,7 +177,9 @@ final class PathCanonicalizer {
   /**
    * Canonicalizes a path, reusing cached information if possible.
    *
-   * <p>See {@link FileSystem#resolveSymbolicLinks} for the full specification.
+   * <p>Like {@link FileSystem#resolveSymbolicLinks}, except that missing intermediate directories
+   * are allowed: input metadata may describe a file without describing its parents. The final
+   * component must exist.
    *
    * @param path the path to canonicalize.
    * @throws FileSymlinkLoopException if too many symlinks had to be followed.
@@ -169,7 +187,22 @@ final class PathCanonicalizer {
    * @return the canonical path.
    */
   PathFragment resolveSymbolicLinks(PathFragment path) throws IOException {
-    return resolveSymbolicLinks(path, FileSystem.MAX_SYMLINKS);
+    return resolveSymbolicLinks(
+        path, FileSystem.MAX_SYMLINKS, /* allowMissingFinalComponent= */ false);
+  }
+
+  /**
+   * Canonicalizes only the parent path, allowing missing parent directories. The caller must look
+   * up or operate on the final path to determine whether it exists.
+   */
+  PathFragment resolveSymbolicLinksForParent(PathFragment path) throws IOException {
+    checkArgument(path.isAbsolute());
+    PathFragment parent = path.getParentDirectory();
+    return parent == null
+        ? path
+        : resolveSymbolicLinks(
+                parent, FileSystem.MAX_SYMLINKS, /* allowMissingFinalComponent= */ true)
+            .getChild(path.getBaseName());
   }
 
   /** Removes cached information for a path prefix. */
