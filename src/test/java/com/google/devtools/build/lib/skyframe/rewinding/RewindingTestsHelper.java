@@ -1671,13 +1671,12 @@ public class RewindingTestsHelper {
   }
 
   /**
-   * The number of actions that consume the tree artifact populated by an action template expansion
-   * concurrently in {@link #runActionTemplateExpansionRewound_notConcurrentWithTreeConsumers}.
+   * The number of actions that interact with a rewound action template expansion concurrently.
    *
-   * <p>The more of them are reading it when the expansion is rewound, the more likely it is that a
-   * missing mutual exclusion is detected.
+   * <p>The more of them run at the same time, the more likely it is that a missing mutual exclusion
+   * or other concurrency issue is detected.
    */
-  private static final int TREE_CONSUMER_COUNT = 8;
+  private static final int CONCURRENT_ACTION_COUNT = 8;
 
   /**
    * A tool that copies its second argument to its first.
@@ -1715,7 +1714,7 @@ public class RewindingTestsHelper {
       throws Exception {
     // All consumers and the action that reports the lost input have to run concurrently for the
     // expansion to be rewound while the tree artifact is being read.
-    ensureMinimumJobs(TREE_CONSUMER_COUNT + 1);
+    ensureMinimumJobs(CONCURRENT_ACTION_COUNT + 1);
     testCase.addOptions("--experimental_allow_map_directory");
     testCase.write(
         "foo/defs.bzl",
@@ -1837,7 +1836,7 @@ public class RewindingTestsHelper {
             ],
         )
         """
-            + IntStream.range(0, TREE_CONSUMER_COUNT)
+            + IntStream.range(0, CONCURRENT_ACTION_COUNT)
                 .mapToObj(
                     i ->
                         """
@@ -1877,7 +1876,7 @@ public class RewindingTestsHelper {
                 }
               }
             });
-    for (int i = 0; i < TREE_CONSUMER_COUNT; i++) {
+    for (int i = 0; i < CONCURRENT_ACTION_COUNT; i++) {
       addSpawnShim(
           "Consuming //foo:consumer_" + i,
           (spawn, context) -> {
@@ -1902,13 +1901,17 @@ public class RewindingTestsHelper {
     // Fails without executing a spawn, so that the expansion is rewound while the other consumers
     // are as likely as possible to still be reading the tree artifact. The consumers deliberately
     // don't wait for each other: making them do so would deadlock whenever Skyframe can't run all
-    // of them concurrently.
+    // of them concurrently. All files of the tree artifact are reported as lost so that both
+    // actions of the chain have to re-execute regardless of how precisely rewinding translates
+    // lost files into rewound expanded actions.
     addSpawnShim(
         "Consuming //foo:losing_consumer",
         (spawn, context) -> {
           SpecialArtifact mappedTree = SpawnInputUtils.getTreeArtifactWithName(spawn, "mapped_dir");
           return createLostInputsExecException(
-              context, SpawnInputUtils.getExpandedToArtifact("f1.out", mappedTree, spawn, context));
+              context,
+              SpawnInputUtils.getExpandedToArtifact("f1.mid", mappedTree, spawn, context),
+              SpawnInputUtils.getExpandedToArtifact("f1.out", mappedTree, spawn, context));
         });
 
     testCase.buildTarget("//foo:all");
@@ -1919,7 +1922,7 @@ public class RewindingTestsHelper {
                 + " were still reading the tree artifact it populates")
         .that(maxConsumersReadingDuringExpansion.get())
         .isEqualTo(0);
-    // Rewinding an expanded action re-expands the template, so both actions of the chain re-run.
+    // Both files of the tree artifact were lost, so both actions of the chain re-run.
     var executedSpawns = ImmutableMultiset.copyOf(getExecutedSpawnDescriptions());
     assertThat(executedSpawns).hasCount("Mapping foo/mapped_dir (1)", 2);
     assertThat(executedSpawns).hasCount("Mapping foo/mapped_dir (2)", 2);
@@ -1928,18 +1931,17 @@ public class RewindingTestsHelper {
   /**
    * Verifies that sibling actions of a rewound {@link
    * com.google.devtools.build.lib.actions.ActionTemplate} expansion re-execute concurrently.
-   *
-   * <p>Rewinding a lost file in the tree artifact populated by an expansion rewinds the template
-   * together with every expanded action, and each of them holds the write lock on the template's
-   * key for the duration of its re-execution. The lock must admit all of them as a group: an
-   * exclusive write lock would serialize the re-execution of the entire expansion.
    */
   public final void runActionTemplateExpansionRewound_siblingActionsReExecuteConcurrently()
       throws Exception {
-    // Both re-executed sibling actions have to run concurrently for the rendezvous below to
+    // All re-executed sibling actions have to run concurrently for the rendezvous below to
     // complete.
-    ensureMultipleJobs();
+    ensureMinimumJobs(CONCURRENT_ACTION_COUNT);
     testCase.addOptions("--experimental_allow_map_directory");
+    ImmutableList<String> children =
+        IntStream.rangeClosed(1, CONCURRENT_ACTION_COUNT)
+            .mapToObj(i -> "f" + i)
+            .collect(toImmutableList());
     testCase.write(
         "foo/defs.bzl",
         """
@@ -1970,7 +1972,7 @@ public class RewindingTestsHelper {
             seed = ctx.actions.declare_directory("seed_dir")
             ctx.actions.run_shell(
                 outputs = [seed],
-                command = "echo seed > $1/f1 && echo seed > $1/f2",
+                command = "SEED_COMMAND",
                 arguments = [seed.path],
                 progress_message = "Seeding foo/seed_dir",
             )
@@ -2013,7 +2015,12 @@ public class RewindingTestsHelper {
             attrs = {"srcs": attr.label_list(allow_files = True)},
         )
         """
-            .replace("COPY_TOOL_SCRIPT", COPY_TOOL_SCRIPT));
+            .replace("COPY_TOOL_SCRIPT", COPY_TOOL_SCRIPT)
+            .replace(
+                "SEED_COMMAND",
+                children.stream()
+                    .map(child -> "echo seed > $1/" + child)
+                    .collect(joining(" && "))));
     testCase.write(
         "foo/BUILD",
         """
@@ -2031,41 +2038,47 @@ public class RewindingTestsHelper {
 
     // The initial executions of the expansion actions pass through unmodified; per description,
     // shims are consumed in the order in which they were added.
-    for (String child : ImmutableList.of("f1", "f2")) {
+    for (String child : children) {
       addSpawnShim("Mapping foo/mapped_dir " + child, (spawn, context) -> ExecResult.delegate());
     }
-    // Each re-executed sibling waits for the other one to start before running its spawn, which
-    // can only succeed if both hold the write lock on the template's key at the same time. If
-    // rewound sibling actions excluded each other, this would deadlock and time out the test.
-    CyclicBarrier bothSiblingsReExecuting = new CyclicBarrier(2);
-    for (String child : ImmutableList.of("f1", "f2")) {
+    // Each re-executed sibling waits for all other ones to start before running its spawn, which
+    // can only succeed if all of them run concurrently.
+    CyclicBarrier allSiblingsReExecuting = new CyclicBarrier(CONCURRENT_ACTION_COUNT);
+    for (String child : children) {
       addSpawnShim(
           "Mapping foo/mapped_dir " + child,
           (spawn, context) -> {
             try {
-              bothSiblingsReExecuting.await();
+              allSiblingsReExecuting.await();
             } catch (BrokenBarrierException e) {
               throw new IllegalStateException(e);
             }
             return ExecResult.delegate();
           });
     }
-    // Losing a single file of the tree artifact rewinds the template expansion and with it every
-    // expanded action.
+    // Report all files of the tree artifact as lost so that every sibling action has to re-execute
+    // regardless of how precisely rewinding translates lost files into rewound expanded actions.
     addSpawnShim(
         "Consuming //foo:losing_consumer",
         (spawn, context) -> {
           SpecialArtifact mappedTree = SpawnInputUtils.getTreeArtifactWithName(spawn, "mapped_dir");
           return createLostInputsExecException(
-              context, SpawnInputUtils.getExpandedToArtifact("f1.out", mappedTree, spawn, context));
+              context,
+              children.stream()
+                  .<ActionInput>map(
+                      child ->
+                          SpawnInputUtils.getExpandedToArtifact(
+                              child + ".out", mappedTree, spawn, context))
+                  .collect(toImmutableList()));
         });
 
     testCase.buildTarget("//foo:losing_consumer");
 
     verifyAllSpawnShimsConsumed();
     var executedSpawns = ImmutableMultiset.copyOf(getExecutedSpawnDescriptions());
-    assertThat(executedSpawns).hasCount("Mapping foo/mapped_dir f1", 2);
-    assertThat(executedSpawns).hasCount("Mapping foo/mapped_dir f2", 2);
+    for (String child : children) {
+      assertThat(executedSpawns).hasCount("Mapping foo/mapped_dir " + child, 2);
+    }
     assertThat(executedSpawns).hasCount("Consuming //foo:losing_consumer", 2);
   }
 
