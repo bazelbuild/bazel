@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
@@ -617,27 +618,48 @@ public class UploadManifest {
       throws IOException, InterruptedException, ExecException {
     ActionExecutionMetadata action = context.getSpawnOwner();
     var allDigests = Sets.union(digestToBlobs.keySet(), digestToFile.keySet()).immutableCopy();
-    ImmutableSet<Digest> missingDigests;
-    try (var s = profiler.profile(ProfilerTask.INFO, "findMissingDigests")) {
-      missingDigests = getFromFuture(combinedCache.findMissingDigests(context, allDigests));
-    }
 
-    try (var s =
-        profiler.profile(
-            ProfilerTask.UPLOAD_TIME,
-            () -> "upload %d missing blobs".formatted(missingDigests.size()))) {
-      var uploadFutures = new ArrayList<ListenableFuture<Void>>(missingDigests.size());
-      for (var digest : missingDigests) {
+    var uploadFutures = new ArrayList<ListenableFuture<Void>>();
+
+    if (combinedCache.hasDiskCache() && context.getWriteCachePolicy().allowDiskCache()) {
+      RemoteActionExecutionContext diskContext =
+          context.withWriteCachePolicy(CachePolicy.DISK_CACHE_ONLY);
+      for (var digest : allDigests) {
         uploadFutures.add(
             decorateUploadFuture(
-                uploadSingleDigest(context, combinedCache, digest, force),
+                uploadSingleDigest(diskContext, combinedCache, digest, force),
                 reporter,
                 action,
                 Store.CAS,
                 digest));
       }
-      waitForBulkTransfer(uploadFutures);
     }
+
+    if (combinedCache.hasRemoteCache() && context.getWriteCachePolicy().allowRemoteCache()) {
+      ImmutableSet<Digest> missingDigests;
+      try (var s = profiler.profile(ProfilerTask.INFO, "findMissingDigests")) {
+        missingDigests = getFromFuture(combinedCache.findMissingDigests(context, allDigests));
+      }
+
+      RemoteActionExecutionContext remoteContext =
+          context.withWriteCachePolicy(CachePolicy.REMOTE_CACHE_ONLY);
+      try (var s =
+          profiler.profile(
+              ProfilerTask.UPLOAD_TIME,
+              () -> "upload %d missing blobs".formatted(missingDigests.size()))) {
+        for (var digest : missingDigests) {
+          uploadFutures.add(
+              decorateUploadFuture(
+                  uploadSingleDigest(remoteContext, combinedCache, digest, force),
+                  reporter,
+                  action,
+                  Store.CAS,
+                  digest));
+        }
+      }
+    }
+
+    waitForBulkTransfer(uploadFutures);
 
     // The action result must be uploaded after the Action and Command protos per the REAPI
     // protocol. We choose to upload it after all other blobs since this has historically been the
@@ -671,7 +693,7 @@ public class UploadManifest {
     ByteString blob = digestToBlobs.get(digest);
     if (blob == null) {
       return Futures.immediateFailedFuture(
-          new IOException("FindMissingBlobs call returned an unknown digest: " + digest));
+          new IOException("Upload requested for unknown digest: " + digest));
     }
 
     return combinedCache.uploadBlob(context, digest, blob::newInput, force);
