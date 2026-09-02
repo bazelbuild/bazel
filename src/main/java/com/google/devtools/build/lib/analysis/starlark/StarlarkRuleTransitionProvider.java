@@ -193,9 +193,6 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
         return true;
       }
     }
-    // Compare labels rather than strings: the transition's outputs are written relative to the
-    // .bzl file that defines it, whereas the flags of a config_setting are already resolved, so
-    // the two only agree on a string form for flags in the main repository.
     for (Label flag : configMatchingProvider.flagSettingsMap().keySet()) {
       if (transitionOutputs.contains(flag)) {
         return true;
