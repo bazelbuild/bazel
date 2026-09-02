@@ -139,7 +139,7 @@ public final class CoverageReportActionBuilder {
               ImmutableMap.of(),
               ImmutableMap.of(),
               this,
-              ResourceSetOrBuilder.fixed(LOCAL_RESOURCES));
+              ResourceSetOrBuilder.ignoringOverrides(LOCAL_RESOURCES));
       try {
         ImmutableList<SpawnResult> spawnResults =
             ctx.getContext(SpawnStrategyResolver.class).exec(spawn, ctx);

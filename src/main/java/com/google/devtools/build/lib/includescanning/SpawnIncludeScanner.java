@@ -475,7 +475,7 @@ public class SpawnIncludeScanner {
           /* environment= */ ImmutableMap.of(),
           executionInfo,
           action,
-          ResourceSetOrBuilder.fixed(LOCAL_RESOURCES));
+          ResourceSetOrBuilder.ignoringOverrides(LOCAL_RESOURCES));
       this.inputs =
           SpawnInputs.of(NestedSetBuilder.create(Order.STABLE_ORDER, grepIncludes, input));
       this.outputs = ImmutableSet.of(output);

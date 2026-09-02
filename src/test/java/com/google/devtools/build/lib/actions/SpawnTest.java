@@ -127,7 +127,7 @@ public final class SpawnTest {
   public void getLocalResources_fixedDeclaration_ignoresResourceOverrides() throws Exception {
     Spawn spawn =
         new SpawnBuilder("/bin/true")
-            .withLocalResources(ResourceSetOrBuilder.fixed(DECLARED_RESOURCES))
+            .withLocalResources(ResourceSetOrBuilder.ignoringOverrides(DECLARED_RESOURCES))
             .withExecutionInfo("resources:cpu:4", "")
             .withCombinedExecProperties(ImmutableMap.of("resources:memory", "8000"))
             .build();
@@ -159,7 +159,7 @@ public final class SpawnTest {
   @Test
   public void baseSpawn_getLocalResources_fixedDeclaration_keepsDeclaredResources()
       throws Exception {
-    BaseSpawn spawn = baseSpawn(ResourceSetOrBuilder.fixed(DECLARED_RESOURCES));
+    BaseSpawn spawn = baseSpawn(ResourceSetOrBuilder.ignoringOverrides(DECLARED_RESOURCES));
 
     assertThat(spawn.getLocalResources()).isEqualTo(DECLARED_RESOURCES);
     assertThat(spawn.getExecutionInfo()).containsKey("resources:cpu:4");

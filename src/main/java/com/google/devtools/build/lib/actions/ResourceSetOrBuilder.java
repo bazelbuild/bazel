@@ -34,7 +34,7 @@ public interface ResourceSetOrBuilder {
    * executionInfo} and {@code execProperties} applied as overrides.
    *
    * <p>The entries are taken unparsed so that a declaration which ignores them, such as {@link
-   * #fixed}, doesn't pay to parse them.
+   * #ignoringOverrides}, doesn't pay to parse them.
    */
   default ResourceSet buildLocalResources(
       OS os, int inputsSize, Map<String, String> executionInfo, Map<String, String> execProperties)
@@ -47,9 +47,9 @@ public interface ResourceSetOrBuilder {
 
   /**
    * Returns a declaration of {@code resources} that the owning target's "resources:*" entries
-   * must not override.
+   * do not override.
    */
-  static ResourceSetOrBuilder fixed(ResourceSet resources) {
+  static ResourceSetOrBuilder ignoringOverrides(ResourceSet resources) {
     return new ResourceSetOrBuilder() {
       @Override
       public ResourceSet buildResourceSet(OS os, int inputsSize) {

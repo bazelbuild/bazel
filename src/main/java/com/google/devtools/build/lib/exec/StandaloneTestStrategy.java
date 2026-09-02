@@ -490,7 +490,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         // describe the test process, not this script. Letting them override the default would
         // make a log-to-XML conversion book the whole test's CPU/memory/custom resources and
         // queue behind unrelated actions.
-        ResourceSetOrBuilder.fixed(SpawnAction.DEFAULT_RESOURCE_SET));
+        ResourceSetOrBuilder.ignoringOverrides(SpawnAction.DEFAULT_RESOURCE_SET));
   }
 
   private static Spawn createCoveragePostProcessingSpawn(
@@ -531,7 +531,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         /* mandatoryOutputs= */ null,
         // As in createXmlGeneratingSpawn: the test target's `resources:` entries describe the
         // test process, not this post-processing step.
-        ResourceSetOrBuilder.fixed(SpawnAction.DEFAULT_RESOURCE_SET));
+        ResourceSetOrBuilder.ignoringOverrides(SpawnAction.DEFAULT_RESOURCE_SET));
   }
 
   private static Map<String, String> createEnvironment(
