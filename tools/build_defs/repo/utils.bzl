@@ -140,7 +140,7 @@ def symlink_files(ctx):
             ctx.delete(path)
         ctx.symlink(src_path, path)
 
-def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_tool = None, patch_args = None, auth = None):
+def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_tool = None, patch_args = None, auth = None, patch_directory = None):
     """Implementation of patching an already extracted repository.
 
     This rule is intended to be used in the implementation function of
@@ -162,6 +162,9 @@ def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_t
         patches. String.
       patch_args: Arguments to pass to the patch tool. List of strings.
       auth: An optional dict specifying authentication information for some of the URLs.
+      patch_directory: Directory relative to the repository root in which to
+        apply `patches` and run `patch_cmds`. Remote patches are always applied
+        at the repository root. Defaults to the repository root.
 
     Returns:
         dict mapping remote patch URLs to a download info.
@@ -248,7 +251,7 @@ def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_t
         else:
             strip = 0
         for patchfile in patches:
-            ctx.patch(patchfile, strip)
+            ctx.patch(patchfile, strip, directory = patch_directory or "")
     else:
         for patchfile in patches:
             command = "{patchtool} {patch_args} < {patchfile}".format(
@@ -259,20 +262,20 @@ def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_t
                     for arg in patch_args
                 ]),
             )
-            st = ctx.execute([bash_exe, "-c", command])
+            st = ctx.execute([bash_exe, "-c", command], working_directory = patch_directory or "")
             if st.return_code:
                 fail("Error applying patch %s:\n%s%s" %
                      (str(patchfile), st.stderr, st.stdout))
 
     if _is_windows(ctx) and patch_cmds_win:
         for cmd in patch_cmds_win:
-            st = ctx.execute([powershell_exe, "/c", cmd])
+            st = ctx.execute([powershell_exe, "/c", cmd], working_directory = patch_directory or "")
             if st.return_code:
                 fail("Error applying patch command %s:\n%s%s" %
                      (cmd, st.stdout, st.stderr))
     else:
         for cmd in patch_cmds:
-            st = ctx.execute([bash_exe, "-c", cmd])
+            st = ctx.execute([bash_exe, "-c", cmd], working_directory = patch_directory or "")
             if st.return_code:
                 fail("Error applying patch command %s:\n%s%s" %
                      (cmd, st.stdout, st.stderr))
