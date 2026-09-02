@@ -27,11 +27,9 @@ import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
-import com.google.devtools.build.lib.profiler.AutoProfiler;
-import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.time.Duration;
 import java.util.Map;
 
 /**
@@ -39,8 +37,6 @@ import java.util.Map;
  * create the symlink tree.
  */
 public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
-  private static final Duration MIN_LOGGING = Duration.ofMillis(100);
-
   @VisibleForTesting
   static final Function<Artifact, PathFragment> TO_PATH =
       (artifact) -> artifact == null ? null : artifact.getPath().asFragment();
@@ -58,8 +54,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
       SymlinkTreeAction action, ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, "local"));
-    try (AutoProfiler p =
-        GoogleAutoProfilerUtils.logged("running " + action.prettyPrint(), MIN_LOGGING)) {
+    try (var _ = Profiler.instance().profile("SymlinkTreeStrategy.createSymlinks")) {
       SymlinkTreeHelper helper = createSymlinkTreeHelper(action, actionExecutionContext);
       // TODO(tjgq): Respect RunfileSymlinksMode.SKIP even in the presence of an OutputService.
       try {
