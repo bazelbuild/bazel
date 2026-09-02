@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createDepSpec;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -426,7 +427,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
     assertThat(result.hasError()).isFalse();
     assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).module().getDeps())
-        .containsExactly("foo", createModuleKey("foo", "1.0"), "bar", createModuleKey("bar", "2.0"))
+        .containsExactly(
+            "foo", createDepSpec("foo", "1.0", -1),
+            "bar", createDepSpec("bar", "2.0", -1))
         .inOrder();
   }
 

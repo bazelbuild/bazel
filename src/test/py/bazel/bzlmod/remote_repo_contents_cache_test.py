@@ -2077,6 +2077,14 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
 
     for attempt in range(5):
       self.RunBazel(['clean', '--expunge'])
+      # The drop budget is shared by all fetches in the build below and is used
+      # up by whichever of them allocates first, so an unrelated repo can
+      # exhaust it before my_repo is even fetched. On Windows, test_base
+      # registers a Python toolchain from rules_python, whose fetch reliably
+      # does so. Fetching it without a remote cache materializes it on disk, so
+      # that the build below finds it up to date instead of having to inject it
+      # from the remote repo contents cache into the memory of its own server.
+      self.RunBazel(['fetch', '--repo=@@rules_python+', '--remote_cache='])
       exit_code, _, stderr = self.RunBazel(
           [
               # A small heap makes minor GC events frequent under allocation
@@ -2363,8 +2371,8 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     # contents cache hit, the repo is injected into the overlay file system but
     # not materialized on disk. Reads of .bzl (and REPO.bazel) files are
     # redirected to the native file system on the assumption that they were
-    # prefetched during injection, but symlinks are not prefetched, only their
-    # target if they match the name pattern.
+    # prefetched during injection, but symlinks are never prefetched
+    # themselves, only the regular file they resolve to.
     if self.IsWindows():
       self.ScratchFile(
           '.bazelrc',
@@ -2408,6 +2416,58 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'helper.bzl')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'real_helper.bzl')))
+
+  def testBzlSymlinkToNonBzlFileLoadedByBuildFile(self):
+    # Like testBzlSymlinkLoadedByBuildFile, but the symlink target's own name
+    # does not mark it for prefetching. Whether a read is served from the
+    # native file system is decided by the path it is made through, so the
+    # target has to be prefetched anyway.
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          ['startup --windows_enable_symlinks'],
+          mode='a',
+      )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", """',
+            'load(":helper.bzl", "the_name")',
+            'filegroup(name = the_name)',
+            '""")',
+            '  rctx.file("real_helper.txt", \'the_name = "haha"\')',
+            '  rctx.symlink("real_helper.txt", "helper.bzl")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.islink(os.path.join(repo_dir, 'helper.bzl')))
+
+    # After expunging: cached. The repo is injected but not materialized; the
+    # symlink target must have been prefetched even though it isn't named like
+    # a file that is loaded.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'helper.bzl')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'real_helper.txt')))
 
   def testBzlSymlinkToOtherRepoLoadedByBuildFile(self):
     # Regression test for

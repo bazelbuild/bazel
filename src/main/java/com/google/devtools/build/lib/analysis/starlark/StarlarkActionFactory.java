@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.DeclaredExecGroup;
+import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -864,9 +865,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       toolchainLabel = label;
     } else if (toolchainUnchecked instanceof String) {
       try {
-        toolchainLabel =
-            Label.parseWithPackageContext(
-                (String) toolchainUnchecked, ruleContext.getPackageContext());
+        LabelConverter converter =
+            LabelConverter.forBzlEvaluatingThread(ruleContext.getStarlarkThread());
+        toolchainLabel = converter.convert((String) toolchainUnchecked);
       } catch (LabelSyntaxException e) {
         throw Starlark.errorf("%s", e.getMessage());
       }
