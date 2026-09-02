@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnProgressEvent;
 import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
+import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.MaybePathBacked;
@@ -550,9 +551,14 @@ public class CombinedCache extends AbstractReferenceCounted {
                 chunking.downloader().downloadChunked(context, digest, out);
                 return null;
               });
+      // Only a failure to split the blob is recoverable by downloading it as a whole. Once the
+      // server has described the blob as a sequence of chunks, the download is committed to that
+      // path: chunks are written to `out` as they arrive, so restarting would append the blob to
+      // the chunks already written. A missing chunk is reported as a missing blob instead, letting
+      // the usual lost input handling regenerate it.
       return Futures.catchingAsync(
           chunkedDownloadFuture,
-          CacheNotFoundException.class,
+          BlobNotSplittableException.class,
           (e) -> regularDownloadBlobFromRemote(context, digest, out),
           directExecutor());
     }
