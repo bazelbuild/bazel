@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.remote.common.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
@@ -137,7 +138,6 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   private final boolean acceptCached;
   private final boolean uploadLocalResults;
   private final boolean verboseFailures;
-  private final DigestUtil digestUtil;
   private final Action baseAction;
   private final Digest commandDigest;
 
@@ -156,14 +156,13 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     this.acceptCached = acceptCached;
     this.uploadLocalResults = uploadLocalResults;
     this.verboseFailures = verboseFailures;
-    this.digestUtil = cache.digestUtil;
     this.baseAction =
         Action.newBuilder()
-            .setCommandDigest(digestUtil.compute(COMMAND))
-            .setInputRootDigest(digestUtil.compute(INPUT_ROOT))
+            .setCommandDigest(cache.digestUtil().compute(COMMAND))
+            .setInputRootDigest(cache.digestUtil().compute(INPUT_ROOT))
             .setPlatform(Platform.getDefaultInstance())
             .build();
-    this.commandDigest = digestUtil.compute(COMMAND);
+    this.commandDigest = cache.digestUtil().compute(COMMAND);
   }
 
   @Override
@@ -202,12 +201,12 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       var finalHash =
           uploadIntermediateActionResults(context, predeclaredInputHash, recordedInputValues);
       var action = buildAction(finalHash);
-      var actionKey = new ActionKey(digestUtil.compute(action));
+      var actionKey = new ActionKey(cache.digestUtil().compute(action));
       var remotePathResolver = new RepoRemotePathResolver(fetchedRepoMarkerFile, fetchedRepoDir);
       var unused =
           UploadManifest.create(
                   cache.getRemoteCacheCapabilities(),
-                  digestUtil,
+                  cache.digestUtil(),
                   remotePathResolver,
                   actionKey,
                   action,
@@ -345,7 +344,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     // The command is shared by all action results and small enough that FindMissingBlobs is not
     // worthwhile. The REAPI spec requires the command to be uploaded before an action result that
     // references it.
-    waitForBulkTransfer(ImmutableSet.of(cache.uploadBlob(context, commandDigest, COMMAND_BYTES)));
+    waitForBulkTransfer(ImmutableSet.of(cache.uploadBlob(context, commandDigest, (Blob) COMMAND_BYTES::newInput, /* force= */ false)));
 
     String rollingHash = predeclaredInputHash;
     var batches = RepoRecordedInput.WithValue.splitIntoBatches(recordedInputValues);
@@ -376,7 +375,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       RemoteActionExecutionContext context,
       Action action,
       Collection<RepoRecordedInput> newInputs) {
-    var actionKey = digestUtil.computeActionKey(action);
+    var actionKey = cache.digestUtil().computeActionKey(action);
     var currentInputsFuture =
         Futures.transformAsync(
             cache.downloadActionResultAsync(
@@ -412,12 +411,12 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
           // cache entry is an acceptable trade-off for simplicity.
           var newInputsString = newInputString + '\n' + currentInputsString;
           var stdoutBytes = getInternalStringBytes(newInputsString);
-          var stdoutDigest = digestUtil.compute(stdoutBytes);
+          var stdoutDigest = cache.digestUtil().compute(stdoutBytes);
           var actionResult =
               ActionResult.newBuilder().setExitCode(0).setStdoutDigest(stdoutDigest).build();
           return whenAllSucceed(
-                  cache.uploadBlob(context, actionKey.digest(), action.toByteString()),
-                  cache.uploadBlob(context, stdoutDigest, ByteString.copyFrom(stdoutBytes)))
+                  cache.uploadBlob(context, actionKey.digest(), (Blob) action.toByteString()::newInput, /* force= */ false),
+                  cache.uploadBlob(context, stdoutDigest, (Blob) ByteString.copyFrom(stdoutBytes)::newInput, /* force= */ false))
               .callAsync(
                   () -> cache.uploadActionResult(context, actionKey, actionResult),
                   directExecutor());
@@ -494,7 +493,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
   private CacheEntry fetchCacheEntry(
       SkyFunction.Environment env, RemoteActionExecutionContext context, String inputHash)
       throws IOException, InterruptedException {
-    var actionKey = new ActionKey(digestUtil.compute(buildAction(inputHash)));
+    var actionKey = new ActionKey(cache.digestUtil().compute(buildAction(inputHash)));
     // The marker file is read right after and thus requested to be inlined. If the action result
     // is an intermediate node, the full result will be contained in the stdout, which should thus
     // also be inlined.

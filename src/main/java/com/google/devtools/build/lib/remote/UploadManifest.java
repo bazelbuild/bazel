@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -660,7 +661,7 @@ public class UploadManifest {
           new IOException("FindMissingBlobs call returned an unknown digest: " + digest));
     }
 
-    return combinedCache.uploadBlob(context, digest, blob);
+    return combinedCache.uploadBlob(context, digest, (Blob) blob::newInput, /* force= */ false);
   }
 
   @CanIgnoreReturnValue

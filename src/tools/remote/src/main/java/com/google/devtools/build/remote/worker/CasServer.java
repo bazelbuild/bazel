@@ -36,6 +36,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -101,8 +102,8 @@ final class CasServer extends ContentAddressableStorageImplBase {
     for (BatchUpdateBlobsRequest.Request r : request.getRequestsList()) {
       BatchUpdateBlobsResponse.Response.Builder resp = batchResponse.addResponsesBuilder();
       try {
-        Digest digest = cache.getDigestUtil().compute(r.getData().toByteArray());
-        getFromFuture(cache.uploadBlob(context, digest, r.getData()));
+        Digest digest = cache.digestUtil().compute(r.getData().toByteArray());
+        getFromFuture(cache.uploadBlob(context, digest, (Blob) r.getData()::newInput, /* force= */ false));
         if (!r.getDigest().equals(digest)) {
           String err =
               "Upload digest " + r.getDigest() + " did not match data digest: " + digest;
@@ -251,7 +252,7 @@ final class CasServer extends ContentAddressableStorageImplBase {
     try {
       Digest computedDigest;
       OutputStream rawOut = tempPath.getOutputStream();
-      try (DigestOutputStream digestOut = cache.getDigestUtil().newDigestOutputStream(rawOut)) {
+      try (DigestOutputStream digestOut = cache.digestUtil().newDigestOutputStream(rawOut)) {
         for (Digest chunkDigest : chunkDigests) {
           digestOut.write(getFromFuture(cache.downloadBlob(context, chunkDigest)));
         }

@@ -20,8 +20,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
@@ -480,9 +482,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
                 + digest.getHash()
                 + "/"
                 + digest.getSizeBytes());
-    verify(combinedCache, times(0)).uploadFile(any(), any(), any());
-    verify(combinedCache, times(0)).uploadBlob(any(), any(), any(ByteString.class));
-    verify(combinedCache, times(0)).uploadBlob(any(), any(), any(Blob.class));
+    verify(combinedCache, never()).uploadFile(any(), any(), any());
+    verify(combinedCache, never()).uploadBlob(any(), any(), any(Blob.class), any(Boolean.class));
   }
 
   @Test
