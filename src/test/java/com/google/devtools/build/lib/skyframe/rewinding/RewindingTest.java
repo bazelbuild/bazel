@@ -272,6 +272,12 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void actionTemplateExpansionRewound_siblingActionsReExecuteConcurrently()
+      throws Exception {
+    helper.runActionTemplateExpansionRewound_siblingActionsReExecuteConcurrently();
+  }
+
+  @Test
   public void generatedRunfilesRewound_allFilesLost() throws Exception {
     helper.runGeneratedRunfilesRewound_allFilesLost_spawnFailed();
   }

@@ -102,7 +102,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
@@ -1921,6 +1923,150 @@ public class RewindingTestsHelper {
     var executedSpawns = ImmutableMultiset.copyOf(getExecutedSpawnDescriptions());
     assertThat(executedSpawns).hasCount("Mapping foo/mapped_dir (1)", 2);
     assertThat(executedSpawns).hasCount("Mapping foo/mapped_dir (2)", 2);
+  }
+
+  /**
+   * Verifies that sibling actions of a rewound {@link
+   * com.google.devtools.build.lib.actions.ActionTemplate} expansion re-execute concurrently.
+   *
+   * <p>Rewinding a lost file in the tree artifact populated by an expansion rewinds the template
+   * together with every expanded action, and each of them holds the write lock on the template's
+   * key for the duration of its re-execution. The lock must admit all of them as a group: an
+   * exclusive write lock would serialize the re-execution of the entire expansion.
+   */
+  public final void runActionTemplateExpansionRewound_siblingActionsReExecuteConcurrently()
+      throws Exception {
+    // Both re-executed sibling actions have to run concurrently for the rendezvous below to
+    // complete.
+    ensureMultipleJobs();
+    testCase.addOptions("--experimental_allow_map_directory");
+    testCase.write(
+        "foo/defs.bzl",
+        """
+        def _copy_tool_impl(ctx):
+            tool = ctx.actions.declare_file(ctx.attr.name + ".bat")
+            ctx.actions.write(tool, r\"\"\"COPY_TOOL_SCRIPT\"\"\", is_executable = True)
+            return DefaultInfo(files = depset([tool]), executable = tool)
+
+        copy_tool = rule(implementation = _copy_tool_impl, executable = True)
+
+        def _map_impl(template_ctx, input_directories, output_directories, tools, **kwargs):
+            for child in input_directories["seed"].children:
+                out = template_ctx.declare_file(
+                    child.basename + ".out",
+                    directory = output_directories["mapped"],
+                )
+                args = template_ctx.args()
+                args.add_all([out, child])
+                template_ctx.run(
+                    inputs = [child],
+                    outputs = [out],
+                    executable = tools["copy_tool"],
+                    arguments = [args],
+                    progress_message = "Mapping foo/mapped_dir " + child.basename,
+                )
+
+        def _mapped_tree_impl(ctx):
+            seed = ctx.actions.declare_directory("seed_dir")
+            ctx.actions.run_shell(
+                outputs = [seed],
+                command = "echo seed > $1/f1 && echo seed > $1/f2",
+                arguments = [seed.path],
+                progress_message = "Seeding foo/seed_dir",
+            )
+            mapped = ctx.actions.declare_directory("mapped_dir")
+            ctx.actions.map_directory(
+                implementation = _map_impl,
+                input_directories = {"seed": seed},
+                output_directories = {"mapped": mapped},
+                tools = {"copy_tool": ctx.attr._copy_tool.files_to_run},
+                # Ensure that the rewound expansion actions re-execute their spawns instead of
+                # picking up the results of their first executions from the cache.
+                execution_requirements = {"no-cache": "1"},
+            )
+            return DefaultInfo(files = depset([mapped]))
+
+        mapped_tree = rule(
+            implementation = _mapped_tree_impl,
+            attrs = {
+                "_copy_tool": attr.label(
+                    default = ":copy_tool",
+                    executable = True,
+                    cfg = "exec",
+                ),
+            },
+        )
+
+        def _consumer_impl(ctx):
+            out = ctx.actions.declare_file(ctx.attr.name + ".out")
+            ctx.actions.run_shell(
+                inputs = ctx.files.srcs,
+                outputs = [out],
+                command = "echo consumed > $1",
+                arguments = [out.path],
+                progress_message = "Consuming //foo:" + ctx.attr.name,
+            )
+            return DefaultInfo(files = depset([out]))
+
+        consumer = rule(
+            implementation = _consumer_impl,
+            attrs = {"srcs": attr.label_list(allow_files = True)},
+        )
+        """
+            .replace("COPY_TOOL_SCRIPT", COPY_TOOL_SCRIPT));
+    testCase.write(
+        "foo/BUILD",
+        """
+        load(":defs.bzl", "consumer", "copy_tool", "mapped_tree")
+
+        copy_tool(name = "copy_tool")
+
+        mapped_tree(name = "mapped_tree")
+
+        consumer(
+            name = "losing_consumer",
+            srcs = [":mapped_tree"],
+        )
+        """);
+
+    // The initial executions of the expansion actions pass through unmodified; per description,
+    // shims are consumed in the order in which they were added.
+    for (String child : ImmutableList.of("f1", "f2")) {
+      addSpawnShim("Mapping foo/mapped_dir " + child, (spawn, context) -> ExecResult.delegate());
+    }
+    // Each re-executed sibling waits for the other one to start before running its spawn, which
+    // can only succeed if both hold the write lock on the template's key at the same time. If
+    // rewound sibling actions excluded each other, this would deadlock and time out the test.
+    CyclicBarrier bothSiblingsReExecuting = new CyclicBarrier(2);
+    for (String child : ImmutableList.of("f1", "f2")) {
+      addSpawnShim(
+          "Mapping foo/mapped_dir " + child,
+          (spawn, context) -> {
+            try {
+              bothSiblingsReExecuting.await();
+            } catch (BrokenBarrierException e) {
+              throw new IllegalStateException(e);
+            }
+            return ExecResult.delegate();
+          });
+    }
+    // Losing a single file of the tree artifact rewinds the template expansion and with it every
+    // expanded action.
+    addSpawnShim(
+        "Consuming //foo:losing_consumer",
+        (spawn, context) -> {
+          SpecialArtifact mappedTree = SpawnInputUtils.getTreeArtifactWithName(spawn, "mapped_dir");
+          return createLostInputsExecException(
+              context, SpawnInputUtils.getExpandedToArtifact("f1.out", mappedTree, spawn, context));
+        });
+
+    testCase.buildTarget("//foo:losing_consumer");
+
+    verifyAllSpawnShimsConsumed();
+    var executedSpawns = ImmutableMultiset.copyOf(getExecutedSpawnDescriptions());
+    assertThat(executedSpawns).hasCount("Mapping foo/mapped_dir f1", 2);
+    assertThat(executedSpawns).hasCount("Mapping foo/mapped_dir f2", 2);
+    assertThat(executedSpawns).hasCount("Consuming //foo:losing_consumer", 2);
   }
 
   public final void runGeneratedRunfilesRewound_allFilesLost_spawnFailed() throws Exception {
