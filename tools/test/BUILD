@@ -116,7 +116,6 @@ cc_test(
     }),
     deps = [
         ":tw_lib",
-        "//src/main/cpp/util:filesystem",
         "//src/test/cpp/util:windows_test_util",
         "@com_google_googletest//:gtest_main",
     ] + select({

@@ -10,30 +10,6 @@ package_group(
 )
 
 cc_library(
-    name = "util",
-    hdrs = [
-        "errors.h",
-        "file.h",
-        "file_platform.h",
-        "md5.h",
-        "numbers.h",
-        "path.h",
-        "path_platform.h",
-        "port.h",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":blaze_exit_code",
-        ":errors",
-        ":filesystem",
-        ":md5",
-        ":numbers",
-        ":port",
-        ":strings",
-    ],
-)
-
-cc_library(
     name = "filesystem",
     srcs = [
         "file.cc",
@@ -56,6 +32,7 @@ cc_library(
     ],
     visibility = [
         ":ijar",
+        "//src/main/cpp:__subpackages__",
         "//src/main/tools:__pkg__",
         "//src/test/cpp/util:__pkg__",
         "//src/test/native/windows:__pkg__",
@@ -87,7 +64,6 @@ cc_library(
         "//src/main/cpp:__subpackages__",
     ],
     deps = [
-        ":logging",
         ":port",
         ":strings",
     ],
@@ -99,6 +75,7 @@ cc_library(
     hdrs = ["port.h"],
     visibility = [
         "//src/main/native:__pkg__",
+        "//src/test/cpp/util:__pkg__",
     ],
 )
 
@@ -106,6 +83,10 @@ cc_library(
     name = "numbers",
     srcs = ["numbers.cc"],
     hdrs = ["numbers.h"],
+    visibility = [
+        "//src/main/cpp:__subpackages__",
+        "//src/test/cpp/util:__pkg__",
+    ],
     deps = [":strings"],
 )
 
@@ -125,11 +106,7 @@ cc_library(
     srcs = ["bazel_log_handler.cc"],
     hdrs = ["bazel_log_handler.h"],
     visibility = ["//visibility:public"],
-    deps = [
-        ":blaze_exit_code",
-        ":filesystem",
-        ":logging",
-    ],
+    deps = [":logging"],
 )
 
 cc_library(
@@ -137,6 +114,7 @@ cc_library(
     srcs = ["md5.cc"],
     hdrs = ["md5.h"],
     visibility = [
+        "//src/main/cpp:__subpackages__",
         "//src/main/native:__pkg__",
         "//src/test/cpp/util:__pkg__",
     ],
