@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -50,10 +52,10 @@ import com.google.devtools.common.options.TriState;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** This module provides the Sandbox spawn strategy. */
@@ -400,16 +402,46 @@ public final class SandboxModule extends BlazeModule {
   }
 
   /**
+   * Removes any top-level entries in sandboxBase that are not in SANDBOX_BASE_PERSISTENT_DIRS or
+   * expected inaccessible helper files/directories. This cleans up leftover sandbox directories
+   * (e.g. linux-sandbox) from previous builds that used --sandbox_debug or different execution
+   * strategies.
+   */
+  // Package-private for testing
+  static void cleanSandboxBaseTopOnlyContainsPersistentDirs(
+      Path sandboxBase, @Nullable TreeDeleter treeDeleter) throws IOException {
+    for (Dirent dirent : sandboxBase.readdir(Symlinks.NOFOLLOW)) {
+      String name = dirent.getName();
+      if (SANDBOX_BASE_PERSISTENT_DIRS.contains(name)
+          || name.equals(SandboxHelpers.INACCESSIBLE_HELPER_DIR)
+          || name.equals(SandboxHelpers.INACCESSIBLE_HELPER_FILE)) {
+        continue;
+      }
+      Path childPath = sandboxBase.getChild(name);
+      if (dirent.getType() == Dirent.Type.DIRECTORY) {
+        if (treeDeleter != null) {
+          treeDeleter.deleteTree(childPath);
+        } else {
+          childPath.deleteTree();
+        }
+      } else {
+        childPath.delete();
+      }
+    }
+  }
+
+  /**
    * If there is anything other than SANDBOX_BASE_PERSISTENT_DIRS in sandboxBase when we hit this
    * precondition then there is a programming error somewhere (or I made a wrong assumption that
    * wasn't caught by any of our tests).
    */
-  private static void checkSandboxBaseTopOnlyContainsPersistentDirs(Path sandboxBase) {
+  // Package-private for testing
+  static void checkSandboxBaseTopOnlyContainsPersistentDirs(Path sandboxBase) {
     try {
       List<String> directoryEntries =
           sandboxBase.getDirectoryEntries().stream()
               .map(Path::getBaseName)
-              .collect(Collectors.toList());
+              .collect(toCollection(ArrayList::new));
       // If sandbox initialization failed in-between creating the inaccessible dir/file and adding
       // the Linux sandboxing strategy to spawnRunners, then the sandbox base will be in a bad
       // state. We check for that here and clean up.
@@ -425,13 +457,17 @@ public final class SandboxModule extends BlazeModule {
         inaccessibleHelperFile.delete();
       }
 
-      if (!SANDBOX_BASE_PERSISTENT_DIRS.containsAll(directoryEntries)) {
+      ImmutableList<String> unexpectedEntries =
+          directoryEntries.stream()
+              .filter(entry -> !SANDBOX_BASE_PERSISTENT_DIRS.contains(entry))
+              .collect(toImmutableList());
+      if (!unexpectedEntries.isEmpty()) {
         StringBuilder message =
             new StringBuilder(
                 "Found unexpected entries in sandbox base. Please report this in"
                     + " https://github.com/bazelbuild/bazel/issues.");
         message.append(" The entries are: ");
-        Joiner.on(", ").appendTo(message, directoryEntries);
+        Joiner.on(", ").appendTo(message, unexpectedEntries);
         throw new IllegalStateException(message.toString());
       }
     } catch (IOException e) {
@@ -470,6 +506,7 @@ public final class SandboxModule extends BlazeModule {
             }
           }
         }
+        cleanSandboxBaseTopOnlyContainsPersistentDirs(sandboxBase, treeDeleter);
         shouldCleanupSandboxBase = false;
         checkSandboxBaseTopOnlyContainsPersistentDirs(sandboxBase);
       } catch (InterruptedException e) {
