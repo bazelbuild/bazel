@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
@@ -231,7 +232,7 @@ public class CompactPersistentActionCacheTest {
 
     // Remove entries that discover inputs and flush the journal.
     cache.removeIf(Entry::discoversInputs);
-    assertFullSave();
+    assertIncrementalSave(cache);
 
     // Check that the entries that discover inputs are gone, and the rest are still there.
     for (int i = 0; i < 100; i++) {
@@ -767,6 +768,8 @@ public class CompactPersistentActionCacheTest {
     return new ActionCache.Entry.Builder(
         actionKey,
         discoversInputs,
+        // Must be non-null iff the action discovers inputs.
+        discoversInputs ? new byte[DigestUtils.ESTIMATED_SIZE] : null,
         /* clientEnv= */ ImmutableMap.of(),
         /* actionExecutionSalt= */ "",
         OutputPermissions.READONLY,
