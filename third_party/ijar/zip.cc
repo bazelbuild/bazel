@@ -155,18 +155,25 @@ class InputZipFile : public ZipExtractor {
     return -1;
   }
 
-  // Check that at least n bytes remain in the input file, otherwise
-  // abort with an error message.  "state" is the name of the field
-  // we're about to read, for diagnostics.
-  int EnsureRemaining(size_t n, const char *state) {
-    size_t in_offset = p - zipdata_in_;
-    size_t remaining = input_file_->Length() - in_offset;
+  // Check that at least n bytes remain in the input file starting at "at",
+  // otherwise abort with an error message.  "state" is the name of the
+  // field we're about to read, for diagnostics.
+  int EnsureRemainingAt(const u1 *at, size_t n, const char *state) {
+    size_t at_offset = at - zipdata_in_;
+    size_t remaining = input_file_->Length() - at_offset;
     if (n > remaining) {
       return error("Premature end of file (at offset %zd, state=%s); "
                    "expected %zd more bytes but found %zd.\n",
-                   in_offset, state, n, remaining);
+                   at_offset, state, n, remaining);
     }
     return 0;
+  }
+
+  // Check that at least n bytes remain in the input file at the current
+  // input cursor, otherwise abort with an error message.  "state" is the
+  // name of the field we're about to read, for diagnostics.
+  int EnsureRemaining(size_t n, const char *state) {
+    return EnsureRemainingAt(p, n, state);
   }
 
   // Read one entry from input zip file
@@ -492,6 +499,9 @@ bool InputZipFile::ProcessCentralDirEntry(const u1 *&p, u8 *compressed_size,
                                           u8 *uncompressed_size, char *filename,
                                           size_t filename_size, u4 *attr,
                                           u8 *offset) {
+  if (EnsureRemainingAt(p, 4, "signature") < 0) {
+    return false;
+  }
   u4 signature = get_u4le(p);
 
   if (signature != CENTRAL_FILE_HEADER_SIGNATURE) {
@@ -502,6 +512,14 @@ bool InputZipFile::ProcessCentralDirEntry(const u1 *&p, u8 *compressed_size,
     return false;
   }
 
+  // The remainder of a central directory file header, after the signature:
+  // version made by/needed (2+2), flags (2), compression (2), mod time/date
+  // (2+2), crc32 (4), compressed/uncompressed size (4+4), name/extra/comment
+  // lengths (2+2+2), disk number (2), internal/external attrs (2+4), and the
+  // local header offset (4) = 42 bytes.
+  if (EnsureRemainingAt(p, 42, "central_directory_entry") < 0) {
+    return false;
+  }
   p += 16;  // skip to 'compressed size' field
   *compressed_size = get_u4le(p);
   *uncompressed_size = get_u4le(p);
@@ -511,6 +529,10 @@ bool InputZipFile::ProcessCentralDirEntry(const u1 *&p, u8 *compressed_size,
   p += 4;  // skip to external file attributes field
   *attr = get_u4le(p);
   *offset = get_u4le(p);
+
+  if (EnsureRemainingAt(p, file_name_length, "file_name") < 0) {
+    return false;
+  }
   {
     size_t len = (file_name_length < filename_size)
       ? file_name_length
@@ -519,6 +541,10 @@ bool InputZipFile::ProcessCentralDirEntry(const u1 *&p, u8 *compressed_size,
     filename[len] = 0;
   }
   p += file_name_length;
+
+  if (EnsureRemainingAt(p, extra_field_length, "extra_field") < 0) {
+    return false;
+  }
   const u1 *extra_p = p;
   p += extra_field_length;
   while (extra_p != p) {
@@ -537,6 +563,10 @@ bool InputZipFile::ProcessCentralDirEntry(const u1 *&p, u8 *compressed_size,
         *offset = get_u8le(extra);
       }
     }
+  }
+
+  if (EnsureRemainingAt(p, file_comment_length, "file_comment") < 0) {
+    return false;
   }
   p += file_comment_length;
   return true;
