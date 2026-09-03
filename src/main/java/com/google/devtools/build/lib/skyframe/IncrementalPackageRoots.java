@@ -89,6 +89,7 @@ public class IncrementalPackageRoots implements PackageRoots {
 
   private final boolean allowExternalRepositories;
   @Nullable private EventBus eventBus;
+  @Nullable private final PackageRootLookup fallbackPackageRootLookup;
 
   // "maybe" because some conflicts in a case-insensitive FS may not be in a case-sensitive one.
   private ImmutableSet<String> maybeConflictingBaseNamesLowercase = ImmutableSet.of();
@@ -100,7 +101,8 @@ public class IncrementalPackageRoots implements PackageRoots {
       String prefix,
       IgnoredSubdirectories ignoredPaths,
       boolean useSiblingRepositoryLayout,
-      boolean allowExternalRepositories) {
+      boolean allowExternalRepositories,
+      @Nullable PackageRootLookup fallbackPackageRootLookup) {
     this.threadSafeExternalRepoPackageRootsMap = Maps.newConcurrentMap();
     this.execroot = execroot;
     this.singleSourceRoot = singleSourceRoot;
@@ -109,6 +111,7 @@ public class IncrementalPackageRoots implements PackageRoots {
     this.eventBus = eventBus;
     this.useSiblingRepositoryLayout = useSiblingRepositoryLayout;
     this.allowExternalRepositories = allowExternalRepositories;
+    this.fallbackPackageRootLookup = fallbackPackageRootLookup;
     this.symlinkPlantingPool =
         MoreExecutors.listeningDecorator(
             Executors.newFixedThreadPool(
@@ -124,6 +127,26 @@ public class IncrementalPackageRoots implements PackageRoots {
       IgnoredSubdirectories ignoredSubdirectories,
       boolean useSiblingRepositoryLayout,
       boolean allowExternalRepositories) {
+    return createAndRegisterToEventBus(
+        execroot,
+        singleSourceRoot,
+        eventBus,
+        prefix,
+        ignoredSubdirectories,
+        useSiblingRepositoryLayout,
+        allowExternalRepositories,
+        /* fallbackPackageRootLookup= */ null);
+  }
+
+  public static IncrementalPackageRoots createAndRegisterToEventBus(
+      Path execroot,
+      Root singleSourceRoot,
+      EventBus eventBus,
+      String prefix,
+      IgnoredSubdirectories ignoredSubdirectories,
+      boolean useSiblingRepositoryLayout,
+      boolean allowExternalRepositories,
+      @Nullable PackageRootLookup fallbackPackageRootLookup) {
     IncrementalPackageRoots incrementalPackageRoots =
         new IncrementalPackageRoots(
             execroot,
@@ -132,7 +155,8 @@ public class IncrementalPackageRoots implements PackageRoots {
             prefix,
             ignoredSubdirectories,
             useSiblingRepositoryLayout,
-            allowExternalRepositories);
+            allowExternalRepositories,
+            fallbackPackageRootLookup);
     eventBus.register(incrementalPackageRoots);
     return incrementalPackageRoots;
   }
@@ -184,12 +208,53 @@ public class IncrementalPackageRoots implements PackageRoots {
         "IncrementalPackageRoots does not provide the package roots map directly.");
   }
 
+  /**
+   * Returns a lookup function for package roots.
+   *
+   * <p>For packages in the main repository, the lookup unconditionally returns {@link
+   * #singleSourceRoot}.
+   *
+   * <p>For external repositories, the lookup consults {@link
+   * #threadSafeExternalRepoPackageRootsMap} and falls back to {@code fallbackPackageRootLookup} if
+   * present. Both are required:
+   *
+   * <ol>
+   *   <li>Why {@code fallbackPackageRootLookup} is necessary: External packages evaluated in
+   *       earlier builds or retained across an analysis cache discard (such as toolchains whose
+   *       transitive package metadata was cleared to save heap memory) may not be included in the
+   *       current build's {@link TopLevelTargetReadyForSymlinkPlanting} events. The fallback
+   *       queries Skyframe's graph directly to recover roots for any completed {@code PackageValue}
+   *       nodes.
+   *   <li>Why {@link #threadSafeExternalRepoPackageRootsMap} cannot be replaced:
+   *       <ul>
+   *         <li>In memory-saving modes (e.g. {@code --notrack_incremental_state} or node dropping),
+   *             Skyframe may discard {@code PackageValue} nodes before or during execution. Storing
+   *             roots during analysis symlink planting preserves them throughout execution.
+   *         <li>It acts as a fast thread-safe cache for concurrent action execution (e.g. parallel
+   *             C++ header discovery), avoiding repeated lookups against Skyframe's node graph.
+   *             Successful fallback lookups are memoized into this map via {@code putIfAbsent}.
+   *       </ul>
+   * </ol>
+   */
   @Override
   public PackageRootLookup getPackageRootLookup() {
-    return packageId ->
-        packageId.getRepository().isMain()
-            ? singleSourceRoot
-            : threadSafeExternalRepoPackageRootsMap.get(packageId);
+    return packageId -> {
+      if (packageId.getRepository().isMain()) {
+        return singleSourceRoot;
+      }
+      Root root = threadSafeExternalRepoPackageRootsMap.get(packageId);
+      if (root != null) {
+        return root;
+      }
+      if (fallbackPackageRootLookup != null) {
+        root = fallbackPackageRootLookup.getRootForPackage(packageId);
+        if (root != null) {
+          threadSafeExternalRepoPackageRootsMap.putIfAbsent(packageId, root);
+          return root;
+        }
+      }
+      return null;
+    };
   }
 
   // Intentionally don't allow concurrent events here to prevent a race condition between planting
