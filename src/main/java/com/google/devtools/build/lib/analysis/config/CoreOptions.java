@@ -919,10 +919,6 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
           If `transitive`, they do the same but also include the fragments their
           transitive dependencies require. If `off`, the provider is omitted.
 
-          If not `off`, this also populates `config_setting`'s
-          `ConfigMatchingProvider.requiredFragmentOptions` with the fragment options the
-          `config_setting` requires.
-
           Be careful using this feature: it adds memory to every configured target in the
           build.
           """)
