@@ -78,11 +78,13 @@ public class RepoFileFunction implements SkyFunction {
       if (repoDirValue == null) {
         return null;
       }
-      switch (repoDirValue) {
-        case Success s -> repoRoot = s.root();
-        case Failure(String errorMsg) ->
-            throw new RepoFileFunctionException(new IOException(errorMsg), Transience.PERSISTENT);
-      }
+      repoRoot =
+          switch (repoDirValue) {
+            case Success s -> s.root();
+            case Failure(String errorMsg) ->
+                throw new RepoFileFunctionException(
+                    new IOException(errorMsg), Transience.PERSISTENT);
+          };
     }
     RootedPath repoFilePath = RootedPath.toRootedPath(repoRoot, LabelConstants.REPO_FILE_NAME);
     FileValue repoFileValue = (FileValue) env.getValue(FileValue.key(repoFilePath));

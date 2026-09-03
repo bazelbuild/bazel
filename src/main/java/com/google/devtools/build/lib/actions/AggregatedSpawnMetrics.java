@@ -232,33 +232,32 @@ public final class AggregatedSpawnMetrics {
     }
 
     private SpawnMetrics.Builder getBuilder(SpawnMetrics.ExecKind kind) {
-      switch (kind) {
+      return switch (kind) {
         case REMOTE -> {
           if (remoteMetricsBuilder == null) {
             remoteMetricsBuilder = SpawnMetrics.Builder.forRemoteExec();
           }
-          return remoteMetricsBuilder;
+          yield remoteMetricsBuilder;
         }
         case LOCAL -> {
           if (localMetricsBuilder == null) {
             localMetricsBuilder = SpawnMetrics.Builder.forLocalExec();
           }
-          return localMetricsBuilder;
+          yield localMetricsBuilder;
         }
         case WORKER -> {
           if (workerMetricsBuilder == null) {
             workerMetricsBuilder = SpawnMetrics.Builder.forWorkerExec();
           }
-          return workerMetricsBuilder;
+          yield workerMetricsBuilder;
         }
         case OTHER -> {
           if (otherMetricsBuilder == null) {
             otherMetricsBuilder = SpawnMetrics.Builder.forOtherExec();
           }
-          return otherMetricsBuilder;
+          yield otherMetricsBuilder;
         }
-      }
-      throw new IllegalArgumentException("Unknown ExecKind: " + kind);
+      };
     }
   }
 }

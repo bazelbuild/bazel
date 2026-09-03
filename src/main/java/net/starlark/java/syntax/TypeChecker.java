@@ -139,33 +139,19 @@ public final class TypeChecker extends NodeVisitor {
    * <p>May not be called on type expressions (annotations, var statements, type alias statements).
    */
   private StarlarkType infer(Expression expr) {
-    switch (expr.kind()) {
-      case IDENTIFIER -> {
-        return getType((Identifier) expr);
-      }
-      case STRING_LITERAL -> {
-        return Types.STR;
-      }
-      case INT_LITERAL -> {
-        return Types.INT;
-      }
-      case FLOAT_LITERAL -> {
-        return Types.FLOAT;
-      }
+    return switch (expr.kind()) {
+      case IDENTIFIER -> getType((Identifier) expr);
+      case STRING_LITERAL -> Types.STR;
+      case INT_LITERAL -> Types.INT;
+      case FLOAT_LITERAL -> Types.FLOAT;
       case CAST -> {
         var cast = (CastExpression) expr;
         var unused = infer(cast.getValue()); // only to verify the value expr is well-typed
-        return cast.getStarlarkType();
+        yield cast.getStarlarkType();
       }
-      case DOT -> {
-        return inferDot((DotExpression) expr);
-      }
-      case INDEX -> {
-        return inferIndex((IndexExpression) expr);
-      }
-      case SLICE -> {
-        return inferSlice((SliceExpression) expr);
-      }
+      case DOT -> inferDot((DotExpression) expr);
+      case INDEX -> inferIndex((IndexExpression) expr);
+      case SLICE -> inferSlice((SliceExpression) expr);
       case LAMBDA -> {
         var lambda = (LambdaExpression) expr;
         StarlarkType inferedReturnType = infer(lambda.getBody());
@@ -188,7 +174,7 @@ public final class TypeChecker extends NodeVisitor {
                   originalType.getKwargsType(),
                   inferedReturnType));
         }
-        return typeTable.getType(lambda.getResolvedFunction());
+        yield typeTable.getType(lambda.getResolvedFunction());
       }
       case LIST_EXPR -> {
         var list = (ListExpression) expr;
@@ -196,7 +182,7 @@ public final class TypeChecker extends NodeVisitor {
         for (Expression element : list.getElements()) {
           elementTypes.add(infer(element));
         }
-        return list.isTuple()
+        yield list.isTuple()
             ? Types.tuple(ImmutableList.copyOf(elementTypes))
             : Types.listRvalue(Types.union(elementTypes));
       }
@@ -208,22 +194,21 @@ public final class TypeChecker extends NodeVisitor {
           keyTypes.add(infer(entry.getKey()));
           valueTypes.add(infer(entry.getValue()));
         }
-        return Types.dictRvalue(Types.union(keyTypes), Types.union(valueTypes));
+        yield Types.dictRvalue(Types.union(keyTypes), Types.union(valueTypes));
       }
-      case CALL -> {
-        // TODO: #27370 - we could special-case set literals; e.g. check if a call expression is
-        // `set()`, verifying using typeContext that `set` is the set type constructor.
-        return inferCall((CallExpression) expr);
-      }
+      case CALL ->
+          // TODO: #27370 - we could special-case set literals; e.g. check if a call expression is
+          // `set()`, verifying using typeContext that `set` is the set type constructor.
+          inferCall((CallExpression) expr);
       case CONDITIONAL -> {
         var cond = (ConditionalExpression) expr;
-        return Types.union(infer(cond.getThenCase()), infer(cond.getElseCase()));
+        yield Types.union(infer(cond.getThenCase()), infer(cond.getElseCase()));
       }
       case BINARY_OPERATOR -> {
         var binop = (BinaryOperatorExpression) expr;
         StarlarkType xType = infer(binop.getX());
         StarlarkType yType = infer(binop.getY());
-        return inferBinaryOperator(
+        yield inferBinaryOperator(
             binop.getX(),
             xType,
             binop.getOperator(),
@@ -236,7 +221,7 @@ public final class TypeChecker extends NodeVisitor {
         var unop = (UnaryOperatorExpression) expr;
         if (unop.getOperator() == TokenKind.NOT) {
           // NOT always returns a boolean (even if applied to Any or unions).
-          return Types.BOOL;
+          yield Types.BOOL;
         }
         StarlarkType xType = infer(unop.getX());
         if (xType.equals(Types.ANY)
@@ -244,24 +229,22 @@ public final class TypeChecker extends NodeVisitor {
                 && StarlarkType.assignableFrom(Types.NUMERIC, xType, typeContext))
             || (unop.getOperator() == TokenKind.TILDE && xType.equals(Types.INT))) {
           // Unary operators other than NOT preserve the type of their operand.
-          return xType;
+          yield xType;
         }
         errorf(
             unop.getStartLocation(),
             "operator '%s' cannot be applied to type '%s'",
             unop.getOperator(),
             xType);
-        return Types.ANY;
+        yield Types.ANY;
       }
-      case COMPREHENSION -> {
-        return inferComprehension((Comprehension) expr);
-      }
+      case COMPREHENSION -> inferComprehension((Comprehension) expr);
       default -> {
         // TODO: #28037 - support isinstance expressions.
         errorf(expr, "UNSUPPORTED: cannot typecheck %s expression", expr.kind());
-        return Types.ANY;
+        yield Types.ANY;
       }
-    }
+    };
   }
 
   /**
@@ -510,22 +493,20 @@ public final class TypeChecker extends NodeVisitor {
       StarlarkType yType,
       boolean augmentedAssignment) {
     // TokenKind operator = binop.getOperator();
-    switch (operator) {
-      case EQUALS_EQUALS, NOT_EQUALS -> {
-        // Boolean regardless of LHS and RHS.
-        return Types.BOOL;
-      }
-      case AND, OR -> {
-        // LHS | RHS
-        return Types.union(xType, yType);
-      }
+    return switch (operator) {
+      case EQUALS_EQUALS, NOT_EQUALS ->
+          // Boolean regardless of LHS and RHS.
+          Types.BOOL;
+      case AND, OR ->
+          // LHS | RHS
+          Types.union(xType, yType);
       case LESS, LESS_EQUALS, GREATER, GREATER_EQUALS -> {
         // Boolean or type error.
         if (StarlarkType.comparable(xType, yType, typeContext)) {
-          return Types.BOOL;
+          yield Types.BOOL;
         }
         binaryOperatorError(xType, operator, operatorLocation, yType, augmentedAssignment);
-        return Types.ANY;
+        yield Types.ANY;
       }
       default -> {
         // Take the union of all types inferred by crossing the left and right union elements
@@ -552,14 +533,14 @@ public final class TypeChecker extends NodeVisitor {
             }
             if (resultType == null) {
               binaryOperatorError(xType, operator, operatorLocation, yType, augmentedAssignment);
-              return Types.ANY;
+              yield Types.ANY;
             }
             resultTypes.add(resultType);
           }
         }
-        return Types.union(resultTypes);
+        yield Types.union(resultTypes);
       }
-    }
+    };
   }
 
   private StarlarkType inferCall(CallExpression call) {
@@ -1115,7 +1096,7 @@ public final class TypeChecker extends NodeVisitor {
    * types, int and str, the latter of which is not assignable from 1).
    */
   private ImmutableList<StarlarkType> inferIndividualAssignmentTarget(Expression lhs) {
-    switch (lhs.kind()) {
+    return switch (lhs.kind()) {
       case Expression.Kind.INDEX -> {
         IndexExpression indexExpr = (IndexExpression) lhs;
         StarlarkType objectType = infer(indexExpr.getObject());
@@ -1127,7 +1108,7 @@ public final class TypeChecker extends NodeVisitor {
               indexExpr.getObject(),
               objectType);
         }
-        return inferIndexUnfolded(indexExpr, objectType, keyType);
+        yield inferIndexUnfolded(indexExpr, objectType, keyType);
       }
       case Expression.Kind.DOT -> {
         DotExpression dotExpr = (DotExpression) lhs;
@@ -1139,17 +1120,15 @@ public final class TypeChecker extends NodeVisitor {
               dotExpr.getObject(),
               objectType);
         }
-        return inferDotUnfolded(dotExpr, objectType);
+        yield inferDotUnfolded(dotExpr, objectType);
       }
-      case Expression.Kind.IDENTIFIER -> {
-        return ImmutableList.of(infer(lhs));
-      }
+      case Expression.Kind.IDENTIFIER -> ImmutableList.of(infer(lhs));
       default -> {
         StarlarkType lhsType = infer(lhs);
         errorf(lhs, "%s of type '%s' is not a valid target for assignment", lhs, lhsType);
-        return ImmutableList.of(Types.ANY);
+        yield ImmutableList.of(Types.ANY);
       }
-    }
+    };
   }
 
   private void assignSequence(ListExpression lhs, StarlarkType rhsType) {

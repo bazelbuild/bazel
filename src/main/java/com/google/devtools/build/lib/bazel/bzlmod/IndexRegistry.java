@@ -360,13 +360,13 @@ public class IndexRegistry implements Registry {
               "Module %s's %s not found in registry %s", key, SOURCE_JSON_FILENAME, getUrl()));
     }
     SourceJson sourceJson = parseJson(jsonString.get(), jsonUrl, SourceJson.class);
-    switch (sourceJson.type) {
+    return switch (sourceJson.type) {
       case "archive" -> {
         ArchiveSourceJson typedSourceJson =
             parseJson(jsonString.get(), jsonUrl, ArchiveSourceJson.class);
         var moduleFileUrl = constructModuleFileUrl(key);
         var moduleFileChecksum = moduleFileHashes.get(moduleFileUrl).get();
-        return createArchiveRepoSpec(
+        yield createArchiveRepoSpec(
             typedSourceJson,
             moduleFileUrl,
             moduleFileChecksum,
@@ -376,7 +376,7 @@ public class IndexRegistry implements Registry {
       case "local_path" -> {
         LocalPathSourceJson typedSourceJson =
             parseJson(jsonString.get(), jsonUrl, LocalPathSourceJson.class);
-        return createLocalPathRepoSpec(
+        yield createLocalPathRepoSpec(
             typedSourceJson, getBazelRegistryJson(eventHandler, downloadManager), key);
       }
       case "git_repository" -> {
@@ -384,12 +384,12 @@ public class IndexRegistry implements Registry {
             parseJson(jsonString.get(), jsonUrl, GitRepoSourceJson.class);
         var moduleFileUrl = constructModuleFileUrl(key);
         var moduleFileChecksum = moduleFileHashes.get(moduleFileUrl).get();
-        return createGitRepoSpec(typedSourceJson, moduleFileUrl, moduleFileChecksum, key);
+        yield createGitRepoSpec(typedSourceJson, moduleFileUrl, moduleFileChecksum, key);
       }
       default ->
           throw new IOException(
               String.format("Invalid source type \"%s\" for module %s", sourceJson.type, key));
-    }
+    };
   }
 
   private String getSourceJsonUrl(ModuleKey key) {
