@@ -2526,6 +2526,22 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return ImmutableMap.copyOf(roots);
   }
 
+  /**
+   * Returns the {@link Root} for a done package, or {@code null} if the package is not done or
+   * failed evaluation.
+   */
+  @Nullable
+  public Root getRootForDonePackage(PackageIdentifier packageIdentifier) {
+    InMemoryNodeEntry entry = memoizingEvaluator.getInMemoryGraph().getIfPresent(packageIdentifier);
+    if (entry != null && entry.isDone()) {
+      PackageValue packageValue = (PackageValue) entry.getValue();
+      if (packageValue != null) {
+        return packageValue.getPackage().getSourceRoot();
+      }
+    }
+    return null;
+  }
+
   public void clearSyscallCache() {
     syscallCache.clear();
   }

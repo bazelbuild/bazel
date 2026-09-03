@@ -282,7 +282,8 @@ public class ExecutionTool {
               request
                   .getOptions(BuildLanguageOptions.class)
                   .getExperimentalSiblingRepositoryLayout(),
-              runtime.getWorkspace().doesAllowExternalRepositories());
+              runtime.getWorkspace().doesAllowExternalRepositories(),
+              skyframeExecutor::getRootForDonePackage);
       incrementalPackageRoots.eagerlyPlantSymlinksToSingleSourceRoot();
 
       env.getSkyframeBuildView()
