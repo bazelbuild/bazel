@@ -88,6 +88,11 @@ import javax.annotation.Nullable;
  */
 public final class RemoteExternalOverlayFileSystem extends FileSystem
     implements SubtreeMaterializer {
+  // This deliberately doesn't match the repository's predeclared input hash, so normal repository
+  // validation treats a partially materialized remote repository as out of date and consults the
+  // RRCC again after a server restart.
+  private static final String REMOTE_REPO_MARKER_PREFIX = "remote repository contents: ";
+
   private final PathFragment externalDirectory;
   private final int externalDirectorySegmentCount;
   private final FileSystem nativeFs;
@@ -205,12 +210,26 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
    * Injects the given remote contents, possibly prefetching some files, and returns true on
    * success.
    */
-  public boolean injectRemoteRepo(RepositoryName repo, Tree remoteContents, String markerFile)
+  public boolean injectRemoteRepo(
+      RepositoryName repo, Tree remoteContents, Digest remoteContentsDigest, String markerFile)
       throws IOException, InterruptedException {
     var repoDir = externalDirectory.getChild(repo.getName());
-    deleteTree(repoDir);
+    var markerPath = externalDirectory.getChild(repo.getMarkerFileName());
+    var nativeMarkerPath = nativeFs.getPath(markerPath);
+    var remoteRepoMarker = REMOTE_REPO_MARKER_PREFIX + DigestUtil.toString(remoteContentsDigest);
+    // Materialized files may have references outside the repository, such as runfile symlinks.
+    // Preserve them when reinjecting the exact same remote tree, including across server restarts.
+    var canPreserveMaterializedFiles =
+        nativeMarkerPath.exists()
+            && remoteRepoMarker.equals(
+                new String(FileSystemUtils.readContentAsLatin1(nativeMarkerPath)));
+    if (canPreserveMaterializedFiles) {
+      externalFs.getPath(repoDir).deleteTree();
+    } else {
+      deleteTree(repoDir);
+    }
     materializedRepos.remove(repo.getName());
-    var unused = delete(externalDirectory.getChild(repo.getMarkerFileName()));
+    var unused = delete(markerPath);
     var childMap =
         remoteContents.getChildrenList().stream()
             .collect(
@@ -243,6 +262,12 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     // Create the repo directory on disk so that readdir reflects the overlaid state of the external
     // directory.
     nativeFs.createDirectoryAndParents(repoDir);
+    // Persist the tree identity so a future server can distinguish safe reinjection from changed
+    // repository contents without hashing the selectively materialized files.
+    var markerFileSibling =
+        nativeFs.getPath(markerPath.replaceName(markerPath.getBaseName() + ".tmp"));
+    FileSystemUtils.writeContentAsLatin1(markerFileSibling, remoteRepoMarker);
+    markerFileSibling.renameTo(nativeMarkerPath);
     // Keep the marker file contents in memory so that it can be written out when the repo is
     // materialized. This doubles as a presence marker for the in-memory repo contents.
     markerFileContents.put(repo.getName(), markerFile);
