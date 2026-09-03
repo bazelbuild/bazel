@@ -1380,6 +1380,7 @@ public class BuildTool {
                             .setCode(RemoteAnalysisCaching.Code.UPLOAD_FAILED))
                     .build()));
       }
+      tryWriteSkycacheMetadata(serializationDependenciesProvider);
       return;
     }
 
