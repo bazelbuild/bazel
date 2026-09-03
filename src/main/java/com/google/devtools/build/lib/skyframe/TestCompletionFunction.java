@@ -45,6 +45,12 @@ import javax.annotation.Nullable;
  * runs.
  */
 public final class TestCompletionFunction implements SkyFunction {
+  private final SkyframeActionExecutor skyframeActionExecutor;
+
+  TestCompletionFunction(SkyframeActionExecutor skyframeActionExecutor) {
+    this.skyframeActionExecutor = skyframeActionExecutor;
+  }
+
   @Override
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
@@ -52,7 +58,9 @@ public final class TestCompletionFunction implements SkyFunction {
         (TestCompletionValue.TestCompletionKey) skyKey.argument();
     ConfiguredTargetKey ctKey = key.configuredTargetKey();
     TopLevelArtifactContext ctx = key.topLevelArtifactContext();
-    if (env.getValue(TargetCompletionValue.key(ctKey, ctx, /* willTest= */ true)) == null) {
+    boolean producerKeyedCache = skyframeActionExecutor.producerKeyedTestCacheEnabled();
+    if (!producerKeyedCache
+        && env.getValue(TargetCompletionValue.key(ctKey, ctx, /* willTest= */ true)) == null) {
       return null;
     }
 
@@ -62,13 +70,17 @@ public final class TestCompletionFunction implements SkyFunction {
     }
 
     ConfiguredTarget ct = ctValue.getConfiguredTarget();
+    boolean allEarlyHits = producerKeyedCache;
+    boolean hadUnbuildableInputs = false;
     if (key.exclusiveTesting()) {
       // Request test execution iteratively if testing exclusively.
       for (Artifact.DerivedArtifact testArtifact : TestProvider.getTestStatusArtifacts(ct)) {
-        env.getValue(testArtifact.getGeneratingActionKey());
+        ActionLookupData actionKey = testArtifact.getGeneratingActionKey();
+        env.getValue(actionKey);
         if (env.valuesMissing()) {
           return null;
         }
+        allEarlyHits &= wasProducerKeyedEarlyHit(ctValue, actionKey);
       }
     } else {
       List<SkyKey> skyKeys = Artifact.keys(TestProvider.getTestStatusArtifacts(ct));
@@ -87,13 +99,30 @@ public final class TestCompletionFunction implements SkyFunction {
               && ctValue instanceof ActionLookupValue actionLookupValue) {
             postTestResultEventsForBuiltTestThatCouldNotBeRun(
                 env, (ActionLookupData) actionKey, actionLookupValue, detailedExitCode);
+            hadUnbuildableInputs = true;
           } else {
             return null;
           }
         }
+        allEarlyHits &= wasProducerKeyedEarlyHit(ctValue, (ActionLookupData) actionKey);
+      }
+    }
+    if (producerKeyedCache && !hadUnbuildableInputs) {
+      if (allEarlyHits) {
+        skyframeActionExecutor.recordProducerKeyedEarlyCompletedTarget(ctKey);
+      }
+      if (env.getValue(TargetCompletionValue.key(ctKey, ctx, /* willTest= */ true)) == null) {
+        return null;
       }
     }
     return TestCompletionValue.TEST_COMPLETION_MARKER;
+  }
+
+  private boolean wasProducerKeyedEarlyHit(
+      ConfiguredTargetValue ctValue, ActionLookupData actionKey) {
+    return ctValue instanceof ActionLookupValue actionLookupValue
+        && skyframeActionExecutor.wasProducerKeyedEarlyCacheHit(
+            actionLookupValue.getAction(actionKey.getActionIndex()));
   }
 
   @Override
