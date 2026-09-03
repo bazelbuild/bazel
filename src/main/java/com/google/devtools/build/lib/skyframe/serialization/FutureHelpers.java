@@ -144,13 +144,12 @@ public final class FutureHelpers {
   }
 
   private static SerializationException asSerializationException(Throwable cause) {
-    if (cause instanceof SerializationException serializationException) {
-      return serializationException;
-    }
-    if (cause instanceof IOException) {
-      return new SerializationException("serialization I/O error", cause);
-    }
-    return new SerializationException("unexpected serialization error", cause);
+    return switch (cause) {
+      case Error error -> throw error;
+      case SerializationException serialization -> serialization;
+      case IOException io -> new SerializationException("serialization I/O error", io);
+      default -> new SerializationException("unexpected serialization error", cause);
+    };
   }
 
   private FutureHelpers() {}
