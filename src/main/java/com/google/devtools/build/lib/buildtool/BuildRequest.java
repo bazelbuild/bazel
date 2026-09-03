@@ -429,7 +429,8 @@ public class BuildRequest implements OptionsProvider {
             buildOptions.getOutputGroups(),
             validationMode(),
             /* shouldRunTests= */ shouldRunTests()),
-        buildOptions.getIncompatibleFailOnUnknownOutputGroups());
+        buildOptions.getIncompatibleFailOnUnknownOutputGroups(),
+        /* forRunCommand= */ commandName.equals("run"));
   }
 
   public ImmutableList<String> getAspects() {

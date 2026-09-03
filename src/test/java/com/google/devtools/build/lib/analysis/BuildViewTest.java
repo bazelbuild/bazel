@@ -1640,7 +1640,8 @@ public class BuildViewTest extends BuildViewTestBase {
             false,
             OutputGroupInfo.determineOutputGroups(
                 outputGroups, OutputGroupInfo.ValidationMode.OFF, /* shouldRunTests= */ false),
-            failOnUnknownOutputGroups);
+            failOnUnknownOutputGroups,
+            /* forRunCommand= */ false);
     return update(context, ImmutableList.copyOf(aspects), targets);
   }
 

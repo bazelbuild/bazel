@@ -15,72 +15,18 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableSortedSet;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import java.util.Objects;
-import java.util.Set;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
-/** Contains options which control the set of artifacts to build for top-level targets. */
-@Immutable
-public final class TopLevelArtifactContext {
-  private final boolean runTestsExclusively;
-  private final boolean expandFilesets;
-  private final ImmutableSortedSet<String> outputGroups;
-  private final boolean failOnUnknownOutputGroups;
-
-  public TopLevelArtifactContext(
-      boolean runTestsExclusively,
-      boolean expandFilesets,
-      ImmutableSortedSet<String> outputGroups) {
-    this(runTestsExclusively, expandFilesets, outputGroups, false);
-  }
-
-  public TopLevelArtifactContext(
-      boolean runTestsExclusively,
-      boolean expandFilesets,
-      ImmutableSortedSet<String> outputGroups,
-      boolean failOnUnknownOutputGroups) {
-    this.runTestsExclusively = runTestsExclusively;
-    this.expandFilesets = expandFilesets;
-    this.outputGroups = outputGroups;
-    this.failOnUnknownOutputGroups = failOnUnknownOutputGroups;
-  }
-
-  /** Whether to run tests in exclusive mode. */
-  public boolean runTestsExclusively() {
-    return runTestsExclusively;
-  }
-
-  public boolean expandFilesets() {
-    return expandFilesets;
-  }
-
-
-  /** Returns the value of the --output_groups flag. */
-  public Set<String> outputGroups() {
-    return outputGroups;
-  }
-
-  public boolean failOnUnknownOutputGroups() {
-    return failOnUnknownOutputGroups;
-  }
-
-  // TopLevelArtifactContexts are stored in maps in BuildView,
-  // so equals() and hashCode() need to work.
-  @Override
-  public boolean equals(Object other) {
-    if (other instanceof TopLevelArtifactContext otherContext) {
-      return runTestsExclusively == otherContext.runTestsExclusively
-          && expandFilesets == otherContext.expandFilesets
-          && outputGroups.equals(otherContext.outputGroups)
-          && failOnUnknownOutputGroups == otherContext.failOnUnknownOutputGroups;
-    } else {
-      return false;
-    }
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(
-        runTestsExclusively, expandFilesets, outputGroups, failOnUnknownOutputGroups);
-  }
-}
+/**
+ * Contains options which control the set of artifacts to build for top-level targets.
+ *
+ * @param runTestsExclusively whether to run tests in exclusive mode
+ * @param outputGroups value of the --output_groups flag
+ */
+@AutoCodec
+public record TopLevelArtifactContext(
+    boolean runTestsExclusively,
+    boolean expandFilesets,
+    ImmutableSortedSet<String> outputGroups,
+    boolean failOnUnknownOutputGroups,
+    boolean forRunCommand) {}
