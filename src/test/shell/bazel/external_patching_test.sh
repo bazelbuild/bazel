@@ -934,7 +934,6 @@ def _impl(ctx):
     ctx,
     patch_args = ["-p1"],
     patch_cmds = ["echo patched >> foo.sh"],
-    patch_directory = "sub",
     $1
   )
   ctx.file("BUILD", "exports_files([\"sub/foo.sh\"])")
@@ -944,6 +943,7 @@ ext = repository_rule(
   attrs = {
     "url": attr.string(),
     "patches": attr.label_list(),
+    "patch_directory": attr.string(),
   },
 )
 EOF
@@ -953,6 +953,7 @@ ext(
   name="ext",
   url="${EXTREPOURL}/ext.zip",
   patches=["//:patch_foo.sh"],
+  $2
 )
 EOF
   cat > BUILD <<'EOF'
@@ -971,11 +972,15 @@ EOF
 }
 
 test_utils_patch_directory() {
-  do_test_utils_patch_directory ""
+  do_test_utils_patch_directory 'patch_directory = "sub",' ""
 }
 
 test_utils_patch_directory_with_patch_tool() {
-  do_test_utils_patch_directory 'patch_tool = "patch",'
+  do_test_utils_patch_directory 'patch_directory = "sub", patch_tool = "patch",' ""
+}
+
+test_utils_patch_directory_from_attr() {
+  do_test_utils_patch_directory "" 'patch_directory="sub",'
 }
 
 run_suite "external patching tests"
