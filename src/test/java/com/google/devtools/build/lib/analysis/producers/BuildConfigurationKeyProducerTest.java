@@ -79,7 +79,6 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
 
   @Before
   public void iniitalizeProjectScl() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     writeProjectSclDefinition("test/project_proto.scl");
     scratch.file("test/BUILD");
   }

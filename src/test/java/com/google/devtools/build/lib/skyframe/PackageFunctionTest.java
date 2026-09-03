@@ -910,8 +910,6 @@ public class PackageFunctionTest extends BuildViewTestCase {
     scratch.file("qux/ext.bzl", "c = 1");
 
     preparePackageLoading(computationMode, rootDirectory);
-    // must be done after preparePackageLoading()
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
 
     Packageoid pkg = validPackageoidWithoutErrors("foo");
     assertThat(pkg.getDeclarations().getOrComputeTransitivelyLoadedStarlarkFiles())

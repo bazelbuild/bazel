@@ -143,7 +143,6 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
           ]
         }
         """);
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions =
         createBuildOptions("--//test_flags:foo=True", "--//test_flags:bar=True");
 
@@ -209,7 +208,6 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
         )
         """);
 
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptionsWithoutScopes = createBuildOptions("--//test_flags:foo=True");
     ImmutableList<Label> scopedFlags = ImmutableList.of(Label.parseCanonical("//test_flags:foo"));
     BuildOptionsScopeValue.Key key =

@@ -198,21 +198,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLoadBadExtension_sclDisabled() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=false");
-
-    scratch.file("pkg/BUILD");
-    scratch.file("pkg/ext.bzl", "load(':foo.garbage', 'a')");
-    reporter.removeHandler(failFastHandler);
-    checkFailingLookup("//pkg:ext.bzl", "has invalid load statements");
-    assertContainsEvent("The label must reference a file with extension \".bzl\"");
-    assertDoesNotContainEvent(".scl");
-  }
-
-  @Test
-  public void testLoadBadExtension_sclEnabled() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
-
+  public void testLoadBadExtension() throws Exception {
     scratch.file("pkg/BUILD");
     scratch.file("pkg/ext.bzl", "load(':foo.garbage', 'a')");
     reporter.removeHandler(failFastHandler);
@@ -221,20 +207,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLoadingSclRequiresExperimentalFlag() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=false");
-
-    scratch.file("pkg/BUILD");
-    scratch.file("pkg/ext.scl");
-    reporter.removeHandler(failFastHandler);
-    checkFailingLookup(
-        "//pkg:ext.scl", "loading .scl files requires setting --experimental_enable_scl_dialect");
-  }
-
-  @Test
   public void testCanLoadScl() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
-
     scratch.file("pkg/BUILD");
     scratch.file("pkg/ext.scl");
     checkSuccessfulLookup("//pkg:ext.scl");
@@ -242,8 +215,6 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testCanLoadSclFromBzlAndScl() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
-
     scratch.file("pkg/BUILD");
     scratch.file("pkg/ext1.scl", "a = 1");
     // Can use relative load label syntax from ext2a.bzl, but not from ext2b.scl.
@@ -256,8 +227,6 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testSclCannotLoadNonSclFiles() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
-
     scratch.file("pkg/BUILD");
     scratch.file("pkg/ext1a.bzl", "a = 1");
     scratch.file("pkg/ext1a.garbage", "a = 1");
@@ -278,8 +247,6 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testSclCanOnlyLoadLabelsRelativeToDefaultRepoRoot() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
-
     scratch.file("pkg/BUILD");
     scratch.file("pkg/ext1.scl", "load(':foo.scl', 'a')");
     scratch.file("pkg/ext2.scl", "load('@repo//:foo.scl', 'a')");
@@ -294,8 +261,6 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testSclSupportsStructAndVisibility() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
-
     scratch.file("pkg/BUILD");
     scratch.file(
         "pkg/ext1.scl", //
@@ -317,8 +282,6 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testSclDoesNotSupportOtherBazelSymbols() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
-
     scratch.file("pkg/BUILD");
     scratch.file(
         "pkg/ext.scl", //
@@ -331,8 +294,6 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testSclDisallowsNonAsciiStringLiterals() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
-
     scratch.file("pkg/BUILD");
     scratch.file(
         "pkg/ext1.bzl", //
@@ -1045,7 +1006,6 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testLoadBzlFileFromBzlmod() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_scl_dialect");
     scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='foo',version='1.0')");
     registry
         .addModule(
