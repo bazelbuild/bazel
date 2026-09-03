@@ -759,7 +759,6 @@ public class ActionExecutionFunction implements SkyFunction {
             skyframeActionExecutor.getOutputPermissions(),
             ImmutableSet.copyOf(action.getOutputs()),
             skyframeActionExecutor.getXattrProvider(),
-            skyframeActionExecutor.getOutputService().getBatchStatter(),
             tsgm.get(),
             pathResolver);
 
