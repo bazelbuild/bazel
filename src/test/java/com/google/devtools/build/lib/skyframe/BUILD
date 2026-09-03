@@ -966,6 +966,23 @@ java_test(
 )
 
 java_test(
+    name = "LateDiscoveredInputsTest",
+    timeout = "short",
+    srcs = ["LateDiscoveredInputsTest.java"],
+    deps = [
+        ":TimestampBuilderTestCase",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "StarlarkBuiltinsFunctionTest",
     timeout = "short",
     srcs = ["StarlarkBuiltinsFunctionTest.java"],

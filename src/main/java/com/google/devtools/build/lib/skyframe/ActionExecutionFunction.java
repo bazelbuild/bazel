@@ -823,7 +823,7 @@ public class ActionExecutionFunction implements SkyFunction {
             action);
       }
 
-      addDiscoveredInputs(state, env, action);
+      addDiscoveredInputs(state, env, action, /* afterExecution= */ false);
       if (env.valuesMissing()) {
         return null;
       }
@@ -870,30 +870,42 @@ public class ActionExecutionFunction implements SkyFunction {
         throws InterruptedException, ActionExecutionException {
       if (action.discoversInputs()) {
         state.discoveredInputs = action.getInputs();
-        addDiscoveredInputs(state, env, action);
+        addDiscoveredInputs(state, env, action, /* afterExecution= */ true);
         if (env.valuesMissing()) {
           return;
         }
       }
       checkState(!env.valuesMissing(), action);
       skyframeActionExecutor.updateActionCache(
-          action, inputMetadataProvider, outputMetadataStore, state.token, clientEnv);
+          action,
+          state.inputMetadataProviderIncludingLateDiscoveredInputs(inputMetadataProvider),
+          outputMetadataStore,
+          state.token,
+          clientEnv);
     }
   }
 
+  /**
+   * Adds the metadata of {@link InputDiscoveryState#discoveredInputs} that isn't known yet to the
+   * state.
+   *
+   * <p>Before the action is executed, the metadata is added to {@link
+   * InputDiscoveryState#inputArtifactData} so that the action can access it. Afterwards, it is
+   * added to {@link InputDiscoveryState#lateDiscoveredInputArtifactData} instead: the action file
+   * system reads {@code inputArtifactData} and outlives the action itself, but {@link
+   * ActionInputMap} is not thread-safe, so mutating it at that point would race with those reads.
+   */
   private void addDiscoveredInputs(
-      InputDiscoveryState state, Environment env, Action actionForError)
+      InputDiscoveryState state, Environment env, Action actionForError, boolean afterExecution)
       throws InterruptedException, ActionExecutionException {
     // TODO(janakr): This code's assumptions are wrong in the face of Starlark actions with unused
     //  inputs, since ActionExecutionExceptions can come through here and should be aggregated. Fix.
-
-    ActionInputMap inputData = state.inputArtifactData;
 
     // Filter down to unknown discovered inputs eagerly instead of using a lazy Iterables#filter to
     // reduce iteration cost.
     List<Artifact> unknownDiscoveredInputs = new ArrayList<>();
     for (Artifact input : state.discoveredInputs.toList()) {
-      if (inputData.getInputMetadata(input) == null) {
+      if (state.getKnownDiscoveredInputMetadata(input) == null) {
         unknownDiscoveredInputs.add(input);
       }
     }
@@ -901,6 +913,11 @@ public class ActionExecutionFunction implements SkyFunction {
     if (unknownDiscoveredInputs.isEmpty()) {
       return;
     }
+
+    ActionInputMap inputData =
+        afterExecution
+            ? state.getOrCreateLateDiscoveredInputArtifactData(unknownDiscoveredInputs.size())
+            : state.inputArtifactData;
 
     SkyframeLookupResult nonMandatoryDiscovered =
         env.getValuesAndExceptions(Artifact.keys(unknownDiscoveredInputs));
@@ -1274,6 +1291,17 @@ public class ActionExecutionFunction implements SkyFunction {
      */
     DelegatingPairInputMetadataProvider compositeInputMetadataProvider = null;
 
+    /**
+     * Metadata for inputs that were only discovered after the action was executed.
+     *
+     * <p>Deliberately not part of {@link #inputArtifactData}: that map is read by the action file
+     * system, which outlives the action itself and is read asynchronously. {@link ActionInputMap}
+     * is not thread-safe, so mutating it concurrently corrupts it for the reader.
+     */
+    @Nullable private ActionInputMap lateDiscoveredInputArtifactData = null;
+
+    @Nullable private InputMetadataProvider lateDiscoveredInputMetadataProvider = null;
+
     Token token = null;
     NestedSet<Artifact> discoveredInputs = null;
     FileSystem actionFileSystem = null;
@@ -1291,6 +1319,40 @@ public class ActionExecutionFunction implements SkyFunction {
 
     boolean hasArtifactData() {
       return inputArtifactData != null;
+    }
+
+    /**
+     * Returns the metadata already known for a discovered input, or null if it hasn't been looked
+     * up yet.
+     */
+    @Nullable
+    FileArtifactValue getKnownDiscoveredInputMetadata(Artifact input) {
+      FileArtifactValue metadata = inputArtifactData.getInputMetadata(input);
+      if (metadata != null || lateDiscoveredInputArtifactData == null) {
+        return metadata;
+      }
+      return lateDiscoveredInputArtifactData.getInputMetadata(input);
+    }
+
+    ActionInputMap getOrCreateLateDiscoveredInputArtifactData(int sizeHint) {
+      if (lateDiscoveredInputArtifactData == null) {
+        lateDiscoveredInputArtifactData = new ActionInputMap(sizeHint);
+        lateDiscoveredInputMetadataProvider =
+            new ActionInputMetadataProvider(lateDiscoveredInputArtifactData);
+      }
+      return lateDiscoveredInputArtifactData;
+    }
+
+    /**
+     * Returns a provider that also covers inputs discovered after the action was executed, which
+     * are kept out of {@link #inputArtifactData}.
+     */
+    InputMetadataProvider inputMetadataProviderIncludingLateDiscoveredInputs(
+        InputMetadataProvider inputMetadataProvider) {
+      return lateDiscoveredInputMetadataProvider == null
+          ? inputMetadataProvider
+          : new DelegatingPairInputMetadataProvider(
+              lateDiscoveredInputMetadataProvider, inputMetadataProvider);
     }
 
     boolean hasCheckedActionCache() {
