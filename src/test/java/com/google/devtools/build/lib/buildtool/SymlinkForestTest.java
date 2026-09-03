@@ -218,7 +218,12 @@ public class SymlinkForestTest {
     Path linkRoot = fileSystem.getPath("/linkRoot");
     linkRoot.createDirectoryAndParents();
     ImmutableList<Path> plantedSymlinks =
-        new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, false)
+        new SymlinkForest(
+                packageRootMap,
+                linkRoot,
+                TestConstants.PRODUCT_NAME,
+                /* siblingRepositoryLayout= */ false,
+                /* bazelExternalDirectory= */ false)
             .plantSymlinkForest();
 
     assertLinksTo(linkRoot, rootA, "pkgA");
@@ -258,7 +263,12 @@ public class SymlinkForestTest {
             .buildOrThrow();
 
     ImmutableList<Path> plantedSymlinks =
-        new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, false)
+        new SymlinkForest(
+                packageRootMap,
+                linkRoot,
+                TestConstants.PRODUCT_NAME,
+                /* siblingRepositoryLayout= */ false,
+                /* bazelExternalDirectory= */ false)
             .plantSymlinkForest();
     assertLinksTo(linkRoot, rootX, "file");
     assertThat(plantedSymlinks)
@@ -293,7 +303,12 @@ public class SymlinkForestTest {
             .build();
 
     ImmutableList<Path> plantedSymlinks =
-        new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, false)
+        new SymlinkForest(
+                packageRootMap,
+                linkRoot,
+                TestConstants.PRODUCT_NAME,
+                /* siblingRepositoryLayout= */ false,
+                /* bazelExternalDirectory= */ false)
             .plantSymlinkForest();
 
     assertLinksTo(linkRoot, mainRepo, "dir_main");
@@ -352,7 +367,12 @@ public class SymlinkForestTest {
             .build();
 
     ImmutableList<Path> plantedSymlinks =
-        new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, true)
+        new SymlinkForest(
+                packageRootMap,
+                linkRoot,
+                TestConstants.PRODUCT_NAME,
+                /* siblingRepositoryLayout= */ true,
+                /* bazelExternalDirectory= */ false)
             .plantSymlinkForest();
 
     // Expected sibling repository layout (X, Y and Z are siblings of ws_name):
@@ -416,7 +436,12 @@ public class SymlinkForestTest {
             .buildOrThrow();
 
     ImmutableList<Path> plantedSymlinks =
-        new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, false)
+        new SymlinkForest(
+                packageRootMap,
+                linkRoot,
+                TestConstants.PRODUCT_NAME,
+                /* siblingRepositoryLayout= */ false,
+                /* bazelExternalDirectory= */ false)
             .plantSymlinkForest();
 
     assertLinksTo(linkRoot, mainRepo, "dir1");
@@ -458,7 +483,12 @@ public class SymlinkForestTest {
             .build();
 
     ImmutableList<Path> plantedSymlinks =
-        new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, false)
+        new SymlinkForest(
+                packageRootMap,
+                linkRoot,
+                TestConstants.PRODUCT_NAME,
+                /* siblingRepositoryLayout= */ false,
+                /* bazelExternalDirectory= */ false)
             .plantSymlinkForest();
 
     assertLinksTo(linkRoot, mainRepo, "dir1");
@@ -498,7 +528,12 @@ public class SymlinkForestTest {
             .build();
 
     ImmutableList<Path> plantedSymlinks =
-        new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, false)
+        new SymlinkForest(
+                packageRootMap,
+                linkRoot,
+                TestConstants.PRODUCT_NAME,
+                /* siblingRepositoryLayout= */ false,
+                /* bazelExternalDirectory= */ false)
             .plantSymlinkForest();
 
     assertLinksTo(linkRoot, mainRepo, "dir1");
@@ -538,7 +573,12 @@ public class SymlinkForestTest {
             .build();
 
     ImmutableList<Path> plantedSymlinks =
-        new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, true)
+        new SymlinkForest(
+                packageRootMap,
+                linkRoot,
+                TestConstants.PRODUCT_NAME,
+                /* siblingRepositoryLayout= */ true,
+                /* bazelExternalDirectory= */ false)
             .plantSymlinkForest();
 
     // Expected output base layout with sibling repositories in the execroot where
@@ -606,7 +646,12 @@ public class SymlinkForestTest {
             .buildOrThrow();
 
     ImmutableList<Path> plantedSymlinks =
-        new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, true)
+        new SymlinkForest(
+                packageRootMap,
+                linkRoot,
+                TestConstants.PRODUCT_NAME,
+                /* siblingRepositoryLayout= */ true,
+                /* bazelExternalDirectory= */ false)
             .plantSymlinkForest();
 
     // Expected output base layout with sibling repositories in the execroot where
@@ -654,7 +699,12 @@ public class SymlinkForestTest {
             .build();
 
     ImmutableList<Path> plantedSymlinks =
-        new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, false)
+        new SymlinkForest(
+                packageRootMap,
+                linkRoot,
+                TestConstants.PRODUCT_NAME,
+                /* siblingRepositoryLayout= */ false,
+                /* bazelExternalDirectory= */ false)
             .plantSymlinkForest();
     assertThat(linkRoot.getRelative(LabelConstants.EXTERNAL_PATH_PREFIX).exists()).isFalse();
     assertThat(plantedSymlinks).isEmpty();

@@ -54,11 +54,17 @@ public class SymlinkForest {
   private final String productName;
   private final String prefix;
   private final boolean siblingRepositoryLayout;
+  private final boolean bazelExternalDirectory;
 
   /** Constructor for a symlink forest creator without non-symlinked directories parameter. */
   public SymlinkForest(
       ImmutableMap<PackageIdentifier, Root> packageRoots, Path execroot, String productName) {
-    this(packageRoots, execroot, productName, false);
+    this(
+        packageRoots,
+        execroot,
+        productName,
+        /* siblingRepositoryLayout= */ false,
+        /* bazelExternalDirectory= */ false);
   }
 
   /**
@@ -74,12 +80,14 @@ public class SymlinkForest {
       ImmutableMap<PackageIdentifier, Root> packageRoots,
       Path execroot,
       String productName,
-      boolean siblingRepositoryLayout) {
+      boolean siblingRepositoryLayout,
+      boolean bazelExternalDirectory) {
     this.packageRoots = packageRoots;
     this.execroot = execroot;
     this.productName = productName;
     this.prefix = productName + "-";
     this.siblingRepositoryLayout = siblingRepositoryLayout;
+    this.bazelExternalDirectory = bazelExternalDirectory;
   }
 
   /**
@@ -127,7 +135,12 @@ public class SymlinkForest {
       throws IOException {
     Optional<Path> plantedSymlink =
         plantSingleSymlinkForExternalRepo(
-            repository, source, execroot, siblingRepositoryLayout, externalRepoLinks);
+            repository,
+            source,
+            execroot,
+            siblingRepositoryLayout,
+            bazelExternalDirectory,
+            externalRepoLinks);
     plantedSymlink.ifPresent(plantedSymlinks::add);
   }
 
@@ -141,7 +154,8 @@ public class SymlinkForest {
     for (Path target : mainRepoRoot.getDirectoryEntries()) {
       String baseName = target.getBaseName();
       Path execPath = execroot.getRelative(baseName);
-      if (symlinkShouldBePlanted(prefix, siblingRepositoryLayout, baseName, target)) {
+      if (symlinkShouldBePlanted(
+          prefix, siblingRepositoryLayout, bazelExternalDirectory, baseName, target)) {
         execPath.createSymbolicLink(target);
         plantedSymlinks.add(execPath);
         // TODO(jingwen-external): is this creating execroot/io_bazel/external?
@@ -203,13 +217,19 @@ public class SymlinkForest {
     for (PackageIdentifier dir : dirsParentsFirst) {
       if (!dir.getRepository().isMain()) {
         execroot
-            .getRelative(dir.getRepository().getExecPath(siblingRepositoryLayout))
+            .getRelative(
+                dir.getRepository()
+                    .getExecPath(siblingRepositoryLayout, bazelExternalDirectory))
             .createDirectoryAndParents();
       }
       if (dirRootsMap.get(dir).size() > 1) {
         logger.atFiner().log(
-            "mkdir %s", execroot.getRelative(dir.getExecPath(siblingRepositoryLayout)));
-        execroot.getRelative(dir.getExecPath(siblingRepositoryLayout)).createDirectoryAndParents();
+            "mkdir %s",
+            execroot.getRelative(
+                dir.getExecPath(siblingRepositoryLayout, bazelExternalDirectory)));
+        execroot
+            .getRelative(dir.getExecPath(siblingRepositoryLayout, bazelExternalDirectory))
+            .createDirectoryAndParents();
       }
     }
 
@@ -224,7 +244,9 @@ public class SymlinkForest {
         }
         // This is the top-most dir that can be linked to a single root. Make it so.
         Root root = roots.iterator().next(); // lone root in set
-        Path link = execroot.getRelative(dir.getExecPath(siblingRepositoryLayout));
+        Path link =
+            execroot.getRelative(
+                dir.getExecPath(siblingRepositoryLayout, bazelExternalDirectory));
         logger.atFiner().log("ln -s %s %s", root.getRelative(dir.getSourceRoot()), link);
         link.createSymbolicLink(root.getRelative(dir.getSourceRoot()));
         plantedSymlinks.add(link);
@@ -269,7 +291,9 @@ public class SymlinkForest {
       if (!pkgId.getPackageFragment().equals(PathFragment.EMPTY_FRAGMENT)) {
         continue;
       }
-      Path execrootDirectory = execroot.getRelative(pkgId.getExecPath(siblingRepositoryLayout));
+      Path execrootDirectory =
+          execroot.getRelative(
+              pkgId.getExecPath(siblingRepositoryLayout, bazelExternalDirectory));
       // If there were no subpackages, this directory might not exist yet.
       if (!execrootDirectory.exists()) {
         execrootDirectory.createDirectoryAndParents();
@@ -296,6 +320,7 @@ public class SymlinkForest {
    */
   public ImmutableList<Path> plantSymlinkForest() throws IOException, AbruptExitException {
     deleteTreesBelowNotPrefixed(execroot, prefix);
+    deleteBazelExternalDirectory(execroot);
     deleteSiblingRepositorySymlinks(siblingRepositoryLayout, execroot);
 
     boolean shouldLinkAllTopLevelItems = false;
@@ -330,9 +355,12 @@ public class SymlinkForest {
         } else {
           String baseName = pkgId.getPackageFragment().getSegment(0);
           if (!siblingRepositoryLayout
-              && baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName())) {
-            // ignore external/ directory if user has it in the source tree
-            // because it conflicts with external repository location.
+              && baseName.equals(
+                  LabelConstants.getExternalPathPrefix(
+                          siblingRepositoryLayout, bazelExternalDirectory)
+                      .getBaseName())) {
+            // Ignore the directory reserved for external repositories if the user has it in the
+            // source tree.
             continue;
           }
           Path execrootLink = execroot.getRelative(baseName);
@@ -374,6 +402,12 @@ public class SymlinkForest {
     }
   }
 
+  private static void deleteBazelExternalDirectory(Path execroot) throws IOException {
+    // Unlike the legacy external directory, bazel-external is preserved by
+    // deleteTreesBelowNotPrefixed because its name starts with the product prefix.
+    execroot.getRelative(LabelConstants.BAZEL_EXTERNAL_PATH_PREFIX).deleteTree();
+  }
+
   /**
    * Eagerly plant the symlinks from execroot to the source root provided by the single package path
    * of the current build. Only works with a single package path. Before planting the new symlinks,
@@ -389,9 +423,11 @@ public class SymlinkForest {
       Path sourceRoot,
       String prefix,
       IgnoredSubdirectories ignoredPaths,
-      boolean siblingRepositoryLayout)
+      boolean siblingRepositoryLayout,
+      boolean bazelExternalDirectory)
       throws IOException {
     deleteTreesBelowNotPrefixed(execroot, prefix);
+    deleteBazelExternalDirectory(execroot);
     deleteSiblingRepositorySymlinks(siblingRepositoryLayout, execroot);
 
     Map<String, List<Path>> symlinkBaseNameToTargets = new HashMap<>();
@@ -412,7 +448,12 @@ public class SymlinkForest {
         String originalBaseName = target.getBaseName();
         Path link = execroot.getRelative(originalBaseName);
         if (symlinkShouldBePlanted(
-            prefix, ignoredPaths, siblingRepositoryLayout, originalBaseName, target)) {
+            prefix,
+            ignoredPaths,
+            siblingRepositoryLayout,
+            bazelExternalDirectory,
+            originalBaseName,
+            target)) {
           link.createSymbolicLink(target);
         }
       } else {
@@ -423,23 +464,36 @@ public class SymlinkForest {
   }
 
   static boolean symlinkShouldBePlanted(
-      String prefix, boolean siblingRepositoryLayout, String baseName, Path target) {
+      String prefix,
+      boolean siblingRepositoryLayout,
+      boolean bazelExternalDirectory,
+      String baseName,
+      Path target) {
     return symlinkShouldBePlanted(
-        prefix, IgnoredSubdirectories.EMPTY, siblingRepositoryLayout, baseName, target);
+        prefix,
+        IgnoredSubdirectories.EMPTY,
+        siblingRepositoryLayout,
+        bazelExternalDirectory,
+        baseName,
+        target);
   }
 
   public static boolean symlinkShouldBePlanted(
       String prefix,
       IgnoredSubdirectories ignoredSubdirectories,
       boolean siblingRepositoryLayout,
+      boolean bazelExternalDirectory,
       String baseName,
       Path target) {
-    // Create any links that don't start with bazel-, and ignore external/ directory if
-    // user has it in the source tree because it conflicts with external repository location.
+    // Create any links that don't start with bazel-, and ignore the directory reserved for
+    // external repositories if the user has it in the source tree.
     return !baseName.startsWith(prefix)
         && ignoredSubdirectories.matchingEntry(target.asFragment().toRelative()) == null
         && (siblingRepositoryLayout
-            || !baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName()));
+            || !baseName.equals(
+                LabelConstants.getExternalPathPrefix(
+                        siblingRepositoryLayout, bazelExternalDirectory)
+                    .getBaseName()));
   }
 
   /**
@@ -453,20 +507,25 @@ public class SymlinkForest {
       Path source,
       Path execroot,
       boolean siblingRepositoryLayout,
+      boolean bazelExternalDirectory,
       Set<Path> alreadyPlantedExternalRepoLinks)
       throws IOException {
     // For external repositories, create one symlink to each external repository
     // directory.
-    // From <output_base>/execroot/<main repo name>/external/<external repo name>
+    // From <output_base>/execroot/<main repo name>/<external prefix>/<external repo name>
     // to   <output_base>/external/<external repo name>
     //
     // However, if --experimental_sibling_repository_layout is true, symlink:
     // From <output_base>/execroot/<external repo name>
     // to   <output_base>/external/<external repo name>
-    Path execrootLink = execroot.getRelative(repository.getExecPath(siblingRepositoryLayout));
+    PathFragment externalPathPrefix =
+        LabelConstants.getExternalPathPrefix(siblingRepositoryLayout, bazelExternalDirectory);
+    Path execrootLink =
+        execroot.getRelative(
+            repository.getExecPath(siblingRepositoryLayout, bazelExternalDirectory));
 
     if (!siblingRepositoryLayout && alreadyPlantedExternalRepoLinks.isEmpty()) {
-      execroot.getRelative(LabelConstants.EXTERNAL_PATH_PREFIX).createDirectoryAndParents();
+      execroot.getRelative(externalPathPrefix).createDirectoryAndParents();
     }
     // Prevent re-creating existing symlinks.
     if (!alreadyPlantedExternalRepoLinks.add(execrootLink)) {

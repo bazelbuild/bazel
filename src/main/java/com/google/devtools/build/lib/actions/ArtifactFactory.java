@@ -47,6 +47,7 @@ public class ArtifactFactory implements ArtifactResolver {
   private final Path externalSourceBase;
   private final PathFragment derivedPathPrefix;
   private boolean siblingRepositoryLayout = false;
+  private boolean bazelExternalDirectory = false;
 
   /** Cache of source artifacts. */
   private final SourceArtifactCache sourceArtifactCache = new SourceArtifactCache();
@@ -259,8 +260,10 @@ public class ArtifactFactory implements ArtifactResolver {
     sourceArtifactCache.clear();
   }
 
-  public void setSiblingRepositoryLayout(boolean siblingRepositoryLayout) {
+  public void setRepositoryLayout(
+      boolean siblingRepositoryLayout, boolean bazelExternalDirectory) {
     this.siblingRepositoryLayout = siblingRepositoryLayout;
+    this.bazelExternalDirectory = bazelExternalDirectory;
   }
 
   /**
@@ -548,7 +551,8 @@ public class ArtifactFactory implements ArtifactResolver {
     }
 
     Pair<RepositoryName, PathFragment> repo =
-        RepositoryName.fromPathFragment(dir, siblingRepositoryLayout);
+        RepositoryName.fromPathFragment(
+            dir, siblingRepositoryLayout, bazelExternalDirectory);
     if (repo != null) {
       repositoryName = repo.getFirst();
       dir = repo.getSecond();
@@ -662,7 +666,8 @@ public class ArtifactFactory implements ArtifactResolver {
         !execPath.startsWith(derivedPathPrefix), "%s is derived: %s", execPath, derivedPathPrefix);
 
     Pair<RepositoryName, PathFragment> repo =
-        RepositoryName.fromPathFragment(execPath, siblingRepositoryLayout);
+        RepositoryName.fromPathFragment(
+            execPath, siblingRepositoryLayout, bazelExternalDirectory);
     RepositoryName repositoryName = RepositoryName.MAIN;
     PathFragment repositoryRelativePath = execPath;
     if (repo != null) {

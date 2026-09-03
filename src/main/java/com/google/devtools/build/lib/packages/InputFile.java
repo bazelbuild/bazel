@@ -109,9 +109,14 @@ public class InputFile extends FileTarget {
    * directory.
    */
   public PathFragment getExecPath(boolean siblingRepositoryLayout) {
+    return getExecPath(siblingRepositoryLayout, /* bazelExternalDirectory= */ false);
+  }
+
+  public PathFragment getExecPath(
+      boolean siblingRepositoryLayout, boolean bazelExternalDirectory) {
     return label
         .getRepository()
-        .getExecPath(siblingRepositoryLayout)
+        .getExecPath(siblingRepositoryLayout, bazelExternalDirectory)
         .getRelative(label.getPackageName())
         .getRelative(label.getName());
   }

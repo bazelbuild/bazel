@@ -97,6 +97,18 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
    */
   public static Optional<PackageIdentifier> discoverFromExecPath(
       PathFragment execPath, boolean forFiles, boolean siblingRepositoryLayout) {
+    return discoverFromExecPath(
+        execPath,
+        forFiles,
+        siblingRepositoryLayout,
+        /* bazelExternalDirectory= */ false);
+  }
+
+  public static Optional<PackageIdentifier> discoverFromExecPath(
+      PathFragment execPath,
+      boolean forFiles,
+      boolean siblingRepositoryLayout,
+      boolean bazelExternalDirectory) {
     Preconditions.checkArgument(!execPath.isAbsolute(), execPath);
     PathFragment tofind =
         forFiles
@@ -104,12 +116,9 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
                 execPath.getParentDirectory(), "Must pass in files, not root directory")
             : execPath;
     PathFragment prefix =
-        siblingRepositoryLayout
-            ? LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX
-            : LabelConstants.EXTERNAL_PATH_PREFIX;
+        LabelConstants.getExternalPathPrefix(siblingRepositoryLayout, bazelExternalDirectory);
     if (tofind.startsWith(prefix)) {
-      // Using the path prefix can be either "external" or "..", depending on whether the sibling
-      // repository layout is used.
+      // The path prefix depends on the selected external repository layout.
       try {
         RepositoryName repository = RepositoryName.create(tofind.getSegment(1));
         return Optional.of(PackageIdentifier.create(repository, tofind.subFragment(2)));
@@ -194,7 +203,14 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
   }
 
   public PathFragment getExecPath(boolean siblingRepositoryLayout) {
-    return repository.getExecPath(siblingRepositoryLayout).getRelative(pkgName);
+    return getExecPath(siblingRepositoryLayout, /* bazelExternalDirectory= */ false);
+  }
+
+  public PathFragment getExecPath(
+      boolean siblingRepositoryLayout, boolean bazelExternalDirectory) {
+    return repository
+        .getExecPath(siblingRepositoryLayout, bazelExternalDirectory)
+        .getRelative(pkgName);
   }
 
   /**
