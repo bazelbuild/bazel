@@ -187,7 +187,6 @@ public class TestCommand implements BlazeCommand {
     }
 
     Collection<ConfiguredTarget> testTargets = buildResult.getTestTargets();
-    // TODO(bazel-team): don't handle isEmpty here or fix up a bunch of tests
     if (buildResult.getSuccessfulTargets() == null) {
       if (buildResult.getSuccess() && !request.getBuildOptions().getPerformExecutionPhase()) {
         if (testTargets.isEmpty()) {
@@ -220,8 +219,7 @@ public class TestCommand implements BlazeCommand {
               new TestingCompleteEvent(detailedExitCode.getExitCode(), buildResult.getStopTime()));
       return BlazeCommandResult.detailedExitCode(detailedExitCode);
     }
-    // TODO(bazel-team): the check above shadows NO_TESTS_FOUND, but switching the conditions breaks
-    // more tests
+
     if (testTargets.isEmpty()) {
       String message = "No test targets were found, yet testing was requested";
       env.getReporter().handle(Event.error(null, message));
