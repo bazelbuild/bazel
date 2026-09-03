@@ -595,9 +595,23 @@ launcher_flag_alias(
         """);
 
     config.create(
+        "embedded_tools/tools/launcher/toolchain.bzl",
+        """
+        def _launcher_maker_toolchain_impl(ctx):
+            return [platform_common.ToolchainInfo(binary = ctx.executable.binary)]
+
+        launcher_maker_toolchain = rule(
+            implementation = _launcher_maker_toolchain_impl,
+            attrs = {
+                "binary": attr.label(cfg = "exec", executable = True),
+            },
+        )
+        """);
+    config.create(
         "embedded_tools/tools/launcher/BUILD",
         """
         load("@bazel_tools//third_party/cc_rules/macros:defs.bzl", "cc_binary")
+        load(":toolchain.bzl", "launcher_maker_toolchain")
 
         package(default_visibility = ["//visibility:public"])
 
@@ -609,6 +623,21 @@ launcher_flag_alias(
         cc_binary(
             name = "launcher_maker",
             srcs = ["launcher_maker.cc"],
+        )
+
+        toolchain_type(name = "launcher_maker_toolchain_type")
+
+        launcher_maker_toolchain(
+            name = "launcher_maker_toolchain_impl",
+            binary = ":launcher_maker",
+            visibility = ["//visibility:private"],
+        )
+
+        toolchain(
+            name = "mock_launcher_maker_toolchain",
+            toolchain = ":launcher_maker_toolchain_impl",
+            toolchain_type = ":launcher_maker_toolchain_type",
+            visibility = ["//visibility:private"],
         )
         """);
 
@@ -715,6 +744,7 @@ launcher_flag_alias(
         "embedded_tools/MODULE.bazel",
         """
         module(name='bazel_tools')
+        register_toolchains("//tools/launcher:mock_launcher_maker_toolchain")
         register_toolchains("//tools/test:all")
         """);
     config.create("embedded_tools/tools/build_defs/repo/BUILD");

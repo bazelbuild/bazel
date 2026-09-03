@@ -218,6 +218,7 @@ EOF
 ./test_foo_runfiles/e/f symlink dir
 ./test_foo_runfiles/foo file
 ./test_foo_runfiles/py file
+./test_foo_runfiles/py.build_data.txt file
 ./test_foo_runfiles/py.py file
 ./test_foo_runfiles/x regular dir
 ./test_foo_runfiles/x/y regular dir
