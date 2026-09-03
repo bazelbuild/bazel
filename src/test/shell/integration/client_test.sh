@@ -480,6 +480,7 @@ EOF
 
   # Local strategy, so that the action reaches both fifos.
   bazel --client_debug build --spawn_strategy=local ${extra_flag} //a:a >"$TEST_log" 2>&1 &
+  local -r client_job_pid="$!"
 
   # This write returns once the action reads it, which then blocks on the lock fifo.
   echo entered > "${ready}"
@@ -488,6 +489,8 @@ EOF
   # SIGKILL rather than SIGTERM, which would let the client send a Cancel RPC: the server
   # has always acted upon those, so these tests would then pass either way.
   kill -9 "${client_pid}" || fail "couldn't kill client ${client_pid}"
+  # Reap the backgrounded job so its "Killed" notice does not surface later.
+  wait "${client_job_pid}" || true
 
   local exit_code=0
   local i
@@ -503,7 +506,10 @@ EOF
   # Free the slot *before* the caller checks expectations, otherwise the rest of the suite
   # waits for this very command. Writing to the lock fifo would hang once the action is gone,
   # leaving the server as the only way to release the lock, as on a CI runner holding a stale one.
-  kill "$(cat "${server_pid_file}")"
+  if [[ -f "${server_pid_file}" ]]; then
+    local -r server_pid="$(cat "${server_pid_file}")"
+    kill -0 "${server_pid}" 2>/dev/null && kill "${server_pid}"
+  fi
   rm -rf a "${ready}" "${lock}"
 
   cat "$TEST_log-2" >> "$TEST_log"
