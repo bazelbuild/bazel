@@ -1089,8 +1089,7 @@ java_library(
     name = "top_level_artifact_context",
     srcs = ["TopLevelArtifactContext.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:guava",
     ],
 )

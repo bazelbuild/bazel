@@ -413,7 +413,8 @@ public class BuildRequest implements OptionsProvider {
         getOptions(ExecutionOptions.class).testStrategy.equals("exclusive"),
         getOptions(BuildEventProtocolOptions.class).expandFilesets,
         OutputGroupInfo.determineOutputGroups(
-            buildOptions.outputGroups, validationMode(), /* shouldRunTests= */ shouldRunTests()));
+            buildOptions.outputGroups, validationMode(), /* shouldRunTests= */ shouldRunTests()),
+        /* forRunCommand= */ commandName.equals("run"));
   }
 
   public ImmutableList<String> getAspects() {
