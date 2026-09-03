@@ -2712,6 +2712,78 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '//main:use_data'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
 
+  def testReinjectionPreservesMaterializedFilesForSameContents(self):
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            (
+                '  rctx.file("BUILD", "exports_files([\'data.txt\'])\\n'
+                'filegroup(name=\'empty\')")'
+            ),
+            '  rctx.file("data.txt", rctx.attr.data)',
+            '  print("JUST FETCHED: %s" % rctx.attr.data)',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(',
+            '    implementation = _repo_impl,',
+            '    attrs = {"data": attr.string()},',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD.bazel',
+        [
+            'genrule(',
+            '    name = "use_data",',
+            '    srcs = ["@my_repo//:data.txt"],',
+            '    outs = ["out.txt"],',
+            '    cmd = "cat $< > $@",',
+            '    tags = ["no-cache"],',
+            ')',
+        ],
+    )
+
+    def set_repo_data(data):
+      self.ScratchFile(
+          'MODULE.bazel',
+          [
+              'repo = use_repo_rule("//:repo.bzl", "repo")',
+              'repo(name = "my_repo", data = "%s")' % data,
+          ],
+      )
+
+    # Populate distinct cache entries for two repository contents.
+    set_repo_data('one')
+    self.RunBazel(['build', '//:use_data'])
+    set_repo_data('two')
+    self.RunBazel(['build', '//:use_data'])
+
+    # Restore the first entry, materializing data.txt as a local action input.
+    self.RunBazel(['clean', '--expunge'])
+    set_repo_data('one')
+    _, _, stderr = self.RunBazel(['build', '//:use_data'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    repo_dir = self.RepoDir('my_repo')
+    data_path = os.path.join(repo_dir, 'data.txt')
+    with open(data_path) as f:
+      self.assertEqual(f.read(), 'one')
+
+    # A server restart causes the repository to be injected again. Existing
+    # references to materialized files must remain valid when the Tree digest
+    # is unchanged.
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:empty'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    with open(data_path) as f:
+      self.assertEqual(f.read(), 'one')
+
+    # Different repository contents must not retain stale materialized files.
+    self.RunBazel(['shutdown'])
+    set_repo_data('two')
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:empty'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(data_path))
+
 
 if __name__ == '__main__':
   absltest.main()
