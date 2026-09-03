@@ -542,10 +542,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         if (configuredTargetValue == null) {
           return null;
         }
-        if (configuredTargetValue
-            instanceof RemoteConfiguredTargetValue remoteConfiguredTargetValue) {
+        if (configuredTargetValue.getTargetData() != null) {
           return new NonRuleConfiguredTargetValue(
-              configuredTarget, transitivePackages, remoteConfiguredTargetValue.getTargetData());
+              configuredTarget, transitivePackages, configuredTargetValue.getTargetData());
         }
       }
       return new NonRuleConfiguredTargetValue(configuredTarget, transitivePackages);
