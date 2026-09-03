@@ -24,6 +24,7 @@
 #include <string.h>
 
 #include <cinttypes>
+#include <cstdint>
 
 #if defined(__linux__)
 #include <endian.h>

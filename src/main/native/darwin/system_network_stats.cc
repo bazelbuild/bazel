@@ -18,6 +18,7 @@
 #include <sys/sysctl.h>
 #include <sys/types.h>
 
+#include <cstddef>
 #include <string>
 #include <vector>
 

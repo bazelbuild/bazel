@@ -18,6 +18,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <cstddef>
+
 #include "src/main/tools/process-tools.h"
 #include "googlemock/include/gmock/gmock.h"
 #include "googletest/include/gtest/gtest.h"

@@ -15,6 +15,7 @@
 #include "src/tools/one_version/allowlist.h"
 
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "absl/container/flat_hash_set.h"

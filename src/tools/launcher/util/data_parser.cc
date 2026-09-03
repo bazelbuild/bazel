@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cstdint>
 #include <fstream>
+#include <ios>
 #include <memory>
 #include <string>
 #include <unordered_map>

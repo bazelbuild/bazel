@@ -20,6 +20,7 @@
 #include <cassert>
 #include <cstdlib>
 #include <limits>
+#include <string>
 
 #include "src/main/cpp/util/strings.h"
 

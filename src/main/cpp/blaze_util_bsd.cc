@@ -44,6 +44,9 @@
 # include <libprocstat.h>  // must be included after <sys/...> headers
 #endif
 
+#include <cstdint>
+#include <string>
+
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/errors.h"

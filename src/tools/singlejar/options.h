@@ -18,6 +18,7 @@
 #include <cstddef>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "src/tools/singlejar/token_stream.h"

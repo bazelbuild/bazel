@@ -13,6 +13,9 @@
 // limitations under the License.
 #include "src/test/cpp/test_util.h"
 
+#include <string>
+#include <vector>
+
 #include "src/main/cpp/startup_options.h"
 #include "googletest/include/gtest/gtest.h"
 

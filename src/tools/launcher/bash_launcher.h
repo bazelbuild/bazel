@@ -17,6 +17,8 @@
 
 #include "src/tools/launcher/launcher.h"
 
+#include <string>
+
 namespace bazel {
 namespace launcher {
 

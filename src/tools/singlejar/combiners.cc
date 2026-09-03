@@ -14,11 +14,15 @@
 
 #include "src/tools/singlejar/combiners.h"
 
+#include <algorithm>
 #include <cctype>
+#include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <iterator>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "src/tools/singlejar/diag.h"
 
