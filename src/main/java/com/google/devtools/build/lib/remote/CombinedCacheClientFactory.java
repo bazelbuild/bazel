@@ -48,7 +48,8 @@ public final class CombinedCacheClientFactory {
       AuthAndTLSOptions authAndTlsOptions,
       Path workingDirectory,
       DigestUtil digestUtil,
-      RemoteRetrier retrier)
+      RemoteRetrier retrier,
+      boolean checkActionResultIntegrity)
       throws IOException {
     Preconditions.checkNotNull(workingDirectory, "workingDirectory");
     RemoteCacheClient httpCacheClient = null;
@@ -57,7 +58,8 @@ public final class CombinedCacheClientFactory {
       httpCacheClient = createHttp(options, creds, authAndTlsOptions, digestUtil, retrier);
     }
     if (isDiskCache(options)) {
-      diskCacheClient = createDiskCache(workingDirectory, options, digestUtil);
+      diskCacheClient =
+          createDiskCache(workingDirectory, options, digestUtil, checkActionResultIntegrity);
     }
     if (httpCacheClient == null && diskCacheClient == null) {
       throw new IllegalArgumentException(
@@ -119,9 +121,13 @@ public final class CombinedCacheClientFactory {
   }
 
   public static DiskCacheClient createDiskCache(
-      Path workingDirectory, RemoteOptions options, DigestUtil digestUtil) throws IOException {
+      Path workingDirectory,
+      RemoteOptions options,
+      DigestUtil digestUtil,
+      boolean checkActionResultIntegrity)
+      throws IOException {
     Path cacheDir = workingDirectory.getRelative(Preconditions.checkNotNull(options.diskCache));
-    return new DiskCacheClient(cacheDir, digestUtil);
+    return new DiskCacheClient(cacheDir, digestUtil, checkActionResultIntegrity);
   }
 
   public static boolean isDiskCache(RemoteOptions options) {

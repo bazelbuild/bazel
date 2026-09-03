@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.ResourceSet.ResourceSetConverter;
 import com.google.devtools.common.options.OptionsParsingException;
 import org.junit.Before;
@@ -31,7 +32,7 @@ public class ResourceSetTest {
   private ResourceSetConverter converter;
 
   @Before
-  public final void createConverter() throws Exception  {
+  public final void createConverter() throws Exception {
     converter = new ResourceSetConverter();
   }
 
@@ -56,6 +57,23 @@ public class ResourceSetTest {
   @Test
   public void testConverterThrowsWhenGivenNegativeInputs() throws Exception {
     assertThrows(OptionsParsingException.class, () -> converter.convert("-1,0,0"));
+  }
+
+  @Test
+  public void testEquals() {
+    new EqualsTester()
+        .addEqualityGroup(
+            ResourceSet.createWithRamCpu(100, 1),
+            ResourceSet.createWithRamCpu(100, 1),
+            ResourceSet.create(ImmutableMap.of("memory", 100.0, "cpu", 1.0)))
+        .addEqualityGroup(ResourceSet.createWithRamCpu(200, 1))
+        .addEqualityGroup(ResourceSet.createWithRamCpu(100, 2))
+        .addEqualityGroup(ResourceSet.create(ImmutableMap.of("memory", 100.0, "cpu", 1.0), 5))
+        .addEqualityGroup(
+            ResourceSet.create(ImmutableMap.of("memory", 100.0, "cpu", 1.0, "my_resource", 1.0), 5))
+        .addEqualityGroup(
+            ResourceSet.create(ImmutableMap.of("memory", 100.0, "cpu", 1.0, "my_resource", 2.0), 5))
+        .testEquals();
   }
 
   @Test
