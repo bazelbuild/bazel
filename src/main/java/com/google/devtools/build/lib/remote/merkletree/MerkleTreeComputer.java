@@ -94,6 +94,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -179,8 +180,9 @@ public final class MerkleTreeComputer {
   private final String workspaceName;
   private final Digest emptyDigest;
   private final MerkleTree.Uploadable emptyTree;
-  private final TaskDeduplicator<InFlightCacheKey, MerkleTree.RootOnly> inFlightComputations =
-      new TaskDeduplicator<>();
+  private final TaskDeduplicator<InFlightCacheKey, InFlightAttributes, MerkleTree.RootOnly>
+      inFlightComputations = new TaskDeduplicator<>();
+  private final AtomicLong inFlightComputationSequence = new AtomicLong();
 
   public MerkleTreeComputer(
       DigestUtil digestUtil,
@@ -200,7 +202,14 @@ public final class MerkleTreeComputer {
             new MerkleTree.RootOnly.BlobsUploaded(emptyDigest, 0, 0), ImmutableSortedMap.of());
   }
 
-  /** Specifies which blobs should be retained in the Merkle tree. */
+  /**
+   * Specifies which blobs should be retained in the Merkle tree.
+   *
+   * <p>The constants are ordered from the weakest to the strongest policy: the result of a
+   * computation performed with a given policy also satisfies every preceding one. Deduplication of
+   * ongoing sub-Merkle tree computations relies on this order to decide whether an ongoing
+   * computation can be joined.
+   */
   public enum BlobPolicy {
     /**
      * No blobs are retained and the returned MerkleTree is a {@link MerkleTree.RootOnly}.
@@ -247,6 +256,36 @@ public final class MerkleTreeComputer {
       boolean isTool,
       boolean uploadBlobs,
       @Nullable PathFragment unmappedExecPath) {}
+
+  /**
+   * Describes what an ongoing sub-Merkle tree computation produces, which determines whether other
+   * computations can join it.
+   *
+   * @param blobPolicy the policy the computation was started with
+   * @param sequenceNumber a number assigned before the computation is registered, so that a
+   *     computation started before a given call to {@link #computeIfAbsent} has a lower number than
+   *     the one that call assigns to itself
+   */
+  private record InFlightAttributes(BlobPolicy blobPolicy, long sequenceNumber) {}
+
+  /**
+   * Whether an ongoing computation with the attributes {@code ongoing} produces a result that also
+   * satisfies a call with the attributes {@code requested}.
+   */
+  private static boolean canJoin(InFlightAttributes ongoing, InFlightAttributes requested) {
+    // BlobPolicy constants are ordered from the weakest to the strongest policy, so an ongoing
+    // computation is reusable if its policy retains at least as much as the requested one. In
+    // particular, a KEEP_AND_REUPLOAD computation never joins a KEEP one, which wouldn't reupload
+    // the blobs that the remote cache lost.
+    if (ongoing.blobPolicy().compareTo(requested.blobPolicy()) < 0) {
+      return false;
+    }
+    // A KEEP_AND_REUPLOAD computation additionally has to reupload the blobs after the request
+    // discovered that they are missing. An ongoing computation that started earlier may already
+    // have uploaded them before they were lost, so only a later one will do.
+    return requested.blobPolicy() != BlobPolicy.KEEP_AND_REUPLOAD
+        || ongoing.sequenceNumber() > requested.sequenceNumber();
+  }
 
   /**
    * Builds a Merkle tree for the inputs of a {@link Spawn}.
@@ -916,6 +955,9 @@ public final class MerkleTreeComputer {
         return immediateFuture(cachedRoot);
       }
     }
+    // Uploading computations are kept under a separate key so that a DISCARD computation never
+    // joins one: its future only completes after the upload, whereas building the tree again only
+    // costs local work.
     var uploadBlobs = blobPolicy != BlobPolicy.DISCARD;
     // When the upload of a path mapped tree artifact is shared between two actions that each have
     // that tree artifact as an input under a different unmmapped exec path, CacheNotFoundExceptions
@@ -928,24 +970,13 @@ public final class MerkleTreeComputer {
         new InFlightCacheKey(cacheKey, isTool, uploadBlobs, uploadBlobs ? unmappedExecPath : null);
     AsyncCallable<MerkleTree.RootOnly> buildMerkleTreeTask =
         () -> {
-          // There is a window in which a concurrent call may have removed the in-flight cache entry
-          // while this one had already passed the check above. Recheck the persistent cache to
-          // avoid unnecessary work.
+          // A concurrent computation may have completed and populated the persistent cache after
+          // this one had already passed the check above. Recheck it to avoid unnecessary work.
           var cachedRoot = persistentCache.getIfPresent(cacheKey);
           if (cachedRoot != null
               && (blobPolicy == BlobPolicy.DISCARD
                   || cachedRoot instanceof MerkleTree.RootOnly.BlobsUploaded)) {
             return immediateFuture(cachedRoot);
-          }
-          // An ongoing computation with blobs can be reused for one that doesn't require them.
-          if (blobPolicy == BlobPolicy.DISCARD) {
-            var inFlightComputation =
-                inFlightComputations.maybeJoinExecution(
-                    new InFlightCacheKey(
-                        cacheKey, isTool, /* uploadBlobs= */ true, unmappedExecPath));
-            if (inFlightComputation != null) {
-              return inFlightComputation;
-            }
           }
           ListenableFuture<MerkleTree> merkleTreeFuture;
           try {
@@ -1003,11 +1034,15 @@ public final class MerkleTreeComputer {
         };
     Supplier<ListenableFuture<MerkleTree.RootOnly>> buildMerkleTreeTaskSupplier =
         () -> Futures.submitAsync(buildMerkleTreeTask, MERKLE_TREE_BUILD_POOL);
-    if (blobPolicy == BlobPolicy.KEEP_AND_REUPLOAD) {
-      return inFlightComputations.executeUnconditionally(key, buildMerkleTreeTaskSupplier);
-    } else {
-      return inFlightComputations.executeIfNew(key, buildMerkleTreeTaskSupplier);
-    }
+    // The sequence number is claimed before the computation is registered, so every computation
+    // that is already ongoing at this point has a lower one.
+    var attributes =
+        new InFlightAttributes(blobPolicy, inFlightComputationSequence.getAndIncrement());
+    return inFlightComputations.execute(
+        key,
+        attributes,
+        /* canJoin= */ ongoing -> canJoin(ongoing, attributes),
+        buildMerkleTreeTaskSupplier);
   }
 
   private static <T> T getFromFuture(Future<T> future) throws IOException, InterruptedException {
