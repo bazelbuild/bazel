@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.sandbox.SandboxOptions;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.io.OutErr;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Objects;
@@ -370,7 +371,14 @@ class BuildResultPrinter {
       OutputGroupInfo topLevelProvider = OutputGroupInfo.get(target);
       if (topLevelProvider != null) {
         for (Artifact temp : topLevelProvider.getOutputGroup(OutputGroupInfo.TEMP_FILES).toList()) {
-          if (temp.getPath().exists()) {
+          boolean exists;
+          try {
+            exists = temp.getPath().exists();
+          } catch (IOException e) {
+            // TODO(tjgq): Propagate this error.
+            exists = false;
+          }
+          if (exists) {
             outErr.printErrLn(
                 "  See temp at " + prettyPrinter.getPrettyPath(temp.getPath().asFragment()));
           }

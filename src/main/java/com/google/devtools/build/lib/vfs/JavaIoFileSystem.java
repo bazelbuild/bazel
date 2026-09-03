@@ -25,7 +25,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
@@ -96,19 +95,6 @@ public class JavaIoFileSystem extends DiskBackedFileSystem {
       Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_DIR, file.getPath());
     }
     return Lists.transform(Arrays.asList(entries), StringEncoding::platformToInternal);
-  }
-
-  @Override
-  public boolean exists(PathFragment path, boolean followSymlinks) {
-    long startTime = Profiler.instance().nanoTimeMaybe();
-    try {
-      java.nio.file.Path nioPath = getNioPath(path);
-      return Files.exists(nioPath, linkOpts(followSymlinks));
-    } catch (InvalidPathException e) {
-      return false;
-    } finally {
-      Profiler.instance().logSimpleTask(startTime, ProfilerTask.VFS_STAT, path.toString());
-    }
   }
 
   @Override

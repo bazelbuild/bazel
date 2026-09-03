@@ -52,7 +52,9 @@ public class FileSystemConcurrencyTest {
         new TestThread(
             () -> {
               while (run.get()) {
-                if (!xLinkToFile.exists()) {
+                // Note: replacing this lstat() with a stat() causes it to fail with EINVAL on macOS
+                // under the race condition, which appears to be a kernel bug.
+                if (!xLinkToFile.exists(Symlinks.NOFOLLOW)) {
                   xLinkToFile.createSymbolicLink(xFile);
                 }
               }

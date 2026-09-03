@@ -95,6 +95,7 @@ import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -1464,16 +1465,17 @@ public class RuleContext extends TargetContext
      * within attribute checking.
      */
     @VisibleForTesting
-    public RuleContext unsafeBuild() throws InvalidExecGroupException {
+    public RuleContext unsafeBuild() throws IOException, InvalidExecGroupException {
       return build(false);
     }
 
     @VisibleForTesting
-    public RuleContext build() throws InvalidExecGroupException {
+    public RuleContext build() throws IOException, InvalidExecGroupException {
       return build(true);
     }
 
-    private RuleContext build(boolean attributeChecks) throws InvalidExecGroupException {
+    private RuleContext build(boolean attributeChecks)
+        throws IOException, InvalidExecGroupException {
       Preconditions.checkNotNull(ruleClassProvider);
       Preconditions.checkNotNull(configurationFragmentPolicy);
       Preconditions.checkNotNull(actionOwnerSymbol);
@@ -1690,7 +1692,8 @@ public class RuleContext extends TargetContext
      * Filter only attribute-based prerequisites, validate them and return them in a map from {@link
      * DependencyKind} to list of configured targets.
      */
-    private ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> createTargetMap() {
+    private ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> createTargetMap()
+        throws IOException {
       ImmutableListMultimap.Builder<DependencyKind, ConfiguredTargetAndData> mapBuilder =
           ImmutableListMultimap.builder();
 
@@ -1828,7 +1831,7 @@ public class RuleContext extends TargetContext
     }
 
     private void validateDirectPrerequisiteType(
-        ConfiguredTargetAndData prerequisite, Attribute attribute) {
+        ConfiguredTargetAndData prerequisite, Attribute attribute) throws IOException {
 
       if (prerequisite.isMaterializerRule()) {
         // Materializer rules pass along other targets, so don't check their providers.
@@ -2084,7 +2087,7 @@ public class RuleContext extends TargetContext
      * validated as part of {@link #createTargetMap}.
      */
     private void validateExtraPrerequisites(
-        boolean attributeChecks, ConfiguredAttributeMapper attributes) {
+        boolean attributeChecks, ConfiguredAttributeMapper attributes) throws IOException {
       // These checks can fail when ConfigConditions.EMPTY are empty, resulting in noMatchError
       // accessing attributes without a default condition.
       // ConfigConditions.EMPTY is always true for non-rules:
@@ -2147,7 +2150,7 @@ public class RuleContext extends TargetContext
     }
 
     private void validateDirectPrerequisite(
-        Attribute attribute, ConfiguredTargetAndData prerequisite) {
+        Attribute attribute, ConfiguredTargetAndData prerequisite) throws IOException {
       validateDirectPrerequisiteType(prerequisite, attribute);
       validateDirectPrerequisiteFileTypes(prerequisite, attribute);
       if (attribute.performPrereqValidatorCheck()) {

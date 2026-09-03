@@ -1229,23 +1229,21 @@ public final class RemoteModule extends BlazeModule {
   private TempPathGenerator getTempPathGenerator(CommandEnvironment env)
       throws AbruptExitException {
     Path tempDir = env.getActionTempsDirectory().getChild("remote");
-    if (tempDir.exists()) {
-      env.getReporter()
-          .handle(Event.warn("Found stale downloads from previous build, deleting..."));
-      try {
+    try {
+      if (tempDir.exists()) {
+        env.getReporter()
+            .handle(Event.warn("Found stale downloads from previous build, deleting..."));
         tempDir.deleteTree();
-      } catch (IOException e) {
-        throw new AbruptExitException(
-            DetailedExitCode.of(
-                ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
-                FailureDetail.newBuilder()
-                    .setMessage(
-                        String.format("Failed to delete stale downloads: %s", e.getMessage()))
-                    .setRemoteExecution(
-                        RemoteExecution.newBuilder()
-                            .setCode(Code.DOWNLOADED_INPUTS_DELETION_FAILURE))
-                    .build()));
       }
+    } catch (IOException e) {
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
+              FailureDetail.newBuilder()
+                  .setMessage(String.format("Failed to delete stale downloads: %s", e.getMessage()))
+                  .setRemoteExecution(
+                      RemoteExecution.newBuilder().setCode(Code.DOWNLOADED_INPUTS_DELETION_FAILURE))
+                  .build()));
     }
 
     return new TempPathGenerator(tempDir);

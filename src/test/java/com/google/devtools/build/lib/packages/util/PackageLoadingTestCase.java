@@ -252,7 +252,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     skyframeExecutor.setActionEnv(ImmutableMap.of());
   }
 
-  private void setUpSkyframe() throws AbruptExitException {
+  private void setUpSkyframe() throws AbruptExitException, IOException {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             outputBase,

@@ -2821,7 +2821,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Action inputDiscoveringAction =
         new DummyAction(NestedSetBuilder.create(Order.STABLE_ORDER, sourceInput), topOutput) {
           @Override
-          public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext) {
+          public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+              throws ActionExecutionException {
             skyframeExecutor
                 .getActionExecutionStatusReporterForTesting()
                 .showCurrentlyExecutingActions("during scanning ");

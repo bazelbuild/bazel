@@ -198,8 +198,12 @@ public class TestSummaryPrinter {
       }
 
       for (Path path : summary.getFailedLogs()) {
-        if (path.exists()) {
-          terminalPrinter.print("  " + testLogPathFormatter.getPathStringToPrint(path) + "\n");
+        try {
+          if (path.exists()) {
+            terminalPrinter.print("  " + testLogPathFormatter.getPathStringToPrint(path) + "\n");
+          }
+        } catch (IOException e) {
+          LoggingUtil.logToRemote(Level.WARNING, "Error while reading failed log file", e);
         }
       }
     }

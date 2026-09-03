@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.IncrementalArtifactConflictFinder;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
+import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -233,7 +234,8 @@ public final class ConfiguredTargetFactory {
       ExecGroupCollection.Builder execGroupCollectionBuilder,
       @Nullable StarlarkAttributeTransitionProvider starlarkExecTransition,
       boolean dependsOnFileKey)
-      throws InterruptedException,
+      throws IOException,
+          InterruptedException,
           ActionConflictException,
           InvalidExecGroupException,
           AnalysisFailurePropagationException {
@@ -384,7 +386,8 @@ public final class ConfiguredTargetFactory {
       @Nullable NestedSet<Package.Metadata> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
       @Nullable StarlarkAttributeTransitionProvider starlarkExecTransition)
-      throws InterruptedException,
+      throws IOException,
+          InterruptedException,
           ActionConflictException,
           InvalidExecGroupException,
           AnalysisFailurePropagationException {
@@ -696,7 +699,8 @@ public final class ConfiguredTargetFactory {
       @Nullable NestedSet<Package.Metadata> transitivePackages,
       AspectKeyCreator.AspectKey aspectKey,
       StarlarkAttributeTransitionProvider starlarkExecTransition)
-      throws InterruptedException,
+      throws IOException,
+          InterruptedException,
           ActionConflictException,
           InvalidExecGroupException,
           RuleErrorException {

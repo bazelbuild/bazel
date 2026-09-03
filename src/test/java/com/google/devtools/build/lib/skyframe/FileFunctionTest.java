@@ -1544,7 +1544,7 @@ public class FileFunctionTest {
   }
 
   /** Returns the files that would be changed/created if {@code path} were to be changed/created. */
-  private static ImmutableList<String> filesTouchedIfTouched(Path path) {
+  private static ImmutableList<String> filesTouchedIfTouched(Path path) throws IOException {
     List<String> filesToBeTouched = new ArrayList<>();
     do {
       filesToBeTouched.add(path.getPathString());

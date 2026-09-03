@@ -993,8 +993,14 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     optionsData = optionsDataCache.get(command);
     Command annotation = command.getClass().getAnnotation(Command.class);
     Path workspacePath = runtime.getWorkspace().getWorkspace();
-    boolean hasModuleDotBazel =
-        workspacePath != null && workspacePath.getRelative("MODULE.bazel").exists();
+    boolean hasModuleDotBazel;
+    try {
+      hasModuleDotBazel =
+          workspacePath != null && workspacePath.getRelative("MODULE.bazel").exists();
+    } catch (IOException e) {
+      // TODO(tjgq): Propagate the error.
+      hasModuleDotBazel = false;
+    }
     OptionsParser parser =
         OptionsParser.builder()
             .optionsData(optionsData)

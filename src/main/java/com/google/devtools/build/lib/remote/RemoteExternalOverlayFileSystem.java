@@ -570,7 +570,14 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       if (hasBeenInjected && !hasBeenMaterialized) {
         // The repo may have been deleted due to refetching. Clean up in-memory state if that is the
         // case.
-        if (externalFs.getPath(externalDirectory.getChild(repoName)).exists()) {
+        boolean exists;
+        try {
+          exists = externalFs.getPath(externalDirectory.getChild(repoName)).exists();
+        } catch (IOException e) {
+          // Ignore and treat as if the repo does not exist.
+          exists = false;
+        }
+        if (exists) {
           return externalFs;
         }
         materializedRepos.remove(repoName);
@@ -661,12 +668,12 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   }
 
   @Override
-  public boolean exists(PathFragment path, boolean followSymlinks) {
+  public boolean exists(PathFragment path, boolean followSymlinks) throws IOException {
     return fsForPath(path).exists(path, followSymlinks);
   }
 
   @Override
-  public boolean exists(PathFragment path) {
+  public boolean exists(PathFragment path) throws IOException {
     return fsForPath(path).exists(path);
   }
 
