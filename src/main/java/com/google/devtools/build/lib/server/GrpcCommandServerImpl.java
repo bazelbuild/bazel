@@ -88,7 +88,7 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
 
     /**
      * Taken from the first {@link #onNext} call, which {@link CommandServer} performs before any
-     * output can reach this observer.
+     * output can reach this observer, and cleared in {@link #onCompleted} when done.
      */
     @GuardedBy("this")
     @Nullable
@@ -154,7 +154,8 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
         // Restore the interrupt bit.
         if (interrupted) {
           Thread.currentThread().interrupt();
-        } else if (observer.isCancelled() && !commandInterrupted) {
+        }
+        if (observer.isCancelled() && !commandInterrupted) {
           commandThread.interrupt(); // the client was already gone at the first write
           commandInterrupted = true;
         }
@@ -162,7 +163,8 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
     }
 
     @Override
-    public void onCompleted() throws IOException {
+    public synchronized void onCompleted() throws IOException {
+      commandThread = null; // a thread pool may already run another command on it
       try {
         observer.onCompleted();
       } catch (StatusRuntimeException e) {

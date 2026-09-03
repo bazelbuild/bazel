@@ -367,4 +367,44 @@ public final class GrpcCommandServerImplTest {
     blockingStreamObserver.onNext(response);
     assertThat(Thread.interrupted()).isFalse();
   }
+
+  @Test
+  public void testBlockingStreamObserverInterruptsOnceEvenIfOwnWaitWasInterrupted()
+      throws Exception {
+    // This test attempts to verify that a call whose own wait is interrupted for an unrelated
+    // reason still records this site's interrupt when the client is also gone, so that a later
+    // write does not repeat it.
+    ServerCallStreamObserver<RunResponse> observer = mock(ServerCallStreamObserver.class);
+    when(observer.isReady()).thenReturn(false);
+    when(observer.isCancelled()).thenReturn(false, true);
+    BlockingStreamObserver<RunResponse> blockingStreamObserver =
+        new BlockingStreamObserver<>(observer, RunResponse.getDefaultInstance());
+
+    byte[] response = RunResponse.getDefaultInstance().toByteArray();
+    Thread.currentThread().interrupt(); // an interrupt unrelated to the client leaving
+    blockingStreamObserver.onNext(response);
+    assertThat(Thread.interrupted()).isTrue(); // clears the interrupt bit for the call below
+    blockingStreamObserver.onNext(response);
+    assertThat(Thread.interrupted()).isFalse();
+  }
+
+  @Test
+  public void testBlockingStreamObserverIgnoresCancelAfterCompletion() throws Exception {
+    // This test attempts to verify that a cancellation notification arriving after onCompleted
+    // does not interrupt commandThread, which by then may already run an unrelated command
+    // recycled from the same thread pool.
+    ServerCallStreamObserver<RunResponse> observer = mock(ServerCallStreamObserver.class);
+    when(observer.isReady()).thenReturn(true);
+    ArgumentCaptor<Runnable> onCancelHandler = ArgumentCaptor.forClass(Runnable.class);
+    BlockingStreamObserver<RunResponse> blockingStreamObserver =
+        new BlockingStreamObserver<>(observer, RunResponse.getDefaultInstance());
+    verify(observer).setOnCancelHandler(onCancelHandler.capture());
+
+    byte[] response = RunResponse.getDefaultInstance().toByteArray();
+    blockingStreamObserver.onNext(response); // the call commandThread gets remembered by
+    blockingStreamObserver.onCompleted();
+    when(observer.isCancelled()).thenReturn(true);
+    onCancelHandler.getValue().run(); // arrives late, as gRPC delivers it on its own schedule
+    assertThat(Thread.interrupted()).isFalse();
+  }
 }
