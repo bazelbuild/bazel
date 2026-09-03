@@ -91,9 +91,8 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
     if (sandboxContents != null) {
       // Delete anything unnecessary, and update `inputsToCreate`/`dirsToCreate` if something can
       // be left without changes (e.g., a, symlink that already points to the right destination).
-      // We're traversing from sandboxExecRoot's parent directory because external repositories can
-      // now be symlinked as siblings of sandboxExecRoot when
-      // --experimental_sibling_repository_layout is set.
+      // The traversal starts at sandboxExecRoot's parent directory because that is where the
+      // sandbox contents map is rooted; `sandboxExecRoot` is its only entry.
       if (sandboxContents.isPresent()) {
         SandboxHelpers.cleanExisting(
             sandboxExecRoot.getParentDirectory(),

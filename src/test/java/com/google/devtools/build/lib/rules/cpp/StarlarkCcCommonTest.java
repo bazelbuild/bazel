@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
@@ -5601,7 +5600,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(ccInfo.getCcCompilationContext().getIncludeDirs())
         .containsExactly(
             getTargetConfiguration()
-                .getBinFragment(RepositoryName.MAIN)
+                .getBinFragment()
                 .getRelative("third_party/bar/_virtual_includes/starlark_lib_suffix"));
   }
 
@@ -5652,7 +5651,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(ccInfo.getCcCompilationContext().getIncludeDirs())
         .containsExactly(
             getTargetConfiguration()
-                .getBinFragment(RepositoryName.MAIN)
+                .getBinFragment()
                 .getRelative("third_party/bar/_virtual_includes/starlark_lib_suffix"));
   }
 

@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -363,12 +362,9 @@ public final class AnalysisTestUtil {
       BuildConfigurationValue targetConfiguration,
       Iterable<? extends Artifact> artifacts) {
     Map<String, String> rootMap = new HashMap<>();
-    computeRootPaths(
-        targetConfiguration.getBinDirectory(RepositoryName.MAIN), path -> rootMap.put(path, "bin"));
+    computeRootPaths(targetConfiguration.getBinDirectory(), path -> rootMap.put(path, "bin"));
     // In preparation for merging genfiles/ and bin/, we don't differentiate them in tests anymore
-    computeRootPaths(
-        targetConfiguration.getGenfilesDirectory(RepositoryName.MAIN),
-        path -> rootMap.put(path, "bin"));
+    computeRootPaths(targetConfiguration.getGenfilesDirectory(), path -> rootMap.put(path, "bin"));
 
     Set<String> files = new LinkedHashSet<>();
     for (Artifact artifact : artifacts) {

@@ -315,10 +315,7 @@ public class RemoteExecutionService {
           .setValue(internalToUnicode(env.get(var)));
     }
 
-    return command
-        .setWorkingDirectory(
-            internalToUnicode(remotePathResolver.getWorkingDirectory().getPathString()))
-        .build();
+    return command.build();
   }
 
   private boolean useRemoteCache() {

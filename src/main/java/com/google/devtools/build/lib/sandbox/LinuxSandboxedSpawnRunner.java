@@ -264,7 +264,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     SandboxInputs inputs =
         SandboxHelpers.processInputFiles(
-            context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
+            context.getInputMapping(/* willAccessRepeatedly= */ true),
             execRoot);
 
     ImmutableMap<String, String> environment =
@@ -480,7 +480,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private void checkForConcurrentModifications(SpawnExecutionContext context) throws IOException {
     for (ActionInput input :
         context
-            .getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
+            .getInputMapping(/* willAccessRepeatedly= */ true)
             .values()) {
       if (input instanceof VirtualActionInput) {
         // Virtual inputs are not existing in file system and can't be tampered with via sandbox. No

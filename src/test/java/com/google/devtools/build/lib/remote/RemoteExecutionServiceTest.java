@@ -111,7 +111,6 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRemotePathResolver;
-import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -947,35 +946,6 @@ public class RemoteExecutionServiceTest {
     // assert
     assertThat(execRoot.getRelative("outputs/foo").isExecutable()).isFalse();
     assertThat(execRoot.getRelative("outputs/dir/bar").isExecutable()).isFalse();
-    assertThat(context.isLockOutputFilesCalled()).isTrue();
-  }
-
-  @Test
-  public void downloadOutputs_siblingLayout() throws Exception {
-    // arrange
-    remotePathResolver = new SiblingRepositoryLayoutResolver(execRoot);
-
-    Digest fooDigest = cache.addContents(remoteActionExecutionContext, "foo-contents");
-    Digest barDigest = cache.addContents(remoteActionExecutionContext, "bar-contents");
-    ActionResult.Builder builder = ActionResult.newBuilder();
-    builder.addOutputFilesBuilder().setPath("outputs/foo").setDigest(fooDigest);
-    builder.addOutputFilesBuilder().setPath("outputs/bar").setDigest(barDigest);
-    RemoteActionResult result =
-        RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
-    Spawn spawn = newSpawnFromResult(result);
-    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    RemoteExecutionService service = newRemoteExecutionService();
-    RemoteAction action = service.buildRemoteAction(spawn, context);
-    createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
-        .thenReturn(true);
-
-    // act
-    service.downloadOutputs(action, result);
-
-    // assert
-    assertThat(readContent(execRoot.getRelative("outputs/foo"), UTF_8)).isEqualTo("foo-contents");
-    assertThat(readContent(execRoot.getRelative("outputs/bar"), UTF_8)).isEqualTo("bar-contents");
     assertThat(context.isLockOutputFilesCalled()).isTrue();
   }
 
@@ -2775,8 +2745,7 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void buildRemoteActionForRemotePersistentWorkers(
-      @TestParameter boolean enablePathMapping, @TestParameter boolean siblingRepositoryLayout)
+  public void buildRemoteActionForRemotePersistentWorkers(@TestParameter boolean enablePathMapping)
       throws Exception {
     var input = ActionsTestUtil.createArtifact(artifactRoot, "input");
     fakeFileCache.createScratchInput(input, "value");
@@ -2803,10 +2772,7 @@ public class RemoteExecutionServiceTest {
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     remoteOptions.setMarkToolInputs(true);
     remoteOptions.setRemoteDiscardMerkleTrees(false);
-    remotePathResolver =
-        siblingRepositoryLayout
-            ? new SiblingRepositoryLayoutResolver(execRoot)
-            : new DefaultRemotePathResolver(execRoot);
+    remotePathResolver = new DefaultRemotePathResolver(execRoot);
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
 
     // Check that worker files are properly marked in the merkle tree.
@@ -2866,17 +2832,6 @@ public class RemoteExecutionServiceTest {
                     .setDigest(digestUtil.compute(outputsDirectory))
                     .build())
             .build();
-
-    if (siblingRepositoryLayout) {
-      rootDirectory =
-          Directory.newBuilder()
-              .addDirectories(
-                  DirectoryNode.newBuilder()
-                      .setName("_main")
-                      .setDigest(digestUtil.compute(rootDirectory))
-                      .build())
-              .build();
-    }
 
     var remoteAction1 = service.buildRemoteAction(spawn, context);
     var merkleTree = (MerkleTree.Uploadable) remoteAction1.getMerkleTree();

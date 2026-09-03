@@ -373,15 +373,11 @@ public final class Label
           "Returns the execution root for the repository containing the target referred to by this"
               + " label, relative to the execroot. For instance:<br><pre"
               + " class=language-python>Label(\"@repo//pkg/foo:abc\").workspace_root =="
-              + " \"external/repo\"</pre>",
-      useStarlarkSemantics = true)
+              + " \"external/repo\"</pre>")
   @Deprecated
-  public String getWorkspaceRootForStarlarkOnly(StarlarkSemantics semantics) throws EvalException {
+  public String getWorkspaceRootForStarlarkOnly() throws EvalException {
     checkRepoVisibilityForStarlark("workspace_root");
-    return packageIdentifier
-        .getRepository()
-        .getExecPath(semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT))
-        .toString();
+    return packageIdentifier.getRepository().getExecPath().toString();
   }
 
   /**
