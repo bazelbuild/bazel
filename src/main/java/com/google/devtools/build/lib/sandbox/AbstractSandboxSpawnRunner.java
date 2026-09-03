@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
@@ -395,7 +396,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     }
 
     FileSystem fileSystem = sandboxExecRoot.getFileSystem();
-    for (String writablePath : sandboxOptions.getSandboxWritablePath()) {
+    for (PathFragment writablePath : sandboxOptions.getSandboxWritablePath()) {
       Path path = fileSystem.getPath(writablePath);
       writablePaths.add(path);
       // TODO(laszlocsomor): Remove if guard when path.resolveSymbolicLinks supports non-symlink

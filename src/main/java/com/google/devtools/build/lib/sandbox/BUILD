@@ -169,6 +169,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",

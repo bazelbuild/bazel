@@ -874,6 +874,16 @@ EOF
   assert_equals world "$(cat bazel-bin/pkg/some_file2.json)"
 }
 
+function test_sandbox_writable_path_requires_absolute_path() {
+  bazel build --sandbox_writable_path=foo/bar >$TEST_log 2>&1 && fail "Expected failure"
+  expect_log "While parsing option --sandbox_writable_path=foo/bar: Not an absolute path: 'foo/bar'"
+}
+
+function test_sandbox_block_path_requires_absolute_path() {
+  bazel build --sandbox_block_path=foo/bar >$TEST_log 2>&1 && fail "Expected failure"
+  expect_log "While parsing option --sandbox_block_path=foo/bar: Not an absolute path: 'foo/bar'"
+}
+
 # The test shouldn't fail if the environment doesn't support running it.
 check_sandbox_allowed || exit 0
 

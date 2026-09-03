@@ -315,7 +315,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_command_line_builder",
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_util",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
