@@ -36,9 +36,9 @@ java_library(
     name = "cancellable_task",
     srcs = ["CancellableTask.java"],
     deps = [
-        "//third_party/java/error_prone:annotations",
-        "//third_party/java/guava:concurrent",
-        "//third_party/java/jsr305_annotations",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
