@@ -117,7 +117,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/remote:abstract_action_input_prefetcher",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_output_checker",
-        "//src/main/java/com/google/devtools/build/lib/remote:remote_output_service",
         "//src/main/java/com/google/devtools/build/lib/remote:scrubber",
         "//src/main/java/com/google/devtools/build/lib/remote:store",
         "//src/main/java/com/google/devtools/build/lib/remote/chunking",
