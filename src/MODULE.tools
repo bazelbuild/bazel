@@ -42,9 +42,9 @@ bazel_dep(name = "protobuf", version = "33.4", repo_name = "com_google_protobuf"
 # //src/java_tools/{buildjar,import_deps_checker}, and java_toolchains above.
 bazel_dep(name = "rules_java", version = "9.7.2")
 
-# //tools/{cpp,jdk,objc,osx,res}, //tools/build_defs/cc, //src/main/{cpp/util,native},
+# //tools/{cpp,jdk,objc,osx,res,test}, //tools/build_defs/cc, //src/main/{cpp/util,native},
 # //src/tools/launcher, //third_party/{def_parser,ijar}.
-bazel_dep(name = "rules_cc", version = "0.2.18")
+bazel_dep(name = "rules_cc", version = "0.2.19")
 
 # //tools/python, //tools/build_defs/{hash,pkg}, //third_party/def_parser.
 bazel_dep(name = "rules_python", version = "1.7.0")
