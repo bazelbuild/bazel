@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionContext.DeferredSpawnCacheStore;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
@@ -297,6 +298,17 @@ public interface SpawnRunner {
     default boolean bustCaches() {
       return false;
     }
+
+    /**
+     * Defers a spawn cache store until after the owning {@link ActionExecutionMetadata} completes
+     * successfully.
+     */
+    default void deferSpawnCacheStore(DeferredSpawnCacheStore store)
+        throws ExecException, InterruptedException, IOException {
+      try (store) {
+        store.store();
+      }
+    }
   }
 
   /** Partial implementation of {@link SpawnExecutionContext}. */
@@ -372,6 +384,11 @@ public interface SpawnRunner {
     @Override
     public final ImmutableMap<String, String> getClientEnv() {
       return actionExecutionContext.getClientEnv();
+    }
+
+    @Override
+    public final void deferSpawnCacheStore(DeferredSpawnCacheStore store) {
+      actionExecutionContext.deferSpawnCacheStore(store);
     }
   }
 
