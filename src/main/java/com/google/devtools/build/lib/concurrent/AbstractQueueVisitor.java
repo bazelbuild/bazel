@@ -410,7 +410,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
    *   <li>And, lastly, calls {@link #decrementRemainingTasks}.
    * </ul>
    */
-  protected final class WrappedRunnable implements Runnable, Comparable<WrappedRunnable> {
+  protected final class WrappedRunnable implements Runnable {
     private static final AtomicIntegerFieldUpdater<WrappedRunnable> DECREMENTED_UPDATER =
         AtomicIntegerFieldUpdater.newUpdater(WrappedRunnable.class, "decremented");
 
@@ -457,13 +457,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
           decrementRemainingTasksOnce();
         }
       }
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public int compareTo(WrappedRunnable o) {
-      // This should only be called when the concrete class is submitting comparable runnables.
-      return ((Comparable) originalRunnable).compareTo(o.originalRunnable);
     }
   }
 
