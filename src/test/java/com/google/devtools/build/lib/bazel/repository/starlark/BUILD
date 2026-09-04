@@ -39,6 +39,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:process_wrapper",
         "//src/main/java/com/google/devtools/build/lib/runtime:repository_remote_executor",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",

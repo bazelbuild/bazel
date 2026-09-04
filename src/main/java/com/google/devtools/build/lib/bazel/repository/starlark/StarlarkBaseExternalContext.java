@@ -1736,6 +1736,11 @@ Strip the given number of leading components from file paths on extraction. Only
     }
   }
 
+  /**
+   * Records a watch on a directory's non-recursive contents.
+   *
+   * <p>Callers must have checked recently that the given path points to a directory.
+   */
   protected void maybeWatchDirents(Path path, ShouldWatch shouldWatch)
       throws EvalException, RepositoryFunctionException, InterruptedException {
     RepoCacheFriendlyPath repoCacheFriendlyPath = toRepoCacheFriendlyPath(path, shouldWatch);
@@ -1743,6 +1748,10 @@ Strip the given number of leading components from file paths on extraction. Only
       return;
     }
     try {
+      // Dirents can only be recorded for directories, so we have to additionally track the type of
+      // the file. When checking for invalidation, the type is verified first and if it doesn't
+      // match, the directory entries are never requested.
+      getValueAndRecordInput(new RepoRecordedInput.File(repoCacheFriendlyPath));
       getValueAndRecordInput(new RepoRecordedInput.Dirents(repoCacheFriendlyPath));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
