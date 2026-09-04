@@ -17,6 +17,7 @@ java_library(
     srcs = glob(
         ["*.java"],
         exclude = [
+            "CancellableTask.java",
             "SettableFutureKeyedValue.java",
             "TaskDeduplicator.java",
             "ThreadSafety.java",
@@ -26,6 +27,16 @@ java_library(
         ":thread_safety",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
         "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "cancellable_task",
+    srcs = ["CancellableTask.java"],
+    deps = [
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
