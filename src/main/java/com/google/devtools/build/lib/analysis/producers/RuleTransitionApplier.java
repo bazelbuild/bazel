@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
@@ -267,16 +266,12 @@ public class RuleTransitionApplier
     return new TransitionApplier(
         target.getLabel(),
         preRuleTransitionKey.getConfigurationKey(),
+        targetAndConfigurationData.getPreRuleTransitionFlagDetails(),
         ruleTransition,
         targetAndConfigurationData.getTransitionCache(),
         (TransitionApplier.ResultSink) this,
         eventHandler,
         /* runAfter= */ this::processTransitionedKey);
-  }
-
-  @Override
-  public void acceptBuildOptionsScopeFunctionError(BuildOptionsScopeFunctionException e) {
-    emitErrorMessage(e.getMessage());
   }
 
   @Override
@@ -347,16 +342,14 @@ public class RuleTransitionApplier
       return new TransitionApplier(
           target.getLabel(),
           configurationKey,
+          // Resolved for the pre-rule-transition configuration. TransitionApplier only applies them
+          // to flags that configuration also sets, so they're safe to offer for this one.
+          targetAndConfigurationData.getPreRuleTransitionFlagDetails(),
           ruleTransition,
           targetAndConfigurationData.getTransitionCache(),
           (TransitionApplier.ResultSink) this,
           eventHandler,
           /* runAfter= */ DONE);
-    }
-
-    @Override
-    public void acceptBuildOptionsScopeFunctionError(BuildOptionsScopeFunctionException e) {
-      emitErrorMessage(e.getMessage());
     }
 
     @Override

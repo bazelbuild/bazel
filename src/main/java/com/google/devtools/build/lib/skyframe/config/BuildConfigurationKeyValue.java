@@ -17,6 +17,7 @@ import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -30,12 +31,28 @@ public final class BuildConfigurationKeyValue implements SkyValue {
   /** Key for {@link BuildConfigurationKeyValue} based on the build options. */
   @ThreadSafety.Immutable
   @AutoCodec
-  public record Key(BuildOptions buildOptions) implements SkyKey {
+  public record Key(BuildOptions buildOptions, boolean forBaseline) implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
-    @AutoCodec.Instantiator
     public static Key create(BuildOptions buildOptions) {
-      return interner.intern(new Key(buildOptions));
+      return create(buildOptions, /* forBaseline= */ false);
+    }
+
+    /**
+     * Creates a key for the baseline configuration's options.
+     *
+     * <p>Scoping the options of the baseline configuration would require knowing the baseline
+     * configuration, so the resulting key skips the scoping step. Baseline options don't need
+     * scoping anyway: they are what scoping resets flags to.
+     */
+    public static Key createForBaseline(BuildOptions buildOptions) {
+      return create(buildOptions, /* forBaseline= */ true);
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Instantiator
+    static Key create(BuildOptions buildOptions, boolean forBaseline) {
+      return interner.intern(new Key(buildOptions, forBaseline));
     }
 
     @Override
@@ -45,7 +62,11 @@ public final class BuildConfigurationKeyValue implements SkyValue {
 
     @Override
     public String toString() {
-      return "BuildConfigurationKeyValue.Key{buildOptions=" + buildOptions.checksum() + "}";
+      return "BuildConfigurationKeyValue.Key{buildOptions="
+          + buildOptions.checksum()
+          + ", forBaseline="
+          + forBaseline
+          + "}";
     }
 
     @Override

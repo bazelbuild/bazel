@@ -102,7 +102,6 @@ java_library(
         ":build_driver_function",
         ":build_driver_key",
         ":build_driver_value",
-        ":build_options_scope_function",
         ":build_result_listener",
         ":bzl_compile",
         ":bzl_compile_value",
@@ -172,7 +171,9 @@ java_library(
         ":prerequisite_package_function",
         ":progress_event_suppressing_environment",
         ":project_files_lookup_function",
+        ":project_files_lookup_value",
         ":project_function",
+        ":project_value",
         ":recursive_filesystem_traversal",
         ":recursive_package_provider_backed_target_pattern_resolver",
         ":recursive_pkg_function",
@@ -256,6 +257,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:invalid_visibility_dependency_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:project_resolution_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:required_config_fragments_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_build_settings_details_value",
@@ -283,6 +285,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:options_diff",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:run_under",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:scope",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:starlark_exec_transition_loader",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:starlark_transition_cache",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:configuration_transition",
@@ -1301,41 +1304,6 @@ java_library(
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
         "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "build_options_scope_function",
-    srcs = ["BuildOptionsScopeFunction.java"],
-    deps = [
-        ":build_options_scope_value",
-        ":package_value",
-        ":project_files_lookup_value",
-        ":project_value",
-        "//src/main/java/com/google/devtools/build/lib/analysis:project_resolution_exception",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:scope",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/runtime:starlark_options_parser",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//third_party/java/guava:collect",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "build_options_scope_value",
-    srcs = ["BuildOptionsScopeValue.java"],
-    deps = [
-        ":sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:scope",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
 )
 
