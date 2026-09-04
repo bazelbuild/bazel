@@ -285,6 +285,22 @@ java_test(
     ],
 )
 
+java_test(
+    name = "JavaSubprocessFactoryTest",
+    srcs = ["JavaSubprocessFactoryTest.java"],
+    tags = [
+        "no_windows",
+        "shell",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
+
 cc_binary(
     name = "killmyself",
     srcs = ["killmyself.cc"],
