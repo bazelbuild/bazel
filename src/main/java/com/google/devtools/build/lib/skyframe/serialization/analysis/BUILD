@@ -291,6 +291,7 @@ java_library(
         ":magic_bytes",
         ":value_or_future_map",
         ":versioned_changes",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:settable_future_keyed_value",
         "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
@@ -310,7 +311,6 @@ java_library(
         "//third_party/java/jsr305_annotations",
         "//third_party/java/protobuf",
         "//third_party/java/protobuf:protobuf_lite",
-        "//third_party/java/zstd_jni",
     ],
 )
 

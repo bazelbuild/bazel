@@ -26,13 +26,12 @@ import static com.google.protobuf.ExtensionRegistry.getEmptyRegistry;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.luben.zstd.RecyclingBufferPool;
-import com.github.luben.zstd.ZstdInputStream;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
 import com.google.devtools.build.lib.concurrent.SettableFutureKeyedValue;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
@@ -94,6 +93,7 @@ final class FileDependencyDeserializer {
   static final FileDependencies ROOT_FILE = FileDependencies.builder("").build();
 
   private final SafeExecutor executor;
+  private final CompressionService compressionService;
   private final Fingerprinter fingerprinter;
 
   /**
@@ -151,8 +151,10 @@ final class FileDependencyDeserializer {
               FutureNestedDependencies.class,
               FileDependencyDeserializer.this::populateFutureNestedDependencies);
 
-  FileDependencyDeserializer(SafeExecutor executor, Fingerprinter fingerprinter) {
+  FileDependencyDeserializer(
+      SafeExecutor executor, CompressionService compressionService, Fingerprinter fingerprinter) {
     this.executor = executor;
+    this.compressionService = compressionService;
     this.fingerprinter = fingerprinter;
   }
 
@@ -602,7 +604,7 @@ final class FileDependencyDeserializer {
         if (usesZstdCompression) {
           ByteArrayInputStream byteArrayInputStream =
               new ByteArrayInputStream(bytes, 2, bytes.length - 2);
-          inputStream = new ZstdInputStream(byteArrayInputStream, RecyclingBufferPool.INSTANCE);
+          inputStream = compressionService.newZstdInputStream(byteArrayInputStream);
         } else {
           inputStream = new ByteArrayInputStream(bytes);
         }

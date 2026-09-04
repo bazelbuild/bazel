@@ -204,11 +204,14 @@ public final class GraphDumper {
   }
 
   public static InvalidationGraph collectInvalidationGraph(
-      PackedFingerprint rootFingerprint, FingerprintValueStore store, Fingerprinter fingerprinter)
+      PackedFingerprint rootFingerprint,
+      CompressionService compressionService,
+      FingerprintValueStore store,
+      Fingerprinter fingerprinter)
       throws InterruptedException {
 
     FileDependencyDeserializer deserializer =
-        new FileDependencyDeserializer(safeDirectExecutor(), fingerprinter);
+        new FileDependencyDeserializer(safeDirectExecutor(), compressionService, fingerprinter);
 
     GraphDumper dumper = new GraphDumper(store, deserializer);
     dumper.collectRecursive(rootFingerprint);

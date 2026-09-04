@@ -885,6 +885,7 @@ public class DumpCommand implements BlazeCommand {
         graphResult =
             GraphDumper.collectInvalidationGraph(
                 entry.dependencyFingerprint(),
+                compressionService,
                 store,
                 env.getBlazeWorkspace().getFingerprinterForAnalysisCaching());
       } else {
