@@ -40,6 +40,7 @@ public class PlatformRule implements RuleDefinition {
   public static final String CONSTRAINT_VALUES_ATTR = "constraint_values";
   public static final String PARENTS_PLATFORM_ATTR = "parents";
   public static final String EXEC_PROPS_ATTR = "exec_properties";
+  public static final String LOCAL_RESOURCES_ATTR = "local_resources";
   public static final String FLAGS_ATTR = "flags";
   public static final String REQUIRED_SETTINGS_ATTR = "required_settings";
   public static final String MISSING_TOOLCHAIN_ERROR_ATTR = "missing_toolchain_error";
@@ -99,6 +100,22 @@ public class PlatformRule implements RuleDefinition {
             attr(EXEC_PROPS_ATTR, Types.STRING_DICT)
                 .value(ImmutableMap.of())
                 .nonconfigurable("Part of the configuration"))
+
+        /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(local_resources) -->
+        A map of local resource names to the amounts available on this platform. These values are
+        used when this platform is selected with <code>--host_platform</code> and have the same
+        syntax as values passed to <code>--local_resources</code>. For example,
+        <code>{"gpu-2": "1"}</code> allows one action requiring the <code>gpu-2</code> resource to
+        run locally at a time.
+
+        Values from the host platform take precedence over values passed with
+        <code>--local_resources</code>. Local resources are inherited from the parent platform, and
+        values on a child platform override resources with the same name from the parent.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr(LOCAL_RESOURCES_ATTR, Types.STRING_DICT)
+                .value(ImmutableMap.of())
+                .nonconfigurable("Part of the host platform"))
 
         /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(flags) -->
         A list of flags that will be enabled when this platform is used as the target platform in

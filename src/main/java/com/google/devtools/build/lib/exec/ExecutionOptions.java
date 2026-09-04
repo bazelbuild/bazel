@@ -371,11 +371,18 @@ public abstract class ExecutionOptions extends OptionsBase {
   public abstract List<Map.Entry<String, Double>> getLocalResourcesFields();
 
   public final ImmutableMap<String, Double> getLocalResources() {
+    return getLocalResources(ImmutableMap.of());
+  }
+
+  /** Returns local resources, with values declared by the host platform taking precedence. */
+  public final ImmutableMap<String, Double> getLocalResources(
+      Map<String, Double> hostPlatformResources) {
     ImmutableMap.Builder<String, Double> resources = ImmutableMap.builder();
     return resources
         .put(ResourceSet.CPU, LocalHostCapacity.getLocalHostCapacity().getCpuUsage())
         .put(ResourceSet.MEMORY, .67 * LocalHostCapacity.getLocalHostCapacity().getMemoryMb())
         .putAll(getLocalResourcesFields())
+        .putAll(hostPlatformResources)
         .buildKeepingLast();
   }
 
