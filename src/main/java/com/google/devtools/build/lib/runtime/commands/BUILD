@@ -12,7 +12,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/info:srcs",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/license:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(

@@ -10,7 +10,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/buildtool:__pkg__"],
 )
 
 # Redirection for util lib to allow exporting both ":util_internal" and the

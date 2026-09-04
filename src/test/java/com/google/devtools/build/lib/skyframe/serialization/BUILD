@@ -13,7 +13,10 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/strings:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/testutils:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:__pkg__",
+    ],
 )
 
 java_test(

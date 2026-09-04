@@ -90,7 +90,6 @@ filegroup(
     srcs = glob(["**/*.java"]) + [
         "BUILD",
     ],
-    visibility = ["//src:__subpackages__"],
 )
 
 #

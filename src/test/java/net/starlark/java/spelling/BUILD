@@ -10,7 +10,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/net/starlark/java:__pkg__"],
 )
 
 java_test(

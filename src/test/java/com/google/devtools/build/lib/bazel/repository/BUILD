@@ -15,7 +15,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/starlark:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/bazel:__pkg__"],
 )
 
 java_library(

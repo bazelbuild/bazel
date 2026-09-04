@@ -10,7 +10,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/net/starlark/java:__pkg__"],
 )
 
 # The Starlark frontend (syntax, scanner, parser, resolver)

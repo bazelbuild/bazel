@@ -10,7 +10,10 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:__pkg__",
+    ],
 )
 
 java_library(

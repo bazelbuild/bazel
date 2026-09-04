@@ -10,7 +10,6 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
 )
 
 INTEGRATION_TEST_UTILS_SRCS = ["IntegrationTestUtils.java"]

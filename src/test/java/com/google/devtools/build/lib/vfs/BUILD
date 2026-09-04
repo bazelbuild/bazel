@@ -13,7 +13,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/vfs/bazel:srcs",
         "//src/test/java/com/google/devtools/build/lib/vfs/util:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 # Tests for Windows-specific functionality that can run cross-platform.

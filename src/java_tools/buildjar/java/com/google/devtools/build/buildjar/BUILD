@@ -19,7 +19,6 @@ filegroup(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
 )
 
 java_library(

@@ -12,7 +12,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/authandtls/credentialhelper:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(

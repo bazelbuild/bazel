@@ -10,7 +10,7 @@ filegroup(
     srcs = glob(["*"]) + [
         "//src/main/java/net/starlark/java/lib/json:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/net/starlark/java:__pkg__"],
 )
 
 java_library(

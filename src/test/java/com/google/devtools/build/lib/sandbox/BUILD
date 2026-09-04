@@ -10,7 +10,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/sandbox/cgroups:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(

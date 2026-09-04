@@ -6,7 +6,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/packages:__pkg__"],
 )
 
 exports_files(

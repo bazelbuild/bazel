@@ -10,7 +10,7 @@ filegroup(
     srcs = glob(
         ["**"],
     ),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__"],
 )
 
 # @AutoCodec annotation and plugin. Used by clients. Use

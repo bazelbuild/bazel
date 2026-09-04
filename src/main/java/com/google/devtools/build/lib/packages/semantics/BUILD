@@ -8,7 +8,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 # This package defines the StarlarkSemantics keys used by Bazel, and their command-line flags.

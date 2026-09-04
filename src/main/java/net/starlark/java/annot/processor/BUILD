@@ -8,7 +8,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/net/starlark/java/annot:__pkg__"],
 )
 
 # A processor for Starlark annotations.

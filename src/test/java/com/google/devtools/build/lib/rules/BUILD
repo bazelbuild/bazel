@@ -27,7 +27,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/rules/starlarkdocextract:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/test:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_test(

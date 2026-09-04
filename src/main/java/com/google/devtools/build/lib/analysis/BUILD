@@ -14,7 +14,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations:srcs",
         "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 # TODO(b/144899336): Split this further.

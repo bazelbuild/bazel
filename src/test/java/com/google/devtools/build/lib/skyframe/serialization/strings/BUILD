@@ -9,7 +9,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__"],
 )
 
 java_test(

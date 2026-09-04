@@ -14,7 +14,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/bazel:__pkg__"],
 )
 
 proto_library(

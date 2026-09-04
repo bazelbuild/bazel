@@ -10,7 +10,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations/processor:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__subpackages__"],
 )
 
 java_library(

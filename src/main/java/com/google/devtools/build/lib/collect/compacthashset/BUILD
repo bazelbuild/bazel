@@ -8,7 +8,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/collect:__pkg__"],
 )
 
 # Library of collection utilities.

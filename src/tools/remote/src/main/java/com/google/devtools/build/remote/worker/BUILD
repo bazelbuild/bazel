@@ -11,7 +11,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker/http:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/tools/remote:__pkg__"],
 )
 
 copy_file(

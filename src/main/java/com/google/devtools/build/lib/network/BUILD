@@ -8,7 +8,10 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = [
+        "//src:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib:__pkg__",
+    ],
 )
 
 java_library(

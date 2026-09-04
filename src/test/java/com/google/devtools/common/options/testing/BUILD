@@ -14,7 +14,7 @@ filegroup(
     srcs = glob(
         ["**"],
     ),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/common/options:__pkg__"],
 )
 
 java_library(

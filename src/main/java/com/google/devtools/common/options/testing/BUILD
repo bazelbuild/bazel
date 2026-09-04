@@ -12,7 +12,7 @@ filegroup(
     name = "srcs",
     testonly = False,
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/common/options:__pkg__"],
 )
 
 java_library(

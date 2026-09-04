@@ -13,7 +13,9 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/packages/util/mock:srcs",
         "//src/test/java/com/google/devtools/build/lib/packages/util/real/linux:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib:__pkg__",
+    ],
 )
 
 java_library(

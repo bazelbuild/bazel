@@ -9,7 +9,10 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["*.java"]) + ["BUILD"],
-    visibility = ["//src:__subpackages__"],
+    visibility = [
+        "//src:__pkg__",
+        "//src/java_tools/buildjar:buildjar_package_group",
+    ],
 )
 
 java_library(

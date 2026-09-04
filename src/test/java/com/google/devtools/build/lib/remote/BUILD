@@ -24,7 +24,6 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/remote/util:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/zstd:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
 )
 
 java_library(

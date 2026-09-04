@@ -14,7 +14,10 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/python:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/bazel:__pkg__",
+    ],
 )
 
 java_library(

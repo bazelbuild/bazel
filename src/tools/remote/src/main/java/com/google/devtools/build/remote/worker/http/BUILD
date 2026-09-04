@@ -8,7 +8,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker:__pkg__"],
 )
 
 java_library(

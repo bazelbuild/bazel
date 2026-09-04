@@ -13,7 +13,7 @@ filegroup(
     srcs = glob(["*"]) + [
         "//src/test/java/com/google/devtools/build/lib/analysis/config/transitions:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/analysis:__pkg__"],
 )
 
 java_test(

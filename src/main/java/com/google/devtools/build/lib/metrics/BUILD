@@ -10,7 +10,7 @@ filegroup(
     srcs = glob(["*"]) + [
         "//src/main/java/com/google/devtools/build/lib/metrics/criticalpath:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(

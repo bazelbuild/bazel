@@ -31,7 +31,6 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/repository:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
 )
 
 java_library(

@@ -10,7 +10,7 @@ filegroup(
     srcs = glob(["*"]) + [
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod/modcommand:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/bazel:__pkg__"],
 )
 
 java_library(

@@ -18,7 +18,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 # TODO(b/144899336): Split this further.

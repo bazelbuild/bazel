@@ -14,7 +14,6 @@ filegroup(
         "//src/main/java/com/google/devtools/common/options/processor:srcs",
         "//src/main/java/com/google/devtools/common/options/testing:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
 )
 
 java_library(

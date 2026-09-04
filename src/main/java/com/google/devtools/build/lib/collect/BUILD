@@ -11,7 +11,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashmap:srcs",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(

@@ -18,7 +18,7 @@ filegroup(
         )
         for subpackage in subpackages(include = ["**"])
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(

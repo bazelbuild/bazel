@@ -10,7 +10,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 # Library of concurrency utilities.

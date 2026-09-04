@@ -12,7 +12,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/tools/execlog:__pkg__"],
 )
 
 java_test(
