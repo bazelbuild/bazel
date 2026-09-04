@@ -855,12 +855,12 @@ public class RemoteExecutionServiceTest {
       //         9        32       288   b.b.r.e.v2.Digest
       //         2       112       224   [Ljava.lang.Object;
       //         9        16       144   c.g.p.ByteString$LiteralByteString
-      //         1        40        40   c.g.c.c.ImmutableSortedMap
+      //         1        24        24   c.g.c.c.ImmutableSortedMap
       //         2        16        32   c.g.c.c.RegularImmutableList
       //         1        32        32   c.g.d.b.l.r.m.MerkleTree$RootOnly$BlobsUploaded
       //         1        24        24   c.g.c.c.RegularImmutableSortedSet
       //         1        16        16   c.g.d.b.l.r.m.MerkleTree$Uploadable
-      //        44                4064   (total)
+      //        44                4048   (total)
       //
       // Ignoring objects with constant count, the footprint is made up of:
       // * the two Object arrays backing the ImmutableSortedMap that tracks a map from digest-like
@@ -881,8 +881,7 @@ public class RemoteExecutionServiceTest {
       // TODO: Get this number down.
       // NOTE: Don't just increase this number if the test fails, it directly corresponds to the
       // memory usage of Bazel's (but not Blaze's) remote execution implementation.
-      // TODO: b/280079296 - Change this to 4048 after pulling in Guava 33.7.0:
-      assertThat(stableRetainedSize).isEqualTo(4064);
+      assertThat(stableRetainedSize).isEqualTo(4048);
     }
   }
 
