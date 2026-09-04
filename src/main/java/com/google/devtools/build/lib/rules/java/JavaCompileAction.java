@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFil
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
@@ -813,8 +814,29 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
           .getOutputMetadataStore()
           .resetOutputs(ImmutableList.of(outputDepsProto));
       fsPath.setWritable(true);
+      byte[] rewritten = fullOutputDeps.toByteArray();
       try (var outputStream = fsPath.getOutputStream()) {
-        fullOutputDeps.writeTo(outputStream);
+        outputStream.write(rewritten);
+      }
+      if (spawnResult.getInMemoryOutput(outputDepsProto) != null) {
+        // Reached only with --experimental_output_paths=strip (otherwise the isNoOp() check above
+        // would have returned early).
+        // The executor may have stripped config prefixes from the .jdeps file, and we just rewrote
+        // it to restore the original paths. If the executor produced an in-memory version of the
+        // .jdeps file, we need to update the output metadata store with the new digest and size so
+        // that Bazel can read it from memory instead of reading the on-disk version.
+        actionExecutionContext
+            .getOutputMetadataStore()
+            .injectFile(
+                outputDepsProto,
+                FileArtifactValue.createForVirtualActionInput(
+                    fsPath
+                        .getFileSystem()
+                        .getDigestFunction()
+                        .getHashFunction()
+                        .hashBytes(rewritten)
+                        .asBytes(),
+                    rewritten.length));
       }
     }
 
