@@ -17,10 +17,13 @@ import static java.util.Objects.requireNonNull;
 
 import com.google.common.base.Splitter;
 import com.google.common.base.Verify;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import java.util.List;
@@ -68,6 +71,10 @@ public final class StarlarkExecTransitionLoader {
    * @param options the current configured target's {@link BuildOptions}. This is used to find the
    *     value for {@link CoreOptions#starlarkExecConfig}.
    * @param bzlFileLoader caller-provided logic for loading {@link BzlLoadValue.Key} skyvalues.
+   * @param scopeDetails the details of {@code options}' Starlark flags, which callers holding the
+   *     corresponding {@code BuildConfigurationValue} read off it with {@code
+   *     starlarkFlagDetails()}. Null if the caller has no configuration at hand; the exec
+   *     transition then treats every flag as having the default scope.
    * @return null if Skyframe deps need loading. A filled {@link Optional} if this build implements
    *     the exec transition with a Starlark transition. An empty {@link Optional} if this build
    *     implements the exec transition with native logic.
@@ -76,7 +83,9 @@ public final class StarlarkExecTransitionLoader {
    */
   @Nullable
   public static Optional<StarlarkAttributeTransitionProvider> loadStarlarkExecTransition(
-      @Nullable BuildOptions options, BzlFileLoader bzlFileLoader)
+      @Nullable BuildOptions options,
+      BzlFileLoader bzlFileLoader,
+      @Nullable StarlarkBuildSettingsDetailsValue scopeDetails)
       throws StarlarkExecTransitionLoadingException, InterruptedException {
     if (options == null || options.equals(CommonOptions.EMPTY_OPTIONS)) {
       return Optional.empty();
@@ -111,13 +120,42 @@ public final class StarlarkExecTransitionLoader {
           flagName, userRef, parsedRef.starlarkSymbolName() + " is not a Starlark transition");
     }
     return Optional.of(
-        new StarlarkExecTransitionProvider((StarlarkDefinedConfigTransition) transition));
+        new StarlarkExecTransitionProvider(
+            (StarlarkDefinedConfigTransition) transition, scopeDetails));
   }
 
   /** A marker class to distinguish the exec transition from other starlark transitions. */
   static class StarlarkExecTransitionProvider extends StarlarkAttributeTransitionProvider {
-    StarlarkExecTransitionProvider(StarlarkDefinedConfigTransition execTransition) {
+    /**
+     * The details of the Starlark flags of the configuration this provider transitions from, read
+     * off that configuration by the caller. Compared and hashed by identity so the exec transition
+     * instance cache distinguishes configurations and changes to flag definitions without hashing
+     * these maps once per configured target.
+     */
+    @Nullable private final StarlarkBuildSettingsDetailsValue scopeDetails;
+
+    StarlarkExecTransitionProvider(
+        StarlarkDefinedConfigTransition execTransition,
+        @Nullable StarlarkBuildSettingsDetailsValue scopeDetails) {
       super(execTransition);
+      this.scopeDetails = scopeDetails;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof StarlarkExecTransitionProvider other
+          && scopeDetails == other.scopeDetails
+          && super.equals(other);
+    }
+
+    @Override
+    public int hashCode() {
+      return 31 * super.hashCode() + System.identityHashCode(scopeDetails);
+    }
+
+    @Override
+    public SplitTransition create(AttributeTransitionData data) {
+      return createWithScopeDetails(data, scopeDetails);
     }
 
     @Override

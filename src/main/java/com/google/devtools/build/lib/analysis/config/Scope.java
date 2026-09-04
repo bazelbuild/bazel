@@ -19,8 +19,12 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 
 /**
- * Scope of a {@link BuildOptions} is defined by the {@link Scope.ScopeType} and {@link
- * Scope.ScopeDefinition}.
+ * Scope of a Starlark build setting, defined by the {@link Scope.ScopeType} and {@link
+ * Scope.ScopeDefinition}. Scope determines how a flag's value is affected by configuration
+ * transitions and project boundaries.
+ *
+ * <p>Value equality is needed because scopes reach {@link BuildConfigurationValue}, whose {@link
+ * BuildConfigurationValue#equals} decides whether Skyframe prunes a configuration change.
  */
 @AutoCodec
 public record Scope(ScopeType scopeType, @Nullable ScopeDefinition scopeDefinition) {

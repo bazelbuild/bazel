@@ -63,6 +63,44 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
+  public void customExecScope_doesNotAddReferencedDefaultToTargetConfiguration() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+            attrs = {"scope": attr.string()},
+        )
+
+        def _transition_impl(settings, attr):
+            return {"//test:flag": "transitioned"}
+
+        my_transition = transition(
+            implementation = _transition_impl,
+            inputs = [],
+            outputs = ["//test:flag"],
+        )
+        my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":defs.bzl", "my_rule", "string_flag")
+        string_flag(
+            name = "flag",
+            build_setting_default = "flag-default",
+            scope = "exec:--//test:other",
+        )
+        string_flag(name = "other", build_setting_default = "other-default")
+        my_rule(name = "test")
+        """);
+
+    assertThat(getConfiguration(getConfiguredTarget("//test")).getOptions().getStarlarkOptions())
+        .containsExactly(Label.parseCanonicalUnchecked("//test:flag"), "transitioned");
+  }
+
+  @Test
   public void testBadReturnTypeFromTransition() throws Exception {
     scratch.file(
         "test/transitions.bzl",

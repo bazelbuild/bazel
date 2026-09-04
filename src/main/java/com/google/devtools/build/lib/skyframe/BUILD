@@ -936,41 +936,6 @@ java_library(
 )
 
 java_library(
-    name = "build_options_scope_function",
-    srcs = ["BuildOptionsScopeFunction.java"],
-    deps = [
-        ":build_options_scope_value",
-        ":package_value",
-        ":project_files_lookup_value",
-        ":project_value",
-        "//src/main/java/com/google/devtools/build/lib/analysis:project_resolution_exception",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:scope",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/runtime:starlark_options_parser",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//third_party/java/guava:collect",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "build_options_scope_value",
-    srcs = ["BuildOptionsScopeValue.java"],
-    deps = [
-        ":sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:scope",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-    ],
-)
-
-java_library(
     name = "project_function",
     srcs = ["ProjectFunction.java"],
     deps = [
@@ -3600,7 +3565,6 @@ java_library(
     deps = [
         ":aspect_creation_exception",
         ":base_target_prerequisites_supplier",
-        ":build_options_scope_function",
         ":bzl_load_failed_exception",
         ":bzl_load_value",
         ":configured_target_and_data",
@@ -3615,6 +3579,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:exec_group_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:invalid_visibility_dependency_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_build_settings_details_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:target_and_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_collection",
@@ -3775,8 +3740,12 @@ java_library(
     srcs = ["StarlarkBuildSettingsDetailsFunction.java"],
     deps = [
         ":package_value",
+        ":project_files_lookup_value",
+        ":project_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:project_resolution_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_build_settings_details_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:scope",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -4014,7 +3983,6 @@ java_library(
         ":build_driver_function",
         ":build_driver_key",
         ":build_driver_value",
-        ":build_options_scope_function",
         ":build_result_listener",
         ":bzl_compile",
         ":bzl_compile_value",
@@ -4321,6 +4289,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:aspect_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:inconsistent_aspect_order_exception",
+        "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_build_settings_details_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_dependency_state",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:starlark_transition_cache",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:patch_transition",

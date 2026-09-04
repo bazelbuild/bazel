@@ -601,4 +601,94 @@ EOF
   expect_log "Exec dep flag value: default"
 }
 
+# Dependency edges take the scopes of the flags set in a configuration off that configuration's
+# BuildConfigurationValue rather than resolving them per edge, so editing a PROJECT.scl has to
+# invalidate that configuration.
+function test_project_file_change_rescopes_dependencies() {
+  local -r pkg="$FUNCNAME"
+  # Must not start with ${pkg}: project directories are matched by label prefix.
+  local -r dep_pkg="dep_of_${pkg}"
+  mkdir -p "${pkg}" "${dep_pkg}"
+
+  set_up_flags "${pkg}"
+  cat > "${pkg}/defs.bzl" <<EOF
+load("//${pkg}:provider.bzl", "BuildSettingInfo")
+
+def _print_flag_value_impl(ctx):
+    print("%s: flag value is: %s" % (ctx.label, ctx.attr._my_flag[BuildSettingInfo].value))
+    return []
+
+print_flag_value = rule(
+    implementation = _print_flag_value_impl,
+    attrs = {
+        "_my_flag": attr.label(default = "//${pkg}:my_flag"),
+        "deps": attr.label_list(),
+    },
+)
+
+def _set_flag_impl(settings, attr):
+    return {"//${pkg}:my_flag": "transitioned_value"}
+
+set_flag = transition(
+    implementation = _set_flag_impl,
+    inputs = [],
+    outputs = ["//${pkg}:my_flag"],
+)
+
+print_flag_value_with_transition = rule(
+    implementation = _print_flag_value_impl,
+    cfg = set_flag,
+    attrs = {
+        "_my_flag": attr.label(default = "//${pkg}:my_flag"),
+        "deps": attr.label_list(),
+    },
+)
+EOF
+
+  cat > "${pkg}/BUILD" <<EOF
+load("//${pkg}:defs.bzl", "print_flag_value_with_transition")
+load("//${pkg}:flag.bzl", "sample_flag")
+
+sample_flag(
+    name = "my_flag",
+    build_setting_default = "default_value",
+    scope = "project",
+)
+
+print_flag_value_with_transition(
+    name = "top",
+    deps = ["//${dep_pkg}:dep"],
+)
+EOF
+
+  cat > "${dep_pkg}/BUILD" <<EOF
+load("//${pkg}:defs.bzl", "print_flag_value")
+
+print_flag_value(
+    name = "dep",
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > "${pkg}/PROJECT.scl" <<EOF
+load("//third_party/bazel/src/main/protobuf/project:project_proto.scl", "project_pb2")
+project = project_pb2.Project.create(project_directories = ["//${pkg}"])
+EOF
+
+  bazel build //${pkg}:top --experimental_enable_scl_dialect >& $TEST_log \
+    || fail "bazel failed"
+  expect_log "//${pkg}:top: flag value is: transitioned_value"
+  expect_log "//${dep_pkg}:dep: flag value is: default_value"
+
+  # Bring the dependency's package into the flag's project: it now keeps the flag's value.
+  cat > "${pkg}/PROJECT.scl" <<EOF
+load("//third_party/bazel/src/main/protobuf/project:project_proto.scl", "project_pb2")
+project = project_pb2.Project.create(project_directories = ["//${pkg}", "//${dep_pkg}"])
+EOF
+
+  bazel build //${pkg}:top --experimental_enable_scl_dialect >& $TEST_log \
+    || fail "bazel failed"
+  expect_log "//${dep_pkg}:dep: flag value is: transitioned_value"
+}
+
 run_suite "Integration tests for flags scoping"
