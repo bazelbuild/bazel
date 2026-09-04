@@ -153,8 +153,8 @@ public final class RemoteRewoundActionSynchronizerTest {
   /**
    * Regression test for a deadlock between the rewound expanded action of an action template, a
    * rewound consumer of the tree artifact it populates and an action expanded from a downstream
-   * template that consumes both an individual file of that tree artifact and the output of the
-   * tree consumer.
+   * template that consumes both an individual file of that tree artifact and the output of the tree
+   * consumer.
    */
   @Test
   public void expandedActionRewound_consumerFromOtherExpansion_doesNotDeadlock() throws Exception {
@@ -186,8 +186,7 @@ public final class RemoteRewoundActionSynchronizerTest {
         newTreeArtifact(root, "downstream", ActionLookupData.create(owner, 2));
     ActionTemplateExpansionKey downstreamExpansion = ActionTemplateExpansionValue.key(owner, 2);
     TreeFileArtifact downstreamFile =
-        TreeFileArtifact.createTemplateExpansionOutput(
-            downstreamTree, "file", downstreamExpansion);
+        TreeFileArtifact.createTemplateExpansionOutput(downstreamTree, "file", downstreamExpansion);
     downstreamFile.setGeneratingActionKey(ActionLookupData.create(downstreamExpansion, 0));
     Action downstreamAction =
         newAction(
@@ -236,22 +235,15 @@ public final class RemoteRewoundActionSynchronizerTest {
             });
     treeConsumerExecution.start();
 
-    try {
-      treeConsumerExecution.join(DEADLOCK_TIMEOUT_MILLIS);
-      assertWithMessage(
-              "deadlock: the tree consumer waits for the upstream action, which waits for the"
-                  + " downstream action, which waits for the tree consumer")
-          .that(treeConsumerExecution.isAlive())
-          .isFalse();
-      treeConsumerExecution.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
-      downstreamExecution.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
-      upstreamPreparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
-    } finally {
-      // Let deadlocked threads fail instead of outliving the test.
-      treeConsumerExecution.interrupt();
-      downstreamExecution.interrupt();
-      upstreamPreparation.interrupt();
-    }
+    treeConsumerExecution.join(DEADLOCK_TIMEOUT_MILLIS);
+    assertWithMessage(
+            "deadlock: the tree consumer waits for the upstream action, which waits for the"
+                + " downstream action, which waits for the tree consumer")
+        .that(treeConsumerExecution.isAlive())
+        .isFalse();
+    treeConsumerExecution.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+    downstreamExecution.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+    upstreamPreparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
   }
 
   private static void waitUntilBlocked(Thread thread) {
