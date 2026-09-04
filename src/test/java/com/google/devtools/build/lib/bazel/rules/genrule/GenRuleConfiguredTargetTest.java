@@ -180,7 +180,10 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
 
     String expected = "echo \"Hello, world.\" >" + messageArtifact.getExecPathString();
     assertThat(shellAction.getArguments().get(0))
-        .isEqualTo(ShToolchain.getPathForHost(targetConfig).getPathString());
+        .isEqualTo(
+            ShToolchain.getPathForPlatform(
+                    targetConfig, shellAction.getOwner().getExecutionPlatform())
+                .getPathString());
     assertThat(shellAction.getArguments().get(1)).isEqualTo("-c");
     assertCommandEquals(expected, shellAction.getArguments().get(2));
   }
