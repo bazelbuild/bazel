@@ -575,6 +575,10 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       return;
     }
     try {
+      // DirTree can only be recorded for directories, so we have to additionally track the type of
+      // the file. When checking for invalidation, the type is verified first and if it doesn't
+      // match, the directory entries are never requested.
+      getValueAndRecordInput(new RepoRecordedInput.File(repoCacheFriendlyPath));
       getValueAndRecordInput(new RepoRecordedInput.DirTree(repoCacheFriendlyPath));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
