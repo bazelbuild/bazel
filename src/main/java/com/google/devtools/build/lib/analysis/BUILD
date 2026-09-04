@@ -1333,15 +1333,18 @@ java_library(
         "starlark/StarlarkBuildSettingsDetailsValue.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:scope",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/rules/config:feature_flag_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party/java/auto:auto_value",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -1449,6 +1452,7 @@ java_library(
     name = "starlark/function_transition_util",
     srcs = ["starlark/FunctionTransitionUtil.java"],
     deps = [
+        ":starlark/starlark_build_settings_details_value",
         ":test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_option_converters",
@@ -2045,6 +2049,7 @@ java_library(
     srcs = ["starlark/StarlarkAttributeTransitionProvider.java"],
     deps = [
         ":starlark/function_transition_util",
+        ":starlark/starlark_build_settings_details_value",
         ":starlark/starlark_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:starlark_defined_config_transition",
@@ -2059,6 +2064,7 @@ java_library(
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
