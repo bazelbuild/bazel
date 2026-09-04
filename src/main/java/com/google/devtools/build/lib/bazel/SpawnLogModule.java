@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.exec.SpawnLogContext;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
@@ -62,6 +63,7 @@ public final class SpawnLogModule extends BlazeModule {
 
   @Nullable private SpawnLogContext spawnLogContext;
   @Nullable private Path outputPath;
+  @Nullable private Path convenienceLink;
   @Nullable private ListenableFuture<String> uriFuture;
   @Nullable private String logName;
 
@@ -70,6 +72,7 @@ public final class SpawnLogModule extends BlazeModule {
   private void clear() {
     spawnLogContext = null;
     outputPath = null;
+    convenienceLink = null;
     uriFuture = null;
     logName = null;
     abruptExit = null;
@@ -152,6 +155,17 @@ public final class SpawnLogModule extends BlazeModule {
             new BufferedOutputStream(uploadContext.getOutputStream(), OUTPUT_BUFFER_SIZE);
         uriFuture = uploadContext.uriFuture();
         displayName = logName + "-stream";
+      } else if (executionOptions.getExecutionLogCompactFile() != null) {
+        outputPath =
+            BlazeRuntime.manageRetainedOutputs(
+                outputBase,
+                "execution_log-",
+                ".binpb.zst",
+                env.getCommandId().toString(),
+                executionOptions.getExecutionLogsToRetain());
+        convenienceLink = outputBase.getChild(logName);
+        outputStream = new BufferedOutputStream(outputPath.getOutputStream(), OUTPUT_BUFFER_SIZE);
+        displayName = outputPath.toString();
       } else {
         // Path is empty but streaming is not enabled. Disable logging.
         env.getBlazeModuleEnvironment()
@@ -160,7 +174,7 @@ public final class SpawnLogModule extends BlazeModule {
                     DetailedExitCode.of(
                         FailureDetail.newBuilder()
                             .setMessage(
-                                "--execution_log_{compact,binary,json}_file is empty, but"
+                                "--execution_log_{binary,json}_file is empty, but"
                                     + " --experimental_stream_log_file_uploads is not enabled."
                                     + " Execution log will not be uploaded to the BEP.")
                             .setExecutionOptions(
@@ -299,6 +313,11 @@ public final class SpawnLogModule extends BlazeModule {
 
     try {
       spawnLogContext.close();
+      if (convenienceLink != null) {
+        checkNotNull(outputPath);
+        convenienceLink.delete();
+        convenienceLink.createSymbolicLink(PathFragment.create(outputPath.getBaseName()));
+      }
       if (spawnLogContext.shouldPublish()) {
         checkNotNull(logName);
         if (uriFuture != null) {

@@ -515,13 +515,25 @@ public abstract class ExecutionOptions extends OptionsBase {
           "Log the executed spawns into this file as length-delimited ExecLogEntry protos,"
               + " according to src/main/protobuf/spawn.proto. The entire file is zstd compressed."
               + " The flag accepts boolean and string values. If string, it represents a local"
-              + " path. If true, then --experimental_stream_log_file_uploads must be set, whereby"
-              + " it will stream the execution log to remote storage. If false, then logging to the"
-              + " execution log is disabled. Related flags: --execution_log_binary_file (binary"
-              + " protobuf format; mutually exclusive), --execution_log_json_file (text JSON"
-              + " format; mutually exclusive), --subcommands (for displaying subcommands in"
-              + " terminal output).")
+              + " path. If true, the log is streamed when --experimental_stream_log_file_uploads"
+              + " is enabled; otherwise, it is written to the output base. If false, logging to"
+              + " the execution log is disabled. Related flags: --execution_logs_to_retain (number"
+              + " of default-location logs to keep), --execution_log_binary_file (binary protobuf"
+              + " format; mutually exclusive), --execution_log_json_file (text JSON format;"
+              + " mutually exclusive), --subcommands (for displaying subcommands in terminal"
+              + " output).")
   public abstract PathFragment getExecutionLogCompactFile();
+
+  @Option(
+      name = "execution_logs_to_retain",
+      defaultValue = "5",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "Number of compact execution logs to retain in the output base when using the default"
+              + " local output path. If there are more than this number of logs, the oldest are"
+              + " deleted until the total is under the limit.")
+  public abstract int getExecutionLogsToRetain();
 
   @Option(
       name = "execution_log_sort",
