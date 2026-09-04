@@ -33,9 +33,10 @@ filegroup(
     srcs = ["collect_coverage.sh"],
 )
 
-filegroup(
+alias(
     name = "collect_cc_coverage",
-    srcs = ["collect_cc_coverage.sh"],
+    actual = "@rules_cc//cc/private/coverage:collect_cc_coverage",
+    deprecation = "Please use @rules_cc//cc/private/coverage:collect_cc_coverage instead.",
 )
 
 # Test wrapper binary to run tests on Windows.
@@ -136,7 +137,6 @@ filegroup(
     name = "embedded_tools",
     srcs = [
         "BUILD.tools",
-        "collect_cc_coverage.sh",
         "collect_coverage.sh",
         "default_test_toolchain.bzl",
         "extensions.bzl",
