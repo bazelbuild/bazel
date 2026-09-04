@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
@@ -125,6 +126,17 @@ public class BuildConfigurationValue
   private final BuildOptions buildOptions;
   private final CoreOptions options;
 
+  /**
+   * Details of this configuration's Starlark build settings, most importantly their scopes, which
+   * the exec transition and project scoping need. {@link StarlarkBuildSettingsDetailsValue#EMPTY}
+   * if this configuration sets no Starlark build settings.
+   *
+   * <p>Resolved once per configuration by {@code BuildConfigurationFunction} rather than once per
+   * configured target or dependency edge: see {@code StarlarkExecTransitionLoader} and {@code
+   * BuildConfigurationKeyProducer}.
+   */
+  private final StarlarkBuildSettingsDetailsValue starlarkFlagDetails;
+
   /** The cpu value based on the platform the configuration is built for. */
   private final String platformCpu;
 
@@ -219,6 +231,7 @@ public class BuildConfigurationValue
       BuildOptions buildOptions,
       @Nullable BuildOptions baselineOptions,
       String platformCpu,
+      StarlarkBuildSettingsDetailsValue starlarkFlagDetails,
       // Arguments below this are server-global.
       BlazeDirectories directories,
       GlobalStateProvider globalProvider,
@@ -240,6 +253,7 @@ public class BuildConfigurationValue
         mnemonic.mnemonic(),
         mnemonic.dependsOnBaseline(),
         platformCpu,
+        starlarkFlagDetails,
         globalProvider.getRunfilesPrefix(),
         directories,
         fragments,
@@ -273,6 +287,7 @@ public class BuildConfigurationValue
         // The mnemonic passed to createForTesting is taken at face value.
         /* mnemonicDependsOnBaseline= */ false,
         "",
+        StarlarkBuildSettingsDetailsValue.EMPTY,
         globalProvider.getRunfilesPrefix(),
         directories,
         fragments,
@@ -300,6 +315,7 @@ public class BuildConfigurationValue
       String mnemonic,
       boolean mnemonicDependsOnBaseline,
       String platformCpu,
+      StarlarkBuildSettingsDetailsValue starlarkFlagDetails,
       // Arguments below this are either server-global and constant or completely dependent values.
       String workspaceName,
       BlazeDirectories directories,
@@ -311,6 +327,7 @@ public class BuildConfigurationValue
             ImmutableSortedMap.copyOf(fragments, FragmentClassSet.LEXICAL_FRAGMENT_SORTER));
     this.starlarkVisibleFragments = buildIndexOfStarlarkVisibleFragments();
     this.buildOptions = buildOptions;
+    this.starlarkFlagDetails = starlarkFlagDetails;
     this.mnemonic = mnemonic;
     this.mnemonicDependsOnBaseline = mnemonicDependsOnBaseline;
     this.options = buildOptions.get(CoreOptions.class);
@@ -359,11 +376,26 @@ public class BuildConfigurationValue
     if (!(other instanceof BuildConfigurationValue otherVal)) {
       return false;
     }
-    // Only considering arguments that are non-dependent and non-server-global.
+    // Only considering arguments that are non-dependent and non-server-global, plus the Starlark
+    // build setting details, which transition logic reads out of the configuration. They are
+    // derived from the build settings' definitions, so unlike the build options they can change
+    // without the key changing: leaving them out would let change pruning keep a stale copy alive.
+    // hashCode intentionally doesn't consider them: it isn't needed for correctness there and
+    // hashing these maps is far more expensive than hashing the build options.
     return this.buildOptions.equals(otherVal.buildOptions)
         && this.workspaceName.equals(otherVal.workspaceName)
         && this.mnemonic.equals(otherVal.mnemonic)
-        && Objects.equals(this.platformCpu, otherVal.platformCpu);
+        && Objects.equals(this.platformCpu, otherVal.platformCpu)
+        && (this.starlarkFlagDetails == otherVal.starlarkFlagDetails
+            || this.starlarkFlagDetails.equals(otherVal.starlarkFlagDetails));
+  }
+
+  /**
+   * Returns the details of this configuration's Starlark build settings, or {@link
+   * StarlarkBuildSettingsDetailsValue#EMPTY} if it sets none.
+   */
+  public StarlarkBuildSettingsDetailsValue starlarkFlagDetails() {
+    return starlarkFlagDetails;
   }
 
   @Override

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -39,6 +40,7 @@ import net.starlark.java.syntax.Location;
 /** Common parameters for computing prerequisites. */
 public final class PrerequisiteParameters {
   private final ConfiguredTargetKey configuredTargetKey;
+  private final StarlarkBuildSettingsDetailsValue starlarkFlagDetails;
   private final Target target;
 
   private final ImmutableList<Aspect> aspects;
@@ -73,6 +75,7 @@ public final class PrerequisiteParameters {
 
   public PrerequisiteParameters(
       ConfiguredTargetKey configuredTargetKey,
+      StarlarkBuildSettingsDetailsValue starlarkFlagDetails,
       Target target,
       Iterable<Aspect> aspects,
       @Nullable LoadAspectsKey loadExecAspectsKey,
@@ -86,6 +89,7 @@ public final class PrerequisiteParameters {
       @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetToolchainContexts,
       boolean requireMatchingAspectHintsProviders) {
     this.configuredTargetKey = configuredTargetKey;
+    this.starlarkFlagDetails = starlarkFlagDetails;
     this.target = target;
     this.aspects = ImmutableList.copyOf(aspects);
     this.loadExecAspectsKey = loadExecAspectsKey;
@@ -130,6 +134,15 @@ public final class PrerequisiteParameters {
   @Nullable
   public BuildConfigurationKey configurationKey() {
     return configuredTargetKey.getConfigurationKey();
+  }
+
+  /**
+   * Returns the details of the Starlark flags set in {@link #configurationKey}'s configuration,
+   * taken from the {@link com.google.devtools.build.lib.analysis.config.BuildConfigurationValue}
+   * this target is being analyzed in.
+   */
+  public StarlarkBuildSettingsDetailsValue starlarkFlagDetails() {
+    return starlarkFlagDetails;
   }
 
   public ImmutableList<Aspect> aspects() {
