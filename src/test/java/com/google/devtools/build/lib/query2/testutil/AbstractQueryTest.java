@@ -1890,6 +1890,8 @@ public abstract class AbstractQueryTest<T> {
     writeFile("extra/BUILD", "honest(name='extra', foo=[])");
 
     Truth.assertThat(evalToString("deps(//a:a)")).contains("//extra:extra");
+    Truth.assertThat(evalToString("deps(//a:a, 1)")).contains("//extra:extra");
+    Truth.assertThat(evalToString("deps(//a:a, 0)")).doesNotContain("//extra:extra");
   }
 
   @Test
