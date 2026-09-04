@@ -478,8 +478,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       name = "patch",
       doc =
           """
-          Apply a patch file to the root directory of external repository. \
-          The patch file should be a standard \
+          Apply a patch file to the root directory of external repository, or to \
+          <code>directory</code> within it. The patch file should be a standard \
           <a href="https://en.wikipedia.org/wiki/Diff#Unified_format"> \
           unified diff format</a> file. \
           The Bazel-native patch implementation doesn't support binary patch \
@@ -505,6 +505,22 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             defaultValue = "0",
             doc = "Strip the specified number of leading components from file names."),
         @Param(
+            name = "directory",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            defaultValue = "''",
+            positional = false,
+            named = true,
+            doc =
+                """
+                Directory to apply the patch in, relative to the repository directory. \
+                File names in the patch are resolved relative to this directory. \
+                Defaults to the repository directory.
+                """),
+        @Param(
             name = "watch_patch",
             defaultValue = "'auto'",
             positional = false,
@@ -519,10 +535,17 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
                 information.
                 """),
       })
-  public void patch(Object patchFile, StarlarkInt stripI, String watchPatch, StarlarkThread thread)
+  public void patch(
+      Object patchFile,
+      StarlarkInt stripI,
+      Object directory,
+      String watchPatch,
+      StarlarkThread thread)
       throws EvalException, RepositoryFunctionException, InterruptedException {
     int strip = Starlark.toInt(stripI, "strip");
     StarlarkPath starlarkPath = getPath(patchFile);
+    StarlarkPath directoryPath = getPath(directory);
+    checkInOutputDirectory("write", directoryPath);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newPatchEvent(
             starlarkPath.toString(),
@@ -535,7 +558,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     }
     maybeWatch(starlarkPath, ShouldWatch.fromString(watchPatch));
     try {
-      PatchUtil.apply(starlarkPath.getPath(), strip, workingDirectory);
+      PatchUtil.apply(starlarkPath.getPath(), strip, directoryPath.getPath());
     } catch (PatchFailedException e) {
       throw new RepositoryFunctionException(
           Starlark.errorf("Error applying patch %s: %s", starlarkPath, e.getMessage()),
