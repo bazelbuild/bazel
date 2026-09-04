@@ -1543,6 +1543,16 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
     public abstract boolean getIncompatibleUseCcConfigureFromRulesCc();
+
+    @Deprecated
+    @Option(
+        name = "experimental_enable_scl_dialect",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getExperimentalEnableSclDialect();
   }
 
   @Override

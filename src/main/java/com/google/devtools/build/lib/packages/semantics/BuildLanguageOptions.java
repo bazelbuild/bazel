@@ -190,17 +190,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
   public abstract boolean getExperimentalEnableFirstClassMacros();
 
   @Option(
-      name = "experimental_enable_scl_dialect",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
-      // TODO(brandjon): point to more extensive user documentation somewhere
-      help = "If set to true, .scl files may be used in load() statements.")
-  public abstract boolean getExperimentalEnableSclDialect();
-
-  public abstract void setExperimentalEnableSclDialect(boolean value);
-
-  @Option(
       name = "experimental_isolated_extension_usages",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -873,7 +862,6 @@ public abstract class BuildLanguageOptions extends OptionsBase {
                 getExperimentalSinglePackageToolchainBinding())
             .setBool(
                 EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS, getExperimentalEnableFirstClassMacros())
-            .setBool(EXPERIMENTAL_ENABLE_SCL_DIALECT, getExperimentalEnableSclDialect())
             .setBool(
                 EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, getExperimentalIsolatedExtensionUsages())
             .setBool(INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, getIncompatibleNoImplicitWatchLabel())
@@ -1070,7 +1058,13 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       "-experimental_single_package_toolchain_binding";
   public static final String EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS =
       "+experimental_enable_first_class_macros";
+
+  /**
+   * @deprecated Flag has been graveyarded.
+   */
+  @Deprecated
   public static final String EXPERIMENTAL_ENABLE_SCL_DIALECT = "+experimental_enable_scl_dialect";
+
   public static final String EXPERIMENTAL_ISOLATED_EXTENSION_USAGES =
       "-experimental_isolated_extension_usages";
   public static final String INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL =
