@@ -3384,8 +3384,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    *
    * <p>The returned labels are in canonical form (e.g. {@code
    * @@rules_python+//python/config_settings:python_path}) since they are subsequently parsed with
-   * the main repo mapping, which only knows about the root module's direct dependencies: an alias
-   * defined by a transitive dependency would otherwise fail to resolve.
+   * the main repo mapping, which only knows about the root module's direct dependencies.
    *
    * @param eventHandler handler for Skyframe events
    */
