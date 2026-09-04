@@ -22,11 +22,14 @@ import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.producers.RuleTransitionApplier.IdempotencyState;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
@@ -125,6 +128,8 @@ public final class TargetAndConfigurationProducer
   private Target target;
   private BuildConfigurationKey configurationKey;
   private IdempotencyState idempotencyState;
+  private StarlarkBuildSettingsDetailsValue preRuleTransitionFlagDetails =
+      StarlarkBuildSettingsDetailsValue.EMPTY;
 
   public TargetAndConfigurationProducer(
       ConfiguredTargetKey preRuleTransitionKey,
@@ -233,12 +238,49 @@ public final class TargetAndConfigurationProducer
       return DONE;
     }
 
+    // The rule transition scopes the pre-rule-transition configuration's Starlark flags for this
+    // target, which needs their scopes. Requesting the configuration here is cheaper than having
+    // BuildConfigurationKeyProducer request the flag details from Skyframe once per configured
+    // target: most rules define no rule transition, and for those this is the very configuration
+    // requested in computeTargetAndConfigurationOrDelegatedValue below, so no dependency is added.
+    // The request shares a Skyframe batch with the rule transition's own first requests. Any error
+    // is ignored here and reported by whoever requests the configuration next; if the value isn't
+    // ready by the time the transition runs, the producer resolves the details itself.
+    if (mayHaveStarlarkFlagDetails(configurationKey.getOptions())) {
+      tasks.lookUp(
+          configurationKey,
+          InvalidConfigurationException.class,
+          (value, unusedError) -> {
+            if (value != null) {
+              preRuleTransitionFlagDetails =
+                  ((BuildConfigurationValue) value).starlarkFlagDetails();
+            }
+          });
+    }
     return new RuleTransitionApplier(
         target,
         (TargetAndConfigurationData) this,
         (RuleTransitionApplier.ResultSink) this,
         eventHandler,
         /* runAfter= */ this::computeTargetAndConfigurationOrDelegatedValue);
+  }
+
+  @Override
+  public StarlarkBuildSettingsDetailsValue getPreRuleTransitionFlagDetails() {
+    return preRuleTransitionFlagDetails;
+  }
+
+  /**
+   * Returns whether the configuration with the given options can have Starlark flag details other
+   * than {@link StarlarkBuildSettingsDetailsValue#EMPTY}, mirroring {@link
+   * StarlarkBuildSettingsDetailsValue#keyForStarlarkOptions}.
+   */
+  private static boolean mayHaveStarlarkFlagDetails(BuildOptions options) {
+    if (!options.getStarlarkOptions().isEmpty()) {
+      return true;
+    }
+    CoreOptions coreOptions = options.get(CoreOptions.class);
+    return coreOptions != null && !coreOptions.getHostFlagAliases().isEmpty();
   }
 
   private void delegateTo(Tasks tasks, ActionLookupKey delegate) {
@@ -350,5 +392,4 @@ public final class TargetAndConfigurationProducer
                 Analysis.newBuilder().setCode(Analysis.Code.CONFIGURED_VALUE_CREATION_FAILED))
             .build());
   }
-
 }

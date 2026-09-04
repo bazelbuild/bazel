@@ -16,12 +16,14 @@ package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Map.Entry.comparingByKey;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelToStringEntryConverter;
@@ -527,11 +529,11 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           """
-          If true, native rules add `DefaultInfo.files` of data dependencies to their runfiles,
-          which matches the recommended behavior for Starlark rules ([runfiles features to avoid]).
+If true, native rules add `DefaultInfo.files` of data dependencies to their runfiles,
+which matches the recommended behavior for Starlark rules ([runfiles features to avoid]).
 
-          [runfiles features to avoid]: https://bazel.build/extending/rules#runfiles_features_to_avoid
-          """)
+[runfiles features to avoid]: https://bazel.build/extending/rules#runfiles_features_to_avoid
+""")
   public abstract boolean getAlwaysIncludeFilesToBuildInData();
 
   @Option(
@@ -728,10 +730,10 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           """
-          The given features will be enabled or disabled by default for targets built in the target configuration.
-          Specifying `-{feature}` will disable the feature. Negative features always override positive ones.
-          See also `--host_features`.
-          """)
+The given features will be enabled or disabled by default for targets built in the target configuration.
+Specifying `-{feature}` will disable the feature. Negative features always override positive ones.
+See also `--host_features`.
+""")
   public abstract List<String> getDefaultFeatures();
 
   public abstract void setDefaultFeatures(List<String> value);
@@ -744,9 +746,9 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           """
-          The given features will be enabled or disabled by default for targets built in the exec configuration.
-          Specifying `-{feature}` will disable the feature. Negative features always override positive ones.
-          """)
+The given features will be enabled or disabled by default for targets built in the exec configuration.
+Specifying `-{feature}` will disable the feature. Negative features always override positive ones.
+""")
   public abstract List<String> getHostFeatures();
 
   public abstract void setHostFeatures(List<String> value);
@@ -760,14 +762,14 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help =
           """
-          Declares this build's target environment. Must be a label reference to an
-          [`environment` rule]. If specified, all top-level targets must be compatible with this
-          environment.
+Declares this build's target environment. Must be a label reference to an
+[`environment` rule]. If specified, all top-level targets must be compatible with this
+environment.
 
-          See also `--platforms`.
+See also `--platforms`.
 
-          [`environment` rule]: https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/analysis/constraints/EnvironmentRule.java
-          """)
+[`environment` rule]: https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/analysis/constraints/EnvironmentRule.java
+""")
   public abstract List<Label> getTargetEnvironments();
 
   @Option(
@@ -869,19 +871,19 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
       },
       help =
           """
-          Add or remove keys from an action's execution info based on action mnemonic.
-          Applies only to actions which support execution info. Many common actions
-          support execution info, e.g. Genrule, CppCompile, Javac, StarlarkAction,
-          TestRunner. When specifying multiple values, order matters because
-          many regexes may apply to the same mnemonic.
+Add or remove keys from an action's execution info based on action mnemonic.
+Applies only to actions which support execution info. Many common actions
+support execution info, e.g. Genrule, CppCompile, Javac, StarlarkAction,
+TestRunner. When specifying multiple values, order matters because
+many regexes may apply to the same mnemonic.
 
-          Syntax: `regex=[+-]key,regex=[+-]key,...`.
+Syntax: `regex=[+-]key,regex=[+-]key,...`.
 
-          Examples:
-          - `.*=+x,.*=-y,.*=+z` adds `x` and `z` to, and removes `y` from, the execution info for all actions.
-          - `Genrule=+requires-x` adds `requires-x` to the execution info for all Genrule actions.
-          - `(?!Genrule).*=-requires-x` removes `requires-x` from the execution info for all non-Genrule actions.
-          """)
+Examples:
+- `.*=+x,.*=-y,.*=+z` adds `x` and `z` to, and removes `y` from, the execution info for all actions.
+- `Genrule=+requires-x` adds `requires-x` to the execution info for all Genrule actions.
+- `(?!Genrule).*=-requires-x` removes `requires-x` from the execution info for all non-Genrule actions.
+""")
   public abstract List<ExecutionInfoModifier> getExecutionInfoModifier();
 
   public abstract void setExecutionInfoModifier(List<ExecutionInfoModifier> value);
@@ -1023,6 +1025,22 @@ public abstract class CoreOptions extends FragmentOptions implements Cloneable {
 
   public final ImmutableMap<String, Label> getCommandLineFlagAliasesMap() {
     return ALIAS_MAP_CACHE.get(getCommandLineFlagAliases());
+  }
+
+  private static final LoadingCache<ImmutableMap<String, Label>, ImmutableSet<Label>>
+      HOST_FLAG_ALIASES_CACHE =
+          Caffeine.newBuilder()
+              .weakKeys()
+              .build(
+                  aliases ->
+                      aliases.entrySet().stream()
+                          .filter(alias -> alias.getKey().startsWith("host_"))
+                          .map(Map.Entry::getValue)
+                          .collect(toImmutableSet()));
+
+  /** Returns the Starlark flags that {@code --flag_alias} maps to a {@code host_}-prefixed name. */
+  public final ImmutableSet<Label> getHostFlagAliases() {
+    return HOST_FLAG_ALIASES_CACHE.get(getCommandLineFlagAliasesMap());
   }
 
   /** Ways configured targets may provide the {@link Fragment}s they require. */

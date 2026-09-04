@@ -117,7 +117,6 @@ public final class ParsedFlagsFunction implements SkyFunction {
             .nativeFlags(nativeFlags.build())
             .starlarkFlags(starlarkFlagParser.getStarlarkOptions())
             .starlarkOptionAllowingMultiple(starlarkFlagParser.getStarlarkOptionsAllowingMultiple())
-            .scopesAttributes(starlarkFlagParser.getScopesAttributes())
             .optionsClasses(optionsClasses)
             .repoMapping(key.packageContext().repoMapping());
 

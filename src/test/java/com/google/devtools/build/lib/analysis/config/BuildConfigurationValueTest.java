@@ -549,9 +549,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
                 "//test:flag_in_exec_config_set_to_another_value",
                 "target_value",
                 "//test:flag_in_exec_config_reference_another_flag_value",
-                "target_value",
-                "//test:another_flag",
-                "default"),
+                "target_value"),
             "--experimental_exclude_starlark_flags_from_exec_config="
                 + (propagateByDefault ? "false" : "true"));
 
@@ -570,9 +568,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
               // this flag wouldn't be present.
               "custom",
               Label.parseCanonicalUnchecked("//test:default_scope"),
-              "custom",
-              Label.parseCanonicalUnchecked("//test:another_flag"),
-              "default");
+              "custom");
     } else {
       assertThat(execOptions.getStarlarkOptions())
           .containsExactly(
@@ -585,10 +581,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
               // this flag wouldn't be present.
               "custom",
               Label.parseCanonicalUnchecked("//test:flag_in_exec_config_set_to_another_value"),
-              "another_value",
-              Label.parseCanonicalUnchecked(
-                  "//test:flag_in_exec_config_reference_another_flag_value"),
-              "default");
+              "another_value");
     }
   }
 
@@ -817,9 +810,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   @Test
   public void testPlatformInOutputDir_legacy_defaultPlatform() throws Exception {
     BuildConfigurationValue config =
-        create(
-            "--experimental_use_platforms_in_output_dir_legacy_heuristic",
-            "--cpu=k8");
+        create("--experimental_use_platforms_in_output_dir_legacy_heuristic", "--cpu=k8");
 
     assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(".*/[^/]+-out/k8-fastbuild");
@@ -840,9 +831,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   @Test
   public void testPlatformInOutputDir_defaultPlatform() throws Exception {
     BuildConfigurationValue config =
-        create(
-            "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
-            "--cpu=k8");
+        create("--noexperimental_use_platforms_in_output_dir_legacy_heuristic", "--cpu=k8");
     // See tests of these flags with platform_mappings for more realistic results.
     assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(".*/[^/]+-out/platform-\\w*-fastbuild");

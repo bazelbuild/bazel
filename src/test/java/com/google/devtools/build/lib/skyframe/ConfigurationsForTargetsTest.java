@@ -196,7 +196,10 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
                     ? null
                     : targetAndConfiguration.getConfiguration().getOptions(),
                 (bzlKey) ->
-                    (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class));
+                    (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class),
+                targetAndConfiguration.getConfiguration() == null
+                    ? null
+                    : targetAndConfiguration.getConfiguration().starlarkFlagDetails());
         if (starlarkExecTransition == null) {
           return null;
         }
@@ -301,7 +304,7 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
     // Must re-enable analysis for Skyframe functions that create configured targets.
     skyframeExecutor.getSkyframeBuildView().enableAnalysis(true);
     EvaluationResult<ComputeDependenciesFunction.Value> evalResult =
-        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, /*keepGoing=*/ false, reporter);
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, /* keepGoing= */ false, reporter);
     skyframeExecutor.getSkyframeBuildView().enableAnalysis(false);
     return evalResult.get(key).depMap;
   }

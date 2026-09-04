@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.shell.Command;
-import com.google.devtools.build.lib.skyframe.BuildOptionsScopeValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
@@ -73,9 +72,7 @@ import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
-/**
- * Utilities for analysis phase tests.
- */
+/** Utilities for analysis phase tests. */
 public final class AnalysisTestUtil {
 
   /** TopLevelArtifactContext that should be sufficient for testing. */
@@ -87,9 +84,7 @@ public final class AnalysisTestUtil {
           /* failOnUnknownOutputGroups= */ false,
           /* forRunCommand= */ false);
 
-  /**
-   * An {@link AnalysisEnvironment} implementation that collects the actions registered.
-   */
+  /** An {@link AnalysisEnvironment} implementation that collects the actions registered. */
   public static class CollectingAnalysisEnvironment implements AnalysisEnvironment {
     private final List<ActionAnalysisMetadata> actions = new ArrayList<>();
     private final AnalysisEnvironment original;
@@ -362,8 +357,7 @@ public final class AnalysisTestUtil {
    * <p>The returned set preserves the order of the input.
    */
   public static Set<String> artifactsToStrings(
-      BuildConfigurationValue targetConfiguration,
-      Iterable<? extends Artifact> artifacts) {
+      BuildConfigurationValue targetConfiguration, Iterable<? extends Artifact> artifacts) {
     Map<String, String> rootMap = new HashMap<>();
     computeRootPaths(
         targetConfiguration.getBinDirectory(RepositoryName.MAIN), path -> rootMap.put(path, "bin"));
@@ -399,20 +393,6 @@ public final class AnalysisTestUtil {
   public static BuildOptions execOptions(
       BuildOptions targetOptions, SkyframeExecutor skyframeExecutor, ExtendedEventHandler handler)
       throws Exception {
-    // Get Starlark flags' "scope = '<string>'" info, which can control whether the flags propagate
-    // to the exec config.
-    var starlarkFlagScopeInfo =
-        skyframeExecutor.evaluateSkyKeys(
-            handler,
-            ImmutableList.of(
-                BuildOptionsScopeValue.Key.create(
-                    targetOptions, new ArrayList<>(targetOptions.getStarlarkOptions().keySet()))),
-            /* keepGoing= */ false);
-
-    BuildOptions targetOptionsWithScopeInfo =
-        ((BuildOptionsScopeValue) Iterables.getOnlyElement(starlarkFlagScopeInfo.values()))
-            .getResolvedBuildOptionsWithScopeTypes();
-
     return Iterables.getOnlyElement(
         ExecutionTransitionFactory.createFactory()
             .create(
@@ -420,13 +400,9 @@ public final class AnalysisTestUtil {
                     .attributes(FakeAttributeMapper.empty())
                     .executionPlatform(targetOptions.get(PlatformOptions.class).getHostPlatform())
                     .analysisData(
-                        skyframeExecutor.getStarlarkExecTransition(
-                            targetOptionsWithScopeInfo, handler))
+                        skyframeExecutor.getStarlarkExecTransition(targetOptions, handler))
                     .build())
-            .apply(
-                new BuildOptionsView(
-                    targetOptionsWithScopeInfo, targetOptions.getFragmentClasses()),
-                handler)
+            .apply(new BuildOptionsView(targetOptions, targetOptions.getFragmentClasses()), handler)
             .values());
   }
 }
