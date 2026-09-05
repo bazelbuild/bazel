@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.analysis.producers.MissingEdgeError;
 import com.google.devtools.build.lib.analysis.producers.PrerequisiteParameters;
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsInputs;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
@@ -79,7 +80,6 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
@@ -407,7 +407,13 @@ public final class DependencyResolver {
               targetAndConfiguration.getConfiguration() == null
                   ? null
                   : targetAndConfiguration.getConfiguration().getOptions(),
-              (bzlKey) -> (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class));
+              (bzlKey) -> (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class),
+              // Already resolved once per configuration by BuildConfigurationFunction. Resolving it
+              // here would run once per configured target and make every configured target a
+              // reverse dep of a single node.
+              targetAndConfiguration.getConfiguration() == null
+                  ? null
+                  : targetAndConfiguration.getConfiguration().starlarkFlagDetails());
       if (starlarkExecTransition == null) {
         return false;
       }
@@ -724,6 +730,12 @@ public final class DependencyResolver {
                 new DependencyMapProducer(
                     new PrerequisiteParameters(
                         configuredTargetKey,
+                        // Already resolved once per configuration by BuildConfigurationFunction;
+                        // requesting it from Skyframe per dependency edge would make every
+                        // configured target a reverse dep of it.
+                        ctgValue.getConfiguration() == null
+                            ? StarlarkBuildSettingsDetailsValue.EMPTY
+                            : ctgValue.getConfiguration().starlarkFlagDetails(),
                         ctgValue.getTarget(),
                         aspects,
                         loadExecAspectsKey,
@@ -807,11 +819,6 @@ public final class DependencyResolver {
             TransitionCreationException transitionCreationException = error.transitionCreation();
             throw new ConfiguredValueCreationException(
                 ctgValue.getTarget(), transitionCreationException.getMessage());
-          case BUILD_OPTIONS_SCOPE:
-            BuildOptionsScopeFunctionException buildOptionsScopeFunctionException =
-                error.buildOptionsScope();
-            throw new ConfiguredValueCreationException(
-                ctgValue.getTarget(), buildOptionsScopeFunctionException.getMessage());
         }
       }
       if (!state.transitiveState.hasRootCause() && state.dependencyMap == null) {

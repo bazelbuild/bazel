@@ -15,16 +15,17 @@ package com.google.devtools.build.lib.analysis.producers;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.config.transitions.BaselineOptionsValue;
 import com.google.devtools.build.lib.analysis.platform.PlatformValue;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
-import com.google.devtools.build.lib.skyframe.BuildOptionsScopeValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
@@ -34,11 +35,9 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.build.skyframe.state.StateMachine.ValueOrExceptionSink;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -62,9 +61,10 @@ import javax.annotation.Nullable;
  * Scopes are applied after platform-based flags or platform mappings are applied. The logic is:
  *
  * <ul>
- *   <li>If all starlark flags have ScopeType.UNIVERSAL, no further processing is done.
- *   <li>If any starlark flag has ScopeType.PROJECT or its ScopeType is not yet resolved, a lookup
- *       for {@link BuildOptionsScopeValue} via {@link BuildOptionsScopesFunction} is performed.
+ *   <li>The scopes of the starlark flags are taken from the configuration the transition was
+ *       applied to, which almost always sets the same flags. Otherwise they are looked up via
+ *       {@link StarlarkBuildSettingsDetailsValue}.
+ *   <li>If no starlark flag has ScopeType.PROJECT, no further processing is done.
  *   <li>If the ScopeType for a flag is ScopeType.PROJECT, and the flag is not in the scope of the
  *       current package, the flag is reset to its baseline value if it is present in the baseline.
  *       If the flag is not present in the baseline, it is removed. This is to ensure that we do not
@@ -79,7 +79,6 @@ import javax.annotation.Nullable;
 public final class BuildConfigurationKeyProducer<C>
     implements StateMachine,
         ValueOrExceptionSink<PlatformMappingException>,
-        Consumer<SkyValue>,
         PlatformProducer.ResultSink {
 
   /** Interface for clients to accept results of this computation. */
@@ -91,7 +90,8 @@ public final class BuildConfigurationKeyProducer<C>
 
     void acceptPlatformFlagsError(InvalidPlatformException error);
 
-    void acceptBuildOptionsScopeFunctionError(BuildOptionsScopeFunctionException e);
+    /** Accepts an error resolving the scopes of the options' Starlark flags. */
+    void acceptTransitionError(TransitionException e);
 
     void acceptTransitionedConfiguration(C context, BuildConfigurationKey transitionedOptionKey);
   }
@@ -101,31 +101,57 @@ public final class BuildConfigurationKeyProducer<C>
   private final StateMachine runAfter;
   private final C context;
   private final BuildOptions options;
+  private final boolean forBaseline;
+  private final StarlarkBuildSettingsDetailsValue sourceFlagDetails;
   private final Label label;
 
   // -------------------- Internal State --------------------
   private PlatformValue targetPlatformValue;
   private PlatformMappingValue platformMappingValue;
-  private BuildOptionsScopeValue buildOptionsScopeValue;
+  private StarlarkBuildSettingsDetailsValue flagDetails;
+  private boolean flagDetailsError;
   private BuildOptions postPlatformProcessedOptions;
   private BuildOptions baselineConfiguration;
 
+  /**
+   * @param forBaseline whether {@code options} are the baseline configuration's options, which
+   *     aren't scoped: doing so would require the baseline configuration, i.e. this very result.
+   * @param sourceFlagDetails the details already resolved for the Starlark flags of the
+   *     configuration {@code options} was transitioned from, or {@link
+   *     StarlarkBuildSettingsDetailsValue#EMPTY} if the caller has none. Transitions rarely
+   *     introduce Starlark flags, so this usually covers {@code options} too and spares this
+   *     producer a Skyframe lookup on every dependency edge.
+   */
   BuildConfigurationKeyProducer(
-      ResultSink<C> sink, StateMachine runAfter, C context, BuildOptions options, Label label) {
+      ResultSink<C> sink,
+      StateMachine runAfter,
+      C context,
+      BuildOptions options,
+      boolean forBaseline,
+      StarlarkBuildSettingsDetailsValue sourceFlagDetails,
+      Label label) {
     this.sink = sink;
     this.runAfter = runAfter;
     this.context = context;
     this.options = options;
+    this.forBaseline = forBaseline;
+    this.sourceFlagDetails = sourceFlagDetails;
     this.label = label;
   }
 
   @Override
   public StateMachine step(Tasks tasks) {
+    // Resolve the details of the flags set before platform processing here rather than in
+    // findFlagDetails so that any lookup shares a Skyframe batch with the platform lookups below
+    // instead of adding a round of its own. Platform-based flags and platform mappings hardly ever
+    // add Starlark flags; findFlagDetails requests the right value if they do.
+    requestFlagDetails(tasks, options);
+
     // Short-circuit if there are no platform options.
     var platformOptions = options.get(PlatformOptions.class);
     if (platformOptions == null) {
       this.postPlatformProcessedOptions = options;
-      return this::findBuildOptionsScopes;
+      return this::findFlagDetails;
     }
 
     List<Label> targetPlatforms = platformOptions.getPlatforms();
@@ -157,50 +183,64 @@ public final class BuildConfigurationKeyProducer<C>
     Optional<ParsedFlagsValue> parsedFlags = targetPlatformValue.parsedFlags();
     if (parsedFlags.isPresent()) {
       this.postPlatformProcessedOptions = parsedFlags.get().mergeWith(options).getOptions();
-      return this::findBuildOptionsScopes;
+      return this::findFlagDetails;
     } else {
       return this::mergeFromPlatformMapping;
     }
   }
 
   /**
-   * Performs a lookup for {@link BuildOptionsScopeValue} via {@link BuildOptionsScopesFunction}
-   * given {@link postPlatformProcessedOptions}. This is only done if there are any flag that has
-   * {@link ScopeType.PROJECT} or its {@link ScopeType} is not yet resolved.
+   * Makes the {@link StarlarkBuildSettingsDetailsValue} for {@code buildOptions}' Starlark flags
+   * available to {@link #possiblyApplyScopes}, looking it up in Skyframe unless a value that
+   * answers for all of them is already at hand.
    */
-  private StateMachine findBuildOptionsScopes(Tasks tasks) {
+  private void requestFlagDetails(Tasks tasks, BuildOptions buildOptions) {
+    if (forBaseline) {
+      return;
+    }
+    ImmutableSet<Label> buildSettings =
+        StarlarkBuildSettingsDetailsValue.scopedBuildSettings(buildOptions.getStarlarkOptions());
+    if (buildSettings.isEmpty()) {
+      return;
+    }
+    if (sourceFlagDetails.covers(buildSettings)) {
+      this.flagDetails = sourceFlagDetails;
+      return;
+    }
+    // Use the same key as BuildConfigurationFunction so that the node is shared with it.
+    CoreOptions coreOptions = buildOptions.get(CoreOptions.class);
+    tasks.lookUp(
+        StarlarkBuildSettingsDetailsValue.keyForBuildSettings(
+            buildSettings,
+            coreOptions == null ? ImmutableSet.of() : coreOptions.getHostFlagAliases()),
+        TransitionException.class,
+        (ValueOrExceptionSink<TransitionException>) this::acceptFlagDetails);
+  }
+
+  private void acceptFlagDetails(@Nullable SkyValue value, @Nullable TransitionException e) {
+    if (value != null) {
+      this.flagDetails = (StarlarkBuildSettingsDetailsValue) value;
+      return;
+    }
+    this.flagDetailsError = true;
+    sink.acceptTransitionError(e);
+  }
+
+  /**
+   * Requests the details of the Starlark flags {@link #postPlatformProcessedOptions} gained during
+   * platform processing, if any: {@link #step} only requested the ones set before it.
+   */
+  private StateMachine findFlagDetails(Tasks tasks) {
     Preconditions.checkNotNull(this.postPlatformProcessedOptions);
-    // including platform-based flags in skykey for scopes lookUp
-    if (postPlatformProcessedOptions.getStarlarkOptions().isEmpty()) {
-      return this::possiblyApplyScopes;
+    if (flagDetailsError) {
+      return DONE;
     }
-
-    // the list of flags that are either project scoped or their scopes are not yet resolved.
-    // Lookup via BuildOptionsScopeFunction will be done for these flags
-    List<Label> flagsWithIncompleteScopeInfo = new ArrayList<>();
-    for (Map.Entry<Label, Object> entry :
-        postPlatformProcessedOptions.getStarlarkOptions().entrySet()) {
-      Scope.ScopeType scopeType =
-          this.postPlatformProcessedOptions.getScopeTypeMap().get(entry.getKey());
-      // scope is null is applicable for cases where a transition applies starlark flags that are
-      // not already part of the baseline configuration.
-      if (scopeType == null
-          || scopeType.scopeType().equals(Scope.ScopeType.PROJECT)
-          || scopeType.scopeType().startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
-        flagsWithIncompleteScopeInfo.add(entry.getKey());
-      }
+    if (flagDetails == null
+        || !flagDetails.covers(
+            StarlarkBuildSettingsDetailsValue.scopedBuildSettings(
+                postPlatformProcessedOptions.getStarlarkOptions()))) {
+      requestFlagDetails(tasks, postPlatformProcessedOptions);
     }
-
-    // if flagsWithIncompleteScopeInfo is empty, we do not need to do any further lookUp for the
-    // ScopeType and ScopeDefinition
-    if (flagsWithIncompleteScopeInfo.isEmpty()) {
-      return this::possiblyApplyScopes;
-    }
-
-    BuildOptionsScopeValue.Key buildOptionsScopeValueKey =
-        BuildOptionsScopeValue.Key.create(
-            this.postPlatformProcessedOptions, flagsWithIncompleteScopeInfo);
-    tasks.lookUp(buildOptionsScopeValueKey, (Consumer<SkyValue>) this);
     return this::possiblyApplyScopes;
   }
 
@@ -223,7 +263,7 @@ public final class BuildConfigurationKeyProducer<C>
     }
     try {
       this.postPlatformProcessedOptions = platformMappingValue.map(options).getOptions();
-      return this::findBuildOptionsScopes;
+      return this::findFlagDetails;
     } catch (OptionsParsingException e) {
       sink.acceptOptionsParsingError(e);
       return runAfter;
@@ -263,44 +303,41 @@ public final class BuildConfigurationKeyProducer<C>
     sink.acceptOptionsParsingError(error);
   }
 
-  @Override
-  public void accept(SkyValue value) {
-    this.buildOptionsScopeValue = (BuildOptionsScopeValue) value;
-  }
-
   private StateMachine possiblyApplyScopes(Tasks tasks) {
-    // This is not the same as null associated with Skyframe lookUp. This happens when scoping logic
-    // is not enabled. This means the lookup via BuildOptionsScopesFunction was not performed.
-    if (buildOptionsScopeValue == null
-        || postPlatformProcessedOptions.getStarlarkOptions().isEmpty()) {
+    if (flagDetailsError) {
+      return DONE;
+    }
+    // A null value here doesn't mean a Skyframe lookUp came back empty: it means no details were
+    // requested at all, because these options set no Starlark flags or this is the baseline.
+    if (flagDetails == null || !flagDetails.hasProjectScopedBuildSettings()) {
       return finishConfigurationKeyProcessing(postPlatformProcessedOptions);
     }
 
+    // The details may have been resolved for a superset of these options' Starlark flags, so check
+    // that at least one of the flags actually set here is project-scoped.
     boolean shouldApplyScopes =
-        buildOptionsScopeValue.getFullyResolvedScopes().values().stream()
-            .anyMatch(scope -> scope.getScopeType().scopeType().equals(Scope.ScopeType.PROJECT));
-
+        postPlatformProcessedOptions.getStarlarkOptions().keySet().stream()
+            .anyMatch(flag -> flagDetails.projectScopeOf(flag) != null);
     if (!shouldApplyScopes) {
-      return finishConfigurationKeyProcessing(
-          buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes());
+      return finishConfigurationKeyProcessing(postPlatformProcessedOptions);
     }
 
-    var resolvedOptions = buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes();
     tasks.lookUp(
         BaselineOptionsValue.key(
-            resolvedOptions.get(CoreOptions.class).getIsExec(),
-            !resolvedOptions.contains(TestConfiguration.TestOptions.class),
+            postPlatformProcessedOptions.get(CoreOptions.class).getIsExec(),
+            !postPlatformProcessedOptions.contains(TestConfiguration.TestOptions.class),
             /* newPlatform= */ null),
         val -> this.baselineConfiguration = ((BaselineOptionsValue) val).toOptions());
     return this::applyScopes;
   }
 
   private StateMachine applyScopes(Tasks tasks) {
-    BuildOptions resolved = buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes();
     BuildOptions finalBuildOptions =
-        baselineConfiguration.getStarlarkOptions().equals(resolved.getStarlarkOptions())
-            ? resolved
-            : resetFlags(buildOptionsScopeValue, baselineConfiguration, label);
+        baselineConfiguration
+                .getStarlarkOptions()
+                .equals(postPlatformProcessedOptions.getStarlarkOptions())
+            ? postPlatformProcessedOptions
+            : resetFlags(flagDetails, postPlatformProcessedOptions, baselineConfiguration, label);
     return finishConfigurationKeyProcessing(finalBuildOptions);
   }
 
@@ -320,45 +357,31 @@ public final class BuildConfigurationKeyProducer<C>
    *       <p>purpose of scoping.
    * </ul>
    *
-   * This method returns the final {@link BuildOptions} after scoping is applied and the object only
-   * has the {@link Scope.ScopeType} information for all starlark flags.
+   * This method returns the final {@link BuildOptions} after scoping is applied.
    */
   private static BuildOptions resetFlags(
-      BuildOptionsScopeValue buildOptionsScopeValue,
+      StarlarkBuildSettingsDetailsValue flagDetails,
+      BuildOptions transitionedOptions,
       BuildOptions baselineConfiguration,
       @Nullable Label label) {
-    Preconditions.checkNotNull(buildOptionsScopeValue);
-
-
-    BuildOptions transitionedOptionsWithScopeType =
-        buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes();
-    // If there are no scopes, short circuit.
-    if (buildOptionsScopeValue.getFullyResolvedScopes().isEmpty()) {
-      return transitionedOptionsWithScopeType;
-    }
-
+    Preconditions.checkNotNull(flagDetails);
     Preconditions.checkNotNull(baselineConfiguration);
     boolean flagsRemoved = false;
     boolean flagsResetToBaseline = false;
-    BuildOptions.Builder optionsWithScopeTypesBuilder =
-        transitionedOptionsWithScopeType.toBuilder();
-    for (Map.Entry<Label, Object> flagEntry :
-        transitionedOptionsWithScopeType.getStarlarkOptions().entrySet()) {
+    BuildOptions.Builder optionsBuilder = transitionedOptions.toBuilder();
+    for (Map.Entry<Label, Object> flagEntry : transitionedOptions.getStarlarkOptions().entrySet()) {
       Label flagLabel = flagEntry.getKey();
-      Scope scope = buildOptionsScopeValue.getFullyResolvedScopes().get(flagLabel);
-      if (scope == null) {
-        Scope.ScopeType flagScopeType =
-            transitionedOptionsWithScopeType.getScopeTypeMap().get(flagLabel);
-        Verify.verify(!flagScopeType.scopeType().equals(Scope.ScopeType.PROJECT));
-      } else if (scope.getScopeType().scopeType().equals(Scope.ScopeType.PROJECT)) {
+      // Only project-scoped flags have a project scope, so a hit means the flag has to be scoped.
+      Scope scope = flagDetails.projectScopeOf(flagLabel);
+      if (scope != null) {
         Object flagValue = flagEntry.getValue();
         Object baselineValue = baselineConfiguration.getStarlarkOptions().get(flagLabel);
         if (flagValue != baselineValue && !isInScope(label, scope.getScopeDefinition())) {
           if (baselineValue == null) {
-            optionsWithScopeTypesBuilder.removeStarlarkOption(flagLabel);
+            optionsBuilder.removeStarlarkOption(flagLabel);
             flagsRemoved = true;
           } else {
-            optionsWithScopeTypesBuilder.addStarlarkOption(flagLabel, baselineValue);
+            optionsBuilder.addStarlarkOption(flagLabel, baselineValue);
             flagsResetToBaseline = true;
           }
         }
@@ -366,10 +389,10 @@ public final class BuildConfigurationKeyProducer<C>
     }
 
     if (!flagsRemoved && !flagsResetToBaseline) {
-      return transitionedOptionsWithScopeType;
+      return transitionedOptions;
     }
 
-    BuildOptions scopedBuildOptions = optionsWithScopeTypesBuilder.build();
+    BuildOptions scopedBuildOptions = optionsBuilder.build();
     if (scopedBuildOptions.equals(baselineConfiguration)) {
       return baselineConfiguration;
     }
@@ -382,8 +405,7 @@ public final class BuildConfigurationKeyProducer<C>
     // A null scopeDefinition means the flag's package has no PROJECT.scl file. Treat the target
     // as not in scope so the flag resets to its baseline value.
     // Also, if the label is null, we are evaluating a configuration without a target, so we also
-    // treat it
-    // as out of scope.
+    // treat it as out of scope.
     if (scopeDefinition == null || label == null) {
       return false;
     }

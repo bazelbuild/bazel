@@ -21,6 +21,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.ProjectResolutionException;
+import com.google.devtools.build.lib.analysis.config.Scope;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue.CustomExecScopeValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
@@ -217,12 +219,38 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
               .filter(entry -> !entry.getKey().equals(entry.getValue().getLabel()))
               .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getLabel()));
 
+      // Calculate scope info based on the actual rules
+      ImmutableMap.Builder<Label, Scope.ScopeType> buildSettingToScopeType = ImmutableMap.builder();
+      ImmutableMap.Builder<Label, Object> buildSettingToOnLeaveScopeValue = ImmutableMap.builder();
+      ImmutableSet.Builder<Label> projectScopedBuildSettings = ImmutableSet.builder();
+      for (Rule rule : actualRules) {
+        Scope.ScopeType scopeType = getScopeType(rule);
+        buildSettingToScopeType.put(rule.getLabel(), scopeType);
+        if (scopeType.scopeType().equals(Scope.ScopeType.PROJECT)) {
+          projectScopedBuildSettings.add(rule.getLabel());
+        }
+        Object onLeaveScopeValue = getOnLeaveScopeValue(rule);
+        if (onLeaveScopeValue != null) {
+          buildSettingToOnLeaveScopeValue.put(rule.getLabel(), onLeaveScopeValue);
+        }
+      }
+
+      ImmutableMap<Label, Scope> projectScopes =
+          resolveProjectScopes(env, projectScopedBuildSettings.build());
+      if (projectScopes == null) {
+        return null;
+      }
+
       return StarlarkBuildSettingsDetailsValue.create(
+          key.buildSettings(),
           buildSettingToDefault,
           buildSettingToType,
           buildSettingIsAllowsMultiple,
           aliasToActual,
-          customExecScopeValuesBuilder.buildOrThrow());
+          customExecScopeValuesBuilder.buildOrThrow(),
+          buildSettingToScopeType.buildOrThrow(),
+          buildSettingToOnLeaveScopeValue.buildOrThrow(),
+          projectScopes);
 
     } catch (TransitionException e) {
       throw new StarlarkBuildSettingsDetailsException(e);
@@ -412,6 +440,100 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
     Target target;
     target = buildSettingPackage.getTarget(setting.getName());
     return target;
+  }
+
+  /**
+   * Resolves the {@link Scope} of each project-scoped build setting, reading the {@link
+   * Scope.ScopeDefinition} from the PROJECT.scl file governing the setting's package.
+   *
+   * <p>A setting whose package isn't governed by any PROJECT.scl file, or whose PROJECT.scl file
+   * declares no project directories, gets a scope without a definition: every target is out of its
+   * scope.
+   *
+   * @return null if Skyframe deps need loading.
+   */
+  @Nullable
+  private static ImmutableMap<Label, Scope> resolveProjectScopes(
+      Environment env, ImmutableSet<Label> projectScopedBuildSettings)
+      throws InterruptedException, TransitionException {
+    if (projectScopedBuildSettings.isEmpty()) {
+      return ImmutableMap.of();
+    }
+    Scope.ScopeType projectScopeType = new Scope.ScopeType(Scope.ScopeType.PROJECT);
+
+    // Find the PROJECT.scl file governing each setting's package, if any.
+    ImmutableMap<Label, ProjectFilesLookupValue.Key> projectFilesKeys =
+        projectScopedBuildSettings.stream()
+            .collect(
+                toImmutableMap(
+                    setting -> setting,
+                    setting -> ProjectFilesLookupValue.key(setting.getPackageIdentifier())));
+    SkyframeLookupResult projectFilesResult = env.getValuesAndExceptions(projectFilesKeys.values());
+    Map<Label, ProjectValue.Key> projectKeys = new HashMap<>();
+    for (Map.Entry<Label, ProjectFilesLookupValue.Key> entry : projectFilesKeys.entrySet()) {
+      ProjectFilesLookupValue projectFiles;
+      try {
+        projectFiles =
+            (ProjectFilesLookupValue)
+                projectFilesResult.getOrThrow(entry.getValue(), ProjectResolutionException.class);
+      } catch (ProjectResolutionException e) {
+        throw new TransitionException(e.getMessage(), e);
+      }
+      if (projectFiles == null) {
+        continue;
+      }
+      if (!projectFiles.getProjectFiles().isEmpty()) {
+        projectKeys.put(
+            entry.getKey(), new ProjectValue.Key(projectFiles.getProjectFiles().get(0)));
+      }
+    }
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    // Read the project directories out of those files.
+    SkyframeLookupResult projectsResult = env.getValuesAndExceptions(projectKeys.values());
+    ImmutableMap.Builder<Label, Scope> projectScopes = ImmutableMap.builder();
+    for (Label setting : projectScopedBuildSettings) {
+      ProjectValue.Key projectKey = projectKeys.get(setting);
+      if (projectKey == null) {
+        projectScopes.put(setting, new Scope(projectScopeType, /* scopeDefinition= */ null));
+        continue;
+      }
+      ProjectValue project = (ProjectValue) projectsResult.get(projectKey);
+      if (project == null) {
+        continue;
+      }
+      projectScopes.put(
+          setting,
+          new Scope(
+              projectScopeType,
+              project.getDefaultProjectDirectories().isEmpty()
+                  ? null
+                  : new Scope.ScopeDefinition(project.getDefaultProjectDirectories())));
+    }
+    if (env.valuesMissing()) {
+      return null;
+    }
+    return projectScopes.buildOrThrow();
+  }
+
+  private static Scope.ScopeType getScopeType(Rule rule) {
+    var attrs = RawAttributeMapper.of(rule);
+    if (!attrs.has("scope", Type.STRING)
+        || attrs.get("scope", Type.STRING).equals(Type.STRING.getDefaultValue())) {
+      return new Scope.ScopeType(Scope.ScopeType.DEFAULT);
+    }
+    return new Scope.ScopeType(attrs.get("scope", Type.STRING));
+  }
+
+  @Nullable
+  private static Object getOnLeaveScopeValue(Rule rule) {
+    var attrs = RawAttributeMapper.of(rule);
+    if (!attrs.isAttributeValueExplicitlySpecified("on_leave_scope")) {
+      return null;
+    }
+    return attrs.get("on_leave_scope", rule.getRuleClassObject().getBuildSetting().getType());
   }
 
   private static final class StarlarkBuildSettingsDetailsException extends SkyFunctionException {

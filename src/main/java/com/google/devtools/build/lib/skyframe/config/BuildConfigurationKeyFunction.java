@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.skyframe.config;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyMapProducer;
 import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyMapProducer.ResultSink;
-import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -43,14 +43,16 @@ public final class BuildConfigurationKeyFunction implements SkyFunction {
       throws BuildConfigurationKeyFunctionException, InterruptedException {
     // Delegate all work to BuildConfigurationKeyProducer.
     BuildConfigurationKeyValue.Key key = (BuildConfigurationKeyValue.Key) skyKey.argument();
-    BuildOptions buildOptions = key.buildOptions();
     Sink sink = new Sink();
     Driver driver =
         new Driver(
             new BuildConfigurationKeyMapProducer(
                 sink,
                 /* runAfter= */ StateMachine.DONE,
-                ImmutableMap.of(BUILD_OPTIONS_MAP_SINGLETON_KEY, buildOptions),
+                ImmutableMap.of(BUILD_OPTIONS_MAP_SINGLETON_KEY, key.buildOptions()),
+                key.forBaseline(),
+                // There is no source configuration here: the options come straight from the key.
+                StarlarkBuildSettingsDetailsValue.EMPTY,
                 null));
 
     boolean complete = driver.drive(env);
@@ -70,7 +72,7 @@ public final class BuildConfigurationKeyFunction implements SkyFunction {
       throw new BuildConfigurationKeyFunctionException(e);
     } catch (InvalidPlatformException e) {
       throw new BuildConfigurationKeyFunctionException(e);
-    } catch (BuildOptionsScopeFunctionException e) {
+    } catch (TransitionException e) {
       throw new BuildConfigurationKeyFunctionException(e);
     }
   }
@@ -81,11 +83,11 @@ public final class BuildConfigurationKeyFunction implements SkyFunction {
     @Nullable private OptionsParsingException optionsParsingException;
     @Nullable private PlatformMappingException platformMappingException;
     @Nullable private InvalidPlatformException invalidPlatformException;
-    @Nullable private BuildOptionsScopeFunctionException buildOptionsScopeFunctionException;
+    @Nullable private TransitionException transitionException;
 
     @Override
-    public void acceptBuildOptionsScopeFunctionError(BuildOptionsScopeFunctionException e) {
-      this.buildOptionsScopeFunctionException = e;
+    public void acceptTransitionError(TransitionException e) {
+      this.transitionException = e;
     }
 
     @Override
@@ -113,7 +115,7 @@ public final class BuildConfigurationKeyFunction implements SkyFunction {
         throws OptionsParsingException,
             PlatformMappingException,
             InvalidPlatformException,
-            BuildOptionsScopeFunctionException {
+            TransitionException {
       if (this.optionsParsingException != null) {
         throw this.optionsParsingException;
       }
@@ -123,9 +125,8 @@ public final class BuildConfigurationKeyFunction implements SkyFunction {
       if (this.invalidPlatformException != null) {
         throw this.invalidPlatformException;
       }
-
-      if (this.buildOptionsScopeFunctionException != null) {
-        throw this.buildOptionsScopeFunctionException;
+      if (this.transitionException != null) {
+        throw this.transitionException;
       }
     }
 
@@ -154,9 +155,8 @@ public final class BuildConfigurationKeyFunction implements SkyFunction {
       super(invalidPlatformException, Transience.PERSISTENT);
     }
 
-    public BuildConfigurationKeyFunctionException(
-        BuildOptionsScopeFunctionException buildOptionsScopeFunctionException) {
-      super(buildOptionsScopeFunctionException, Transience.PERSISTENT);
+    public BuildConfigurationKeyFunctionException(TransitionException transitionException) {
+      super(transitionException, Transience.PERSISTENT);
     }
   }
 }
