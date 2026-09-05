@@ -300,6 +300,7 @@ def _impl(repository_ctx):
     else:
         build_contents += VERSION_CONFIG_STUB
     repository_ctx.file("BUILD", build_contents)
+    return repository_ctx.repo_metadata(reproducible = False)
 
 xcode_autoconf = repository_rule(
     environ = [
