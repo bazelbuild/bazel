@@ -16,11 +16,10 @@ package com.google.devtools.build.lib.remote.util;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.getStackTraceAsString;
-import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static java.util.stream.Collectors.joining;
 
 import build.bazel.remote.execution.v2.Action;
@@ -36,10 +35,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
 import com.google.devtools.build.lib.remote.ExecutionStatusException;
@@ -48,7 +45,6 @@ import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
-import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
@@ -74,11 +70,9 @@ import java.io.OutputStream;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Locale;
-import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 
@@ -86,41 +80,6 @@ import javax.annotation.Nullable;
 public final class Utils {
 
   private Utils() {}
-
-  /**
-   * Returns the result of a {@link Future} if successful, or throws any checked {@link Exception}
-   * directly if it's an {@link IOException} or else wraps it in an {@link IOException}.
-   *
-   * <p>Cancel the future on {@link InterruptedException}
-   */
-  public static <T> T getFromFuture(Future<T> f) throws IOException, InterruptedException {
-    return getFromFuture(f, /* cancelOnInterrupt */ true);
-  }
-
-  /**
-   * Returns the result of a {@link Future} if successful, or throws any checked {@link Exception}
-   * directly if it's an {@link IOException} or else wraps it in an {@link IOException}.
-   *
-   * @param cancelOnInterrupt cancel the future on {@link InterruptedException} if {@code true}.
-   */
-  public static <T> T getFromFuture(Future<T> f, boolean cancelOnInterrupt)
-      throws IOException, InterruptedException {
-    try {
-      return f.get();
-    } catch (CancellationException e) {
-      throw new InterruptedException();
-    } catch (ExecutionException e) {
-      throwIfInstanceOf(e.getCause(), InterruptedException.class);
-      throwIfInstanceOf(e.getCause(), IOException.class);
-      throwIfUnchecked(e.getCause());
-      throw new IOException(e.getCause());
-    } catch (InterruptedException e) {
-      if (cancelOnInterrupt) {
-        f.cancel(true);
-      }
-      throw e;
-    }
-  }
 
   /** Constructs a {@link SpawnResult}. */
   public static SpawnResult createSpawnResult(
@@ -522,13 +481,6 @@ public final class Utils {
       Throwables.throwIfUnchecked(e);
       throw new AssertionError(e);
     }
-  }
-
-  public static boolean shouldUploadLocalResultsToRemoteCache(
-      RemoteOptions remoteOptions, Map<String, String> executionInfo) {
-    return remoteOptions.getRemoteUploadLocalResults()
-        && Spawns.mayBeCachedRemotely(executionInfo)
-        && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_CACHE_UPLOAD);
   }
 
   /**

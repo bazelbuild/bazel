@@ -23,6 +23,12 @@ java_library(
 )
 
 java_library(
+    name = "futures",
+    srcs = ["Futures.java"],
+    deps = ["//third_party/java/guava:base"],
+)
+
+java_library(
     name = "rx_futures",
     srcs = ["RxFutures.java"],
     deps = [
@@ -49,9 +55,9 @@ java_library(
     srcs = ["Utils.java"],
     deps = [
         ":digest_util",
+        ":futures",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
-        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/authandtls:grpc",
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper",
         "//src/main/java/com/google/devtools/build/lib/remote:ExecutionStatusException",
@@ -59,7 +65,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/common:action_key",
         "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/common:cache_not_found_exception",
-        "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party/google/protobuf:any_java_proto",
         "//third_party/google/protobuf:duration_java_proto",

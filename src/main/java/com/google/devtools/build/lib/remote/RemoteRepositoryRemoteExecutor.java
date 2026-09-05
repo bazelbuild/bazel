@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.buildAction;
 
 import build.bazel.remote.execution.v2.Action;
@@ -40,7 +41,6 @@ import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
-import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -91,7 +91,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
         stdout = result.getStdoutRaw().toByteArray();
       } else if (result.hasStdoutDigest()) {
         stdout =
-            Utils.getFromFuture(
+            getFromFuture(
                 remoteCache.downloadBlob(
                     context, "<stdout>", /* execPath= */ null, result.getStdoutDigest()));
       }
@@ -101,7 +101,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
         stderr = result.getStderrRaw().toByteArray();
       } else if (result.hasStderrDigest()) {
         stderr =
-            Utils.getFromFuture(
+            getFromFuture(
                 remoteCache.downloadBlob(
                     context, "<stderr>", /* execPath= */ null, result.getStderrDigest()));
       }

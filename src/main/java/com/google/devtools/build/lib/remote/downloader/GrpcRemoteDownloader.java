@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.remote.downloader;
 
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
+
 import build.bazel.remote.asset.v1.FetchBlobRequest;
 import build.bazel.remote.asset.v1.FetchBlobResponse;
 import build.bazel.remote.asset.v1.FetchGrpc;
@@ -204,7 +206,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
           retrier.execute(
               () -> {
                 try (OutputStream out = newOutputStream(destination, checksum)) {
-                  Utils.getFromFuture(
+                  getFromFuture(
                       cacheClient.downloadBlob(remoteActionExecutionContext, blobDigest, out));
                 } catch (OutputDigestMismatchException e) {
                   e.setOutputPath(destination.getPathString());
