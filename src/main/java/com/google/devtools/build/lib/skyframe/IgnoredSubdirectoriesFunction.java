@@ -15,11 +15,11 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.VENDOR_DIRECTORY;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.CharStreams;
 import com.google.common.io.LineProcessor;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -102,8 +102,7 @@ public class IgnoredSubdirectoriesFunction implements SkyFunction {
   }
 
   @Nullable
-  private ImmutableList<String> computeIgnoredPatterns(
-      Environment env, RepositoryName repositoryName)
+  private RepoFileValue computeRepoFileValue(Environment env, RepositoryName repositoryName)
       throws IgnoredSubdirectoriesFunctionException, InterruptedException {
 
     try {
@@ -116,7 +115,7 @@ public class IgnoredSubdirectoriesFunction implements SkyFunction {
         return null;
       }
 
-      return repoFileValue.ignoredDirectories();
+      return repoFileValue;
     } catch (IOException e) {
       throw new IgnoredSubdirectoriesFunctionException(e);
     } catch (BadRepoFileException e) {
@@ -186,7 +185,7 @@ public class IgnoredSubdirectoriesFunction implements SkyFunction {
       throws IgnoredSubdirectoriesFunctionException, InterruptedException {
     RepositoryName repositoryName = (RepositoryName) key.argument();
 
-    ImmutableList<String> ignoredPatterns = computeIgnoredPatterns(env, repositoryName);
+    RepoFileValue repoFileValue = computeRepoFileValue(env, repositoryName);
     if (env.valuesMissing()) {
       return null;
     }
@@ -196,7 +195,13 @@ public class IgnoredSubdirectoriesFunction implements SkyFunction {
       return null;
     }
 
-    return IgnoredSubdirectoriesValue.of(ignoredPrefixes, ignoredPatterns);
+    // Directories named by traversal_ignore_directories() are skipped while recursing, but unlike
+    // the ignored prefixes and patterns they remain loadable and globbable when named explicitly.
+    return IgnoredSubdirectoriesValue.of(
+        IgnoredSubdirectories.of(
+            ignoredPrefixes,
+            repoFileValue.ignoredDirectories(),
+            ImmutableSet.copyOf(repoFileValue.traversalIgnoreDirectories())));
   }
 
   private static final class PathFragmentLineProcessor

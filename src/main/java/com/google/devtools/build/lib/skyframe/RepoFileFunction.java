@@ -93,7 +93,7 @@ public class RepoFileFunction implements SkyFunction {
     }
     if (!repoFileValue.exists()) {
       // It's okay to not have a REPO.bazel file.
-      return RepoFileValue.of(ImmutableMap.of(), ImmutableList.of());
+      return RepoFileValue.of(ImmutableMap.of(), ImmutableList.of(), ImmutableList.of());
     }
 
     // Now we can actually evaluate the file.
@@ -170,7 +170,10 @@ public class RepoFileFunction implements SkyFunction {
       RepoThreadContext context = new RepoThreadContext();
       context.storeInThread(thread);
       Starlark.execFileProgram(program, predeclared, thread);
-      return RepoFileValue.of(context.getPackageArgsMap(), context.getIgnoredDirectories());
+      return RepoFileValue.of(
+          context.getPackageArgsMap(),
+          context.getIgnoredDirectories(),
+          context.getTraversalIgnoreDirectories());
     } catch (SyntaxError.Exception e) {
       Event.replayEventsOn(handler, e.errors());
       throw new RepoFileFunctionException(
