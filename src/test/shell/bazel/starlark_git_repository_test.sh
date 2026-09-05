@@ -69,6 +69,12 @@ function set_up() {
   export GIT_CONFIG_NOGLOBAL=1
   export HOME=
   export XDG_CONFIG_HOME=
+
+  # The opt-in git object cache is enabled per-test via
+  # enable_git_repository_cache, which appends a --repo_env line to the shared
+  # bazelrc. Strip any such line left over from a previous test so the cache
+  # never leaks into a test that did not enable it.
+  sed -i '/BAZEL_GIT_REPOSITORY_CACHE/d' "$TEST_TMPDIR/bazelrc" 2>/dev/null || true
 }
 
 # Shutdown Bazel so that we can safely delete files on Windows
@@ -820,6 +826,276 @@ EOF
   if [ -e "$sentinel" ]; then
     fail "Sentinel file was created!"
   fi
+}
+
+# --- git repository local object cache (BAZEL_GIT_REPOSITORY_CACHE) tests ---
+
+# Points BAZEL_GIT_REPOSITORY_CACHE at a fresh directory for every bazel
+# invocation in the current test, enabling the opt-in git object cache.
+function enable_git_repository_cache() {
+  GIT_CACHE_DIR="$TEST_TMPDIR/git_cache"
+  rm -rf "$GIT_CACHE_DIR"
+  mkdir -p "$GIT_CACHE_DIR"
+  add_to_bazelrc "common --repo_env=BAZEL_GIT_REPOSITORY_CACHE=$GIT_CACHE_DIR"
+}
+
+# Fails unless the git object cache directory was populated, i.e. the cached
+# code path was actually exercised.
+function assert_git_cache_populated() {
+  if [ -z "$(ls -A "$GIT_CACHE_DIR" 2> /dev/null)" ]; then
+    fail "Expected git repository cache at $GIT_CACHE_DIR to be populated, but it is empty"
+  fi
+}
+
+# Mirrors of the existing checkout tests, now with the object cache enabled.
+
+function test_git_repository_with_cache() {
+  enable_git_repository_cache
+  do_git_repository_test "52f9a3f87a2dd17ae0e5847bbae9734f09354afd"
+  assert_git_cache_populated
+}
+
+function test_git_repository_add_prefix_with_cache() {
+  enable_git_repository_cache
+  do_git_repository_test "52f9a3f87a2dd17ae0e5847bbae9734f09354afd" "" "" "add/a/prefix"
+  assert_git_cache_populated
+}
+
+function test_git_repository_strip_prefix_with_cache() {
+  enable_git_repository_cache
+  do_git_repository_test "dbf9236251a9ea01b7a2eb563ca8e911060fc97c" "pluto"
+  assert_git_cache_populated
+}
+
+function test_git_repository_shallow_since_with_cache() {
+  enable_git_repository_cache
+  do_git_repository_test "52f9a3f87a2dd17ae0e5847bbae9734f09354afd" "" "2015-07-15"
+  assert_git_cache_populated
+}
+
+function test_git_repository_with_build_file_with_cache() {
+  enable_git_repository_cache
+  do_git_repository_test_with_build "0-initial" "build_file"
+  assert_git_cache_populated
+}
+
+function test_git_repository_with_build_file_content_with_cache() {
+  enable_git_repository_cache
+  do_git_repository_test_with_build "0-initial" "build_file_content"
+  assert_git_cache_populated
+}
+
+# The cached submodule checkout path requires the submodule URL to be
+# scheme-qualified, so use a file:// remote (the relative submodule URL
+# "../pluto" is resolved against it).
+function test_git_repository_submodules_with_cache() {
+  enable_git_repository_cache
+  local outer_planets_repo_dir="file://$TEST_TMPDIR/repos/outer-planets"
+
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(
+    name = "outer_planets",
+    remote = "$outer_planets_repo_dir",
+    tag = "1-submodule",
+    init_submodules = 1,
+    build_file = "//:outer_planets.BUILD",
+)
+EOF
+
+  cat > BUILD <<EOF
+exports_files(['outer_planets.BUILD'])
+EOF
+  cat > outer_planets.BUILD <<EOF
+filegroup(
+    name = "neptune",
+    srcs = ["neptune/info"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "pluto",
+    srcs = ["pluto/info"],
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  mkdir -p planets
+  cat > planets/BUILD <<EOF
+genrule(
+    name = "planet-info",
+    srcs = [
+        "@outer_planets//:neptune",
+        "@outer_planets//:pluto",
+    ],
+    outs = ["planet-info.txt"],
+    cmd = "cat \$(SRCS) > \$@",
+)
+EOF
+
+  bazel build //planets:planet-info >& $TEST_log \
+    || echo "Expected build/run to succeed"
+  cat bazel-bin/planets/planet-info.txt > $TEST_log
+  expect_log "Neptune is a planet"
+  expect_log "Pluto is a planet"
+  assert_git_cache_populated
+}
+
+function test_git_repository_submodules_with_recursive_init_modules_and_cache() {
+  enable_git_repository_cache
+  local outer_planets_repo_dir="file://$TEST_TMPDIR/repos/outer-planets"
+
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(
+    name = "outer_planets",
+    remote = "$outer_planets_repo_dir",
+    tag = "1-submodule",
+    recursive_init_submodules = 1,
+    build_file = "//:outer_planets.BUILD",
+)
+EOF
+
+  cat > BUILD <<EOF
+exports_files(['outer_planets.BUILD'])
+EOF
+  cat > outer_planets.BUILD <<EOF
+filegroup(
+    name = "neptune",
+    srcs = ["neptune/info"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "pluto",
+    srcs = ["pluto/info"],
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  mkdir -p planets
+  cat > planets/BUILD <<EOF
+genrule(
+    name = "planet-info",
+    srcs = [
+        "@outer_planets//:neptune",
+        "@outer_planets//:pluto",
+    ],
+    outs = ["planet-info.txt"],
+    cmd = "cat \$(SRCS) > \$@",
+)
+EOF
+
+  bazel build //planets:planet-info >& $TEST_log \
+    || echo "Expected build/run to succeed"
+  cat bazel-bin/planets/planet-info.txt > $TEST_log
+  expect_log "Neptune is a planet"
+  expect_log "Pluto is a planet"
+  assert_git_cache_populated
+}
+
+function test_git_repository_with_sparse_checkout_patterns_and_cache() {
+  enable_git_repository_cache
+  local pluto_repo_dir=$(get_pluto_repo)
+
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(
+    name = "pluto",
+    remote = "$pluto_repo_dir",
+    tag = "1-build",
+    sparse_checkout_patterns = ["BUILD", "WORKSPACE"],
+)
+EOF
+  bazel fetch --noshow_progress @pluto >& $TEST_log
+
+  repo_dir=$(bazel info output_base)/external/+git_repository+pluto
+  assert_exists "$repo_dir/BUILD"
+  assert_exists "$repo_dir/WORKSPACE"
+  if grep -sq -- "$sparse_checkout_fallback_message" $TEST_log; then
+    assert_exists "$repo_dir/info"
+  else
+    assert_not_exists "$repo_dir/info"
+  fi
+  assert_git_cache_populated
+}
+
+function test_git_repository_with_sparse_checkout_file_and_cache() {
+  enable_git_repository_cache
+  local pluto_repo_dir=$(get_pluto_repo)
+
+  cat >> pluto-sparse-checkout.txt <<EOF
+/*
+!/info
+EOF
+  touch BUILD
+
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(
+    name = "pluto",
+    remote = "$pluto_repo_dir",
+    tag = "1-build",
+    sparse_checkout_file = "pluto-sparse-checkout.txt",
+)
+EOF
+  bazel fetch --noshow_progress @pluto >& $TEST_log
+
+  repo_dir=$(bazel info output_base)/external/+git_repository+pluto
+  assert_exists "$repo_dir/BUILD"
+  assert_exists "$repo_dir/WORKSPACE"
+  if grep -sq -- "$sparse_checkout_fallback_message" $TEST_log; then
+    assert_exists "$repo_dir/info"
+  else
+    assert_not_exists "$repo_dir/info"
+  fi
+  assert_git_cache_populated
+}
+
+# Proves the object cache actually serves a fetch: after the cache is populated
+# the remote is removed, so a successful refetch can only come from the cache.
+function test_git_repository_cache_is_reused() {
+  # Force genuine refetches (no repo contents cache short-circuit).
+  add_to_bazelrc "common --repo_contents_cache="
+  enable_git_repository_cache
+  local pluto_repo_dir=$(get_pluto_repo)
+
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(
+    name = "pluto",
+    remote = "$pluto_repo_dir",
+    commit = "52f9a3f87a2dd17ae0e5847bbae9734f09354afd",
+    verbose = True,
+    build_file_content = """
+filegroup(
+    name = "pluto",
+    srcs = ["info"],
+    visibility = ["//visibility:public"],
+)""",
+)
+EOF
+  mkdir -p planets
+  cat > planets/BUILD <<EOF
+genrule(
+    name = "planet-info",
+    srcs = ["@pluto//:pluto"],
+    outs = ["planet-info.txt"],
+    cmd = "cp \$< \$@",
+)
+EOF
+
+  bazel build //planets:planet-info >& $TEST_log || fail "First build failed"
+  expect_log "cached on"
+  assert_git_cache_populated
+
+  # Drop Bazel's checkout but keep the shared cache, then remove the remote.
+  bazel clean --expunge >& $TEST_log || fail "clean --expunge failed"
+  mv "$pluto_repo_dir" "${pluto_repo_dir}.gone"
+  bazel build //planets:planet-info >& $TEST_log || fail "Refetch from cache failed"
+  cat bazel-bin/planets/planet-info.txt > $TEST_log
+  expect_log "Pluto is a dwarf planet"
+  mv "${pluto_repo_dir}.gone" "$pluto_repo_dir"
 }
 
 run_suite "Starlark git_repository tests"

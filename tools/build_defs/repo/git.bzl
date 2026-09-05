@@ -274,7 +274,7 @@ def _git_repository_implementation(ctx):
 git_repository = repository_rule(
     implementation = _git_repository_implementation,
     attrs = _common_attrs,
-    environ = [DEFAULT_CANONICAL_ID_ENV],
+    environ = [DEFAULT_CANONICAL_ID_ENV, "BAZEL_GIT_REPOSITORY_CACHE"],
     doc = """Clone an external git repository.
 
 Clones a Git repository, checks out the specified branch, tag, or commit, and
@@ -287,6 +287,14 @@ branch not necessarily is).
 Bazel will first try to perform a shallow fetch of only the specified commit.
 If that fails (usually due to missing server support), it will fall back to a
 full fetch of the repository.
+
+Setting the `BAZEL_GIT_REPOSITORY_CACHE` environment variable to a directory
+enables an opt-in, machine-local git object cache (distinct from Bazel's
+[repository cache](/run/build#repository-cache), which `git_repository` does not
+use). Bazel keeps one bare repository per remote there and checks out each fetch
+as a `git worktree` from it, so repeated fetches of the same remote reuse
+downloaded objects instead of re-cloning; concurrent fetches are serialized with
+`flock`. When unset, each fetch performs a plain clone (the default).
 
 Prefer [`http_archive`](/rules/lib/repo/http#http_archive) to `git_repository`.
 The reasons are:
