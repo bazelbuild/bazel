@@ -142,7 +142,8 @@ public final class PathMappers {
       return OutputPathsMode.OFF;
     }
     if (outputPathsMode == OutputPathsMode.STRIP
-        && executionInfo.containsKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING)) {
+        && (executionInfo.containsKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING)
+            || executionInfo.containsKey(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING))) {
       return OutputPathsMode.STRIP;
     }
     return OutputPathsMode.OFF;

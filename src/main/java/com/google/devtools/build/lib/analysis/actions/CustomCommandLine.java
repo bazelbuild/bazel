@@ -381,9 +381,13 @@ public class CustomCommandLine extends AbstractCommandLine {
         // It'd be nice to build this into ActionInput's CommandLine interface so we don't have
         // to explicitly check if an object is a ActionInput. Unfortunately that would require
         // a lot more dependencies on the Java library ActionInput is built into.
-        return pathMapper != null && object instanceof ActionInput actionInput
-            ? pathMapper.getMappedExecPathString(actionInput)
-            : CommandLineItem.expandToCommandLine(object);
+        if (pathMapper != null) {
+          if (object instanceof ActionInput actionInput) {
+            return pathMapper.getMappedExecPathString(actionInput);
+          }
+          return pathMapper.mapString(CommandLineItem.expandToCommandLine(object));
+        }
+        return CommandLineItem.expandToCommandLine(object);
       }
 
       @Override
@@ -1324,7 +1328,7 @@ public class CustomCommandLine extends AbstractCommandLine {
       } else if (arg instanceof PathFragment pathFragment) {
         builder.add(pathMapper.map(pathFragment).getPathString());
       } else {
-        builder.add(CommandLineItem.expandToCommandLine(arg));
+        builder.add(pathMapper.mapString(CommandLineItem.expandToCommandLine(arg)));
       }
       // Track the last scalar string argument (e.g. "--javacopts") so that the PathMapper can
       // heuristically map subsequent argument collections that contain paths.
@@ -1347,7 +1351,7 @@ public class CustomCommandLine extends AbstractCommandLine {
       if (value instanceof ActionInput actionInput) {
         builder.add(pathMapper.getMappedExecPathString(actionInput));
       } else {
-        mapFn.expandToCommandLine(value, builder::add);
+        mapFn.expandToCommandLine(value, s -> builder.add(pathMapper.mapString(s)));
       }
     }
   }
