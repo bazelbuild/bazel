@@ -806,6 +806,39 @@ EOF
   expect_log "Only one of sparse_checkout_patterns and sparse_checkout_file can be provided."
 }
 
+function test_git_repository_failed_submodule_update_fails_the_rule() {
+  local parent=$TEST_TMPDIR/broken-submodule-parent
+  rm -rf "$parent"
+  mkdir -p "$parent"
+  git -C "$parent" init
+  git -C "$parent" config user.email 'me@example.com'
+  git -C "$parent" config user.name 'repro'
+  git -C "$parent" commit --allow-empty -m empty
+  git -C "$parent" update-index --add --cacheinfo \
+    160000,$(git -C "$parent" rev-parse HEAD),vendor/sub
+  printf '%s\n' \
+    '[submodule "vendor/sub"]' \
+    '	path = vendor/sub' \
+    '	url = https://127.0.0.1:1/does-not-exist.git' > "$parent/.gitmodules"
+  git -C "$parent" add .gitmodules
+  git -C "$parent" commit -m 'unreachable submodule'
+  local commit_hash
+  commit_hash=$(git -C "$parent" rev-parse HEAD)
+
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(
+    name = "broken_submodules",
+    remote = "$parent",
+    commit = "$commit_hash",
+    init_submodules = True,
+)
+EOF
+
+  bazel fetch --repo=@broken_submodules >& $TEST_log && fail "Fetch succeeded"
+  expect_log "error running 'git .*submodule update"
+}
+
 function test_git_repository_invalid_commit() {
   local sentinel=$TEST_TMPDIR/sentinel_validation
   cat >> MODULE.bazel <<EOF
