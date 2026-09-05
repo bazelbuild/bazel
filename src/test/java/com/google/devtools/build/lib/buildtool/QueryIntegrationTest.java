@@ -208,24 +208,40 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     return results;
   }
 
-  @Test
-  public void testProtoUnorderedAndOrdered() throws Exception {
-    List<String> expected = new ArrayList<>(NUM_DEPS + 1);
-    String targets = "";
-    String depString = "";
+  private void writeLargeQueryFixture() throws Exception {
+    StringBuilder targets = new StringBuilder();
+    StringBuilder deps = new StringBuilder();
     for (int i = 0; i < NUM_DEPS; i++) {
-      String dep = Integer.toString(i);
-      depString += "'" + dep + "', ";
-      expected.add("//foo:" + dep);
-      targets += "foo_library(name = '" + dep + "')\n";
+      deps.append("'").append(i).append("', ");
+      targets.append("foo_library(name = '").append(i).append("')\n");
     }
-    expected.add("//foo:a");
-    Collections.sort(expected, Collections.reverseOrder());
     write(
         "foo/BUILD",
         "load('//test_defs:foo_library.bzl', 'foo_library')",
-        "foo_library(name = 'a', deps = [" + depString + "])",
-        targets);
+        "foo_library(name = 'a', deps = [" + deps + "])",
+        targets.toString());
+  }
+
+  private static List<Build.Target> parseStreamedProtoTargets(byte[] output) throws IOException {
+    ByteArrayInputStream input = new ByteArrayInputStream(output);
+    List<Build.Target> targets = new ArrayList<>();
+    Build.Target target;
+    while ((target = Build.Target.parseDelimitedFrom(input)) != null) {
+      targets.add(target);
+    }
+    return targets;
+  }
+
+  @Test
+  public void testProtoUnorderedAndOrdered() throws Exception {
+    List<String> expected = new ArrayList<>(NUM_DEPS + 1);
+    for (int i = 0; i < NUM_DEPS; i++) {
+      String dep = Integer.toString(i);
+      expected.add("//foo:" + dep);
+    }
+    expected.add("//foo:a");
+    Collections.sort(expected, Collections.reverseOrder());
+    writeLargeQueryFixture();
     ProtoQueryOutput result = getProtoQueryResult("deps(//foo:a)");
     assertSameElementsDifferentOrder(getTargetNames(result.getQueryResult()), expected);
     options.add("--order_output=full");
@@ -233,6 +249,67 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     assertThat(getTargetNames(result.getQueryResult()))
         .containsExactlyElementsIn(expected)
         .inOrder();
+  }
+
+  @Test
+  public void testParallelStreamedProtoMatchesSerialOrdered(
+      @TestParameter({"auto", "deps", "full"}) String orderOutput) throws Exception {
+    writeLargeQueryFixture();
+    QueryOutput serial =
+        getQueryResult("deps(//foo:a)", "--output=streamed_proto", "--order_output=" + orderOutput);
+    QueryOutput parallel =
+        getQueryResult(
+            "deps(//foo:a)",
+            "--output=streamed_proto",
+            "--order_output=" + orderOutput,
+            "--experimental_parallel_streamed_proto_output");
+
+    assertSuccessfulExitCode(serial);
+    assertSuccessfulExitCode(parallel);
+    assertThat(parallel.getStdout()).isEqualTo(serial.getStdout());
+  }
+
+  @Test
+  public void testParallelStreamedProtoMatchesSerialForSomePath() throws Exception {
+    writeLargeQueryFixture();
+    QueryOutput serial =
+        getQueryResult(
+            "somepath(//foo:a, //foo:0)", "--output=streamed_proto", "--order_output=auto");
+    QueryOutput parallel =
+        getQueryResult(
+            "somepath(//foo:a, //foo:0)",
+            "--output=streamed_proto",
+            "--order_output=auto",
+            "--experimental_parallel_streamed_proto_output");
+
+    assertSuccessfulExitCode(serial);
+    assertSuccessfulExitCode(parallel);
+    assertThat(parallel.getStdout()).isEqualTo(serial.getStdout());
+  }
+
+  @Test
+  public void testParallelStreamedProtoMatchesSerialUnordered(@TestParameter boolean graphless)
+      throws Exception {
+    writeLargeQueryFixture();
+    String queryModeFlag =
+        graphless ? "--experimental_graphless_query=true" : "--universe_scope=//foo:*";
+    QueryOutput serial =
+        getQueryResult(
+            "deps(//foo:a)", "--output=streamed_proto", "--order_output=no", queryModeFlag);
+    QueryOutput parallel =
+        getQueryResult(
+            "deps(//foo:a)",
+            "--output=streamed_proto",
+            "--order_output=no",
+            queryModeFlag,
+            "--experimental_parallel_streamed_proto_output");
+
+    assertSuccessfulExitCode(serial);
+    assertSuccessfulExitCode(parallel);
+    List<Build.Target> serialTargets = parseStreamedProtoTargets(serial.getStdout());
+    List<Build.Target> parallelTargets = parseStreamedProtoTargets(parallel.getStdout());
+    assertThat(parallelTargets).hasSize(serialTargets.size());
+    assertThat(parallelTargets).containsExactlyElementsIn(serialTargets);
   }
 
   /**
