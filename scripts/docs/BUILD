@@ -97,17 +97,14 @@ py_test(
     ],
 )
 
-py_library(
-    name = "clr_converter",
-    srcs = ["clr_converter.py"],
-)
-
-py_test(
-    name = "clr_converter_test",
-    srcs = ["clr_converter_test.py"],
-    data = [":testdata"],
+py_binary(
+    name = "create_cli_reference",
+    srcs = ["create_cli_reference.py"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__pkg__",
+    ],
     deps = [
-        ":clr_converter",
+        "//src/main/protobuf:bazel_flags_py_proto",
     ],
 )
 
@@ -115,7 +112,6 @@ py_library(
     name = "docs2mdx_lib",
     srcs = ["docs2mdx.py"],
     deps = [
-        ":clr_converter",
         "//third_party/py/abseil",
         requirement("markdownify"),
     ],

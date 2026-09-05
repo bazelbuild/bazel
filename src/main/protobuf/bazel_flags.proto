@@ -66,8 +66,30 @@ message FlagInfo {
   optional string type_converter = 15;
   // List of valid enum values.
   repeated string enum_values = 16;
+  // Human-readable type description, e.g. "a path" or "an integer".
+  optional string type_description = 17;
+  // Sections this flag is documented under. Well-known values:
+  //   "startup" - startup options
+  //   "common"  - options common to all commands
+  //   "config"  - configuration fragment options, rendered under every
+  //               command whose CommandInfo.uses_configuration_options is true
+  // Any other value is the name of a command whose section directly contains
+  // this flag.
+  repeated string sections = 18;
+}
+
+message CommandInfo {
+  required string name = 1;
+  optional string description = 2;
+  repeated string inherits_options_from = 3;
+  // Whether this command's section should also render flags tagged with the
+  // "config" section (configuration fragment options).
+  optional bool uses_configuration_options = 5 [default = false];
 }
 
 message FlagCollection {
   repeated FlagInfo flag_infos = 1;
+  repeated CommandInfo commands = 2;
+  map<string, string> effect_tags = 3;
+  map<string, string> metadata_tags = 4;
 }
