@@ -48,6 +48,7 @@ import java.net.SocketAddress;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * The {@link GrpcCommandServer} implementation.
@@ -73,11 +74,28 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
    * <p>It does not react to the interrupt flag in order to allow Bazel to complete the current
    * command while printing output as well as sending the final exit code to the client. However, it
    * maintains the interrupt flag if it is already set.
+   *
+   * <p>Once the client prematurely closed the connection, the main thread of the command is
+   * interrupted once, so that the command terminates even when it writes nothing more. Interrupting
+   * the calling thread instead loses that interrupt whenever cli-update-thread writes first, as it
+   * ignores interrupts, and interrupting on every call keeps a command retrying an interruptible
+   * step from ever converging, see https://github.com/bazelbuild/bazel/issues/30435.
    */
   @VisibleForTesting
   static class BlockingStreamObserver<T extends Message> implements GrpcCommandServer.Responder {
     private final ServerCallStreamObserver<T> observer;
     private final Parser<T> parser;
+
+    /**
+     * Taken from the first {@link #onNext} call, which {@link CommandServer} performs before any
+     * output can reach this observer, and cleared in {@link #onCompleted} when done.
+     */
+    @GuardedBy("this")
+    @Nullable
+    private Thread commandThread;
+
+    @GuardedBy("this")
+    private boolean commandInterrupted;
 
     BlockingStreamObserver(StreamObserver<T> observer, T responseType) {
       this((ServerCallStreamObserver<T>) observer, responseType);
@@ -87,7 +105,7 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
     BlockingStreamObserver(ServerCallStreamObserver<T> observer, T responseType) {
       this.observer = observer;
       this.observer.setOnReadyHandler(this::notifyWaiters);
-      this.observer.setOnCancelHandler(this::notifyWaiters);
+      this.observer.setOnCancelHandler(this::notifyWaitersAndInterruptCommand);
       this.parser = (Parser<T>) responseType.getParserForType();
     }
 
@@ -98,8 +116,19 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
       notifyAll();
     }
 
+    private synchronized void notifyWaitersAndInterruptCommand() {
+      notifyAll(); // for the reason given in notifyWaiters
+      if (commandThread != null && !commandInterrupted) {
+        commandThread.interrupt(); // the client went away after the first write
+        commandInterrupted = true;
+      }
+    }
+
     @Override
     public synchronized void onNext(byte[] response) throws IOException {
+      if (commandThread == null) {
+        commandThread = Thread.currentThread();
+      }
       boolean interrupted = false;
       while (!observer.isReady() && !observer.isCancelled()) {
         try {
@@ -123,14 +152,19 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
         throw new IOException(e.getMessage(), e);
       } finally {
         // Restore the interrupt bit.
-        if (interrupted || observer.isCancelled()) {
+        if (interrupted) {
           Thread.currentThread().interrupt();
+        }
+        if (observer.isCancelled() && !commandInterrupted) {
+          commandThread.interrupt(); // the client was already gone at the first write
+          commandInterrupted = true;
         }
       }
     }
 
     @Override
-    public void onCompleted() throws IOException {
+    public synchronized void onCompleted() throws IOException {
+      commandThread = null; // a thread pool may already run another command on it
       try {
         observer.onCompleted();
       } catch (StatusRuntimeException e) {

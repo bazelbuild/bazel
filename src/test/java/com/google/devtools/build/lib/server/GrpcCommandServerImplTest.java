@@ -14,6 +14,9 @@
 package com.google.devtools.build.lib.server;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.server.CommandProtos.RunRequest;
 import com.google.devtools.build.lib.server.CommandProtos.RunResponse;
@@ -33,6 +36,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
 
 /** Unit tests for {@link GrpcCommandServerImpl}. */
 @RunWith(JUnit4.class)
@@ -322,5 +326,85 @@ public final class GrpcCommandServerImplTest {
     assertThat(sentCount.get()).isEqualTo(receiveCount.get());
     server.shutdown();
     server.awaitTermination();
+  }
+
+  @Test
+  public void testBlockingStreamObserverInterruptsOnceOnClientCancel() throws Exception {
+    // This test attempts to verify that BlockingStreamObserver interrupts only once after the
+    // client prematurely closes the connection. Re-interrupting on every call keeps any command
+    // retrying an interruptible step from ever converging, because the retry is interrupted again
+    // as soon as it reports progress: see https://github.com/bazelbuild/bazel/issues/30435.
+    ServerCallStreamObserver<RunResponse> observer = mock(ServerCallStreamObserver.class);
+    when(observer.isReady()).thenReturn(true);
+    ArgumentCaptor<Runnable> onCancelHandler = ArgumentCaptor.forClass(Runnable.class);
+    BlockingStreamObserver<RunResponse> blockingStreamObserver =
+        new BlockingStreamObserver<>(observer, RunResponse.getDefaultInstance());
+    verify(observer).setOnCancelHandler(onCancelHandler.capture());
+
+    byte[] response = RunResponse.getDefaultInstance().toByteArray();
+    blockingStreamObserver.onNext(response); // the call this thread gets remembered by
+    when(observer.isCancelled()).thenReturn(true);
+    onCancelHandler.getValue().run();
+    assertThat(Thread.interrupted()).isTrue(); // clears the interrupt bit for the call below
+    blockingStreamObserver.onNext(response);
+    assertThat(Thread.interrupted()).isFalse();
+  }
+
+  @Test
+  public void testBlockingStreamObserverInterruptsOnFirstWriteAfterCancel() throws Exception {
+    // This test attempts to verify that BlockingStreamObserver interrupts the command when the
+    // client is already gone by the time of the first write: the cancellation has no thread to
+    // interrupt yet, leaving that write the only occasion to do so.
+    ServerCallStreamObserver<RunResponse> observer = mock(ServerCallStreamObserver.class);
+    when(observer.isReady()).thenReturn(true);
+    when(observer.isCancelled()).thenReturn(true);
+    BlockingStreamObserver<RunResponse> blockingStreamObserver =
+        new BlockingStreamObserver<>(observer, RunResponse.getDefaultInstance());
+
+    byte[] response = RunResponse.getDefaultInstance().toByteArray();
+    blockingStreamObserver.onNext(response);
+    assertThat(Thread.interrupted()).isTrue(); // clears the interrupt bit for the call below
+    blockingStreamObserver.onNext(response);
+    assertThat(Thread.interrupted()).isFalse();
+  }
+
+  @Test
+  public void testBlockingStreamObserverInterruptsOnceEvenIfOwnWaitWasInterrupted()
+      throws Exception {
+    // This test attempts to verify that a call whose own wait is interrupted for an unrelated
+    // reason still records this site's interrupt when the client is also gone, so that a later
+    // write does not repeat it.
+    ServerCallStreamObserver<RunResponse> observer = mock(ServerCallStreamObserver.class);
+    when(observer.isReady()).thenReturn(false);
+    when(observer.isCancelled()).thenReturn(false, true);
+    BlockingStreamObserver<RunResponse> blockingStreamObserver =
+        new BlockingStreamObserver<>(observer, RunResponse.getDefaultInstance());
+
+    byte[] response = RunResponse.getDefaultInstance().toByteArray();
+    Thread.currentThread().interrupt(); // an interrupt unrelated to the client leaving
+    blockingStreamObserver.onNext(response);
+    assertThat(Thread.interrupted()).isTrue(); // clears the interrupt bit for the call below
+    blockingStreamObserver.onNext(response);
+    assertThat(Thread.interrupted()).isFalse();
+  }
+
+  @Test
+  public void testBlockingStreamObserverIgnoresCancelAfterCompletion() throws Exception {
+    // This test attempts to verify that a cancellation notification arriving after onCompleted
+    // does not interrupt commandThread, which by then may already run an unrelated command
+    // recycled from the same thread pool.
+    ServerCallStreamObserver<RunResponse> observer = mock(ServerCallStreamObserver.class);
+    when(observer.isReady()).thenReturn(true);
+    ArgumentCaptor<Runnable> onCancelHandler = ArgumentCaptor.forClass(Runnable.class);
+    BlockingStreamObserver<RunResponse> blockingStreamObserver =
+        new BlockingStreamObserver<>(observer, RunResponse.getDefaultInstance());
+    verify(observer).setOnCancelHandler(onCancelHandler.capture());
+
+    byte[] response = RunResponse.getDefaultInstance().toByteArray();
+    blockingStreamObserver.onNext(response); // the call commandThread gets remembered by
+    blockingStreamObserver.onCompleted();
+    when(observer.isCancelled()).thenReturn(true);
+    onCancelHandler.getValue().run(); // arrives late, as gRPC delivers it on its own schedule
+    assertThat(Thread.interrupted()).isFalse();
   }
 }
