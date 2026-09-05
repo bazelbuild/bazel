@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.vfs.FileStateKey.FILE_STATE;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
@@ -131,7 +130,7 @@ public class DirtinessCheckerUtils {
     }
 
     @Override
-    public SkyValueDirtinessChecker.DirtyResult check(
+    public DirtyResult check(
         SkyKey skyKey,
         SkyValue oldValue,
         @Nullable Version oldMtsv,
@@ -144,40 +143,33 @@ public class DirtinessCheckerUtils {
       SkyValue newValue =
           checker.createNewValue(skyKey, cacheable ? syscallCache : SyscallCache.NO_CACHE, tsgm);
       if (Objects.equal(newValue, oldValue)) {
-        return SkyValueDirtinessChecker.DirtyResult.notDirty();
+        return DirtyResult.notDirty();
       }
       if (cacheable) {
-        return SkyValueDirtinessChecker.DirtyResult.dirtyWithNewValue(newValue);
+        return DirtyResult.dirtyWithNewValue(newValue);
       }
-      if (fileType == FileType.EXTERNAL_REPO) {
-        // A file injected by a remote repo contents cache hit that is later materialized on disk
-        // should not cause invalidation. This matches the logic for output files lazily downloaded
-        // with BwoB (see FilesystemValueChecker#artifactIsDirtyWithDirectSystemCalls).
-        if (oldValue instanceof FileStateValue.RegularFileStateValueWithMetadata oldFileState
-            && newValue
-                instanceof FileStateValue.RegularFileStateValueWithContentsProxy newFileState) {
-          var newFileArtifactValue =
-              FileArtifactValue.createForNormalFile(
-                  /* digest= */ null, newFileState.getContentsProxy(), newFileState.getSize());
-          if (!newFileArtifactValue.couldBeModifiedSince(oldFileState.getMetadata())) {
-            return SkyValueDirtinessChecker.DirtyResult.notDirty();
+      if (fileType == FileType.EXTERNAL_REPO
+          && oldValue instanceof FileStateValue oldFileState
+          && newValue instanceof FileStateValue newFileState) {
+        return switch (newFileState.compareContents(oldFileState)) {
+          case SAME -> DirtyResult.notDirty();
+          case DIFFERENT -> {
+            var repositoryName = externalFilesHelper.getExternalRepoName(rootedPath);
+            if (repositoryName != null) {
+              dirtyExternalRepos.putIfAbsent(repositoryName, rootedPath);
+            }
+            yield DirtyResult.dirty();
           }
-        }
-        // The hermetic Linux sandbox uses hardlinks to stage inputs, which affects ctimes. Don't
-        // report files as modified and trigger a refetch of the repo just due to that.
-        if (!(oldValue instanceof FileStateValue oldFileState
-            && newValue instanceof FileStateValue newFileState
-            && newFileState.equalsIgnoringChangeTime(oldFileState))) {
-          var repositoryName = externalFilesHelper.getExternalRepoName(rootedPath);
-          if (repositoryName != null) {
-            dirtyExternalRepos.putIfAbsent(repositoryName, rootedPath);
-          }
-        }
+          // The hermetic Linux sandbox uses hardlinks to stage inputs, which affects ctimes.
+          // Re-evaluate the node to pick up the new ctime, but don't report the file as modified
+          // and trigger a refetch of the repo just due to that.
+          case SAME_EXCEPT_CHANGE_TIME -> DirtyResult.dirty();
+        };
       }
       // Files under output_base/external have a dependency on the WORKSPACE file, so we don't add
       // a new SkyValue to the graph yet because it might change once the WORKSPACE file has been
       // parsed. Similarly, output files might change during execution.
-      return SkyValueDirtinessChecker.DirtyResult.dirty();
+      return DirtyResult.dirty();
     }
 
     Map<RepositoryName, RootedPath> getDirtyExternalRepos() {
