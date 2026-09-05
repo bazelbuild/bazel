@@ -624,9 +624,10 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             named = true,
             positional = false,
             doc =
-                "Information for scheduling the action to resolve this command. See "
-                    + "<a href=\"${link common-definitions#common.tags}\">tags</a> "
-                    + "for useful keys."),
+                """
+                Information to correctly resolve the command for the target action. See
+                <a href="${link common-definitions#common.tags}">tags</a> for useful keys.
+                """),
       },
       useStarlarkThread = true)
   Tuple resolveCommand(
