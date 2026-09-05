@@ -81,6 +81,12 @@ class InputJar {
     }
     cdh_ = reinterpret_cast<const CDH*>(new_cdr);
     *local_header_ptr = LocalHeader(current_cdh);
+    if (*local_header_ptr == nullptr) {
+      diag_errx(1,
+                "Invalid local header offset 0x%" PRIx64 " in %s",
+                static_cast<uint64_t>(current_cdh->local_header_offset()),
+                path_.c_str());
+    }
     return current_cdh;
   }
 
@@ -92,8 +98,23 @@ class InputJar {
   }
 
   const LH* LocalHeader(const CDH* cdh) const {
-    return reinterpret_cast<const LH*>(
-        mapped_file_.address(cdh->local_header_offset() + preamble_size_));
+    // local_header_offset() comes from the untrusted central-directory record.
+    // Validate it in offset space so we never form an out-of-bounds pointer.
+    const uint64_t offset = cdh->local_header_offset() + preamble_size_;
+    const uint64_t mapped_size =
+        static_cast<uint64_t>(mapped_file_.end() - mapped_file_.start());
+    // The fixed part of the local header must fit, so the variable-length
+    // file-name and extra-field lengths it declares are readable.
+    if (offset > mapped_size || sizeof(LH) > mapped_size - offset) {
+      return nullptr;
+    }
+    const LH* lh = reinterpret_cast<const LH*>(
+        mapped_file_.address(static_cast<off64_t>(offset)));
+    // The whole local header (fixed part + file name + extra fields) must fit.
+    if (lh->size() > mapped_size - offset) {
+      return nullptr;
+    }
+    return lh;
   }
 
   uint64_t LocalHeaderOffset(const LH* lh) const {
@@ -101,6 +122,7 @@ class InputJar {
   }
 
   const uint8_t* mapped_start() const { return mapped_file_.address(0); }
+  const uint8_t* mapped_end() const { return mapped_file_.end(); }
 
  private:
   bool LocateCentralDirectory(const std::string& path);
