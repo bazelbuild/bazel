@@ -137,13 +137,15 @@ public final class GlobsFunctionTest extends GlobTestBase {
             PKG_ID,
             Root.fromPath(root),
             ImmutableSet.of(unboundedSymlinksGlobRequest, goodGlobRequest));
-    EvaluationResult<GlobValue> result =
+    EvaluationResult<GlobsValue> result =
         evaluator.evaluate(ImmutableList.of(globsKey), EVALUATION_OPTIONS);
 
-    assertThat(result.hasError()).isTrue();
-    ErrorInfo errorInfo = result.getError(globsKey);
-    assertThat(errorInfo.getException()).isInstanceOf(FileSymlinkInfiniteExpansionException.class);
-    assertThat(errorInfo.getException()).hasMessageThat().contains("Infinite symlink expansion");
+    assertThat(result.hasError()).isFalse();
+    assertThat(
+            result.get(globsKey).getMatches().stream()
+                .map(PathFragment::getPathString)
+                .collect(toImmutableSet()))
+        .containsExactly("parent/sub/symlink", "foo/bar/wiz/file");
   }
 
   @Test
@@ -161,20 +163,14 @@ public final class GlobsFunctionTest extends GlobTestBase {
     GlobsValue.Key globsKey =
         GlobsValue.key(
             PKG_ID, Root.fromPath(root), ImmutableSet.of(symlinkGlobRequest1, symlinkGlobRequest2));
-    EvaluationResult<GlobValue> result =
+    EvaluationResult<GlobsValue> result =
         evaluator.evaluate(ImmutableList.of(globsKey), EVALUATION_OPTIONS);
 
-    assertThat(result.hasError()).isTrue();
-    ErrorInfo errorInfo = result.getError(globsKey);
-    assertThat(errorInfo.getException()).isInstanceOf(FileSymlinkInfiniteExpansionException.class);
-    assertThat(errorInfo.getException()).hasMessageThat().contains("Infinite symlink expansion");
-
-    // The two globs are evaluated in parallel inside GlobsFunction, so it is non-deterministic
-    // which SymlinkInfiniteExpansionException is thrown and caught first. So this test only needs
-    // to verify the output error is from either one of the SymlinkInfiniteExpansion errors.
-    assertThat(((FileSymlinkInfiniteExpansionException) errorInfo.getException()).getChain())
-        .containsAnyOf(
-            RootedPath.toRootedPath(Root.fromPath(root), pkgPath.getRelative("parent/sub1/self1")),
-            RootedPath.toRootedPath(Root.fromPath(root), pkgPath.getRelative("parent/sub2/self2")));
+    assertThat(result.hasError()).isFalse();
+    assertThat(
+            result.get(globsKey).getMatches().stream()
+                .map(PathFragment::getPathString)
+                .collect(toImmutableSet()))
+        .containsExactly("parent/sub1/self1", "parent/sub2/self2");
   }
 }
