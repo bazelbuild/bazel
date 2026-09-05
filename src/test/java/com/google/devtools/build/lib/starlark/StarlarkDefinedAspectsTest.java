@@ -507,7 +507,8 @@ MyAspect = aspect(
             "files",
             "files_to_run",
             "label",
-            "output_groups");
+            "output_groups",
+            "providers");
   }
 
   @Test

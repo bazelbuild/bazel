@@ -342,4 +342,9 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   public TransitiveInfoProviderMap getProvidersForMetrics() {
     return providers;
   }
+
+  @Override
+  protected void addDeclaredProviders(Consumer<Info> collector) {
+    addDeclaredProviders(providers, collector);
+  }
 }

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -47,6 +48,9 @@ public final class EnvironmentGroupConfiguredTarget extends AbstractConfiguredTa
   protected Object rawGetStarlarkProvider(String providerKey) {
     return null;
   }
+
+  @Override
+  protected void addDeclaredProviders(Consumer<Info> collector) {}
 
   @Override
   public boolean isCreatedInSymbolicMacro() {
