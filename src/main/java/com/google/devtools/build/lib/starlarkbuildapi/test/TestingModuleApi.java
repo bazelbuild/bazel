@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.test;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.RunEnvironmentInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -24,6 +25,7 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -144,5 +146,26 @@ public interface TestingModuleApi extends StarlarkValue {
       Sequence<?> toolchains,
       Object argsValue,
       StarlarkThread thread)
+      throws EvalException, InterruptedException;
+
+  String FAILURE_OR_NONE_NAME = "failure_or_none";
+
+  @StarlarkMethod(
+      name = FAILURE_OR_NONE_NAME,
+      doc =
+          "Executes the given function and returns the message of the first failure it encounters"
+              + " or None if it runs without encountering any. This is useful for testing that a"
+              + " function fails in a specific way (e.g., by calling <code>fail()</code>.",
+      parameters = {
+        @Param(
+            name = "function",
+            named = true,
+            allowedTypes = {@ParamType(type = StarlarkCallable.class)},
+            doc = "The function to call without any arguments."),
+      },
+      allowReturnNones = true,
+      useStarlarkThread = true)
+  @Nullable
+  String failureOrNone(StarlarkCallable callable, StarlarkThread thread)
       throws EvalException, InterruptedException;
 }
