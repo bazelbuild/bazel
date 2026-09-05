@@ -259,13 +259,15 @@ public abstract class ExecutionOptions extends OptionsBase {
       help =
           "Each test will be retried up to the specified number of times in case of any test"
               + " failure. Tests that required more than one attempt to pass are marked as 'FLAKY'"
-              + " in the test summary. Normally the value specified is just an integer or the"
-              + " string 'default'. If an integer, then all tests will be run up to N times. If"
-              + " 'default', then only a single test attempt will be made for regular tests and"
-              + " three for tests marked explicitly as flaky by their rule (flaky=1 attribute)."
-              + " Alternate syntax: regex_filter@flaky_test_attempts. Where flaky_test_attempts is"
-              + " as above and regex_filter stands for a list of include and exclude regular"
-              + " expression patterns (Also see --runs_per_test). Example:"
+              + " in the test summary. The value may be 'default', a single positive integer, or two"
+              + " comma-separated integers (<stable>,<flaky>). If 'default', then only a single"
+              + " test attempt will be made for regular tests and three for tests marked explicitly"
+              + " as flaky by their rule (flaky=1 attribute). If a single integer N is specified,"
+              + " then all tests will be run up to N times. If two comma-separated integers are"
+              + " specified, the first applies to tests without the flaky attribute and the second"
+              + " applies to tests with flaky=1. Alternate syntax: regex_filter@attempts, where"
+              + " attempts is a single positive integer that applies to all matching tests (Also"
+              + " see --runs_per_test). Example:"
               + " --flaky_test_attempts=//foo/.*,-//foo/bar/.*@3 deflakes all tests in //foo/"
               + " except those under foo/bar three times. This option can be passed multiple"
               + " times. The most recently passed argument that matches takes precedence. If"
@@ -655,55 +657,46 @@ public abstract class ExecutionOptions extends OptionsBase {
 
   /** Converter for the --flaky_test_attempts option. */
   public static class TestAttemptsConverter extends PerLabelOptions.PerLabelOptionsConverter {
-    private static final int MIN_VALUE = 1;
-    private static final int MAX_VALUE = 10;
-
-    private void validateInput(String input) throws OptionsParsingException {
-      if (!Objects.equals(input, "default")) {
-        int value = Integer.parseInt(input);
-        if (value < MIN_VALUE) {
-          throw new OptionsParsingException("'" + input + "' should be >= " + MIN_VALUE);
-        } else if (value > MAX_VALUE) {
-          throw new OptionsParsingException("'" + input + "' should be <= " + MAX_VALUE);
-        }
-      }
-    }
+    static final int MIN_VALUE = 1;
+    static final int MAX_VALUE = 10;
 
     @Override
     public PerLabelOptions convert(String input) throws OptionsParsingException {
-      try {
-        return parseAsInteger(input);
-      } catch (NumberFormatException ignored) {
+      int atIndex = input.indexOf('@');
+      if (atIndex >= 0) {
         return parseAsRegex(input);
       }
+      return parseGlobal(input);
     }
 
-    private PerLabelOptions parseAsInteger(String input)
-        throws NumberFormatException, OptionsParsingException {
-      validateInput(input);
+    private PerLabelOptions parseGlobal(String input) throws OptionsParsingException {
+      FlakyTestAttempts attempts = FlakyTestAttempts.parse(input);
       RegexFilter catchAll =
           new RegexFilter(Collections.singletonList(".*"), Collections.<String>emptyList());
-      return new PerLabelOptions(catchAll, Collections.singletonList(input));
+      return new PerLabelOptions(
+          catchAll, Collections.singletonList(attempts.toCanonicalString()));
     }
 
     private PerLabelOptions parseAsRegex(String input) throws OptionsParsingException {
+      int atIndex = input.indexOf('@');
+      if (input.substring(atIndex + 1).contains(",")) {
+        throw new OptionsParsingException(
+            "'"
+                + input
+                + "' uses comma-separated attempts, which is only supported for global values;"
+                + " per-target overrides must use a single integer");
+      }
       PerLabelOptions testRegexps = super.convert(input);
       if (testRegexps.getOptions().size() != 1) {
         throw new OptionsParsingException("'" + input + "' has multiple runs for a single pattern");
       }
-      String runsPerTest = Iterables.getOnlyElement(testRegexps.getOptions());
-      try {
-        // Run this in order to catch errors.
-        validateInput(runsPerTest);
-      } catch (NumberFormatException e) {
-        throw new OptionsParsingException("'" + input + "' has a non-numeric value", e);
-      }
+      FlakyTestAttempts.parse(Iterables.getOnlyElement(testRegexps.getOptions()));
       return testRegexps;
     }
 
     @Override
     public String getTypeDescription() {
-      return "a positive integer, the string \"default\", or test_regex@attempts. "
+      return "default, a positive integer, <stable>,<flaky>, or test_regex@attempts. "
           + "This flag may be passed more than once";
     }
   }
