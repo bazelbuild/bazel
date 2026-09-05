@@ -602,6 +602,14 @@ sh_test(
 )
 
 sh_test(
+    name = "mobile_install_test",
+    size = "small",
+    srcs = ["mobile_install_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+)
+
+sh_test(
     name = "modify_execution_info_test",
     size = "medium",
     srcs = ["modify_execution_info_test.sh"],
