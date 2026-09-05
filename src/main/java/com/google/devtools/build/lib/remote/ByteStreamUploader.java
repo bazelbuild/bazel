@@ -17,6 +17,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDigestFunction;
 import static java.lang.String.format;
 
+import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
 import com.google.bytestream.ByteStreamGrpc;
@@ -308,10 +309,18 @@ final class ByteStreamUploader {
     }
 
     private ByteStreamStub bsAsyncStub(Channel channel) {
-      return ByteStreamGrpc.newStub(channel)
-          .withInterceptors(
-              TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
-          .withCallCredentials(callCredentialsProvider.getCallCredentials());
+      ByteStreamStub stub =
+          ByteStreamGrpc.newStub(channel)
+              .withInterceptors(
+                  TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
+              .withCallCredentials(callCredentialsProvider.getCallCredentials());
+      ChunkingFunction.Value chunkingFunction = context.getChunkingFunction();
+      if (chunkingFunction != null) {
+        stub =
+            stub.withInterceptors(
+                TracingMetadataUtils.attachChunkedHeaderInterceptor(chunkingFunction));
+      }
+      return stub;
     }
 
     private ListenableFuture<Long> query() {
