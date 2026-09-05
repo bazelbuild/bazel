@@ -13,6 +13,8 @@
 // limitations under the License.
 #include "src/main/cpp/archive_utils.h"
 
+#include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -20,6 +22,7 @@
 #include <set>
 #include <string>
 #include <thread>  // NOLINT
+#include <utility>
 #include <vector>
 
 #include "src/main/cpp/blaze_util.h"

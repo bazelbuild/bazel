@@ -16,6 +16,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <string>
 
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path.h"

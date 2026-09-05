@@ -14,6 +14,10 @@
 
 #include "src/tools/singlejar/combiners.h"
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+
 #include "src/tools/singlejar/input_jar.h"
 #include "src/tools/singlejar/test_util.h"
 #include "src/tools/singlejar/zip_headers.h"

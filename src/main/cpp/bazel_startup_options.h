@@ -15,6 +15,7 @@
 #define BAZEL_SRC_MAIN_CPP_BAZEL_STARTUP_OPTIONS_H_
 
 #include <string>
+#include <vector>
 
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/exit_code.h"

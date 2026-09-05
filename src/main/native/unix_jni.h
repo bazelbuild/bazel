@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <sys/stat.h>
 
+#include <cstddef>
 #include <string>
 
 namespace blaze_jni {

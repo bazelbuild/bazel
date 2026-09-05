@@ -23,6 +23,7 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <memory>
 #include <sstream>
 #include <string>

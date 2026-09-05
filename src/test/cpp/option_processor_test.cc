@@ -14,7 +14,9 @@
 
 #include "src/main/cpp/option_processor.h"
 
+#include <cstddef>
 #include <memory>
+#include <vector>
 
 #include "src/main/cpp/bazel_startup_options.h"
 #include "src/main/cpp/blaze_util.h"

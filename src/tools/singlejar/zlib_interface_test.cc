@@ -14,6 +14,9 @@
 
 #include "src/tools/singlejar/zlib_interface.h"
 
+#include <cstddef>
+#include <cstdint>
+
 #include "googletest/include/gtest/gtest.h"
 
 namespace {

@@ -21,6 +21,9 @@
 #include <stdarg.h>  // NOLINT
 #include <stdlib.h>  // NOLINT
 
+#include <memory>
+#include <string>
+
 #include "src/tools/singlejar/input_jar_scan_entries_test.h"
 
 using rules_cc::cc::runfiles::Runfiles;
