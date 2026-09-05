@@ -245,7 +245,7 @@ EOF
 
   GCOV=/from/env BAZEL_LLVM_COV=/from/env bazel --ignore_all_rc_files $STARTUP_OPTS coverage --test_output=all \
     //foo:print_coverage_env &> $TEST_log || true
-  expect_log "cc_code_coverage_script: .*collect_cc_coverage.sh"
+  expect_log "cc_code_coverage_script: .*rules_cc.*/cc/private/coverage/collect_cc_coverage.sh"
   expect_log "llvm_cov: /from/env"
   expect_log "coverage_gcov_path: /from/env"
 
