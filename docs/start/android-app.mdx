@@ -32,6 +32,7 @@ In this tutorial you learn how to:
 *   Create a `BUILD` file.
 *   Build the app with Bazel.
 *   Deploy and run the app on an Android emulator or physical device.
+*   Optimize app size and memory usage with R8.
 
 ## Before you begin
 
@@ -384,7 +385,80 @@ Now the "Bazel Tutorial App" should install and launch automatically:
 
 **Figure 2.** Bazel tutorial app.
 
-**Congratulations! You have just installed your first Bazel-built Android app.**
+### Optimize app size and memory usage
+
+Android uses **R8** (the modern optimizer that replaced **ProGuard**) to reduce
+app size and improve performance by shrinking unused code and resources,
+optimizing bytecode, and obfuscating names. Note that while R8 is the tool used
+under the hood, configuration attributes in `android_binary` still use the
+`proguard_` prefix (such as `proguard_specs`) for historical compatibility with
+ProGuard configuration files.
+
+For more information on R8 and configuring keep rules to optimize your app, see
+the [Android R8 Keep Rules
+documentation](https://developer.android.com/r/tools/r8/keep-rules).
+
+#### Configure R8 in the BUILD file
+
+Because R8 optimization can increase build time, it is common practice to
+declare a separate optimized target rather than running R8 on every debug build.
+
+Update `src/main/BUILD` to add a new `android_binary` target named
+`r8-optimized-app` that lives alongside the existing `app` target:
+
+`src/main/BUILD`:
+
+```python
+android_binary(
+    name = "r8-optimized-app",
+    manifest = "//src/main/java/com/example/bazel:AndroidManifest.xml",
+    proguard_generate_mapping = True,
+    proguard_specs = ["proguard-android-optimize.txt", "proguard-rules.pro"],
+    shrink_resources = True,
+    deps = ["//src/main/java/com/example/bazel:greeter_activity"],
+)
+```
+
+The optimization attributes used here are:
+
+*   `proguard_specs`: Specifies the configuration files containing rules that
+    dictate how R8 applies code shrinking and optimization. The
+    `proguard-android-optimize.txt` file included in the sample project contains
+    the default recommended optimizations for the Android platform, while the
+    blank `proguard-rules.pro` allows you to define custom keep rules specific
+    to your app.
+*   `shrink_resources`: When set to `True`, enables resource shrinking to remove
+    unused resources from the packaged APK. Resource shrinking requires code
+    shrinking (`proguard_specs`) to be enabled.
+*   `proguard_generate_mapping`: When set to `True`, instructs Bazel to output a
+    mapping file (such as `_proguard.map`) that maps obfuscated class and method
+    names back to their original names, which increases build time but is
+    essential for de-obfuscating crash stack traces.
+
+#### Build the optimized app
+
+Run the following command to build the optimized binary:
+
+```posix-terminal
+bazel build //src/main:r8-optimized-app
+```
+
+Bazel will run R8 during the build process to shrink, optimize, and obfuscate
+your app, and place the resulting APK in
+`bazel-bin/src/main/r8-optimized-app.apk`.
+
+**Note:** The `r8-optimized-app.apk` will be roughly the same size as the
+unoptimized `app.apk` because this sample app is already very small. The impact
+of R8 optimizations will be much more noticeable as an app becomes larger and
+more complex.
+
+**Important:** Always thoroughly test apps built with R8 before publishing.
+Because R8 strips unused code and obfuscates class/member names, runtime issues
+(such as `ClassNotFoundException` or reflection errors) can occur if necessary
+classes or methods are not explicitly preserved in `proguard-rules.pro`.
+
+**Congratulations! You have just built and optimized your first Bazel-built
+Android app.**
 
 ## Further reading
 
@@ -392,6 +466,7 @@ For more details, see these pages:
 
 * Open issues on [rules_android GitHub](https://github.com/bazelbuild/rules_android/issues)
 * More information on [mobile-install](/docs/mobile-install)
+* Learn more about [R8 keep rules](https://developer.android.com/r/tools/r8/keep-rules)
 * Integrate external dependencies like AppCompat, Guava and JUnit from Maven
   repositories using [rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external)
 * Run Robolectric tests with the [robolectric-bazel](https://github.com/robolectric/robolectric-bazel)
