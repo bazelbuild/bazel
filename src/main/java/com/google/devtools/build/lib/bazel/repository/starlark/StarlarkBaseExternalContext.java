@@ -441,6 +441,19 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     return result.build();
   }
 
+  /** Returns true if the URL targets localhost (127.0.0.1, ::1, or localhost). */
+  private static boolean isLocalhostUrl(URI url) {
+    String host = url.getHost();
+    if (host == null) {
+      return false;
+    }
+    // URI.getHost() may return IPv6 literals with or without brackets depending on JDK version.
+    return Ascii.equalsIgnoreCase(host, "localhost")
+        || host.equals("127.0.0.1")
+        || host.equals("::1")
+        || host.equals("[::1]");
+  }
+
   private static ImmutableList<URI> getUrls(
       Object urlOrList, boolean ensureNonEmpty, boolean checksumGiven)
       throws RepositoryFunctionException, EvalException {
@@ -467,7 +480,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
             new IOException("Unsupported protocol: " + url.getScheme()), Transience.PERSISTENT);
       }
       if (!checksumGiven) {
-        if (!Ascii.equalsIgnoreCase("http", url.getScheme())) {
+        if (!Ascii.equalsIgnoreCase("http", url.getScheme()) || isLocalhostUrl(url)) {
           urls.add(url);
         }
       } else {
