@@ -46,12 +46,17 @@ import com.google.devtools.build.lib.actions.cache.PostableActionCacheStats;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.platform.PlatformFunction;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions.ConvenienceSymlinksMode;
 import com.google.devtools.build.lib.buildtool.buildevent.ConvenienceSymlinksIdentifiedEvent;
@@ -95,6 +100,7 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.skyframe.IncrementalPackageRoots;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
@@ -106,6 +112,10 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.ErrorInfo;
+import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -148,12 +158,13 @@ public class ExecutionTool {
 
   @Nullable private ActionCacheChecker actionCacheChecker;
   private final String actionExecutionSalt;
+  private final ImmutableMap<String, Double> hostPlatformResources;
 
   private boolean informedOutputServiceToStartTheBuild = false;
   private IncrementalPackageRoots incrementalPackageRoots;
 
   ExecutionTool(CommandEnvironment env, BuildRequest request)
-      throws AbruptExitException, InterruptedException {
+      throws AbruptExitException, InterruptedException, InvalidConfigurationException {
     this.env = env;
     this.runtime = env.getRuntime();
     this.request = request;
@@ -163,6 +174,9 @@ public class ExecutionTool {
     } catch (IOException e) {
       throw createExitException("Execroot creation failed", Code.EXECROOT_CREATION_FAILURE, e);
     }
+
+    this.hostPlatformResources = loadHostPlatformResources();
+    setAvailableResources(env.getLocalResourceManager(), request, hostPlatformResources);
 
     ExecutorBuilder executorBuilder = new ExecutorBuilder();
     ModuleActionContextRegistry.Builder actionContextRegistryBuilder =
@@ -215,6 +229,41 @@ public class ExecutionTool {
 
     this.actionContextRegistry = actionContextRegistryBuilder.build();
     this.spawnStrategyRegistry = spawnStrategyRegistry;
+  }
+
+  private ImmutableMap<String, Double> loadHostPlatformResources()
+      throws InvalidConfigurationException, InterruptedException {
+    var platformOptions = request.getOptions(PlatformOptions.class);
+    var hostPlatform = platformOptions.getHostPlatform();
+    SkyKey key = PlatformFunction.configuredTargetDep(hostPlatform);
+    EvaluationResult<SkyValue> result =
+        env.getSkyframeExecutor()
+            .evaluateSkyKeys(env.getReporter(), ImmutableList.of(key), request.getKeepGoing());
+    if (result.hasError()) {
+      ErrorInfo error = result.getError(key);
+      Throwable cause = error == null ? null : error.getException();
+      String message = "Failed to load host platform " + hostPlatform;
+      if (cause instanceof DetailedException detailedException) {
+        throw new InvalidConfigurationException(detailedException.getDetailedExitCode(), cause);
+      }
+      if (cause != null) {
+        throw new InvalidConfigurationException(message, cause);
+      }
+      throw new InvalidConfigurationException(message);
+    }
+
+    ConfiguredTargetValue value = (ConfiguredTargetValue) result.get(key);
+    if (value == null) {
+      throw new InvalidConfigurationException("Failed to load host platform " + hostPlatform);
+    }
+    PlatformInfo platformInfo = PlatformProviderUtils.platform(value.getConfiguredTarget());
+    if (platformInfo == null) {
+      throw new InvalidConfigurationException(
+          "Target "
+              + hostPlatform
+              + " was referenced as a platform, but does not provide PlatformInfo");
+    }
+    return platformInfo.localResources();
   }
 
   Executor getExecutor() throws AbruptExitException {
@@ -361,7 +410,7 @@ public class ExecutionTool {
       }
     }
     try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {
-      configureResourceManager(env.getLocalResourceManager(), request);
+      configureResourceManager(env.getLocalResourceManager(), request, hostPlatformResources);
     }
 
     announceEnteringDirIfEmacs();
@@ -483,7 +532,7 @@ public class ExecutionTool {
         skyframeExecutor.drainChangedFiles();
 
         try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {
-          configureResourceManager(env.getLocalResourceManager(), request);
+          configureResourceManager(env.getLocalResourceManager(), request, hostPlatformResources);
         }
 
         MemoryProfiler.instance().markPhase(ProfilePhase.EXECUTE);
@@ -995,12 +1044,17 @@ public class ExecutionTool {
 
   @VisibleForTesting
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
-    ExecutionOptions options = request.getOptions(ExecutionOptions.class);
-    resourceMgr.setAvailableResources(
-        ResourceSet.create(
-            options.getLocalResources(),
-            options.usingLocalTestJobs() ? options.getLocalTestJobs() : Integer.MAX_VALUE));
+    configureResourceManager(resourceMgr, request, ImmutableMap.of());
+  }
 
+  @VisibleForTesting
+  public static void configureResourceManager(
+      ResourceManager resourceMgr,
+      BuildRequest request,
+      ImmutableMap<String, Double> hostPlatformResources) {
+    setAvailableResources(resourceMgr, request, hostPlatformResources);
+
+    ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     resourceMgr.initializeLoadFunctionality(
         MachineLoadProvider.instance(),
         options.getExperimentalCpuLoadScheduling(),
@@ -1010,6 +1064,17 @@ public class ExecutionTool {
 
     resourceMgr.setAllowOneActionOnResourceUnavailable(
         options.getAllowOneActionOnResourceUnavailable());
+  }
+
+  private static void setAvailableResources(
+      ResourceManager resourceMgr,
+      BuildRequest request,
+      ImmutableMap<String, Double> hostPlatformResources) {
+    ExecutionOptions options = request.getOptions(ExecutionOptions.class);
+    resourceMgr.setAvailableResources(
+        ResourceSet.create(
+            options.getLocalResources(hostPlatformResources),
+            options.usingLocalTestJobs() ? options.getLocalTestJobs() : Integer.MAX_VALUE));
   }
 
   /**
