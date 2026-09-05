@@ -5,6 +5,7 @@ load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("//src:bazel_server_native_image.bzl", "bazel_server_native_image")
 load("//src:release_archive.bzl", "minimum_java_compilation_runtime_filegroup", "minimum_java_runtime_filegroup", "release_archive")
 load(":bazel_binary.bzl", "bazel_binary")
 load(":embedded_tools.bzl", "srcsfile")
@@ -326,6 +327,181 @@ genrule(
     }),
 )
 
+py_binary(
+    name = "bazel_server_native_image_configs",
+    srcs = ["bazel_server_native_image_configs.py"],
+)
+
+_NATIVE_IMAGE_PLATFORM_CONSTRAINTS = [
+    "@platforms//cpu:x86_64",
+    "@platforms//os:linux",
+]
+
+bazel_server_native_image(
+    name = "bazel-server-native-image",
+    deploy_jar = "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
+    exec_compatible_with = _NATIVE_IMAGE_PLATFORM_CONSTRAINTS,
+    graalvm_files = "@graalvm_25_2_4_linux_x64//:files",
+    gc = "G1",
+    jni_configuration = "bazel_server_native_jni_config.json",
+    native_image_tool = "@graalvm_25_2_4_linux_x64//:bin/native-image",
+    parallelism = 6,
+    reflection_configuration = "bazel_server_native_reflect_config.json",
+    tags = ["manual"],
+    target_compatible_with = _NATIVE_IMAGE_PLATFORM_CONSTRAINTS,
+)
+
+bazel_server_native_image(
+    name = "bazel-server-native-image-pgo-instrumented",
+    deploy_jar = "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
+    exec_compatible_with = _NATIVE_IMAGE_PLATFORM_CONSTRAINTS,
+    graalvm_files = "@graalvm_25_2_4_linux_x64//:files",
+    gc = "G1",
+    jni_configuration = "bazel_server_native_jni_config.json",
+    jdk_library_path = "bazel-server-native-image-pgo-instrumented/libmanagement_ext.so",
+    native_image_tool = "@graalvm_25_2_4_linux_x64//:bin/native-image",
+    output_path = "bazel-server-native-image-pgo-instrumented/A-server-native",
+    parallelism = 6,
+    pgo_instrument = True,
+    reflection_configuration = "bazel_server_native_reflect_config.json",
+    tags = ["manual"],
+    target_compatible_with = _NATIVE_IMAGE_PLATFORM_CONSTRAINTS,
+)
+
+bazel_server_native_image(
+    name = "bazel-server-native-image-pgo",
+    deploy_jar = "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
+    exec_compatible_with = _NATIVE_IMAGE_PLATFORM_CONSTRAINTS,
+    graalvm_files = "@graalvm_25_2_4_linux_x64//:files",
+    gc = "G1",
+    jni_configuration = "bazel_server_native_jni_config.json",
+    jdk_library_path = "bazel-server-native-image-pgo/libmanagement_ext.so",
+    native_image_tool = "@graalvm_25_2_4_linux_x64//:bin/native-image",
+    output_path = "bazel-server-native-image-pgo/A-server-native",
+    parallelism = 6,
+    pgo_profiles = ["bazel_server_native_pgo_profile.iprof"],
+    reflection_configuration = "bazel_server_native_reflect_config.json",
+    tags = ["manual"],
+    target_compatible_with = _NATIVE_IMAGE_PLATFORM_CONSTRAINTS,
+)
+
+genrule(
+    name = "install_base_key-file_native",
+    srcs = [
+        ":bazel-server-native-image",
+        ":install_base_key-file_jdk_allmodules",
+    ],
+    outs = ["install_base_key_native"],
+    cmd = "$(location :md5) $(SRCS) > $@",
+    tools = [
+        ":md5",
+    ],
+    tags = ["manual"],
+)
+
+genrule(
+    name = "install_base_key-file_native_pgo_instrumented",
+    srcs = [
+        ":bazel-server-native-image-pgo-instrumented",
+        ":install_base_key-file_jdk_allmodules",
+    ],
+    outs = ["install_base_key_native_pgo_instrumented"],
+    cmd = "$(location :md5) $(SRCS) > $@",
+    tools = [
+        ":md5",
+    ],
+    tags = ["manual"],
+)
+
+genrule(
+    name = "install_base_key-file_native_pgo",
+    srcs = [
+        ":bazel-server-native-image-pgo",
+        ":install_base_key-file_jdk_allmodules",
+    ],
+    outs = ["install_base_key_native_pgo"],
+    cmd = "$(location :md5) $(SRCS) > $@",
+    tools = [
+        ":md5",
+    ],
+    tags = ["manual"],
+)
+
+genrule(
+    name = "package-zip_native",
+    srcs = [
+        ":embedded_tools_jdk_allmodules.zip",
+        "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
+        "install_base_key_native",
+        "//:platforms-srcs",
+        ":bazel-server-native-image",
+        "//src/main/java/net/starlark/java/eval:cpu_profiler_jni",
+        "//src/main/tools:process-wrapper",
+        "//src/main/tools:linux-sandbox",
+        "//tools/osx:xcode-locator",
+    ] + select({
+        "//src/conditions:windows": [],
+        "//conditions:default": [
+            "//src/main/tools:daemonize",
+        ],
+    }),
+    outs = ["package_native.zip"],
+    cmd = "$(location :package_bazel_on_host_platform) --native-server $@ $(SRCS)",
+    tags = ["manual"],
+    target_compatible_with = _NATIVE_IMAGE_PLATFORM_CONSTRAINTS,
+    tools = [":package_bazel_on_host_platform"],
+)
+
+genrule(
+    name = "package-zip_native_pgo_instrumented",
+    srcs = [
+        ":embedded_tools_jdk_allmodules.zip",
+        "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
+        "install_base_key_native_pgo_instrumented",
+        "//:platforms-srcs",
+        ":bazel-server-native-image-pgo-instrumented",
+        "//src/main/java/net/starlark/java/eval:cpu_profiler_jni",
+        "//src/main/tools:process-wrapper",
+        "//src/main/tools:linux-sandbox",
+        "//tools/osx:xcode-locator",
+    ] + select({
+        "//src/conditions:windows": [],
+        "//conditions:default": [
+            "//src/main/tools:daemonize",
+        ],
+    }),
+    outs = ["package_native_pgo_instrumented.zip"],
+    cmd = "$(location :package_bazel_on_host_platform) --native-server $@ $(SRCS)",
+    tags = ["manual"],
+    target_compatible_with = _NATIVE_IMAGE_PLATFORM_CONSTRAINTS,
+    tools = [":package_bazel_on_host_platform"],
+)
+
+genrule(
+    name = "package-zip_native_pgo",
+    srcs = [
+        ":embedded_tools_jdk_allmodules.zip",
+        "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
+        "install_base_key_native_pgo",
+        "//:platforms-srcs",
+        ":bazel-server-native-image-pgo",
+        "//src/main/java/net/starlark/java/eval:cpu_profiler_jni",
+        "//src/main/tools:process-wrapper",
+        "//src/main/tools:linux-sandbox",
+        "//tools/osx:xcode-locator",
+    ] + select({
+        "//src/conditions:windows": [],
+        "//conditions:default": [
+            "//src/main/tools:daemonize",
+        ],
+    }),
+    outs = ["package_native_pgo.zip"],
+    cmd = "$(location :package_bazel_on_host_platform) --native-server $@ $(SRCS)",
+    tags = ["manual"],
+    target_compatible_with = _NATIVE_IMAGE_PLATFORM_CONSTRAINTS,
+    tools = [":package_bazel_on_host_platform"],
+)
+
 [bazel_binary(
     name = "bazel-bin" + suffix,
     out = "bazel" + suffix,
@@ -347,6 +523,42 @@ genrule(
     ("_notools", "_notools"),
     ("_nojdk", "_nojdk"),
 ]]
+
+bazel_binary(
+    name = "bazel-bin_native",
+    out = "bazel_native",
+    client = "//src/main/cpp:client_native_image_server",
+    package_zip = ":package-zip_native",
+    tags = ["manual"],
+    target_compatible_with = _NATIVE_IMAGE_PLATFORM_CONSTRAINTS,
+    visibility = [
+        "//src/test:__subpackages__",
+    ],
+)
+
+bazel_binary(
+    name = "bazel-bin_native_pgo_instrumented",
+    out = "bazel_native_pgo_instrumented",
+    client = "//src/main/cpp:client_native_image_server",
+    package_zip = ":package-zip_native_pgo_instrumented",
+    tags = ["manual"],
+    target_compatible_with = _NATIVE_IMAGE_PLATFORM_CONSTRAINTS,
+    visibility = [
+        "//src/test:__subpackages__",
+    ],
+)
+
+bazel_binary(
+    name = "bazel-bin_native_pgo",
+    out = "bazel_native_pgo",
+    client = "//src/main/cpp:client_native_image_server",
+    package_zip = ":package-zip_native_pgo",
+    tags = ["manual"],
+    target_compatible_with = _NATIVE_IMAGE_PLATFORM_CONSTRAINTS,
+    visibility = [
+        "//src/test:__subpackages__",
+    ],
+)
 
 # Build an executable named `bazel.exe` (and suffixes).
 # Works on all platforms but only makes sense on Windows.

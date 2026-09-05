@@ -33,6 +33,7 @@ function set_up() {
 }
 
 function tear_down() {
+  capture_native_image_server_logs
   bazel clean --expunge
   bazel shutdown
   rm -rf pkg
@@ -67,7 +68,12 @@ function do_succeed_when_executor_not_initialized_test() {
   local pid="${!}"
 
   echo "Waiting for Blaze to finish initializing all modules"
-  while ! grep "currently loading: pkg" "${TEST_log}"; do
+  local wait_seconds=0
+  while ! grep -q "currently loading: pkg" "${TEST_log}"; do
+    if (( wait_seconds >= 120 )); then
+      fail "Timed out waiting for Blaze to load pkg"
+    fi
+    (( ++wait_seconds ))
     sleep 1
   done
 
@@ -75,7 +81,30 @@ function do_succeed_when_executor_not_initialized_test() {
   kill "${pid}"
 
   echo "And now giving Blaze a chance to finalize all modules"
-  echo "unblock fifo" >pkg/BUILD
+  (echo "unblock fifo" >pkg/BUILD) &
+  local writer_pid="${!}"
+  local unblock_seconds=0
+  while kill -0 "${writer_pid}" 2>/dev/null; do
+    if (( unblock_seconds >= 30 )); then
+      kill "${writer_pid}" 2>/dev/null || true
+      wait "${writer_pid}" 2>/dev/null || true
+      fail "Timed out unblocking pkg/BUILD fifo"
+    fi
+    (( ++unblock_seconds ))
+    sleep 1
+  done
+  wait "${writer_pid}" || true
+
+  local command_wait_seconds=0
+  while kill -0 "${pid}" 2>/dev/null; do
+    if (( command_wait_seconds >= 30 )); then
+      kill -KILL "${pid}" 2>/dev/null || true
+      wait "${pid}" 2>/dev/null || true
+      fail "Timed out waiting for interrupted Bazel command"
+    fi
+    (( ++command_wait_seconds ))
+    sleep 1
+  done
   wait "${pid}" || true
 
   expect_log "Build did NOT complete successfully"
