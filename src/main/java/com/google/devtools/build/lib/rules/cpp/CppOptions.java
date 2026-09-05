@@ -864,7 +864,7 @@ public abstract class CppOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_use_cpp_compile_header_mnemonic",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},

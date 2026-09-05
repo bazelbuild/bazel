@@ -1157,13 +1157,16 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testHeaderCompileActionMnemonic() throws Exception {
+  public void testNoIncompatibleUseCppCompileHeaderMnemonic() throws Exception {
     AnalysisMock.get()
         .ccSupport()
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.PARSE_HEADERS));
-    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+    useConfiguration(
+        "--noincompatible_use_cpp_compile_header_mnemonic",
+        "--features=parse_headers",
+        "--process_headers_in_dependencies");
 
     ConfiguredTarget x =
         scratchConfiguredTarget(
@@ -1179,16 +1182,13 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testIncompatibleUseCppCompileHeaderMnemonic() throws Exception {
+  public void testUseCppCompileHeaderMnemonicByDefault() throws Exception {
     AnalysisMock.get()
         .ccSupport()
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.PARSE_HEADERS));
-    useConfiguration(
-        "--incompatible_use_cpp_compile_header_mnemonic",
-        "--features=parse_headers",
-        "--process_headers_in_dependencies");
+    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
 
     ConfiguredTarget x =
         scratchConfiguredTarget(
