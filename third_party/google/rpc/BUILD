@@ -17,6 +17,11 @@ alias(
     actual = "@googleapis//google/rpc:rpc_java_proto",
 )
 
+alias(
+    name = "rpc_java_proto",
+    actual = "@googleapis//google/rpc:rpc_java_proto",
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
