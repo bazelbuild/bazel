@@ -400,6 +400,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/protobuf:execution_statistics_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party/google/longrunning:operations_java_proto",
         "//third_party/google/protobuf:any_java_proto",

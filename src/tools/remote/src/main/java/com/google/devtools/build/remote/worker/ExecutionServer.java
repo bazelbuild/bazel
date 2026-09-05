@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.FutureCommandResult;
+import com.google.devtools.build.lib.shell.Protos.ExecutionStatistics;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -72,6 +73,7 @@ import io.grpc.stub.StreamObserver;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.FileAlreadyExistsException;
 import java.time.Duration;
 import java.time.Instant;
@@ -352,12 +354,15 @@ final class ExecutionServer extends ExecutionImplBase {
 
     // TODO(ulfjack): This is basically a copy of LocalSpawnRunner. Ideally, we'd use that
     // implementation instead of copying it.
+    String uuid = UUID.randomUUID().toString();
+    // When running under the sandbox, ask it to write execution statistics (e.g. peak memory) so we
+    // can surface them to the client via the action's auxiliary metadata.
+    Path statisticsPath = execRoot.getChild("stats-" + uuid);
     com.google.devtools.build.lib.shell.Command cmd =
-        getCommand(command, workingDirectory.asFragment());
+        getCommand(command, workingDirectory.asFragment(), statisticsPath);
     Instant startTime = Instant.now();
     CommandResult cmdResult = null;
 
-    String uuid = UUID.randomUUID().toString();
     Path stdout = execRoot.getChild("stdout-" + uuid);
     Path stderr = execRoot.getChild("stderr-" + uuid);
     try (FileOutErr outErr = new FileOutErr(stdout, stderr)) {
@@ -454,6 +459,11 @@ final class ExecutionServer extends ExecutionImplBase {
         }
       }
 
+      // Surface any measured execution statistics (e.g. peak memory) to the client through the
+      // execution metadata's auxiliary metadata, following the convention documented for
+      // ExecutedActionMetadata.auxiliary_metadata.
+      result = maybeAddExecutionStatistics(result, statisticsPath);
+
       resp.setResult(result);
 
       if (errStatus != null) {
@@ -472,6 +482,33 @@ final class ExecutionServer extends ExecutionImplBase {
 
   private static boolean wasTimeout(long timeoutMillis, long wallTimeMillis) {
     return timeoutMillis > 0 && wallTimeMillis > timeoutMillis;
+  }
+
+  // Reads the execution statistics written by the sandbox (if any) and attaches them to the
+  // action's execution metadata as auxiliary metadata. This lets clients record measured resource
+  // usage (e.g. peak memory) for remotely executed actions, just as they do for local ones.
+  private static ActionResult maybeAddExecutionStatistics(
+      ActionResult result, Path statisticsPath) {
+    if (!statisticsPath.exists()) {
+      return result;
+    }
+    try (InputStream in = statisticsPath.getInputStream()) {
+      ExecutionStatistics executionStatistics =
+          ExecutionStatistics.parseFrom(in, ExtensionRegistry.getEmptyRegistry());
+      if (!executionStatistics.hasResourceUsage()) {
+        return result;
+      }
+      return result.toBuilder()
+          .setExecutionMetadata(
+              result.getExecutionMetadata().toBuilder()
+                  .addAuxiliaryMetadata(Any.pack(executionStatistics)))
+          .build();
+    } catch (IOException e) {
+      // Best-effort: if we can't read the stats, just don't attach them.
+      logger.atWarning().withCause(e).log(
+          "Failed to read execution statistics from %s", statisticsPath);
+      return result;
+    }
   }
 
   private static ImmutableList<String> getArguments(Command command) {
@@ -568,7 +605,7 @@ final class ExecutionServer extends ExecutionImplBase {
   // arguments. Otherwise, returns a Command that would run the specified command inside the
   // specified docker container.
   private com.google.devtools.build.lib.shell.Command getCommand(
-      Command cmd, PathFragment workingDirectory)
+      Command cmd, PathFragment workingDirectory, Path statisticsPath)
       throws StatusException, InterruptedException, IOException {
     ImmutableList<String> arguments = getArguments(cmd);
     Map<String, String> environmentVariables = getEnvironmentVariables(cmd);
@@ -619,6 +656,9 @@ final class ExecutionServer extends ExecutionImplBase {
       // Run command with sandboxing.
       ArrayList<String> newCommandLineElements = new ArrayList<>(arguments.size());
       newCommandLineElements.add(sandboxPath.getPathString());
+      // Have the sandbox write execution statistics (e.g. peak memory) to a file.
+      newCommandLineElements.add("-S");
+      newCommandLineElements.add(statisticsPath.getPathString());
       if (workerOptions.getSandboxingBlockNetwork()) {
         newCommandLineElements.add("-N");
       }
