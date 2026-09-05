@@ -370,12 +370,32 @@ public abstract class ExecutionOptions extends OptionsBase {
       converter = ResourceConverter.AssignmentConverter.class)
   public abstract List<Map.Entry<String, Double>> getLocalResourcesFields();
 
+  @Option(
+      name = "local_resources_function",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "A Starlark function that returns the local resources available to Bazel, specified as"
+              + " //pkg:file.bzl%function or @repo//pkg:file.bzl%function. The function takes no"
+              + " arguments and must return a dictionary mapping resource names to nonnegative"
+              + " numbers, or strings using the same value syntax as --local_resources. These"
+              + " values override --local_resources for matching resource names.")
+  public abstract String getLocalResourcesFunction();
+
   public final ImmutableMap<String, Double> getLocalResources() {
+    return getLocalResources(ImmutableMap.of());
+  }
+
+  /** Returns local resources, with values returned by the Starlark function taking precedence. */
+  public final ImmutableMap<String, Double> getLocalResources(
+      Map<String, Double> starlarkResources) {
     ImmutableMap.Builder<String, Double> resources = ImmutableMap.builder();
     return resources
         .put(ResourceSet.CPU, LocalHostCapacity.getLocalHostCapacity().getCpuUsage())
         .put(ResourceSet.MEMORY, .67 * LocalHostCapacity.getLocalHostCapacity().getMemoryMb())
         .putAll(getLocalResourcesFields())
+        .putAll(starlarkResources)
         .buildKeepingLast();
   }
 

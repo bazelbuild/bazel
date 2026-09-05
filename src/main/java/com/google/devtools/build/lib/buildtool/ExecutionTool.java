@@ -148,12 +148,13 @@ public class ExecutionTool {
 
   @Nullable private ActionCacheChecker actionCacheChecker;
   private final String actionExecutionSalt;
+  private final ImmutableMap<String, Double> starlarkResources;
 
   private boolean informedOutputServiceToStartTheBuild = false;
   private IncrementalPackageRoots incrementalPackageRoots;
 
   ExecutionTool(CommandEnvironment env, BuildRequest request)
-      throws AbruptExitException, InterruptedException {
+      throws AbruptExitException, InterruptedException, InvalidConfigurationException {
     this.env = env;
     this.runtime = env.getRuntime();
     this.request = request;
@@ -163,6 +164,11 @@ public class ExecutionTool {
     } catch (IOException e) {
       throw createExitException("Execroot creation failed", Code.EXECROOT_CREATION_FAILURE, e);
     }
+
+    this.starlarkResources =
+        LocalResourcesFunction.load(
+            env, request.getOptions(ExecutionOptions.class).getLocalResourcesFunction());
+    setAvailableResources(env.getLocalResourceManager(), request, starlarkResources);
 
     ExecutorBuilder executorBuilder = new ExecutorBuilder();
     ModuleActionContextRegistry.Builder actionContextRegistryBuilder =
@@ -361,7 +367,7 @@ public class ExecutionTool {
       }
     }
     try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {
-      configureResourceManager(env.getLocalResourceManager(), request);
+      configureResourceManager(env.getLocalResourceManager(), request, starlarkResources);
     }
 
     announceEnteringDirIfEmacs();
@@ -483,7 +489,7 @@ public class ExecutionTool {
         skyframeExecutor.drainChangedFiles();
 
         try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {
-          configureResourceManager(env.getLocalResourceManager(), request);
+          configureResourceManager(env.getLocalResourceManager(), request, starlarkResources);
         }
 
         MemoryProfiler.instance().markPhase(ProfilePhase.EXECUTE);
@@ -995,12 +1001,17 @@ public class ExecutionTool {
 
   @VisibleForTesting
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
-    ExecutionOptions options = request.getOptions(ExecutionOptions.class);
-    resourceMgr.setAvailableResources(
-        ResourceSet.create(
-            options.getLocalResources(),
-            options.usingLocalTestJobs() ? options.getLocalTestJobs() : Integer.MAX_VALUE));
+    configureResourceManager(resourceMgr, request, ImmutableMap.of());
+  }
 
+  @VisibleForTesting
+  public static void configureResourceManager(
+      ResourceManager resourceMgr,
+      BuildRequest request,
+      ImmutableMap<String, Double> starlarkResources) {
+    setAvailableResources(resourceMgr, request, starlarkResources);
+
+    ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     resourceMgr.initializeLoadFunctionality(
         MachineLoadProvider.instance(),
         options.getExperimentalCpuLoadScheduling(),
@@ -1010,6 +1021,17 @@ public class ExecutionTool {
 
     resourceMgr.setAllowOneActionOnResourceUnavailable(
         options.getAllowOneActionOnResourceUnavailable());
+  }
+
+  private static void setAvailableResources(
+      ResourceManager resourceMgr,
+      BuildRequest request,
+      ImmutableMap<String, Double> starlarkResources) {
+    ExecutionOptions options = request.getOptions(ExecutionOptions.class);
+    resourceMgr.setAvailableResources(
+        ResourceSet.create(
+            options.getLocalResources(starlarkResources),
+            options.usingLocalTestJobs() ? options.getLocalTestJobs() : Integer.MAX_VALUE));
   }
 
   /**
