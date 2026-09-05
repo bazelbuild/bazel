@@ -2192,12 +2192,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         """);
 
     assertThat(getExecConfiguredTarget("//foo:public_dep")).isNotNull();
-    ;
-    assertDoesNotContainEvent("requires --experimental_cc_implementation_deps");
   }
 
   @Test
-  public void testImplementationDepsSucceedsWithoutFlag() throws Exception {
+  public void testImplementationDepsSucceeds() throws Exception {
     if (!analysisMock.isThisBazel()) {
       return;
     }
@@ -2217,8 +2215,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         )
         """);
     assertThat(getConfiguredTarget("//foo:lib")).isNotNull();
-    ;
-    assertDoesNotContainEvent("requires --experimental_cc_implementation_deps");
   }
 
   @Test
