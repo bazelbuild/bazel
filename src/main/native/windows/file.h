@@ -67,6 +67,18 @@ bool HasDriveSpecifierPrefix(const char_type* p) {
   }
 }
 
+template <typename char_type>
+bool HasUncNetworkPrefix(const char_type* p) {
+  if (HasUncPrefix(p)) {
+    return (p[4] == 'U' || p[4] == 'u') &&
+           (p[5] == 'N' || p[5] == 'n') &&
+           (p[6] == 'C' || p[6] == 'c') &&
+           p[7] == '\\';
+  } else {
+    return p[0] == '\\' && p[1] == '\\';
+  }
+}
+
 std::wstring AddUncPrefixMaybe(const std::wstring& path);
 
 std::wstring RemoveUncPrefixMaybe(const std::wstring& path);

@@ -157,7 +157,11 @@ std::string PathAsJvmFlag(const std::string& path) {
 
 void AddUncPrefixMaybe(std::wstring* path) {
   if (path->size() >= MAX_PATH && !HasUncPrefix(path->c_str())) {
-    *path = std::wstring(L"\\\\?\\") + *path;
+    if (path->size() >= 2 && (*path)[0] == L'\\' && (*path)[1] == L'\\') {
+      *path = std::wstring(L"\\\\?\\UNC\\") + path->substr(2);
+    } else {
+      *path = std::wstring(L"\\\\?\\") + *path;
+    }
   }
 }
 
