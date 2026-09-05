@@ -482,18 +482,43 @@ public class CompactPersistentActionCache implements ActionCache {
       // This also ensures that the next initialization attempt will create an empty cache.
       // To avoid using too much disk space, only keep the most recent corrupted cache around.
       corruptedCacheRoot.deleteTree();
-      cacheRoot.renameTo(corruptedCacheRoot);
+
+      boolean renamedCacheRoot = false;
+      try {
+        cacheRoot.renameTo(corruptedCacheRoot);
+        renamedCacheRoot = true;
+      } catch (IOException ioe) {
+        ioe = new IOException("%s: %s".formatted(message, ioe.getMessage()), ioe);
+
+        logger.atWarning().withCause(ioe).log("Unable to rename %s to %s", cacheRoot, corruptedCacheRoot);
+
+        reporterForInitializationErrors.handle(
+            Event.warn(
+                "Error during action cache initialization: "
+                    + ioe.getMessage()
+                    + ". Data may be incomplete, potentially causing rebuilds"));
+      }
 
       e = new IOException("%s: %s".formatted(message, e.getMessage()), e);
 
-      logger.atWarning().withCause(e).log(
-          "Failed to load action cache, preexisting files kept in %s", corruptedCacheRoot);
+      if (renamedCacheRoot) {
+        logger.atWarning().withCause(e).log(
+            "Failed to load action cache, preexisting files kept in %s", corruptedCacheRoot);
+      } else {
+        logger.atWarning().withCause(e).log(
+            "Failed to load action cache");
+      }
 
       reporterForInitializationErrors.handle(
           Event.warn(
               "Error during action cache initialization: "
                   + e.getMessage()
                   + ". Data may be incomplete, potentially causing rebuilds"));
+
+      // If we failed to rename cacheRoot, then we fall back to deleting it.
+      if (!renamedCacheRoot) {
+        cacheRoot.deleteTree();
+      }
     }
 
     return create(
