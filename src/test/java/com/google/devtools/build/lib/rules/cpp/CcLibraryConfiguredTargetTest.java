@@ -2615,4 +2615,35 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(action.getInputs().toList()).contains(getSourceArtifact("foo/compiler_input.txt"));
     assertThat(action.getArguments()).contains("-DFOO=foo/compiler_input.txt");
   }
+
+  @Test
+  public void testAdditionalCompilerInputsAreIncludeScanningRoots() throws Exception {
+    AnalysisMock.get().ccSupport().setupCcToolchainConfig(mockToolsConfig);
+    scratch.file(
+        "foo/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        cc_library(
+            name = 'foo',
+            srcs = ['hello.cc'],
+            hdrs = ['other.h'],
+            additional_compiler_inputs = ['forced.def'],
+        )
+        """);
+    scratch.file(
+        "foo/hello.cc",
+        """
+        #define FORCED_HEADER "forced.def"
+        #include FORCED_HEADER
+        """);
+    scratch.file("foo/forced.def", "#include \"other.h\"");
+    scratch.file("foo/other.h");
+
+    ConfiguredTarget lib = getConfiguredTarget("//foo:foo");
+    Artifact artifact = getBinArtifact("_objs/foo/hello.o", lib);
+    CppCompileAction action = (CppCompileAction) getGeneratingAction(artifact);
+    Artifact forcedInput = getSourceArtifact("foo/forced.def");
+    assertThat(action.getInputs().toList()).contains(forcedInput);
+    assertThat(action.getIncludeScannerSources()).contains(forcedInput);
+  }
 }
