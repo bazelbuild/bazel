@@ -367,6 +367,10 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
     String testTmpdir = env.get("TEST_TMPDIR");
     if (testTmpdir != null) {
+      // Validate that TEST_TMPDIR does not contain path traversal sequences.
+      // Unlike TMPDIR (sanitized by PosixLocalEnvProvider, see #3296),
+      // TEST_TMPDIR is passed through unvalidated from the action environment.
+      validateTestTmpdir(testTmpdir, sandboxExecRoot);
       addWritablePath(
           sandboxExecRoot,
           writablePaths,
@@ -435,6 +439,24 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       }
     } else {
       throw new IOException(String.format(pathDoesNotExistErrorTemplate, path.getPathString()));
+    }
+  }
+
+  /**
+   * Validates that TEST_TMPDIR does not contain path traversal sequences.
+   *
+   * <p>Absolute TEST_TMPDIR values are legitimate (set via --test_tmpdir).
+   * The concern is '../' traversal in relative paths escaping sandboxExecRoot.
+   */
+  private static void validateTestTmpdir(String testTmpdir, Path sandboxExecRoot)
+      throws IOException {
+    PathFragment fragment = PathFragment.create(testTmpdir);
+    if (fragment.containsUplevelReferences()) {
+      throw new IOException(
+          String.format(
+              "TEST_TMPDIR must not contain '..' path traversal (it could escape the sandbox),"
+                  + " got: \"%s\" (sandboxExecRoot: %s)",
+              testTmpdir, sandboxExecRoot.getPathString()));
     }
   }
 
