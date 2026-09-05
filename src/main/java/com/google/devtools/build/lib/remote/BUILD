@@ -732,6 +732,7 @@ java_library(
         "//src/tools/remote:__subpackages__",
     ],
     deps = [
+        ":bazel_output_service_cluster",
         "//src/main/java/com/google/devtools/build/lib/exec:abstract_spawn_strategy",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
