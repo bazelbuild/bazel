@@ -46,7 +46,7 @@ static void PreprocessEnvString(std::string* env_str) {
 
 static void PreprocessEnvString(std::string* env_str) {
   static constexpr const char* vars_to_uppercase[] = {
-      "PATH", "SYSTEMROOT", "SYSTEMDRIVE", "TEMP", "TEMPDIR", "TMP"};
+      "PATH", "PATHEXT", "SYSTEMROOT", "SYSTEMDRIVE", "TEMP", "TEMPDIR", "TMP"};
 
   std::size_t pos = env_str->find_first_of('=');
   if (pos == std::string::npos) {
