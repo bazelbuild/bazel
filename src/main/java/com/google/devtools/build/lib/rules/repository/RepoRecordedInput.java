@@ -500,11 +500,11 @@ public abstract sealed class RepoRecordedInput {
     public MaybeValue getValue(Environment env, BlazeDirectories directories)
         throws InterruptedException {
       var skyKey = getSkyKey(directories);
+      var fileValue = (FileValue) env.getValue(skyKey);
+      if (fileValue == null) {
+        return MaybeValue.VALUES_MISSING;
+      }
       try {
-        var fileValue = (FileValue) env.getValueOrThrow(skyKey, IOException.class);
-        if (fileValue == null) {
-          return MaybeValue.VALUES_MISSING;
-        }
         return new MaybeValue.Valid(
             fileValueToMarkerValue((RootedPath) skyKey.argument(), fileValue));
       } catch (IOException e) {
@@ -518,7 +518,12 @@ public abstract sealed class RepoRecordedInput {
     }
   }
 
-  /** Represents the list of entries under a directory accessed during the fetch. */
+  /**
+   * Represents the list of entries under a directory accessed during the fetch.
+   *
+   * <p>May only be requested for paths that are known to represent existing directories, so
+   * consumers usually have to request a {@link RepoRecordedInput.File} first.
+   */
   public static final class Dirents extends RepoRecordedInput {
     public static final Parser PARSER =
         new Parser() {
@@ -587,9 +592,9 @@ public abstract sealed class RepoRecordedInput {
 
     @Override
     protected boolean canBeRequestedUnconditionally() {
-      // Requesting directories in external repositories can result in cycles if the external repo
-      // transitively depends on the requesting repo.
-      return !path.inExternalRepo();
+      // If the File input requested before this input has changed its type to non-directory, this
+      // input's DirectoryListingValue must not be requested as it would result in a build error.
+      return false;
     }
 
     @Override
@@ -613,6 +618,9 @@ public abstract sealed class RepoRecordedInput {
    * Represents an entire directory tree accessed during the fetch. Anything under the tree changing
    * (including adding/removing/renaming files or directories and changing file contents) will cause
    * it to go out of date.
+   *
+   * <p>May only be requested for paths that are known to represent existing directories, so
+   * consumers usually have to request a {@link RepoRecordedInput.File} first.
    */
   public static final class DirTree extends RepoRecordedInput {
     public static final Parser PARSER =
@@ -672,26 +680,20 @@ public abstract sealed class RepoRecordedInput {
 
     @Override
     protected boolean canBeRequestedUnconditionally() {
-      // Requesting directory trees in external repositories can result in cycles if the external
-      // repo now transitively depends on the requesting repo.
-      return !path.inExternalRepo();
+      // If the File input requested before this input has changed its type to non-directory, this
+      // input's DirectoryTreeDigestValue must not be requested as it would result in a build error.
+      return false;
     }
 
     @Override
     public MaybeValue getValue(Environment env, BlazeDirectories directories)
         throws InterruptedException {
       var skyKey = getSkyKey(directories);
-      try {
-        var directoryTreeDigestValue =
-            (DirectoryTreeDigestValue) env.getValueOrThrow(skyKey, IOException.class);
-        if (directoryTreeDigestValue == null) {
-          return MaybeValue.VALUES_MISSING;
-        }
-        return new MaybeValue.Valid(directoryTreeDigestValue.hexDigest());
-      } catch (IOException e) {
-        return new MaybeValue.Invalid(
-            "failed to digest directory tree at %s: %s".formatted(path, e.getMessage()));
+      var directoryTreeDigestValue = (DirectoryTreeDigestValue) env.getValue(skyKey);
+      if (directoryTreeDigestValue == null) {
+        return MaybeValue.VALUES_MISSING;
       }
+      return new MaybeValue.Valid(directoryTreeDigestValue.hexDigest());
     }
 
     @Override
