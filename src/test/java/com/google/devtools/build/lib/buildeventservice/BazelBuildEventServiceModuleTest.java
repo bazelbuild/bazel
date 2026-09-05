@@ -366,6 +366,23 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
   }
 
   @Test
+  public void formatUrlForTerminal_withoutEscapeSequences_returnsPlainUrl() {
+    assertThat(BuildEventServiceModule.formatUrlForTerminal("http://results-ui/id", false))
+        .isEqualTo("http://results-ui/id");
+  }
+
+  @Test
+  public void formatUrlForTerminal_withEscapeSequences_returnsColoredHyperlink() {
+    assertThat(BuildEventServiceModule.formatUrlForTerminal("http://results-ui/id", true))
+        .isEqualTo(
+            "\u001B[36m"
+                + "\u001B]8;;http://results-ui/id\u001B\\"
+                + "http://results-ui/id"
+                + "\u001B]8;;\u001B\\"
+                + "\u001B[0m");
+  }
+
+  @Test
   public void testAfterCommandGrpcReportsBesResultsUrl() throws Exception {
     runBuildWithOptions(
         "--color=no", // disable ANSI color sequences

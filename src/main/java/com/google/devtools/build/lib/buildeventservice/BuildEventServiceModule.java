@@ -111,6 +111,9 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     extends BlazeModule {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+  private static final String OSC_STRING_TERMINATOR = "\u001B\\";
+  private static final String OSC_8_LINK_START = "\u001B]8;;";
+  private static final String OSC_8_LINK_END = OSC_8_LINK_START + OSC_STRING_TERMINATOR;
 
   /**
    * TargetComplete BEP events scale with the value of --runs_per_tests, thus setting a very large
@@ -713,19 +716,27 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
 
   private void constructAndMaybeReportInvocationIdUrl() {
     if (!getInvocationIdPrefix().isEmpty()) {
-      StringBuilder msg = new StringBuilder();
-      msg.append("Streaming build results to: ");
-      if (uiUsesColor) {
-        msg.append(new String(Color.CYAN.getEscapeSeq(), StandardCharsets.US_ASCII));
-      }
-      msg.append(getInvocationIdPrefix());
-      msg.append(invocationId);
-      if (uiUsesColor) {
-        msg.append(new String(Color.DEFAULT.getEscapeSeq(), StandardCharsets.US_ASCII));
-      }
-
-      reporter.handle(Event.info(msg.toString()));
+      String url = getInvocationIdPrefix() + invocationId;
+      reporter.handle(
+          Event.info("Streaming build results to: " + formatUrlForTerminal(url, uiUsesColor)));
     }
+  }
+
+  @VisibleForTesting
+  static String formatUrlForTerminal(String url, boolean useTerminalEscapeSequences) {
+    if (!useTerminalEscapeSequences) {
+      return url;
+    }
+
+    // In auto mode, Bazel only enables terminal escape sequences when stdout and stderr are TTYs.
+    // Terminals that do not implement OSC 8 ignore the control sequence and still display the URL.
+    return new String(Color.CYAN.getEscapeSeq(), StandardCharsets.US_ASCII)
+        + OSC_8_LINK_START
+        + url
+        + OSC_STRING_TERMINATOR
+        + url
+        + OSC_8_LINK_END
+        + new String(Color.DEFAULT.getEscapeSeq(), StandardCharsets.US_ASCII);
   }
 
   private void constructAndMaybeReportBuildRequestIdUrl() {
