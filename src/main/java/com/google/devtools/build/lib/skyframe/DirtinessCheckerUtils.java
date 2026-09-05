@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.vfs.FileStateKey.FILE_STATE;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
@@ -148,15 +149,29 @@ public class DirtinessCheckerUtils {
       if (cacheable) {
         return SkyValueDirtinessChecker.DirtyResult.dirtyWithNewValue(newValue);
       }
-      // The hermetic Linux sandbox uses hardlinks to stage inputs, which affects ctimes. Don't
-      // report files as modified and trigger a refetch of the repo just due to that.
-      if (fileType == FileType.EXTERNAL_REPO
-          && !(oldValue instanceof FileStateValue oldFileState
-              && newValue instanceof FileStateValue newFileState
-              && newFileState.equalsIgnoringChangeTime(oldFileState))) {
-        var repositoryName = externalFilesHelper.getExternalRepoName(rootedPath);
-        if (repositoryName != null) {
-          dirtyExternalRepos.putIfAbsent(repositoryName, rootedPath);
+      if (fileType == FileType.EXTERNAL_REPO) {
+        // A file injected by a remote repo contents cache hit that is later materialized on disk
+        // should not cause invalidation. This matches the logic for output files lazily downloaded
+        // with BwoB (see FilesystemValueChecker#artifactIsDirtyWithDirectSystemCalls).
+        if (oldValue instanceof FileStateValue.RegularFileStateValueWithMetadata oldFileState
+            && newValue
+                instanceof FileStateValue.RegularFileStateValueWithContentsProxy newFileState) {
+          var newFileArtifactValue =
+              FileArtifactValue.createForNormalFile(
+                  /* digest= */ null, newFileState.getContentsProxy(), newFileState.getSize());
+          if (!newFileArtifactValue.couldBeModifiedSince(oldFileState.getMetadata())) {
+            return SkyValueDirtinessChecker.DirtyResult.notDirty();
+          }
+        }
+        // The hermetic Linux sandbox uses hardlinks to stage inputs, which affects ctimes. Don't
+        // report files as modified and trigger a refetch of the repo just due to that.
+        if (!(oldValue instanceof FileStateValue oldFileState
+            && newValue instanceof FileStateValue newFileState
+            && newFileState.equalsIgnoringChangeTime(oldFileState))) {
+          var repositoryName = externalFilesHelper.getExternalRepoName(rootedPath);
+          if (repositoryName != null) {
+            dirtyExternalRepos.putIfAbsent(repositoryName, rootedPath);
+          }
         }
       }
       // Files under output_base/external have a dependency on the WORKSPACE file, so we don't add
