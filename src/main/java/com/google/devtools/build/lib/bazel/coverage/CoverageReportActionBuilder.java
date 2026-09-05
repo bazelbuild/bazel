@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.actions.ImportantOutputHandler.ImportantOut
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -128,8 +129,17 @@ public final class CoverageReportActionBuilder {
     @Override
     public ActionResult execute(ActionExecutionContext ctx)
         throws ActionExecutionException, InterruptedException {
+      // The resources are fixed because this action borrows an arbitrary tested target's
+      // ActionOwner (see ACTION_OWNER_COMPARATOR): its exec properties describe that test rather
+      // than this report merge, so charging their `resources:` entries would tie the report's
+      // scheduling to whichever target happened to sort largest.
       Spawn spawn =
-          new BaseSpawn(command, ImmutableMap.of(), ImmutableMap.of(), this, LOCAL_RESOURCES);
+          new BaseSpawn(
+              command,
+              ImmutableMap.of(),
+              ImmutableMap.of(),
+              this,
+              ResourceSetOrBuilder.ignoringOverrides(LOCAL_RESOURCES));
       try {
         ImmutableList<SpawnResult> spawnResults =
             ctx.getContext(SpawnStrategyResolver.class).exec(spawn, ctx);
