@@ -29,6 +29,7 @@ import build.bazel.remote.execution.v2.Tree;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.bazel.BazelHashFunctions;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -43,6 +45,7 @@ import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -251,6 +254,58 @@ public class DiskCacheClientTest {
   }
 
   @Test
+  public void downloadBlob_whenDeletedAfterRefresh_throwsCacheNotFoundException() throws Exception {
+    var raceFs = new DeleteOnMtimeUpdateFileSystem();
+    var raceClient =
+        new DiskCacheClient(
+            raceFs.getPath("/disk_cache"), DIGEST_UTIL, /* checkActionResultIntegrity= */ true);
+    try {
+      Digest digest = getDigest("contents");
+      Path casPath = populateCas(raceClient, digest, "contents".getBytes(UTF_8));
+      raceFs.deleteOnNextMtimeUpdate(casPath);
+
+      assertThrows(
+          CacheNotFoundException.class,
+          () -> getFromFuture(raceClient.downloadBlob(digest, new ByteArrayOutputStream())));
+    } finally {
+      raceClient.close();
+    }
+  }
+
+  @Test
+  public void downloadBlob_toPathBackedStream_whenDeletedAfterRefresh_throwsCacheNotFoundException()
+      throws Exception {
+    var raceFs = new DeleteOnMtimeUpdateFileSystem();
+    var raceClient =
+        new DiskCacheClient(
+            raceFs.getPath("/disk_cache"), DIGEST_UTIL, /* checkActionResultIntegrity= */ true);
+    try {
+      Digest digest = getDigest("contents");
+      Path casPath = populateCas(raceClient, digest, "contents".getBytes(UTF_8));
+      raceFs.deleteOnNextMtimeUpdate(casPath);
+      var out = new LazyFileOutputStream(raceFs.getPath("/out.tmp"));
+
+      assertThrows(
+          CacheNotFoundException.class, () -> getFromFuture(raceClient.downloadBlob(digest, out)));
+    } finally {
+      raceClient.close();
+    }
+  }
+
+  @Test
+  public void downloadBlob_whenDestinationIsUnwritable_doesNotReportCacheMiss() throws Exception {
+    Digest digest = getDigest("contents");
+    populateCas(digest, "contents");
+    // The parent directory of the destination doesn't exist. This is a genuine local filesystem
+    // error, not a cache miss, so it must not be masked as one.
+    var out = new LazyFileOutputStream(fs.getPath("/does_not_exist/out.tmp"));
+
+    var e = assertThrows(IOException.class, () -> getFromFuture(client.downloadBlob(digest, out)));
+
+    assertThat(e).isNotInstanceOf(CacheNotFoundException.class);
+  }
+
+  @Test
   public void downloadActionResult_whenPresent_returnsCachedActionResult() throws Exception {
     ActionKey actionKey = new ActionKey(getDigest("key"));
     ActionResult actionResult = ActionResult.newBuilder().setExitCode(42).build();
@@ -270,6 +325,33 @@ public class DiskCacheClientTest {
     var result = getFromFuture(client.downloadActionResult(actionKey));
 
     assertThat(result).isNull();
+  }
+
+  @Test
+  public void downloadActionResult_whenTreeDeletedAfterRefresh_returnsNull() throws Exception {
+    var raceFs = new DeleteOnMtimeUpdateFileSystem();
+    var raceClient =
+        new DiskCacheClient(
+            raceFs.getPath("/disk_cache"), DIGEST_UTIL, /* checkActionResultIntegrity= */ true);
+    try {
+      Digest treeFileDigest = getDigest("tree file contents");
+      Tree tree = getTreeWithFile(treeFileDigest);
+      Digest treeDigest = getDigest(tree);
+      ActionKey actionKey = new ActionKey(getDigest("key"));
+      ActionResult actionResult =
+          ActionResult.newBuilder()
+              .addOutputDirectories(OutputDirectory.newBuilder().setTreeDigest(treeDigest))
+              .build();
+      populateAc(raceClient, actionKey, actionResult);
+      populateCas(raceClient, treeFileDigest, "tree file contents".getBytes(UTF_8));
+      Path treeCasPath = populateCas(raceClient, treeDigest, tree.toByteArray());
+      raceFs.deleteOnNextMtimeUpdate(treeCasPath);
+
+      // The action result must be reported as stale rather than failing the lookup outright.
+      assertThat(getFromFuture(raceClient.downloadActionResult(actionKey))).isNull();
+    } finally {
+      raceClient.close();
+    }
   }
 
   @Test
@@ -539,7 +621,13 @@ public class DiskCacheClientTest {
   }
 
   private Path populateCas(Digest digest, byte[] contents) throws IOException {
-    Path path = getCasPath(digest);
+    return populateCas(client, digest, contents);
+  }
+
+  @CanIgnoreReturnValue
+  private static Path populateCas(DiskCacheClient client, Digest digest, byte[] contents)
+      throws IOException {
+    Path path = client.toPath(digest, Store.CAS);
     path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContent(path, contents);
     path.setLastModifiedTime(0);
@@ -552,7 +640,13 @@ public class DiskCacheClientTest {
 
   @CanIgnoreReturnValue
   private Path populateAc(ActionKey actionKey, ActionResult actionResult) throws IOException {
-    Path path = getAcPath(actionKey);
+    return populateAc(client, actionKey, actionResult);
+  }
+
+  @CanIgnoreReturnValue
+  private static Path populateAc(
+      DiskCacheClient client, ActionKey actionKey, ActionResult actionResult) throws IOException {
+    Path path = client.toPath(actionKey.digest(), Store.AC);
     path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContent(path, actionResult.toByteArray());
     path.setLastModifiedTime(0);
@@ -565,5 +659,32 @@ public class DiskCacheClientTest {
 
   private Digest getDigest(Message m) {
     return DIGEST_UTIL.compute(m.toByteArray());
+  }
+
+  /**
+   * An in-memory filesystem that deletes a designated path as soon as its mtime is updated,
+   * simulating a concurrent garbage collection that removes a cache entry in the window between
+   * {@link DiskCacheClient#refresh} and the read that follows it.
+   */
+  private static final class DeleteOnMtimeUpdateFileSystem extends InMemoryFileSystem {
+    private PathFragment pathToDelete;
+
+    DeleteOnMtimeUpdateFileSystem() {
+      super(DigestHashFunction.SHA256);
+    }
+
+    void deleteOnNextMtimeUpdate(Path path) {
+      pathToDelete = path.asFragment();
+    }
+
+    @Override
+    public synchronized void setLastModifiedTime(PathFragment path, long newTime)
+        throws IOException {
+      super.setLastModifiedTime(path, newTime);
+      if (path.equals(pathToDelete)) {
+        pathToDelete = null;
+        var unused = delete(path);
+      }
+    }
   }
 }
