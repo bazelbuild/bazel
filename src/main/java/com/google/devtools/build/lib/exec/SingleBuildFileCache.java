@@ -27,11 +27,13 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.lib.vfs.XattrProvider;
+import com.google.devtools.build.lib.vfs.SyscallCache;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -56,11 +58,11 @@ public class SingleBuildFileCache implements InputMetadataProvider {
           // unlikely that this default will adversely affect memory in most cases.
           .initialCapacity(10000)
           .build();
-  private final XattrProvider xattrProvider;
+  private final SyscallCache syscallCache;
 
   public SingleBuildFileCache(
-      String cwd, PathFragment relativeOutputPath, FileSystem fs, XattrProvider xattrProvider) {
-    this.xattrProvider = xattrProvider;
+      String cwd, PathFragment relativeOutputPath, FileSystem fs, SyscallCache syscallCache) {
+    this.syscallCache = syscallCache;
     this.execRoot = fs.getPath(cwd);
     this.relativeOutputPath = relativeOutputPath;
   }
@@ -89,12 +91,11 @@ public class SingleBuildFileCache implements InputMetadataProvider {
               Path path = ActionInputHelper.toInputPath(input, execRoot);
               FileArtifactValue metadata;
               try {
-                metadata =
-                    FileArtifactValue.createFromStat(
-                        path,
-                        // TODO(b/199940216): should we use syscallCache here since caching anyway?
-                        path.stat(Symlinks.FOLLOW),
-                        xattrProvider);
+                FileStatus status = syscallCache.statIfFound(path, Symlinks.FOLLOW);
+                if (status == null) {
+                  throw new FileNotFoundException(path + " (No such file or directory)");
+                }
+                metadata = FileArtifactValue.createFromStat(path, status, syscallCache);
               } catch (IOException e) {
                 return new ActionInputMetadata(input, e);
               }
