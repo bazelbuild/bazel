@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -23,7 +22,7 @@ import javax.annotation.Nullable;
  * Scope of a {@link BuildOptions} is defined by the {@link Scope.ScopeType} and {@link
  * Scope.ScopeDefinition}.
  */
-public class Scope {
+public record Scope(ScopeType scopeType, @Nullable ScopeDefinition scopeDefinition) {
   public static final String CUSTOM_EXEC_SCOPE_PREFIX = "exec:--";
 
   /** Type of supported scopes. */
@@ -78,45 +77,5 @@ public class Scope {
    * directory as the BUILD file where the scoped flags are defined or in a parent directory. This
    * is only relevant if the scope type is PROJECT.
    */
-  public static class ScopeDefinition {
-    private final ImmutableSet<String> ownedCodePaths;
-
-    public ScopeDefinition(ImmutableSet<String> ownedCodePaths) {
-      this.ownedCodePaths = ownedCodePaths;
-    }
-
-    public ImmutableSet<String> getOwnedCodePaths() {
-      return ownedCodePaths;
-    }
-
-    @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this).add("ownedCodePaths", ownedCodePaths).toString();
-    }
-  }
-
-  ScopeType scopeType;
-  @Nullable ScopeDefinition scopeDefinition;
-
-  public Scope(ScopeType scopeType, @Nullable ScopeDefinition scopeDefinition) {
-    this.scopeType = scopeType;
-    this.scopeDefinition = scopeDefinition;
-  }
-
-  public ScopeType getScopeType() {
-    return scopeType;
-  }
-
-  @Nullable
-  public ScopeDefinition getScopeDefinition() {
-    return scopeDefinition;
-  }
-
-  @Override
-  public String toString() {
-    return MoreObjects.toStringHelper(this)
-        .add("scopeType", scopeType)
-        .add("scopeDefinition", scopeDefinition)
-        .toString();
-  }
+  public record ScopeDefinition(ImmutableSet<String> ownedCodePaths) {}
 }

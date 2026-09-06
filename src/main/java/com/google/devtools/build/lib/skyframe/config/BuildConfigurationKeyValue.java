@@ -17,7 +17,6 @@ import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -31,49 +30,17 @@ public final class BuildConfigurationKeyValue implements SkyValue {
   /** Key for {@link BuildConfigurationKeyValue} based on the build options. */
   @ThreadSafety.Immutable
   @AutoCodec
-  public static final class Key implements SkyKey {
+  public record Key(BuildOptions buildOptions) implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
+    @AutoCodec.Instantiator
     public static Key create(BuildOptions buildOptions) {
       return interner.intern(new Key(buildOptions));
-    }
-
-    @VisibleForSerialization
-    @AutoCodec.Interner
-    static Key intern(Key key) {
-      return interner.intern(key);
-    }
-
-    private final BuildOptions buildOptions;
-
-    private Key(BuildOptions buildOptions) {
-      this.buildOptions = buildOptions;
-    }
-
-    public BuildOptions buildOptions() {
-      return buildOptions;
     }
 
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.BUILD_CONFIGURATION_KEY;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-      Key key = (Key) o;
-      return Objects.equals(buildOptions, key.buildOptions);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hashCode(buildOptions);
     }
 
     @Override
