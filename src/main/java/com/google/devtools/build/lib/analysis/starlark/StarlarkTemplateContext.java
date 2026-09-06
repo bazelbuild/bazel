@@ -139,8 +139,6 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
     }
 
     var action = builder.buildForStarlarkActionTemplate(actionOwner);
-    // Tools and the executable are inputs too, so validate the complete input set. Expanded actions
-    // may consume individual outputs of sibling actions, but not an entire template output directory.
     for (Artifact input : action.getInputs().toList()) {
       if (outputDirectories.contains(input)) {
         throw Starlark.errorf(
