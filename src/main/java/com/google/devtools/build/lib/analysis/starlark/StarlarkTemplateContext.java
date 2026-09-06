@@ -89,26 +89,16 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
 
     StarlarkActionFactory.buildCommandLine(builder, arguments, repoMappingSupplier);
 
-    List<Artifact> inputArtifacts;
     switch (inputs) {
       case Sequence<?> sequence -> {
-        inputArtifacts = Sequence.cast(inputs, Artifact.class, "inputs");
-        builder.addInputs(inputArtifacts);
+        builder.addInputs(Sequence.cast(sequence, Artifact.class, "inputs"));
       }
       case Depset depset -> {
         NestedSet<Artifact> inputNestedSet = Depset.cast(depset, Artifact.class, "inputs");
-        inputArtifacts = inputNestedSet.toList();
         builder.addTransitiveInputs(inputNestedSet);
       }
       default -> {
         throw Starlark.errorf("Expected a list or depset but got %s", Starlark.type(inputs));
-      }
-    }
-
-    for (Artifact input : inputArtifacts) {
-      if (outputDirectories.contains(input)) {
-        throw Starlark.errorf(
-            "Output directory %s cannot be used as an input to template_ctx.run()", input);
       }
     }
 
@@ -148,7 +138,16 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
       }
     }
 
-    actions.add(builder.buildForStarlarkActionTemplate(actionOwner));
+    var action = builder.buildForStarlarkActionTemplate(actionOwner);
+    // Tools and the executable are inputs too, so validate the complete input set. Expanded actions
+    // may consume individual outputs of sibling actions, but not an entire template output directory.
+    for (Artifact input : action.getInputs().toList()) {
+      if (outputDirectories.contains(input)) {
+        throw Starlark.errorf(
+            "Output directory %s cannot be used as an input to template_ctx.run()", input);
+      }
+    }
+    actions.add(action);
   }
 
   public void registerAction(AbstractAction action) {
