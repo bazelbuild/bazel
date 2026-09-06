@@ -48,11 +48,25 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_google_devtools_build_lib_vfs_bazel_Blake3MessageDigest_blake3_1hasher_1update(
     JNIEnv *env, jobject obj, jbyteArray jhasher, jbyteArray input, jint offset,
     jint input_len) {
+  if (input == nullptr) {
+    return;
+  }
+  jsize input_size = env->GetArrayLength(input);
+  if (offset < 0 || input_len < 0 || offset > input_size - input_len) {
+    jclass ex_class = env->FindClass("java/lang/ArrayIndexOutOfBoundsException");
+    if (ex_class != nullptr) {
+      env->ThrowNew(ex_class, "Offset or length out of bounds");
+    }
+    return;
+  }
+
   blake3_hasher *hasher = (blake3_hasher *)get_byte_array(env, jhasher);
   if (hasher) {
     jbyte *input_addr = get_byte_array(env, input);
-    blake3_hasher_update(hasher, input_addr + offset, input_len);
-    release_byte_array(env, input, input_addr);
+    if (input_addr) {
+      blake3_hasher_update(hasher, input_addr + offset, input_len);
+      release_byte_array(env, input, input_addr);
+    }
     release_byte_array(env, jhasher, (jbyte *)hasher);
   }
 }
@@ -61,11 +75,25 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_google_devtools_build_lib_vfs_bazel_Blake3MessageDigest_blake3_1hasher_1finalize(
     JNIEnv *env, jobject obj, jbyteArray jhasher, jbyteArray out,
     jint out_len) {
+  if (out == nullptr) {
+    return;
+  }
+  jsize out_size = env->GetArrayLength(out);
+  if (out_len < 0 || out_len > out_size) {
+    jclass ex_class = env->FindClass("java/lang/ArrayIndexOutOfBoundsException");
+    if (ex_class != nullptr) {
+      env->ThrowNew(ex_class, "Output length out of bounds");
+    }
+    return;
+  }
+
   blake3_hasher *hasher = (blake3_hasher *)get_byte_array(env, jhasher);
   if (hasher) {
     jbyte *out_addr = get_byte_array(env, out);
-    blake3_hasher_finalize(hasher, (uint8_t *)out_addr, out_len);
-    release_byte_array(env, out, out_addr);
+    if (out_addr) {
+      blake3_hasher_finalize(hasher, (uint8_t *)out_addr, out_len);
+      release_byte_array(env, out, out_addr);
+    }
     release_byte_array(env, jhasher, (jbyte *)hasher);
   }
 }
