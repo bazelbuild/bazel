@@ -230,8 +230,9 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
    * Returns whether this value is equal to {@code other}, except that a change to ctime (last
    * change time) only is permitted.
    *
-   * <p>Use this rather than {@link #equals} when 1) hardlinks are involved, and 2) missing certain
-   * modifications in edge cases is acceptable.
+   * <p>Use this rather than {@link #equals} when 1) metadata-only operations such as hardlink or
+   * extended-attribute changes can update ctime, and 2) missing certain modifications in edge cases
+   * is acceptable.
    */
   public boolean equalsIgnoringChangeTime(FileStateValue other) {
     if (this.equals(other)) {

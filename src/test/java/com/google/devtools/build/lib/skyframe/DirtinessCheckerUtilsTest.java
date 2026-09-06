@@ -27,12 +27,16 @@ import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.UnionDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
+import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -158,6 +162,55 @@ public final class DirtinessCheckerUtilsTest {
     Mockito.verifyNoInteractions(mockCache);
   }
 
+  // Regression test for https://github.com/bazelbuild/bazel/issues/29794.
+  @Test
+  public void externalRepoCtimeOnlyChange_doesntMarkRepositoryDirty() throws Exception {
+    NoFastDigestExternalRepoFixture fixture = new NoFastDigestExternalRepoFixture();
+    RootedPath rootedPath = fixture.makeExternalRepoFile("initial");
+    Path path = rootedPath.asPath();
+    FileStateValue oldValue =
+        FileStateValue.create(rootedPath, SyscallCache.NO_CACHE, /* tsgm= */ null);
+    FileStatus oldStat = path.stat();
+    long originalSize = oldStat.getSize();
+    long originalMtime = oldStat.getLastModifiedTime();
+    long originalCtime = oldStat.getLastChangeTime();
+    long originalNodeId = oldStat.getNodeId();
+
+    fixture.clock.advanceMillis(1);
+    // Setting mtime to its current value changes only ctime.
+    path.setLastModifiedTime(originalMtime);
+
+    FileStatus newStat = path.stat();
+    assertThat(newStat.getSize()).isEqualTo(originalSize);
+    assertThat(newStat.getLastModifiedTime()).isEqualTo(originalMtime);
+    assertThat(newStat.getNodeId()).isEqualTo(originalNodeId);
+    assertThat(newStat.getLastChangeTime()).isNotEqualTo(originalCtime);
+
+    DirtinessCheckerUtils.ExternalDirtinessChecker underTest = fixture.newExternalRepoChecker();
+    assertThat(underTest.check(rootedPath, oldValue, null, SyscallCache.NO_CACHE, null))
+        .isEqualTo(SkyValueDirtinessChecker.DirtyResult.dirty());
+    assertThat(underTest.getDirtyExternalRepos()).isEmpty();
+  }
+
+  @Test
+  public void externalRepoContentChange_marksRepositoryDirty() throws Exception {
+    NoFastDigestExternalRepoFixture fixture = new NoFastDigestExternalRepoFixture();
+    RootedPath rootedPath = fixture.makeExternalRepoFile("initial");
+    long originalSize = rootedPath.asPath().getFileSize();
+    FileStateValue oldValue =
+        FileStateValue.create(rootedPath, SyscallCache.NO_CACHE, /* tsgm= */ null);
+
+    fixture.clock.advanceMillis(1);
+    FileSystemUtils.writeContentAsLatin1(rootedPath.asPath(), "changed");
+    assertThat(rootedPath.asPath().getFileSize()).isEqualTo(originalSize);
+
+    DirtinessCheckerUtils.ExternalDirtinessChecker underTest = fixture.newExternalRepoChecker();
+    assertThat(underTest.check(rootedPath, oldValue, null, SyscallCache.NO_CACHE, null))
+        .isEqualTo(SkyValueDirtinessChecker.DirtyResult.dirty());
+    assertThat(underTest.getDirtyExternalRepos())
+        .containsExactly(RepositoryName.create("extrepo"), rootedPath);
+  }
+
   @Test
   public void externalDiffChecker_doesntMatchType() {
     DirtinessCheckerUtils.ExternalDirtinessChecker underTest =
@@ -209,5 +262,51 @@ public final class DirtinessCheckerUtilsTest {
 
   private DirtinessCheckerUtils.MissingDiffDirtinessChecker createMissingDiffChecker() {
     return new DirtinessCheckerUtils.MissingDiffDirtinessChecker(ImmutableSet.of(srcRoot));
+  }
+
+  private static final class NoFastDigestExternalRepoFixture {
+    private final ManualClock clock = new ManualClock();
+    // Match the default open-source Unix filesystem, which does not provide a fast digest.
+    private final FileSystem fs =
+        new InMemoryFileSystem(clock, DigestHashFunction.SHA256) {
+          @Override
+          public synchronized byte[] getFastDigest(PathFragment path) {
+            return null;
+          }
+        };
+    private final Path pkgRoot = fs.getPath("/testroot");
+    private final Root srcRoot = Root.fromPath(pkgRoot);
+    private final Path outputBase = fs.getPath("/outputroot/user/outputBase");
+    private final AtomicReference<PathPackageLocator> pkgLocator =
+        new AtomicReference<>(
+            new PathPackageLocator(
+                outputBase,
+                ImmutableList.of(srcRoot),
+                BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
+    private final BlazeDirectories directories =
+        new BlazeDirectories(
+            new ServerDirectories(pkgRoot, outputBase, outputBase.getParentDirectory()),
+            pkgRoot,
+            TestConstants.PRODUCT_NAME);
+    private final ExternalFilesHelper externalFilesHelper =
+        ExternalFilesHelper.createForTesting(
+            pkgLocator,
+            ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
+            directories);
+
+    private DirtinessCheckerUtils.ExternalDirtinessChecker newExternalRepoChecker() {
+      return new DirtinessCheckerUtils.ExternalDirtinessChecker(
+          externalFilesHelper, EnumSet.of(ExternalFilesHelper.FileType.EXTERNAL_REPO));
+    }
+
+    private RootedPath makeExternalRepoFile(String contents) throws IOException {
+      RootedPath rootedPath =
+          RootedPath.toRootedPath(
+              Root.fromPath(outputBase),
+              LabelConstants.EXTERNAL_REPOSITORY_LOCATION.getRelative("extrepo/file"));
+      rootedPath.asPath().getParentDirectory().createDirectoryAndParents();
+      FileSystemUtils.writeContentAsLatin1(rootedPath.asPath(), contents);
+      return rootedPath;
+    }
   }
 }

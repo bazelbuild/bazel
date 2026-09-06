@@ -148,8 +148,8 @@ public class DirtinessCheckerUtils {
       if (cacheable) {
         return SkyValueDirtinessChecker.DirtyResult.dirtyWithNewValue(newValue);
       }
-      // The hermetic Linux sandbox uses hardlinks to stage inputs, which affects ctimes. Don't
-      // report files as modified and trigger a refetch of the repo just due to that.
+      // Hardlink and extended-attribute changes can update ctime without changing contents. Don't
+      // report external repository files as modified and trigger a refetch just due to that.
       if (fileType == FileType.EXTERNAL_REPO
           && !(oldValue instanceof FileStateValue oldFileState
               && newValue instanceof FileStateValue newFileState
