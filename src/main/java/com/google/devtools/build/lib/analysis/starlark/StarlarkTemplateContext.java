@@ -139,7 +139,7 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
     }
 
     var action = builder.buildForStarlarkActionTemplate(actionOwner);
-    for (Artifact input : action.getInputs().toList()) {
+    for (var input : action.getInputs().toList()) {
       if (outputDirectories.contains(input)) {
         throw Starlark.errorf(
             "Output directory %s cannot be used as an input to template_ctx.run()", input);
