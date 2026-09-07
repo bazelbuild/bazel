@@ -1288,12 +1288,16 @@ public class RemoteExecutionService {
     ActionInput inMemoryOutput = null;
     AtomicReference<ByteString> inMemoryOutputData = new AtomicReference<>(null);
     PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
-    if (inMemoryOutputPath != null) {
-      for (ActionInput output : action.getSpawn().getOutputFiles()) {
-        if (output.getExecPath().equals(inMemoryOutputPath)) {
-          inMemoryOutput = output;
-          break;
-        }
+    Set<PathFragment> spawnOnlyOutputs = new HashSet<>();
+    for (ActionInput output : action.getSpawn().getOutputFiles()) {
+      if (output.getExecPath().equals(inMemoryOutputPath)) {
+        inMemoryOutput = output;
+      }
+      if (!(output instanceof Artifact)) {
+        // Spawn outputs that aren't action outputs can't be fetched lazily through
+        // RemoteActionFileSystem as it only resolves inputs. Mark them so that the non-in-memory
+        // outputs among them can be downloaded eagerly below.
+        spawnOnlyOutputs.add(output.getExecPath());
       }
     }
 
@@ -1313,7 +1317,9 @@ public class RemoteExecutionService {
 
       var execPath = file.path.relativeTo(execRoot);
       var isInMemoryOutputFile = inMemoryOutput != null && execPath.equals(inMemoryOutputPath);
-      if (!isInMemoryOutputFile && shouldDownload(result, execPath, /* treeRootExecPath= */ null)) {
+      if (!isInMemoryOutputFile
+          && ((!hasBazelOutputService && spawnOnlyOutputs.contains(execPath))
+              || shouldDownload(result, execPath, /* treeRootExecPath= */ null))) {
         Path tmpPath = tempPathGenerator.generateTempPath();
         realToTmpPath.put(file.path, tmpPath);
         downloadsBuilder.add(
