@@ -107,6 +107,7 @@ cp "$(rlocation io_bazel/third_party/remoteapis/MODULE.bazel)" \
 # are no longer up-to-date.
 echo "Running: bazel query --lockfile_mode=update to verify the lockfile."
 "$bazel" --batch --ignore_all_rc_files \
+    --host_jvm_args=-Djava.net.preferIPv6Addresses=system \
     --output_user_root="$TEST_TMPDIR/output_user_root" \
     query --check_direct_dependencies=error --lockfile_mode=update :all \
   || die "Module resolution failed. If the error above mentions a file that does not exist in this test's workspace, please add it to the data of //:verify_module_bazel_lock in BUILD and copy it into place above."

@@ -169,6 +169,7 @@ tasks:
       # Increase the test timeout by 20% to avoid flaky test failures due to timeout
       - "--test_timeout=72,360,1080,4320"
     test_targets:
+      - "//:verify_module_bazel_lock"
       - "//src:embedded_tools_size_test"
       - "//src/test/java/com/google/devtools/build/lib/rules/apple:AppleRulesTests"
       - "//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
