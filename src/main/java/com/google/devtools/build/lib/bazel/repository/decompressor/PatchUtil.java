@@ -88,6 +88,7 @@ public class PatchUtil {
     NEW_MODE,
     NEW_FILE_MODE,
     OTHER_GIT_LINE,
+    CHUNK_NO_NEWLINE,
     UNKNOWN
   }
 
@@ -106,6 +107,10 @@ public class PatchUtil {
   };
 
   private static LineType getLineType(String line, boolean isReadingChunk, boolean isGitDiff) {
+    // A line starting with '\' is a diff comment line, such as "\ No newline at end of file".
+    if (line.startsWith("\\")) {
+      return LineType.CHUNK_NO_NEWLINE;
+    }
     if (isReadingChunk) {
       if (line.startsWith("+")) {
         return LineType.CHUNK_ADD;
@@ -544,6 +549,11 @@ public class PatchUtil {
                     + ": "
                     + line
                     + ", does not expect a context line here.");
+          }
+        }
+        case CHUNK_NO_NEWLINE -> {
+          if (!patchContent.isEmpty() && header != null) {
+            patchContent.add(line);
           }
         }
         case RENAME_FROM -> {
