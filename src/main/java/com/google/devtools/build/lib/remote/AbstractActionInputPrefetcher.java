@@ -460,8 +460,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         // directory. If it lies in an external repo backed by the remote repo contents cache, its
         // contents may only be available in memory and must be materialized to the local file
         // system for local actions to access them.
-        if (inputPath.getFileSystem() instanceof SubtreeMaterializer subtreeMaterializer) {
-          subtreeMaterializer.ensureSubtreeMaterialized(inputPath.asFragment());
+        if (inputPath.getFileSystem() instanceof LazyMaterializer lazyMaterializer) {
+          lazyMaterializer.ensureSubtreeMaterialized(inputPath.asFragment());
         }
         return immediateVoidFuture();
       }

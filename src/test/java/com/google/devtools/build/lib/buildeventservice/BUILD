@@ -98,6 +98,7 @@ java_library(
     srcs = ["BuildEventServiceTransportGrpcTest.java"],
     visibility = [
     ],
+    runtime_deps = ["//third_party/java/grpc:netty"],
     deps = [
         ":AbstractBuildEventServiceTransportTest",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:build_event_service_client",

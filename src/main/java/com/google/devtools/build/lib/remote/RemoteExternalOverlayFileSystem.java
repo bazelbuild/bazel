@@ -86,8 +86,7 @@ import javax.annotation.Nullable;
  * <p>Each external repository can either be materialized to the native file system or kept in
  * memory in the {@link RemoteExternalFileSystem}.
  */
-public final class RemoteExternalOverlayFileSystem extends FileSystem
-    implements SubtreeMaterializer {
+public final class RemoteExternalOverlayFileSystem extends FileSystem implements LazyMaterializer {
   private final PathFragment externalDirectory;
   private final int externalDirectorySegmentCount;
   private final FileSystem nativeFs;
@@ -390,6 +389,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
    * Bazel or local actions are handled automatically by the file system or {@link
    * AbstractActionInputPrefetcher}.
    */
+  @Override
   public void ensureMaterialized(RepositoryName repo, ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
     if (!markerFileContents.containsKey(repo.getName())) {

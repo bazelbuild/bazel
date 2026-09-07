@@ -52,7 +52,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.RemoteExternalOverlayFileSystem;
+import com.google.devtools.build.lib.remote.LazyMaterializer;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.MaybeValue;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
@@ -2409,9 +2409,9 @@ func(
     }
     if (!label.getRepository().isMain()
         && directories.getOutputBase().getFileSystem()
-            instanceof RemoteExternalOverlayFileSystem remoteFs) {
+            instanceof LazyMaterializer lazyMaterializer) {
       try {
-        remoteFs.ensureMaterialized(label.getRepository(), env.getListener());
+        lazyMaterializer.ensureMaterialized(label.getRepository(), env.getListener());
       } catch (IOException e) {
         throw Starlark.errorf(
             "Failed to materialize remote repo %s: %s", label.getRepository(), e.getMessage());

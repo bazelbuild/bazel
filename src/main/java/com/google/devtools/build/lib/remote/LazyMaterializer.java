@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 
@@ -20,7 +22,16 @@ import java.io.IOException;
  * A file system that may keep the contents of certain directory trees in memory, backed by remote
  * storage, and that supports materializing them to the local file system on demand.
  */
-public interface SubtreeMaterializer {
+public interface LazyMaterializer {
+  /**
+   * Materializes the given external repository to the local file system if its contents are
+   * currently only available in memory.
+   *
+   * <p>Does nothing if the repository is already backed by the local file system.
+   */
+  void ensureMaterialized(RepositoryName repo, ExtendedEventHandler reporter)
+      throws IOException, InterruptedException;
+
   /**
    * Materializes the subtree rooted at the given path to the local file system if its contents are
    * currently only available in memory, together with the targets of any symlinks below it.
