@@ -21,10 +21,13 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.actions.ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS;
 import static com.google.devtools.build.lib.remote.util.DigestUtil.toBinaryDigest;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_MILLISECONDS;
+import static com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.naturalOrder;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -72,6 +75,7 @@ import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
 import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -122,6 +126,7 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.TempPathGenerator;
@@ -154,7 +159,9 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.random.RandomGeneratorFactory;
 import javax.annotation.Nullable;
@@ -2507,6 +2514,160 @@ public class RemoteExecutionServiceTest {
                 cache.findMissingDigests(
                     remoteActionExecutionContext, ImmutableSet.of(emptyDigest))))
         .containsExactly(emptyDigest);
+  }
+
+  @Test
+  public void uploadOutputs_backgroundExecutorRejects_runsCompletionCallback() throws Exception {
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn = newSpawn(ImmutableMap.of(), ImmutableSet.of());
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    SpawnResult spawnResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+    service.shutdownBackgroundTaskExecutorForTesting();
+    AtomicInteger completionCalls = new AtomicInteger();
+
+    assertThrows(
+        RejectedExecutionException.class,
+        () ->
+            service.uploadOutputs(
+                action,
+                spawnResult,
+                completionCalls::incrementAndGet,
+                ConcurrentChangesCheckLevel.OFF));
+
+    assertThat(completionCalls.get()).isEqualTo(1);
+  }
+
+  @Test
+  public void outputUploadTask_backgroundExecutorRejects_awaitsConcurrentCompletion()
+      throws Exception {
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn = newSpawn(ImmutableMap.of(), ImmutableSet.of());
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    SpawnResult spawnResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+    var completionStarted = new Semaphore(0);
+    var completionMayFinish = new Semaphore(0);
+    var task =
+        service
+        .new OutputUploadTask(
+            action,
+            spawnResult,
+            () -> {
+              completionStarted.release();
+              completionMayFinish.acquireUninterruptibly();
+            });
+    var canceller = new TestThread(task::requestCancellation);
+    canceller.start();
+    assertThat(completionStarted.tryAcquire(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+    service.shutdownBackgroundTaskExecutorForTesting();
+
+    var startAttempted = new Semaphore(0);
+    var starter =
+        new TestThread(
+            () -> {
+              startAttempted.release();
+              assertThrows(RejectedExecutionException.class, task::start);
+            });
+    starter.start();
+    assertThat(startAttempted.tryAcquire(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+    try {
+      assertThat(starter.isAlive()).isTrue();
+    } finally {
+      completionMayFinish.release();
+    }
+
+    canceller.joinAndAssertState(WAIT_TIMEOUT_MILLISECONDS);
+    starter.joinAndAssertState(WAIT_TIMEOUT_MILLISECONDS);
+  }
+
+  @Test
+  public void outputUploadTask_completes_unregistersItself() throws Exception {
+    var synchronizer = new RemoteRewoundActionSynchronizer(mock(RemoteActionInputFetcher.class));
+    RemoteOutputService remoteOutputService = mock(RemoteOutputService.class);
+    when(remoteOutputService.getRewoundActionSynchronizer()).thenReturn(synchronizer);
+    outputService = remoteOutputService;
+    RemoteExecutionService service = newRemoteExecutionService();
+    // The synchronizer keys registrations by the generating action key of the owner's primary
+    // output, which the FakeOwner used by newSpawn does not have.
+    DerivedArtifact primaryOutput =
+        (DerivedArtifact) ActionsTestUtil.createArtifact(artifactRoot, "primary_output");
+    primaryOutput.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+    Spawn spawn =
+        new SimpleSpawn(
+            new FakeOwner("foo", "bar", "//dummy:label") {
+              @Override
+              public Artifact getPrimaryOutput() {
+                return primaryOutput;
+              }
+            },
+            /* arguments= */ ImmutableList.of(),
+            /* environment= */ ImmutableMap.of(),
+            /* executionInfo= */ ImmutableMap.of(),
+            /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /* outputs= */ ImmutableSet.of(),
+            ResourceSet.ZERO);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    SpawnResult spawnResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+    var uploadComplete = new CountDownLatch(1);
+    var task = service.new OutputUploadTask(action, spawnResult, uploadComplete::countDown);
+    var spawnOwner = action.getRemoteActionExecutionContext().getSpawnOwner();
+
+    task.start();
+
+    assertThat(uploadComplete.await(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+    // The completion callback runs from within the upload, which only unregisters itself once its
+    // body has returned, so poll rather than assert immediately.
+    long startNanos = System.nanoTime();
+    while (synchronizer.hasRegisteredOutputUploadTasks(spawnOwner)
+        && System.nanoTime() - startNanos < SECONDS.toNanos(WAIT_TIMEOUT_SECONDS)) {
+      Thread.sleep(1);
+    }
+    // The upload no longer needs to be cancelled on rewinding, so it must not stay registered (and
+    // thus retained) for the rest of the build.
+    assertThat(synchronizer.hasRegisteredOutputUploadTasks(spawnOwner)).isFalse();
+  }
+
+  @Test
+  public void outputUploadTask_cancelBeforeStart_runsCompletionCallbackOnce() throws Exception {
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn = newSpawn(ImmutableMap.of(), ImmutableSet.of());
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    SpawnResult spawnResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+    AtomicInteger completionCalls = new AtomicInteger();
+    var task = service.new OutputUploadTask(action, spawnResult, completionCalls::incrementAndGet);
+
+    task.requestCancellation();
+    task.awaitCompletion();
+    task.requestCancellation();
+    task.awaitCompletion();
+    service.shutdownBackgroundTaskExecutorForTesting();
+
+    assertThrows(RejectedExecutionException.class, task::start);
+
+    assertThat(completionCalls.get()).isEqualTo(1);
   }
 
   @Test
