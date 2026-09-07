@@ -695,6 +695,45 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void testAnalysisTimeInMs_onAnalysisFailure() throws Exception {
+    write(
+        "analysis_failure/BUILD",
+        """
+        genrule(
+            name = "fail",
+            outs = ["out"],
+            cmd = "touch $@",
+            tools = [":nonexistent"],
+        )
+        """);
+
+    assertThrows(BuildFailedException.class, () -> buildTarget("//analysis_failure:fail"));
+
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    assertThat(buildMetrics.getTimingMetrics().getAnalysisPhaseTimeInMs()).isGreaterThan(0L);
+  }
+
+  @Test
+  public void testAnalysisTimeInMs_onExecutionFailure() throws Exception {
+    write(
+        "exec_failure/BUILD",
+        """
+        genrule(
+            name = "fail",
+            outs = ["out"],
+            cmd = "false",
+        )
+        """);
+    addOptions("--experimental_merged_skyframe_analysis_execution");
+
+    assertThrows(BuildFailedException.class, () -> buildTarget("//exec_failure:fail"));
+
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    assertThat(buildMetrics.getTimingMetrics().getAnalysisPhaseTimeInMs()).isGreaterThan(0L);
+    assertThat(buildMetrics.getTimingMetrics().getExecutionPhaseTimeInMs()).isGreaterThan(0L);
+  }
+
+  @Test
   public void testExecutionTimeInMs() throws Exception {
     buildTarget("//foo:foo");
     BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();

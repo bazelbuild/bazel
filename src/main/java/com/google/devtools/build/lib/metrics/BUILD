@@ -55,6 +55,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:location_printer",
         "//src/main/java/com/google/devtools/build/lib/runtime:spawn_stats",
         "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_result_listener",
         "//src/main/java/com/google/devtools/build/lib/skyframe:execution_finished_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_stats",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
