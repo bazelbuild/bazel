@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.OutputService.RewoundActionSynchronizer;
 import com.google.errorprone.annotations.CheckReturnValue;
-import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -80,7 +79,7 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   // of --jobs=1 for as long as a rewound action is running, as the coarse lock would).
   // A rewound action will acquire the write lock on its own key before it prepares for execution,
   // while any action will acquire a read lock on the key of each action generating one of its
-  // inputs (see readLockKeys) before it starts executing.
+  // inputs (see inputKeysFor) before it starts executing.
   //
   // The values of this cache are weakly referenced to ensure that locks are cleaned up when they
   // are no longer needed. Holders of a ReadersOrWritersLock reference the lock itself, which keeps
@@ -109,11 +108,11 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
 
   1. Relate lock keys to dependencies between actions.
 
-  Every write-lock key identifies an action (see actionKey). By enterActionPreparationForRewinding,
+  Every write-lock key identifies an action (see actionKeyFor). By enterActionPreparationForRewinding,
   only a rewound action acquires the write lock of its own key. It does so before it prepares for
   execution, holds the lock until the end of its execution and acquires no other write lock.
 
-  By readLockKeys, an action acquires the read lock of the key of each action that generates one of
+  By inputKeysFor, an action acquires the read lock of the key of each action that generates one of
   its inputs, including the artifacts of its runfiles trees, before it starts executing. For a tree
   artifact input, this is the action that generates the tree artifact, or the actions expanded
   from an ActionTemplate that populate it, including producers of empty subdirectories. In either
@@ -203,8 +202,8 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
               Caffeine.newBuilder()
                   .weakValues()
                   .build((ActionLookupData _) -> new ReadersOrWritersLock());
-          // Must be assigned after fineLocks as lockForReading relies on a null coarseLock
-          // implying a non-null fineLocks.
+          // Must be assigned after fineLocks as lockArtifactsForConsumption relies on a null
+          // coarseLock implying a non-null fineLocks.
           coarseLock = null;
         }
       } finally {
@@ -212,7 +211,7 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
       }
     }
 
-    var writeLock = fineLocks.get(actionKey(action));
+    var writeLock = fineLocks.get(actionKeyFor(action));
     try (SilentCloseable c =
         Profiler.instance()
             .profile(ProfilerTask.ACTION_LOCK, "action.awaitRewoundActionConsumers")) {
@@ -233,7 +232,7 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
    * their prefetching state.
    */
   private void prepareOutputsForRewinding(Action action) throws InterruptedException {
-    ImmutableList<Cancellable> tasks = outputUploadTasks.remove(actionKey(action));
+    ImmutableList<Cancellable> tasks = outputUploadTasks.remove(actionKeyFor(action));
     if (tasks != null) {
       // Request cancellation from every task before awaiting any one of them so that an
       // interruption while awaiting cannot leave later tasks running without cancellation.
@@ -275,7 +274,7 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
       throws InterruptedException {
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.ACTION_LOCK, "action.enterActionExecution")) {
-      return lockForReading(readLockKeys(action.getInputs().toList(), metadataProvider));
+      return lockArtifactsForConsumption(action.getInputs().toList(), metadataProvider);
     }
   }
 
@@ -289,7 +288,7 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
     try (SilentCloseable c =
         Profiler.instance()
             .profile(ProfilerTask.ACTION_LOCK, "action.enterProcessOutputsAndGetLostArtifacts")) {
-      return lockForReading(readLockKeys(importantOutputs, fullMetadataProvider));
+      return lockArtifactsForConsumption(importantOutputs, fullMetadataProvider);
     }
   }
 
@@ -304,7 +303,7 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
    */
   @CheckReturnValue
   public Runnable registerOutputUploadTask(ActionExecutionMetadata action, Cancellable task) {
-    ActionLookupData key = actionKey(action);
+    ActionLookupData key = actionKeyFor(action);
     // merge is atomic with respect to the removal of the entry in prepareOutputsForRewinding.
     outputUploadTasks.merge(
         key,
@@ -316,7 +315,7 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
 
   @VisibleForTesting
   boolean hasRegisteredOutputUploadTasks(ActionExecutionMetadata action) {
-    return outputUploadTasks.containsKey(actionKey(action));
+    return outputUploadTasks.containsKey(actionKeyFor(action));
   }
 
   private void unregisterOutputUploadTask(ActionLookupData key, Cancellable task) {
@@ -330,7 +329,8 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
         });
   }
 
-  private SilentCloseable lockForReading(Iterable<ActionLookupData> keys)
+  private SilentCloseable lockArtifactsForConsumption(
+      Iterable<Artifact> artifacts, InputMetadataProvider metadataProvider)
       throws InterruptedException {
     var localCoarseLock = coarseLock;
     if (localCoarseLock != null) {
@@ -352,62 +352,7 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
     if (localCoarseLock != null) {
       localCoarseLock.readLock().unlock();
     }
-    return acquireReadLocks(localFineLocks.getAll(keys).values());
-  }
-
-  /**
-   * Returns the keys of the locks that guard the given artifacts as well as all artifacts in the
-   * metadata provider's runfiles trees (see {@link #lockKeys}).
-   */
-  private static Iterable<ActionLookupData> readLockKeys(
-      Iterable<Artifact> artifacts, InputMetadataProvider metadataProvider) {
-    var allArtifacts =
-        Iterables.concat(
-            artifacts,
-            Iterables.concat(
-                Iterables.transform(
-                    metadataProvider.getRunfilesTrees(),
-                    runfilesTree -> runfilesTree.getArtifacts().toList())));
-    return Iterables.concat(
-        Iterables.transform(
-            Iterables.filter(allArtifacts, artifact -> artifact instanceof DerivedArtifact),
-            artifact -> lockKeys((DerivedArtifact) artifact, metadataProvider)));
-  }
-
-  /**
-   * Returns the keys of the locks that guard the given artifact: the key of its generating action
-   * or, for a tree artifact declared by an {@link
-   * com.google.devtools.build.lib.actions.ActionTemplate}, the keys of the expanded actions that
-   * populate it, including producers of empty subdirectories. Consumers hold these read locks while
-   * executing and a rewound generating action holds the write lock of its own key while
-   * re-executing (see {@link #actionKey}).
-   */
-  private static Iterable<ActionLookupData> lockKeys(
-      DerivedArtifact artifact, InputMetadataProvider metadataProvider) {
-    ActionLookupData ownKey = artifact.getGeneratingActionKey();
-    if (!artifact.isTreeArtifact()) {
-      return ImmutableList.of(ownKey);
-    }
-    TreeArtifactValue tree = metadataProvider.getTreeMetadata(artifact);
-    if (tree != null && !tree.getTemplateExpansionActionKeys().isEmpty()) {
-      return tree.getTemplateExpansionActionKeys();
-    }
-    // Ordinary trees (including subtrees) use their own key. Missing metadata and empty template
-    // expansions have no expanded outputs to protect; their template key has no writer.
-    return ImmutableList.of(ownKey);
-  }
-
-  /**
-   * Returns the key that uniquely identifies the given action: the generating action key of its
-   * outputs. A rewound action holds the write lock of this key while re-executing and consumers of
-   * its outputs hold its read lock while executing (see {@link #lockKeys}).
-   */
-  private static ActionLookupData actionKey(ActionExecutionMetadata action) {
-    return ((DerivedArtifact) action.getPrimaryOutput()).getGeneratingActionKey();
-  }
-
-  private static SilentCloseable acquireReadLocks(Collection<ReadersOrWritersLock> locks)
-      throws InterruptedException {
+    var locks = localFineLocks.getAll(inputKeysFor(artifacts, metadataProvider)).values();
     var locksToUnlockBuilder =
         ImmutableList.<ReadersOrWritersLock>builderWithExpectedSize(locks.size());
     try {
@@ -423,5 +368,56 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
     }
     var locksToUnlock = locksToUnlockBuilder.build().reverse();
     return () -> locksToUnlock.forEach(ReadersOrWritersLock::unlockRead);
+  }
+
+  /**
+   * Returns the keys of the locks that guard the given artifacts as well as all artifacts in the
+   * metadata provider's runfiles trees (see {@link #lockKeysFor}).
+   */
+  private static Iterable<ActionLookupData> inputKeysFor(
+      Iterable<Artifact> artifacts, InputMetadataProvider metadataProvider) {
+    var allArtifacts =
+        Iterables.concat(
+            artifacts,
+            Iterables.concat(
+                Iterables.transform(
+                    metadataProvider.getRunfilesTrees(),
+                    runfilesTree -> runfilesTree.getArtifacts().toList())));
+    return Iterables.concat(
+        Iterables.transform(
+            Iterables.filter(allArtifacts, artifact -> artifact instanceof DerivedArtifact),
+            artifact -> lockKeysFor((DerivedArtifact) artifact, metadataProvider)));
+  }
+
+  /**
+   * Returns the key that uniquely identifies the given action: the generating action key of its
+   * outputs. A rewound action holds the write lock of this key while re-executing and consumers of
+   * its outputs hold its read lock while executing (see {@link #lockKeysFor}).
+   */
+  private static ActionLookupData actionKeyFor(ActionExecutionMetadata action) {
+    return ((DerivedArtifact) action.getPrimaryOutput()).getGeneratingActionKey();
+  }
+
+  /**
+   * Returns the keys of the locks that guard the given artifact: the key of its generating action
+   * or, for a tree artifact declared by an {@link
+   * com.google.devtools.build.lib.actions.ActionTemplate}, the keys of the expanded actions that
+   * populate it, including producers of empty subdirectories. Consumers hold these read locks while
+   * executing and a rewound generating action holds the write lock of its own key while
+   * re-executing (see {@link #actionKeyFor}).
+   */
+  private static Iterable<ActionLookupData> lockKeysFor(
+      DerivedArtifact artifact, InputMetadataProvider metadataProvider) {
+    ActionLookupData ownKey = artifact.getGeneratingActionKey();
+    if (!artifact.isTreeArtifact()) {
+      return ImmutableList.of(ownKey);
+    }
+    TreeArtifactValue tree = metadataProvider.getTreeMetadata(artifact);
+    if (tree != null && !tree.getTemplateExpansionActionKeys().isEmpty()) {
+      return tree.getTemplateExpansionActionKeys();
+    }
+    // Ordinary trees (including subtrees) use their own key. Missing metadata and empty template
+    // expansions have no expanded outputs to protect; their template key has no writer.
+    return ImmutableList.of(ownKey);
   }
 }
