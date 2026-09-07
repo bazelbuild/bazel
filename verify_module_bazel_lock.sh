@@ -106,7 +106,12 @@ cp "$(rlocation io_bazel/third_party/remoteapis/MODULE.bazel)" \
 # and in update mode rewrites MODULE.bazel.lock if and only if its contents
 # are no longer up-to-date.
 echo "Running: bazel query --lockfile_mode=update to verify the lockfile."
+extra_startup_args=()
+if [[ "$os" == "darwin" ]]; then
+  extra_startup_args+=("--host_jvm_args=-Djava.net.preferIPv6Addresses=true")
+fi
 "$bazel" --batch --ignore_all_rc_files \
+    "${extra_startup_args[@]}" \
     --output_user_root="$TEST_TMPDIR/output_user_root" \
     query --check_direct_dependencies=error --lockfile_mode=update :all \
   || die "Module resolution failed. If the error above mentions a file that does not exist in this test's workspace, please add it to the data of //:verify_module_bazel_lock in BUILD and copy it into place above."
