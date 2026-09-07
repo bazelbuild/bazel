@@ -3,12 +3,15 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+    ],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
+    visibility = ["//src:__pkg__"],
 )
 
 cc_test(

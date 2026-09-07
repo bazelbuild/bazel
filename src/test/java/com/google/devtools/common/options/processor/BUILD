@@ -2,7 +2,7 @@ load("@rules_java//java:defs.bzl", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/common:__subpackages__"],
 )
 
 filegroup(

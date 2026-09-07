@@ -5,7 +5,7 @@ load("@rules_java//java:defs.bzl", "java_library")
 #   Open-sourced as part of Bazel.
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//visibility:private"],
 )
 
 filegroup(
@@ -13,6 +13,10 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/common/options/processor:srcs",
         "//src/main/java/com/google/devtools/common/options/testing:srcs",
+    ],
+    visibility = [
+        "//src:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib:__pkg__",
     ],
 )
 

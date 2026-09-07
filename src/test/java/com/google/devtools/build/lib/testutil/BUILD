@@ -9,8 +9,15 @@ package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = [
-        "//src:__subpackages__",
-        "//tools:__subpackages__",
+        "//src/java_tools:__subpackages__",
+        "//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps:__subpackages__",
+        "//src/java_tools/singlejar/javatests/com/google/devtools/build:__subpackages__",
+        "//src/test/java:__subpackages__",
+        "//src/test/shell/bazel:__pkg__",
+        "//src/test/shell/integration/bazel:__pkg__",
+        "//src/tools/dash/src/test/java:__subpackages__",
+        "//third_party/bazel_rules/rules_android/src/tools/javatests:__subpackages__",
+        "//tools/java/runfiles:__subpackages__",
     ],
 )
 

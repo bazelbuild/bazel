@@ -4,7 +4,10 @@ load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
 #   A preprocessor for the annotations used in the options parser.
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/main/java/com/google/devtools/common/options:__pkg__",
+        "//src/test/java/com/google/devtools/common/options/processor:__pkg__",
+    ],
 )
 
 filegroup(

@@ -2,7 +2,6 @@ load("@rules_java//java:java_library.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
 )
 
 filegroup(

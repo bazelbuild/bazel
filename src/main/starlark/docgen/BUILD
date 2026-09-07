@@ -1,6 +1,6 @@
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//visibility:public"],
 )
 
 filegroup(

@@ -7,6 +7,11 @@ package(
     ],
 )
 
+package_group(
+    name = "test_lib",
+    packages = ["//src/test/java/..."],
+)
+
 # Generate list of all srcs via:
 # bazel query 'filter("srcs", kind("filegroup rule", //src/test/java/com/google/devtools/build/lib/...))' | sort | sed -e "s/^/\"/" | sed -e "s/$/\",/" | fgrep -v "build/lib:srcs"
 filegroup(

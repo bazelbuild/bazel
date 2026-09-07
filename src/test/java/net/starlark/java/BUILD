@@ -1,7 +1,4 @@
-package(
-    default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
-)
+package(default_applicable_licenses = ["//:license"])
 
 filegroup(
     name = "srcs",
