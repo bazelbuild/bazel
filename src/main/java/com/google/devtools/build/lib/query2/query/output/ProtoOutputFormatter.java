@@ -635,6 +635,9 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       // constructing and serializing a QueryResult proto are protected by test coverage and proto
       // best practices.
       for (Target target : partialResult) {
+        if (Thread.interrupted()) {
+          throw new InterruptedException();
+        }
         codedOut.writeMessage(
             QueryResult.TARGET_FIELD_NUMBER, toTargetProtoBuffer(target, labelPrinter));
       }
