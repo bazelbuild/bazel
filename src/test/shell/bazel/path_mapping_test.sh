@@ -285,6 +285,145 @@ function test_path_stripping_remote() {
   expect_not_log '[0-9] remote[^ ]'
 }
 
+function write_jdeps_test_files() {
+  mkdir -p jdeps
+  cat > jdeps/BUILD <<'EOF'
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
+java_binary(name = "main", srcs = ["Main.java"], main_class = "Main", deps = [":a"])
+java_library(name = "a", srcs = ["A.java"], deps = [":b"])
+java_library(name = "b", srcs = ["B.java"], deps = [":c"])
+java_library(name = "c", srcs = ["C.java"], deps = [":d"])
+java_library(name = "d", srcs = ["D.java"])
+EOF
+  cat > jdeps/Main.java <<'EOF'
+public class Main {
+  public static void main(String[] args) { new A(); }
+}
+EOF
+  # Compiling A requires falling back to the full classpath to access D.
+  cat > jdeps/A.java <<'EOF'
+public class A { public void f(B b) { b.getC().getD(); } }
+EOF
+  cat > jdeps/B.java <<'EOF'
+public class B { public C getC() { return null; } }
+EOF
+  cat > jdeps/C.java <<'EOF'
+public class C { public D getD() { return null; } }
+EOF
+  cat > jdeps/D.java <<'EOF'
+public class D {}
+EOF
+}
+
+function assert_jdeps_outputs() {
+  local -r compilation_mode="$1"
+  local -r in_memory="$2"
+  local jdeps
+  for jdeps in bazel-bin/jdeps/*.jdeps; do
+    [[ -s "$jdeps" ]] || fail "Missing action output: $jdeps"
+    assert_not_contains 'bazel-out/cfg/' "$jdeps"
+    if [[ "$in_memory" == false ]]; then
+      [[ -s "$jdeps.unstripped" ]] || fail "Missing spawn output: $jdeps.unstripped"
+    else
+      [[ ! -e "$jdeps.unstripped" ]] || fail "In-memory spawn output written to disk: $jdeps.unstripped"
+    fi
+  done
+  # Both Javac and Turbine must restore the configuration in their dependency paths.
+  assert_contains "bazel-out/[^/]*-$compilation_mode/bin/jdeps/" bazel-bin/jdeps/liba.jdeps
+  assert_contains "bazel-out/[^/]*-$compilation_mode/bin/jdeps/" bazel-bin/jdeps/libb-hjar.jdeps
+  [[ -s bazel-bin/jdeps/libd-hjar.jdeps ]] || fail "Missing empty dependency output"
+  if [[ "$in_memory" == false ]]; then
+    # The executor's versions must retain mapped paths, including after a cache hit or fallback.
+    assert_contains 'bazel-out/cfg/bin/jdeps/' bazel-bin/jdeps/liba.jdeps.unstripped
+    assert_contains 'bazel-out/cfg/bin/jdeps/' bazel-bin/jdeps/libb-hjar.jdeps.unstripped
+    cmp bazel-bin/jdeps/libd-hjar.jdeps bazel-bin/jdeps/libd-hjar.jdeps.unstripped \
+      || fail "Empty dependency output was not copied"
+  fi
+}
+
+function test_jdeps_outputs_sandboxed() {
+  write_jdeps_test_files
+  local -r cache_dir=$(mktemp -d)
+  local compilation_mode
+  for compilation_mode in fastbuild opt; do
+    bazel build -c "$compilation_mode" \
+      --experimental_output_paths=strip \
+      --noexperimental_inmemory_jdeps_files \
+      --disk_cache="$cache_dir" \
+      --spawn_strategy=sandboxed \
+      //jdeps:main &> "$TEST_log" || fail "build failed"
+    assert_jdeps_outputs "$compilation_mode" false
+    if [[ "$compilation_mode" == opt ]]; then
+      expect_log 'disk cache hit'
+      expect_not_log '[0-9] \(linux\|darwin\|processwrapper\)-sandbox'
+    fi
+  done
+
+  # The full-classpath compilation must also materialize the action output. Clean first so that
+  # the header compilations are re-executed instead of hitting the action cache.
+  bazel clean &> "$TEST_log"
+  bazel build --experimental_output_paths=strip --experimental_java_classpath=off \
+    --noexperimental_inmemory_jdeps_files --spawn_strategy=sandboxed \
+    //jdeps:main &> "$TEST_log" || fail "full-classpath build failed"
+  assert_jdeps_outputs fastbuild false
+
+  # Without path mapping, the spawn writes .jdeps directly and no intermediate is needed.
+  bazel clean &> "$TEST_log"
+  bazel build --experimental_output_paths=off --experimental_java_classpath=off \
+    --spawn_strategy=sandboxed \
+    --execution_log_json_file="$TEST_TMPDIR/jdeps-spawns.json" \
+    //jdeps:main &> "$TEST_log" || fail "build without path mapping failed"
+  assert_not_contains '\.jdeps\.unstripped' "$TEST_TMPDIR/jdeps-spawns.json"
+  local jdeps
+  for jdeps in bazel-bin/jdeps/*.jdeps; do
+    [[ -s "$jdeps" ]] || fail "Missing dependency output: $jdeps"
+    [[ ! -e "$jdeps.unstripped" ]] || fail "Unexpected intermediate without path mapping: $jdeps"
+  done
+}
+
+function do_test_jdeps_outputs_remote() {
+  local -r in_memory="$1"
+  write_jdeps_test_files
+  local compilation_mode
+  for compilation_mode in fastbuild opt; do
+    bazel build -c "$compilation_mode" \
+      --experimental_output_paths=strip \
+      --experimental_inmemory_jdeps_files="$in_memory" \
+      --remote_download_outputs=minimal \
+      --remote_executor=grpc://localhost:"${worker_port}" \
+      //jdeps:main &> "$TEST_log" || fail "remote build failed"
+    assert_jdeps_outputs "$compilation_mode" "$in_memory"
+    if [[ "$compilation_mode" == opt ]]; then
+      expect_log 'remote cache hit'
+      expect_not_log '[0-9] remote[^ ]'
+    fi
+  done
+}
+
+function test_jdeps_outputs_remote_inmemory() {
+  do_test_jdeps_outputs_remote true
+}
+
+function test_jdeps_outputs_remote_without_inmemory() {
+  do_test_jdeps_outputs_remote false
+}
+
+function test_path_stripping_remote_action_cache() {
+  bazel build -c fastbuild \
+    --experimental_output_paths=strip \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //src/main/java/com/example:Main &> $TEST_log || fail "build failed unexpectedly"
+  expect_log '5 remote'
+
+  bazel shutdown
+
+  bazel build -c fastbuild \
+    --experimental_output_paths=strip \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //src/main/java/com/example:Main &> $TEST_log || fail "build failed unexpectedly"
+  expect_not_log '[0-9] remote'
+}
+
 function test_path_stripping_remote_multiple_configs() {
   mkdir rules
   cat > rules/defs.bzl <<'EOF'

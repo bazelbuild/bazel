@@ -40,7 +40,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OnDemandString;
@@ -532,6 +534,67 @@ public class CustomCommandLine extends AbstractCommandLine {
     }
   }
 
+  @AutoCodec(memoizationEquality = MemoizationEquality.BY_VALUE)
+  static final class FormattedExecPathArg implements ArgvFragment {
+    private static final Interner<FormattedExecPathArg> interner =
+        BlazeInterners.newStrongInterner();
+    private static final UUID FORMAT_EXEC_PATH_UUID =
+        UUID.fromString("e9743384-0274-4424-9805-b920214694f5");
+
+    private final String argName;
+    private final String format;
+
+    private FormattedExecPathArg(String argName, String format) {
+      this.argName = Preconditions.checkNotNull(argName);
+      Preconditions.checkArgument(
+          SingleStringArgFormatter.isValid(format), "Invalid single-argument format: %s", format);
+      this.format = format;
+    }
+
+    @AutoCodec.Instantiator
+    static FormattedExecPathArg create(String argName, String format) {
+      return interner.intern(new FormattedExecPathArg(argName, format));
+    }
+
+    @Override
+    public int eval(
+        List<Object> arguments,
+        int argi,
+        ImmutableList.Builder<String> builder,
+        PathMapper pathMapper) {
+      Artifact artifact = (Artifact) arguments.get(argi++);
+      builder.add(argName);
+      builder.add(
+          SingleStringArgFormatter.format(format, pathMapper.getMappedExecPathString(artifact)));
+      return argi;
+    }
+
+    @Override
+    public int addToFingerprint(
+        List<Object> arguments,
+        int argi,
+        ActionKeyContext actionKeyContext,
+        Fingerprint fingerprint) {
+      fingerprint.addUUID(FORMAT_EXEC_PATH_UUID);
+      fingerprint.addString(argName);
+      fingerprint.addString(format);
+      fingerprint.addString(((Artifact) arguments.get(argi++)).getExecPathString());
+      return argi;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof FormattedExecPathArg other
+          && argName.equals(other.argName)
+          && format.equals(other.format);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(argName, format);
+    }
+  }
+
   @VisibleForSerialization
   static class FormatArg implements ArgvFragment {
     @SerializationConstant @VisibleForSerialization
@@ -897,6 +960,25 @@ public class CustomCommandLine extends AbstractCommandLine {
     @CanIgnoreReturnValue
     public Builder addExecPath(@CompileTimeConstant String arg, @Nullable Artifact value) {
       return addObjectInternal(arg, value);
+    }
+
+    /**
+     * Adds the arg followed by the artifact's exec path, with path mapping applied before
+     * formatting.
+     *
+     * <p>The format must contain exactly one {@code %s}, and may escape {@code %} as {@code %%}. If
+     * value is null, neither argument is added.
+     */
+    @CanIgnoreReturnValue
+    public Builder addFormattedExecPath(
+        @CompileTimeConstant String arg,
+        @CompileTimeConstant String format,
+        @Nullable Artifact value) {
+      if (value != null) {
+        arguments.add(FormattedExecPathArg.create(arg, format));
+        arguments.add(value);
+      }
+      return this;
     }
 
     /** Adds a lazily expanded string. */
