@@ -18,8 +18,6 @@ import static com.google.common.util.concurrent.Uninterruptibles.getUninterrupti
 import static com.google.devtools.build.lib.skyframe.serialization.ErrorMessageHelper.getErrorMessage;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking.ACTIVE;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking.FRONTIER_CANDIDATE;
-import static com.google.devtools.build.lib.skyframe.serialization.analysis.LongVersionGetterTestInjection.getVersionGetterForTesting;
-import static com.google.devtools.build.lib.util.TestType.isInTest;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -158,13 +156,7 @@ public final class FrontierSerializer {
     var profileCollector = profilePath.isEmpty() ? null : new ProfileCollector();
     var serializationStats = new SelectedEntrySerializer.SerializationStats();
 
-    if (versionGetter == null) {
-      if (isInTest()) {
-        versionGetter = getVersionGetterForTesting();
-      } else {
-        throw new NullPointerException("missing versionGetter");
-      }
-    }
+    requireNonNull(versionGetter, "missing versionGetter");
 
     boolean shouldDiscardMemory = !keepStateAfterBuild;
     if (shouldDiscardMemory) {

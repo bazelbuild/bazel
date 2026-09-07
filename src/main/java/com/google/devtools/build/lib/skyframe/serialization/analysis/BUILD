@@ -138,7 +138,6 @@ java_library(
         ":file_dependency_serializer",
         ":file_op_node_map",
         ":invalidation_data_reference_or_future",
-        ":long_version_getter_test_injection",
         ":missing_skyframe_entry_exception",
         ":remote_analysis_cache_mode",
         ":serialization_dependencies_provider",
@@ -170,7 +169,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_execution_platforms_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_toolchains_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:toolchain_context_key",
-        "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/versioning:long_version_getter",
@@ -569,19 +567,6 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
     ],
     deps = ["//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface"],
-)
-
-java_library(
-    name = "long_version_getter_test_injection",
-    srcs = ["LongVersionGetterTestInjection.java"],
-    visibility = [
-        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/util:TestType",
-        "//src/main/java/com/google/devtools/build/lib/versioning:long_version_getter",
-        "//third_party/java/guava:base",
-    ],
 )
 
 java_library(
