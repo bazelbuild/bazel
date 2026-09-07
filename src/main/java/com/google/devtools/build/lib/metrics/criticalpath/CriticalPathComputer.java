@@ -46,7 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BinaryOperator;
 import java.util.stream.Stream;
@@ -81,7 +80,6 @@ public class CriticalPathComputer {
         return a.getAggregatedElapsedTime().compareTo(b.getAggregatedElapsedTime()) < 0 ? b : a;
       };
 
-  private final AtomicInteger idGenerator = new AtomicInteger();
   // outputArtifactToComponent is accessed from multiple event handlers.
   private final ConcurrentMap<Artifact, CriticalPathComponent> outputArtifactToComponent =
       new ConcurrentHashMap<>();
@@ -104,7 +102,7 @@ public class CriticalPathComputer {
    *     for computing time differences.
    */
   private CriticalPathComponent createComponent(Action action, long relativeStartNanos) {
-    return new CriticalPathComponent(idGenerator.getAndIncrement(), action, relativeStartNanos);
+    return new CriticalPathComponent(action, relativeStartNanos);
   }
 
   /**

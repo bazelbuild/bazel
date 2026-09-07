@@ -116,14 +116,14 @@ public class CriticalPathComputerTest extends FoundationTestCase {
 
   @Test
   public void testNoSpawnMetrics() {
-    CriticalPathComponent cp = new CriticalPathComponent(1, new NullAction(), 0);
+    CriticalPathComponent cp = new CriticalPathComponent(new NullAction(), 0);
     assertThat(cp.getSpawnMetrics()).isEqualTo(AggregatedSpawnMetrics.EMPTY);
     assertThat(cp.getLongestPhaseSpawnRunnerName()).isNull();
   }
 
   @Test
   public void testMultipleSpawnMetrics() {
-    CriticalPathComponent cp = new CriticalPathComponent(1, new NullAction(), 0);
+    CriticalPathComponent cp = new CriticalPathComponent(new NullAction(), 0);
     cp.addSpawnResult(
         SpawnMetrics.Builder.forRemoteExec().setTotalTimeInMs(10 * 1000).build(),
         "first",

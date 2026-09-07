@@ -60,17 +60,13 @@ public class CriticalPathComponent {
   @Nullable private String longestPhaseSpawnRunnerName;
   /** Details about the runner used for the spawn. */
   @Nullable private String longestPhaseSpawnRunnerSubtype;
-  /** An unique identifier of the component for one build execution */
-  private final int id;
-
   /** Child with the maximum critical path. */
   @Nullable private CriticalPathComponent child;
 
   /** Indication that there is at least one remote spawn metrics received. */
   private boolean remote = false;
 
-  public CriticalPathComponent(int id, Action action, long startNanos) {
-    this.id = id;
+  public CriticalPathComponent(Action action, long startNanos) {
     this.action = Preconditions.checkNotNull(action);
     this.primaryOutput = action.getPrimaryOutput();
     this.startNanos = startNanos;
@@ -196,10 +192,6 @@ public class CriticalPathComponent {
     return owner.getConfigurationChecksum();
   }
 
-  /** An unique identifier of the component for one build execution */
-  public int getId() {
-    return id;
-  }
 
   /**
    * An action can run multiple spawns. Those calls can be sequential or parallel. If action is a
