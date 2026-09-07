@@ -1680,7 +1680,7 @@ public class RewindingTestsHelper {
   private static final int CONCURRENT_ACTION_COUNT = 8;
 
   /**
-   * A tool that copies its second argument to its first.
+   * A tool that copies its first argument to each of the remaining arguments.
    *
    * <p>On Windows, {@code cmd.exe} treats forward slashes as option prefixes, so the paths have to
    * be translated before they are passed to {@code copy}.
@@ -1689,13 +1689,20 @@ public class RewindingTestsHelper {
       OS.getCurrent() == OS.WINDOWS
           ? """
           @echo off
+          set "IN=%~1"
+          :next_out
+          shift
+          if "%~1"=="" exit /b 0
           set "OUT=%~1"
-          set "IN=%~2"
-          copy /Y "%IN:/=\\%" "%OUT:/=\\%" >NUL
+          copy /Y "%IN:/=\\%" "%OUT:/=\\%" >NUL || exit /b 1
+          goto next_out
           """
           : """
           #!/bin/bash
-          cp "$2" "$1"
+          set -e
+          src="$1"
+          shift
+          for out in "$@"; do cp "$src" "$out"; done
           """;
 
   /**
@@ -1709,6 +1716,21 @@ public class RewindingTestsHelper {
    */
   public final void runActionTemplateExpansionRewound_notConcurrentWithTreeConsumers()
       throws Exception {
+    runActionTemplateExpansionRewound_notConcurrentWithTreeConsumers(/* multipleTrees= */ false);
+  }
+
+  /**
+   * Variant of {@link #runActionTemplateExpansionRewound_notConcurrentWithTreeConsumers} in which
+   * the expansion populates two tree artifacts: the first action of the chain writes into both
+   * trees, whereas the second one consumes a file of one tree and populates the other.
+   */
+  public final void runActionTemplateExpansionRewound_notConcurrentWithTreeConsumers_multipleTrees()
+      throws Exception {
+    runActionTemplateExpansionRewound_notConcurrentWithTreeConsumers(/* multipleTrees= */ true);
+  }
+
+  private void runActionTemplateExpansionRewound_notConcurrentWithTreeConsumers(
+      boolean multipleTrees) throws Exception {
     // All consumers and the action that reports the lost input have to run concurrently for the
     // expansion to be rewound while the tree artifact is being read.
     ensureMinimumJobs(CONCURRENT_ACTION_COUNT + 1);
@@ -1725,17 +1747,22 @@ public class RewindingTestsHelper {
 
         def _map_impl(template_ctx, input_directories, output_directories, tools, **kwargs):
             for child in input_directories["seed"].children:
-                # The two actions form a chain within the expansion, so the second one consumes a
-                # file of the very tree artifact it populates.
+                # The two actions form a chain within the expansion. With multiple output trees,
+                # the first action also writes a copy into the tree consumed by ordinary actions.
                 mid = template_ctx.declare_file(
                     child.basename + ".mid",
-                    directory = output_directories["mapped"],
+                    directory = output_directories["intermediate"],
                 )
+                first_outputs = [mid]
+                if MULTIPLE_TREES:
+                    first_outputs.append(template_ctx.declare_file(
+                        child.basename + ".copy", directory = output_directories["mapped"]))
                 args = template_ctx.args()
-                args.add_all([mid, child])
+                args.add(child)
+                args.add_all(first_outputs)
                 template_ctx.run(
                     inputs = [child],
-                    outputs = [mid],
+                    outputs = first_outputs,
                     executable = tools["copy_tool"],
                     arguments = [args],
                     progress_message = "Mapping foo/mapped_dir (1)",
@@ -1745,7 +1772,7 @@ public class RewindingTestsHelper {
                     directory = output_directories["mapped"],
                 )
                 args = template_ctx.args()
-                args.add_all([out, mid])
+                args.add_all([mid, out])
                 template_ctx.run(
                     inputs = [mid],
                     outputs = [out],
@@ -1763,16 +1790,22 @@ public class RewindingTestsHelper {
                 progress_message = "Seeding foo/seed_dir",
             )
             mapped = ctx.actions.declare_directory("mapped_dir")
+            intermediate = mapped
+            if MULTIPLE_TREES:
+                intermediate = ctx.actions.declare_directory("intermediate_dir")
             ctx.actions.map_directory(
                 implementation = _map_impl,
                 input_directories = {"seed": seed},
-                output_directories = {"mapped": mapped},
+                output_directories = {"mapped": mapped, "intermediate": intermediate},
                 tools = {"copy_tool": ctx.attr._copy_tool.files_to_run},
                 # Ensure that the rewound expansion action re-executes its spawn instead of
                 # picking up the result of its first execution from the cache.
                 execution_requirements = {"no-cache": "1"},
             )
-            return DefaultInfo(files = depset([mapped]))
+            return [
+                DefaultInfo(files = depset([mapped])),
+                OutputGroupInfo(intermediate = depset([intermediate])),
+            ]
 
         mapped_tree = rule(
             implementation = _mapped_tree_impl,
@@ -1801,7 +1834,8 @@ public class RewindingTestsHelper {
             attrs = {"srcs": attr.label_list(allow_files = True)},
         )
         """
-            .replace("COPY_TOOL_SCRIPT", COPY_TOOL_SCRIPT));
+            .replace("COPY_TOOL_SCRIPT", COPY_TOOL_SCRIPT)
+            .replace("MULTIPLE_TREES", multipleTrees ? "True" : "False"));
     testCase.write(
         "foo/BUILD",
         """
@@ -1810,6 +1844,12 @@ public class RewindingTestsHelper {
         copy_tool(name = "copy_tool")
 
         mapped_tree(name = "mapped_tree")
+
+        filegroup(
+            name = "intermediate",
+            srcs = [":mapped_tree"],
+            output_group = "intermediate",
+        )
 
         genrule(
             name = "warmup_gen",
@@ -1830,6 +1870,7 @@ public class RewindingTestsHelper {
             srcs = [
                 "warmup_consumed.out",
                 ":mapped_tree",
+                ":intermediate",
             ],
         )
         """
@@ -1905,9 +1946,13 @@ public class RewindingTestsHelper {
         "Consuming //foo:losing_consumer",
         (spawn, context) -> {
           SpecialArtifact mappedTree = SpawnInputUtils.getTreeArtifactWithName(spawn, "mapped_dir");
+          SpecialArtifact intermediateTree =
+              multipleTrees
+                  ? SpawnInputUtils.getTreeArtifactWithName(spawn, "intermediate_dir")
+                  : mappedTree;
           return createLostInputsExecException(
               context,
-              SpawnInputUtils.getExpandedToArtifact("f1.mid", mappedTree, spawn, context),
+              SpawnInputUtils.getExpandedToArtifact("f1.mid", intermediateTree, spawn, context),
               SpawnInputUtils.getExpandedToArtifact("f1.out", mappedTree, spawn, context));
         });
 
@@ -1956,7 +2001,7 @@ public class RewindingTestsHelper {
                     directory = output_directories["mapped"],
                 )
                 args = template_ctx.args()
-                args.add_all([out, child])
+                args.add_all([child, out])
                 template_ctx.run(
                     inputs = [child],
                     outputs = [out],
@@ -2080,17 +2125,35 @@ public class RewindingTestsHelper {
   }
 
   /**
-   * Verifies that an action expanded from an {@link
+   * Verifies that an action expanded from a downstream {@link
    * com.google.devtools.build.lib.actions.ActionTemplate} that consumes an individual file of a
-   * tree artifact populated by a different template is synchronized with the rewound actions of
-   * that template like a consumer of the whole tree artifact.
+   * tree artifact populated by an upstream template is synchronized with the rewound actions of the
+   * upstream template like a consumer of the whole tree artifact.
    *
    * <p>Guarding such a consumer only by the key of the action generating the file would let a
    * rewound sibling of that action re-execute while the consumer is running and could result in a
    * deadlock (see the proof of deadlock freedom in RemoteRewoundActionSynchronizer).
    */
-  public final void runActionTemplateExpansionRewound_notConcurrentWithConsumersFromOtherExpansion()
+  public final void runActionTemplateExpansionRewound_notConcurrentWithDownstreamExpansion()
       throws Exception {
+    runActionTemplateExpansionRewound_notConcurrentWithDownstreamExpansion(
+        /* multipleTrees= */ false);
+  }
+
+  /**
+   * Variant of {@link #runActionTemplateExpansionRewound_notConcurrentWithDownstreamExpansion} in
+   * which the rewound sibling populates a different tree artifact than the one the downstream
+   * expansion consumes a file of.
+   */
+  public final void
+      runActionTemplateExpansionRewound_notConcurrentWithDownstreamExpansion_multipleTrees()
+          throws Exception {
+    runActionTemplateExpansionRewound_notConcurrentWithDownstreamExpansion(
+        /* multipleTrees= */ true);
+  }
+
+  private void runActionTemplateExpansionRewound_notConcurrentWithDownstreamExpansion(
+      boolean multipleTrees) throws Exception {
     // All downstream consumers and the action that reports the lost inputs have to run
     // concurrently for the upstream actions to be rewound while the file is being consumed.
     ensureMinimumJobs(CONCURRENT_ACTION_COUNT + 1);
@@ -2109,7 +2172,7 @@ public class RewindingTestsHelper {
             name = child.basename + suffix
             out = template_ctx.declare_file(name + ".out", directory = output_directory)
             args = template_ctx.args()
-            args.add_all([out, child])
+            args.add_all([child, out])
             template_ctx.run(
                 inputs = [child],
                 outputs = [out],
@@ -2120,7 +2183,8 @@ public class RewindingTestsHelper {
 
         def _map_all_impl(template_ctx, input_directories, output_directories, tools, **kwargs):
             for child in input_directories["input"].children:
-                _copy_child(template_ctx, child, output_directories["output"], tools)
+                directory = output_directories["other" if child.basename == "f2" else "output"]
+                _copy_child(template_ctx, child, directory, tools)
 
         # Copies only the first file, but COPY_COUNT times so that as many actions as possible
         # consume it concurrently.
@@ -2151,16 +2215,22 @@ public class RewindingTestsHelper {
                 progress_message = "Seeding foo/seed_dir",
             )
             upstream = ctx.actions.declare_directory("upstream_dir")
+            other = upstream
+            if MULTIPLE_TREES:
+                other = ctx.actions.declare_directory("other_dir")
             ctx.actions.map_directory(
                 implementation = _map_all_impl,
                 input_directories = {"input": seed},
-                output_directories = {"output": upstream},
+                output_directories = {"output": upstream, "other": other},
                 tools = {"copy_tool": ctx.attr._copy_tool.files_to_run},
                 # Ensure that the rewound expansion actions re-execute their spawns instead of
                 # picking up the results of their first executions from the cache.
                 execution_requirements = {"no-cache": "1"},
             )
-            return DefaultInfo(files = depset([upstream]))
+            return [
+                DefaultInfo(files = depset([upstream])),
+                OutputGroupInfo(other = depset([other])),
+            ]
 
         upstream_tree = rule(
             implementation = _upstream_tree_impl,
@@ -2199,6 +2269,7 @@ public class RewindingTestsHelper {
         )
         """
             .replace("COPY_TOOL_SCRIPT", COPY_TOOL_SCRIPT)
+            .replace("MULTIPLE_TREES", multipleTrees ? "True" : "False")
             .replace("COPY_COUNT", String.valueOf(CONCURRENT_ACTION_COUNT)));
     testCase.write(
         "foo/BUILD",
@@ -2226,6 +2297,12 @@ public class RewindingTestsHelper {
             warmup = ["warmup_consumed.out"],
         )
 
+        filegroup(
+            name = "other",
+            srcs = [":upstream"],
+            output_group = "other",
+        )
+
         downstream_tree(
             name = "downstream",
             src = ":upstream",
@@ -2233,7 +2310,7 @@ public class RewindingTestsHelper {
 
         consumer(
             name = "losing_consumer",
-            srcs = [":upstream"],
+            srcs = [":upstream", ":other"],
         )
         """);
 
@@ -2267,8 +2344,9 @@ public class RewindingTestsHelper {
 
     // The initial executions of the upstream actions pass through unmodified; per description,
     // shims are consumed in the order in which they were added.
-    for (String child : ImmutableList.of("f1", "f2")) {
-      addSpawnShim("Mapping upstream_dir " + child, (spawn, context) -> ExecResult.delegate());
+    String siblingDescription = "Mapping " + (multipleTrees ? "other_dir" : "upstream_dir") + " f2";
+    for (String description : ImmutableList.of("Mapping upstream_dir f1", siblingDescription)) {
+      addSpawnShim(description, (spawn, context) -> ExecResult.delegate());
     }
     for (int i = 0; i < CONCURRENT_ACTION_COUNT; i++) {
       addSpawnShim(
@@ -2285,7 +2363,7 @@ public class RewindingTestsHelper {
     // Its sibling must also wait for the downstream actions even though they don't consume any of
     // its files.
     addSpawnShim(
-        "Mapping upstream_dir f2",
+        siblingDescription,
         (spawn, context) -> {
           if (downstreamExecuting.get() > 0) {
             upstreamSiblingReExecutedConcurrently.set(true);
@@ -2303,10 +2381,14 @@ public class RewindingTestsHelper {
           allDownstreamStarted.await();
           SpecialArtifact upstreamTree =
               SpawnInputUtils.getTreeArtifactWithName(spawn, "upstream_dir");
+          SpecialArtifact otherTree =
+              multipleTrees
+                  ? SpawnInputUtils.getTreeArtifactWithName(spawn, "other_dir")
+                  : upstreamTree;
           return createLostInputsExecException(
               context,
               SpawnInputUtils.getExpandedToArtifact("f1.out", upstreamTree, spawn, context),
-              SpawnInputUtils.getExpandedToArtifact("f2.out", upstreamTree, spawn, context));
+              SpawnInputUtils.getExpandedToArtifact("f2.out", otherTree, spawn, context));
         });
 
     testCase.buildTarget("//foo:all");
@@ -2319,7 +2401,7 @@ public class RewindingTestsHelper {
         .isFalse();
     var executedSpawns = ImmutableMultiset.copyOf(getExecutedSpawnDescriptions());
     assertThat(executedSpawns).hasCount("Mapping upstream_dir f1", 2);
-    assertThat(executedSpawns).hasCount("Mapping upstream_dir f2", 2);
+    assertThat(executedSpawns).hasCount(siblingDescription, 2);
     for (int i = 0; i < CONCURRENT_ACTION_COUNT; i++) {
       assertThat(executedSpawns).hasCount("Mapping downstream_dir f1.out." + i, 1);
     }

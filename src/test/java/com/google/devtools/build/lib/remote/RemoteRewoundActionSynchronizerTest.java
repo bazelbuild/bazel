@@ -158,6 +158,26 @@ public final class RemoteRewoundActionSynchronizerTest {
    */
   @Test
   public void expandedActionRewound_consumerFromOtherExpansion_doesNotDeadlock() throws Exception {
+    runExpandedActionRewound(ConsumerKind.EXPANDED_ACTION);
+  }
+
+  @Test
+  public void expandedActionRewound_ordinaryConsumerOfTreeFile_doesNotDeadlock() throws Exception {
+    runExpandedActionRewound(ConsumerKind.ORDINARY_ACTION);
+  }
+
+  @Test
+  public void expandedActionRewound_outputProcessing_doesNotDeadlock() throws Exception {
+    runExpandedActionRewound(ConsumerKind.OUTPUT_PROCESSING);
+  }
+
+  private enum ConsumerKind {
+    EXPANDED_ACTION,
+    ORDINARY_ACTION,
+    OUTPUT_PROCESSING
+  }
+
+  private void runExpandedActionRewound(ConsumerKind consumerKind) throws Exception {
     FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
     var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
@@ -188,9 +208,15 @@ public final class RemoteRewoundActionSynchronizerTest {
     TreeFileArtifact downstreamFile =
         TreeFileArtifact.createTemplateExpansionOutput(downstreamTree, "file", downstreamExpansion);
     downstreamFile.setGeneratingActionKey(ActionLookupData.create(downstreamExpansion, 0));
+    DerivedArtifact ordinaryOutput =
+        (DerivedArtifact) ActionsTestUtil.createArtifact(root, "ordinary_consumer.out");
+    ordinaryOutput.setGeneratingActionKey(ActionLookupData.create(owner, 3));
+    ImmutableList<Artifact> downstreamInputs = ImmutableList.of(upstreamFile, treeConsumerOutput);
     Action downstreamAction =
         newAction(
-            ImmutableList.of(downstreamFile), ImmutableList.of(upstreamFile, treeConsumerOutput));
+            ImmutableList.of(
+                consumerKind == ConsumerKind.EXPANDED_ACTION ? downstreamFile : ordinaryOutput),
+            downstreamInputs);
 
     InputMetadataProvider metadataProvider = mock(InputMetadataProvider.class);
     when(metadataProvider.getRunfilesTrees()).thenReturn(ImmutableList.of());
@@ -205,8 +231,11 @@ public final class RemoteRewoundActionSynchronizerTest {
         new TestThread(
             () -> {
               try (SilentCloseable unused =
-                  synchronizer.enterActionExecution(
-                      downstreamAction, /* wasRewound= */ false, metadataProvider)) {}
+                  consumerKind == ConsumerKind.OUTPUT_PROCESSING
+                      ? synchronizer.enterProcessOutputsAndGetLostArtifacts(
+                          downstreamInputs, metadataProvider)
+                      : synchronizer.enterActionExecution(
+                          downstreamAction, /* wasRewound= */ false, metadataProvider)) {}
             });
     downstreamExecution.start();
     waitUntilBlocked(downstreamExecution);

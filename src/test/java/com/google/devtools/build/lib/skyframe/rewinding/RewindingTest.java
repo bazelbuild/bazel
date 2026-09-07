@@ -272,15 +272,27 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void actionTemplateExpansionRewound_notConcurrentWithTreeConsumers_multipleTrees()
+      throws Exception {
+    helper.runActionTemplateExpansionRewound_notConcurrentWithTreeConsumers_multipleTrees();
+  }
+
+  @Test
   public void actionTemplateExpansionRewound_siblingActionsReExecuteConcurrently()
       throws Exception {
     helper.runActionTemplateExpansionRewound_siblingActionsReExecuteConcurrently();
   }
 
   @Test
-  public void actionTemplateExpansionRewound_notConcurrentWithConsumersFromOtherExpansion()
+  public void actionTemplateExpansionRewound_notConcurrentWithDownstreamExpansion()
       throws Exception {
-    helper.runActionTemplateExpansionRewound_notConcurrentWithConsumersFromOtherExpansion();
+    helper.runActionTemplateExpansionRewound_notConcurrentWithDownstreamExpansion();
+  }
+
+  @Test
+  public void actionTemplateExpansionRewound_notConcurrentWithDownstreamExpansion_multipleTrees()
+      throws Exception {
+    helper.runActionTemplateExpansionRewound_notConcurrentWithDownstreamExpansion_multipleTrees();
   }
 
   @Test
