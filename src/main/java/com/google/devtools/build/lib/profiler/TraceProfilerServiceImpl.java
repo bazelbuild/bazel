@@ -207,8 +207,7 @@ public final class TraceProfilerServiceImpl implements TraceProfilerService {
   // can't call stop itself. What to do?
   @Override
   public synchronized ImmutableList<StatRecorder> getTasksHistograms() {
-    Preconditions.checkState(isActive());
-    return ImmutableList.copyOf(tasksHistograms);
+    return isActive() ? ImmutableList.copyOf(tasksHistograms) : ImmutableList.of();
   }
 
   @Override
