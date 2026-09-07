@@ -75,13 +75,12 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   @ClassRule @Rule public static final WorkerInstance worker = IntegrationTestUtils.createWorker();
 
   private final ActionEventRecorder actionEventRecorder = new ActionEventRecorder();
-  private final RemoteModule remoteModule = spy(new RemoteModule());
   private final RewindingTestsHelper helper = new RewindingTestsHelper(this, actionEventRecorder);
 
   @Override
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     return super.getRuntimeBuilder()
-        .addBlazeModule(remoteModule)
+        .addBlazeModule(spy(new RemoteModule()))
         .addBlazeModule(new BlockWaitingModule())
         .addBlazeModule(new IncludeScanningModule())
         .addBlazeModule(helper.makeControllableActionStrategyModule("remote", "standalone"))
@@ -318,7 +317,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
                   .thenAnswer(unused -> decorator.apply(service.getRewoundActionSynchronizer()));
               return decorated;
             })
-        .when(remoteModule)
+        .when(getRuntime().getBlazeModule(RemoteModule.class))
         .getOutputService();
   }
 
