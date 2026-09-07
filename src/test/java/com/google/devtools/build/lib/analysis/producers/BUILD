@@ -22,6 +22,8 @@ java_test(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_build_settings_details_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:common_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment",
@@ -31,7 +33,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis/producers:build_configuration_key_map_producer",
         "//src/main/java/com/google/devtools/build/lib/analysis/producers:platform_producer",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:build_options_scope_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",

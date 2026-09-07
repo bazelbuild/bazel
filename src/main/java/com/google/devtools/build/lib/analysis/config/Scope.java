@@ -13,17 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 
 /**
- * Scope of a {@link BuildOptions} is defined by the {@link Scope.ScopeType} and {@link
- * Scope.ScopeDefinition}.
+ * Scope of a Starlark build setting, defined by the {@link Scope.ScopeType} and {@link
+ * Scope.ScopeDefinition}. Scope determines how a flag's value is affected by configuration
+ * transitions and project boundaries.
+ *
+ * <p>Value equality is needed because scopes reach {@link BuildConfigurationValue}, whose {@link
+ * BuildConfigurationValue#equals} decides whether Skyframe prunes a configuration change.
  */
-public class Scope {
+@AutoCodec
+public record Scope(ScopeType scopeType, @Nullable ScopeDefinition scopeDefinition) {
   public static final String CUSTOM_EXEC_SCOPE_PREFIX = "exec:--";
 
   /** Type of supported scopes. */
@@ -78,45 +82,6 @@ public class Scope {
    * directory as the BUILD file where the scoped flags are defined or in a parent directory. This
    * is only relevant if the scope type is PROJECT.
    */
-  public static class ScopeDefinition {
-    private final ImmutableSet<String> ownedCodePaths;
-
-    public ScopeDefinition(ImmutableSet<String> ownedCodePaths) {
-      this.ownedCodePaths = ownedCodePaths;
-    }
-
-    public ImmutableSet<String> getOwnedCodePaths() {
-      return ownedCodePaths;
-    }
-
-    @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this).add("ownedCodePaths", ownedCodePaths).toString();
-    }
-  }
-
-  ScopeType scopeType;
-  @Nullable ScopeDefinition scopeDefinition;
-
-  public Scope(ScopeType scopeType, @Nullable ScopeDefinition scopeDefinition) {
-    this.scopeType = scopeType;
-    this.scopeDefinition = scopeDefinition;
-  }
-
-  public ScopeType getScopeType() {
-    return scopeType;
-  }
-
-  @Nullable
-  public ScopeDefinition getScopeDefinition() {
-    return scopeDefinition;
-  }
-
-  @Override
-  public String toString() {
-    return MoreObjects.toStringHelper(this)
-        .add("scopeType", scopeType)
-        .add("scopeDefinition", scopeDefinition)
-        .toString();
-  }
+  @AutoCodec
+  public record ScopeDefinition(ImmutableSet<String> ownedCodePaths) {}
 }

@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -25,6 +24,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.Scope;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -34,16 +34,19 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Tests for {@link BuildOptionsScopeFunction}. */
+/** Tests for the scope-related parts of {@link StarlarkBuildSettingsDetailsFunction}. */
 @RunWith(TestParameterInjector.class)
-public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
+public final class StarlarkBuildSettingsDetailsFunctionTest extends BuildViewTestCase {
+
+  private static final Scope.ScopeType PROJECT = new Scope.ScopeType(Scope.ScopeType.PROJECT);
+  private static final Scope.ScopeType UNIVERSAL = new Scope.ScopeType(Scope.ScopeType.UNIVERSAL);
+  private static final Scope.ScopeType DEFAULT = new Scope.ScopeType(Scope.ScopeType.DEFAULT);
 
   @Before
-  public void doBeforeEachTest() {
+  public void doBeforeEachTest() throws Exception {
     // inject Precomputed.BASELINE_CONFIGURATION
     AnalysisMock analysisMock = AnalysisMock.get();
     ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
@@ -60,6 +63,21 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
                     BaselineOptionsFunction.BASELINE_CONFIGURATION, defaultBuildOptions))
             .addAll(analysisMock.getPrecomputedValues())
             .build());
+
+    scratch.file("test/BUILD");
+    writeProjectSclDefinition("test/project_proto.scl");
+    scratch.file(
+        "test_flags/build_setting.bzl",
+        """
+        bool_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.bool(flag = True),
+            attrs = {
+                "scope": attr.string(default = "universal"),
+                "on_leave_scope": attr.bool(default = False),
+            },
+        )
+        """);
   }
 
   @Test
@@ -71,17 +89,6 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
     "{scope: 'default', expectFail: true}", // Valid internal value but can't be set by users.
   })
   public void validScopeAttributeValues(String scope, boolean expectFail) throws Exception {
-    scratch.file(
-        "test_flags/build_setting.bzl",
-        """
-        bool_flag = rule(
-            implementation = lambda ctx: [],
-            build_setting = config.bool(flag = True),
-            attrs = {
-                "scope": attr.string(default = "universal"),
-            },
-        )
-        """);
     scratch.file(
         "test_flags/BUILD",
         """
@@ -106,19 +113,7 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  @Ignore("TODO(b/359622692): turns this back on in a follow up CL")
-  public void buildOptionsScopesFunction_returnsCorrectScope() throws Exception {
-    scratch.file(
-        "test_flags/build_setting.bzl",
-        """
-        bool_flag = rule(
-            implementation = lambda ctx: [],
-            build_setting = config.bool(flag = True),
-            attrs = {
-                "scope": attr.string(default = "universal"),
-            },
-        )
-        """);
+  public void resolvesScopesOfAllBuildSettings() throws Exception {
     scratch.file(
         "test_flags/BUILD",
         """
@@ -132,71 +127,52 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
             name = "bar",
             build_setting_default = False,
         )
+        bool_flag(
+            name = "baz",
+            build_setting_default = False,
+            scope = "target",
+            on_leave_scope = True,
+        )
+        alias(
+            name = "foo_alias",
+            actual = ":foo",
+        )
         """);
-
     scratch.file(
         "test_flags/PROJECT.scl",
         """
-        active_directories = {
-          "default": [
-              "//my_project/"
-          ]
-        }
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create(
+            project_directories = ["//my_project"],
+        )
         """);
-    BuildOptions buildOptions =
-        createBuildOptions("--//test_flags:foo=True", "--//test_flags:bar=True");
+    Label foo = Label.parseCanonical("//test_flags:foo");
+    Label bar = Label.parseCanonical("//test_flags:bar");
+    Label baz = Label.parseCanonical("//test_flags:baz");
+    Label fooAlias = Label.parseCanonical("//test_flags:foo_alias");
 
-    // purposely removing the scope for //test_flags:bar to simulate the case where the scope is
-    // not yet resolved for a flag.
-    BuildOptions inputBuildOptionsWithIncompleteScopeTypeMap =
-        buildOptions.toBuilder().removeScope(Label.parseCanonical("//test_flags:bar")).build();
+    StarlarkBuildSettingsDetailsValue details =
+        executeFunction(
+            StarlarkBuildSettingsDetailsValue.keyForBuildSettings(
+                ImmutableSet.of(fooAlias, bar, baz), ImmutableSet.of()));
 
-    ImmutableList<Label> scopedFlags = ImmutableList.of(Label.parseCanonical("//test_flags:bar"));
-    BuildOptionsScopeValue.Key key =
-        BuildOptionsScopeValue.Key.create(inputBuildOptionsWithIncompleteScopeTypeMap, scopedFlags);
-
-    // verify that the scope type is not yet resolved for //test_flags:bar
-    assertThat(key.getBuildOptions().getScopeTypeMap()).hasSize(1);
-
-    BuildOptionsScopeValue buildOptionsScopeValue = executeFunction(key);
-
-    // verify that the Scope is fully resolved for //test_flags:foo and //test_flags:bar
-    var unused =
-        assertThat(
-            buildOptionsScopeValue
-                .getFullyResolvedScopes()
-                .equals(
-                    ImmutableMap.of(
-                        Label.parseCanonical("//test_flags:foo"),
-                        new Scope(
-                            new Scope.ScopeType(Scope.ScopeType.PROJECT),
-                            new Scope.ScopeDefinition(ImmutableSet.of("//my_project/"))),
-                        Label.parseCanonical("//test_flags:bar"),
-                        new Scope(new Scope.ScopeType(Scope.ScopeType.UNIVERSAL), null))));
-
-    // verify that the BuildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes() has the
-    // correct ScopeType map for all flags.
-    assertThat(buildOptionsScopeValue.getResolvedBuildOptionsWithScopeTypes().getScopeTypeMap())
+    assertThat(details.buildSettings()).containsExactly(fooAlias, bar, baz);
+    assertThat(details.buildSettingToScopeType())
+        .containsExactly(foo, PROJECT, bar, UNIVERSAL, baz, new Scope.ScopeType("target"));
+    assertThat(details.buildSettingToOnLeaveScopeValue()).containsExactly(baz, true);
+    assertThat(details.projectScopes())
         .containsExactly(
-            Label.parseCanonical("//test_flags:foo"),
-            new Scope.ScopeType(Scope.ScopeType.PROJECT),
-            Label.parseCanonical("//test_flags:bar"),
-            new Scope.ScopeType(Scope.ScopeType.UNIVERSAL));
+            foo, new Scope(PROJECT, new Scope.ScopeDefinition(ImmutableSet.of("//my_project"))));
+    assertThat(details.hasProjectScopedBuildSettings()).isTrue();
+    // Aliases resolve to the actual build setting's scope.
+    assertThat(details.projectScopeOf(fooAlias)).isEqualTo(details.projectScopes().get(foo));
+    assertThat(details.projectScopeOf(bar)).isNull();
+    assertThat(details.covers(ImmutableSet.of(bar, baz))).isTrue();
+    assertThat(details.covers(ImmutableSet.of(foo))).isFalse();
   }
 
   @Test
-  public void buildOptionsScopesFunction_doesNotErrorOut_whenNoProjectFile() throws Exception {
-    scratch.file(
-        "test_flags/build_setting.bzl",
-        """
-        bool_flag = rule(
-            implementation = lambda ctx: [],
-            build_setting = config.bool(flag = True),
-            attrs = {
-                "scope": attr.string(default = "universal"),
-            },
-        )
-        """);
+  public void projectScopedBuildSettingWithoutProjectFile_hasNoScopeDefinition() throws Exception {
     scratch.file(
         "test_flags/BUILD",
         """
@@ -207,26 +183,51 @@ public final class BuildOptionsScopeFunctionTest extends BuildViewTestCase {
             scope = "project",
         )
         """);
+    Label foo = Label.parseCanonical("//test_flags:foo");
 
-    BuildOptions buildOptionsWithoutScopes = createBuildOptions("--//test_flags:foo=True");
-    ImmutableList<Label> scopedFlags = ImmutableList.of(Label.parseCanonical("//test_flags:foo"));
-    BuildOptionsScopeValue.Key key =
-        BuildOptionsScopeValue.Key.create(buildOptionsWithoutScopes, scopedFlags);
+    StarlarkBuildSettingsDetailsValue details =
+        executeFunction(
+            StarlarkBuildSettingsDetailsValue.keyForBuildSettings(
+                ImmutableSet.of(foo), ImmutableSet.of()));
 
-    BuildOptionsScopeValue buildOptionsScopeValue = executeFunction(key);
-    var unused =
-        assertThat(
-            buildOptionsScopeValue
-                .getFullyResolvedScopes()
-                .equals(
-                    ImmutableMap.of(
-                        Label.parseCanonical("//test_flags:foo"),
-                        new Scope(new Scope.ScopeType(Scope.ScopeType.PROJECT), null))));
+    assertThat(details.projectScopes()).containsExactly(foo, new Scope(PROJECT, null));
   }
 
-  private BuildOptionsScopeValue executeFunction(BuildOptionsScopeValue.Key key) throws Exception {
+  @Test
+  public void buildSettingWithoutScopeAttribute_hasDefaultScope() throws Exception {
+    scratch.file(
+        "test_flags/plain.bzl",
+        """
+        plain_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.bool(flag = True),
+        )
+        """);
+    scratch.file(
+        "test_flags/BUILD",
+        """
+        load("//test_flags:plain.bzl", "plain_flag")
+        plain_flag(
+            name = "foo",
+            build_setting_default = False,
+        )
+        """);
+    Label foo = Label.parseCanonical("//test_flags:foo");
+
+    StarlarkBuildSettingsDetailsValue details =
+        executeFunction(
+            StarlarkBuildSettingsDetailsValue.keyForBuildSettings(
+                ImmutableSet.of(foo), ImmutableSet.of()));
+
+    assertThat(details.buildSettingToScopeType()).containsExactly(foo, DEFAULT);
+    assertThat(details.projectScopes()).isEmpty();
+    assertThat(details.hasProjectScopedBuildSettings()).isFalse();
+  }
+
+  private StarlarkBuildSettingsDetailsValue executeFunction(
+      StarlarkBuildSettingsDetailsValue.Key key) throws Exception {
     SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
-    EvaluationResult<BuildOptionsScopeValue> result =
+    EvaluationResult<StarlarkBuildSettingsDetailsValue> result =
         SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, /* keepGoing= */ false, reporter);
     if (result.hasError()) {
       throw result.getError(key).getException();

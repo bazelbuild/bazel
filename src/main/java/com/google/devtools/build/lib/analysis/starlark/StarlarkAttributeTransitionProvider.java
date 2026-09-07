@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import java.util.LinkedHashMap;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark.InvalidStarlarkValueException;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -70,6 +71,13 @@ public class StarlarkAttributeTransitionProvider
   }
 
   @Override
+  public boolean equals(Object obj) {
+    return obj instanceof StarlarkAttributeTransitionProvider other
+        && getClass() == obj.getClass()
+        && starlarkDefinedConfigTransition.equals(other.starlarkDefinedConfigTransition);
+  }
+
+  @Override
   public SplitTransition create(AttributeTransitionData data) {
     AttributeMap attributeMap = data.attributes();
     Preconditions.checkArgument(
@@ -78,7 +86,23 @@ public class StarlarkAttributeTransitionProvider
     // done in StarlarkRuleTransitionProvider. This could benefit builds that apply transitions over
     // many build graph edges.
     return new FunctionSplitTransition(
-        starlarkDefinedConfigTransition, (ConfiguredAttributeMapper) attributeMap);
+        starlarkDefinedConfigTransition,
+        (ConfiguredAttributeMapper) attributeMap,
+        /* scopeDetails= */ null);
+  }
+
+  /**
+   * Creates a {@link FunctionSplitTransition} with scope details for exec transitions. Only called
+   * by {@link
+   * com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionProvider}.
+   */
+  protected SplitTransition createWithScopeDetails(
+      AttributeTransitionData data, @Nullable StarlarkBuildSettingsDetailsValue scopeDetails) {
+    AttributeMap attributeMap = data.attributes();
+    Preconditions.checkArgument(
+        attributeMap == null || attributeMap instanceof ConfiguredAttributeMapper);
+    return new FunctionSplitTransition(
+        starlarkDefinedConfigTransition, (ConfiguredAttributeMapper) attributeMap, scopeDetails);
   }
 
   public boolean allowImmutableFlagChanges() {
@@ -106,12 +130,15 @@ public class StarlarkAttributeTransitionProvider
 
   final class FunctionSplitTransition extends StarlarkTransition implements SplitTransition {
     private final StructImpl attrObject;
+    @Nullable private final StarlarkBuildSettingsDetailsValue scopeDetails;
     private final int hashCode;
 
     private FunctionSplitTransition(
         StarlarkDefinedConfigTransition starlarkDefinedConfigTransition,
-        ConfiguredAttributeMapper attributeMap) {
+        ConfiguredAttributeMapper attributeMap,
+        @Nullable StarlarkBuildSettingsDetailsValue scopeDetails) {
       super(starlarkDefinedConfigTransition);
+      this.scopeDetails = scopeDetails;
 
       LinkedHashMap<String, Object> attributes = new LinkedHashMap<>();
       if (attributeMap != null) {
@@ -131,7 +158,8 @@ public class StarlarkAttributeTransitionProvider
         }
       }
       attrObject = StructProvider.STRUCT.create(attributes, ERROR_MESSAGE_FOR_NO_ATTR);
-      this.hashCode = Objects.hash(attrObject, super.hashCode());
+      this.hashCode =
+          Objects.hash(attrObject, super.hashCode(), System.identityHashCode(scopeDetails));
     }
 
     /**
@@ -152,7 +180,8 @@ public class StarlarkAttributeTransitionProvider
               allowImmutableFlagChanges(),
               isExecTransitionProvider(),
               attrObject,
-              eventHandler);
+              eventHandler,
+              scopeDetails);
       if (res == null) {
         return ImmutableMap.of("error", buildOptions.clone());
       }
@@ -172,7 +201,9 @@ public class StarlarkAttributeTransitionProvider
       if (!(object instanceof FunctionSplitTransition other)) {
         return false;
       }
-      return Objects.equals(attrObject, other.attrObject) && super.equals(other);
+      return scopeDetails == other.scopeDetails
+          && Objects.equals(attrObject, other.attrObject)
+          && super.equals(other);
     }
 
     @Override
