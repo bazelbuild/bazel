@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -220,6 +222,14 @@ public final class RemoteRewoundActionSynchronizerTest {
 
     InputMetadataProvider metadataProvider = mock(InputMetadataProvider.class);
     when(metadataProvider.getRunfilesTrees()).thenReturn(ImmutableList.of());
+    when(metadataProvider.getTreeMetadata(upstreamTree))
+        .thenReturn(
+            TreeArtifactValue.newBuilder(upstreamTree)
+                .putChild(
+                    upstreamFile,
+                    FileArtifactValue.createForNormalFile(
+                        new byte[32], /* proxy= */ null, /* size= */ 1))
+                .build());
 
     // The tree consumer is rewound and prepares for its re-execution, which makes it hold the
     // write lock guarding its output until the end of its execution.
