@@ -267,14 +267,14 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void actionTemplateExpansionRewound_notConcurrentWithTreeConsumers() throws Exception {
-    helper.runActionTemplateExpansionRewound_notConcurrentWithTreeConsumers();
+  public void actionTemplateExpansionRewound_withTreeConsumersInFlight() throws Exception {
+    helper.runActionTemplateExpansionRewound_withTreeConsumersInFlight();
   }
 
   @Test
-  public void actionTemplateExpansionRewound_notConcurrentWithTreeConsumers_multipleTrees()
+  public void actionTemplateExpansionRewound_withTreeConsumersInFlight_multipleTrees()
       throws Exception {
-    helper.runActionTemplateExpansionRewound_notConcurrentWithTreeConsumers_multipleTrees();
+    helper.runActionTemplateExpansionRewound_withTreeConsumersInFlight_multipleTrees();
   }
 
   @Test
@@ -284,15 +284,14 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void actionTemplateExpansionRewound_notConcurrentWithDownstreamExpansion()
-      throws Exception {
-    helper.runActionTemplateExpansionRewound_notConcurrentWithDownstreamExpansion();
+  public void actionTemplateExpansionRewound_withDownstreamExpansionInFlight() throws Exception {
+    helper.runActionTemplateExpansionRewound_withDownstreamExpansionInFlight();
   }
 
   @Test
-  public void actionTemplateExpansionRewound_notConcurrentWithDownstreamExpansion_multipleTrees()
+  public void actionTemplateExpansionRewound_withDownstreamExpansionInFlight_multipleTrees()
       throws Exception {
-    helper.runActionTemplateExpansionRewound_notConcurrentWithDownstreamExpansion_multipleTrees();
+    helper.runActionTemplateExpansionRewound_withDownstreamExpansionInFlight_multipleTrees();
   }
 
   @Test
