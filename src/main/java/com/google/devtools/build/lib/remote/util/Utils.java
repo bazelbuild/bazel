@@ -17,9 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static java.util.stream.Collectors.joining;
 
 import build.bazel.remote.execution.v2.Action;
@@ -41,7 +39,6 @@ import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
 import com.google.devtools.build.lib.remote.ExecutionStatusException;
 import com.google.devtools.build.lib.remote.common.ActionKey;
-import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
@@ -71,8 +68,6 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 
@@ -481,93 +476,6 @@ public final class Utils {
       Throwables.throwIfUnchecked(e);
       throw new AssertionError(e);
     }
-  }
-
-  /**
-   * Waits for all transfers to finish.
-   *
-   * <p>If interrupted, all remaining transfers are canceled.
-   */
-  public static void waitForBulkTransfer(Iterable<? extends ListenableFuture<?>> transfers)
-      throws BulkTransferException, InterruptedException {
-    BulkTransferException bulkTransferException = null;
-    InterruptedException interruptedException = null;
-    boolean interrupted = Thread.currentThread().isInterrupted();
-    for (ListenableFuture<?> transfer : transfers) {
-      try {
-        if (interruptedException == null) {
-          // Wait for all transfers to finish.
-          var unused = getFromFuture(transfer, /* cancelOnInterrupt= */ true);
-        } else {
-          transfer.cancel(true);
-        }
-      } catch (IOException e) {
-        if (bulkTransferException == null) {
-          bulkTransferException = new BulkTransferException();
-        }
-        bulkTransferException.add(e);
-      } catch (InterruptedException e) {
-        interrupted = Thread.interrupted() || interrupted;
-        interruptedException = e;
-      }
-    }
-    if (interrupted) {
-      Thread.currentThread().interrupt();
-    }
-    if (interruptedException != null) {
-      if (bulkTransferException != null) {
-        interruptedException.addSuppressed(bulkTransferException);
-      }
-      throw interruptedException;
-    }
-    if (bulkTransferException != null) {
-      throw bulkTransferException;
-    }
-  }
-
-  public static ListenableFuture<Void> mergeBulkTransfer(
-      Iterable<ListenableFuture<Void>> transfers) {
-    return Futures.whenAllComplete(transfers)
-        .callAsync(
-            () -> {
-              BulkTransferException bulkTransferException = null;
-
-              for (var transfer : transfers) {
-                IOException error = null;
-                try {
-                  transfer.get();
-                } catch (CancellationException e) {
-                  return immediateFailedFuture(new InterruptedException());
-                } catch (InterruptedException e) {
-                  return immediateFailedFuture(e);
-                } catch (ExecutionException e) {
-                  var cause = e.getCause();
-                  if (cause instanceof InterruptedException) {
-                    return immediateFailedFuture(cause);
-                  } else if (cause instanceof IOException ioException) {
-                    error = ioException;
-                  } else {
-                    error = new IOException(cause);
-                  }
-                }
-
-                if (error == null) {
-                  continue;
-                }
-
-                if (bulkTransferException == null) {
-                  bulkTransferException = new BulkTransferException();
-                }
-                bulkTransferException.add(error);
-              }
-
-              if (bulkTransferException != null) {
-                return immediateFailedFuture(bulkTransferException);
-              }
-
-              return immediateVoidFuture();
-            },
-            directExecutor());
   }
 
   public static ExecException createExecExceptionForCredentialHelperException(
