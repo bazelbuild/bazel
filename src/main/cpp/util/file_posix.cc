@@ -301,6 +301,9 @@ bool ReadFile(const Path &filename, void *data, size_t size) {
 
 bool WriteFile(const void *data, size_t size, const string &filename,
                unsigned int perm) {
+  if (IsDevNull(filename.c_str())) {
+    return true;  // mimic write(2) behavior with /dev/null
+  }
   UnlinkPath(filename);  // We don't care about the success of this.
   int fd = open(filename.c_str(), O_CREAT | O_WRONLY | O_TRUNC, perm);
   if (fd == -1) {
