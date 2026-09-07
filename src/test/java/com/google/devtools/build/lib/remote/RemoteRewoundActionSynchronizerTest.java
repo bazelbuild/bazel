@@ -26,6 +26,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -225,6 +226,8 @@ public final class RemoteRewoundActionSynchronizerTest {
     when(metadataProvider.getTreeMetadata(upstreamTree))
         .thenReturn(
             TreeArtifactValue.newBuilder(upstreamTree)
+                .setTemplateExpansionActionKeys(
+                    ImmutableSet.of(upstreamFile.getGeneratingActionKey()))
                 .putChild(
                     upstreamFile,
                     FileArtifactValue.createForNormalFile(

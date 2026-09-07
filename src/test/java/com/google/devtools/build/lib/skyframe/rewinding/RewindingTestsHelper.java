@@ -37,6 +37,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Uninterruptibles;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -48,6 +49,7 @@ import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts.ReportedArtifacts;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -66,6 +68,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.exec.SpawnExecException;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
@@ -80,7 +83,9 @@ import com.google.devtools.build.lib.testutil.SpawnController.ExecResult;
 import com.google.devtools.build.lib.testutil.SpawnController.SpawnShim;
 import com.google.devtools.build.lib.testutil.SpawnInputUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.OutputService.RewoundActionSynchronizer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
@@ -103,8 +108,12 @@ import java.util.Map;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+import java.util.function.UnaryOperator;
 import java.util.stream.IntStream;
 
 /**
@@ -2364,6 +2373,362 @@ public class RewindingTestsHelper {
       assertThat(executedSpawns).hasCount("Mapping downstream_dir f1.out.inlined." + i, 1);
     }
     assertThat(executedSpawns).hasCount("Consuming //foo:losing_consumer", 2);
+  }
+
+  /**
+   * Runs an expanded producer P, an ordinary consumer C of its whole tree, and a downstream
+   * expanded action D that consumes both P's file and C's output.
+   *
+   * <p>Reproduces the three-action lock cycle: D reads P and waits for rewound C; rewound P waits
+   * for D; C must still be allowed to read P despite its queued writer.
+   */
+  public final void runActionTemplateExpansionRewound_threeActionDeadlock(
+      Consumer<UnaryOperator<RewoundActionSynchronizer>> decorateSynchronizer) throws Exception {
+    writeRewindingLockWorkspace(/* emptySubdirectory= */ false);
+    CountDownLatch downstreamReady = new CountDownLatch(1);
+    CountDownLatch consumerPrepared = new CountDownLatch(1);
+    CountDownLatch downstreamBlocked = new CountDownLatch(1);
+    CountDownLatch upstreamPreparing = new CountDownLatch(1);
+    AtomicReference<Thread> downstreamThread = new AtomicReference<>();
+    AtomicReference<Thread> upstreamThread = new AtomicReference<>();
+    AtomicBoolean downstreamEntered = new AtomicBoolean();
+    AtomicBoolean upstreamEntered = new AtomicBoolean();
+    decorateSynchronizer.accept(
+        delegate ->
+            new RewoundActionSynchronizer() {
+              @Override
+              public SilentCloseable enterActionPreparation(Action action, boolean wasRewound)
+                  throws InterruptedException {
+                if ("Consuming downstream".equals(action.getProgressMessage())) {
+                  downstreamReady.countDown();
+                  awaitRewindingStep(consumerPrepared);
+                }
+                boolean upstream =
+                    wasRewound && "Producing upstream".equals(action.getProgressMessage());
+                if (upstream) {
+                  upstreamThread.set(Thread.currentThread());
+                  upstreamPreparing.countDown();
+                }
+                SilentCloseable lock = delegate.enterActionPreparation(action, wasRewound);
+                if (upstream) {
+                  upstreamEntered.set(true);
+                }
+                return lock;
+              }
+
+              @Override
+              public SilentCloseable enterActionExecution(
+                  Action action, boolean wasRewound, InputMetadataProvider metadata)
+                  throws InterruptedException {
+                boolean downstream = "Consuming downstream".equals(action.getProgressMessage());
+                if (downstream) {
+                  // The file from P must precede C's output in the read-lock acquisition order.
+                  var inputs = action.getInputs().toList();
+                  assertThat(inputs.stream().map(Artifact::getFilename).collect(toImmutableList()))
+                      .containsAtLeast("file.inlined", "tree_consumer.out")
+                      .inOrder();
+                  downstreamThread.set(Thread.currentThread());
+                }
+                if (wasRewound && "Consuming tree_consumer".equals(action.getProgressMessage())) {
+                  // C already holds its write lock, but has not acquired any input read locks.
+                  consumerPrepared.countDown();
+                  awaitRewindingLockWait(downstreamThread, downstreamEntered);
+                  downstreamBlocked.countDown();
+                  awaitRewindingStep(upstreamPreparing);
+                  awaitRewindingLockWait(upstreamThread, upstreamEntered);
+                  // D holds R(P) and waits for R(C); P waits for W(P). Queuing this read behind
+                  // P's writer would close the cycle. A reader-preferring lock admits C.
+                }
+                SilentCloseable lock = delegate.enterActionExecution(action, wasRewound, metadata);
+                if (downstream) {
+                  downstreamEntered.set(true);
+                }
+                return lock;
+              }
+            });
+    addSpawnShim(
+        "Consuming losing_consumer",
+        (spawn, context) -> {
+          awaitRewindingStep(downstreamReady);
+          return createLostInputsExecException(spawn, context, "tree_consumer.out");
+        });
+    addSpawnShim(
+        "Consuming losing_upstream",
+        (spawn, context) -> {
+          awaitRewindingStep(downstreamBlocked);
+          return createLostInputsExecException(
+              context,
+              SpawnInputUtils.getExpandedToArtifact(
+                  "lost.inlined",
+                  SpawnInputUtils.getTreeArtifactWithName(spawn, "witness"),
+                  spawn,
+                  context));
+        });
+
+    buildRewindingLockTargets("//foo:downstream", "//foo:losing_consumer", "//foo:losing_upstream");
+
+    verifyAllSpawnShimsConsumed();
+    var spawns = ImmutableMultiset.copyOf(getExecutedSpawnDescriptions());
+    assertThat(spawns).hasCount("Producing upstream", 2);
+    assertThat(spawns).hasCount("Consuming tree_consumer", 2);
+    assertThat(spawns).hasCount("Consuming downstream", 1);
+  }
+
+  /** Verifies that a whole-tree reader excludes a rewound producer of an empty subdirectory. */
+  public final void runActionTemplateExpansionRewound_emptySubdirectoryWithTreeConsumer(
+      Consumer<UnaryOperator<RewoundActionSynchronizer>> decorateSynchronizer) throws Exception {
+    writeRewindingLockWorkspace(/* emptySubdirectory= */ true);
+    CountDownLatch consumerStarted = new CountDownLatch(1);
+    CountDownLatch producerPreparing = new CountDownLatch(1);
+    AtomicReference<Thread> producerThread = new AtomicReference<>();
+    AtomicBoolean producerEntered = new AtomicBoolean();
+    decorateSynchronizer.accept(
+        delegate ->
+            new RewoundActionSynchronizer() {
+              @Override
+              public SilentCloseable enterActionPreparation(Action action, boolean wasRewound)
+                  throws InterruptedException {
+                boolean producer =
+                    wasRewound && "Producing upstream".equals(action.getProgressMessage());
+                if (producer) {
+                  producerThread.set(Thread.currentThread());
+                  producerPreparing.countDown();
+                }
+                SilentCloseable lock = delegate.enterActionPreparation(action, wasRewound);
+                if (producer) {
+                  producerEntered.set(true);
+                }
+                return lock;
+              }
+
+              @Override
+              public SilentCloseable enterActionExecution(
+                  Action action, boolean wasRewound, InputMetadataProvider metadata)
+                  throws InterruptedException {
+                return delegate.enterActionExecution(action, wasRewound, metadata);
+              }
+            });
+    addSpawnShim(
+        "Consuming tree_consumer",
+        (spawn, context) -> {
+          SpecialArtifact tree = SpawnInputUtils.getTreeArtifactWithName(spawn, "upstream");
+          assertThat(context.getInputMetadataProvider().getTreeMetadata(tree).getChildren())
+              .isEmpty();
+          consumerStarted.countDown();
+          awaitRewindingStep(producerPreparing);
+          // Even with no child files, the parent tree's read locks must exclude the producer.
+          // Otherwise re-execution can expose temporary files under the empty subdirectory.
+          awaitRewindingLockWait(producerThread, producerEntered);
+          return ExecResult.delegate();
+        });
+    addSpawnShim(
+        "Consuming losing_upstream",
+        (spawn, context) -> {
+          awaitRewindingStep(consumerStarted);
+          return createLostInputsExecException(
+              context,
+              SpawnInputUtils.getExpandedToArtifact(
+                  "lost.inlined",
+                  SpawnInputUtils.getTreeArtifactWithName(spawn, "witness"),
+                  spawn,
+                  context));
+        });
+
+    buildRewindingLockTargets("//foo:tree_consumer", "//foo:losing_upstream");
+
+    verifyAllSpawnShimsConsumed();
+    var spawns = ImmutableMultiset.copyOf(getExecutedSpawnDescriptions());
+    assertThat(spawns).hasCount("Producing upstream", 2);
+    assertThat(spawns).hasCount("Consuming tree_consumer", 1);
+  }
+
+  private static void awaitRewindingStep(CountDownLatch step) throws InterruptedException {
+    assertWithMessage("timed out arranging the rewinding interleaving")
+        .that(step.await(10, TimeUnit.SECONDS))
+        .isTrue();
+  }
+
+  private static void awaitRewindingLockWait(AtomicReference<Thread> thread, AtomicBoolean entered)
+      throws InterruptedException {
+    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+    while (!entered.get()
+        && (thread.get() == null || thread.get().getState() != Thread.State.WAITING)
+        && System.nanoTime() < deadline) {
+      Thread.sleep(1);
+    }
+    assertWithMessage("action acquired its locks instead of waiting for its consumer")
+        .that(entered.get())
+        .isFalse();
+    assertThat(thread.get()).isNotNull();
+    assertWithMessage("action did not block on its rewinding lock")
+        .that(thread.get().getState())
+        .isEqualTo(Thread.State.WAITING);
+  }
+
+  private void buildRewindingLockTargets(String... targets) throws Exception {
+    TestThread build = new TestThread(() -> testCase.buildTarget(targets));
+    build.start();
+    try {
+      build.joinAndAssertState(30_000);
+    } finally {
+      // In particular, stop all action executions if a lock regression caused a deadlock.
+      build.interrupt();
+      build.join(10_000);
+    }
+  }
+
+  private void writeRewindingLockWorkspace(boolean emptySubdirectory) throws Exception {
+    ensureMinimumJobs(6);
+    testCase.addOptions("--experimental_allow_map_directory");
+    String copyScript = COPY_TOOL_SCRIPT;
+    if (emptySubdirectory) {
+      copyScript =
+          OS.getCurrent() == OS.WINDOWS
+              ? """
+              @echo off
+              set "IN=%~1"
+              set "OUT=%~2"
+              set "DIR=%~3"
+              if not exist "%DIR:/=\\%" mkdir "%DIR:/=\\%"
+              copy /Y "%IN:/=\\%" "%OUT:/=\\%" >NUL
+              """
+              : """
+              #!/bin/bash
+              set -e
+              mkdir -p "$3"
+              cp "$1" "$2"
+              """;
+    }
+    testCase.write(
+        "foo/defs.bzl",
+        """
+def _tool_impl(ctx):
+    tool = ctx.actions.declare_file(ctx.attr.name + ".bat")
+    ctx.actions.write(tool, r\"\"\"COPY_SCRIPT\"\"\", is_executable = True)
+    return DefaultInfo(files = depset([tool]), executable = tool)
+
+copy_tool = rule(implementation = _tool_impl, executable = True)
+
+def _map_impl(template_ctx, input_directories, output_directories, tools, **kwargs):
+    child = input_directories["seed"].children[0]
+    if EMPTY_SUBDIRECTORY:
+        out = template_ctx.declare_subdirectory("empty", directory = output_directories["out"])
+    else:
+        out = template_ctx.declare_file("file.inlined", directory = output_directories["out"])
+    lost = template_ctx.declare_file("lost.inlined", directory = output_directories["witness"])
+    args = template_ctx.args()
+    args.add_all([child, lost, out], expand_directories = False)
+    template_ctx.run(
+        inputs = [child],
+        outputs = [out, lost],
+        executable = tools["copy"],
+        arguments = [args],
+        progress_message = "Producing upstream",
+    )
+
+def _upstream_impl(ctx):
+    seed = ctx.actions.declare_directory("seed")
+    ctx.actions.run_shell(
+        inputs = ctx.files.warmup,
+        outputs = [seed],
+        command = "echo seed > $1/file",
+        arguments = [seed.path],
+    )
+    out = ctx.actions.declare_directory("upstream")
+    witness = ctx.actions.declare_directory("witness")
+    ctx.actions.map_directory(
+        implementation = _map_impl,
+        input_directories = {"seed": seed},
+        output_directories = {"out": out, "witness": witness},
+        tools = {"copy": ctx.attr._tool.files_to_run},
+        execution_requirements = {"no-cache": "1"},
+    )
+    return [DefaultInfo(files = depset([out])), OutputGroupInfo(witness = depset([witness]))]
+
+upstream = rule(
+    implementation = _upstream_impl,
+    attrs = {
+        "warmup": attr.label_list(allow_files = True),
+        "_tool": attr.label(default = ":copy_tool", executable = True, cfg = "exec"),
+    },
+)
+
+def _consumer_impl(ctx):
+    out = ctx.actions.declare_file(ctx.attr.name + ".out")
+    ctx.actions.run_shell(
+        inputs = ctx.files.srcs,
+        outputs = [out],
+        command = "echo consumed > $1",
+        arguments = [out.path],
+        progress_message = "Consuming " + ctx.attr.name,
+        execution_requirements = {"no-cache": "1"},
+    )
+    return DefaultInfo(files = depset([out]))
+
+consumer = rule(
+    implementation = _consumer_impl,
+    attrs = {"srcs": attr.label_list(allow_files = True)},
+)
+
+def _downstream_map(template_ctx, input_directories, output_directories, tools,
+                    additional_inputs, **kwargs):
+    child = input_directories["upstream"].children[0]
+    out = template_ctx.declare_file("out", directory = output_directories["out"])
+    args = template_ctx.args()
+    args.add_all([child, out])
+    template_ctx.run(
+        inputs = [child, additional_inputs["consumer"]],
+        outputs = [out],
+        executable = tools["copy"],
+        arguments = [args],
+        progress_message = "Consuming downstream",
+    )
+
+def _downstream_impl(ctx):
+    out = ctx.actions.declare_directory("downstream")
+    ctx.actions.map_directory(
+        implementation = _downstream_map,
+        input_directories = {"upstream": ctx.file.src},
+        output_directories = {"out": out},
+        additional_inputs = {"consumer": ctx.file.consumer},
+        tools = {"copy": ctx.attr._tool.files_to_run},
+    )
+    return DefaultInfo(files = depset([out]))
+
+downstream = rule(
+    implementation = _downstream_impl,
+    attrs = {
+        "src": attr.label(allow_single_file = True),
+        "consumer": attr.label(allow_single_file = True),
+        "_tool": attr.label(default = ":copy_tool", executable = True, cfg = "exec"),
+    },
+)
+"""
+            .replace("COPY_SCRIPT", copyScript)
+            .replace("EMPTY_SUBDIRECTORY", emptySubdirectory ? "True" : "False"));
+    testCase.write(
+        "foo/BUILD",
+        """
+load(":defs.bzl", "consumer", "copy_tool", "downstream", "upstream")
+copy_tool(name = "copy_tool")
+genrule(name = "warmup", outs = ["warmup.out"], cmd = "echo warmup > $@", tags = ["no-cache"])
+genrule(
+    name = "warmup_consumer",
+    srcs = ["warmup.out"],
+    outs = ["warmup_consumed.out"],
+    cmd = "cp $< $@",
+)
+upstream(name = "upstream", warmup = ["warmup_consumed.out"])
+filegroup(name = "witness", srcs = [":upstream"], output_group = "witness")
+consumer(name = "tree_consumer", srcs = [":upstream"])
+consumer(name = "losing_consumer", srcs = [":tree_consumer"])
+consumer(name = "losing_upstream", srcs = [":witness"])
+downstream(name = "downstream", src = ":upstream", consumer = ":tree_consumer")
+""");
+    // Inflate the fine locks before any of the actions in the tested interleaving can start.
+    addSpawnShim(
+        "Executing genrule //foo:warmup_consumer",
+        (spawn, context) -> createLostInputsExecException(spawn, context, "warmup.out"));
   }
 
   public final void runGeneratedRunfilesRewound_allFilesLost_spawnFailed() throws Exception {

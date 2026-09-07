@@ -20,6 +20,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -152,6 +153,20 @@ public final class TreeArtifactValueTest {
     TreeArtifactValue emptyTreeFromBuilder = TreeArtifactValue.newBuilder(parent).build();
 
     assertThat(emptyTreeFromBuilder).isSameInstanceAs(TreeArtifactValue.empty());
+  }
+
+  @Test
+  public void emptyTreeRetainsTemplateExpansionActionKeys() {
+    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    var keys = ImmutableSet.of(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+    TreeArtifactValue tree =
+        TreeArtifactValue.newBuilder(parent).setTemplateExpansionActionKeys(keys).build();
+
+    assertThat(tree.getChildren()).isEmpty();
+    assertThat(tree.getTemplateExpansionActionKeys()).isEqualTo(keys);
+    assertThat(tree).isNotEqualTo(TreeArtifactValue.empty());
+    // Producer identity matters for Skyframe equality, but not for the contents' digest.
+    assertThat(tree.getDigest()).isEqualTo(TreeArtifactValue.empty().getDigest());
   }
 
   @Test

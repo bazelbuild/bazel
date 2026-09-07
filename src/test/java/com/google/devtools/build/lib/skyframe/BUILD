@@ -1846,6 +1846,7 @@ java_test(
     timeout = "short",
     srcs = ["TreeArtifactValueTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
@@ -1867,8 +1868,10 @@ java_test(
     name = "TreeArtifactValueCodecTest",
     srcs = ["TreeArtifactValueCodecTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:action_template_expansion_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:deserialized-sky-value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",

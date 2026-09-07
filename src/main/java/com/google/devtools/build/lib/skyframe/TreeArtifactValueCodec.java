@@ -37,6 +37,7 @@ class TreeArtifactValueCodec extends DeferredObjectCodec<TreeArtifactValue> {
       new TreeArtifactValue_AutoCodec.Deserialized(
           MetadataDigestUtils.fromMetadata(ImmutableMap.of()),
           TreeArtifactValue.EMPTY_MAP,
+          /* templateExpansionActionKeys= */ ImmutableSet.of(),
           0L,
           /* archivedRepresentation= */ null,
           /* resolvedPath= */ null,

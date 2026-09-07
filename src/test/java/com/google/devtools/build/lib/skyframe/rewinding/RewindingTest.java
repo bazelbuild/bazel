@@ -15,6 +15,11 @@ package com.google.devtools.build.lib.skyframe.rewinding;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.TruthJUnit.assume;
+import static org.mockito.AdditionalAnswers.delegatesTo;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -38,10 +43,13 @@ import com.google.devtools.build.lib.testutil.ActionEventRecorder;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OutputService;
+import com.google.devtools.build.lib.vfs.OutputService.RewoundActionSynchronizer;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.util.function.UnaryOperator;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -67,12 +75,13 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   @ClassRule @Rule public static final WorkerInstance worker = IntegrationTestUtils.createWorker();
 
   private final ActionEventRecorder actionEventRecorder = new ActionEventRecorder();
+  private final RemoteModule remoteModule = spy(new RemoteModule());
   private final RewindingTestsHelper helper = new RewindingTestsHelper(this, actionEventRecorder);
 
   @Override
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     return super.getRuntimeBuilder()
-        .addBlazeModule(new RemoteModule())
+        .addBlazeModule(remoteModule)
         .addBlazeModule(new BlockWaitingModule())
         .addBlazeModule(new IncludeScanningModule())
         .addBlazeModule(helper.makeControllableActionStrategyModule("remote", "standalone"))
@@ -281,6 +290,36 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   public void actionTemplateExpansionRewound_siblingActionsReExecuteConcurrently()
       throws Exception {
     helper.runActionTemplateExpansionRewound_siblingActionsReExecuteConcurrently();
+  }
+
+  @Test
+  public void actionTemplateExpansionRewound_threeActionDeadlock() throws Exception {
+    helper.runActionTemplateExpansionRewound_threeActionDeadlock(
+        this::decorateRewoundActionSynchronizer);
+  }
+
+  @Test
+  public void actionTemplateExpansionRewound_emptySubdirectoryWithTreeConsumer() throws Exception {
+    helper.runActionTemplateExpansionRewound_emptySubdirectoryWithTreeConsumer(
+        this::decorateRewoundActionSynchronizer);
+  }
+
+  private void decorateRewoundActionSynchronizer(
+      UnaryOperator<RewoundActionSynchronizer> decorator) {
+    doAnswer(
+            invocation -> {
+              OutputService service = (OutputService) invocation.callRealMethod();
+              if (service == null) {
+                return null;
+              }
+              OutputService decorated = mock(OutputService.class, delegatesTo(service));
+              // The synchronizer is initialized later, during executor initialization.
+              when(decorated.getRewoundActionSynchronizer())
+                  .thenAnswer(unused -> decorator.apply(service.getRewoundActionSynchronizer()));
+              return decorated;
+            })
+        .when(remoteModule)
+        .getOutputService();
   }
 
   @Test

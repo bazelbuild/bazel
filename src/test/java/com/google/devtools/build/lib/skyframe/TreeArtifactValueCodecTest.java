@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -54,6 +56,19 @@ public class TreeArtifactValueCodecTest extends BuildViewTestBase {
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(parent, "child2");
     FileArtifactValue metadata1 = metadataWithId(1);
     FileArtifactValue metadata2 = metadataWithId(2);
+    var expansion =
+        ActionTemplateExpansionValue.key(
+            parent.getArtifactOwner(), parent.getGeneratingActionKey().getActionIndex());
+    var actionKeys =
+        ImmutableSet.of(
+            ActionLookupData.create(expansion, 0), ActionLookupData.create(expansion, 1));
+    subjects.add(
+        TreeArtifactValue.newBuilder(parent).setTemplateExpansionActionKeys(actionKeys).build());
+    subjects.add(
+        TreeArtifactValue.newBuilder(parent)
+            .setTemplateExpansionActionKeys(actionKeys)
+            .putChild(child1, metadata1)
+            .build());
     subjects.add(
         TreeArtifactValue.newBuilder(parent)
             .putChild(child1, metadata1)
