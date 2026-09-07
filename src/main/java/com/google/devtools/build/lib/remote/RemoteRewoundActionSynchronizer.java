@@ -87,7 +87,7 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   // only ever acquired by the single action identified by it or by the expanded actions of the
   // ActionTemplate identified by it, whose outputs are disjoint and whose consumption of each
   // other's outputs is guarded by separate keys (see writeLockKeys). Excluding them from each
-  // other would serialize the re-execution of an entire template expansion.
+  // other would unnecessarily serialize the re-execution of an entire template expansion.
   //
   // The values of this cache are weakly referenced to ensure that locks are cleaned up when they
   // are no longer needed.
@@ -122,17 +122,18 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   * For a template's output tree or an expanded output consumed from outside the expansion,
     K is the template's key. We call this and an ordinary action's key "outer keys".
 
-  To relate these rules to dependencies, group all actions from the same expansion together,
-  with each ordinary action forming a group of its own. Represent each group in Skyframe by its
-  template expansion computation or its ordinary action execution. A dependency between groups
-  means a dependency path between these representatives, so such dependencies cannot form a cycle.
+  To relate these rules to dependencies between actions, group all actions from the same expansion
+  together, with each ordinary action forming a group of its own. Represent each group by its
+  action template or its ordinary action. A dependency between groups implies a dependency path
+  between these representatives, so such dependencies cannot form a cycle.
 
   We use the following facts about action inputs and template expansion:
 
   * By the ActionTemplate input contract, an expanded action's input produced outside its expansion
-    must be a template input, or belong to a tree that is a template input. The expansion computation
-    requests these inputs before generating actions. For discovered C++ tree-file inputs, the
-    containing tree is a declared input of the ordinary action or, if expanded, its template.
+    must be a template input, or belong to a tree that is a template input. The expansion
+    computation requests these inputs before generating actions. For discovered C++ tree-file
+    inputs, the containing tree is a declared input of the ordinary action or, if expanded, its
+    template.
   * Resolving any output tree of a template requires the same expansion computation. ArtifactFunction
     then requests only the expanded actions that write into the requested tree, not necessarily
     every action in that expansion.
@@ -192,7 +193,7 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   Step 2 shows that every edge crossing between groups is RW and follows a dependency between
   their representatives. If C crosses between groups, following its crossing edges therefore
   gives a closed walk of dependencies between those representatives. Such a walk contains a
-  dependency cycle, which Skyframe disallows. The edges within each group need not themselves
+  dependency cycle, which Bazel disallows. The edges within each group need not themselves
   follow action dependencies for this argument to work.
 
   If C stays within one group, suppose it contains a WR edge starting at A. By step 2, A holds
