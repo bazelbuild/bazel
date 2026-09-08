@@ -328,10 +328,11 @@ public final class RemoteRewoundActionSynchronizerTest {
    *   <li>C, which depends on P but not on D, requests the read lock of P.
    * </ol>
    *
-   * <p>C must be admitted even though P is waiting for the same lock as a writer. A lock that
-   * queues readers behind waiting writers, such as a nonfair {@link
-   * java.util.concurrent.locks.ReentrantReadWriteLock}, would make C wait for P and close the
-   * cycle.
+   * <p>C must be admitted even though P is waiting for the same lock as a writer. Any lock that
+   * queues readers behind waiting writers would make C wait for P and close the cycle. {@link
+   * java.util.concurrent.locks.ReentrantReadWriteLock} does so in both fairness modes and {@link
+   * java.util.concurrent.locks.StampedLock} does so in {@code readLock}, but not in {@code
+   * readLockInterruptibly}, which only waits for a writer that holds the lock.
    */
   @Test
   public void expandedActionRewound_treeConsumerNotQueuedBehindWaitingProducer() throws Exception {
