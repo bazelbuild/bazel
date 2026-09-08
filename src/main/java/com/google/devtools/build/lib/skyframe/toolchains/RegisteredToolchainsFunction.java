@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Table;
@@ -33,15 +34,22 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
 import com.google.devtools.build.lib.bazel.bzlmod.Module;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
+import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.rules.platform.ToolchainRule;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
+import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternUtil;
 import com.google.devtools.build.lib.skyframe.TargetPatternUtil.InvalidTargetPatternException;
@@ -113,6 +121,11 @@ public class RegisteredToolchainsFunction implements SkyFunction {
           new InvalidToolchainLabelException(e), Transience.PERSISTENT);
     }
 
+    toolchainLabels = filterToolchainTypes(env, toolchainLabels, key.toolchainType());
+    if (toolchainLabels == null) {
+      return null;
+    }
+
     // Load the configured target for each, and get the declared toolchain providers.
     ImmutableList<DeclaredToolchainInfo> registeredToolchains =
         configureRegisteredToolchains(env, configuration, toolchainLabels);
@@ -148,6 +161,70 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     return RegisteredToolchainsValue.create(
         validToolchains.build(),
         rejectedToolchains != null ? ImmutableTable.copyOf(rejectedToolchains) : null);
+  }
+
+  @Nullable
+  private static ImmutableSet<Label> filterToolchainTypes(
+      Environment env, ImmutableSet<Label> labels, Label requestedType)
+      throws InterruptedException {
+    SkyframeLookupResult packages =
+        env.getValuesAndExceptions(
+            labels.stream().map(Label::getPackageIdentifier).collect(toImmutableSet()));
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    ImmutableMap.Builder<Label, Label> declaredTypes = ImmutableMap.builder();
+    for (Label label : labels) {
+      Target target = getTarget(packages, label);
+      if (target instanceof Rule rule
+          && !rule.getRuleClassObject().isStarlark()
+          && rule.getRuleClass().equals(ToolchainRule.RULE_NAME)) {
+        Label declaredType =
+            RawAttributeMapper.of(rule).get(ToolchainRule.TOOLCHAIN_TYPE_ATTR, BuildType.LABEL);
+        // Keep malformed declarations for configured target analysis to report.
+        if (declaredType != null) {
+          declaredTypes.put(label, declaredType);
+        }
+      }
+    }
+    ImmutableMap<Label, Label> types = declaredTypes.buildOrThrow();
+    ImmutableSet<PackageIdentifier> typePackages =
+        types.values().stream().map(Label::getPackageIdentifier).collect(toImmutableSet());
+    SkyframeLookupResult typeValues = env.getValuesAndExceptions(typePackages);
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    ImmutableSet.Builder<Label> result = ImmutableSet.builder();
+    for (Label label : labels) {
+      Label declaredType = types.get(label);
+      // A native toolchain_type always identifies itself. Aliases and other rules still need
+      // configuration, since they can resolve to the requested type through a select().
+      if (declaredType != null && !declaredType.equals(requestedType)) {
+        Target typeTarget = getTarget(typeValues, declaredType);
+        if (typeTarget instanceof Rule rule
+            && !rule.getRuleClassObject().isStarlark()
+            && rule.getRuleClass().equals("toolchain_type")) {
+          continue;
+        }
+      }
+      result.add(label);
+    }
+    return result.build();
+  }
+
+  @Nullable
+  private static Target getTarget(SkyframeLookupResult packages, Label label) {
+    try {
+      PackageValue value =
+          (PackageValue)
+              packages.getOrThrow(label.getPackageIdentifier(), NoSuchPackageException.class);
+      return value == null ? null : value.getPackage().getTargetOrNull(label.getName());
+    } catch (NoSuchPackageException e) {
+      // Let configured target analysis report the invalid declaration with its usual context.
+      return null;
+    }
   }
 
   @Nullable

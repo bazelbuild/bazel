@@ -98,6 +98,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib/bazel/bzlmod:util",
         "//src/test/java/com/google/devtools/build/lib/rules/platform:testutil",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:testutil",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
         "//third_party/java/guava:collect",
         "//third_party/java/guava:testing",
