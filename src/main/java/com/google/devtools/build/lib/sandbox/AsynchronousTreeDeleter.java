@@ -123,7 +123,7 @@ public class AsynchronousTreeDeleter implements TreeDeleter {
                 trashPath.deleteTree();
               } catch (IOException e) {
                 logger.atWarning().withCause(e).log(
-                    "Failed to delete tree %s asynchronously", path);
+                    "Failed to delete tree %s (originally %s) asynchronously", trashPath, path);
               }
             });
   }

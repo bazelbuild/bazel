@@ -280,6 +280,17 @@ public final class SandboxModule extends BlazeModule {
         // docker image. The overlay filesystem is different and the renaming of the directories
         // that we need to do for asynchronous deletion will fail. When that happens we fall back to
         // synchronous deletion here.
+        logger.atWarning().withCause(e).log(
+            "Asynchronous sandbox deletion failed (likely due to overlayfs/container filesystem"
+                + " layers, see https://github.com/bazelbuild/bazel/issues/21719); falling back to"
+                + " synchronous deletion of %s",
+            sandboxBase);
+        if (treeDeleter != null) {
+          treeDeleter.shutdown();
+          if (options.getAsyncTreeDeleteIdleThreads() > 0) {
+            treeDeleter = new AsynchronousTreeDeleter(trashBase);
+          }
+        }
         sandboxBase.deleteTree();
       } finally {
         if (idleThreads > 0 && asyncDeleter != null) {
