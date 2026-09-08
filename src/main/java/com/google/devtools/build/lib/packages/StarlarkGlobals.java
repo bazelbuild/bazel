@@ -62,6 +62,15 @@ public interface StarlarkGlobals {
   /** Returns the fixed top-levels for .bzl files, excluding the {@code native} object. */
   ImmutableMap<String, Object> getFixedBzlToplevels();
 
+  /**
+   * Returns the fixed top-level type constructor values for .bzl files, excluding the type
+   * constructors which are associated with non-type-related values (e.g. factory methods) that are
+   * already present in {@link #getFixedBzlToplevels}.
+   */
+  // TODO: #27370 - Merge into getFixedBzlToplevels(), and if type checking is disabled, throw an
+  // eval-time error upon usage of these type constructor values.
+  ImmutableMap<String, Object> getBzlExtraTypeConstructorToplevels();
+
   /** Returns the top-levels for .scl files. */
   ImmutableMap<String, Object> getSclToplevels();
 

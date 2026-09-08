@@ -849,8 +849,9 @@ public class BzlLoadFunction implements SkyFunction {
     }
 
     // Retrieve predeclared symbols and complete the digest computation.
+    BzlCompileValue.TypeOptions typeOptions = compileValue.getTypeOptions();
     ImmutableMap<String, Object> predeclared =
-        getAndDigestPredeclaredEnvironment(key, builtins, fp);
+        getAndDigestPredeclaredEnvironment(key, builtins, fp, typeOptions);
     if (predeclared == null) {
       return null;
     }
@@ -875,7 +876,6 @@ public class BzlLoadFunction implements SkyFunction {
         Module.withPredeclaredAndData(builtins.starlarkSemantics, predeclared, bazelModuleContext);
 
     // Type-tag and type-check the program
-    BzlCompileValue.TypeOptions typeOptions = compileValue.getTypeOptions();
     if (typeOptions.wantStaticTypeChecking() || typeOptions.wantDynamicTypeChecking()) {
       try {
         prog =
@@ -1326,8 +1326,13 @@ public class BzlLoadFunction implements SkyFunction {
    */
   @Nullable
   private ImmutableMap<String, Object> getAndDigestPredeclaredEnvironment(
-      BzlLoadValue.Key key, StarlarkBuiltinsValue builtins, Fingerprint fp) {
+      BzlLoadValue.Key key,
+      StarlarkBuiltinsValue builtins,
+      Fingerprint fp,
+      BzlCompileValue.TypeOptions typeOptions) {
     BazelStarlarkEnvironment starlarkEnv = ruleClassProvider.getBazelStarlarkEnvironment();
+    boolean resolveTypeSyntax =
+        typeOptions.wantStaticTypeChecking() || typeOptions.wantDynamicTypeChecking();
     if (key.isSclDialect()) {
       // .scl doesn't use injection and doesn't care what kind of key it is.
       return starlarkEnv.getStarlarkGlobals().getSclToplevels();
@@ -1340,10 +1345,14 @@ public class BzlLoadFunction implements SkyFunction {
               .isEmpty();
       if (key instanceof BzlLoadValue.KeyForBuild) {
         if (injectionDisabled) {
-          return starlarkEnv.getUninjectedBuildBzlEnv();
+          return resolveTypeSyntax
+              ? starlarkEnv.getUninjectedBuildBzlEnvWithExtraTypeConstructors()
+              : starlarkEnv.getUninjectedBuildBzlEnv();
         }
         fp.addBytes(builtins.transitiveDigest);
-        return builtins.predeclaredForBuildBzl;
+        return resolveTypeSyntax
+            ? builtins.predeclaredForBuildBzlWithExtraTypeConstructors
+            : builtins.predeclaredForBuildBzl;
       } else if (key instanceof BzlLoadValue.KeyForBzlmod) {
         // TODO(#11954): We should converge all .bzl dialects regardless of whether they're loaded
         //  by BUILD or MODULE.
@@ -1361,7 +1370,9 @@ public class BzlLoadFunction implements SkyFunction {
         // should just live in @bazel_tools instead.
         return builtins.predeclaredForModuleBzl;
       } else if (key instanceof BzlLoadValue.KeyForBuiltins) {
-        return starlarkEnv.getBuiltinsBzlEnv();
+        return resolveTypeSyntax
+            ? starlarkEnv.getBuiltinsBzlEnvWithExtraTypeConstructors()
+            : starlarkEnv.getBuiltinsBzlEnv();
       } else {
         throw new AssertionError("Unknown key type: " + key.getClass());
       }
