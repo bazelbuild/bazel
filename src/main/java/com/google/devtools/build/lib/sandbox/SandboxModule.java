@@ -493,6 +493,7 @@ public final class SandboxModule extends BlazeModule {
     // will be nothing new to delete. See #13240.
 
     if (shouldCleanupSandboxBase) {
+      boolean cleanupSucceeded = false;
       try {
         checkNotNull(sandboxBase, "shouldCleanupSandboxBase implies sandboxBase has been set");
         for (SpawnRunner spawnRunner : spawnRunners) {
@@ -507,13 +508,17 @@ public final class SandboxModule extends BlazeModule {
           }
         }
         cleanSandboxBaseTopOnlyContainsPersistentDirs(sandboxBase, treeDeleter);
-        shouldCleanupSandboxBase = false;
-        checkSandboxBaseTopOnlyContainsPersistentDirs(sandboxBase);
+        cleanupSucceeded = true;
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
       } catch (IOException e) {
         env.getReporter()
             .handle(Event.warn("Failed to delete contents of sandbox " + sandboxBase + ": " + e));
+      }
+      shouldCleanupSandboxBase = false;
+
+      if (cleanupSucceeded) {
+        checkSandboxBaseTopOnlyContainsPersistentDirs(sandboxBase);
       }
       // We intentionally keep sandboxBase around, without resetting it to null, in case we have
       // asynchronous deletions going on. In that case, we'd still want to retry this during
