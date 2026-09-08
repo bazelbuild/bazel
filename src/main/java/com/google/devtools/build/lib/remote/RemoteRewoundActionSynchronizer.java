@@ -21,7 +21,6 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -368,12 +367,11 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   }
 
   /**
-   * Returns the keys of the locks that guard the given artifacts as well as all artifacts in the
-   * metadata provider's runfiles trees (see {@link #lockKeysFor}).
+   * Lazily returns the keys of the locks that guard the given artifacts as well as all artifacts in
+   * the metadata provider's runfiles trees (see {@link #lockKeysFor}).
    */
-  private ImmutableSet<ActionLookupData> inputKeysFor(
-      Iterable<Artifact> artifacts, InputMetadataProvider metadataProvider)
-      throws InterruptedException {
+  private Iterable<ActionLookupData> inputKeysFor(
+      Iterable<Artifact> artifacts, InputMetadataProvider metadataProvider) {
     var allArtifacts =
         Iterables.concat(
             artifacts,
@@ -381,22 +379,9 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
                 Iterables.transform(
                     metadataProvider.getRunfilesTrees(),
                     runfilesTree -> runfilesTree.getArtifacts().toList())));
-    var keys = ImmutableSet.<ActionLookupData>builder();
-    for (Artifact artifact : allArtifacts) {
-      if (artifact instanceof DerivedArtifact derivedArtifact) {
-        keys.addAll(lockKeysFor(derivedArtifact));
-      }
-    }
-    return keys.build();
-  }
-
-  /**
-   * Returns the key that uniquely identifies the given action: the generating action key of its
-   * outputs. A rewound action holds the write lock of this key while re-executing and consumers of
-   * its outputs hold its read lock while executing (see {@link #lockKeysFor}).
-   */
-  private static ActionLookupData actionKeyFor(ActionExecutionMetadata action) {
-    return ((DerivedArtifact) action.getPrimaryOutput()).getGeneratingActionKey();
+    return Iterables.concat(
+        Iterables.transform(
+            Iterables.filter(allArtifacts, DerivedArtifact.class), this::lockKeysFor));
   }
 
   /**
@@ -407,23 +392,36 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
    * executing and a rewound generating action holds the write lock of its own key while
    * re-executing (see {@link #actionKeyFor}).
    */
-  private ImmutableList<ActionLookupData> lockKeysFor(DerivedArtifact artifact)
-      throws InterruptedException {
-    ActionLookupData ownKey = artifact.getGeneratingActionKey();
+  private ImmutableList<ActionLookupData> lockKeysFor(DerivedArtifact artifact) {
+    ActionLookupData key = artifact.getGeneratingActionKey();
     if (!artifact.isTreeArtifact()) {
-      return ImmutableList.of(ownKey);
+      return ImmutableList.of(key);
     }
-    ActionLookupValue owner =
-        (ActionLookupValue) checkNotNull(graph.getValue(ownKey.getActionLookupKey()), artifact);
-    if (!(owner.getActions().get(ownKey.getActionIndex()) instanceof ActionTemplate)) {
-      return ImmutableList.of(ownKey);
+    try {
+      var owner =
+          (ActionLookupValue) checkNotNull(graph.getValue(key.getActionLookupKey()), artifact);
+      if (!(owner.getActions().get(key.getActionIndex()) instanceof ActionTemplate)) {
+        return ImmutableList.of(key);
+      }
+      // Crucially, action template expansion is never rewound and can thus be queried without
+      // locking.
+      var expansionKey =
+          ActionTemplateExpansionValue.key(key.getActionLookupKey(), key.getActionIndex());
+      var expansion =
+          (ActionTemplateExpansionValue) checkNotNull(graph.getValue(expansionKey), artifact);
+      return expansion.getGeneratingActionKeys(artifact);
+    } catch (InterruptedException e) {
+      // Bazel's in-memory graph lookups do not throw InterruptedException.
+      throw new IllegalStateException(e);
     }
-    // Expansion values are not rewound and remain available during execution even in
-    // non-incremental builds. Use values, not graph edges, which such builds discard.
-    var expansionKey =
-        ActionTemplateExpansionValue.key(ownKey.getActionLookupKey(), ownKey.getActionIndex());
-    var expansion =
-        (ActionTemplateExpansionValue) checkNotNull(graph.getValue(expansionKey), artifact);
-    return expansion.getGeneratingActionKeys(artifact);
+  }
+
+  /**
+   * Returns the key that uniquely identifies the given action: the generating action key of its
+   * outputs. A rewound action holds the write lock of this key while re-executing and consumers of
+   * its outputs hold its read lock while executing (see {@link #lockKeysFor}).
+   */
+  private static ActionLookupData actionKeyFor(ActionExecutionMetadata action) {
+    return ((DerivedArtifact) action.getPrimaryOutput()).getGeneratingActionKey();
   }
 }
