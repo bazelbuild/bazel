@@ -90,7 +90,9 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -743,12 +745,21 @@ public class ActionExecutionFunction implements SkyFunction {
         ArtifactPathResolver.createPathResolver(
             state.actionFileSystem, skyframeActionExecutor.getExecRoot());
 
+    BatchStat batchStatter = null;
+    if (state.actionFileSystem == null) {
+      OutputService outputService = skyframeActionExecutor.getOutputService();
+      if (outputService != null) {
+        batchStatter = outputService.getBatchStatter();
+      }
+    }
+
     ActionOutputMetadataStore outputMetadataStore =
         ActionOutputMetadataStore.create(
             skyframeActionExecutor.useArchivedTreeArtifacts(action),
             skyframeActionExecutor.getOutputPermissions(),
             ImmutableSet.copyOf(action.getOutputs()),
             skyframeActionExecutor.getXattrProvider(),
+            batchStatter,
             tsgm.get(),
             pathResolver);
 
