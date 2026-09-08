@@ -17,14 +17,12 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
@@ -49,6 +47,7 @@ import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.Actio
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -71,7 +70,7 @@ public final class RemoteRewoundActionSynchronizerTest {
   public void setUp() {
     actionInputFetcher = mock(RemoteActionInputFetcher.class);
     graph = mock(WalkableGraph.class);
-    synchronizer = new RemoteRewoundActionSynchronizer(actionInputFetcher, graph, () -> true);
+    synchronizer = new RemoteRewoundActionSynchronizer(actionInputFetcher, graph);
   }
 
   @Test
@@ -93,19 +92,6 @@ public final class RemoteRewoundActionSynchronizerTest {
 
   @Test
   public void rewind_interruptedWhileAwaiting_cancelsAndAwaitsEveryTask() throws Exception {
-    runInterruptedRewind();
-  }
-
-  @Test
-  public void withoutFineLocks_interruptedWhileAwaiting_releasesLock() throws Exception {
-    synchronizer = new RemoteRewoundActionSynchronizer(actionInputFetcher, graph, () -> false);
-    runInterruptedRewind();
-    var subsequentRewind = new TestThread(() -> rewind(newAction()));
-    subsequentRewind.start();
-    subsequentRewind.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
-  }
-
-  private void runInterruptedRewind() throws Exception {
     Action action = newAction();
     var first = mock(RemoteRewoundActionSynchronizer.Cancellable.class);
     var second = mock(RemoteRewoundActionSynchronizer.Cancellable.class);
@@ -121,59 +107,6 @@ public final class RemoteRewoundActionSynchronizerTest {
     order.verify(first, times(2)).awaitCompletion();
     order.verify(second).awaitCompletion();
     verify(actionInputFetcher, never()).handleRewoundActionOutputs(any());
-  }
-
-  @Test
-  public void withoutFineLocks_rewoundActionExcludesConsumers() throws Exception {
-    synchronizer = new RemoteRewoundActionSynchronizer(actionInputFetcher, graph, () -> false);
-    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
-    SpecialArtifact tree = newTreeArtifact(root, "tree", ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
-    Action producer = newAction(ImmutableList.of(tree), ImmutableList.of());
-    InputMetadataProvider metadataProvider = mock(InputMetadataProvider.class);
-    var consumer =
-        new TestThread(
-            () -> {
-              try (SilentCloseable unused =
-                  synchronizer.enterProcessOutputsAndGetLostArtifacts(
-                      ImmutableList.of(tree), metadataProvider)) {}
-            });
-
-    try (SilentCloseable preparation =
-            synchronizer.enterActionPreparation(producer, /* wasRewound= */ true);
-        // A rewound action must be able to enter execution while holding the coarse write lock.
-        SilentCloseable execution =
-            synchronizer.enterActionExecution(producer, /* wasRewound= */ true, metadataProvider)) {
-      consumer.start();
-      waitUntilBlocked(consumer);
-    }
-
-    consumer.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
-    verifyNoInteractions(graph);
-  }
-
-  @Test
-  public void withoutFineLocks_consumersExcludeRewinding() throws Exception {
-    synchronizer = new RemoteRewoundActionSynchronizer(actionInputFetcher, graph, () -> false);
-    Action producer = newAction();
-    Action consumer =
-        newAction(
-            ImmutableList.of(producer.getPrimaryOutput()),
-            ImmutableList.copyOf(producer.getOutputs()));
-    InputMetadataProvider metadataProvider = mock(InputMetadataProvider.class);
-
-    // Check both the first rewind and a subsequent one: neither may bypass an active reader.
-    for (int i = 0; i < 2; i++) {
-      var preparation = new TestThread(() -> rewind(producer));
-      try (SilentCloseable execution =
-          synchronizer.enterActionExecution(consumer, /* wasRewound= */ false, metadataProvider)) {
-        preparation.start();
-        waitUntilBlocked(preparation);
-      }
-      preparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
-    }
-
-    verifyNoInteractions(graph);
   }
 
   @Test
@@ -244,6 +177,48 @@ public final class RemoteRewoundActionSynchronizerTest {
     runExpandedActionRewound(ConsumerKind.OUTPUT_PROCESSING);
   }
 
+  /**
+   * Verifies that a consumer of a tree artifact excludes the rewinding of an expanded action whose
+   * only output in that tree is an empty subdirectory.
+   */
+  @Test
+  public void expandedActionRewound_emptySubdirectoryProducer_waitsForTreeConsumer()
+      throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
+    var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
+    SpecialArtifact tree = newTreeArtifact(root, "tree", ActionLookupData.create(owner, 0));
+    ActionTemplateExpansionKey expansion = ActionTemplateExpansionValue.key(owner, 0);
+    SpecialArtifact subdirectory =
+        SpecialArtifact.createSubTreeArtifact(tree, PathFragment.create("empty"), expansion);
+    subdirectory.setGeneratingActionKey(ActionLookupData.create(expansion, 0));
+    Action producer = newAction(ImmutableList.of(subdirectory), ImmutableList.of());
+    DerivedArtifact consumerOutput =
+        (DerivedArtifact) ActionsTestUtil.createArtifact(root, "consumer.out");
+    consumerOutput.setGeneratingActionKey(ActionLookupData.create(owner, 1));
+    Action consumer = newAction(ImmutableList.of(consumerOutput), ImmutableList.of(tree));
+
+    InputMetadataProvider metadataProvider = mock(InputMetadataProvider.class);
+    when(metadataProvider.getRunfilesTrees()).thenReturn(ImmutableList.of());
+    ActionLookupValue ownerValue = mock(ActionLookupValue.class);
+    when(ownerValue.getActions()).thenReturn(ImmutableList.of(mock(ActionTemplate.class)));
+    when(graph.getValue(owner)).thenReturn(ownerValue);
+    var expansionValue = new ActionTemplateExpansionValue(ImmutableList.of(producer));
+    when(graph.getValue(expansion)).thenReturn(expansionValue);
+
+    // Switch to the fine locks with an unrelated rewound action first: the coarse lock would
+    // exclude the producer regardless of which keys guard the tree.
+    rewind(newAction());
+
+    var preparation = new TestThread(() -> rewind(producer));
+    try (SilentCloseable execution =
+        synchronizer.enterActionExecution(consumer, /* wasRewound= */ false, metadataProvider)) {
+      preparation.start();
+      waitUntilBlocked(preparation);
+    }
+    preparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+  }
+
   private enum ConsumerKind {
     EXPANDED_ACTION,
     ORDINARY_ACTION,
@@ -296,8 +271,7 @@ public final class RemoteRewoundActionSynchronizerTest {
     ActionLookupValue ownerValue = mock(ActionLookupValue.class);
     when(ownerValue.getActions()).thenReturn(ImmutableList.of(mock(ActionTemplate.class)));
     when(graph.getValue(owner)).thenReturn(ownerValue);
-    var expansionValue = mock(ActionTemplateExpansionValue.class, CALLS_REAL_METHODS);
-    when(expansionValue.getActions()).thenReturn(ImmutableList.of(upstreamAction));
+    var expansionValue = new ActionTemplateExpansionValue(ImmutableList.of(upstreamAction));
     when(graph.getValue(upstreamExpansion)).thenReturn(expansionValue);
 
     // The tree consumer is rewound and prepares for its re-execution, which makes it hold the

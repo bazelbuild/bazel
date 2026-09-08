@@ -32,7 +32,8 @@ import com.google.devtools.build.skyframe.SkyKey;
 /** Value that stores expanded actions from ActionTemplate. */
 public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
 
-  ActionTemplateExpansionValue(ImmutableList<ActionAnalysisMetadata> generatingActions) {
+  @VisibleForTesting
+  public ActionTemplateExpansionValue(ImmutableList<ActionAnalysisMetadata> generatingActions) {
     super(generatingActions);
   }
 
@@ -41,10 +42,11 @@ public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
    * actions that only populate another output tree of the same template are excluded.
    */
   public ImmutableList<ActionLookupData> getGeneratingActionKeys(Artifact tree) {
-    var keys = ImmutableList.<ActionLookupData>builderWithExpectedSize(getActions().size());
-    for (ActionAnalysisMetadata action : getActions()) {
+    var actions = getActions();
+    var keys = ImmutableList.<ActionLookupData>builderWithExpectedSize(actions.size());
+    for (var action : actions) {
       for (Artifact output : action.getOutputs()) {
-        if (output.hasParent() && output.getParent().equals(tree)) {
+        if (tree.equals(output.getParent())) {
           keys.add(((DerivedArtifact) output).getGeneratingActionKey());
           break;
         }

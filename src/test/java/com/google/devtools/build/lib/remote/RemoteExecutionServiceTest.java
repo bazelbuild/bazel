@@ -2634,7 +2634,7 @@ public class RemoteExecutionServiceTest {
   public void outputUploadTask_completes_unregistersItself() throws Exception {
     var synchronizer =
         new RemoteRewoundActionSynchronizer(
-            mock(RemoteActionInputFetcher.class), mock(WalkableGraph.class), () -> true);
+            mock(RemoteActionInputFetcher.class), mock(WalkableGraph.class));
     RemoteOutputService remoteOutputService = mock(RemoteOutputService.class);
     when(remoteOutputService.getRewoundActionSynchronizer()).thenReturn(synchronizer);
     outputService = remoteOutputService;

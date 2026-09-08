@@ -41,7 +41,6 @@ import com.google.errorprone.annotations.CheckReturnValue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.BooleanSupplier;
 import javax.annotation.Nullable;
 
 /**
@@ -61,10 +60,6 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
 
   private final AbstractActionInputPrefetcher actionInputFetcher;
   private final WalkableGraph graph;
-  // Evaluated lazily because Skycache's mode is configured during analysis, which may start after
-  // this synchronizer is constructed. It remains fixed throughout execution. Even analysis-only
-  // Skycache can retain execution values retrieved by a previous build.
-  private final BooleanSupplier useFineLocks;
 
   // An action generally has at most one such task in flight, but nothing prevents an action from
   // executing multiple spawns whose outputs are uploaded concurrently.
@@ -102,21 +97,16 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   private volatile LoadingCache<ActionLookupData, ReaderPreferringReadWriteLock> fineLocks;
 
   public RemoteRewoundActionSynchronizer(
-      AbstractActionInputPrefetcher actionInputFetcher,
-      WalkableGraph graph,
-      BooleanSupplier useFineLocks) {
+      AbstractActionInputPrefetcher actionInputFetcher, WalkableGraph graph) {
     this.actionInputFetcher = actionInputFetcher;
     this.graph = graph;
-    this.useFineLocks = useFineLocks;
   }
 
   /*
   Proof of deadlock freedom:
 
-  The coarse lock cannot participate in a cycle of lock acquisitions in this synchronizer.
-  When switching to fine locks, readers and the writer release it before acquiring fine locks.
-  Otherwise, a rewound action holds its write lock throughout preparation and execution, and can
-  reentrantly acquire its read lock. No reader upgrades it to a write lock.
+  As long as the coarse lock is used, there can't be any deadlock because there is only a single
+  read-write lock.
 
   For the fine locks, we show that a cycle of lock waits would imply a cycle of dependencies,
   which Skyframe disallows. Throughout, "X depends on Y" means that the Skyframe node executing
@@ -124,9 +114,10 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
 
   1. Relate lock keys to dependencies between actions.
 
-  Every write-lock key identifies an action (see actionKeyFor). By enterActionPreparationForRewinding,
-  only a rewound action acquires the write lock of its own key. It does so before it prepares for
-  execution, holds the lock until the end of its execution and acquires no other write lock.
+  Every write-lock key identifies an action (see actionKeyFor). By
+  enterActionPreparationForRewinding, only a rewound action acquires the write lock of its own key.
+  It does so before it prepares for execution, holds the lock until the end of its execution and
+  acquires no other write lock.
 
   By inputKeysFor, an action acquires the read lock of the key of each action that generates one of
   its inputs, including the artifacts of its runfiles trees, before it starts executing. For a tree
@@ -203,31 +194,13 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
 
   private SilentCloseable enterActionPreparationForRewinding(Action action)
       throws InterruptedException {
-    SilentCloseable lock = acquireWriteLock(action);
-    try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.INFO, "action.prepareOutputsForRewinding")) {
-      prepareOutputsForRewinding(action);
-    } catch (Throwable t) {
-      lock.close();
-      throw t;
-    }
-    return lock;
-  }
-
-  private SilentCloseable acquireWriteLock(Action action) throws InterruptedException {
     var localCoarseLock = coarseLock;
     if (localCoarseLock != null) {
-      boolean switchToFineLocks = useFineLocks.getAsBoolean();
-      // Switch to using the fine locks under the protection of the coarse write lock, unless
-      // execution values may have been retrieved without their action template expansions.
+      // This is the first time a rewound action has attempted to prepare for its execution.
+      // Switch to using the fine locks under the protection of the coarse write lock.
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.ACTION_LOCK, "action.prepareFirstRewinding")) {
         localCoarseLock.writeLock().lockInterruptibly();
-      }
-      if (!switchToFineLocks) {
-        // Skycache can supply execution values without their action template expansions. Retain
-        // the coarse lock so that consumers of these values are still protected during rewinding.
-        return localCoarseLock.writeLock()::unlock;
       }
       try {
         // Check again under the lock to avoid a race between multiple rewound actions attempting
@@ -251,6 +224,13 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
         Profiler.instance()
             .profile(ProfilerTask.ACTION_LOCK, "action.awaitRewoundActionConsumers")) {
       writeLock.lockWriteInterruptibly();
+    }
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.INFO, "action.prepareOutputsForRewinding")) {
+      prepareOutputsForRewinding(action);
+    } catch (Throwable t) {
+      writeLock.unlockWrite();
+      throw t;
     }
     return writeLock::unlockWrite;
   }
@@ -389,12 +369,12 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
         locksToUnlockBuilder.add(lock);
       }
     } catch (Throwable e) {
-      for (var lock : locksToUnlockBuilder.build().reverse()) {
+      for (var lock : locksToUnlockBuilder.build()) {
         lock.unlockRead();
       }
       throw e;
     }
-    var locksToUnlock = locksToUnlockBuilder.build().reverse();
+    var locksToUnlock = locksToUnlockBuilder.build();
     return () -> locksToUnlock.forEach(ReaderPreferringReadWriteLock::unlockRead);
   }
 

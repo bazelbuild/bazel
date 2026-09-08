@@ -46,7 +46,6 @@ import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.BooleanSupplier;
 import javax.annotation.Nullable;
 
 /** Output service implementation for the remote build without local output service daemon. */
@@ -70,14 +69,11 @@ public class RemoteOutputService implements OutputService {
     this.remoteOutputChecker = remoteOutputChecker;
   }
 
-  void setActionInputFetcher(
-      RemoteActionInputFetcher actionInputFetcher,
-      WalkableGraph graph,
-      BooleanSupplier useFineLocks) {
+  void setActionInputFetcher(RemoteActionInputFetcher actionInputFetcher, WalkableGraph graph) {
     this.actionInputFetcher = checkNotNull(actionInputFetcher, "actionInputFetcher");
     if (rewindLostInputs) {
       this.rewoundActionSynchronizer =
-          new RemoteRewoundActionSynchronizer(actionInputFetcher, graph, useFineLocks);
+          new RemoteRewoundActionSynchronizer(actionInputFetcher, graph);
     }
   }
 
