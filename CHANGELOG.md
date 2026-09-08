@@ -1,3 +1,60 @@
+## Release 10.0.0-pre.20260826.1 (2026-09-08)
+
+```
+Baseline: 609cb51089a86f7e40552a1f79c16992376f06db
+
+Cherry picks:
+
+   + bd75cfcf5c906fb6b88515c993edcd34bfadeecb:
+     Update protobuf to 36.0.bcr.1
+     (https://github.com/bazelbuild/bazel/pull/30886)
+```
+
+Incompatible changes:
+
+  - `--rewind_lost_inputs` is now enabled by default. Builds with
+    BwoB automatically recover from remote cache eviction by
+    rewinding actions that generated lost inputs.
+
+New features:
+
+  - With the new
+    `--experimental_keep_change_prunable_nodes_during_gc` flag,
+    Skyframe will keep computed nodes that aren't requested by the
+    current evaluation but whose dependencies would be verified clean
+    after change pruning.
+
+Important changes:
+
+  - `--server_javabase` and nojdk builds of Bazel can now use JREs in
+    addition to JDKs.
+  - Test targets can now be built for a target platform that no
+    execution platform is compatible with, e.g. to cross-compile
+    them. Running such a test fails with an error at execution time
+    instead of failing analysis.
+  - Disk cache action results are now always trusted with
+    `--rewind_lost_inputs`, even if Build without the Bytes makes it
+    so that the outputs are not available locally.
+  - Cycles between `MODULE.bazel` files connected via `include()` are
+    now reported as an error instead of hanging the build.
+  - Fixed a crash while evaluating `MODULE.bazel` files when Skyframe
+    dropped its temporary state in response to memory pressure.
+  - Fixed a build failure with `--execution_log_compact_file` when a
+    C++ action template has no inputs.
+  - Files uploaded to the disk cache are now copied with a
+    copy-on-write clone where the filesystem supports it, so a cache
+    entry can share its blocks with the output it was uploaded from.
+  - Module extensions are now correctly rerun when the root module
+    changes the `dev_dependency` value of a `use_extension` call,
+    which is visible to extensions as
+    `module_ctx.root_module_has_non_dev_dependency`.
+  - None
+    RELNOTES: None
+  - The C++ include scanner now properly resolves headers that are
+    generated at build time and included as part of the toolchain.
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Armando Montanez, Benjamin Peterson, Chi Wang, David Ostrovsky, David Zbarsky, Fabian Meumertzheim, Fabian Meumertzheim, Fabian Meumertzheim, Fabian Meumertzheim, Garrett Holmstrom, Han-Wen Nienhuys, Herdiyan Adam Putra, Hoyt Summers Pittman, JonathanPerry651, Jordan Mele, Ladd Van Tol, Rahul Butani, Rajkaran Yadav, Tamir Duberstein, Tyler French, wade-arista.
+
 ## Release 8.8.0 (2026-08-31)
 
 ```
