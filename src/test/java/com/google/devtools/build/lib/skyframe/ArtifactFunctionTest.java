@@ -273,10 +273,6 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     assertThat(value2.getChildValues()).doesNotContainKey(treeFileArtifact1);
     assertThat(value.getChildValues().get(treeFileArtifact1).getDigest()).isNotNull();
     assertThat(value2.getChildValues().get(treeFileArtifact2).getDigest()).isNotNull();
-    assertThat(value.getTemplateExpansionActionKeys())
-        .containsExactly(value.getChildren().first().getGeneratingActionKey());
-    assertThat(value2.getTemplateExpansionActionKeys())
-        .containsExactly(value2.getChildren().first().getGeneratingActionKey());
   }
 
   @Test
@@ -309,11 +305,6 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
                     NestedSetBuilder.emptySet(Order.STABLE_ORDER),
                     SpecialArtifact.createSubTreeArtifact(
                         topLevelTree, PathFragment.create("subdir2"), artifactOwner)));
-            actions.add(
-                new DummyAction(
-                    NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-                    SpecialArtifact.createSubTreeArtifact(
-                        topLevelTree, PathFragment.create("empty"), artifactOwner)));
             return actions.build();
           }
         };
@@ -328,8 +319,6 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     SpecialArtifact subTree2 = createSubTreeArtifact("subdir2", topLevelTree, 2);
     TreeFileArtifact file4 = createFakeTreeFileArtifact(subTree2, "child1", "hello1");
     TreeFileArtifact file5 = createFakeTreeFileArtifact(subTree2, "child2", "hello2");
-    SpecialArtifact emptySubTree = createSubTreeArtifact("empty", topLevelTree, 3);
-    emptySubTree.getPath().createDirectoryAndParents();
 
     TreeArtifactValue topTreeValue = (TreeArtifactValue) evaluateArtifactValue(topLevelTree);
     TreeArtifactValue subTree1Value = (TreeArtifactValue) evaluateArtifactValue(subTree1);
@@ -337,12 +326,6 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     // The top level tree artifact value should contain a flattened view of all the files under it
     // (including the files from its subdirectories).
     assertThat(topTreeValue.getChildren()).containsExactly(file1, file2, file3, file4, file5);
-    assertThat(topTreeValue.getTemplateExpansionActionKeys())
-        .containsExactly(
-            ActionLookupData.create(subTree1.getGeneratingActionKey().getActionLookupKey(), 0),
-            subTree1.getGeneratingActionKey(),
-            subTree2.getGeneratingActionKey(),
-            emptySubTree.getGeneratingActionKey());
     // Whilst the subtree tree artifact values only contain the files directly under them.
     assertThat(subTree1Value.getChildren()).containsExactly(file2, file3);
     assertThat(subTree2Value.getChildren()).containsExactly(file4, file5);
@@ -500,13 +483,18 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
       try {
         if (output.isTreeArtifact()) {
           SpecialArtifact parent = (SpecialArtifact) output;
-          TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(parent);
-          for (Path child : parent.getPath().getDirectoryEntries()) {
-            TreeFileArtifact artifact =
-                TreeFileArtifact.createTreeOutput(parent, child.getBaseName());
-            tree.putChild(artifact, FileArtifactValue.createForTesting(artifact));
-          }
-          treeArtifactData.put(output, tree.build());
+          TreeFileArtifact treeFileArtifact1 =
+              TreeFileArtifact.createTreeOutput((SpecialArtifact) output, "child1");
+          TreeFileArtifact treeFileArtifact2 =
+              TreeFileArtifact.createTreeOutput((SpecialArtifact) output, "child2");
+          TreeArtifactValue tree =
+              TreeArtifactValue.newBuilder(parent)
+                  .putChild(
+                      treeFileArtifact1, FileArtifactValue.createForTesting(treeFileArtifact1))
+                  .putChild(
+                      treeFileArtifact2, FileArtifactValue.createForTesting(treeFileArtifact2))
+                  .build();
+          treeArtifactData.put(output, tree);
         } else if (output.isRunfilesTree()) {
           artifactData.put(output, FileArtifactValue.RUNFILES_TREE_MARKER);
         } else {

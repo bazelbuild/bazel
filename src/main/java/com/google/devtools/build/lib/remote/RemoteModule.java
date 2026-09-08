@@ -1306,8 +1306,12 @@ public final class RemoteModule extends BlazeModule {
       }
 
       if (outputService instanceof RemoteOutputService remoteOutputService) {
+        var skyframeExecutor = env.getSkyframeExecutor();
         remoteOutputService.setRemoteOutputChecker(remoteOutputChecker);
-        remoteOutputService.setActionInputFetcher(actionInputFetcher);
+        remoteOutputService.setActionInputFetcher(
+            actionInputFetcher,
+            SkyframeExecutorWrappingWalkableGraph.of(skyframeExecutor),
+            () -> !skyframeExecutor.isRemoteAnalysisCachingEnabled());
         if (leaseService != null) {
           remoteOutputService.setLeaseService(leaseService);
         }

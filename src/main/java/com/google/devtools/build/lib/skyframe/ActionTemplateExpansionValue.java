@@ -17,7 +17,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
@@ -31,6 +34,23 @@ public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
 
   ActionTemplateExpansionValue(ImmutableList<ActionAnalysisMetadata> generatingActions) {
     super(generatingActions);
+  }
+
+  /**
+   * Returns the keys of actions that populate this tree, including empty subdirectories. Expanded
+   * actions that only populate another output tree of the same template are excluded.
+   */
+  public ImmutableList<ActionLookupData> getGeneratingActionKeys(Artifact tree) {
+    var keys = ImmutableList.<ActionLookupData>builderWithExpectedSize(getActions().size());
+    for (ActionAnalysisMetadata action : getActions()) {
+      for (Artifact output : action.getOutputs()) {
+        if (output.hasParent() && output.getParent().equals(tree)) {
+          keys.add(((DerivedArtifact) output).getGeneratingActionKey());
+          break;
+        }
+      }
+    }
+    return keys.build();
   }
 
   public static ActionTemplateExpansionKey key(ActionLookupKey actionLookupKey, int actionIndex) {

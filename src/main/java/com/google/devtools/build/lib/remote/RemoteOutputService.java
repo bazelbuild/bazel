@@ -42,9 +42,11 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 import javax.annotation.Nullable;
 
 /** Output service implementation for the remote build without local output service daemon. */
@@ -68,10 +70,14 @@ public class RemoteOutputService implements OutputService {
     this.remoteOutputChecker = remoteOutputChecker;
   }
 
-  void setActionInputFetcher(RemoteActionInputFetcher actionInputFetcher) {
+  void setActionInputFetcher(
+      RemoteActionInputFetcher actionInputFetcher,
+      WalkableGraph graph,
+      BooleanSupplier useFineLocks) {
     this.actionInputFetcher = checkNotNull(actionInputFetcher, "actionInputFetcher");
     if (rewindLostInputs) {
-      this.rewoundActionSynchronizer = new RemoteRewoundActionSynchronizer(actionInputFetcher);
+      this.rewoundActionSynchronizer =
+          new RemoteRewoundActionSynchronizer(actionInputFetcher, graph, useFineLocks);
     }
   }
 

@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
-import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -197,7 +196,6 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       new TreeArtifactValue(
           MetadataDigestUtils.fromMetadata(ImmutableMap.of()),
           EMPTY_MAP,
-          /* templateExpansionActionKeys= */ ImmutableSet.of(),
           0L,
           /* archivedRepresentation= */ null,
           /* resolvedPath= */ null,
@@ -205,7 +203,6 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
   private final byte[] digest;
   private final ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> childData;
-  private final ImmutableSet<ActionLookupData> templateExpansionActionKeys;
   private final long totalChildSize;
 
   /**
@@ -312,14 +309,12 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   TreeArtifactValue(
       byte[] digest,
       ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> childData,
-      ImmutableSet<ActionLookupData> templateExpansionActionKeys,
       long totalChildSize,
       @Nullable ArchivedRepresentation archivedRepresentation,
       @Nullable PathFragment resolvedPath,
       boolean entirelyRemote) {
     this.digest = digest;
     this.childData = childData;
-    this.templateExpansionActionKeys = templateExpansionActionKeys;
     this.totalChildSize = totalChildSize;
     this.archivedRepresentation = archivedRepresentation;
     this.resolvedPath = resolvedPath;
@@ -343,18 +338,6 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
   public ImmutableSortedSet<TreeFileArtifact> getChildren() {
     return childData.keySet();
-  }
-
-  /**
-   * Returns the keys of the expanded actions that populate this tree, or an empty set if it is not
-   * populated by an action template expansion.
-   *
-   * <p>Includes producers of empty subdirectories, which cannot be recovered from {@link
-   * #getChildren}. Consumers must synchronize with these actions during rewinding too: their
-   * execution can temporarily change the contents of the tree. These keys do not affect the digest.
-   */
-  public ImmutableSet<ActionLookupData> getTemplateExpansionActionKeys() {
-    return templateExpansionActionKeys;
   }
 
   public long getTotalChildBytes() {
@@ -409,8 +392,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
   @Override
   public int hashCode() {
-    return HashCodes.hashObjects(
-        Arrays.hashCode(digest), archivedRepresentation, resolvedPath, templateExpansionActionKeys);
+    return HashCodes.hashObjects(Arrays.hashCode(digest), archivedRepresentation, resolvedPath);
   }
 
   @Override
@@ -425,7 +407,6 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
     return Arrays.equals(digest, that.digest)
         && childData.equals(that.childData)
-        && templateExpansionActionKeys.equals(that.templateExpansionActionKeys)
         && Objects.equals(archivedRepresentation, that.archivedRepresentation)
         && Objects.equals(resolvedPath, that.resolvedPath);
   }
@@ -435,7 +416,6 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     return MoreObjects.toStringHelper(this)
         .add("digest", digest)
         .add("childData", childData)
-        .add("templateExpansionActionKeys", templateExpansionActionKeys)
         .add("archivedRepresentation", archivedRepresentation)
         .add("resolvedPath", resolvedPath)
         .toString();
@@ -452,7 +432,6 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     return new TreeArtifactValue(
         null,
         EMPTY_MAP,
-        /* templateExpansionActionKeys= */ ImmutableSet.of(),
         0L,
         /* archivedRepresentation= */ null,
         /* resolvedPath= */ null,
@@ -642,18 +621,10 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     private ArchivedRepresentation archivedRepresentation;
     private PathFragment resolvedPath;
     private final SpecialArtifact parent;
-    private ImmutableSet<ActionLookupData> templateExpansionActionKeys = ImmutableSet.of();
 
     Builder(SpecialArtifact parent) {
       checkArgument(parent.isTreeArtifact(), "%s is not a tree artifact", parent);
       this.parent = parent;
-    }
-
-    /** Records all expanded actions that populate this tree, including empty subdirectories. */
-    @CanIgnoreReturnValue
-    public Builder setTemplateExpansionActionKeys(ImmutableSet<ActionLookupData> keys) {
-      this.templateExpansionActionKeys = requireNonNull(keys);
-      return this;
     }
 
     /**
@@ -716,16 +687,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> finalChildData =
           childData.buildOrThrow();
       if (finalChildData.isEmpty() && archivedRepresentation == null && resolvedPath == null) {
-        return templateExpansionActionKeys.isEmpty()
-            ? EMPTY
-            : new TreeArtifactValue(
-                EMPTY.digest,
-                EMPTY_MAP,
-                templateExpansionActionKeys,
-                0L,
-                /* archivedRepresentation= */ null,
-                /* resolvedPath= */ null,
-                /* entirelyRemote= */ false);
+        return EMPTY;
       }
 
       Fingerprint fingerprint = new Fingerprint();
@@ -754,7 +716,6 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       return new TreeArtifactValue(
           fingerprint.digestAndReset(),
           finalChildData,
-          templateExpansionActionKeys,
           totalChildSize,
           archivedRepresentation,
           resolvedPath,

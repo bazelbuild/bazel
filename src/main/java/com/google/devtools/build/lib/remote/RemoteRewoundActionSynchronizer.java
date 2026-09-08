@@ -14,28 +14,34 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.vfs.OutputService.RewoundActionSynchronizer;
+import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.errorprone.annotations.CheckReturnValue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.BooleanSupplier;
 import javax.annotation.Nullable;
 
 /**
@@ -54,6 +60,11 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   }
 
   private final AbstractActionInputPrefetcher actionInputFetcher;
+  private final WalkableGraph graph;
+  // Evaluated lazily because Skycache's mode is configured during analysis, which may start after
+  // this synchronizer is constructed. It remains fixed throughout execution. Even analysis-only
+  // Skycache can retain execution values retrieved by a previous build.
+  private final BooleanSupplier useFineLocks;
 
   // An action generally has at most one such task in flight, but nothing prevents an action from
   // executing multiple spawns whose outputs are uploaded concurrently.
@@ -91,16 +102,22 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   // ever acquires the write lock of that key.
   @Nullable private volatile LoadingCache<ActionLookupData, ReadersOrWritersLock> fineLocks;
 
-  public RemoteRewoundActionSynchronizer(AbstractActionInputPrefetcher actionInputFetcher) {
+  public RemoteRewoundActionSynchronizer(
+      AbstractActionInputPrefetcher actionInputFetcher,
+      WalkableGraph graph,
+      BooleanSupplier useFineLocks) {
     this.actionInputFetcher = actionInputFetcher;
+    this.graph = graph;
+    this.useFineLocks = useFineLocks;
   }
 
   /*
   Proof of deadlock freedom:
 
   The coarse lock cannot participate in a cycle of lock acquisitions in this synchronizer.
-  Readers and the writer release it before acquiring fine locks, and no reader upgrades it to
-  a write lock.
+  When switching to fine locks, readers and the writer release it before acquiring fine locks.
+  Otherwise, a rewound action holds its write lock throughout preparation and execution, and can
+  reentrantly acquire its read lock. No reader upgrades it to a write lock.
 
   For the fine locks, we show that a cycle of lock waits would imply a cycle of dependencies,
   which Skyframe disallows. Throughout, "X depends on Y" means that the Skyframe node executing
@@ -122,7 +139,7 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   that populate it.
 
   Thus an action that holds or waits for the read lock of K depends on any action that can acquire
-  the write lock of K. A template key used for missing metadata or an empty expansion has no writer.
+  the write lock of K. An empty expansion has no producers to lock.
   Calls to enterProcessOutputsAndGetLostArtifacts acquire read locks by the same rule.
 
   2. Classify the edges of a possible lock cycle.
@@ -186,13 +203,31 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
 
   private SilentCloseable enterActionPreparationForRewinding(Action action)
       throws InterruptedException {
+    SilentCloseable lock = acquireWriteLock(action);
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.INFO, "action.prepareOutputsForRewinding")) {
+      prepareOutputsForRewinding(action);
+    } catch (Throwable t) {
+      lock.close();
+      throw t;
+    }
+    return lock;
+  }
+
+  private SilentCloseable acquireWriteLock(Action action) throws InterruptedException {
     var localCoarseLock = coarseLock;
     if (localCoarseLock != null) {
-      // This is the first time a rewound action has attempted to prepare for its execution.
-      // Switch to using the fine locks under the protection of the coarse write lock.
+      boolean switchToFineLocks = useFineLocks.getAsBoolean();
+      // Switch to using the fine locks under the protection of the coarse write lock, unless
+      // execution values may have been retrieved without their action template expansions.
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.ACTION_LOCK, "action.prepareFirstRewinding")) {
         localCoarseLock.writeLock().lockInterruptibly();
+      }
+      if (!switchToFineLocks) {
+        // Skycache can supply execution values without their action template expansions. Retain
+        // the coarse lock so that consumers of these values are still protected during rewinding.
+        return localCoarseLock.writeLock()::unlock;
       }
       try {
         // Check again under the lock to avoid a race between multiple rewound actions attempting
@@ -216,13 +251,6 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
         Profiler.instance()
             .profile(ProfilerTask.ACTION_LOCK, "action.awaitRewoundActionConsumers")) {
       writeLock.lockWriteInterruptibly();
-    }
-    try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.INFO, "action.prepareOutputsForRewinding")) {
-      prepareOutputsForRewinding(action);
-    } catch (Throwable t) {
-      writeLock.unlockWrite();
-      throw t;
     }
     return writeLock::unlockWrite;
   }
@@ -374,8 +402,9 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
    * Returns the keys of the locks that guard the given artifacts as well as all artifacts in the
    * metadata provider's runfiles trees (see {@link #lockKeysFor}).
    */
-  private static Iterable<ActionLookupData> inputKeysFor(
-      Iterable<Artifact> artifacts, InputMetadataProvider metadataProvider) {
+  private ImmutableSet<ActionLookupData> inputKeysFor(
+      Iterable<Artifact> artifacts, InputMetadataProvider metadataProvider)
+      throws InterruptedException {
     var allArtifacts =
         Iterables.concat(
             artifacts,
@@ -383,10 +412,13 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
                 Iterables.transform(
                     metadataProvider.getRunfilesTrees(),
                     runfilesTree -> runfilesTree.getArtifacts().toList())));
-    return Iterables.concat(
-        Iterables.transform(
-            Iterables.filter(allArtifacts, artifact -> artifact instanceof DerivedArtifact),
-            artifact -> lockKeysFor((DerivedArtifact) artifact, metadataProvider)));
+    var keys = ImmutableSet.<ActionLookupData>builder();
+    for (Artifact artifact : allArtifacts) {
+      if (artifact instanceof DerivedArtifact derivedArtifact) {
+        keys.addAll(lockKeysFor(derivedArtifact));
+      }
+    }
+    return keys.build();
   }
 
   /**
@@ -406,18 +438,23 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
    * executing and a rewound generating action holds the write lock of its own key while
    * re-executing (see {@link #actionKeyFor}).
    */
-  private static Iterable<ActionLookupData> lockKeysFor(
-      DerivedArtifact artifact, InputMetadataProvider metadataProvider) {
+  private ImmutableList<ActionLookupData> lockKeysFor(DerivedArtifact artifact)
+      throws InterruptedException {
     ActionLookupData ownKey = artifact.getGeneratingActionKey();
     if (!artifact.isTreeArtifact()) {
       return ImmutableList.of(ownKey);
     }
-    TreeArtifactValue tree = metadataProvider.getTreeMetadata(artifact);
-    if (tree != null && !tree.getTemplateExpansionActionKeys().isEmpty()) {
-      return tree.getTemplateExpansionActionKeys();
+    ActionLookupValue owner =
+        (ActionLookupValue) checkNotNull(graph.getValue(ownKey.getActionLookupKey()), artifact);
+    if (!(owner.getActions().get(ownKey.getActionIndex()) instanceof ActionTemplate)) {
+      return ImmutableList.of(ownKey);
     }
-    // Ordinary trees (including subtrees) use their own key. Missing metadata and empty template
-    // expansions have no expanded outputs to protect; their template key has no writer.
-    return ImmutableList.of(ownKey);
+    // Expansion values are not rewound and remain available during execution even in
+    // non-incremental builds. Use values, not graph edges, which such builds discard.
+    var expansionKey =
+        ActionTemplateExpansionValue.key(ownKey.getActionLookupKey(), ownKey.getActionIndex());
+    var expansion =
+        (ActionTemplateExpansionValue) checkNotNull(graph.getValue(expansionKey), artifact);
+    return expansion.getGeneratingActionKeys(artifact);
   }
 }

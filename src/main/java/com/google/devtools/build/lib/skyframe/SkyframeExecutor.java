@@ -681,7 +681,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // RemoteAnalysisCachingState *after* the actual Skyframe deletion.
   }
 
-  @VisibleForTesting
   public boolean isRemoteAnalysisCachingEnabled() {
     return remoteAnalysisCachingDependenciesProvider.mode().isRetrievalEnabled();
   }

@@ -17,18 +17,21 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -36,7 +39,6 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -44,11 +46,11 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
-import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Before;
 import org.junit.Test;
@@ -62,12 +64,14 @@ public final class RemoteRewoundActionSynchronizerTest {
   private static final long DEADLOCK_TIMEOUT_MILLIS = 10_000;
 
   private RemoteActionInputFetcher actionInputFetcher;
+  private WalkableGraph graph;
   private RemoteRewoundActionSynchronizer synchronizer;
 
   @Before
   public void setUp() {
     actionInputFetcher = mock(RemoteActionInputFetcher.class);
-    synchronizer = new RemoteRewoundActionSynchronizer(actionInputFetcher);
+    graph = mock(WalkableGraph.class);
+    synchronizer = new RemoteRewoundActionSynchronizer(actionInputFetcher, graph, () -> true);
   }
 
   @Test
@@ -89,6 +93,19 @@ public final class RemoteRewoundActionSynchronizerTest {
 
   @Test
   public void rewind_interruptedWhileAwaiting_cancelsAndAwaitsEveryTask() throws Exception {
+    runInterruptedRewind();
+  }
+
+  @Test
+  public void withoutFineLocks_interruptedWhileAwaiting_releasesLock() throws Exception {
+    synchronizer = new RemoteRewoundActionSynchronizer(actionInputFetcher, graph, () -> false);
+    runInterruptedRewind();
+    var subsequentRewind = new TestThread(() -> rewind(newAction()));
+    subsequentRewind.start();
+    subsequentRewind.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+  }
+
+  private void runInterruptedRewind() throws Exception {
     Action action = newAction();
     var first = mock(RemoteRewoundActionSynchronizer.Cancellable.class);
     var second = mock(RemoteRewoundActionSynchronizer.Cancellable.class);
@@ -104,6 +121,59 @@ public final class RemoteRewoundActionSynchronizerTest {
     order.verify(first, times(2)).awaitCompletion();
     order.verify(second).awaitCompletion();
     verify(actionInputFetcher, never()).handleRewoundActionOutputs(any());
+  }
+
+  @Test
+  public void withoutFineLocks_rewoundActionExcludesConsumers() throws Exception {
+    synchronizer = new RemoteRewoundActionSynchronizer(actionInputFetcher, graph, () -> false);
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
+    SpecialArtifact tree = newTreeArtifact(root, "tree", ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+    Action producer = newAction(ImmutableList.of(tree), ImmutableList.of());
+    InputMetadataProvider metadataProvider = mock(InputMetadataProvider.class);
+    var consumer =
+        new TestThread(
+            () -> {
+              try (SilentCloseable unused =
+                  synchronizer.enterProcessOutputsAndGetLostArtifacts(
+                      ImmutableList.of(tree), metadataProvider)) {}
+            });
+
+    try (SilentCloseable preparation =
+            synchronizer.enterActionPreparation(producer, /* wasRewound= */ true);
+        // A rewound action must be able to enter execution while holding the coarse write lock.
+        SilentCloseable execution =
+            synchronizer.enterActionExecution(producer, /* wasRewound= */ true, metadataProvider)) {
+      consumer.start();
+      waitUntilBlocked(consumer);
+    }
+
+    consumer.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+    verifyNoInteractions(graph);
+  }
+
+  @Test
+  public void withoutFineLocks_consumersExcludeRewinding() throws Exception {
+    synchronizer = new RemoteRewoundActionSynchronizer(actionInputFetcher, graph, () -> false);
+    Action producer = newAction();
+    Action consumer =
+        newAction(
+            ImmutableList.of(producer.getPrimaryOutput()),
+            ImmutableList.copyOf(producer.getOutputs()));
+    InputMetadataProvider metadataProvider = mock(InputMetadataProvider.class);
+
+    // Check both the first rewind and a subsequent one: neither may bypass an active reader.
+    for (int i = 0; i < 2; i++) {
+      var preparation = new TestThread(() -> rewind(producer));
+      try (SilentCloseable execution =
+          synchronizer.enterActionExecution(consumer, /* wasRewound= */ false, metadataProvider)) {
+        preparation.start();
+        waitUntilBlocked(preparation);
+      }
+      preparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+    }
+
+    verifyNoInteractions(graph);
   }
 
   @Test
@@ -223,16 +293,12 @@ public final class RemoteRewoundActionSynchronizerTest {
 
     InputMetadataProvider metadataProvider = mock(InputMetadataProvider.class);
     when(metadataProvider.getRunfilesTrees()).thenReturn(ImmutableList.of());
-    when(metadataProvider.getTreeMetadata(upstreamTree))
-        .thenReturn(
-            TreeArtifactValue.newBuilder(upstreamTree)
-                .setTemplateExpansionActionKeys(
-                    ImmutableSet.of(upstreamFile.getGeneratingActionKey()))
-                .putChild(
-                    upstreamFile,
-                    FileArtifactValue.createForNormalFile(
-                        new byte[32], /* proxy= */ null, /* size= */ 1))
-                .build());
+    ActionLookupValue ownerValue = mock(ActionLookupValue.class);
+    when(ownerValue.getActions()).thenReturn(ImmutableList.of(mock(ActionTemplate.class)));
+    when(graph.getValue(owner)).thenReturn(ownerValue);
+    var expansionValue = mock(ActionTemplateExpansionValue.class, CALLS_REAL_METHODS);
+    when(expansionValue.getActions()).thenReturn(ImmutableList.of(upstreamAction));
+    when(graph.getValue(upstreamExpansion)).thenReturn(expansionValue);
 
     // The tree consumer is rewound and prepares for its re-execution, which makes it hold the
     // write lock guarding its output until the end of its execution.
