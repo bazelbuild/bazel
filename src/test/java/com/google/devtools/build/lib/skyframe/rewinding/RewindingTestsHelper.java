@@ -1712,7 +1712,7 @@ public class RewindingTestsHelper {
           for out in "$@"; do cp "$src" "$out"; done
           """;
 
-  private void writeCopyToolAndConsumerRules(String copyScript) throws IOException {
+  final void writeCopyToolAndConsumerRules() throws IOException {
     testCase.write(
         "foo/common.bzl",
         """
@@ -1743,7 +1743,7 @@ public class RewindingTestsHelper {
             },
         )
         """
-            .replace("COPY_TOOL_SCRIPT", copyScript));
+            .replace("COPY_TOOL_SCRIPT", COPY_TOOL_SCRIPT));
   }
 
   /**
@@ -1758,31 +1758,29 @@ public class RewindingTestsHelper {
    * <p>The rewound action also consumes the output of another action in the same expansion, so the
    * test exercises dependencies both within and outside the expansion.
    *
-   * <p>With multiple output trees, the first action writes into both trees and the second consumes
-   * a file of one tree while populating the other.
+   * <p>The first action writes into both output trees and the second consumes a file of one tree
+   * while populating the other.
    */
-  public final void runActionTemplateExpansionRewound_withTreeConsumersInFlight(
-      boolean multipleTrees) throws Exception {
+  public final void runActionTemplateExpansionRewound_withTreeConsumersInFlight() throws Exception {
     // Allow the consumers and the action reporting the lost input to run at the same time, so
     // rewinding can begin while the tree artifact is being read.
     ensureMinimumJobs(CONCURRENT_ACTION_COUNT + 1);
     testCase.addOptions("--experimental_allow_map_directory");
-    writeCopyToolAndConsumerRules(COPY_TOOL_SCRIPT);
+    writeCopyToolAndConsumerRules();
     testCase.write(
         "foo/defs.bzl",
         """
         def _map_impl(template_ctx, input_directories, output_directories, tools, **kwargs):
             for child in input_directories["seed"].children:
-                # The two actions form a chain within the expansion. With multiple output trees,
-                # the first action also writes a copy into the tree consumed by ordinary actions.
+                # The two actions form a chain within the expansion. The first action also writes
+                # a copy into the tree consumed by ordinary actions.
                 mid = template_ctx.declare_file(
                     child.basename + ".mid.inlined",
                     directory = output_directories["intermediate"],
                 )
-                first_outputs = [mid]
-                if MULTIPLE_TREES:
-                    first_outputs.append(template_ctx.declare_file(
-                        child.basename + ".copy.inlined", directory = output_directories["mapped"]))
+                copy = template_ctx.declare_file(
+                    child.basename + ".copy.inlined", directory = output_directories["mapped"])
+                first_outputs = [mid, copy]
                 args = template_ctx.args()
                 args.add(child)
                 args.add_all(first_outputs)
@@ -1816,9 +1814,7 @@ public class RewindingTestsHelper {
                 progress_message = "Seeding foo/seed_dir",
             )
             mapped = ctx.actions.declare_directory("mapped_dir")
-            intermediate = mapped
-            if MULTIPLE_TREES:
-                intermediate = ctx.actions.declare_directory("intermediate_dir")
+            intermediate = ctx.actions.declare_directory("intermediate_dir")
             ctx.actions.map_directory(
                 implementation = _map_impl,
                 input_directories = {"seed": seed},
@@ -1843,8 +1839,7 @@ public class RewindingTestsHelper {
                 ),
             },
         )
-        """
-            .replace("MULTIPLE_TREES", multipleTrees ? "True" : "False"));
+        """);
     testCase.write(
         "foo/BUILD",
         """
@@ -1922,10 +1917,7 @@ public class RewindingTestsHelper {
             repeatedlyReadTreeInputs(
                 context,
                 SpawnInputUtils.getExpandedToArtifact(
-                    multipleTrees ? "f1.copy.inlined" : "f1.mid.inlined",
-                    mappedTree,
-                    spawn,
-                    context),
+                    "f1.copy.inlined", mappedTree, spawn, context),
                 SpawnInputUtils.getExpandedToArtifact(
                     "f1.out.inlined", mappedTree, spawn, context));
             return ExecResult.delegate();
@@ -1939,9 +1931,7 @@ public class RewindingTestsHelper {
           allConsumersStarted.await();
           SpecialArtifact mappedTree = SpawnInputUtils.getTreeArtifactWithName(spawn, "mapped_dir");
           SpecialArtifact intermediateTree =
-              multipleTrees
-                  ? SpawnInputUtils.getTreeArtifactWithName(spawn, "intermediate_dir")
-                  : mappedTree;
+              SpawnInputUtils.getTreeArtifactWithName(spawn, "intermediate_dir");
           ExecResult lostInputs =
               createLostInputsExecException(
                   context,
@@ -1980,7 +1970,7 @@ public class RewindingTestsHelper {
         IntStream.rangeClosed(1, CONCURRENT_ACTION_COUNT)
             .mapToObj(i -> "f" + i)
             .collect(toImmutableList());
-    writeCopyToolAndConsumerRules(COPY_TOOL_SCRIPT);
+    writeCopyToolAndConsumerRules();
     testCase.write(
         "foo/defs.bzl",
         """
@@ -2106,16 +2096,16 @@ public class RewindingTestsHelper {
    * re-execution overlaps the consumers depends on the filesystem. Here the consumers are expanded
    * actions with individual tree-file inputs rather than ordinary actions with a whole-tree input.
    *
-   * <p>With multiple output trees, each upstream action populates a different tree and the
-   * downstream expansion consumes only the first tree.
+   * <p>Each upstream action populates a different output tree and the downstream expansion consumes
+   * only the first tree.
    */
-  public final void runActionTemplateExpansionRewound_withDownstreamExpansionInFlight(
-      boolean multipleTrees) throws Exception {
+  public final void runActionTemplateExpansionRewound_withDownstreamExpansionInFlight()
+      throws Exception {
     // Allow all downstream consumers and the action reporting lost inputs to run at the same time,
     // so rewinding can begin while the upstream files are being consumed.
     ensureMinimumJobs(CONCURRENT_ACTION_COUNT + 1);
     testCase.addOptions("--experimental_allow_map_directory");
-    writeCopyToolAndConsumerRules(COPY_TOOL_SCRIPT);
+    writeCopyToolAndConsumerRules();
     testCase.write(
         "foo/defs.bzl",
         """
@@ -2166,9 +2156,7 @@ public class RewindingTestsHelper {
                 progress_message = "Seeding foo/seed_dir",
             )
             upstream = ctx.actions.declare_directory("upstream_dir")
-            other = upstream
-            if MULTIPLE_TREES:
-                other = ctx.actions.declare_directory("other_dir")
+            other = ctx.actions.declare_directory("other_dir")
             ctx.actions.map_directory(
                 implementation = _map_all_impl,
                 input_directories = {"input": seed},
@@ -2203,7 +2191,6 @@ public class RewindingTestsHelper {
             attrs = dict(_COPY_TOOL_ATTRS, src = attr.label(allow_single_file = True)),
         )
         """
-            .replace("MULTIPLE_TREES", multipleTrees ? "True" : "False")
             .replace("COPY_COUNT", String.valueOf(CONCURRENT_ACTION_COUNT)));
     testCase.write(
         "foo/BUILD",
@@ -2261,7 +2248,6 @@ public class RewindingTestsHelper {
     CountDownLatch allDownstreamStarted = new CountDownLatch(CONCURRENT_ACTION_COUNT);
     CountDownLatch lostInputsReported = new CountDownLatch(1);
 
-    String siblingDescription = "Mapping " + (multipleTrees ? "other_dir" : "upstream_dir") + " f2";
     for (int i = 0; i < CONCURRENT_ACTION_COUNT; i++) {
       addSpawnShim(
           "Mapping downstream_dir f1.out.inlined." + i,
@@ -2284,10 +2270,7 @@ public class RewindingTestsHelper {
           allDownstreamStarted.await();
           SpecialArtifact upstreamTree =
               SpawnInputUtils.getTreeArtifactWithName(spawn, "upstream_dir");
-          SpecialArtifact otherTree =
-              multipleTrees
-                  ? SpawnInputUtils.getTreeArtifactWithName(spawn, "other_dir")
-                  : upstreamTree;
+          SpecialArtifact otherTree = SpawnInputUtils.getTreeArtifactWithName(spawn, "other_dir");
           ExecResult lostInputs =
               createLostInputsExecException(
                   context,
@@ -2304,7 +2287,7 @@ public class RewindingTestsHelper {
     verifyAllSpawnShimsConsumed();
     var executedSpawns = ImmutableMultiset.copyOf(getExecutedSpawnDescriptions());
     assertThat(executedSpawns).hasCount("Mapping upstream_dir f1", 2);
-    assertThat(executedSpawns).hasCount(siblingDescription, 2);
+    assertThat(executedSpawns).hasCount("Mapping other_dir f2", 2);
     for (int i = 0; i < CONCURRENT_ACTION_COUNT; i++) {
       assertThat(executedSpawns).hasCount("Mapping downstream_dir f1.out.inlined." + i, 1);
     }

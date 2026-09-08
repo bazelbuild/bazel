@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.TruthJUnit.assume;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -35,13 +36,19 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.testutil.ActionEventRecorder;
+import com.google.devtools.build.lib.testutil.SpawnInputUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.DelegateFileSystem;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -68,6 +75,29 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   private final ActionEventRecorder actionEventRecorder = new ActionEventRecorder();
   private final RewindingTestsHelper helper = new RewindingTestsHelper(this, actionEventRecorder);
+
+  @FunctionalInterface
+  private interface DeletionListener {
+    void beforeDelete(PathFragment path) throws InterruptedException;
+  }
+
+  private volatile DeletionListener deletionListener = path -> {};
+
+  @Override
+  protected FileSystem createFileSystemForBuildArtifacts(FileSystem fileSystem) {
+    return new DelegateFileSystem(fileSystem) {
+      @Override
+      public boolean delete(PathFragment path) throws IOException {
+        try {
+          deletionListener.beforeDelete(path);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new IOException(e);
+        }
+        return super.delete(path);
+      }
+    };
+  }
 
   @Override
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
@@ -268,7 +298,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   @Test
   public void actionTemplateExpansionRewound_withTreeConsumersInFlight() throws Exception {
-    helper.runActionTemplateExpansionRewound_withTreeConsumersInFlight(/* multipleTrees= */ true);
+    helper.runActionTemplateExpansionRewound_withTreeConsumersInFlight();
   }
 
   @Test
@@ -277,10 +307,176 @@ public final class RewindingTest extends BuildIntegrationTestCase {
     helper.runActionTemplateExpansionRewound_siblingActionsReExecuteConcurrently();
   }
 
+  /**
+   * Exercises the acyclic chain first producer -> tree consumer -> second producer, where both
+   * producers belong to the same template but populate different output trees.
+   */
+  @Test
+  public void actionTemplateExpansionRewound_withInterleavedTreeConsumer_doesNotDeadlock()
+      throws Exception {
+    addOptions("--experimental_allow_map_directory", "--jobs=4");
+    helper.writeCopyToolAndConsumerRules();
+    write(
+        "foo/defs.bzl",
+        """
+        def _map_impl(template_ctx, input_directories, output_directories, tools,
+                      additional_params, **kwargs):
+            seed = input_directories["seed"].children[0]
+            first = template_ctx.declare_file(
+                "first.inlined", directory = output_directories["first"])
+            second = template_ctx.declare_file(
+                "second.inlined", directory = output_directories["second"])
+            args = template_ctx.args()
+            args.add_all([seed, first])
+            template_ctx.run(
+                inputs = [seed],
+                outputs = [first],
+                executable = tools["copy_tool"],
+                arguments = [args],
+                progress_message = "First producer",
+            )
+            middle = additional_params["middle"]
+            args = template_ctx.args()
+            args.add_all([middle, second])
+            template_ctx.run(
+                inputs = [middle],
+                outputs = [second],
+                executable = tools["copy_tool"],
+                arguments = [args],
+                progress_message = "Second producer",
+            )
+
+        def _impl(ctx):
+            seed = ctx.actions.declare_directory("seed")
+            ctx.actions.run_shell(
+                inputs = ctx.files.warmup,
+                outputs = [seed],
+                command = "echo seed > $1/file",
+                arguments = [seed.path],
+            )
+            first = ctx.actions.declare_directory("first")
+            second = ctx.actions.declare_directory("second")
+            middle = ctx.actions.declare_file("middle.inlined")
+            ctx.actions.run_shell(
+                inputs = [first],
+                outputs = [middle],
+                command = "cat $1/first.inlined > $2",
+                arguments = [first.path, middle.path],
+                progress_message = "Tree consumer",
+                execution_requirements = {"no-cache": "1"},
+            )
+            ctx.actions.map_directory(
+                implementation = _map_impl,
+                input_directories = {"seed": seed},
+                output_directories = {"first": first, "second": second},
+                # This currently lets the expanded action consume middle without making the
+                # expansion itself depend on the tree consumer and creating a Skyframe cycle.
+                additional_params = {"middle": middle},
+                tools = {"copy_tool": ctx.attr._copy_tool.files_to_run},
+                execution_requirements = {"no-cache": "1"},
+            )
+            return [
+                DefaultInfo(files = depset([second])),
+                OutputGroupInfo(middle = depset([middle])),
+            ]
+
+        mapped = rule(
+            implementation = _impl,
+            attrs = {
+                "warmup": attr.label_list(allow_files = True),
+                "_copy_tool": attr.label(default = ":copy_tool", executable = True, cfg = "exec"),
+            },
+        )
+        """);
+    write(
+        "foo/BUILD",
+        """
+        load(":common.bzl", "consumer", "copy_tool")
+        load(":defs.bzl", "mapped")
+
+        copy_tool(name = "copy_tool")
+
+        genrule(
+            name = "warmup_gen",
+            outs = ["warmup.out"],
+            cmd = "echo warmup > $@",
+            tags = ["no-cache"],
+        )
+
+        genrule(
+            name = "warmup_consumer",
+            srcs = ["warmup.out"],
+            outs = ["ready.out"],
+            cmd = "cp $< $@",
+        )
+
+        mapped(name = "mapped", warmup = ["ready.out"])
+
+        filegroup(name = "middle", srcs = [":mapped"], output_group = "middle")
+
+        consumer(name = "lose_middle", srcs = [":middle"])
+
+        consumer(name = "lose_second", srcs = [":mapped"])
+        """);
+
+    // Switch to fine locks before either losing consumer runs. Otherwise the initial coarse lock
+    // would prevent the first rewind while lose_middle is still executing.
+    helper.addSpawnShim(
+        "Executing genrule //foo:warmup_consumer",
+        (spawn, context) -> helper.createLostInputsExecException(spawn, context, "warmup.out"));
+
+    var secondLost = new AtomicBoolean();
+    var middleLost = new AtomicBoolean();
+    var secondPreparing = new CountDownLatch(1);
+    var middlePreparing = new CountDownLatch(1);
+    deletionListener =
+        path -> {
+          // Output deletion happens after the action acquires its write lock, before it acquires
+          // input read locks. Let both rewound actions reach this point before either proceeds.
+          if (path.endsWith(PathFragment.create("foo/second/second.inlined"))
+              && secondLost.compareAndSet(true, false)) {
+            secondPreparing.countDown();
+            middlePreparing.await();
+          } else if (path.endsWith(PathFragment.create("foo/middle.inlined"))
+              && middleLost.compareAndSet(true, false)) {
+            middlePreparing.countDown();
+          }
+        };
+    helper.addSpawnShim(
+        "Consuming //foo:lose_second",
+        (spawn, context) -> {
+          var tree = SpawnInputUtils.getTreeArtifactWithName(spawn, "second");
+          secondLost.set(true);
+          return helper.createLostInputsExecException(
+              context,
+              SpawnInputUtils.getExpandedToArtifact("second.inlined", tree, spawn, context));
+        });
+    helper.addSpawnShim(
+        "Consuming //foo:lose_middle",
+        (spawn, context) -> {
+          secondPreparing.await();
+          middleLost.set(true);
+          return helper.createLostInputsExecException(spawn, context, "middle.inlined");
+        });
+
+    // With a shared template key, the tree consumer waits for the second producer's write lock,
+    // while the second producer waits for the tree consumer's write lock. With separate action
+    // keys, the tree consumer only reads the first producer's key and both rewinds complete.
+    buildTarget("//foo:lose_second", "//foo:lose_middle");
+
+    helper.verifyAllSpawnShimsConsumed();
+    assertThat(secondLost.get()).isFalse();
+    assertThat(middleLost.get()).isFalse();
+    var executedSpawns = ImmutableMultiset.copyOf(helper.getExecutedSpawnDescriptions());
+    assertThat(executedSpawns).hasCount("Tree consumer", 2);
+    assertThat(executedSpawns).hasCount("Second producer", 2);
+    assertThat(executedSpawns).hasCount("Consuming //foo:lose_middle", 2);
+    assertThat(executedSpawns).hasCount("Consuming //foo:lose_second", 2);
+  }
+
   @Test
   public void actionTemplateExpansionRewound_withDownstreamExpansionInFlight() throws Exception {
-    helper.runActionTemplateExpansionRewound_withDownstreamExpansionInFlight(
-        /* multipleTrees= */ true);
+    helper.runActionTemplateExpansionRewound_withDownstreamExpansionInFlight();
   }
 
   @Test
