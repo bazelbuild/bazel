@@ -986,6 +986,67 @@ EOF
   assert_equals "fail" "$(awk "NR == $(wc -l < $TEST_log)" $TEST_log)"
 }
 
+function test_flaky_test_attempts_stable_flaky_split() {
+  add_rules_shell "MODULE.bazel"
+  cat >BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(name = "stable_flaky", srcs = ["stable_flaky.sh"])
+sh_test(name = "marked_flaky", flaky = True, srcs = ["marked_flaky.sh"])
+EOF
+  STABLE_FLAKE_FILE="${TEST_TMPDIR}/stable_flake"
+  MARKED_FLAKE_FILE="${TEST_TMPDIR}/marked_flake"
+  rm -f "${STABLE_FLAKE_FILE}" "${MARKED_FLAKE_FILE}"
+  cat >stable_flaky.sh <<EOF
+#!/bin/sh
+if ! [ -f "${STABLE_FLAKE_FILE}" ]; then
+  echo 1 > "${STABLE_FLAKE_FILE}"
+  echo "fail"
+  exit 1
+fi
+echo "pass"
+exit 0
+EOF
+  cat >marked_flaky.sh <<EOF
+#!/bin/sh
+if ! [ -f "${MARKED_FLAKE_FILE}" ]; then
+  echo 1 > "${MARKED_FLAKE_FILE}"
+  echo "fail"
+  exit 1
+fi
+echo "pass"
+exit 0
+EOF
+  chmod +x stable_flaky.sh marked_flaky.sh
+
+  if is_darwin; then
+    export JAVA_TOOL_OPTIONS="-Djava.net.preferIPv6Addresses=true"
+    export STARTUP_OPTS="--host_jvm_args=-Djava.net.preferIPv6Addresses=true"
+  else
+    export STARTUP_OPTS=""
+  fi
+
+  rm -f "${STABLE_FLAKE_FILE}"
+  bazel --ignore_all_rc_files $STARTUP_OPTS test --spawn_strategy=standalone \
+      --flaky_test_attempts=1,2 //:stable_flaky &> $TEST_log \
+      && fail "stable test should fail without retries" || true
+  expect_log_once "FAIL.*: //:stable_flaky"
+  [ ! -d bazel-testlogs/stable_flaky/test_attempts ] \
+    || fail "stable test should not have been retried with --flaky_test_attempts=1,2"
+
+  rm -f "${MARKED_FLAKE_FILE}"
+  bazel --ignore_all_rc_files $STARTUP_OPTS test --spawn_strategy=standalone \
+      --flaky_test_attempts=1,2 //:marked_flaky &> $TEST_log \
+      || fail "flaky-marked test should pass with one retry"
+  expect_log_once "FLAKY: //:marked_flaky"
+  assert_equals 1 $(ls bazel-testlogs/marked_flaky/test_attempts/*.log | wc -l)
+
+  rm -f "${STABLE_FLAKE_FILE}"
+  bazel --ignore_all_rc_files $STARTUP_OPTS test --spawn_strategy=standalone \
+      --flaky_test_attempts=2 //:stable_flaky &> $TEST_log \
+      || fail "stable test should pass when single integer applies to all tests"
+  expect_log_once "FLAKY: //:stable_flaky"
+}
+
 function setup_undeclared_outputs_test() {
   mkdir -p dir
   add_rules_shell "MODULE.bazel"
