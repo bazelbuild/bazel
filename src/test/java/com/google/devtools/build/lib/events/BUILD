@@ -49,7 +49,6 @@ java_library(
     name = "testutil",
     testonly = 1,
     srcs = glob(["util/*.java"]) + ["EventTestTemplate.java"],
-    visibility = ["//src:__subpackages__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/events:event_bus_event_handler",
