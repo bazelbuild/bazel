@@ -261,30 +261,7 @@ genrule(
     visibility = ["//site:__pkg__"],
 )
 
-genrule(
-    name = "gen_reference_docs",
-    srcs = [
-        ":build-encyclopedia.zip",
-        ":command-line-reference.html",
-        ":skylark-library.zip",
-        "//tools/build_defs/repo:doc",
-    ],
-    outs = ["reference-docs.zip"],
-    cmd = "mkdir -p $(@D)/gen_docs/reference/be && " +
-          "cp $(location :command-line-reference.html) $(@D)/gen_docs/reference/ && " +
-          "unzip -q -d $(@D)/gen_docs/reference/be/ $(location :build-encyclopedia.zip) && " +
-          "mkdir -p $(@D)/gen_docs/rules/lib/repo && " +
-          "unzip -q -d $(@D)/gen_docs/rules/lib/ $(location :skylark-library.zip) && " +
-          "tar -xf $(location //tools/build_defs/repo:doc) -C $(@D)/gen_docs/rules/lib/repo/ && " +
-          # Ugly hack: we want to preserve paths relative to gen_docs/,
-          # which means we have to temporarily cd into that directory and zip with -r.
-          "pushd $(@D)/gen_docs && " +
-          "zip -qr tmp.zip . && " +
-          "popd && mv $(@D)/gen_docs/tmp.zip $@",
-    visibility = ["//scripts/docs:__pkg__"],
-)
-
-# TODO: replace gen_reference_docs with this target once the docs migration is done.
+# TODO: Rename to gen_reference_docs once the docs migration is done.
 genrule(
     name = "gen_mdx_reference_docs",
     srcs = [

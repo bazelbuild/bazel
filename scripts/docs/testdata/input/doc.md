@@ -1,9 +1,4 @@
-Project: /_project.yaml
-Book: /_book.yaml
-
 # Configurations
-
-{% include "_buttons.html" %}
 
 A build setting is a single piece of [configuration](/rules/rules#configurations) information.
 

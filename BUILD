@@ -45,7 +45,6 @@ filegroup(
         "//scripts:srcs",
         "//site:srcs",
         "//src:srcs",
-        "//src/main/java/com/google/devtools/build/docgen/release:srcs",
         "//third_party:srcs",
         "//tools:srcs",
     ] + glob(
