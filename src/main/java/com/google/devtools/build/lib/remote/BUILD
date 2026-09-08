@@ -1170,7 +1170,7 @@ java_library(
 java_library(
     name = "remote_rewound_action_synchronizer",
     srcs = [
-        "ReadersOrWritersLock.java",
+        "ReaderPreferringReadWriteLock.java",
         "RemoteRewoundActionSynchronizer.java",
     ],
     deps = [

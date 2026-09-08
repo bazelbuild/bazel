@@ -93,14 +93,13 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   // inputs (see inputKeysFor) before it starts executing.
   //
   // The values of this cache are weakly referenced to ensure that locks are cleaned up when they
-  // are no longer needed. Holders of a ReadersOrWritersLock reference the lock itself, which keeps
-  // it in the cache for as long as it is held, whereas the read and write lock views of the JDK's
-  // ReentrantReadWriteLock don't reference their parent lock (JDK-8189598). ReadersOrWritersLock
-  // also has a smaller footprint. Crucially, it admits readers even when a writer is waiting;
-  // queuing readers behind waiting writers can cause deadlock even with a nonfair JDK lock.
-  // Its admission of multiple writers is not relied upon: only the action identified by a key
-  // ever acquires the write lock of that key.
-  @Nullable private volatile LoadingCache<ActionLookupData, ReadersOrWritersLock> fineLocks;
+  // are no longer needed. Holders of a ReaderPreferringReadWriteLock reference the lock itself,
+  // which keeps it in the cache for as long as it is held, whereas the read and write lock views of
+  // the JDK's ReentrantReadWriteLock don't reference their parent lock (JDK-8189598). It also has a
+  // smaller footprint. Crucially, it admits readers even when a writer is waiting; queuing readers
+  // behind waiting writers can cause deadlock even with a nonfair JDK lock.
+  @Nullable
+  private volatile LoadingCache<ActionLookupData, ReaderPreferringReadWriteLock> fineLocks;
 
   public RemoteRewoundActionSynchronizer(
       AbstractActionInputPrefetcher actionInputFetcher,
@@ -153,8 +152,9 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   Suppose there is a deadlock, and choose a directed cycle C in this graph. Consider any edge
   A -[XY(K)]-> B in C:
 
-  * RR or WW: ReadersOrWritersLock allows multiple readers or multiple writers, but never both.
-    Readers therefore wait only for writers, and writers only for readers, ruling out both cases.
+  * RR or WW: Readers never wait for other readers. Only the action identified by K acquires the
+    write lock of K (step 1) and Skyframe executes an action at most once at a time, so no two
+    writers of K exist. Readers therefore wait only for writers, and writers only for readers.
 
   * WR: A waits for a write lock in enterActionPreparation, the only write lock it ever acquires.
     It holds no locks from this execution because read-lock acquisition in enterActionExecution
@@ -236,7 +236,7 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
           fineLocks =
               Caffeine.newBuilder()
                   .weakValues()
-                  .build((ActionLookupData _) -> new ReadersOrWritersLock());
+                  .build((ActionLookupData _) -> new ReaderPreferringReadWriteLock());
           // Must be assigned after fineLocks as lockArtifactsForConsumption relies on a null
           // coarseLock implying a non-null fineLocks.
           coarseLock = null;
@@ -382,7 +382,7 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
     }
     var locks = localFineLocks.getAll(inputKeysFor(artifacts, metadataProvider)).values();
     var locksToUnlockBuilder =
-        ImmutableList.<ReadersOrWritersLock>builderWithExpectedSize(locks.size());
+        ImmutableList.<ReaderPreferringReadWriteLock>builderWithExpectedSize(locks.size());
     try {
       for (var lock : locks) {
         lock.lockReadInterruptibly();
@@ -395,7 +395,7 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
       throw e;
     }
     var locksToUnlock = locksToUnlockBuilder.build().reverse();
-    return () -> locksToUnlock.forEach(ReadersOrWritersLock::unlockRead);
+    return () -> locksToUnlock.forEach(ReaderPreferringReadWriteLock::unlockRead);
   }
 
   /**
