@@ -2685,13 +2685,6 @@ EOF
   expect_log "//not-external:b"
   expect_not_log "//external:a1"
   expect_not_log "//external/nested:a2"
-
-  bazel query --experimental_sibling_repository_layout //... >& $TEST_log \ ||
-    fail "Expected build/run to succeed"
-  expect_log "//not-external:b"
-  # Targets in //external aren't supported yet.
-  expect_not_log "//external:a1"
-  expect_log "//external/nested:a2"
 }
 
 function test_query_external_packages_in_other_repo() {
@@ -2732,12 +2725,6 @@ EOF
   expect_log "@other_repo//not-external:b"
   expect_log "@other_repo//external:a1"
   expect_log "@other_repo//external/nested:a2"
-
-  bazel query --experimental_sibling_repository_layout @other_repo//... >& $TEST_log \ ||
-    fail "Expected build/run to succeed"
-  expect_log "@other_repo//not-external:b"
-  expect_log "@other_repo//external:a1"
-  expect_log "@other_repo//external/nested:a2"
 }
 
 function test_query_external_all_targets() {
@@ -2769,13 +2756,6 @@ EOF
   expect_log "//not-external:B"
   expect_not_log "//external/nested:a"
   expect_not_log "//external/nested:A"
-
-  bazel query --experimental_sibling_repository_layout //...:all-targets \
-    >& $TEST_log || fail "Expected build/run to succeed"
-  expect_log "//not-external:b"
-  expect_log "//not-external:B"
-  expect_log "//external/nested:a"
-  expect_log "//external/nested:A"
 }
 
 function test_external_deps_skymeld() {

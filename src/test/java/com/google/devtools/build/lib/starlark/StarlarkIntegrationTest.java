@@ -182,7 +182,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testExternalRepoLabelWorkspaceRoot_subdirRepoLayout() throws Exception {
+  public void testExternalRepoLabelWorkspaceRoot() throws Exception {
     scratch.overwriteFile(
         "MODULE.bazel", "bazel_dep(name='r')", "local_path_override(module_name='r', path='/r')");
 
@@ -208,37 +208,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     ConfiguredTarget myTarget = getConfiguredTarget("@@r+//:t");
     String result = (String) getMyInfoFromTarget(myTarget).getValue("result");
     assertThat(result).isEqualTo("external/r+");
-  }
-
-  @Test
-  public void testExternalRepoLabelWorkspaceRoot_siblingRepoLayout() throws Exception {
-    scratch.overwriteFile(
-        "MODULE.bazel", "bazel_dep(name='r')", "local_path_override(module_name='r', path='/r')");
-
-    scratch.file("/r/MODULE.bazel", "module(name='r')");
-    scratch.file(
-        "/r/test/starlark/extension.bzl",
-        """
-        load('@@//myinfo:myinfo.bzl', 'MyInfo')
-        def _impl(ctx):
-          return [MyInfo(result = ctx.label.workspace_root)]
-        my_rule = rule(implementation = _impl, attrs = { })
-        """);
-    scratch.file(
-        "/r/BUILD",
-        """
-        load('//:test/starlark/extension.bzl', 'my_rule')
-        my_rule(name='t')
-        """);
-
-    // Required since we have a new WORKSPACE file.
-    invalidatePackages(true);
-
-    setBuildLanguageOptions("--experimental_sibling_repository_layout");
-
-    ConfiguredTarget myTarget = getConfiguredTarget("@@r+//:t");
-    String result = (String) getMyInfoFromTarget(myTarget).getValue("result");
-    assertThat(result).isEqualTo("../r+");
   }
 
   @Test

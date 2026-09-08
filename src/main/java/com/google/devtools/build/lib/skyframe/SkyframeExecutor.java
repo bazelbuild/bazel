@@ -1805,8 +1805,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     StarlarkSemantics starlarkSemantics = getEffectiveStarlarkSemantics(buildLanguageOptions);
     setStarlarkSemantics(starlarkSemantics);
-    setSiblingDirectoryLayout(
-        starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
     setPackageLocator(pkgLocator);
     setLazyMacroExpansionPackages(packageOptions.getLazyMacroExpansionPackages());
     setStampSettingMarker();
@@ -1829,10 +1827,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // Reset the stateful SkyframeCycleReporter, which contains cycles from last run.
     cyclesReporter = createCyclesReporter();
     analysisCacheCleared = false;
-  }
-
-  private void setSiblingDirectoryLayout(boolean experimentalSiblingRepositoryLayout) {
-    this.artifactFactory.setSiblingRepositoryLayout(experimentalSiblingRepositoryLayout);
   }
 
   public StarlarkSemantics getEffectiveStarlarkSemantics(

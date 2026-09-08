@@ -51,12 +51,8 @@ output_paths = [
     ('*zipper', lambda x: 'tools/zip/zipper/zipper'),
     ('*xcode*xcode-locator', lambda x: 'tools/objc/xcode-locator'),
     ('*src/tools/xcode/*', lambda x: 'tools/objc/' + os.path.basename(x)),
-    # --experimental_sibling_repository_layout=false
     ('*external/openjdk_*/file/*.tar.gz', lambda x: 'jdk.tar.gz'),
     ('*external/openjdk_*/file/*.zip', lambda x: 'jdk.zip'),
-    # --experimental_sibling_repository_layout=true
-    ('*openjdk_*/file/*.tar.gz', lambda x: 'jdk.tar.gz'),
-    ('*openjdk_*/file/*.zip', lambda x: 'jdk.zip'),
     ('*src/minimal_jdk.tar.gz', lambda x: 'jdk.tar.gz'),
     ('*src/minimal_jdk.zip', lambda x: 'jdk.zip'),
     ('*src/allmodules_jdk.tar.gz', lambda x: 'jdk.tar.gz'),

@@ -64,7 +64,6 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions.JobsConverter
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase.RecordingBugReporter;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.exec.SpawnExecException;
@@ -3687,7 +3686,7 @@ public class RewindingTestsHelper {
     }
     return testCase
         .getTargetConfigurationFromLastBuildResult()
-        .getOutputDirectory(RepositoryName.MAIN)
+        .getOutputDirectory()
         .getExecPath()
         .getRelative(rootRelativePath)
         .getPathString();

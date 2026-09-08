@@ -812,13 +812,13 @@ public final class StarlarkRuleContext
   @Override
   public ArtifactRoot getBinDirectory() throws EvalException {
     checkMutable("bin_dir");
-    return getConfiguration().getBinDirectory(ruleContext.getRule().getRepository());
+    return getConfiguration().getBinDirectory();
   }
 
   @Override
   public ArtifactRoot getGenfilesDirectory() throws EvalException {
     checkMutable("genfiles_dir");
-    return getConfiguration().getGenfilesDirectory(ruleContext.getRule().getRepository());
+    return getConfiguration().getGenfilesDirectory();
   }
 
   @Override

@@ -42,14 +42,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.repository.DigestWriter;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
@@ -71,7 +69,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.SortedMap;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
@@ -611,23 +608,12 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     }
 
     @Override
-    public PathFragment getWorkingDirectory() {
-      throw new UnsupportedOperationException("Not used");
-    }
-
-    @Override
     public Path outputPathToLocalPath(String outputPath) {
       throw new UnsupportedOperationException("Not used");
     }
 
     @Override
     public PathFragment localPathToExecPath(PathFragment localPath) {
-      throw new UnsupportedOperationException("Not used");
-    }
-
-    @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(
-        SpawnRunner.SpawnExecutionContext context, boolean willAccessRepeatedly) {
       throw new UnsupportedOperationException("Not used");
     }
   }

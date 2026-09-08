@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.cache.CacheBuilder;
@@ -38,7 +37,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -141,8 +139,6 @@ public class BuildConfigurationValue
   /** Data for introspecting the options used by this configuration. */
   private final BuildOptionDetails buildOptionDetails;
 
-  private final boolean siblingRepositoryLayout;
-
   private final FeatureSet defaultFeatures;
 
   @Nullable // lazily initialized
@@ -199,7 +195,6 @@ public class BuildConfigurationValue
   public static BuildConfigurationValue create(
       BuildOptions buildOptions,
       @Nullable BuildOptions baselineOptions,
-      boolean siblingRepositoryLayout,
       String platformCpu,
       // Arguments below this are server-global.
       BlazeDirectories directories,
@@ -220,7 +215,6 @@ public class BuildConfigurationValue
     return new BuildConfigurationValue(
         buildOptions,
         mnemonic,
-        siblingRepositoryLayout,
         platformCpu,
         globalProvider.getRunfilesPrefix(),
         directories,
@@ -236,7 +230,6 @@ public class BuildConfigurationValue
   public static BuildConfigurationValue createForTesting(
       BuildOptions buildOptions,
       String mnemonic,
-      boolean siblingRepositoryLayout,
       // Arguments below this are server-global.
       BlazeDirectories directories,
       GlobalStateProvider globalProvider,
@@ -253,7 +246,6 @@ public class BuildConfigurationValue
     return new BuildConfigurationValue(
         buildOptions,
         mnemonic,
-        siblingRepositoryLayout,
         "",
         globalProvider.getRunfilesPrefix(),
         directories,
@@ -280,7 +272,6 @@ public class BuildConfigurationValue
   BuildConfigurationValue(
       BuildOptions buildOptions,
       String mnemonic,
-      boolean siblingRepositoryLayout,
       String platformCpu,
       // Arguments below this are either server-global and constant or completely dependent values.
       String workspaceName,
@@ -297,14 +288,8 @@ public class BuildConfigurationValue
     this.options = buildOptions.get(CoreOptions.class);
     this.outputDirectories =
         new OutputDirectories(
-            directories,
-            options,
-            buildOptions.get(PlatformOptions.class),
-            mnemonic,
-            workspaceName,
-            siblingRepositoryLayout);
+            directories, options, buildOptions.get(PlatformOptions.class), mnemonic, workspaceName);
     this.workspaceName = workspaceName;
-    this.siblingRepositoryLayout = siblingRepositoryLayout;
 
     // We can't use an ImmutableMap.Builder here; we need the ability to add entries with keys that
     // are already in the map so that the same define can be specified on the command line twice,
@@ -329,9 +314,9 @@ public class BuildConfigurationValue
             "COMPILATION_MODE",
             options.getCompilationMode().toString(),
             "BINDIR",
-            getBinDirectory(RepositoryName.MAIN).getExecPathString(),
+            getBinDirectory().getExecPathString(),
             "GENDIR",
-            getGenfilesDirectory(RepositoryName.MAIN).getExecPathString());
+            getGenfilesDirectory().getExecPathString());
 
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.commandLineLimits = new CommandLineLimits(options.getMinParamFileSize());
@@ -349,13 +334,12 @@ public class BuildConfigurationValue
     // Only considering arguments that are non-dependent and non-server-global.
     return this.buildOptions.equals(otherVal.buildOptions)
         && this.workspaceName.equals(otherVal.workspaceName)
-        && this.siblingRepositoryLayout == otherVal.siblingRepositoryLayout
         && this.mnemonic.equals(otherVal.mnemonic);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(buildOptions, workspaceName, siblingRepositoryLayout, mnemonic);
+    return Objects.hash(buildOptions, workspaceName, mnemonic);
   }
 
   private ImmutableMap<String, Class<? extends Fragment>> buildIndexOfStarlarkVisibleFragments() {
@@ -387,8 +371,8 @@ public class BuildConfigurationValue
   }
 
   /** Returns the output directory for this build configuration. */
-  public ArtifactRoot getOutputDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getOutputDirectory(repositoryName);
+  public ArtifactRoot getOutputDirectory() {
+    return outputDirectories.getOutputDirectory();
   }
 
   /**
@@ -397,22 +381,17 @@ public class BuildConfigurationValue
   @Override
   @Deprecated
   public ArtifactRoot getBinDir() {
-    return outputDirectories.getBinDirectory(RepositoryName.MAIN);
+    return outputDirectories.getBinDirectory();
   }
 
   /**
    * Returns the bin directory for this build configuration.
    *
-   * <p>TODO(kchodorow): This (and the other get*Directory functions) won't work with external
-   * repositories without changes to how ArtifactFactory resolves derived roots. This is not an
-   * issue right now because it only effects Blaze's include scanning (internal) and Bazel's
-   * repositories (external) but will need to be fixed.
-   *
    * @deprecated Use {@code RuleContext#getBinDirectory} instead whenever possible.
    */
   @Deprecated
-  public ArtifactRoot getBinDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getBinDirectory(repositoryName);
+  public ArtifactRoot getBinDirectory() {
+    return outputDirectories.getBinDirectory();
   }
 
   /**
@@ -421,8 +400,8 @@ public class BuildConfigurationValue
    * @deprecated Use {@code RuleContext#getBinFragment} instead whenever possible.
    */
   @Deprecated
-  public PathFragment getBinFragment(RepositoryName repositoryName) {
-    return outputDirectories.getBinDirectory(repositoryName).getExecPath();
+  public PathFragment getBinFragment() {
+    return outputDirectories.getBinDirectory().getExecPath();
   }
 
   /**
@@ -431,7 +410,7 @@ public class BuildConfigurationValue
   @Override
   @Deprecated
   public ArtifactRoot getGenfilesDir() {
-    return outputDirectories.getGenfilesDirectory(RepositoryName.MAIN);
+    return outputDirectories.getGenfilesDirectory();
   }
 
   /**
@@ -440,8 +419,8 @@ public class BuildConfigurationValue
    * @deprecated Use {@code RuleContext#getGenfilesDirectory} instead whenever possible.
    */
   @Deprecated
-  public ArtifactRoot getGenfilesDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getGenfilesDirectory(repositoryName);
+  public ArtifactRoot getGenfilesDirectory() {
+    return outputDirectories.getGenfilesDirectory();
   }
 
   public boolean hasSeparateGenfilesDirectory() {
@@ -460,8 +439,8 @@ public class BuildConfigurationValue
    *
    * <p>Use {@code RuleContext#getTestLogsDirectory} instead whenever possible.
    */
-  public ArtifactRoot getTestLogsDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getTestLogsDirectory(repositoryName);
+  public ArtifactRoot getTestLogsDirectory() {
+    return outputDirectories.getTestLogsDirectory();
   }
 
   /**
@@ -470,8 +449,8 @@ public class BuildConfigurationValue
    * @deprecated Use {@code RuleContext#getGenfilesFragment} instead whenever possible.
    */
   @Deprecated
-  public PathFragment getGenfilesFragment(RepositoryName repositoryName) {
-    return outputDirectories.getGenfilesFragment(repositoryName);
+  public PathFragment getGenfilesFragment() {
+    return outputDirectories.getGenfilesFragment();
   }
 
   /**
@@ -524,14 +503,14 @@ public class BuildConfigurationValue
     return actionEnv;
   }
 
-  public boolean isSiblingRepositoryLayout() {
-    return siblingRepositoryLayout;
-  }
-
+  /**
+   * @deprecated Always returns false; the sibling repository layout no longer exists.
+   */
+  @Deprecated
   @Override
   public boolean isSiblingRepositoryLayoutForStarlark(StarlarkThread thread) throws EvalException {
     BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
-    return isSiblingRepositoryLayout();
+    return false;
   }
 
   /**
@@ -932,10 +911,7 @@ public class BuildConfigurationValue
 
   /** Applies {@code executionInfoModifiers} to the given {@code executionInfo}. */
   public void modifyExecutionInfo(Map<String, String> executionInfo, String mnemonic) {
-    ExecutionInfoModifier.apply(
-        options.getExecutionInfoModifier(),
-        mnemonic,
-        executionInfo);
+    ExecutionInfoModifier.apply(options.getExecutionInfoModifier(), mnemonic, executionInfo);
   }
 
   /** Returns the list of default features used for all packages. */

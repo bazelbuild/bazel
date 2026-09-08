@@ -2121,8 +2121,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     StarlarkRuleContext ctx = createRuleContext("//foo:bar");
     setRuleContext(ctx);
     Object result = ev.eval("ruleContext.bin_dir.path");
-    assertThat(result)
-        .isEqualTo(ctx.getConfiguration().getBinFragment(RepositoryName.MAIN).getPathString());
+    assertThat(result).isEqualTo(ctx.getConfiguration().getBinFragment().getPathString());
   }
 
   @Test

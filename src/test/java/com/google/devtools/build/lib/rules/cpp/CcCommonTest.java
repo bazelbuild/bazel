@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
@@ -214,8 +213,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
     useConfiguration("--noincompatible_merge_genfiles_directory");
     ConfiguredTarget foo = getConfiguredTarget("//bang:bang");
-    PathFragment genfilesDir =
-        targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot);
+    PathFragment genfilesDir = targetConfig.getGenfilesFragment().getRelative(includesRoot);
     assertThat(CcInfo.get(foo).getCcCompilationContext().getIncludeDirs()).contains(genfilesDir);
 
     useConfiguration("--incompatible_merge_genfiles_directory");
@@ -259,8 +257,8 @@ public class CcCommonTest extends BuildViewTestCase {
         new ImmutableList.Builder<PathFragment>()
             .addAll(CcInfo.get(noIncludes).getCcCompilationContext().getSystemIncludeDirs())
             .add(PathFragment.create(includesRoot))
-            .add(targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot))
-            .add(targetConfig.getBinFragment(RepositoryName.MAIN).getRelative(includesRoot))
+            .add(targetConfig.getGenfilesFragment().getRelative(includesRoot))
+            .add(targetConfig.getBinFragment().getRelative(includesRoot))
             .build();
     assertThat(CcInfo.get(foo).getCcCompilationContext().getSystemIncludeDirs())
         .containsExactlyElementsIn(expected);
@@ -299,8 +297,8 @@ public class CcCommonTest extends BuildViewTestCase {
         new ImmutableList.Builder<PathFragment>()
             .addAll(CcInfo.get(noIncludes).getCcCompilationContext().getIncludeDirs())
             .add(PathFragment.create(includesRoot))
-            .add(targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot))
-            .add(targetConfig.getBinFragment(RepositoryName.MAIN).getRelative(includesRoot))
+            .add(targetConfig.getGenfilesFragment().getRelative(includesRoot))
+            .add(targetConfig.getBinFragment().getRelative(includesRoot))
             .build();
     assertThat(CcInfo.get(foo).getCcCompilationContext().getIncludeDirs())
         .containsExactlyElementsIn(expected);
@@ -670,10 +668,7 @@ public class CcCommonTest extends BuildViewTestCase {
         .contains(
             String.format(
                 "-Wl,@%s/a/a.lds",
-                getTargetConfiguration()
-                    .getGenfilesDirectory(RepositoryName.MAIN)
-                    .getExecPath()
-                    .getPathString()));
+                getTargetConfiguration().getGenfilesDirectory().getExecPath().getPathString()));
   }
 
   @Test
@@ -742,7 +737,7 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(ccCompilationContext.getIncludeDirs())
         .containsExactly(
             getTargetConfiguration()
-                .getBinFragment(RepositoryName.MAIN)
+                .getBinFragment()
                 .getRelative("third_party/a/_virtual_includes/a"));
   }
 
@@ -773,9 +768,7 @@ public class CcCommonTest extends BuildViewTestCase {
         .containsExactly("_virtual_includes/207132b2/lib/b/c.h", "third_party/a/v1/b/c.h");
     assertThat(ccCompilationContext.getIncludeDirs())
         .containsExactly(
-            getTargetConfiguration()
-                .getBinFragment(RepositoryName.MAIN)
-                .getRelative("_virtual_includes/207132b2"));
+            getTargetConfiguration().getBinFragment().getRelative("_virtual_includes/207132b2"));
   }
 
   @Test
