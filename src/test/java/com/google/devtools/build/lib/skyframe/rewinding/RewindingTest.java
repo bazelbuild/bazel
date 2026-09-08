@@ -267,9 +267,8 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void actionTemplateExpansionRewound_withTreeConsumersInFlight(
-      @TestParameter boolean multipleTrees) throws Exception {
-    helper.runActionTemplateExpansionRewound_withTreeConsumersInFlight(multipleTrees);
+  public void actionTemplateExpansionRewound_withTreeConsumersInFlight() throws Exception {
+    helper.runActionTemplateExpansionRewound_withTreeConsumersInFlight(/* multipleTrees= */ true);
   }
 
   @Test
@@ -279,9 +278,9 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void actionTemplateExpansionRewound_withDownstreamExpansionInFlight(
-      @TestParameter boolean multipleTrees) throws Exception {
-    helper.runActionTemplateExpansionRewound_withDownstreamExpansionInFlight(multipleTrees);
+  public void actionTemplateExpansionRewound_withDownstreamExpansionInFlight() throws Exception {
+    helper.runActionTemplateExpansionRewound_withDownstreamExpansionInFlight(
+        /* multipleTrees= */ true);
   }
 
   @Test

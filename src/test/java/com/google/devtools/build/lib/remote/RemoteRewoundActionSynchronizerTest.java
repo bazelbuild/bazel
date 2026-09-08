@@ -276,6 +276,68 @@ public final class RemoteRewoundActionSynchronizerTest {
     preparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
   }
 
+  /** Regression test for the lock cycle caused by sharing a key between output trees. */
+  @Test
+  public void expandedActionsInDifferentTrees_doNotDeadlockWithTreeConsumer() throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
+    var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
+    var templateKey = ActionLookupData.create(owner, 0);
+    var expansion = ActionTemplateExpansionValue.key(owner, 0);
+    SpecialArtifact firstTree = newTreeArtifact(root, "first", templateKey);
+    SpecialArtifact secondTree = newTreeArtifact(root, "second", templateKey);
+    TreeFileArtifact firstFile =
+        TreeFileArtifact.createTemplateExpansionOutput(firstTree, "file", expansion);
+    firstFile.setGeneratingActionKey(ActionLookupData.create(expansion, 0));
+    TreeFileArtifact secondFile =
+        TreeFileArtifact.createTemplateExpansionOutput(secondTree, "file", expansion);
+    secondFile.setGeneratingActionKey(ActionLookupData.create(expansion, 1));
+    DerivedArtifact middle = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "middle");
+    middle.setGeneratingActionKey(ActionLookupData.create(owner, 1));
+    Action firstProducer = newAction(ImmutableList.of(firstFile), ImmutableList.of());
+    Action consumer = newAction(ImmutableList.of(middle), ImmutableList.of(firstTree));
+    Action secondProducer = newAction(ImmutableList.of(secondFile), ImmutableList.of(middle));
+
+    ActionLookupValue ownerValue = mock(ActionLookupValue.class);
+    when(ownerValue.getActions()).thenReturn(ImmutableList.of(mock(ActionTemplate.class)));
+    when(graph.getValue(owner)).thenReturn(ownerValue);
+    when(graph.getValue(expansion))
+        .thenReturn(
+            new ActionTemplateExpansionValue(ImmutableList.of(firstProducer, secondProducer)));
+    InputMetadataProvider metadataProvider = mock(InputMetadataProvider.class);
+
+    SilentCloseable consumerPreparation =
+        synchronizer.enterActionPreparation(consumer, /* wasRewound= */ true);
+    SilentCloseable secondPreparation =
+        synchronizer.enterActionPreparation(secondProducer, /* wasRewound= */ true);
+    var consumerExecution =
+        new TestThread(
+            () -> {
+              try (consumerPreparation;
+                  SilentCloseable unused =
+                      synchronizer.enterActionExecution(consumer, false, metadataProvider)) {}
+            });
+    var secondExecution =
+        new TestThread(
+            () -> {
+              try (secondPreparation;
+                  SilentCloseable unused =
+                      synchronizer.enterActionExecution(secondProducer, false, metadataProvider)) {}
+    });
+    consumerExecution.start();
+    // The old implementation blocks here on the shared template key; the fixed implementation
+    // can complete immediately because the consumer only reads the first producer's key.
+    Thread.sleep(100);
+    secondExecution.start();
+    consumerExecution.join(DEADLOCK_TIMEOUT_MILLIS);
+    secondExecution.join(DEADLOCK_TIMEOUT_MILLIS);
+    assertWithMessage("acyclic actions must not form a lock cycle")
+        .that(consumerExecution.isAlive() && secondExecution.isAlive())
+        .isFalse();
+    consumerExecution.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+    secondExecution.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+  }
+
   private enum ConsumerKind {
     EXPANDED_ACTION,
     ORDINARY_ACTION,
