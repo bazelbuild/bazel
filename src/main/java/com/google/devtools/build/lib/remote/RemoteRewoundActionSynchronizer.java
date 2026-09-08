@@ -87,12 +87,12 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   // while any action will acquire a read lock on the key of each action generating one of its
   // inputs (see inputKeysFor) before it starts executing.
   //
+  // ReaderPreferringReadWriteLock is used as java.util.concurrent locks may queue readers behind
+  // waiting writers even while other readers hold the lock, which would cause deadlocks (see the
+  // proof below)
+  //
   // The values of this cache are weakly referenced to ensure that locks are cleaned up when they
-  // are no longer needed. Holders of a ReaderPreferringReadWriteLock reference the lock itself,
-  // which keeps it in the cache for as long as it is held, whereas the read and write lock views of
-  // the JDK's ReentrantReadWriteLock don't reference their parent lock (JDK-8189598). It also has a
-  // smaller footprint. Crucially, it admits readers even when a writer is waiting; queuing readers
-  // behind waiting writers can cause deadlock even with a nonfair JDK lock.
+  // are no longer needed.
   @Nullable
   private volatile LoadingCache<ActionLookupData, ReaderPreferringReadWriteLock> fineLocks;
 
@@ -112,7 +112,7 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   which Skyframe disallows. Throughout, "X depends on Y" means that the Skyframe node executing
   action X transitively depends on the node executing action Y.
 
-  1. Relate lock keys to dependencies between actions.
+  1. Relating lock keys to dependencies between actions.
 
   Every write-lock key identifies an action (see actionKeyFor). By
   enterActionPreparationForRewinding, only a rewound action acquires the write lock of its own key.
@@ -129,10 +129,9 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   that populate it.
 
   Thus an action that holds or waits for the read lock of K depends on any action that can acquire
-  the write lock of K. An empty expansion has no producers to lock.
-  Calls to enterProcessOutputsAndGetLostArtifacts acquire read locks by the same rule.
+  the write lock of K.
 
-  2. Classify the edges of a possible lock cycle.
+  2. Ruling out cycles of lock waits.
 
   Consider a directed "wait-for" graph with one node per active action execution or call to
   enterProcessOutputsAndGetLostArtifacts. We refer to action nodes by the action they are
@@ -152,16 +151,13 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
     has not begun, and previous executions have released their locks through try-with-resources.
     A therefore has no incoming edge and cannot belong to C.
 
-  * RW: A waits to read a key that B holds for writing. By step 1, B is the action identified by
-    K and A depends on B.
+  * RW: A waits to read a key that B holds for writing. By step 1, B is the action identified by K.
 
   Every edge of C is therefore an RW edge, whose target holds a write lock. Calls to
   enterProcessOutputsAndGetLostArtifacts hold no write locks, so they cannot belong to C either.
 
-  3. Derive a dependency cycle.
-
-  By step 2, C is a cycle of RW edges between actions, each of which follows a dependency. C is
-  therefore a cycle of dependencies, which Skyframe disallows.
+  C is therefore a cycle of RW edges between actions. By step 1, each edge follows a dependency,
+  so C implies a cycle of dependencies, which Skyframe disallows.
 
   Notes:
 
@@ -169,13 +165,6 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
     number of locks would let unrelated actions share a lock, so a reader would no longer
     necessarily depend on the writer of its key. Such collisions can cause deadlock with two or
     more stripes.
-  * Step 1 also relies on a tree artifact being guarded by the keys of the actions that populate
-    it rather than by the key of the ActionTemplate declaring it: a consumer of one tree artifact
-    does not depend on expanded actions that only populate other tree artifacts of the same
-    template.
-  * Step 2 relies on an action acquiring at most one write lock. A rewound action holding one
-    write lock while waiting for another could have incoming edges and thus take part in a cycle,
-    for example with a reader that acquires the same two locks in the opposite order.
   */
 
   @Override
