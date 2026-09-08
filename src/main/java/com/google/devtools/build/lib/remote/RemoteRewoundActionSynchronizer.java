@@ -367,32 +367,32 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
   }
 
   /**
-   * Lazily returns the keys of the locks that guard the given artifacts as well as all artifacts in
-   * the metadata provider's runfiles trees (see {@link #lockKeysFor}).
+   * Lazily returns the keys of the locks that guard the given artifacts (see {@link #lockKeysFor}).
    */
   private Iterable<ActionLookupData> inputKeysFor(
       Iterable<Artifact> artifacts, InputMetadataProvider metadataProvider) {
-    var allArtifacts =
-        Iterables.concat(
-            artifacts,
-            Iterables.concat(
-                Iterables.transform(
-                    metadataProvider.getRunfilesTrees(),
-                    runfilesTree -> runfilesTree.getArtifacts().toList())));
     return Iterables.concat(
         Iterables.transform(
-            Iterables.filter(allArtifacts, DerivedArtifact.class), this::lockKeysFor));
+            Iterables.filter(artifacts, DerivedArtifact.class),
+            artifact -> lockKeysFor(artifact, metadataProvider)));
   }
 
   /**
-   * Returns the keys of the locks that guard the given artifact: the key of its generating action
-   * or, for a tree artifact declared by an {@link
-   * com.google.devtools.build.lib.actions.ActionTemplate}, the keys of the expanded actions that
-   * populate it, including producers of empty subdirectories. Consumers hold these read locks while
-   * executing and a rewound generating action holds the write lock of its own key while
-   * re-executing (see {@link #actionKeyFor}).
+   * Returns the keys of the locks that guard the given artifact. Runfiles trees are expanded into
+   * the artifacts they contain. Tree artifacts declared by an {@link ActionTemplate} use the keys
+   * of the expanded actions that populate them. Other artifacts use the key of their generating
+   * action.
+   *
+   * <p>Consumers hold these read locks while executing and a rewound generating action holds the
+   * write lock of its own key while re-executing (see {@link #actionKeyFor}).
    */
-  private ImmutableList<ActionLookupData> lockKeysFor(DerivedArtifact artifact) {
+  private Iterable<ActionLookupData> lockKeysFor(
+      DerivedArtifact artifact, InputMetadataProvider metadataProvider) {
+    if (artifact.isRunfilesTree()) {
+      return inputKeysFor(
+          checkNotNull(metadataProvider.getRunfilesMetadata(artifact), artifact).getAllArtifacts(),
+          metadataProvider);
+    }
     ActionLookupData key = artifact.getGeneratingActionKey();
     if (!artifact.isTreeArtifact()) {
       return ImmutableList.of(key);
@@ -401,6 +401,7 @@ public final class RemoteRewoundActionSynchronizer implements RewoundActionSynch
       var owner =
           (ActionLookupValue) checkNotNull(graph.getValue(key.getActionLookupKey()), artifact);
       if (!(owner.getActions().get(key.getActionIndex()) instanceof ActionTemplate)) {
+        // This tree artifact is the output of a regular action and thus always consumed as a whole.
         return ImmutableList.of(key);
       }
       // Crucially, action template expansion is never rewound and can thus be queried without

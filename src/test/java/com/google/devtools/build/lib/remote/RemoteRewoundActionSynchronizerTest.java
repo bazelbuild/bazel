@@ -26,6 +26,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
@@ -37,7 +38,10 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -156,6 +160,60 @@ public final class RemoteRewoundActionSynchronizerTest {
     assertThat(second.cancellations.get()).isEqualTo(1);
   }
 
+  @Test
+  public void outputProcessing_runfilesTree_locksOnlyItsProducers() throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
+    var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
+    DerivedArtifact file = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "file");
+    file.setGeneratingActionKey(ActionLookupData.create(owner, 0));
+    Action producer = newAction(ImmutableList.of(file), ImmutableList.of());
+    DerivedArtifact unrelatedFile =
+        (DerivedArtifact) ActionsTestUtil.createArtifact(root, "unrelated");
+    unrelatedFile.setGeneratingActionKey(ActionLookupData.create(owner, 1));
+    Action unrelatedProducer = newAction(ImmutableList.of(unrelatedFile), ImmutableList.of());
+    SpecialArtifact runfiles = ActionsTestUtil.createRunfilesArtifact(root, "out/runfiles");
+    runfiles.setGeneratingActionKey(ActionLookupData.create(owner, 2));
+    Action runfilesAction = newAction(ImmutableList.of(runfiles), ImmutableList.of(file));
+
+    RunfilesTree runfilesTree = mock(RunfilesTree.class);
+    when(runfilesTree.getMapping()).thenReturn(ImmutableSortedMap.of(file.getExecPath(), file));
+    when(runfilesTree.getArtifacts()).thenReturn(NestedSetBuilder.create(Order.STABLE_ORDER, file));
+    RunfilesTree unrelatedRunfilesTree = mock(RunfilesTree.class);
+    when(unrelatedRunfilesTree.getArtifacts())
+        .thenReturn(NestedSetBuilder.create(Order.STABLE_ORDER, unrelatedFile));
+    InputMetadataProvider metadataProvider = mock(InputMetadataProvider.class);
+    when(metadataProvider.getRunfilesTrees())
+        .thenReturn(ImmutableList.of(runfilesTree, unrelatedRunfilesTree));
+    var runfilesValue =
+        new RunfilesArtifactValue(
+            runfilesTree,
+            ImmutableList.of(file),
+            ImmutableList.of(FileArtifactValue.createForNormalFile(new byte[32], null, 0)),
+            ImmutableList.of(),
+            ImmutableList.of(),
+            ImmutableList.of(),
+            ImmutableList.of());
+    when(metadataProvider.getRunfilesMetadata(runfiles)).thenReturn(runfilesValue);
+
+    // Switch to fine locks before processing just one of the provider's runfiles trees.
+    rewind(newAction());
+    var preparation = new TestThread(() -> rewind(producer));
+    var unrelatedPreparation = new TestThread(() -> rewind(unrelatedProducer));
+    var runfilesPreparation = new TestThread(() -> rewind(runfilesAction));
+    try (SilentCloseable processing =
+        synchronizer.enterProcessOutputsAndGetLostArtifacts(
+            ImmutableList.of(runfiles), metadataProvider)) {
+      preparation.start();
+      waitUntilBlocked(preparation);
+      unrelatedPreparation.start();
+      unrelatedPreparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+      runfilesPreparation.start();
+      runfilesPreparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+    }
+    preparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+  }
+
   /**
    * Regression test for a deadlock between the rewound expanded action of an action template, a
    * rewound consumer of the tree artifact it populates and an action expanded from a downstream
@@ -199,7 +257,6 @@ public final class RemoteRewoundActionSynchronizerTest {
     Action consumer = newAction(ImmutableList.of(consumerOutput), ImmutableList.of(tree));
 
     InputMetadataProvider metadataProvider = mock(InputMetadataProvider.class);
-    when(metadataProvider.getRunfilesTrees()).thenReturn(ImmutableList.of());
     ActionLookupValue ownerValue = mock(ActionLookupValue.class);
     when(ownerValue.getActions()).thenReturn(ImmutableList.of(mock(ActionTemplate.class)));
     when(graph.getValue(owner)).thenReturn(ownerValue);
@@ -267,7 +324,6 @@ public final class RemoteRewoundActionSynchronizerTest {
             downstreamInputs);
 
     InputMetadataProvider metadataProvider = mock(InputMetadataProvider.class);
-    when(metadataProvider.getRunfilesTrees()).thenReturn(ImmutableList.of());
     ActionLookupValue ownerValue = mock(ActionLookupValue.class);
     when(ownerValue.getActions()).thenReturn(ImmutableList.of(mock(ActionTemplate.class)));
     when(graph.getValue(owner)).thenReturn(ownerValue);
