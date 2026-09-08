@@ -1681,7 +1681,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   protected void setCommandId(UUID commandId) {
-    PrecomputedValue.BUILD_ID.set(injectable(), commandId);
+    // PrecomputedValue.BUILD_ID is used by BuildDriverFunction and volatile actions to ensure
+    // re-evaluation on every build. Always generate a fresh UUID so that re-evaluation occurs
+    // even if consecutive invocations on this server reuse the same commandId / invocation_id
+    // (b/448084768).
+    PrecomputedValue.BUILD_ID.set(injectable(), UUID.randomUUID());
   }
 
   /** Returns the build-info.txt and build-changelist.txt artifacts. */
