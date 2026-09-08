@@ -93,7 +93,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.Phaser;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -120,10 +119,10 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
    *
    * <p>The main property of such tasks is that they should under no circumstances keep running
    * after fetching the repository is finished, whether successfully or not. To this end, the {@link
-   * #cancel()} method may be called to interrupt the work and {@link #close()} must be called to
-   * wait for all such work to finish.
+   * #cancel()} method must cancel all such work; {@link StarlarkBaseExternalContext#close()} then
+   * waits for any threads still executing cancelled work to finish.
    */
-  private interface AsyncTask extends SilentCloseable {
+  private interface AsyncTask {
     /** Returns a user-friendly description of the task. */
     String getDescription();
 
@@ -133,21 +132,14 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     /**
      * Cancels the task, if not done yet. Returns false if the task was still in progress.
      *
-     * <p>Note that the task may still be running after this method returns, the task has just got a
-     * signal to interrupt. Call {@link #close()} to wait for the task to finish.
+     * <p>Note that the task may still be running after this method returns. {@link
+     * StarlarkBaseExternalContext#close()} waits for it to finish.
      *
      * <p>No means of error reporting is provided. Any errors should be reported by other means. The
      * only possible error reported as a consequence of calling this method is one that tells the
      * user that they didn't wait for an async task they should have waited for.
      */
     boolean cancel();
-
-    /**
-     * Waits uninterruptibly until the task is no longer running, even in case it was cancelled but
-     * its underlying thread is still running.
-     */
-    @Override
-    void close();
   }
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -231,11 +223,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     // Wait for all (cancelled) async tasks to complete before cleaning up the working directory.
     // This is necessary because downloads may still be in progress and could end up writing to the
     // working directory during deletion, which would cause an error.
-    // Note that just calling executorService.close() doesn't suffice as it considers tasks to be
-    // completed immediately after they are cancelled, without waiting for their underlying thread
-    // to complete.
     executorService.close();
-    asyncTasks.forEach(AsyncTask::close);
 
     if (shouldDeleteWorkingDirectoryOnClose(wasSuccessful)) {
       workingDirectory.deleteTree();
@@ -575,7 +563,6 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     private final Optional<Checksum> checksum;
     private final RepositoryFunctionException checksumValidation;
     private final Future<Path> future;
-    private final Phaser downloadPhaser;
     private final Location location;
 
     private PendingDownload(
@@ -585,7 +572,6 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
         Optional<Checksum> checksum,
         RepositoryFunctionException checksumValidation,
         Future<Path> future,
-        Phaser downloadPhaser,
         Location location) {
       this.executable = executable;
       this.allowFail = allowFail;
@@ -593,7 +579,6 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       this.checksum = checksum;
       this.checksumValidation = checksumValidation;
       this.future = future;
-      this.downloadPhaser = downloadPhaser;
       this.location = location;
     }
 
@@ -610,18 +595,6 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     @Override
     public boolean cancel() {
       return !future.cancel(false);
-    }
-
-    @Override
-    public void close() {
-      if (downloadPhaser.register() != 0) {
-        // Not in the download phase, either the download completed normally or
-        // it has completed after a cancellation.
-        return;
-      }
-      try (SilentCloseable c = Profiler.instance().profile("Cancelling download " + outputPath)) {
-        downloadPhaser.arriveAndAwaitAdvance();
-      }
     }
 
     @StarlarkMethod(
@@ -668,8 +641,6 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
           Starlark.errorf(
               "Could not create output path %s: %s", pendingDownload.outputPath, e.getMessage()),
           Transience.PERSISTENT);
-    } finally {
-      pendingDownload.close();
     }
     if (pendingDownload.checksumValidation != null) {
       throw pendingDownload.checksumValidation;
@@ -843,7 +814,6 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
       checkInOutputDirectory("write", outputPath);
       makeDirectories(outputPath.getPath());
     } catch (IOException e) {
-      Phaser downloadPhaser = new Phaser();
       download =
           new PendingDownload(
               executable,
@@ -852,11 +822,9 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
               checksum,
               checksumValidation,
               Futures.immediateFailedFuture(e),
-              downloadPhaser,
               thread.getCallerLocation());
     }
     if (download == null) {
-      Phaser downloadPhaser = new Phaser();
       Future<Path> downloadFuture =
           downloadManager.startDownload(
               executorService,
@@ -869,7 +837,6 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
               outputPath.getPath(),
               nonstrictRepoEnv,
               identifyingStringForLogging,
-              downloadPhaser,
               // The repo rule may modify the file after the download, so we cannot guarantee that
               // hardlinking is safe.
               /* mayHardlink= */ false);
@@ -881,7 +848,6 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
               checksum,
               checksumValidation,
               downloadFuture,
-              downloadPhaser,
               thread.getCallerLocation());
       registerAsyncTask(download);
     }
@@ -1126,7 +1092,6 @@ Strip the given number of leading components from file paths on extraction. Only
       // Download to temp directory inside the outputDirectory and delete it after extraction
       downloadDirectory = outputPath.getPath().createTempDirectory("temp");
 
-      Phaser downloadPhaser = new Phaser();
       Future<Path> pendingDownload =
           downloadManager.startDownload(
               executorService,
@@ -1139,7 +1104,6 @@ Strip the given number of leading components from file paths on extraction. Only
               downloadDirectory,
               nonstrictRepoEnv,
               identifyingStringForLogging,
-              downloadPhaser,
               // The archive is not going to be modified and not accessible to the user, so its safe
               // to hardlink.
               /* mayHardlink= */ true);
@@ -1153,7 +1117,6 @@ Strip the given number of leading components from file paths on extraction. Only
               checksum,
               checksumValidation,
               pendingDownload,
-              downloadPhaser,
               thread.getCallerLocation());
       registerAsyncTask(pendingTask);
       downloadedPath = downloadManager.finalizeDownload(pendingDownload);
