@@ -34,6 +34,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
@@ -104,7 +105,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   private volatile boolean jobsMustBeStopped = false;
 
   /** Map from thread to number of jobs executing in the thread. Used for interrupt handling. */
-  private final Map<Thread, AtomicLong> jobs = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<Thread, AtomicInteger> jobs = new ConcurrentHashMap<>();
 
   private final ExecutorService executorService;
 
@@ -296,7 +297,13 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         zeroRemainingTasksCondition.await();
       }
     } finally {
-      zeroRemainingTasksLock.unlock();
+      try {
+        if (remainingTasks.get() == 0) {
+          jobs.clear();
+        }
+      } finally {
+        zeroRemainingTasksLock.unlock();
+      }
     }
   }
 
@@ -461,13 +468,16 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   }
 
   private void addJob(Thread thread) {
-    jobs.computeIfAbsent(thread, k -> new AtomicLong()).incrementAndGet();
+    // Fast-path get() avoids monitor lock contention on hash collision bins in computeIfAbsent.
+    AtomicInteger count = jobs.get(thread);
+    if (count == null) {
+      count = jobs.computeIfAbsent(thread, k -> new AtomicInteger());
+    }
+    count.incrementAndGet();
   }
 
   private void removeJob(Thread thread) {
-    if (jobs.get(thread).decrementAndGet() == 0) {
-      jobs.remove(thread);
-    }
+    jobs.get(thread).decrementAndGet();
   }
 
   /** Set an internal flag to show that an interrupt was detected. */
@@ -625,7 +635,13 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         }
       }
     } finally {
-      zeroRemainingTasksLock.unlock();
+      try {
+        if (remainingTasks.get() == 0) {
+          jobs.clear();
+        }
+      } finally {
+        zeroRemainingTasksLock.unlock();
+      }
     }
 
     if (executorOwnership == ExecutorOwnership.PRIVATE) {
@@ -648,8 +664,9 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
 
   private void interruptInFlightTasks() {
     Thread thisThread = Thread.currentThread();
-    for (Thread thread : jobs.keySet()) {
-      if (thisThread != thread) {
+    for (Map.Entry<Thread, AtomicInteger> entry : jobs.entrySet()) {
+      Thread thread = entry.getKey();
+      if (entry.getValue().get() > 0 && thisThread != thread) {
         thread.interrupt();
       }
     }
