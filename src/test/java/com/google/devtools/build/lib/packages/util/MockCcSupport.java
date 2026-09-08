@@ -228,6 +228,9 @@ public abstract class MockCcSupport {
           .setSupportsHeaderParsing(true)
           .write();
     }
+    config.append(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD",
+        "toolchain_type(name='cc_runtimes_toolchain_type')");
   }
 
   /** Writes a basic toolchain definition to keep the CC tests working. */

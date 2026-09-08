@@ -211,6 +211,17 @@ public final class BazelMockCcSupport extends MockCcSupport {
           srcs = ["collect_cc_coverage.sh"],
         )
         """);
+    config.overwrite(
+        "third_party/bazel_rules/rules_cc/cc/toolchains/args/archiver_flags/BUILD",
+        """
+        load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+
+        bool_flag(
+            name = "use_libtool_on_macos",
+            build_setting_default = True,
+            visibility = ["//visibility:public"],
+        )
+        """);
     config.overwrite("third_party/bazel_rules/bazel_features_mock/BUILD");
     config.overwrite("third_party/bazel_rules/rules_cc/cc/common/BUILD");
     config.overwrite("third_party/bazel_rules/rules_cc/cc/private/BUILD");
