@@ -27,12 +27,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCacheHitEvent;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter.RewrittenURL;
+import com.google.devtools.build.lib.concurrent.TaskDeduplicator;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -50,8 +54,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -78,8 +80,8 @@ public class DownloadManager {
 
   // Downloads of identical content requested concurrently (e.g. two repos with the same URL) are
   // coalesced so that only the first one transfers bytes; the rest copy the resulting file.
-  private final ConcurrentHashMap<String, CompletableFuture<Path>> inFlightDownloads =
-      new ConcurrentHashMap<>();
+  private final TaskDeduplicator<String, Void, Path> downloadDeduplicator =
+      new TaskDeduplicator<>();
 
   /** Creates {@code Credentials} from a map of per-{@code URI} authentication headers. */
   public interface CredentialFactory {
@@ -143,28 +145,96 @@ public class DownloadManager {
       String context,
       Phaser downloadPhaser,
       boolean mayHardlink) {
-    return executorService.submit(
-        () -> {
+    // TODO(andreisolo): This code path is inconsistent as the authHeaders are fetched from a
+    //  .netrc only if it comes from a http_{archive,file,jar} - and it is handled directly
+    //  by Starlark code -, or if a UrlRewriter is present. However, if it comes directly from
+    //  ctx.download{,_and_extract}, this not the case. Should be refactored to handle all .netrc
+    //  parsing in one place, in Java code (similarly to #downloadAndReadOneUrl).
+    ImmutableList<URI> rewrittenUrls;
+    Map<URI, Map<String, List<String>>> rewrittenAuthHeaders;
+
+    if (rewriter != null) {
+      ImmutableList<UrlRewriter.RewrittenURL> rewrittenUrlMappings = rewriter.amend(originalUrls);
+      rewrittenUrls =
+          rewrittenUrlMappings.stream().map(RewrittenURL::url).collect(toImmutableList());
+      rewrittenAuthHeaders =
+          rewriter.updateAuthHeaders(rewrittenUrlMappings, authHeaders, netrcCreds);
+    } else {
+      rewrittenUrls = ImmutableList.copyOf(originalUrls);
+      rewrittenAuthHeaders = authHeaders;
+    }
+
+    // The URL used to derive the download's file name. When the rewriter blocks all URLs, this
+    // falls back to the first original URL so that its extension (used, e.g., by
+    // download_and_extract to infer the archive type) is preserved instead of being lost to the
+    // "cacheprobe" placeholder.
+    URI fileNameUrl =
+        rewrittenUrls.isEmpty()
+            ? Iterables.getFirst(originalUrls, cacheProbeUrl(type))
+            : rewrittenUrls.get(0);
+    Path destination = getDownloadDestination(fileNameUrl, type, output);
+
+    String dedupeKey =
+        checksum
+            .map(Checksum::toString)
+            .orElse(originalUrls.isEmpty() ? "" : originalUrls.get(0).toString());
+    ListenableFuture<Path> download =
+        downloadDeduplicator.execute(
+            dedupeKey,
+            /* attributes= */ null,
+            /* canJoin= */ unused -> true,
+            () ->
+                MoreExecutors.listeningDecorator(executorService)
+                    .submit(
+                        () -> {
+                          if (downloadPhaser.register() != 0) {
+                            // Not in download phase, must already have been cancelled.
+                            throw new InterruptedException();
+                          }
+                          try (SilentCloseable c = Profiler.instance().profile("fetching: " + context)) {
+                            return downloadInExecutor(
+                                originalUrls,
+                                rewrittenUrls,
+                                headers,
+                                rewrittenAuthHeaders,
+                                checksum,
+                                canonicalId,
+                                type,
+                                destination,
+                                clientEnv,
+                                context,
+                                mayHardlink);
+                          } finally {
+                            downloadPhaser.arrive();
+                          }
+                        }));
+    // Every caller needs the payload at its own destination, so callers that joined an ongoing
+    // download copy the resulting file; the caller whose task performed the download finds its
+    // own destination and skips the copy.
+    return Futures.transformAsync(
+        download,
+        downloaded -> {
+          if (downloaded.equals(destination)) {
+            return Futures.immediateFuture(destination);
+          }
           if (downloadPhaser.register() != 0) {
             // Not in download phase, must already have been cancelled.
             throw new InterruptedException();
           }
-          try (SilentCloseable c = Profiler.instance().profile("fetching: " + context)) {
-            return downloadInExecutor(
-                originalUrls,
-                headers,
-                authHeaders,
-                checksum,
-                canonicalId,
-                type,
-                output,
-                clientEnv,
-                context,
-                mayHardlink);
+          try {
+            destination.getParentDirectory().createDirectoryAndParents();
+            FileSystemUtils.copyFile(downloaded, destination);
+            return Futures.immediateFuture(destination);
           } finally {
             downloadPhaser.arrive();
           }
-        });
+        },
+        executorService);
+  }
+
+  private static URI cacheProbeUrl(Optional<String> type) {
+    String suffix = type.isPresent() && !Strings.isNullOrEmpty(type.get()) ? "." + type.get() : "";
+    return URI.create("http://nonexistent.example.org/cacheprobe" + suffix);
   }
 
   public Path finalizeDownload(Future<Path> download) throws IOException, InterruptedException {
@@ -186,9 +256,11 @@ public class DownloadManager {
    * the cache prior to returning the value.
    *
    * @param originalUrls list of mirror URLs with identical content
+   * @param rewrittenUrls {@code originalUrls} after applying the URL rewriter
+   * @param authHeaders per-URL auth headers after applying the URL rewriter
    * @param checksum valid checksum which is checked, or absent to disable
    * @param type extension, e.g. "tar.gz" to force on downloaded filename, or empty to not do this
-   * @param output destination filename if {@code type} is <i>absent</i>, otherwise output directory
+   * @param destination path to which the payload is downloaded
    * @param clientEnv environment variables in shell issuing this command
    * @param context the context in which the file was fetched; used only for reporting
    * @param mayHardlink whether the output is known not to be modified after download and thus may
@@ -199,12 +271,13 @@ public class DownloadManager {
    */
   private Path downloadInExecutor(
       List<URI> originalUrls,
+      List<URI> rewrittenUrls,
       Map<String, List<String>> headers,
       Map<URI, Map<String, List<String>>> authHeaders,
       Optional<Checksum> checksum,
       String canonicalId,
       Optional<String> type,
-      Path output,
+      Path destination,
       Map<String, String> clientEnv,
       String context,
       boolean mayHardlink)
@@ -213,40 +286,8 @@ public class DownloadManager {
       throw new InterruptedException();
     }
 
-    // TODO(andreisolo): This code path is inconsistent as the authHeaders are fetched from a
-    //  .netrc only if it comes from a http_{archive,file,jar} - and it is handled directly
-    //  by Starlark code -, or if a UrlRewriter is present. However, if it comes directly from a
-    //  ctx.download{,_and_extract}, this not the case. Should be refactored to handle all .netrc
-    //  parsing in one place, in Java code (similarly to #downloadAndReadOneUrl).
-    ImmutableList<URI> rewrittenUrls = ImmutableList.copyOf(originalUrls);
-    Map<URI, Map<String, List<String>>> rewrittenAuthHeaders = authHeaders;
-
-    if (rewriter != null) {
-      ImmutableList<UrlRewriter.RewrittenURL> rewrittenUrlMappings = rewriter.amend(originalUrls);
-      rewrittenUrls =
-          rewrittenUrlMappings.stream().map(RewrittenURL::url).collect(toImmutableList());
-      rewrittenAuthHeaders =
-          rewriter.updateAuthHeaders(rewrittenUrlMappings, authHeaders, netrcCreds);
-    }
-
-    URI mainUrl; // The "main" URL for this request, used for reporting.
-    // The URL used to derive the download's file name. When the rewriter blocks all URLs, this
-    // falls back to the first original URL so that its extension (used, e.g., by
-    // download_and_extract to infer the archive type) is preserved instead of being lost to the
-    // "cacheprobe" placeholder.
-    URI fileNameUrl;
-    if (rewrittenUrls.isEmpty()) {
-      if (type.isPresent() && !Strings.isNullOrEmpty(type.get())) {
-        mainUrl = URI.create("http://nonexistent.example.org/cacheprobe." + type.get());
-      } else {
-        mainUrl = URI.create("http://nonexistent.example.org/cacheprobe");
-      }
-      fileNameUrl = Iterables.getFirst(originalUrls, mainUrl);
-    } else {
-      mainUrl = rewrittenUrls.get(0);
-      fileNameUrl = mainUrl;
-    }
-    Path destination = getDownloadDestination(fileNameUrl, type, output);
+    // The "main" URL for this request, used for reporting.
+    URI mainUrl = rewrittenUrls.isEmpty() ? cacheProbeUrl(type) : rewrittenUrls.get(0);
     ImmutableSet<String> candidateFileNames = getCandidateFileNames(mainUrl, destination);
 
     // Is set to true if the value should be cached by the checksum value provided
@@ -344,61 +385,37 @@ public class DownloadManager {
       throw new IOException(getRewriterBlockedAllUrlsMessage(originalUrls));
     }
 
-    String dedupeKey = checksum.map(Checksum::toString).orElse(mainUrl.toString());
-    while (true) {
-      CompletableFuture<Path> ownDownload = new CompletableFuture<>();
-      CompletableFuture<Path> inFlight = inFlightDownloads.putIfAbsent(dedupeKey, ownDownload);
-      if (inFlight != null) {
-        try {
-          Path downloaded = inFlight.get();
-          destination.getParentDirectory().createDirectoryAndParents();
-          FileSystemUtils.copyFile(downloaded, destination);
-          return destination;
-        } catch (ExecutionException e) {
-          // The concurrent download failed; try to become the downloader instead.
-          inFlightDownloads.remove(dedupeKey, inFlight);
-          continue;
-        }
-      }
+    for (int attempt = 0; ; ++attempt) {
       try {
-        for (int attempt = 0; ; ++attempt) {
-          try {
-            downloader.download(
-                rewrittenUrls,
-                headers,
-                credentialFactory.create(rewrittenAuthHeaders),
-                checksum,
-                canonicalId,
-                destination,
-                eventHandler,
-                clientEnv,
-                type,
-                context);
-            break;
-          } catch (InterruptedIOException e) {
-            throw new InterruptedException(e.getMessage());
-          } catch (IOException e) {
-            if (!shouldRetryDownload(e, attempt)) {
-              throw e;
-            }
-          }
+        downloader.download(
+            rewrittenUrls,
+            headers,
+            credentialFactory.create(authHeaders),
+            checksum,
+            canonicalId,
+            destination,
+            eventHandler,
+            clientEnv,
+            type,
+            context);
+        break;
+      } catch (InterruptedIOException e) {
+        throw new InterruptedException(e.getMessage());
+      } catch (IOException e) {
+        if (!shouldRetryDownload(e, attempt)) {
+          throw e;
         }
-
-        if (isCachingByProvidedChecksum) {
-          downloadCache.put(
-              checksum.get().toString(), destination, checksum.get().getKeyType(), canonicalId);
-        } else if (downloadCache.isEnabled()) {
-          var unused = downloadCache.put(destination, KeyType.SHA256, canonicalId);
-        }
-
-        ownDownload.complete(destination);
-        return destination;
-      } finally {
-        // No-op if the download succeeded; otherwise unblocks waiters so they retry on their own.
-        ownDownload.completeExceptionally(new IOException("Concurrent download did not succeed"));
-        inFlightDownloads.remove(dedupeKey, ownDownload);
       }
     }
+
+    if (isCachingByProvidedChecksum) {
+      downloadCache.put(
+          checksum.get().toString(), destination, checksum.get().getKeyType(), canonicalId);
+    } else if (downloadCache.isEnabled()) {
+      var unused = downloadCache.put(destination, KeyType.SHA256, canonicalId);
+    }
+
+    return destination;
   }
 
   private boolean shouldRetryDownload(IOException e, int attempt) {

@@ -206,11 +206,7 @@ public class HttpDownloaderTest {
               "testRepo2",
               phaser,
               /* mayHardlink= */ true);
-      while (phaser.getRegisteredParties() < 3) {
-        Thread.sleep(10);
-      }
-      // Give the second download a moment to reach the in-flight check.
-      Thread.sleep(100);
+
       releaseResponse.countDown();
 
       Path result1 = downloadManager.finalizeDownload(download1);
@@ -219,6 +215,104 @@ public class HttpDownloaderTest {
 
       assertThat(new String(FileSystemUtils.readContent(result1), UTF_8)).isEqualTo("hello");
       assertThat(new String(FileSystemUtils.readContent(result2), UTF_8)).isEqualTo("hello");
+      assertThat(requestCount.get()).isEqualTo(1);
+    }
+  }
+
+  @Test
+  public void canceledDownload_canBeRetried() throws Exception {
+    AtomicInteger requestCount = new AtomicInteger();
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null));
+        ExecutorService downloadExecutor = Executors.newSingleThreadExecutor()) {
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              () -> {
+                try {
+                  while (true) {
+                    Socket socket = server.accept();
+                    requestCount.incrementAndGet();
+                    readHttpRequest(socket.getInputStream());
+                    sendLines(
+                        socket,
+                        "HTTP/1.1 200 OK",
+                        "Connection: close",
+                        "Content-Length: 5",
+                        "",
+                        "hello");
+                    socket.close();
+                  }
+                } catch (SocketException e) {
+                  // server closed
+                }
+                return null;
+              });
+
+      CountDownLatch blockExecutor = new CountDownLatch(1);
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError2 =
+          downloadExecutor.submit(
+              () -> {
+                blockExecutor.await();
+                return null;
+              });
+
+      Phaser phaser = new Phaser(1);
+      URI url = URI.create(String.format("http://localhost:%d/foo", server.getLocalPort()));
+      Path destination1 = fs.getPath(workingDir.newFolder().getAbsolutePath()).getChild("file1");
+      Path destination2 = fs.getPath(workingDir.newFolder().getAbsolutePath()).getChild("file2");
+      Path destination3 = fs.getPath(workingDir.newFolder().getAbsolutePath()).getChild("file3");
+      Future<Path> download1 =
+          downloadManager.startDownload(
+              downloadExecutor,
+              ImmutableList.of(url),
+              ImmutableMap.of(),
+              ImmutableMap.of(),
+              Optional.empty(),
+              "testCanonicalId",
+              Optional.empty(),
+              destination1,
+              ImmutableMap.of(),
+              "testRepo1",
+              phaser,
+              /* mayHardlink= */ true);
+      Future<Path> download2 =
+          downloadManager.startDownload(
+              downloadExecutor,
+              ImmutableList.of(url),
+              ImmutableMap.of(),
+              ImmutableMap.of(),
+              Optional.empty(),
+              "testCanonicalId",
+              Optional.empty(),
+              destination2,
+              ImmutableMap.of(),
+              "testRepo2",
+              phaser,
+              /* mayHardlink= */ true);
+
+      // Both downloads are canceled while the download task is still queued behind the blocker.
+      assertThat(download1.cancel(false)).isTrue();
+      assertThat(download2.cancel(false)).isTrue();
+      blockExecutor.countDown();
+
+      Future<Path> download3 =
+          downloadManager.startDownload(
+              downloadExecutor,
+              ImmutableList.of(url),
+              ImmutableMap.of(),
+              ImmutableMap.of(),
+              Optional.empty(),
+              "testCanonicalId",
+              Optional.empty(),
+              destination3,
+              ImmutableMap.of(),
+              "testRepo3",
+              phaser,
+              /* mayHardlink= */ true);
+      Path result = downloadManager.finalizeDownload(download3);
+
+      assertThat(new String(FileSystemUtils.readContent(result), UTF_8)).isEqualTo("hello");
       assertThat(requestCount.get()).isEqualTo(1);
     }
   }
