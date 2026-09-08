@@ -50,6 +50,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -73,6 +75,11 @@ public class DownloadManager {
   private int retries = 0;
   @Nullable private Credentials netrcCreds;
   private CredentialFactory credentialFactory = StaticCredentials::new;
+
+  // Downloads of identical content requested concurrently (e.g. two repos with the same URL) are
+  // coalesced so that only the first one transfers bytes; the rest copy the resulting file.
+  private final ConcurrentHashMap<String, CompletableFuture<Path>> inFlightDownloads =
+      new ConcurrentHashMap<>();
 
   /** Creates {@code Credentials} from a map of per-{@code URI} authentication headers. */
   public interface CredentialFactory {
@@ -337,37 +344,61 @@ public class DownloadManager {
       throw new IOException(getRewriterBlockedAllUrlsMessage(originalUrls));
     }
 
-    for (int attempt = 0; ; ++attempt) {
-      try {
-        downloader.download(
-            rewrittenUrls,
-            headers,
-            credentialFactory.create(rewrittenAuthHeaders),
-            checksum,
-            canonicalId,
-            destination,
-            eventHandler,
-            clientEnv,
-            type,
-            context);
-        break;
-      } catch (InterruptedIOException e) {
-        throw new InterruptedException(e.getMessage());
-      } catch (IOException e) {
-        if (!shouldRetryDownload(e, attempt)) {
-          throw e;
+    String dedupeKey = checksum.map(Checksum::toString).orElse(mainUrl.toString());
+    while (true) {
+      CompletableFuture<Path> ownDownload = new CompletableFuture<>();
+      CompletableFuture<Path> inFlight = inFlightDownloads.putIfAbsent(dedupeKey, ownDownload);
+      if (inFlight != null) {
+        try {
+          Path downloaded = inFlight.get();
+          destination.getParentDirectory().createDirectoryAndParents();
+          FileSystemUtils.copyFile(downloaded, destination);
+          return destination;
+        } catch (ExecutionException e) {
+          // The concurrent download failed; try to become the downloader instead.
+          inFlightDownloads.remove(dedupeKey, inFlight);
+          continue;
         }
       }
-    }
+      try {
+        for (int attempt = 0; ; ++attempt) {
+          try {
+            downloader.download(
+                rewrittenUrls,
+                headers,
+                credentialFactory.create(rewrittenAuthHeaders),
+                checksum,
+                canonicalId,
+                destination,
+                eventHandler,
+                clientEnv,
+                type,
+                context);
+            break;
+          } catch (InterruptedIOException e) {
+            throw new InterruptedException(e.getMessage());
+          } catch (IOException e) {
+            if (!shouldRetryDownload(e, attempt)) {
+              throw e;
+            }
+          }
+        }
 
-    if (isCachingByProvidedChecksum) {
-      downloadCache.put(
-          checksum.get().toString(), destination, checksum.get().getKeyType(), canonicalId);
-    } else if (downloadCache.isEnabled()) {
-      var unused = downloadCache.put(destination, KeyType.SHA256, canonicalId);
-    }
+        if (isCachingByProvidedChecksum) {
+          downloadCache.put(
+              checksum.get().toString(), destination, checksum.get().getKeyType(), canonicalId);
+        } else if (downloadCache.isEnabled()) {
+          var unused = downloadCache.put(destination, KeyType.SHA256, canonicalId);
+        }
 
-    return destination;
+        ownDownload.complete(destination);
+        return destination;
+      } finally {
+        // No-op if the download succeeded; otherwise unblocks waiters so they retry on their own.
+        ownDownload.completeExceptionally(new IOException("Concurrent download did not succeed"));
+        inFlightDownloads.remove(dedupeKey, ownDownload);
+      }
+    }
   }
 
   private boolean shouldRetryDownload(IOException e, int attempt) {
