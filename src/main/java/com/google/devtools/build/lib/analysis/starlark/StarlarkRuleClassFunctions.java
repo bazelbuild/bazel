@@ -2000,10 +2000,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     @Override
     public boolean isExported() {
-      if (identityToken instanceof Symbol<?> symbol) {
-        return symbol.isGlobal();
-      }
-      return true; // it's an AnalysisTestKey
+      return ruleClass != null;
     }
 
     @Override

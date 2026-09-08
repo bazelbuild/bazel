@@ -7421,6 +7421,36 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ")");
   }
 
+  @Test
+  public void testInheritAttrsSameFile() throws Exception {
+    evalAndExport(
+        ev,
+        "def _rule_impl(ctx): pass",
+        "r = rule(implementation = _rule_impl)",
+        "def _macro_impl(name, visibility, **kwargs): pass",
+        "m = macro(implementation = _macro_impl, inherit_attrs = r)");
+  }
+
+  @Test
+  public void testInheritAttrsUnassignedRule_fails() throws Exception {
+    ev.checkEvalErrorContains(
+        "Invalid 'inherit_attrs' value: a rule or macro callable must be assigned to a global",
+        "def _rule_impl(ctx): pass",
+        "def _macro_impl(name, visibility, **kwargs): pass",
+        "m = macro(implementation = _macro_impl, inherit_attrs = rule(implementation ="
+            + " _rule_impl))");
+  }
+
+  @Test
+  public void testReprOfFailedExportRule_doesNotCrash() throws Exception {
+    ev.setFailFast(false);
+    evalAndExport(
+        ev,
+        "def _impl(ctx): pass",
+        "my_rule = rule(implementation = _impl, test = True)",
+        "print(repr(my_rule))");
+  }
+
   private SkyValue getDoneValue(SkyKey key) {
     try {
       return skyframeExecutor.getDoneSkyValueForIntrospection(key);
