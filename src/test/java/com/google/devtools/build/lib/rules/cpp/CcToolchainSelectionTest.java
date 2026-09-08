@@ -45,7 +45,6 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
   @Test
   public void testResolvedCcToolchain() throws Exception {
     useConfiguration(
-        "--incompatible_enable_cc_toolchain_resolution",
         "--experimental_platforms=//mock_platform:mock-k8-platform",
         "--extra_toolchains=//mock_platform:toolchain_cc-compiler-k8");
     ConfiguredTarget target =
@@ -66,7 +65,6 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
   @Test
   public void testToolchainSelectionWithPlatforms() throws Exception {
     useConfiguration(
-        "--incompatible_enable_cc_toolchain_resolution",
         "--experimental_platforms=//mock_platform:mock-k8-platform",
         "--extra_toolchains=//mock_platform:toolchain_cc-compiler-k8");
     ConfiguredTarget target =
@@ -110,7 +108,6 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
     mockToolsConfig.append("mock_platform/BUILD", "platform(name = 'mock-piii-platform')");
 
     useConfiguration(
-        "--incompatible_enable_cc_toolchain_resolution",
         "--experimental_platforms=//mock_platform:mock-piii-platform",
         "--extra_toolchains=//incomplete_toolchain:incomplete_toolchain_cc-compiler-piii");
 

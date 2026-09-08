@@ -174,7 +174,13 @@ public class CommandFailureUtils {
     output.append(mnemonic);
     output.append(" command ");
     if (targetDescription != null) {
-      output.append("(from ").append(targetDescription).append(") ");
+      output.append("(from ").append(targetDescription);
+      if (configurationChecksum != null
+          && !configurationChecksum.isEmpty()
+          && !configurationChecksum.equals("null")) {
+        output.append(" [").append(configurationChecksum).append("]");
+      }
+      output.append(") ");
     }
     if (verbose) {
       output.append("\n  ");

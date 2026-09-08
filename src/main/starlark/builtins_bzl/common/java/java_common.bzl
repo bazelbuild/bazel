@@ -17,6 +17,7 @@
 _java_common_internal = _builtins.internal.java_common_internal_do_not_use
 
 _ALLOWLIST = [
+    ("", "bazel_internal/test_rules"),
     ("", "third_party/bazel_rules/rules_java"),
     ("", "javatests/com/google/devtools/grok/kythe/analyzers/build/testdata/pkg"),
     ("rules_java", ""),

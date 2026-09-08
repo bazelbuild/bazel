@@ -86,7 +86,6 @@ public class IncludeScannerSupplier {
   public IncludeScannerSupplier(
       BlazeDirectories directories,
       ExecutorService includePool,
-      boolean shouldShuffle,
       ArtifactFactory artifactFactory,
       Supplier<SpawnIncludeScanner> spawnIncludeScannerSupplier,
       Path execRoot) {
@@ -109,7 +108,6 @@ public class IncludeScannerSupplier {
                     new LegacyIncludeScanner(
                         includeParser,
                         includePool,
-                        shouldShuffle,
                         includeParseCache,
                         pathCache,
                         key.quoteIncludePaths,

@@ -52,7 +52,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.RemoteExternalOverlayFileSystem;
+import com.google.devtools.build.lib.remote.LazyMaterializer;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.MaybeValue;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
@@ -97,6 +97,7 @@ import java.util.concurrent.Phaser;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -111,6 +112,7 @@ import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
 /** A common base class for Starlark "ctx" objects related to external dependencies. */
+@StarlarkBuiltin(name = "starlark_base_external_context", documented = false)
 public abstract class StarlarkBaseExternalContext implements AutoCloseable, StarlarkValue {
 
   /**
@@ -565,6 +567,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     return StarlarkInfo.create(StructProvider.STRUCT, out.buildOrThrow());
   }
 
+  @StarlarkBuiltin(name = "pending_download", documented = false)
   private class PendingDownload implements StarlarkValue, AsyncTask {
     private final boolean executable;
     private final boolean allowFail;
@@ -1174,15 +1177,18 @@ Strip the given number of leading components from file paths on extraction. Only
           .post(
               new ExtractProgress(
                   outputPath.getPath().toString(), "Extracting " + downloadedPath.getBaseName()));
-      DecompressorValue.decompress(
+      DecompressorDescriptor.Builder descriptorBuilder =
           DecompressorDescriptor.builder()
               .setContext(identifyingStringForLogging)
               .setArchivePath(downloadedPath)
               .setDestinationPath(outputPath.getPath())
-              .setPrefix(stripPrefix)
               .setStripComponents(stripComponents)
-              .setRenameFiles(renameFilesMap)
-              .build(),
+              .setRenameFiles(renameFilesMap);
+      if (!stripPrefix.isEmpty()) {
+        descriptorBuilder.setPrefix(stripPrefix);
+      }
+      DecompressorValue.decompress(
+          descriptorBuilder.build(),
           // Type does NOT need to be passed here, as the existing code renames the archive path to
           // include the type extension. The decompression code then uses the file extension to get
           // the proper decompressor.
@@ -1382,16 +1388,18 @@ Strip the given number of leading components from file paths on extraction. Only
         .post(
             new ExtractProgress(
                 outputPath.getPath().toString(), "Extracting " + archivePath.getBasename()));
-    DecompressorValue.decompress(
+    DecompressorDescriptor.Builder descriptorBuilder =
         DecompressorDescriptor.builder()
             .setContext(identifyingStringForLogging)
             .setArchivePath(archivePath.getPath())
             .setDestinationPath(outputPath.getPath())
-            .setPrefix(stripPrefix)
             .setStripComponents(stripComponents)
-            .setRenameFiles(renameFilesMap)
-            .build(),
-        Optional.ofNullable(type).filter(s -> !s.isBlank()));
+            .setRenameFiles(renameFilesMap);
+    if (!stripPrefix.isEmpty()) {
+      descriptorBuilder.setPrefix(stripPrefix);
+    }
+    DecompressorValue.decompress(
+        descriptorBuilder.build(), Optional.ofNullable(type).filter(s -> !s.isBlank()));
     env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
   }
 
@@ -1728,6 +1736,11 @@ Strip the given number of leading components from file paths on extraction. Only
     }
   }
 
+  /**
+   * Records a watch on a directory's non-recursive contents.
+   *
+   * <p>Callers must have checked recently that the given path points to a directory.
+   */
   protected void maybeWatchDirents(Path path, ShouldWatch shouldWatch)
       throws EvalException, RepositoryFunctionException, InterruptedException {
     RepoCacheFriendlyPath repoCacheFriendlyPath = toRepoCacheFriendlyPath(path, shouldWatch);
@@ -1735,6 +1748,10 @@ Strip the given number of leading components from file paths on extraction. Only
       return;
     }
     try {
+      // Dirents can only be recorded for directories, so we have to additionally track the type of
+      // the file. When checking for invalidation, the type is verified first and if it doesn't
+      // match, the directory entries are never requested.
+      getValueAndRecordInput(new RepoRecordedInput.File(repoCacheFriendlyPath));
       getValueAndRecordInput(new RepoRecordedInput.Dirents(repoCacheFriendlyPath));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
@@ -2392,9 +2409,9 @@ func(
     }
     if (!label.getRepository().isMain()
         && directories.getOutputBase().getFileSystem()
-            instanceof RemoteExternalOverlayFileSystem remoteFs) {
+            instanceof LazyMaterializer lazyMaterializer) {
       try {
-        remoteFs.ensureMaterialized(label.getRepository(), env.getListener());
+        lazyMaterializer.ensureMaterialized(label.getRepository(), env.getListener());
       } catch (IOException e) {
         throw Starlark.errorf(
             "Failed to materialize remote repo %s: %s", label.getRepository(), e.getMessage());

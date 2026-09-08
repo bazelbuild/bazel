@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.docgen.starlark;
 
-import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
 
 /** A documentation page for a list of Starlark global methods in the same environment. */
 public final class StarlarkGlobalsDoc extends StarlarkDocPage {

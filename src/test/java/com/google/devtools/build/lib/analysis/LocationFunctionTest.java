@@ -85,6 +85,61 @@ public class LocationFunctionTest {
   }
 
   @Test
+  public void tooManyExecpath() throws Exception {
+    LocationFunction func =
+        new LocationFunctionBuilder("//foo", false)
+            .setPathType(LocationFunction.PathType.EXEC)
+            .add("//foo", "/exec/1", "/exec/2")
+            .build();
+    IllegalStateException expected =
+        assertThrows(
+            IllegalStateException.class, () -> func.apply("//foo", RepositoryMapping.EMPTY, null));
+    assertThat(expected)
+        .hasMessageThat()
+        .isEqualTo(
+            "label '//foo:foo' in $(execpath) expression expands to more than one file, "
+                + "please use $(execpaths //foo:foo) instead.  Files (at most 5 shown) are: "
+                + "[./1, ./2]");
+  }
+
+  @Test
+  public void tooManyRootpath() throws Exception {
+    LocationFunction func =
+        new LocationFunctionBuilder("//foo", false)
+            .setName("rootpath")
+            .add("//foo", "/exec/1", "/exec/2")
+            .build();
+    IllegalStateException expected =
+        assertThrows(
+            IllegalStateException.class, () -> func.apply("//foo", RepositoryMapping.EMPTY, null));
+    assertThat(expected)
+        .hasMessageThat()
+        .isEqualTo(
+            "label '//foo:foo' in $(rootpath) expression expands to more than one file, "
+                + "please use $(rootpaths //foo:foo) instead.  Files (at most 5 shown) are: "
+                + "[./1, ./2]");
+  }
+
+  @Test
+  public void tooManyRlocationpath() throws Exception {
+    LocationFunction func =
+        new LocationFunctionBuilder("//foo", false)
+            .setPathType(LocationFunction.PathType.RLOCATION)
+            .add("//foo", "/exec/1", "/exec/2")
+            .build();
+    IllegalStateException expected =
+        assertThrows(
+            IllegalStateException.class,
+            () -> func.apply("//foo", RepositoryMapping.EMPTY, "workspace"));
+    assertThat(expected)
+        .hasMessageThat()
+        .isEqualTo(
+            "label '//foo:foo' in $(rlocationpath) expression expands to more than one file, "
+                + "please use $(rlocationpaths //foo:foo) instead.  Files (at most 5 shown) are: "
+                + "[workspace/1, workspace/2]");
+  }
+
+  @Test
   public void noSuchLabelMultiple() throws Exception {
     LocationFunction func = new LocationFunctionBuilder("//foo", true).build();
     IllegalStateException expected =

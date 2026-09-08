@@ -35,17 +35,24 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.MaterializingDefault;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.state.StateMachine;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.syntax.Location;
 
 /**
  * Computes the full multimap of prerequisite values from a multimap of labels.
@@ -95,10 +102,16 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
 
   private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> materializerTargets;
 
+  // The results of querying for just the target objects of targets in aspect_hints. May be null
+  // because aspect_hints is usually empty.
+  @Nullable private List<AspectHintsTargetSink> aspectHintsTargets;
+
   private ImmutableMultimap<Aspect, String> computedAttributeAspects;
   private ImmutableMultimap<Aspect, Label> computedToolchainsAspects;
 
   private DependencyError lastError;
+
+  private static final ConfiguredTargetAndData[] EMPTY_CONFIGURED_TARGET_AND_DATA_ARRAY = {};
 
   public DependencyMapProducer(
       PrerequisiteParameters parameters,
@@ -272,13 +285,62 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
     }
   }
 
+  private class AspectHintsTargetSink implements TargetProducer.ResultSink {
+
+    private final DependencyKind kind;
+    private final Label label;
+    private final ImmutableList<Aspect> aspects;
+    private final int resultsIndex;
+
+    private Target target;
+
+    private AspectHintsTargetSink(
+        DependencyKind kind, Label label, ImmutableList<Aspect> aspects, int resultsIndex) {
+      this.kind = kind;
+      this.label = label;
+      this.aspects = aspects;
+      this.resultsIndex = resultsIndex;
+    }
+
+    @Override
+    public void acceptTarget(Target target) {
+      if (aspectHintsTargets == null) {
+        // Note that the TargetProducers will complete in an arbitrary order, but they carry
+        // the original resultsIndex into the final array, so everything will go into the right
+        // spot in evaluateAspectHintsTargets().
+        aspectHintsTargets = new ArrayList<>();
+      }
+      this.target = target;
+      // Use this very sink object to store the results instead of bothering with a record.
+      aspectHintsTargets.add(this);
+    }
+
+    @Override
+    public void acceptTargetError(NoSuchPackageException error) {
+      DependencyMapProducer.this.acceptDependencyError(new MissingEdgeError(kind, label, error));
+    }
+
+    @Override
+    public void acceptTargetError(NoSuchTargetException error, Location location) {
+      DependencyMapProducer.this.acceptDependencyError(new MissingEdgeError(kind, label, error));
+    }
+  }
+
   private StateMachine attributeResolutionStep(
       Tasks tasks, boolean forMaterializers, StateMachine next) throws InterruptedException {
+
     int index = 0;
     for (Map.Entry<DependencyKind, Collection<Label>> entry : dependencyLabels.asMap().entrySet()) {
+
       var kind = entry.getKey();
       boolean forDependencyResolution = isForDependencyResolution(kind);
       boolean skip = forMaterializers != forDependencyResolution;
+
+      boolean isAspectHintsAttr =
+          kind.getAttribute() != null
+              && kind.getAttribute().getName().equals(RuleClass.ASPECT_HINTS_ATTR);
+      boolean onlyLoadTargetForAspectHints =
+          isAspectHintsAttr && parameters.requireMatchingAspectHintsProviders();
 
       // Only call materializer when materialization results are ready
       ImmutableList<Label> materializationResults =
@@ -302,12 +364,25 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
           continue;
         }
 
+        if (onlyLoadTargetForAspectHints) {
+          // Produce only the targets (not the configured targets) for aspect_hints, because we need
+          // to check if the target's rule class has declared providers that match one or more
+          // aspects currently being applied.
+          tasks.enqueue(
+              new TargetProducer(
+                  label,
+                  parameters.transitiveState(),
+                  new AspectHintsTargetSink(kind, label, aspects, currentIndex),
+                  DONE));
+          continue;
+        }
+
         if (materializationResults != null) {
           // DependencyResolver should have left this as null
           Preconditions.checkState(label == null);
 
           if (materializationResults.isEmpty()) {
-            results[currentIndex] = new ConfiguredTargetAndData[] {};
+            results[currentIndex] = EMPTY_CONFIGURED_TARGET_AND_DATA_ARRAY;
           } else {
             MaterializedDependencySink sink =
                 new MaterializedDependencySink(currentIndex, materializationResults.size());
@@ -324,6 +399,9 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
             }
           }
         } else if (label != null) {
+          // Both materializationResults and label will be null if there is an error in a
+          // materializer function.
+
           tasks.enqueue(
               new DependencyProducer(
                   parameters,
@@ -354,7 +432,7 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
   }
 
   private StateMachine evaluateMaterializersIfNeeded(Tasks tasks) throws InterruptedException {
-    return attributeResolutionStep(tasks, false, this::buildAndEmitResult);
+    return attributeResolutionStep(tasks, false, this::evaluateAspectHintsTargets);
   }
 
   /** Computes the aspects' propagation attribute names and toolchain types. */
@@ -435,6 +513,48 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
     }
 
     return result.build();
+  }
+
+  private StateMachine evaluateAspectHintsTargets(Tasks tasks) {
+
+    if (aspectHintsTargets != null) {
+
+      for (AspectHintsTargetSink sink : aspectHintsTargets) {
+
+        var rule = sink.target.getAssociatedRule();
+        boolean addDependency = false;
+        if (rule == null) {
+          // If this is not a rule, then it is either a source file, or it does not exist (loading
+          // phase assumes targets that do not exist are source files), so add the dependency as
+          // normal, and later logic will raise the appropriate error.
+          addDependency = true;
+        } else {
+          for (Aspect aspect : parameters.aspects()) {
+            var requiredProviders = aspect.getDefinition().getRequiredAspectHintsProviders();
+            var targetProviders = rule.getRuleClassObject().getAdvertisedProviders();
+            if (requiredProviders.isSatisfiedBy(targetProviders)) {
+              addDependency = true;
+              break;
+            }
+          }
+        }
+
+        if (addDependency) {
+          tasks.enqueue(
+              new DependencyProducer(
+                  parameters,
+                  sink.kind,
+                  sink.target.getLabel(),
+                  sink.aspects,
+                  (DependencyProducer.ResultSink) this,
+                  /* originatingMaterializerTarget= */ null,
+                  sink.resultsIndex));
+        } else {
+          results[sink.resultsIndex] = EMPTY_CONFIGURED_TARGET_AND_DATA_ARRAY;
+        }
+      }
+    }
+    return this::buildAndEmitResult;
   }
 
   @SuppressWarnings("MultimapKeys")

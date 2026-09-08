@@ -3,7 +3,9 @@ load("@rules_java//java:defs.bzl", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
 )
 
 filegroup(
@@ -27,7 +29,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/rules/starlarkdocextract:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/test:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_test(
@@ -38,7 +40,7 @@ java_test(
     ]),
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -66,9 +68,10 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/rules/cpp:cc-info",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:io",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/truth",
     ],
 )

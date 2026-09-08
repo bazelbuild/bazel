@@ -457,6 +457,16 @@ public class BlazeRuntimeWrapper {
    * @param target the target to run the aquery against.
    */
   public void runAqueryExprCommand(String target) throws Exception {
+    runAqueryExprCommand(target, target);
+  }
+
+  /**
+   * Runs an aquery command with the given expression and target.
+   *
+   * @param aqueryExpr the aquery expression to evaluate.
+   * @param target the target to run the aquery against.
+   */
+  public void runAqueryExprCommand(String aqueryExpr, String target) throws Exception {
     newCommand(AqueryCommand.class);
     // Resetting the deserialized keys is necessary to avoid aquery using the pruned graph and
     // missing entries in its output. Since BlazeRuntimeWrapper is written using the method
@@ -464,7 +474,7 @@ public class BlazeRuntimeWrapper {
     QueryCommandUtils.resetDeserializedKeysFromRemoteAnalysisCache(getCommandEnvironment());
 
     AqueryProcessor aqueryProcessor =
-        new AqueryProcessor(getQueryExpression(target), TargetPattern.defaultParser());
+        new AqueryProcessor(getQueryExpression(aqueryExpr), TargetPattern.defaultParser());
     executeBuild(Arrays.asList(target), aqueryProcessor);
   }
 

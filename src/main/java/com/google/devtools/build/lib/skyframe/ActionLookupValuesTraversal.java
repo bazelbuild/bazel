@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.NUM_
 
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
@@ -46,11 +47,6 @@ public final class ActionLookupValuesTraversal {
 
   @ThreadSafe
   void accumulate(ActionLookupKey key, SkyValue value) {
-    if (value instanceof RemoteConfiguredTargetValue) {
-      // Remotely fetched values do not have actions.
-      return;
-    }
-
     boolean isConfiguredTarget = value instanceof ConfiguredTargetValue;
     boolean isActionLookupValue = value instanceof ActionLookupValue;
     if (!isConfiguredTarget && !isActionLookupValue) {
@@ -85,14 +81,19 @@ public final class ActionLookupValuesTraversal {
       actionLookupValueShards.add(alv);
       return;
     }
-    if (!(value instanceof NonRuleConfiguredTargetValue nonRuleVal)) {
+    ConfiguredTarget configuredTarget;
+    if (value instanceof NonRuleConfiguredTargetValue nonRuleVal) {
+      configuredTarget = nonRuleVal.getConfiguredTarget();
+    } else if (value instanceof RemoteConfiguredTargetValue remoteVal) {
+      configuredTarget = remoteVal.getConfiguredTarget();
+    } else {
       BugReport.sendBugReport(
           new IllegalStateException(
               String.format("Unexpected value type: %s %s %s", value.getClass(), key, value)));
       return;
     }
     AtomicInteger counter =
-        switch (nonRuleVal.getConfiguredTarget()) {
+        switch (configuredTarget) {
           case InputFileConfiguredTarget input -> inputFileConfiguredTargetCount;
           case OutputFileConfiguredTarget output -> outputFileConfiguredTargetCount;
           default -> otherConfiguredTargetCount;

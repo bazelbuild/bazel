@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -120,7 +120,7 @@ public class StarlarkBazelModule implements StarlarkValue {
             repoMapping,
             repoMappingRecorder);
     ImmutableList<Tag> tags = usage == null ? ImmutableList.of() : usage.getTags();
-    HashMap<String, ArrayList<TypeCheckedTag>> typeCheckedTags = new HashMap<>();
+    LinkedHashMap<String, ArrayList<TypeCheckedTag>> typeCheckedTags = new LinkedHashMap<>();
     for (String tagClassName : extension.tagClasses().keySet()) {
       typeCheckedTags.put(tagClassName, new ArrayList<>());
     }

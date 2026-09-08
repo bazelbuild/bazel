@@ -156,7 +156,6 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void sclDialect() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_scl_dialect");
     scratch.file(
         "foo.scl",
         """

@@ -95,6 +95,43 @@ public class PlatformInfoApiTest extends PlatformTestCase {
   }
 
   @Test
+  public void constraints_repeatedViaAlias() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        """
+        constraint_setting(name = "basic")
+
+        constraint_value(
+            name = "value1",
+            constraint_setting = ":basic",
+        )
+
+        alias(
+            name = "value1_alias",
+            actual = ":value1",
+        )
+
+        platform(
+            name = "my_platform",
+            constraint_values = [
+                ":value1",
+                ":value1_alias",
+            ],
+        )
+        """);
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:my_platform");
+    assertNoEvents();
+    assertThat(platformInfo).isNotNull();
+    ConstraintSettingInfo constraintSetting =
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//foo:basic"));
+    ConstraintValueInfo constraintValue =
+        ConstraintValueInfo.create(
+            constraintSetting, Label.parseCanonicalUnchecked("//foo:value1"));
+    assertThat(platformInfo.constraints().get(constraintSetting)).isEqualTo(constraintValue);
+  }
+
+  @Test
   public void constraints_refinesConstraintValue_satisfied() throws Exception {
     scratch.file(
         "libc/BUILD",

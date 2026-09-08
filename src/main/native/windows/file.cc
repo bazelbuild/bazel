@@ -539,9 +539,9 @@ int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
     *error = MakeErrorMessage(
         WSTR(__FILE__), __LINE__, L"CreateSymlink", symlink_target,
         GetLastError() == ERROR_PRIVILEGE_NOT_HELD
-            ? L"createSymbolicLinkW failed (permission denied). Either "
+            ? L"CreateSymbolicLinkW failed (permission denied). Either "
               "Windows developer mode or admin privileges are required."
-            : L"createSymbolicLinkW failed");
+            : L"CreateSymbolicLinkW failed");
     return CreateSymlinkResult::kError;
   }
   return CreateSymlinkResult::kSuccess;

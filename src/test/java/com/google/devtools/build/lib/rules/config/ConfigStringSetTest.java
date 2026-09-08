@@ -663,9 +663,9 @@ public final class ConfigStringSetTest extends BuildViewTestCase {
         .isEqualTo(ImmutableSet.of("v1", "v2", "v3"));
 
     assertThat(targetConfig.getOutputDirectoryName()).doesNotContain("ST");
-    assertThat(getArtifactPath(t1)).contains("-ST-");
-    assertThat(getArtifactPath(t2)).contains("-ST-");
-    assertThat(getArtifactPath(t3)).contains("-ST-");
+    assertThat(getArtifactPath(t1)).doesNotContain("ST");
+    assertThat(getArtifactPath(t2)).doesNotContain("ST");
+    assertThat(getArtifactPath(t3)).doesNotContain("ST");
   }
 
   @Test
@@ -800,7 +800,7 @@ public final class ConfigStringSetTest extends BuildViewTestCase {
     assertThat(targetConfig.getOutputDirectoryName()).doesNotContain("ST");
     assertThat(getArtifactPath(t1)).doesNotContain("-ST-");
     assertThat(getArtifactPath(t2)).contains("-ST-");
-    assertThat(getArtifactPath(t3)).contains("-ST-");
+    assertThat(getArtifactPath(t3)).doesNotContain("-ST-");
   }
 
   @Test

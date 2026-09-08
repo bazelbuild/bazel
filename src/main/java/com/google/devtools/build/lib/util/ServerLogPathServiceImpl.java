@@ -13,12 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import com.google.devtools.build.lib.skybridge.ScOnly;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.logging.Logger;
 
 /** The {@link ServerLogPathService} implementation. */
+@ScOnly
 public final class ServerLogPathServiceImpl implements ServerLogPathService {
   private static final Logger logger = Logger.getLogger(ServerLogPathServiceImpl.class.getName());
 

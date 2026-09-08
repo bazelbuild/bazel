@@ -1355,11 +1355,11 @@ function test_tool_command_line() {
   expect_log 'command_line_label: "canonical"'
   expect_log 'command_line_label: "tool"'
 
-  # Expect the actual tool command line flag to appear twice, because of the two
-  # bazel command lines that are reported
-  expect_log_n 'combined_form: "--experimental_tool_command_line=' 2
-  expect_log_n 'option_name: "experimental_tool_command_line"' 2
-  expect_log_n 'option_value: "foo bar"' 2
+  # Hidden options should not appear in the option lists of the original or
+  # canonical command line events
+  expect_not_log 'combined_form: "--experimental_tool_command_line='
+  expect_not_log 'option_name: "experimental_tool_command_line"'
+  expect_not_log 'option_value: "foo bar"'
 
   # Check the contents of the tool command line
   expect_log_once 'chunk: "foo bar"'
@@ -1627,7 +1627,7 @@ EOF
     >& "$TEST_log" && fail "Expected failure"
   expect_log "unsuccessful-because-of-illegal-load.*Label '//no/such/package:f.bzl' is invalid because 'no/such/package' is not a package"
   expect_log "unsuccessful-because-of-BUILD-file-syntax-error.*invalid character: '@'"
-  expect_log "Error in fail: bad"
+  expect_log "Error: bad"
 
   # On this invocation, Bazel attempts to load exactly 5 packages.
   expect_log_n "PROGRESS.*Loading package" 5
@@ -1690,7 +1690,9 @@ EOF
     --experimental_publish_package_metrics_in_bep \
     "//$p:BUILD"
   cp bep.json "$TEST_log" || fail "cp failed"
-  expect_log '"packageLoadMetrics":\[{"name":"test_glob_filesystem_operation_cost"[^}]*"globFilesystemOperationCost":"41"'
+  # packageLoadMetrics has two "name" entries: "name":"tools/python", then
+  # "name":"test_glob_filesystem_operation_cost". We're interested in the latter.
+  expect_log '"packageLoadMetrics":\[.*"name":"test_glob_filesystem_operation_cost"[^}]*"globFilesystemOperationCost":"41"'
 }
 
 function test_java_version_info_in_build_started() {

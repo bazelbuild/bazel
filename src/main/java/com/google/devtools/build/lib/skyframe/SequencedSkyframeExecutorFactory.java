@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -42,6 +43,7 @@ public final class SequencedSkyframeExecutorFactory implements SkyframeExecutorF
       boolean allowExternalRepositories,
       Supplier<Path> repoContentsCachePathSupplier,
       SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver,
+      CompressionService compressionService,
       BugReporter bugReporter) {
     return BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
         .setPkgFactory(pkgFactory)
@@ -55,6 +57,7 @@ public final class SequencedSkyframeExecutorFactory implements SkyframeExecutorF
         .allowExternalRepositories(allowExternalRepositories)
         .setRepoContentsCachePathSupplier(repoContentsCachePathSupplier)
         .setSkyKeyStateReceiver(skyKeyStateReceiver)
+        .setCompressionService(compressionService)
         .setBugReporter(bugReporter)
         .build();
   }

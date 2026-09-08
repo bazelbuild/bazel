@@ -779,6 +779,8 @@ public final class MethodLibraryTest {
       customSemanticsEv.eval("fail('with_a_trace')");
     } catch (EvalException e) {
       assertThat(e.getMessageWithStack()).contains("Traceback (most recent call last)");
+      assertThat(e.getMessageWithStack()).contains("Error: with_a_trace");
+      assertThat(e.getMessageWithStack()).doesNotContain("Error in fail");
     }
 
     try {

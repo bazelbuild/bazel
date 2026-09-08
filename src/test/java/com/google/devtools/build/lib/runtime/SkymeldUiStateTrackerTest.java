@@ -127,6 +127,28 @@ public class SkymeldUiStateTrackerTest extends FoundationTestCase {
   }
 
   @Test
+  public void testNoShowLoadingProgress() throws IOException {
+    ManualClock clock = new ManualClock();
+    SkymeldUiStateTracker uiStateTracker = new SkymeldUiStateTracker(clock);
+    String additionalMessage = "5 targets";
+    uiStateTracker.setBuildStatusForTestingOnly(BuildStatus.CONFIGURATION);
+    uiStateTracker.additionalMessage = additionalMessage;
+
+    uiStateTracker.packageProgressReceiver = null;
+    String analysisProgressString = "5 targets and 0 aspects configured";
+    uiStateTracker.analysisProgressReceiver = mockAnalysisProgressReceiver(analysisProgressString);
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
+    uiStateTracker.writeProgressBar(terminalWriter);
+    String output = terminalWriter.getTranscript();
+
+    assertThat(output).contains("Analyzing");
+    assertThat(output).contains(additionalMessage);
+    assertThat(output).doesNotContain("packages loaded");
+    assertThat(output).contains(analysisProgressString);
+  }
+
+  @Test
   public void executionFromAnalysisAndExecution_stateChanges() {
     ManualClock clock = new ManualClock();
     SkymeldUiStateTracker uiStateTracker = new SkymeldUiStateTracker(clock);

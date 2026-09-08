@@ -463,8 +463,10 @@ public abstract class BlazeServerStartupOptions extends OptionsBase {
       help =
           "Sets the QoS service class of the %{product} server when running on macOS. This "
               + "flag has no effect on all other platforms but is supported to ensure rc files "
-              + "can be shared among them without changes. Possible values are: user-interactive, "
-              + "user-initiated, default, utility, and background.")
+              + "can be shared among them without changes. Possible values are: default (leave "
+              + "QoS unchanged), utility, and background. Only utility and background request "
+              + "a macOS process QoS class because Apple's posix_spawnattr_set_qos_class_np API "
+              + "does not accept user-interactive or user-initiated for spawned processes.")
   public abstract String getMacosQosClass();
 
   @Option(

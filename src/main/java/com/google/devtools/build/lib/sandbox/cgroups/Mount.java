@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.sandbox.cgroups;
 
 import static java.util.Objects.requireNonNull;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import java.io.File;
@@ -72,7 +73,7 @@ public record Mount(Path path, String type, ImmutableList<String> opts) {
 
       String path = m.group("file");
       String type = m.group("vfstype");
-      ImmutableList<String> opts = ImmutableList.copyOf(m.group("mntops").split(","));
+      ImmutableList<String> opts = ImmutableList.copyOf(Splitter.on(',').split(m.group("mntops")));
       mounts.add(Mount.create(Paths.get(path), type, opts));
     }
     return mounts.build();

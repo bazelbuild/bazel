@@ -29,6 +29,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
@@ -41,6 +42,7 @@ import org.junit.runners.JUnit4;
 // There is no clear distinction between this and EvaluationTest.
 // TODO(adonovan): reorganize.
 @RunWith(JUnit4.class)
+@StarlarkLibrary
 public final class StarlarkEvaluationTest {
 
   private final EvaluationTestCase ev = new EvaluationTestCase();
@@ -502,6 +504,7 @@ public final class StarlarkEvaluationTest {
 
   // A @StarlarkMethod implementation declared in a non-public class and inherited (not overridden)
   // by a public subclass.
+  @StarlarkBuiltin(name = "NonPublicMethodBase", doc = "")
   abstract static class NonPublicMethodBase implements StarlarkValue {
     @StarlarkMethod(name = "inherited_method", documented = false)
     public String inheritedMethod() {
@@ -2002,6 +2005,7 @@ public final class StarlarkEvaluationTest {
   }
 
   // SimpleStructWithMethods augments SimpleStruct's fields with annotated Java methods.
+  @StarlarkBuiltin(name = "SimpleStructWithMethods", documented = false)
   private static final class SimpleStructWithMethods extends SimpleStruct {
 
     // A function that returns "fromValues".

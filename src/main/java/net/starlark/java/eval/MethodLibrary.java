@@ -28,9 +28,11 @@ import java.util.Optional;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 
 /** The universal predeclared functions of core Starlark. */
+@StarlarkLibrary
 class MethodLibrary {
 
   @StarlarkMethod(
@@ -56,7 +58,9 @@ class MethodLibrary {
               @ParamType(type = StarlarkCallable.class),
               @ParamType(type = NoneType.class),
             },
-            doc = "An optional function applied to each element before comparison.",
+            doc =
+                "An optional function applied to each element before comparison. Must not mutate"
+                    + " the args sequence.",
             defaultValue = "None")
       },
       useStarlarkThread = true)
@@ -92,7 +96,9 @@ class MethodLibrary {
               @ParamType(type = StarlarkCallable.class),
               @ParamType(type = NoneType.class),
             },
-            doc = "An optional function applied to each element before comparison.",
+            doc =
+                "An optional function applied to each element before comparison. Must not mutate"
+                    + " the args sequence.",
             defaultValue = "None")
       },
       useStarlarkThread = true)
@@ -113,6 +119,7 @@ class MethodLibrary {
     // iterable of items to compare. In either case, there must be at least one item to compare.
     Iterable<?> items = (args.size() == 1) ? Starlark.toIterable(args.get(0)) : args;
     try {
+      EvalUtils.addIterator(items); // to prevent keyFn from mutating items
       if (keyFn.isPresent()) {
         try {
           return stream(items)
@@ -132,6 +139,8 @@ class MethodLibrary {
       throw new EvalException(ex.getMessage()); // e.g. unsupported comparison: int <=> string
     } catch (NoSuchElementException ex) {
       throw new EvalException("expected at least one item", ex);
+    } finally {
+      EvalUtils.removeIterator(items);
     }
   }
 
@@ -591,7 +600,6 @@ class MethodLibrary {
               + "int(\"FF\", 16) == 255\n"
               + "int(\"0xFF\", 16) == 255\n"
               + "int(\"10\", 0) == 10\n"
-              + "int(\"-0x10\", 0) == -16\n"
               + "int(\"-0x10\", 0) == -16\n"
               + "int(\"123.456\") == 123\n"
               + "</pre>",

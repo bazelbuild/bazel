@@ -2,13 +2,12 @@ load("@rules_java//java:defs.bzl", "java_binary")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__subpackages__"],
 )
 
 java_binary(
@@ -20,6 +19,7 @@ java_binary(
         "//src/conditions:darwin": ["-Djava.net.preferIPv6Addresses=true"],
         "//conditions:default": [],
     }),
+    visibility = ["//src/test/shell/bazel:__pkg__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -30,6 +30,6 @@ java_binary(
         "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
         "//src/main/java/com/google/devtools/build/lib/unix:unix_file_system",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
     ],
 )

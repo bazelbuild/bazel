@@ -37,5 +37,6 @@ import org.junit.runners.Suite;
   StarlarkThreadDebuggingTest.class,
   StarlarkThreadTest.class,
   StaticTypeCheckTest.class,
+  SymbolGeneratorTest.class,
 })
 public class EvalTests {}

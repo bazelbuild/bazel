@@ -401,4 +401,7 @@ public class ExecutionRequirements {
    * segment from the paths of all inputs and outputs.
    */
   public static final String SUPPORTS_PATH_MAPPING = "supports-path-mapping";
+
+  /** Indicates that the action was created as part of a {@code map_directory()} call. */
+  public static final String MAP_DIRECTORY_ACTION = "internal-map-directory-action";
 }

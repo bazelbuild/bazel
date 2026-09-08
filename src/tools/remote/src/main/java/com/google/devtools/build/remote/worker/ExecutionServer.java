@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.remote.worker;
 
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToPlatform;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 

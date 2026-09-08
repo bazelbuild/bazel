@@ -44,7 +44,7 @@ Bazel comes with two completion scripts. After installing Bazel, you can:
 ```posix-terminal
 sudo apt install apt-transport-https curl gnupg -y
 
-curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor >bazel-archive-keyring.gpg
+curl -fsSL https://releases.bazel.build/bazel-release.pub.gpg | gpg --dearmor >bazel-archive-keyring.gpg
 
 sudo mv bazel-archive-keyring.gpg /usr/share/keyrings
 

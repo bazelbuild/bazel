@@ -114,7 +114,8 @@ public final class RuleConfiguredTargetBuilder {
       // If there are any, propagate their union in a TransitiveVisibilityProvider.
       // One packageSpecificationProvider is created for each package_group, corresponding to the
       // restrictions imposed by a single bottom level dependency.
-      ImmutableSet.Builder<PackageSpecificationProvider> tvBuilder = ImmutableSet.builder();
+      ImmutableSet.Builder<TransitiveVisibilityProvider.Requirement> tvBuilder =
+          ImmutableSet.builder();
       if (ruleContext.getTransitiveVisibilityImposedByThisPackage() != null) {
         tvBuilder.add(ruleContext.getTransitiveVisibilityImposedByThisPackage());
       }
@@ -130,7 +131,8 @@ public final class RuleConfiguredTargetBuilder {
           }
         }
       }
-      ImmutableSet<PackageSpecificationProvider> finalTransitiveVisibility = tvBuilder.build();
+      ImmutableSet<TransitiveVisibilityProvider.Requirement> finalTransitiveVisibility =
+          tvBuilder.build();
       if (!finalTransitiveVisibility.isEmpty()) {
         addProvider(new TransitiveVisibilityProvider(finalTransitiveVisibility));
       }

@@ -17,9 +17,11 @@ package net.starlark.java.annot.processor;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.errorprone.annotations.FormatMethod;
+import java.lang.annotation.Annotation;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Messager;
@@ -43,16 +45,19 @@ import javax.tools.Diagnostic;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 
 /**
- * Annotation processor for {@link StarlarkMethod}. See that class for requirements.
+ * Annotation processor for {@link StarlarkBuiltin}, {@link StarlarkLibrary}, and {@link
+ * StarlarkMethod}. See those classes for requirements.
  *
  * <p>These properties can be relied upon at runtime without additional checks.
  */
 @SupportedAnnotationTypes({
   "net.starlark.java.annot.StarlarkMethod",
-  "net.starlark.java.annot.StarlarkBuiltin"
+  "net.starlark.java.annot.StarlarkBuiltin",
+  "net.starlark.java.annot.StarlarkLibrary"
 })
 public class StarlarkMethodProcessor extends AbstractProcessor {
 
@@ -61,10 +66,10 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
   private Messager messager;
 
   // A set containing a TypeElement for each class with a StarlarkMethod.selfCall annotation.
-  private Set<Element> classesWithSelfcall;
+  private Set<TypeElement> classesWithSelfcall;
   // A multimap where keys are class element, and values are the callable method names identified in
   // that class (where "method name" is StarlarkMethod.name).
-  private SetMultimap<Element, String> processedClassMethods;
+  private SetMultimap<TypeElement, String> processedClassMethods;
 
   @Override
   public SourceVersion getSupportedSourceVersion() {
@@ -85,6 +90,51 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
     return elements.getTypeElement(canonicalName).asType();
   }
 
+  /**
+   * Applies the callback to each class or interface in the given class's hierarchy, including
+   * itself.
+   */
+  private static void visitHierarchy(TypeElement cls, Consumer<TypeElement> callback) {
+    callback.accept(cls);
+    TypeMirror superclass = cls.getSuperclass();
+    if (superclass != null && superclass.getKind() == TypeKind.DECLARED) {
+      visitHierarchy((TypeElement) ((DeclaredType) superclass).asElement(), callback);
+    }
+    for (TypeMirror iface : cls.getInterfaces()) {
+      if (iface != null && iface.getKind() == TypeKind.DECLARED) {
+        visitHierarchy((TypeElement) ((DeclaredType) iface).asElement(), callback);
+      }
+    }
+  }
+
+  /** Returns true if any superclass or inherited interface has the given annotation. */
+  private boolean hasAnnotationInHierarchy(
+      TypeElement cls, Class<? extends Annotation> annotClass) {
+    boolean[] found = {false};
+    visitHierarchy(
+        cls,
+        c -> {
+          if (c.getAnnotation(annotClass) != null) {
+            found[0] = true;
+          }
+        });
+    return found[0];
+  }
+
+  private static boolean typeElementIsAutoValueGenerated(TypeElement cls) {
+    String name = cls.getSimpleName().toString();
+    if (name.startsWith("AutoOneOf_")) {
+      return true;
+    }
+    // AutoValue generated classes can have leading "$"s added by AutoValue extensions.
+    int firstNonDollar = 0;
+    while (firstNonDollar < name.length() && name.charAt(firstNonDollar) == '$') {
+      firstNonDollar++;
+    }
+    String strippedName = name.substring(firstNonDollar);
+    return strippedName.startsWith("AutoValue_");
+  }
+
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     TypeMirror stringType = getType("java.lang.String");
@@ -100,6 +150,21 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
         errorf(
             cls,
             "class %s has StarlarkBuiltin annotation but does not implement StarlarkValue",
+            cls.getSimpleName());
+      }
+      if (hasAnnotationInHierarchy((TypeElement) cls, StarlarkLibrary.class)) {
+        errorf(
+            cls,
+            "class %s has StarlarkBuiltin annotation but also has or inherits StarlarkLibrary",
+            cls.getSimpleName());
+      }
+    }
+
+    for (Element cls : roundEnv.getElementsAnnotatedWith(StarlarkLibrary.class)) {
+      if (hasAnnotationInHierarchy((TypeElement) cls, StarlarkBuiltin.class)) {
+        errorf(
+            cls,
+            "class %s has StarlarkLibrary annotation but also has or inherits StarlarkBuiltin",
             cls.getSimpleName());
       }
     }
@@ -120,7 +185,21 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
       if (annot.name().isEmpty()) {
         errorf(method, "StarlarkMethod.name must be non-empty.");
       }
-      Element cls = method.getEnclosingElement();
+      TypeElement cls = (TypeElement) method.getEnclosingElement();
+      // Don't check AutoValue-generated classes for @StarlarkBuiltin / @StarlarkLibrary, or for
+      // uniqueness of @StarlarkMethod among overridden methods. (The generated classes copy
+      // their method annotations from their parent classes, but not the class annotations, so
+      // they would fail the check. Arguably, we could also skip all method validations in
+      // generated classes since the parent was already checked.)
+      if (!typeElementIsAutoValueGenerated(cls)) {
+        if (cls.getAnnotation(StarlarkBuiltin.class) == null
+            && cls.getAnnotation(StarlarkLibrary.class) == null) {
+          errorf(
+              method,
+              "@StarlarkMethod must appear in a class or interface directly annotated with"
+                  + " @StarlarkBuiltin or @StarlarkLibrary.");
+        }
+      }
       if (!processedClassMethods.put(cls, annot.name())) {
         errorf(method, "Containing class defines more than one method named '%s'.", annot.name());
       }

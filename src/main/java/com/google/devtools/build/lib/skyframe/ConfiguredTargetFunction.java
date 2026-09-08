@@ -79,6 +79,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.Driver;
+import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Semaphore;
@@ -409,6 +410,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     } catch (ActionConflictException e) {
       // The reporting will be done when going through errors in the build.
       throw new UnreportedException(e);
+    } catch (IOException e) {
+      throw new UnreportedException(e);
     } finally {
       maybeReleaseSemaphore();
     }
@@ -434,7 +437,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       @Nullable NestedSet<Package.Metadata> transitivePackages,
       boolean crashIfExecutionPhase,
       RemoteAnalysisCacheMode remoteAnalysisCacheMode)
-      throws ConfiguredValueCreationException, InterruptedException, ActionConflictException {
+      throws ConfiguredValueCreationException,
+          IOException,
+          InterruptedException,
+          ActionConflictException {
     Target target = ctgValue.getTarget();
     BuildConfigurationValue configuration = ctgValue.getConfiguration();
 
@@ -465,7 +471,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               toolchainContexts,
               transitivePackages,
               execGroupCollectionBuilder,
-              crashIfExecutionPhase);
+              crashIfExecutionPhase,
+              remoteAnalysisCacheMode.isUploadEnabled());
     } catch (MissingDepException e) {
       Preconditions.checkState(env.valuesMissing(), e.getMessage());
       return null;
@@ -526,7 +533,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           configuredTarget);
       // If this is a Skycache download build, we check if it's an alias. For remote values, the
       // package isn't present but the target data is present
-      if (remoteAnalysisCacheMode == RemoteAnalysisCacheMode.DOWNLOAD
+      if (remoteAnalysisCacheMode.isRetrievalEnabled()
           && configuredTarget instanceof AliasConfiguredTarget alias) {
         ConfiguredTargetValue configuredTargetValue =
             (ConfiguredTargetValue) env.getValue(alias.getActual().getLookupKey());
@@ -535,10 +542,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         if (configuredTargetValue == null) {
           return null;
         }
-        if (configuredTargetValue
-            instanceof RemoteConfiguredTargetValue remoteConfiguredTargetValue) {
+        if (configuredTargetValue.getTargetData() != null) {
           return new NonRuleConfiguredTargetValue(
-              configuredTarget, transitivePackages, remoteConfiguredTargetValue.getTargetData());
+              configuredTarget, transitivePackages, configuredTargetValue.getTargetData());
         }
       }
       return new NonRuleConfiguredTargetValue(configuredTarget, transitivePackages);

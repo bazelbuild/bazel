@@ -266,6 +266,18 @@ public class CoreOptionConverters {
     public String getTypeDescription() {
       return "a 'label=value' assignment";
     }
+
+    @Override
+    public boolean starlarkConvertible() {
+      return true;
+    }
+
+    @Override
+    public String reverseForStarlark(Object converted) {
+      @SuppressWarnings("unchecked") // Caller ensures the input type is correct.
+      Map.Entry<Label, String> typedValue = (Map.Entry<Label, String>) converted;
+      return String.format("%s=%s", typedValue.getKey(), typedValue.getValue());
+    }
   }
 
   /**

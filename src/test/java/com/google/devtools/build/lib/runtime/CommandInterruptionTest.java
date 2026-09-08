@@ -395,7 +395,7 @@ public final class CommandInterruptionTest {
     ServerDirectories serverDirectories =
         new ServerDirectories(
             scratch.dir("install"), scratch.dir("output"), scratch.dir("user_root"));
-    BlazeRuntime runtime =
+    BlazeRuntime.Builder runtimeBuilder =
         new BlazeRuntime.Builder()
             .setFileSystem(scratch.getFileSystem())
             .setProductName(productName)
@@ -411,8 +411,11 @@ public final class CommandInterruptionTest {
                     builder.addConfigurationOptions(CoreOptions.class);
                     builder.addConfigurationOptions(TestConfiguration.TestOptions.class);
                   }
-                })
-            .build();
+                });
+    for (var service : BAZEL_SERVICES) {
+      runtimeBuilder.addBlazeService(service);
+    }
+    BlazeRuntime runtime = runtimeBuilder.build();
     snooze = new WaitForCompletionCommand(isTestShuttingDown);
     runtime.overrideCommands(ImmutableList.of(snooze));
     dispatcher = new BlazeCommandDispatcher(runtime);

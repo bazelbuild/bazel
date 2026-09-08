@@ -26,6 +26,8 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -113,6 +115,9 @@ final class DeferredObjectCodecGenerator extends CodecGenerator {
               defineDeserializedClass(
                   encodedType, annotation.deserializedInterface().get(), instantiator))
           .addMethod(defineAdditionalEncodedClassesMethod(encodedTypeName));
+      if (annotation.internDeserialized()) {
+        classBuilder.addField(defineInternerField());
+      }
     }
   }
 
@@ -232,7 +237,12 @@ final class DeferredObjectCodecGenerator extends CodecGenerator {
             .map(generator -> generator.getParameterName().toString())
             .collect(joining(", "));
     if (annotation.deserializedInterface().isPresent()) {
-      callMethod.addStatement("return new $L($L)", DESERIALIZED_CLASS_NAME, parameters);
+      if (annotation.internDeserialized()) {
+        callMethod.addStatement(
+            "return interner.intern(new $L($L))", DESERIALIZED_CLASS_NAME, parameters);
+      } else {
+        callMethod.addStatement("return new $L($L)", DESERIALIZED_CLASS_NAME, parameters);
+      }
     } else if (instantiator.getKind().equals(ElementKind.CONSTRUCTOR)) {
       callMethod.addStatement("return new $T($L)", encodedTypeName, parameters);
     } else { // a factory method otherwise
@@ -358,6 +368,19 @@ final class DeferredObjectCodecGenerator extends CodecGenerator {
                 ParameterizedTypeName.get(
                     ClassName.get(Class.class), WildcardTypeName.subtypeOf(encodedTypeName))))
         .addStatement("return $T.of($L.class)", ImmutableSet.class, DESERIALIZED_CLASS_NAME)
+        .build();
+  }
+
+  private static FieldSpec defineInternerField() {
+    return FieldSpec.builder(
+            ParameterizedTypeName.get(
+                ClassName.get(Interner.class),
+                ClassName.get(/* packageName= */ "", DESERIALIZED_CLASS_NAME)),
+            "interner",
+            Modifier.PRIVATE,
+            Modifier.STATIC,
+            Modifier.FINAL)
+        .initializer("$T.newWeakInterner()", BlazeInterners.class)
         .build();
   }
 }

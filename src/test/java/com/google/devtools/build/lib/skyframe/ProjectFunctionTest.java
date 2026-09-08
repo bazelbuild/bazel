@@ -34,7 +34,6 @@ public class ProjectFunctionTest extends BuildViewTestCase {
 
   @Before
   public void setUp() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     writeProjectSclDefinition("test/project_proto.scl");
   }
 

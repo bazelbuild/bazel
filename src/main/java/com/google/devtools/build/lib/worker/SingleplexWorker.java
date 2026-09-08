@@ -184,9 +184,7 @@ class SingleplexWorker extends Worker {
     while (recordingInputStream.available() == 0) {
       Thread.sleep(10);
       if (!process.isAlive()) {
-        throw new IOException(
-            String.format(
-                "Worker process for %s died while waiting for response", workerKey.getMnemonic()));
+        break;
       }
     }
     // We only want to synchronize on the getResponse() call, and not in the loop above to avoid

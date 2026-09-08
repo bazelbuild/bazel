@@ -460,6 +460,36 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     }
   }
 
+  @Test
+  public void testComputeKeyPreferTargetConfigurationRunfiles() throws Exception {
+    Artifact manifest1 = getBinArtifactWithNoOwner("manifest1");
+    Artifact manifest2 = getBinArtifactWithNoOwner("manifest2");
+
+    Runfiles runfiles = new Runfiles.Builder("TESTING").addArtifact(buildFile).build();
+
+    SourceManifestAction action1 =
+        new SourceManifestAction(
+            ManifestType.SOURCE_SYMLINKS,
+            NULL_ACTION_OWNER,
+            manifest1,
+            runfiles,
+            /* repoMappingManifest= */ null,
+            /* remotableSourceManifestActions= */ false,
+            /* preferTargetConfigurationRunfiles= */ false);
+
+    SourceManifestAction action2 =
+        new SourceManifestAction(
+            ManifestType.SOURCE_SYMLINKS,
+            NULL_ACTION_OWNER,
+            manifest2,
+            runfiles,
+            /* repoMappingManifest= */ null,
+            /* remotableSourceManifestActions= */ false,
+            /* preferTargetConfigurationRunfiles= */ true);
+
+    assertThat(computeKey(action2)).isNotEqualTo(computeKey(action1));
+  }
+
   private String computeKey(SourceManifestAction action) {
     Fingerprint fp = new Fingerprint();
     action.computeKey(actionKeyContext, /* inputMetadataProvider= */ null, fp);

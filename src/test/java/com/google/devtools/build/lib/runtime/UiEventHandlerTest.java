@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.runtime.UiOptions.UseCurses;
+import com.google.devtools.build.lib.server.TerminalSizeMonitor;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -51,6 +52,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import net.starlark.java.syntax.Location;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
@@ -90,6 +92,10 @@ public class UiEventHandlerTest {
   }
 
   void createUiEventHandler(EventKind outputKind) {
+    createUiEventHandler(outputKind, TerminalSizeMonitor.NOOP);
+  }
+
+  void createUiEventHandler(EventKind outputKind, TerminalSizeMonitor terminalSizeMonitor) {
     uiOptions.setEventKindFilters(ImmutableList.of());
     output.flush();
     output.flushed.clear();
@@ -110,7 +116,8 @@ public class UiEventHandlerTest {
             new EventBus(),
             /* workspacePathFragment= */ null,
             skymeldMode,
-            /* newStatsSummary= */ false);
+            /* newStatsSummary= */ false,
+            terminalSizeMonitor);
     uiEventHandler.mainRepoMappingComputationStarted(new MainRepoMappingComputationStartingEvent());
     uiEventHandler.buildStarted(
         BuildStartingEvent.create(
@@ -236,6 +243,56 @@ public class UiEventHandlerTest {
       output.assertFlushed("hello there!\n");
     }
 
+    @Test
+    public void handleActionExecutionError_outputsErrorHeaderThenSubprocessStderr() {
+      Event errorEvent =
+          Event.error(
+              Location.fromFileLineColumn("pkg/foo/BUILD.bazel", 10, 5),
+              "Action failed: command failed");
+      Event.ProcessOutput processOutput =
+          new Event.ProcessOutput() {
+            @Override
+            public String getStdOutPath() {
+              return "stdout.log";
+            }
+
+            @Override
+            public long getStdOutSize() {
+              return 0;
+            }
+
+            @Override
+            public byte[] getStdOut() {
+              return new byte[0];
+            }
+
+            @Override
+            public String getStdErrPath() {
+              return "stderr.log";
+            }
+
+            @Override
+            public long getStdErrSize() {
+              return "compiler error: syntax error\n".length();
+            }
+
+            @Override
+            public byte[] getStdErr() {
+              return "compiler error: syntax error\n".getBytes(UTF_8);
+            }
+          };
+
+      uiEventHandler.handle(errorEvent.withProcessOutput(processOutput));
+
+      if (outputKind == EventKind.STDERR) {
+        output.assertFlushed(
+            "\033[31m\033[1mERROR: \033[0mpkg/foo/BUILD.bazel:10:5: Action failed: command"
+                + " failed"
+                + System.lineSeparator(),
+            "compiler error: syntax error\n");
+      }
+    }
+
     // This test only exercises progress bar code when testing stderr output, since we don't make
     // any assertions on stderr (where the progress bar is written) when testing stdout.
     @Test
@@ -339,6 +396,24 @@ public class UiEventHandlerTest {
     }
 
     @Test
+    public void terminalSizeChangeRefreshesProgressBarWithNewWidth() {
+      TerminalSizeMonitor terminalSizeMonitor = new TerminalSizeMonitor();
+      uiOptions.setShowProgress(true);
+      uiOptions.setUseCursesEnum(UseCurses.YES);
+      createUiEventHandler(EventKind.STDERR, terminalSizeMonitor);
+      uiEventHandler.mainRepoMappingComputationStarted(
+          new MainRepoMappingComputationStartingEvent());
+      output.flushed.clear();
+
+      terminalSizeMonitor.updateTerminalSize(/* columns= */ 12, /* rows= */ 24);
+      assertThat(output.flushed.getLast()).contains(CLEAR_PROGRESS_BAR);
+      output.flushed.clear();
+
+      terminalSizeMonitor.updateTerminalSize(/* columns= */ 80, /* rows= */ 24);
+      assertThat(countOccurrences(output.flushed.getLast(), CLEAR_PROGRESS_BAR)).isAtLeast(2);
+    }
+
+    @Test
     public void progressOff_disableProgressReturnsFalse() throws Exception {
       uiOptions.setShowProgress(false);
       createUiEventHandler();
@@ -362,6 +437,16 @@ public class UiEventHandlerTest {
         }
       };
     }
+  }
+
+  private static int countOccurrences(String haystack, String needle) {
+    int count = 0;
+    int index = 0;
+    while ((index = haystack.indexOf(needle, index)) != -1) {
+      count++;
+      index += needle.length();
+    }
+    return count;
   }
 
   private static final class FlushCollectingOutputStream extends OutputStream {

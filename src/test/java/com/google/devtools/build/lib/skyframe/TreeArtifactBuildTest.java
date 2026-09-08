@@ -1020,7 +1020,8 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   private static void verifyOutputTree(
-      TreeArtifactValue result, SpecialArtifact parent, String... expectedChildPaths) {
+      TreeArtifactValue result, SpecialArtifact parent, String... expectedChildPaths)
+      throws IOException {
     Preconditions.checkArgument(parent.isTreeArtifact(), parent);
     Set<TreeFileArtifact> expectedChildren =
         Arrays.stream(expectedChildPaths)

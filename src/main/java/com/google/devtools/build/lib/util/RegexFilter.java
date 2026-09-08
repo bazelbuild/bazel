@@ -67,7 +67,7 @@ public final class RegexFilter implements Predicate<String> {
       List<String> exclusionList = new ArrayList<>();
 
       for (String piece : input.split("(?<!\\\\),")) { // Split on ',' but not on '\,'
-        piece = piece.replace("\\,", ",");
+        piece = piece.replace("\\,", ",").replace("\\@", "@");
         boolean isExcluded = piece.startsWith("-");
         if (isExcluded || piece.startsWith("+")) {
           piece = piece.substring(1);

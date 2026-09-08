@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -46,9 +48,9 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import javax.annotation.Nullable;
 
@@ -259,7 +261,7 @@ public abstract sealed class NestedSet<E> {
       if (n < children.length) {
         children = Arrays.copyOf(children, n); // shrink to save space
       }
-      finalChildren = children;
+      finalChildren = NestedSetInterner.intern(children);
     }
 
     return shallow
@@ -421,18 +423,23 @@ public abstract sealed class NestedSet<E> {
 
   /**
    * Returns an immutable list of all unique elements of this set, similar to {@link #toList}, but
-   * will propagate an {@code InterruptedException} or {@link MissingFingerprintValueException} if
-   * one is thrown.
+   * will propagate an {@code InterruptedException}, {@link MissingFingerprintValueException}, or
+   * {@link SerializationException} if one is thrown.
    */
   public final ImmutableList<E> toListInterruptibly()
-      throws InterruptedException, MissingFingerprintValueException {
+      throws InterruptedException, MissingFingerprintValueException, SerializationException {
     Object actualChildren;
-    if (children instanceof ListenableFuture) {
-      actualChildren =
-          MoreFutures.waitForFutureAndGetWithCheckedException(
-              (ListenableFuture<Object[]>) children,
-              /* cancelOnInterrupt= */ false,
-              MissingFingerprintValueException.class);
+    if (children instanceof ListenableFuture<?> future) {
+      try {
+        actualChildren =
+            MoreFutures.waitForFutureAndGetWithCheckedException(
+                future,
+                /* cancelOnInterrupt= */ false,
+                MissingFingerprintValueException.class,
+                SerializationException.class);
+      } catch (CancellationException e) {
+        throw new MissingFingerprintValueException(e);
+      }
     } else {
       actualChildren = children;
     }
@@ -441,28 +448,37 @@ public abstract sealed class NestedSet<E> {
 
   /**
    * Returns an immutable list of all unique elements of this set, similar to {@link #toList}, but
-   * will propagate an {@code InterruptedException} if one is thrown and will throw {@link
-   * TimeoutException} if this set is deserializing and does not become ready within the given
-   * timeout.
+   * supports specifying a timeout for deserialization futures and propagates checked exceptions
+   * associated with deserialization.
    *
-   * <p>Additionally, throws {@link MissingFingerprintValueException} if this nested set {@link
-   * #isFromStorage} and could not be retrieved.
+   * <p>The timeout only applies to blocking for the deserialization future to become available. The
+   * actual list transformation is untimed.
    *
-   * <p>Note that the timeout only applies to blocking for the deserialization future to become
-   * available. The actual list transformation is untimed.
+   * <p>Checked exceptions are only possible if this nested set {@link #isFromStorage}.
+   *
+   * @throws InterruptedException if interrupted while blocking for a deserialization future
+   * @throws TimeoutException if this set is deserializing and does not become ready within the
+   *     given timeout
+   * @throws MissingFingerprintValueException if this set could not be retrieved from storage
+   * @throws SerializationException if one is thrown while deserializing this set
    */
   public final ImmutableList<E> toListWithTimeout(Duration timeout)
-      throws InterruptedException, TimeoutException, MissingFingerprintValueException {
+      throws InterruptedException,
+          TimeoutException,
+          MissingFingerprintValueException,
+          SerializationException {
     Object actualChildren;
-    if (children instanceof ListenableFuture) {
+    if (children instanceof ListenableFuture<?> future) {
       try {
-        actualChildren =
-            ((ListenableFuture<Object[]>) children).get(timeout.toNanos(), TimeUnit.NANOSECONDS);
+        actualChildren = future.get(timeout.toNanos(), NANOSECONDS);
       } catch (ExecutionException e) {
         throwIfInstanceOf(e.getCause(), InterruptedException.class);
         throwIfInstanceOf(e.getCause(), MissingFingerprintValueException.class);
+        throwIfInstanceOf(e.getCause(), SerializationException.class);
         throwIfUnchecked(e.getCause());
         throw new IllegalStateException(e);
+      } catch (CancellationException e) {
+        throw new MissingFingerprintValueException(e);
       }
     } else {
       actualChildren = children;
@@ -678,14 +694,18 @@ public abstract sealed class NestedSet<E> {
     if (nsuccs <= maxDegree) {
       return this;
     }
-    Object[][] pieces = new Object[ceildiv(nsuccs, maxDegree)][];
+    Object[] pieces = new Object[ceildiv(nsuccs, maxDegree)];
     for (int i = 0; i < pieces.length; i++) {
-      int max = Math.min((i + 1) * maxDegree, succs.length);
-      pieces[i] = Arrays.copyOfRange(succs, i * maxDegree, max);
+      int start = i * maxDegree;
+      int end = Math.min(start + maxDegree, succs.length);
+      if (end - start == 1) {
+        // We cannot have non-leaves of size 1, so inline the singleton.
+        pieces[i] = succs[start];
+      } else {
+        pieces[i] = Arrays.copyOfRange(succs, start, end);
+      }
     }
     int depth = getApproxDepth() + 1; // may be an overapproximation
-
-    // TODO(adonovan): (preexisting): if the last piece is a singleton, it must be inlined.
 
     // Each piece is now smaller than maxDegree, but there may be many pieces.
     // Recursively split pieces. (The recursion affects only the root; it

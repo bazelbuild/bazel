@@ -42,6 +42,7 @@
 
 #include <ctime>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 
 #ifndef MS_REC
@@ -334,10 +335,28 @@ static void MountFilesystems() {
   }
 }
 
+static std::string_view GetRelativePath(std::string_view path) {
+  if (opt.hermetic) {
+    if (path == opt.sandbox_root) {
+      return "/";
+    }
+    std::string_view root = opt.sandbox_root;
+    if (path.length() > root.length() && path[root.length()] == '/' &&
+        path.substr(0, root.length()) == root) {
+      return path.substr(root.length());
+    }
+  }
+  return path;
+}
+
 // We later remount everything read-only, except the paths for which this method
 // returns true.
-static bool ShouldBeWritable(const std::string& mnt_dir) {
-  if (mnt_dir == opt.working_dir) {
+static bool ShouldBeWritable(std::string_view mnt_dir) {
+  if (opt.hermetic && mnt_dir == "/proc") {
+    return true;
+  }
+
+  if (mnt_dir == GetRelativePath(opt.working_dir)) {
     return true;
   }
 
@@ -346,18 +365,77 @@ static bool ShouldBeWritable(const std::string& mnt_dir) {
   }
 
   for (const std::string& writable_file : opt.writable_files) {
-    if (mnt_dir == writable_file) {
+    if (mnt_dir == GetRelativePath(writable_file)) {
       return true;
     }
   }
 
   for (const std::string& tmpfs_dir : opt.tmpfs_dirs) {
-    if (mnt_dir == tmpfs_dir) {
+    if (mnt_dir == GetRelativePath(tmpfs_dir)) {
       return true;
     }
   }
 
   return false;
+}
+
+static int RemountWithBusyRetry(const std::string& target, int mount_flags) {
+  for (int i = 0; i < 5; ++i) {
+    if (mount(nullptr, target.c_str(), nullptr, mount_flags, nullptr) == 0) {
+      return 0;
+    }
+    if (errno != EBUSY) {
+      break;
+    }
+    struct timespec delay = {0, 100 * 1000 * 1000};  // 100 milliseconds
+    nanosleep(&delay, nullptr);
+  }
+  return -1;
+}
+
+static void RemountReadonly(const std::string& target) {
+  FILE* mounts = setmntent("/proc/self/mounts", "r");
+  if (mounts == nullptr) {
+    DIE("setmntent");
+  }
+
+  struct mntent* ent;
+  bool found = false;
+  int mount_flags = MS_BIND | MS_REMOUNT | MS_RDONLY;
+
+  while ((ent = getmntent(mounts)) != nullptr) {
+    if (strcmp(ent->mnt_dir, target.c_str()) == 0) {
+      found = true;
+      if (hasmntopt(ent, "nodev") != nullptr) {
+        mount_flags |= MS_NODEV;
+      }
+      if (hasmntopt(ent, "noexec") != nullptr) {
+        mount_flags |= MS_NOEXEC;
+      }
+      if (hasmntopt(ent, "nosuid") != nullptr) {
+        mount_flags |= MS_NOSUID;
+      }
+      if (hasmntopt(ent, "noatime") != nullptr) {
+        mount_flags |= MS_NOATIME;
+      }
+      if (hasmntopt(ent, "nodiratime") != nullptr) {
+        mount_flags |= MS_NODIRATIME;
+      }
+      if (hasmntopt(ent, "relatime") != nullptr) {
+        mount_flags |= MS_RELATIME;
+      }
+      break;
+    }
+  }
+  endmntent(mounts);
+
+  if (!found) {
+    DIE("Could not find mount entry for %s", target.c_str());
+  }
+
+  if (RemountWithBusyRetry(target, mount_flags) < 0) {
+    DIE("remount sandbox_root read-only failed");
+  }
 }
 
 // Makes the whole filesystem read-only, except for the paths for which
@@ -409,15 +487,7 @@ static void MakeFilesystemMostlyReadOnly() {
     // active mounts (especially "/") it can sometimes hit. Retry on EBUSY.
     // This behavior mimics runc's handling of EBUSY during readonly remounts:
     // https://github.com/opencontainers/runc/blob/eb7eaf19b6eec5d1143b257057899e4a7b738c81/libcontainer/rootfs_linux.go#L1305-L1309
-    int rc;
-    for (int i = 0; i < 5; ++i) {
-      rc = mount(nullptr, ent->mnt_dir, nullptr, mountFlags, nullptr);
-      if (rc == 0 || errno != EBUSY || i == 4) break;
-      struct timespec delay;
-      delay.tv_sec = 0;
-      delay.tv_nsec = 100 * 1000 * 1000;  // 100 milliseconds
-      nanosleep(&delay, nullptr);
-    }
+    int rc = RemountWithBusyRetry(ent->mnt_dir, mountFlags);
     if (rc < 0) {
       // If we get EACCES or EPERM, this might be a mount-point for which we
       // don't have read access. Not much we can do about this, but it also
@@ -681,13 +751,12 @@ static void MountAllMounts() {
     }
   }
 
-  // Make sure that the working directory is writable (unlike most of the rest
-  // of the file system, which is read-only by default). The easiest way to do
-  // this is by bind-mounting it upon itself.
-  if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr, MS_BIND,
-            nullptr) < 0) {
-    DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", opt.working_dir.c_str(),
-        opt.working_dir.c_str());
+  if (!opt.hermetic) {
+    if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr,
+              MS_BIND, nullptr) < 0) {
+      DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", opt.working_dir.c_str(),
+          opt.working_dir.c_str());
+    }
   }
 
   for (int i = 0; i < (signed)opt.bind_mount_sources.size(); i++) {
@@ -789,6 +858,8 @@ int Pid1Main(void* args) {
     MountProcAndSys();
     MountAllMounts();
     ChangeRoot();
+    MakeFilesystemMostlyReadOnly();
+    RemountReadonly("/");
   } else {
     MountFilesystems();
     MakeFilesystemMostlyReadOnly();

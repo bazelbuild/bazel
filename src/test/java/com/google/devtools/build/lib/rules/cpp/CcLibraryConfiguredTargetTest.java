@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
@@ -229,7 +228,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
         String.format(
             "--experimental_override_name_platform_in_output_dir=%s=k8",
             TestConstants.PLATFORM_LABEL));
@@ -278,7 +276,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
         String.format(
             "--experimental_override_name_platform_in_output_dir=%s=k8",
             TestConstants.PLATFORM_LABEL));
@@ -1231,9 +1228,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         """);
     ConfiguredTarget target = getConfiguredTarget("//foo");
     CppCompileAction action = getCppCompileAction(target);
-    String genfilesDir =
-        getConfiguration(target).getGenfilesFragment(RepositoryName.MAIN).toString();
-    String binDir = getConfiguration(target).getBinFragment(RepositoryName.MAIN).toString();
+    String genfilesDir = getConfiguration(target).getGenfilesFragment().toString();
+    String binDir = getConfiguration(target).getBinFragment().toString();
     // Local include paths come first.
     assertContainsSublist(
         action.getCompilerOptions(),
@@ -1366,7 +1362,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-Id/../../somewhere'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), false);
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()
@@ -1384,7 +1380,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-I/somewhere'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), false);
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()
@@ -1402,7 +1398,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-isystem../system'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), false);
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()
@@ -1420,7 +1416,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-isystem/system'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), false);
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()
@@ -1769,36 +1765,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         )
         """);
     checkError("//foo", "Trying to link twice");
-  }
-
-  @Test
-  public void testImplicitOutputsWhitelistOnWhitelist() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
-    scratch.overwriteFile(
-        "tools/build_defs/cc/whitelists/cc_lib_implicit_outputs/BUILD",
-        """
-        package_group(
-            name = 'allowed_cc_lib_implicit_outputs',
-            packages = ['//bar'])
-        """);
-
-    scratch.file(
-        "bar/BUILD",
-        """
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        filegroup(
-            name = 'allowed',
-            srcs = [':liballowed_cc_lib.a'],
-        )
-        cc_library(
-            name = 'allowed_cc_lib',
-            srcs = ['allowed_cc_lib.cc'],
-        )
-        """);
-    getConfiguredTarget("//bar:allowed");
-    assertNoEvents();
   }
 
   private void prepareCustomTransition() throws Exception {
@@ -2330,7 +2296,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
         "--compilation_mode=fastbuild",
-        "--experimental_platform_in_output_dir",
         String.format(
             "--experimental_override_name_platform_in_output_dir=%s=k8",
             TestConstants.PLATFORM_LABEL));
@@ -2390,7 +2355,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
         "--compilation_mode=fastbuild",
-        "--experimental_platform_in_output_dir",
         String.format(
             "--experimental_override_name_platform_in_output_dir=%s=k8",
             TestConstants.PLATFORM_LABEL));

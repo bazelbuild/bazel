@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -20,6 +22,7 @@ import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
@@ -117,6 +120,11 @@ public final class WorkspaceBuilder {
     SingleFileSystemSyscallCache singleFsSyscallCache =
         new SingleFileSystemSyscallCache(syscallCache, runtime.getFileSystem());
 
+    CompressionService compressionService =
+        checkNotNull(
+            runtime.getBlazeService(CompressionService.class),
+            "expected CompressionService to be available");
+
     SkyframeExecutor skyframeExecutor =
         skyframeExecutorFactory.create(
             packageFactory,
@@ -132,6 +140,7 @@ public final class WorkspaceBuilder {
             skyKeyStateReceiver == null
                 ? SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE
                 : skyKeyStateReceiver,
+            compressionService,
             runtime.getBugReporter());
     return new BlazeWorkspace(
         runtime,

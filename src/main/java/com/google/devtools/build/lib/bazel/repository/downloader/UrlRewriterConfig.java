@@ -168,6 +168,10 @@ class UrlRewriterConfig {
                       + line,
                   location);
             }
+            if (!UrlRewriter.isValidUrlEncodeSyntax(parts.get(2))) {
+              throw new UrlRewriterParseException(
+                  "Invalid urlencode syntax in `rewrite` replacement: " + parts.get(2), location);
+            }
             try {
               rewrites.put(Pattern.compile(parts.get(1)), parts.get(2));
             } catch (PatternSyntaxException e) {

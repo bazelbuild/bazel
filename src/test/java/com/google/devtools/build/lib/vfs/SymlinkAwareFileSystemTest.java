@@ -154,7 +154,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
   //
 
   @Test
-  public void testCreateDirectoryWhereDanglingSymlinkAlreadyExists() {
+  public void testCreateDirectoryWhereDanglingSymlinkAlreadyExists() throws Exception {
     IOException e = assertThrows(IOException.class, () -> xDanglingLink.createDirectory());
     assertThat(e).hasMessageThat().isEqualTo(xDanglingLink + " (File exists)");
     assertThat(xDanglingLink.isSymbolicLink()).isTrue(); // still a symbolic link
@@ -162,7 +162,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
   }
 
   @Test
-  public void testCreateDirectoryWhereSymlinkAlreadyExists() {
+  public void testCreateDirectoryWhereSymlinkAlreadyExists() throws Exception {
     IOException e = assertThrows(IOException.class, () -> xLinkToDirectory.createDirectory());
     assertThat(e).hasMessageThat().isEqualTo(xLinkToDirectory + " (File exists)");
     assertThat(xLinkToDirectory.isSymbolicLink()).isTrue(); // still a symbolic link
@@ -383,7 +383,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
   }
 
   @Test
-  public void testCreateSymbolicLinkWhereDirectoryAlreadyExists() {
+  public void testCreateSymbolicLinkWhereDirectoryAlreadyExists() throws Exception {
     IOException e =
         assertThrows(IOException.class, () -> createSymbolicLink(xEmptyDirectory, xFile));
     assertThat(e).hasMessageThat().endsWith(xEmptyDirectory + " (File exists)");
@@ -391,7 +391,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
   }
 
   @Test
-  public void testCreateSymbolicLinkWhereFileAlreadyExists() {
+  public void testCreateSymbolicLinkWhereFileAlreadyExists() throws Exception {
     IOException e =
         assertThrows(IOException.class, () -> createSymbolicLink(xFile, xEmptyDirectory));
     assertThat(e).hasMessageThat().endsWith(xFile + " (File exists)");
@@ -399,7 +399,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
   }
 
   @Test
-  public void testCreateSymbolicLinkWhereDanglingSymlinkAlreadyExists() {
+  public void testCreateSymbolicLinkWhereDanglingSymlinkAlreadyExists() throws Exception {
     IOException e = assertThrows(IOException.class, () -> createSymbolicLink(xDanglingLink, xFile));
     assertThat(e).hasMessageThat().endsWith(xDanglingLink + " (File exists)");
     assertThat(xDanglingLink.isSymbolicLink()).isTrue(); // still a symbolic link
@@ -407,7 +407,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
   }
 
   @Test
-  public void testCreateSymbolicLinkWhereSymlinkAlreadyExists() {
+  public void testCreateSymbolicLinkWhereSymlinkAlreadyExists() throws Exception {
     IOException e =
         assertThrows(IOException.class, () -> createSymbolicLink(xLinkToDirectory, xNothing));
     assertThat(e).hasMessageThat().endsWith(xLinkToDirectory + " (File exists)");

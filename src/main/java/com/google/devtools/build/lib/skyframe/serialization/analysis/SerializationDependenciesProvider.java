@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
@@ -40,7 +41,11 @@ public interface SerializationDependenciesProvider {
    */
   ObjectCodecs getObjectCodecs() throws InterruptedException;
 
+  /** Returns the {@link CompressionService} implementation. */
+  CompressionService getCompressionService();
+
   /** Returns the {@link FingerprintValueService} implementation. */
+  @Nullable
   FingerprintValueService getFingerprintValueService() throws InterruptedException;
 
   String getSerializedFrontierProfile();
@@ -53,6 +58,9 @@ public interface SerializationDependenciesProvider {
 
   @Nullable
   RemoteAnalysisMetadataWriter getMetadataWriter() throws InterruptedException;
+
+  @Nullable
+  FileOpNodeMemoizingLookup getFileOpNodes() throws InterruptedException;
 
   void waitForUploadCompletion() throws InterruptedException, ExecutionException;
 

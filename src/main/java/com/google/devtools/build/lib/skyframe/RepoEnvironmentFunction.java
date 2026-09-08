@@ -27,19 +27,33 @@ import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
  * Skyframe function that provides the effective value for an environment variable in the context of
  * repository rules and module extensions. This will be the value from the repo environment as
  * provided by {@link com.google.devtools.build.lib.runtime.CommandEnvironment#getRepoEnv()}.
+ *
+ * <p>Operates analogously to {@link ClientEnvironmentFunction}: the effective environment is read
+ * from an {@link AtomicReference} whose individual entries are injected into Skyframe per-variable
+ * (see {@code SkyframeExecutor#handleRepositoryEnvironmentChanges}). This is crucial for
+ * incremental efficiency: changing a single variable must not invalidate consumers of the others.
+ * Reading the whole environment as one Skyframe node instead would result in widespread
+ * invalidation of all dependents whenever any variable changes. Crucially, change pruning is not
+ * fully effective here as it doesn't resurrect nodes that aren't part of the current evaluation,
+ * but every evaluation marks all transitive dependents as dirty.
  */
 public final class RepoEnvironmentFunction implements SkyFunction {
+  private final AtomicReference<Map<String, String>> repoEnv;
+
+  public RepoEnvironmentFunction(AtomicReference<Map<String, String>> repoEnv) {
+    this.repoEnv = repoEnv;
+  }
+
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-    Map<String, String> repoEnv = PrecomputedValue.REPO_ENV.get(env);
-    String key = (String) skyKey.argument();
-    return new EnvironmentVariableValue(repoEnv.get(key));
+  public SkyValue compute(SkyKey skyKey, Environment env) {
+    return new EnvironmentVariableValue(repoEnv.get().get((String) skyKey.argument()));
   }
 
   /** Returns the SkyKey to invoke this function for the environment variable {@code variable}. */

@@ -56,13 +56,16 @@ void portable_start_memory_pressure_monitoring() {
         DISPATCH_MEMORYPRESSURE_NORMAL | DISPATCH_MEMORYPRESSURE_WARN |
             DISPATCH_MEMORYPRESSURE_CRITICAL,
         queue);
-    BAZEL_CHECK_NE(source, nullptr);
-    dispatch_source_set_event_handler(source, ^{
-      dispatch_source_memorypressure_flags_t pressure_level =
-          dispatch_source_get_data(source);
-      call_memory_pressure_callback(pressure_level);
-    });
-    dispatch_resume(source);
+    if (source != nullptr) {
+      dispatch_source_set_event_handler(source, ^{
+        dispatch_source_memorypressure_flags_t pressure_level =
+            dispatch_source_get_data(source);
+        call_memory_pressure_callback(pressure_level);
+      });
+      dispatch_resume(source);
+    } else {
+      BAZEL_LOG(ERROR) << "dispatch_source_create for memory pressure failed";
+    }
     // These are registered solely so we can test the system from end-to-end.
     // Using the Apple memory_pressure requires admin access.
     int testToken;
@@ -72,7 +75,8 @@ void portable_start_memory_pressure_monitoring() {
           uint64_t state;
           uint32_t status = notify_get_state(token, &state);
           if (status != NOTIFY_STATUS_OK) {
-            BAZEL_LOG(FATAL) << "notify_get_state failed: " << status;
+            BAZEL_LOG(ERROR) << "notify_get_state failed: " << status;
+            return;
           }
           dispatch_source_memorypressure_flags_t pressure_level;
           switch (state) {
@@ -86,14 +90,17 @@ void portable_start_memory_pressure_monitoring() {
               pressure_level = DISPATCH_MEMORYPRESSURE_CRITICAL;
               break;
             default:
-              BAZEL_LOG(FATAL)
-                  << "unknown memory pressure level: " << state;
+              BAZEL_LOG(ERROR) << "unknown memory pressure level: " << state;
               pressure_level = -1;
               break;
           }
-          call_memory_pressure_callback(pressure_level);
+          if (pressure_level != -1) {
+            call_memory_pressure_callback(pressure_level);
+          }
         });
-    BAZEL_CHECK_EQ(status, NOTIFY_STATUS_OK);
+    if (status != NOTIFY_STATUS_OK) {
+      BAZEL_LOG(ERROR) << "notify_register_dispatch failed: " << status;
+    }
   });
 }
 

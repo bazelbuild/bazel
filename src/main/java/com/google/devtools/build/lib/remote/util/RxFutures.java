@@ -92,10 +92,11 @@ public class RxFutures {
                  *   1. The ListenableFuture itself is cancelled.
                  *   2. Completable is disposed by downstream.
                  *
-                 * This check is used to prevent propagating CancellationException to downstream
-                 * when it has already disposed the Completable.
+                 * In the second case, the CancellationException must not be propagated to
+                 * downstream.
                  */
-                if (throwable instanceof CancellationException && emitter.isDisposed()) {
+                if (throwable instanceof CancellationException) {
+                  emitter.tryOnError(throwable);
                   return;
                 }
 
@@ -162,10 +163,11 @@ public class RxFutures {
                  *   1. The ListenableFuture itself is cancelled.
                  *   2. Single is disposed by downstream.
                  *
-                 * This check is used to prevent propagating CancellationException to downstream
-                 * when it has already disposed the Single.
+                 * In the second case, the CancellationException must not be propagated to
+                 * downstream.
                  */
-                if (throwable instanceof CancellationException && emitter.isDisposed()) {
+                if (throwable instanceof CancellationException) {
+                  emitter.tryOnError(throwable);
                   return;
                 }
 
@@ -262,5 +264,4 @@ public class RxFutures {
         });
     return future;
   }
-
 }

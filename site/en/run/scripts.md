@@ -56,7 +56,7 @@ Bazel execution can result in following exit codes:
 -   `32` - External Environment Failure not on this machine.
 
 -   `33` - Bazel ran out of memory and crashed. You need to modify your command line.
--   `34` - Reserved for Google-internal use.
+-   `34` - Remote execution, remote cache, or Build Event Service error.
 -   `35` - Reserved for Google-internal use.
 -   `36` - Local Environmental Issue, suspected permanent.
 -   `37` - Unhandled Exception / Internal Bazel Error.
@@ -65,6 +65,7 @@ Bazel execution can result in following exit codes:
 -   `41-44` - Reserved for Google-internal use.
 -   `45` - Persistent error publishing results to the Build Event Service.
 -   `47` - Reserved for Google-internal use.
+-   `48` - External dependency error.
 -   `49` - Reserved for Google-internal use.
 
 **Return codes for commands `bazel build`, `bazel test`:**

@@ -176,7 +176,7 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
       //  - If old deserialized -> new computed, we prefer the computed value since we do have
       //    proper deps and can therefore rely on the more precise classic bottom-up invalidation.
       Version lastChanged = version.lastChanged();
-      version = NodeVersion.of(lastChanged, graphVersion);
+      version = NodeVersionGetter.get(lastChanged, graphVersion);
       SkyValue oldValue = dirtyBuildingState.getLastBuildValue();
       this.value =
           value instanceof DeserializedSkyValue != oldValue instanceof DeserializedSkyValue
@@ -379,6 +379,32 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   @Override
   public Version getVersion() {
     return version.lastChanged();
+  }
+
+  /**
+   * Returns this node's direct deps from the last evaluation if the node may be resurrected by
+   * change pruning; otherwise returns {@code null}. The node may be kept iff every returned dep is
+   * still present and was not changed more recently than {@link #lastEvaluatedVersion}.
+   */
+  @Nullable
+  final Iterable<SkyKey> lastBuildDepsIfChangePrunable() {
+    var localDirtyBuildingState = dirtyBuildingState;
+    if (localDirtyBuildingState == null
+        || !localDirtyBuildingState.isIncremental()
+        || isChanged()) {
+      return null;
+    }
+    try {
+      return localDirtyBuildingState.getLastBuildDirectDeps().getAllElementsAsIterable();
+    } catch (InterruptedException e) {
+      // An incremental dirty state returns its stored deps without blocking.
+      throw new IllegalStateException(e);
+    }
+  }
+
+  /** Returns the version at which this node was last evaluated; see {@link NodeVersion}. */
+  final Version lastEvaluatedVersion() {
+    return version.lastEvaluated();
   }
 
   @Override

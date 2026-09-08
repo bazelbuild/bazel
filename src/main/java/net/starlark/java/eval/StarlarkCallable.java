@@ -30,6 +30,11 @@ import net.starlark.java.syntax.Location;
  */
 public interface StarlarkCallable extends StarlarkValue {
 
+  @Override
+  default boolean isAcyclic() {
+    return true;
+  }
+
   /**
    * Defines the "convenient" implementation of function calling for a callable value.
    *

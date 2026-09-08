@@ -35,14 +35,18 @@ void portable_start_system_load_advisory_monitoring() {
     int status = notify_register_dispatch(kIOSystemLoadAdvisoryNotifyName,
                                           &gSystemLoadAdvisoryNotifyToken,
                                           queue, handler);
-    BAZEL_CHECK_EQ(status, NOTIFY_STATUS_OK);
+    if (status != NOTIFY_STATUS_OK) {
+      BAZEL_LOG(ERROR) << "notify_register_dispatch failed: " << status;
+    }
 
     // This is registered solely so we can test the system from end-to-end.
     // Using the Apple notification requires admin access.
     int testToken;
     status = notify_register_dispatch(
         "com.google.bazel.test.SystemLoadAdvisory", &testToken, queue, handler);
-    BAZEL_CHECK_EQ(status, NOTIFY_STATUS_OK);
+    if (status != NOTIFY_STATUS_OK) {
+      BAZEL_LOG(ERROR) << "notify_register_dispatch failed: " << status;
+    }
   });
 }
 

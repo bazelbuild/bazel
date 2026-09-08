@@ -27,8 +27,8 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.PackagePathCodecDependencies;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
@@ -125,6 +125,24 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
    * nothing.
    */
   public void setContentsProxy(FileContentsProxy proxy) {}
+
+  /**
+   * Returns whether the remote file this metadata refers to was materialized in the local
+   * filesystem as a requested top-level output without its generating action being reexecuted.
+   *
+   * <p>Such a file requires special handling in incremental builds: since the metadata tracked for
+   * it remains remote, a local deletion of the file can only be detected by consulting this flag.
+   */
+  public boolean wasMaterializedAsToplevelOutput() {
+    return false;
+  }
+
+  /**
+   * Records whether the remote file this metadata refers to was materialized in the local
+   * filesystem as a requested top-level output without its generating action being reexecuted. If
+   * this metadata does not support recording this, does nothing.
+   */
+  public void setMaterializedAsToplevelOutput(boolean materializedAsToplevelOutput) {}
 
   /**
    * Returns whether this metadata describes an in-memory output (e.g. a file kept in memory by
@@ -354,7 +372,9 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
       return new DirectoryArtifactValue(path.getLastModifiedTime());
     }
     if (digest == null) {
-      digest = DigestUtils.getDigestWithManualFallback(path, xattrProvider);
+      digest =
+          DigestUtils.getDigestWithManualFallback(
+              path, xattrProvider, proxy != null ? proxy.toMetadataOnlyFileStatus(size) : null);
     }
     checkState(digest != null, path);
     return createForNormalFile(digest, proxy, size);
@@ -425,12 +445,12 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   }
 
   /**
-   * Creates a FileArtifactValue used as a 'proxy' input for a {@link RunfilesArtifactValue}. These
-   * are used in {@link ActionCacheChecker}.
+   * Creates a FileArtifactValue used as a 'proxy' input for a {@link RunfilesArtifactValue} and
+   * {@link FilesetOutputTree}. These are used in {@link ActionCacheChecker}.
    */
-  public static FileArtifactValue createRunfilesProxy(byte[] digest) {
+  public static FileArtifactValue createSymlinkTreeProxy(byte[] digest) {
     checkNotNull(digest);
-    return new RunfilesProxyArtifactValue(digest);
+    return new SymlinkTreeProxyArtifactValue(digest);
   }
 
   private static String bytesToString(@Nullable byte[] bytes) {
@@ -662,11 +682,11 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     }
   }
 
-  /** Proxy metadata for a runfiles tree. */
-  private static final class RunfilesProxyArtifactValue extends FileArtifactValue {
+  /** Proxy metadata for a runfiles tree or fileset. */
+  private static final class SymlinkTreeProxyArtifactValue extends FileArtifactValue {
     private final byte[] digest;
 
-    private RunfilesProxyArtifactValue(byte[] digest) {
+    private SymlinkTreeProxyArtifactValue(byte[] digest) {
       this.digest = digest;
     }
 
@@ -693,7 +713,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     @Override
     public long getModifiedTime() {
       throw new UnsupportedOperationException(
-          "runfile proxy's mtime should never be called. (" + this + ")");
+          "symlink tree proxy's mtime should never be called. (" + this + ")");
     }
 
     @Override
@@ -701,7 +721,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
       if (this == o) {
         return true;
       }
-      if (!(o instanceof RunfilesProxyArtifactValue that)) {
+      if (!(o instanceof SymlinkTreeProxyArtifactValue that)) {
         return false;
       }
       return Arrays.equals(digest, that.digest);
@@ -807,6 +827,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
       extends RemoteFileArtifactValue {
     private long expirationTime;
     @Nullable private FileContentsProxy proxy;
+    private boolean materializedAsToplevelOutput;
     private final boolean inMemoryOutput;
 
     private RemoteFileArtifactValueWithMaterializationData(
@@ -862,6 +883,16 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     }
 
     @Override
+    public boolean wasMaterializedAsToplevelOutput() {
+      return materializedAsToplevelOutput;
+    }
+
+    @Override
+    public void setMaterializedAsToplevelOutput(boolean materializedAsToplevelOutput) {
+      this.materializedAsToplevelOutput = materializedAsToplevelOutput;
+    }
+
+    @Override
     public boolean isInMemoryOutput() {
       return inMemoryOutput;
     }
@@ -893,6 +924,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
           .add("locationIndex", getLocationIndex())
           .add("expirationTime", fromEpochMilli(expirationTime))
           .add("proxy", proxy)
+          .add("materializedAsToplevelOutput", materializedAsToplevelOutput)
           .add("inMemoryOutput", inMemoryOutput)
           .toString();
     }
@@ -952,6 +984,16 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     @Override
     public void setContentsProxy(FileContentsProxy proxy) {
       delegate.setContentsProxy(proxy);
+    }
+
+    @Override
+    public boolean wasMaterializedAsToplevelOutput() {
+      return delegate.wasMaterializedAsToplevelOutput();
+    }
+
+    @Override
+    public void setMaterializedAsToplevelOutput(boolean materializedAsToplevelOutput) {
+      delegate.setMaterializedAsToplevelOutput(materializedAsToplevelOutput);
     }
 
     @Override
@@ -1047,10 +1089,10 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
   // TODO: b/329460099 - This would not be necessary if we could store a source root relative path.
   @Keep // Used reflectively.
   private static final class ResolvedSymlinkArtifactValueCodec
-      implements ObjectCodec<ResolvedSymlinkArtifactValue> {
+      extends DeferredObjectCodec<ResolvedSymlinkArtifactValue> {
 
     @Override
-    public Class<? extends ResolvedSymlinkArtifactValue> getEncodedClass() {
+    public Class<ResolvedSymlinkArtifactValue> getEncodedClass() {
       return ResolvedSymlinkArtifactValue.class;
     }
 
@@ -1058,8 +1100,6 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     public void serialize(
         SerializationContext context, ResolvedSymlinkArtifactValue obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      context.serialize(obj.delegate, codedOut);
-
       PathFragment resolvedPath = obj.resolvedPath;
       ImmutableList<Root> roots =
           context.getDependency(PackagePathCodecDependencies.class).getPackageRoots();
@@ -1069,6 +1109,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
           PathFragment relativePath = root.relativize(resolvedPath);
           context.serializeLeaf(relativePath, pathFragmentCodec(), codedOut);
           codedOut.write((byte) i);
+          context.serialize(obj.delegate, codedOut);
           return;
         }
       }
@@ -1076,10 +1117,9 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     }
 
     @Override
-    public ResolvedSymlinkArtifactValue deserialize(
-        DeserializationContext context, CodedInputStream codedIn)
+    public DeferredValue<ResolvedSymlinkArtifactValue> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      FileArtifactValue delegate = context.deserialize(codedIn);
       PathFragment relativePath = context.deserializeLeaf(codedIn, pathFragmentCodec());
       int rootIndex = codedIn.readRawByte();
       Root root =
@@ -1088,7 +1128,28 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
               .getPackageRoots()
               .get(rootIndex);
       PathFragment resolvedPath = root.getRelative(relativePath).asFragment();
-      return new ResolvedSymlinkArtifactValue(delegate, resolvedPath);
+
+      Builder builder = new Builder(resolvedPath);
+      context.deserialize(codedIn, builder, Builder::setDelegate);
+      return builder;
+    }
+
+    private static final class Builder implements DeferredValue<ResolvedSymlinkArtifactValue> {
+      private final PathFragment resolvedPath;
+      private FileArtifactValue delegate;
+
+      private Builder(PathFragment resolvedPath) {
+        this.resolvedPath = resolvedPath;
+      }
+
+      private static void setDelegate(Builder builder, Object obj) {
+        builder.delegate = (FileArtifactValue) obj;
+      }
+
+      @Override
+      public ResolvedSymlinkArtifactValue call() {
+        return new ResolvedSymlinkArtifactValue(delegate, resolvedPath);
+      }
     }
   }
 
@@ -1302,6 +1363,16 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     @Override
     public void setContentsProxy(FileContentsProxy proxy) {
       delegate.setContentsProxy(proxy);
+    }
+
+    @Override
+    public boolean wasMaterializedAsToplevelOutput() {
+      return delegate.wasMaterializedAsToplevelOutput();
+    }
+
+    @Override
+    public void setMaterializedAsToplevelOutput(boolean materializedAsToplevelOutput) {
+      delegate.setMaterializedAsToplevelOutput(materializedAsToplevelOutput);
     }
 
     @Override

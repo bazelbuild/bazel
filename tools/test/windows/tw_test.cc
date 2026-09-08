@@ -418,6 +418,7 @@ TEST_F(TestWrapperWindowsTest, TestCreateUndeclaredOutputsAnnotations) {
   EXPECT_TRUE(CreateDirectoryW((root + L"\\foo").c_str(), nullptr));
   EXPECT_TRUE(CreateDirectoryW((root + L"\\bar.part").c_str(), nullptr));
   EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\a.part", "Hello a"));
+  EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\a.pb", "Proto a"));
   EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\b.txt", "Hello b"));
   EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\c.part", "Hello c"));
   EXPECT_TRUE(blaze_util::CreateDummyFile(root + L"\\foo\\d.part", "Hello d"));
@@ -473,6 +474,31 @@ TEST_F(TestWrapperWindowsTest, TestTee) {
   EXPECT_EQ(std::string(content, read), "foo");
 
   write1 = INVALID_HANDLE_VALUE;  // closes handle so the Tee thread can exit
+}
+
+TEST_F(TestWrapperWindowsTest, TestXmlWriterTestcaseHasClassname) {
+  std::wstring tmpdir;
+  GET_TEST_TMPDIR(&tmpdir);
+  std::wstring test_log = tmpdir + L"\\test.log";
+  std::wstring test_xml = tmpdir + L"\\test.xml";
+  ASSERT_TRUE(blaze_util::CreateDummyFile(test_log, ""));
+
+  wchar_t program[] = L"xml_writer";
+  wchar_t duration[] = L"1";
+  wchar_t exit_code[] = L"0";
+  wchar_t* argv[] = {program, &test_log[0], &test_xml[0], duration, exit_code};
+  ASSERT_EQ(bazel::tools::test_wrapper::XmlWriterMain(5, argv), 0);
+
+  HANDLE h = FopenRead(test_xml);
+  ASSERT_NE(h, INVALID_HANDLE_VALUE);
+  char content[4096];
+  DWORD read;
+  ASSERT_TRUE(ReadFile(h, content, sizeof(content), &read, nullptr));
+  CloseHandle(h);
+  std::string xml(content, read);
+  const auto testcase = xml.find("<testcase ");
+  ASSERT_NE(testcase, std::string::npos);
+  EXPECT_LT(xml.find(" classname=\"\"", testcase), xml.find('>', testcase));
 }
 
 void AssertCdataEncodeBuffer(const wchar_t* wline, const char* input,
@@ -738,6 +764,42 @@ TEST_F(TestWrapperWindowsTest, TestIFStreamLessDataThanTriplePageSize) {
   ASSERT_EQ(s->Peek(100, buf), 2);
   ASSERT_EQ(buf[0], 'n');
   ASSERT_EQ(buf[1], 'o');
+}
+
+class AutoUnsetEnv {
+ public:
+  explicit AutoUnsetEnv(const wchar_t* name) : name_(name) {}
+  ~AutoUnsetEnv() { ::SetEnvironmentVariableW(name_, nullptr); }
+
+ private:
+  const wchar_t* name_;
+};
+
+TEST_F(TestWrapperWindowsTest, TestGetEnv) {
+  // Test non-empty variable
+  std::wstring result;
+  ASSERT_TRUE(TestOnly_GetEnv(L"TEST_TMPDIR", &result));
+  ASSERT_FALSE(result.empty());
+
+  // Test unset / non-existent variable
+  ASSERT_TRUE(
+      TestOnly_GetEnv(L"THIS_VARIABLE_SHOULD_NOT_EXIST_12345", &result));
+  ASSERT_TRUE(result.empty());
+
+  // Test empty variable
+  {
+    AutoUnsetEnv auto_unset(L"BAZEL_TEST_EMPTY_ENV");
+    ASSERT_TRUE(::SetEnvironmentVariableW(L"BAZEL_TEST_EMPTY_ENV", L""));
+
+    // Case 1: Normal retrieval of empty variable
+    ASSERT_TRUE(TestOnly_GetEnv(L"BAZEL_TEST_EMPTY_ENV", &result));
+    ASSERT_TRUE(result.empty());
+
+    // Case 2: Retrieval when thread error code is pre-set to non-zero
+    ::SetLastError(ERROR_ACCESS_DENIED);
+    ASSERT_TRUE(TestOnly_GetEnv(L"BAZEL_TEST_EMPTY_ENV", &result));
+    ASSERT_TRUE(result.empty());
+  }
 }
 
 }  // namespace

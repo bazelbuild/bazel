@@ -29,18 +29,50 @@ import org.junit.runners.JUnit4;
 // TODO: #27370 - Move this to match whichever package Types.java is going to live in.
 @RunWith(JUnit4.class)
 public class TypesTest {
+  private static final TypeContext DUMMY_CONTEXT =
+      new TypeContext() {
+        @Override
+        public StarlarkType getStrFieldType(String name) {
+          return null;
+        }
+
+        @Override
+        public StarlarkType getListFieldType(String name) {
+          return null;
+        }
+
+        @Override
+        public StarlarkType getDictFieldType(String name) {
+          return null;
+        }
+
+        @Override
+        public StarlarkType getSetFieldType(String name) {
+          return null;
+        }
+
+        @Override
+        public StarlarkType getPredeclaredSymbolType(String name) {
+          return null;
+        }
+
+        @Override
+        public StarlarkType getUniversalSymbolType(String name) {
+          return null;
+        }
+      };
 
   /** Asserts {@code t1} is assignable to {@code t2}. */
   private static void assertLt(StarlarkType t1, StarlarkType t2) {
     assertWithMessage("%s is expected to be assignable to %s", t1, t2)
-        .that(StarlarkType.assignableFrom(t2, t1))
+        .that(StarlarkType.assignableFrom(t2, t1, DUMMY_CONTEXT))
         .isTrue();
   }
 
   /** Asserts {@code t1} is *not* assignable to {@code t2}. */
   private static void assertNotLt(StarlarkType t1, StarlarkType t2) {
     assertWithMessage("%s is expected to be *not* assignable to %s", t1, t2)
-        .that(StarlarkType.assignableFrom(t2, t1))
+        .that(StarlarkType.assignableFrom(t2, t1, DUMMY_CONTEXT))
         .isFalse();
   }
 
@@ -321,24 +353,33 @@ public class TypesTest {
     assertLtAndGt(
         Types.struct(ImmutableMap.of("f", Types.INT)),
         Types.struct(ImmutableMap.of("f", Types.ANY)));
-    assertStrictLtChain(
+    assertLtAndGt(
         Types.partialStruct(ImmutableMap.of("f", Types.INT)),
         Types.struct(ImmutableMap.of("f", Types.INT)));
 
     // Order of fields is irrelevant.
     assertLtAndGt(
         Types.struct(ImmutableMap.of("f", Types.INT, "g", Types.BOOL)),
-        Types.struct(ImmutableMap.of("g", Types.BOOL, "f", Types.INT)));
-    assertLtAndGt(
+        Types.struct(ImmutableMap.of("g", Types.BOOL, "f", Types.INT)),
         Types.partialStruct(ImmutableMap.of("f", Types.INT, "g", Types.BOOL)),
         Types.partialStruct(ImmutableMap.of("g", Types.BOOL, "f", Types.INT)));
 
+    // Partially overlapping sets of explicitly-specified fields
     assertIncomparable(
         Types.struct(ImmutableMap.of("f", Types.INT, "g", Types.INT)),
         Types.struct(ImmutableMap.of("f", Types.INT, "h", Types.INT)));
+    assertLt(
+        Types.partialStruct(ImmutableMap.of("f", Types.INT, "g", Types.INT)),
+        Types.struct(ImmutableMap.of("f", Types.INT, "h", Types.INT)));
+
+    // ANY_STRUCT is assignable to and from any other struct type.
+    assertLtAndGt(Types.ANY_STRUCT, Types.struct(ImmutableMap.of()));
+    assertLtAndGt(Types.ANY_STRUCT, Types.struct(ImmutableMap.of("f", Types.INT)));
+    assertLtAndGt(Types.ANY_STRUCT, Types.partialStruct(ImmutableMap.of()));
+    assertLtAndGt(Types.ANY_STRUCT, Types.partialStruct(ImmutableMap.of("f", Types.FLOAT)));
 
     assertLtAndGt(
-        Types.STRUCT_OF_ANY,
+        Types.partialStruct(ImmutableMap.of()),
         Types.partialStruct(ImmutableMap.of("f", Types.ANY)),
         Types.partialStruct(ImmutableMap.of("f", Types.INT)),
         Types.partialStruct(ImmutableMap.of("f", Types.INT, "g", Types.INT)),
@@ -348,18 +389,301 @@ public class TypesTest {
         Types.partialStruct(ImmutableMap.of("f", Types.FLOAT)));
 
     assertStrictLtChain(
-        Types.STRUCT_OF_ANY,
         Types.struct(ImmutableMap.of("f", Types.INT, "g", Types.STR, "h", Types.BOOL)),
         Types.struct(ImmutableMap.of("f", Types.INT, "h", Types.ANY)),
         Types.struct(ImmutableMap.of("f", Types.union(Types.INT, Types.FLOAT))),
-        Types.struct(ImmutableMap.of()));
+        Types.EMPTY_STRUCT);
+  }
+
+  @Test
+  public void assignability_callable() {
+    // ANY_CALLABLE is assignable to and from any other callable type.
+    assertLtAndGt(
+        Types.ANY_CALLABLE,
+        Types.simpleCallable(ImmutableList.of(Types.INT, Types.STR), false, Types.BOOL));
+    assertLtAndGt(
+        Types.ANY_CALLABLE,
+        Types.generalCallable(
+            ImmutableList.of("x", "y"),
+            ImmutableList.of(Types.INT, Types.STR),
+            1,
+            1,
+            ImmutableSet.of("x"),
+            Types.INT,
+            Types.STR,
+            Types.BOOL));
+
+    // Covariant in the return type
+    assertStrictLtChain(
+        Types.simpleCallable(ImmutableList.of(), false, Types.INT),
+        Types.generalCallable(
+            ImmutableList.of(),
+            ImmutableList.of(),
+            0,
+            0,
+            ImmutableSet.of(),
+            null,
+            null,
+            Types.NUMERIC),
+        Types.simpleCallable(ImmutableList.of(), false, Types.OBJECT));
+
+    // Contravariant in positional parameter types
+    assertStrictLtChain(
+        Types.simpleCallable(ImmutableList.of(Types.OBJECT, Types.OBJECT), false, Types.ANY),
+        Types.generalCallable(
+            ImmutableList.of("x", "y"),
+            ImmutableList.of(Types.NUMERIC, Types.NUMERIC),
+            2,
+            2,
+            ImmutableSet.of("x", "y"),
+            null,
+            null,
+            Types.ANY),
+        Types.simpleCallable(ImmutableList.of(Types.FLOAT, Types.INT), false, Types.ANY));
+    assertStrictLt(
+        Types.generalCallable(
+            ImmutableList.of("x", "y"),
+            ImmutableList.of(Types.NUMERIC, Types.NUMERIC),
+            2,
+            2,
+            ImmutableSet.of(),
+            null,
+            null,
+            Types.ANY),
+        Types.generalCallable(
+            ImmutableList.of("x", "y"),
+            ImmutableList.of(Types.INT, Types.FLOAT),
+            2,
+            2,
+            ImmutableSet.of(),
+            null,
+            null,
+            Types.ANY));
+
+    // Contravariant in keyword parameter types
+    assertStrictLt(
+        Types.generalCallable(
+            ImmutableList.of("kw"),
+            ImmutableList.of(Types.NUMERIC),
+            0,
+            0,
+            ImmutableSet.of(),
+            null,
+            null,
+            Types.ANY),
+        Types.generalCallable(
+            ImmutableList.of("kw"),
+            ImmutableList.of(Types.INT),
+            0,
+            0,
+            ImmutableSet.of(),
+            null,
+            null,
+            Types.ANY));
+
+    // Contravariant in varargs and kwargs; and a callable which has varargs/kwargs is assignable to
+    // one that doesn't, but not vice versa.
+    assertStrictLtChain(
+        Types.generalCallable(
+            ImmutableList.of("x"),
+            ImmutableList.of(Types.STR),
+            0,
+            0,
+            ImmutableSet.of(),
+            Types.NUMERIC,
+            null,
+            Types.ANY),
+        Types.generalCallable(
+            ImmutableList.of("x"),
+            ImmutableList.of(Types.STR),
+            0,
+            0,
+            ImmutableSet.of(),
+            Types.FLOAT,
+            null,
+            Types.ANY),
+        Types.generalCallable(
+            ImmutableList.of("x"),
+            ImmutableList.of(Types.STR),
+            0,
+            0,
+            ImmutableSet.of(),
+            null,
+            null,
+            Types.ANY));
+    assertStrictLtChain(
+        Types.generalCallable(
+            ImmutableList.of("x"),
+            ImmutableList.of(Types.STR),
+            0,
+            0,
+            ImmutableSet.of(),
+            null,
+            Types.NUMERIC,
+            Types.ANY),
+        Types.generalCallable(
+            ImmutableList.of("x"),
+            ImmutableList.of(Types.STR),
+            0,
+            0,
+            ImmutableSet.of(),
+            null,
+            Types.FLOAT,
+            Types.ANY),
+        Types.generalCallable(
+            ImmutableList.of("x"),
+            ImmutableList.of(Types.STR),
+            0,
+            0,
+            ImmutableSet.of(),
+            null,
+            null,
+            Types.ANY));
+
+    // Residue positional parameters fall through to varargs (which must be contravariant).
+    assertStrictLt(
+        Types.simpleCallable(ImmutableList.of(), true, Types.ANY),
+        Types.simpleCallable(ImmutableList.of(Types.STR), false, Types.ANY));
+    assertStrictLt(
+        Types.generalCallable(
+            ImmutableList.of("x"),
+            ImmutableList.of(Types.STR),
+            1,
+            1,
+            ImmutableSet.of(),
+            Types.NUMERIC,
+            null,
+            Types.ANY),
+        Types.generalCallable(
+            ImmutableList.of("x", "y"),
+            ImmutableList.of(Types.STR, Types.INT),
+            2,
+            2,
+            ImmutableSet.of(),
+            null,
+            null,
+            Types.ANY));
+
+    // Residue keyword parameters fall through to kwargs (which must be contravariant).
+    assertStrictLt(
+        Types.generalCallable(
+            ImmutableList.of("kw"),
+            ImmutableList.of(Types.STR),
+            1,
+            1,
+            ImmutableSet.of(),
+            null,
+            Types.NUMERIC,
+            Types.ANY),
+        Types.generalCallable(
+            ImmutableList.of("kw", "kww"),
+            ImmutableList.of(Types.STR, Types.INT),
+            1,
+            1,
+            ImmutableSet.of(),
+            null,
+            null,
+            Types.ANY));
+
+    // Incompatible mandatory positionals.
+    assertIncomparable(
+        Types.simpleCallable(ImmutableList.of(Types.INT), false, Types.ANY),
+        Types.simpleCallable(ImmutableList.of(Types.INT, Types.INT), false, Types.ANY));
+    // A callable with an optional positional is assignable to one with a mandatory positional in
+    // the same place, but not vice versa.
+    assertStrictLt(
+        Types.generalCallable(
+            ImmutableList.of("x"),
+            ImmutableList.of(Types.INT),
+            1,
+            1,
+            ImmutableSet.of(),
+            null,
+            null,
+            Types.ANY),
+        Types.simpleCallable(ImmutableList.of(Types.INT), false, Types.ANY));
+    // A callable with an optional keyword is assignable to one with a mandatory keyword of the same
+    // name, but not vice versa.
+    assertStrictLt(
+        Types.generalCallable(
+            ImmutableList.of("kw"),
+            ImmutableList.of(Types.INT),
+            0,
+            0,
+            ImmutableSet.of(),
+            null,
+            Types.INT,
+            Types.ANY),
+        Types.generalCallable(
+            ImmutableList.of("kw"),
+            ImmutableList.of(Types.INT),
+            0,
+            0,
+            ImmutableSet.of("kw"),
+            null,
+            null,
+            Types.ANY));
+
+    // Names of positional-only parameters don't matter
+    assertLtAndGt(
+        Types.simpleCallable(ImmutableList.of(Types.INT), false, Types.ANY),
+        Types.generalCallable(
+            ImmutableList.of("x"),
+            ImmutableList.of(Types.INT),
+            1,
+            1,
+            ImmutableSet.of("x"),
+            null,
+            null,
+            Types.ANY),
+        Types.generalCallable(
+            ImmutableList.of("y"),
+            ImmutableList.of(Types.INT),
+            1,
+            1,
+            ImmutableSet.of("y"),
+            null,
+            null,
+            Types.ANY));
+
+    // But names of ordinary positional parameters do matter, since they may be used by keyword.
+    assertStrictLt(
+        Types.generalCallable(
+            ImmutableList.of("x"),
+            ImmutableList.of(Types.INT),
+            0,
+            1,
+            ImmutableSet.of("x"),
+            null,
+            null,
+            Types.ANY),
+        Types.simpleCallable(ImmutableList.of(Types.INT), false, Types.ANY));
+    assertIncomparable(
+        Types.generalCallable(
+            ImmutableList.of("x"),
+            ImmutableList.of(Types.INT),
+            0,
+            1,
+            ImmutableSet.of(),
+            null,
+            null,
+            Types.ANY),
+        Types.generalCallable(
+            ImmutableList.of("y"),
+            ImmutableList.of(Types.INT),
+            0,
+            1,
+            ImmutableSet.of(),
+            null,
+            null,
+            Types.ANY));
   }
 
   @Test
   public void callable_toSignatureString() {
     // ordinary only
     assertThat(
-            Types.callable(
+            Types.generalCallable(
                     /* parameterNames= */ ImmutableList.of("a"),
                     /* parameterTypes= */ ImmutableList.of(Types.INT),
                     /* numPositionalOnlyParameters= */ 0,
@@ -372,7 +696,7 @@ public class TypesTest {
         .isEqualTo("(a: int) -> bool");
     // kwonly only
     assertThat(
-            Types.callable(
+            Types.generalCallable(
                     /* parameterNames= */ ImmutableList.of("a"),
                     /* parameterTypes= */ ImmutableList.of(Types.INT),
                     /* numPositionalOnlyParameters= */ 0,
@@ -385,11 +709,11 @@ public class TypesTest {
         .isEqualTo("(*, a: int) -> bool");
     // positional-only only
     assertThat(
-            Types.callable(
+            Types.generalCallable(
                     /* parameterNames= */ ImmutableList.of("x"),
                     /* parameterTypes= */ ImmutableList.of(Types.INT),
                     /* numPositionalOnlyParameters= */ 1,
-                    /* numPositionalParameters= */ 0,
+                    /* numPositionalParameters= */ 1,
                     /* mandatoryParams= */ ImmutableSet.of(),
                     /* varargsType= */ null,
                     /* kwargsType= */ null,
@@ -398,7 +722,7 @@ public class TypesTest {
         .isEqualTo("([int], /) -> bool");
     // no params
     assertThat(
-            Types.callable(
+            Types.generalCallable(
                     /* parameterNames= */ ImmutableList.of(),
                     /* parameterTypes= */ ImmutableList.of(),
                     /* numPositionalOnlyParameters= */ 0,
@@ -411,7 +735,7 @@ public class TypesTest {
         .isEqualTo("() -> bool");
     // all kinds of params
     assertThat(
-            Types.callable(
+            Types.generalCallable(
                     /* parameterNames= */ ImmutableList.of("x", "a", "b", "c", "d"),
                     /* parameterTypes= */ ImmutableList.of(
                         Types.BOOL, Types.INT, Types.FLOAT, Types.NONE, Types.ANY),

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Set;
 
@@ -42,14 +41,12 @@ public interface SymlinkDefinition {
    *     point to.
    * @param targetConfigs the configurations for which symlinks should be created. If these have
    *     conflicting requirements, multiple candidates are returned.
-   * @param repositoryName the repository name.
    * @param outputPath the output path.
    * @param execRoot the exec root.
    */
   ImmutableSet<Path> getLinkPaths(
       BuildRequestOptions buildRequestOptions,
       Set<BuildConfigurationValue> targetConfigs,
-      RepositoryName repositoryName,
       Path outputPath,
       Path execRoot);
 }

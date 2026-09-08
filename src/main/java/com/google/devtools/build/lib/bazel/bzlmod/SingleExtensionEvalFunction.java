@@ -16,13 +16,16 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.RunnableExtension.RunModuleExtensionResult;
+import com.google.devtools.build.lib.bazel.repository.RepoMetadataRequirements;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RequireRepoExtensionMetadataMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -98,6 +101,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     if (starlarkSemantics == null) {
       return null;
     }
+    RequireRepoExtensionMetadataMode requireRepoExtensionMetadataMode =
+        requireNonNull(RepoMetadataRequirements.REQUIRE_REPO_EXTENSION_METADATA.get(env));
     RepositoryMappingValue mainRepoMappingValue =
         (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
     if (mainRepoMappingValue == null) {
@@ -209,7 +214,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
               starlarkSemantics,
               extensionId,
               mainRepoMappingValue.repositoryMapping(),
-              lockfileFacts);
+              lockfileFacts,
+              requireRepoExtensionMetadataMode);
     } catch (ExternalDepsException e) {
       throw new SingleExtensionEvalFunctionException(e);
     }

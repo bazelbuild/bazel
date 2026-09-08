@@ -20,7 +20,7 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.actions.FileStateType.SYMLINK;
-import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.sparselyAggregateWriteStatuses;
+import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.aggregateWriteStatuses;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.DIRECTORY_KEY_DELIMITER;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.FILE_KEY_DELIMITER;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.MAX_KEY_LENGTH;
@@ -33,8 +33,6 @@ import static com.google.devtools.build.lib.vfs.RootedPath.toRootedPath;
 import static java.lang.Math.max;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.github.luben.zstd.RecyclingBufferPool;
-import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -45,9 +43,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.BundledFileSystem;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeFutures;
 import com.google.devtools.build.lib.profiler.CounterSeriesCollector;
 import com.google.devtools.build.lib.profiler.CounterSeriesTask;
 import com.google.devtools.build.lib.profiler.CounterSeriesTask.Color;
+import com.google.devtools.build.lib.profiler.CounterSeriesTaskImpl;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodesWithSource;
@@ -64,7 +66,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ProfileRecorder;
 import com.google.devtools.build.lib.skyframe.serialization.StringKey;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatus;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses;
-import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SparseAggregateWriteStatusBuilder;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatusBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FileDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FileDataInfoOrFuture;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FileInvalidationDataInfo;
@@ -95,7 +97,6 @@ import java.util.Collection;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -122,29 +123,30 @@ final class FileDependencySerializer {
     @VisibleForTesting final AtomicLong valueBytesUploaded = new AtomicLong();
 
     private static final CounterSeriesTask NODES_WAITING_FOR_DEPS =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Invalidation: Nodes: Pending", "Waiting for deps", Color.RAIL_LOAD);
     private static final CounterSeriesTask NODES_WAITING_FOR_UPLOAD =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Invalidation: Nodes: Pending", "Waiting for upload", Color.RAIL_LOAD);
     private static final CounterSeriesTask NODES_UPLOADED =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Invalidation: Nodes: Uploaded", "Uploaded", Color.RAIL_RESPONSE);
     private static final CounterSeriesTask NODES_WITH_PROCESSING_ERRORS =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Invalidation: Nodes: Processing Errors",
             "Processing Errors",
             Color.RAIL_RESPONSE);
 
     private static final CounterSeriesTask KEY_BYTES_WAITING_FOR_UPLOAD =
-        new CounterSeriesTask("Skycache: Invalidation: Bytes: Pending", "Key", Color.RAIL_LOAD);
+        new CounterSeriesTaskImpl("Skycache: Invalidation: Bytes: Pending", "Key", Color.RAIL_LOAD);
     private static final CounterSeriesTask VALUE_BYTES_WAITING_FOR_UPLOAD =
-        new CounterSeriesTask("Skycache: Invalidation: Bytes: Pending", "Value", Color.RAIL_LOAD);
+        new CounterSeriesTaskImpl(
+            "Skycache: Invalidation: Bytes: Pending", "Value", Color.RAIL_LOAD);
     private static final CounterSeriesTask KEY_BYTES_UPLOADED =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Invalidation: Bytes: Uploaded", "Key", Color.RAIL_RESPONSE);
     private static final CounterSeriesTask VALUE_BYTES_UPLOADED =
-        new CounterSeriesTask(
+        new CounterSeriesTaskImpl(
             "Skycache: Invalidation: Bytes: Uploaded", "Value", Color.RAIL_RESPONSE);
 
     @Override
@@ -161,10 +163,12 @@ final class FileDependencySerializer {
   }
 
   @VisibleForTesting public static final int COMPRESSION_NUM_BYTES_THRESHOLD = 580;
+
+  private final CompressionService compressionService;
   private final LongVersionGetter versionGetter;
   private final InMemoryGraph graph;
   private final KeyValueWriter writer;
-  private final Executor executor;
+  private final SafeExecutor executor;
   private final Counters counters;
   @Nullable private final ProfileCollector profileCollector;
 
@@ -188,12 +192,14 @@ final class FileDependencySerializer {
   FileDependencySerializer(
       LongVersionGetter versionGetter,
       InMemoryGraph graph,
+      CompressionService compressionService,
       KeyValueWriter writer,
-      Executor executor,
+      SafeExecutor executor,
       @Nullable ProfileCollector profileCollector) {
     this.versionGetter = versionGetter;
     this.graph = graph;
     this.writer = writer;
+    this.compressionService = compressionService;
     this.executor = executor;
     this.counters = new Counters();
     this.profileCollector = profileCollector;
@@ -430,7 +436,7 @@ final class FileDependencySerializer {
       }
       writeStatuses.add(writeStatus);
       return new FileInvalidationDataInfo(
-          cacheKey, sparselyAggregateWriteStatuses(writeStatuses), exists, mtsv, realRootedPath);
+          cacheKey, aggregateWriteStatuses(writeStatuses), exists, mtsv, realRootedPath);
     }
 
     /**
@@ -733,7 +739,7 @@ final class FileDependencySerializer {
       }
 
       ListenableFuture<Long> dirMtsvFuture =
-          Futures.submit(
+          SafeFutures.submit(
               (Callable<Long>)
                   () -> {
                     return versionGetter.getDirectoryListingVersion(realPath.asPath());
@@ -778,8 +784,7 @@ final class FileDependencySerializer {
                   writeStatus);
             }
             writeStatuses.add(writeStatus);
-            return new ListingInvalidationDataInfo(
-                cacheKey, sparselyAggregateWriteStatuses(writeStatuses));
+            return new ListingInvalidationDataInfo(cacheKey, aggregateWriteStatuses(writeStatuses));
           },
           directExecutor());
     }
@@ -831,15 +836,15 @@ final class FileDependencySerializer {
       return future.completeWith(result);
     }
     return future.completeWith(
-        Futures.whenAllComplete(allFutures).call(dependencyHandler, executor));
+        SafeFutures.call(Futures.whenAllSucceed(allFutures), dependencyHandler, executor));
   }
 
-  static OutputStream getCompressedOutputStream(OutputStream outputStream) throws IOException {
+  OutputStream getCompressedOutputStream(OutputStream outputStream) throws IOException {
     // The default level and the fastest level (-7) results in 35% and 19% wall time overhead when
     // not using a threshold to compress, the default level provided a 2x better compression. Since
     // we do use a threshold and there is no wall time regression, we favor the better compression
     // ratio.
-    return new ZstdOutputStream(outputStream, RecyclingBufferPool.INSTANCE);
+    return compressionService.newZstdOutputStream(outputStream);
   }
 
   /**
@@ -855,8 +860,7 @@ final class FileDependencySerializer {
     private final ArrayList<NodeInvalidationDataInfo> nodeDependencies = new ArrayList<>();
     @Nullable private FileDataInfoOrFuture sourceFileOrFuture;
 
-    private final SparseAggregateWriteStatusBuilder writeStatusBuilder =
-        new SparseAggregateWriteStatusBuilder();
+    private final WriteStatusBuilder writeStatusBuilder = new WriteStatusBuilder();
 
     private final ArrayList<FutureFileDataInfo> futureFileDataInfo = new ArrayList<>();
     private final ArrayList<FutureListingDataInfo> futureListingDataInfo = new ArrayList<>();
@@ -1049,7 +1053,7 @@ final class FileDependencySerializer {
       ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
       MagicBytes.writeMagicBytes(outputStream);
       try (OutputStream compressedBytesStream =
-          FileDependencySerializer.getCompressedOutputStream(outputStream)) {
+          compressionService.newZstdOutputStream(outputStream)) {
         compressedBytesStream.write(nodeBytes);
       }
       return outputStream.toByteArray();

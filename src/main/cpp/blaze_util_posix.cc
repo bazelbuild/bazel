@@ -157,7 +157,8 @@ static void handler(int signum) {
         if (SignalHandler::Get().GetServerProcessInfo()->server_pid_ != -1) {
           KillServerProcess(
               SignalHandler::Get().GetServerProcessInfo()->server_pid_,
-              SignalHandler::Get().GetOutputBase());
+              SignalHandler::Get().GetOutputBase(),
+              /*from_signal_handler=*/true);
         }
         _exit(1);
       }
@@ -184,6 +185,9 @@ static void handler(int signum) {
                     .c_str());
       kill(SignalHandler::Get().GetServerProcessInfo()->server_pid_, SIGQUIT);
       break;
+    case SIGWINCH:
+      SignalHandler::Get().TerminalSizeChanged();
+      break;
   }
 
   errno = saved_errno;
@@ -192,11 +196,13 @@ static void handler(int signum) {
 void SignalHandler::Install(const string& product_name,
                             const blaze_util::Path& output_base,
                             const ServerProcessInfo* server_process_info,
-                            SignalHandler::Callback cancel_server) {
+                            SignalHandler::Callback cancel_server,
+                            SignalHandler::Callback terminal_size_changed) {
   product_name_ = product_name;
   output_base_ = output_base;
   server_process_info_ = server_process_info;
   cancel_server_ = cancel_server;
+  terminal_size_changed_ = terminal_size_changed;
 
   // Unblock all signals.
   sigset_t sigset;
@@ -204,12 +210,13 @@ void SignalHandler::Install(const string& product_name,
   sigprocmask(SIG_SETMASK, &sigset, nullptr);
 
   // SIGWINCH is reserved for Bazel server internal use and cannot be passed to
-  // it. The JVM is not attached to a terminal, making a signal insufficient to
-  // react to window size change event anyway.
+  // it. The JVM is not attached to a terminal, so the client forwards terminal
+  // size changes over the command RPC channel.
   signal(SIGINT, handler);
   signal(SIGTERM, handler);
   signal(SIGPIPE, handler);
   signal(SIGQUIT, handler);
+  signal(SIGWINCH, handler);
 }
 
 ATTRIBUTE_NORETURN void SignalHandler::PropagateSignalOrExit(int exit_code) {
@@ -755,7 +762,8 @@ void ReleaseLock(LockHandle lock_handle) {
   close(static_cast<int>(lock_handle));
 }
 
-bool KillServerProcess(int pid, const blaze_util::Path& output_base) {
+bool KillServerProcess(int pid, const blaze_util::Path& output_base,
+                       bool from_signal_handler) {
   // Kill the process and make sure it's dead before proceeding.
   errno = 0;
   if (killpg(pid, SIGKILL) == -1) {
@@ -764,10 +772,19 @@ bool KillServerProcess(int pid, const blaze_util::Path& output_base) {
         << ") using SIGKILL: " << GetLastErrorString();
   }
   if (!AwaitServerProcessTermination(pid, output_base,
-                                     kPostKillGracePeriodSeconds)) {
+                                     kPostKillGracePeriodSeconds,
+                                     TerminationReason::kKillSignal)) {
+    string diagnosis;
+    if (!from_signal_handler) {
+      diagnosis = GetProcessTerminationDiagnosis(pid);
+      if (!diagnosis.empty()) {
+        diagnosis = " Diagnosis: " + diagnosis;
+      }
+    }
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Attempted to kill stale server process (pid=" << pid
-        << ") using SIGKILL, but it did not die in a timely fashion.";
+        << ") using SIGKILL, but it did not die in a timely fashion."
+        << diagnosis;
   }
   return true;
 }
@@ -781,17 +798,22 @@ void TrySleep(unsigned int milliseconds) {
 
 string GetUserName() {
   string user = GetEnv("USER");
-  if (!user.empty()) {
-    return user;
+  if (user.empty()) {
+    errno = 0;
+    passwd* pwent = getpwuid(getuid());  // NOLINT (single-threaded)
+    if (pwent == nullptr || pwent->pw_name == nullptr) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "$USER is not set, and unable to look up name of current user: "
+          << GetLastErrorString();
+    }
+    user = pwent->pw_name;
   }
-  errno = 0;
-  passwd* pwent = getpwuid(getuid());  // NOLINT (single-threaded)
-  if (pwent == nullptr || pwent->pw_name == nullptr) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "$USER is not set, and unable to look up name of current user: "
-        << GetLastErrorString();
-  }
-  return pwent->pw_name;
+  // Replace slashes and backslashes with underscores so that usernames like
+  // "DOMAIN\\user" or "foo/bar" do not cause issues in paths (e.g.
+  // output_user_root). See https://github.com/bazelbuild/bazel/issues/20289
+  std::replace(user.begin(), user.end(), '/', '_');
+  std::replace(user.begin(), user.end(), '\\', '_');
+  return user;
 }
 
 bool IsEmacsTerminal() {
@@ -814,10 +836,12 @@ bool IsStandardTerminal() {
     return true;
   }
   if (term.empty() || term == "dumb" || term == "emacs" ||
-      term == "xterm-mono" || term == "symbolics" || term == "9term" ||
-      isEmacs) {
+      term == "xterm-mono" || term == "symbolics" || term == "9term") {
     return false;
   }
+  // For Emacs terminals (other than eterm-color), allow colors if they're a
+  // TTY. This supports modern Emacs terminal packages like 'eat' that set
+  // INSIDE_EMACS and support color output.
   return isatty(STDOUT_FILENO) && isatty(STDERR_FILENO);
 }
 

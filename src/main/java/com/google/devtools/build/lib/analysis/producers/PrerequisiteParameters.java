@@ -69,6 +69,8 @@ public final class PrerequisiteParameters {
    */
   @Nullable private final ToolchainCollection<UnloadedToolchainContext> baseTargetToolchainContexts;
 
+  private final boolean requireMatchingAspectHintsProviders;
+
   public PrerequisiteParameters(
       ConfiguredTargetKey configuredTargetKey,
       Target target,
@@ -81,7 +83,8 @@ public final class PrerequisiteParameters {
       TransitiveDependencyState transitiveState,
       ExtendedEventHandler eventHandler,
       @Nullable BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier,
-      @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetToolchainContexts) {
+      @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetToolchainContexts,
+      boolean requireMatchingAspectHintsProviders) {
     this.configuredTargetKey = configuredTargetKey;
     this.target = target;
     this.aspects = ImmutableList.copyOf(aspects);
@@ -94,6 +97,11 @@ public final class PrerequisiteParameters {
     this.eventHandler = eventHandler;
     this.baseTargetPrerequisitesSupplier = baseTargetPrerequisitesSupplier;
     this.baseTargetToolchainContexts = baseTargetToolchainContexts;
+    this.requireMatchingAspectHintsProviders = requireMatchingAspectHintsProviders;
+  }
+
+  public boolean requireMatchingAspectHintsProviders() {
+    return requireMatchingAspectHintsProviders;
   }
 
   @Nullable

@@ -64,7 +64,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     }
   }
 
-  private void assertPackageNotInError(@Nullable Package pkg) {
+  private static void assertPackageNotInError(@Nullable Package pkg) {
     assertThat(pkg).isNotNull();
     assertThat(pkg.containsErrors()).isFalse();
   }
@@ -96,7 +96,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
    * Retrieves the visibility labels of the macro with the given id, which must exist in the
    * package.
    */
-  private static ImmutableList<String> getMacroVisibility(Package pkg, String id) throws Exception {
+  private static ImmutableList<String> getMacroVisibility(Package pkg, String id) {
     return asStringList(getMacroById(pkg, id).getActualVisibility());
   }
 
@@ -124,7 +124,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
       String pkgName, String macroName, String targetName) throws Exception {
     Package pkg = getPackage(pkgName);
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey(targetName);
+    assertThat(pkg.getTargetOrNull(targetName)).isNotNull();
 
     String labelString = String.format("//%s:%s", pkgName, targetName);
     AssertionError error =
@@ -276,7 +276,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey(targetName);
+    assertThat(pkg.getTargetOrNull(targetName)).isNotNull();
     assertThat(getConfiguredTarget(String.format("//pkg:%s", targetName))).isNotNull();
   }
 
@@ -286,7 +286,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey("abc");
+    assertThat(pkg.getTargetOrNull("abc")).isNotNull();
     assertThat(getConfiguredTarget("//pkg:abc")).isNotNull();
     assertThat(pkg.getMacrosById()).containsKey("abc:1");
   }
@@ -433,7 +433,8 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets().keySet()).containsAtLeast("abc_inside_macro", "abc_outside_macro");
+    assertThat(pkg.getTargets().stream().map(Target::getName))
+        .containsAtLeast("abc_inside_macro", "abc_outside_macro");
     assertThat(pkg.getMacrosById()).containsKey("abc:1");
   }
 
@@ -487,9 +488,8 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey("abc");
-    assertThat(pkg.getTargets()).containsKey("implicit_input.cc");
-    assertThat(pkg.getTargets()).containsKey("explicit_input.cc");
+    assertThat(pkg.getTargets().stream().map(Target::getName))
+        .containsAtLeast("abc", "implicit_input.cc", "explicit_input.cc");
   }
 
   @Test
@@ -527,9 +527,9 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     // It'd be an execution time error to attempt to build the declared rule targets, but the
     // package still loads just fine.
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey("abc_target");
-    assertThat(pkg.getTargets()).containsKey("abc_submacro_target");
-    assertThat(pkg.getTargets()).doesNotContainKey("implicit_input.cc");
+    assertThat(pkg.getTargetOrNull("abc_target")).isNotNull();
+    assertThat(pkg.getTargetOrNull("abc_submacro_target")).isNotNull();
+    assertThat(pkg.getTargetOrNull("implicit_input.cc")).isNull();
   }
 
   @Test
@@ -553,7 +553,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey("abc_inner_lib");
+    assertThat(pkg.getTargets().stream().map(Target::getName)).contains("abc_inner_lib");
   }
 
   @Test
@@ -615,7 +615,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey("abc");
+    assertThat(pkg.getTargets().stream().map(Target::getName)).contains("abc");
     assertThat(pkg.getMacrosById()).containsKey("abc:1");
     assertThat(pkg.getMacrosById()).containsKey("abc:2");
     assertThat(pkg.getMacrosById()).containsKey("abc:3");
@@ -2343,7 +2343,98 @@ my_macro = macro(
 """);
   }
 
-  private void assertMacroHasAttributes(MacroInstance macro, ImmutableList<String> attributeNames) {
+  @Test
+  public void invalidAttributeValues_failPackage() throws Exception {
+    setBuildLanguageOptions("--incompatible_symbolic_macro_strict_attrs");
+    scratch.file(
+        "pkg/macro.bzl",
+        """
+        def _macro_impl(name, visibility, **kwargs):
+            pass
+
+        my_macro = macro(
+            implementation = _macro_impl,
+            attrs = {
+                "val": attr.string(values = ["foo", "bar"]),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":macro.bzl", "my_macro")
+
+        my_macro(
+            name = "macro_inst",
+            val = "invalid_value",
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg).isNotNull();
+    assertThat(pkg.containsErrors()).isTrue();
+    assertContainsEvent("invalid value in 'val' attribute");
+  }
+
+  @Test
+  public void invalidAttributeValues_doNotFailPackage_withoutFlag() throws Exception {
+    setBuildLanguageOptions("--noincompatible_symbolic_macro_strict_attrs");
+    scratch.file(
+        "pkg/macro.bzl",
+        """
+        def _macro_impl(name, visibility, **kwargs):
+            pass
+
+        my_macro = macro(
+            implementation = _macro_impl,
+            attrs = {
+                "val": attr.string(values = ["foo", "bar"]),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":macro.bzl", "my_macro")
+
+        my_macro(
+            name = "macro_inst",
+            val = "invalid_value",
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertPackageNotInError(getPackage("pkg"));
+  }
+
+  @Test
+  public void tooManyAttributesDeclared_failsWithEvent() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        "N = %d".formatted(RuleClass.MAX_ATTRIBUTES + 1),
+        """
+        def _impl(name, visibility):
+            pass
+        my_macro = macro(
+            implementation = _impl,
+            attrs = {"attr_%d" % i: attr.string() for i in range(N)},
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name = "abc")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertThat(getPackage("pkg")).isNull();
+    assertContainsEvent("Macro class my_macro declared too many attributes");
+  }
+
+  private static void assertMacroHasAttributes(
+      MacroInstance macro, ImmutableList<String> attributeNames) {
     for (String attributeName : attributeNames) {
       assertThat(
               macro.getMacroClass().getAttributeProvider().getAttributeByNameMaybe(attributeName))
@@ -2351,7 +2442,7 @@ my_macro = macro(
     }
   }
 
-  private void assertMacroDoesNotHaveAttributes(
+  private static void assertMacroDoesNotHaveAttributes(
       MacroInstance macro, ImmutableList<String> attributeNames) {
     for (String attributeName : attributeNames) {
       assertThat(

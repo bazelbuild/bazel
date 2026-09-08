@@ -628,6 +628,73 @@ function test_starlark_repository_environ_invalidation_action_env_batch() {
   environ_invalidation_action_env_test_template --batch
 }
 
+# Regression test for the repository environment being a single whole-map Skyframe
+# node (introduced together with RepoEnvironmentFunction): changing one environment
+# variable invalidated every repository rule and module extension, even ones that
+# don't depend on that variable.
+#
+# In particular, running an interleaved command such as `bazel mod` with an
+# environment variable changed that the build doesn't even read (e.g. TERM, set
+# differently by an IDE/BSP server than by the user's shell) caused the next build
+# to spuriously refetch repositories and discard the analysis cache.
+#
+# The repo here only depends on FOO, yet an interleaved `mod` invocation with an
+# unrelated variable OTHER changed must not cause it to be refetched.
+function test_unrelated_env_var_does_not_invalidate_repo() {
+  local execution_file="${TEST_TMPDIR}/execution"
+  echo 0 > "${execution_file}"
+
+  cat > $(setup_module_dot_bazel) <<'EOF'
+ext = use_extension("//:ext.bzl", "ext")
+use_repo(ext, "foo")
+EOF
+  cat > ext.bzl <<EOF
+def _repo_impl(repository_ctx):
+  # Declares a dependency on FOO only.
+  foo = repository_ctx.getenv("FOO")
+  count = int(repository_ctx.execute(["cat", "${execution_file}"]).stdout.strip()) + 1
+  repository_ctx.execute(["bash", "-c", "echo %s > ${execution_file}" % count])
+  repository_ctx.file(
+      "BUILD", "filegroup(name = 'bar', visibility = ['//visibility:public'])")
+  repository_ctx.file("REPO.bazel", "")
+
+# A local repo is refetched whenever its node is recomputed, which makes spurious
+# invalidation directly observable through the fetch counter.
+repo = repository_rule(implementation = _repo_impl, local = True)
+
+def _ext_impl(module_ctx):
+  repo(name = "foo")
+
+ext = module_extension(implementation = _ext_impl)
+EOF
+  cat > BUILD <<'EOF'
+filegroup(name = "t", srcs = ["@foo//:bar"])
+EOF
+
+  # Initial fetch.
+  FOO=1 OTHER=a bazel build //:t >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+  # Rebuilding with the same environment must not refetch.
+  FOO=1 OTHER=a bazel build //:t >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+
+  # Evaluate the whole module/repo graph with an unrelated variable (OTHER)
+  # changed, then build again with the original environment. The repo only reads
+  # FOO, so it must not be refetched.
+  FOO=1 OTHER=b bazel mod graph >& $TEST_log || fail "Failed to run mod"
+  FOO=1 OTHER=a bazel build //:t >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+
+  # A second interleaving with yet another value must likewise not refetch.
+  FOO=1 OTHER=c bazel mod graph >& $TEST_log || fail "Failed to run mod"
+  FOO=1 OTHER=a bazel build //:t >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+
+  # Sanity check: changing FOO, which the repo does depend on, must refetch.
+  FOO=2 OTHER=a bazel build //:t >& $TEST_log || fail "Failed to build"
+  assert_equals 2 $(cat "${execution_file}")
+}
+
 # Test invalidation based on change to the bzl files
 function bzl_invalidation_test_template() {
   local startup_flag="${1-}"
@@ -2877,6 +2944,168 @@ EOF
   expect_log "I'm running!"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/30883.
+function test_path_readdir_deleted_dir() {
+  create_new_workspace
+  cat > $(setup_module_dot_bazel) <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  p = rctx.workspace_root.get_child("foo")
+  rctx.watch(p)
+  if p.exists:
+    print("I see: " + ",".join(sorted([c.basename for c in p.readdir()])))
+  else:
+    print("I see: nothing")
+  rctx.file("BUILD", "filegroup(name='r')")
+r=repository_rule(_r)
+EOF
+
+  mkdir foo
+  touch foo/bar
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: bar"
+
+  # deleting the watched directory should trigger a refetch, not an error.
+  rm -r foo
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: nothing"
+
+  # recreating the watched directory should trigger a refetch again.
+  mkdir foo
+  touch foo/quux
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: quux"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/30883.
+function test_path_readdir_deleted_dir_without_watch() {
+  create_new_workspace
+  cat > $(setup_module_dot_bazel) <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  p = rctx.workspace_root.get_child("foo")
+  if p.exists:
+    print("I see: " + ",".join(sorted([c.basename for c in p.readdir()])))
+  else:
+    print("I see: nothing")
+  rctx.file("BUILD", "filegroup(name='r')")
+r=repository_rule(_r)
+EOF
+
+  mkdir foo
+  touch foo/bar
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: bar"
+
+  # deleting the directory whose entries are watched should trigger a refetch,
+  # not an error.
+  rm -r foo
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: nothing"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/30883.
+function test_watch_tree_deleted_dir() {
+  create_new_workspace
+  cat > $(setup_module_dot_bazel) <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  p = rctx.workspace_root.get_child("foo")
+  rctx.watch(p)
+  if p.is_dir:
+    rctx.watch_tree(p)
+    print("I see: a directory")
+  else:
+    print("I see: nothing")
+  rctx.file("BUILD", "filegroup(name='r')")
+r=repository_rule(_r)
+EOF
+
+  mkdir -p foo/sub
+  touch foo/sub/bar
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: a directory"
+
+  # deleting the watched directory tree should trigger a refetch, not an error.
+  rm -r foo
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: nothing"
+
+  # recreating the watched directory tree should trigger a refetch again.
+  mkdir foo
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: a directory"
+}
+
+# Documents the current behavior when a directory whose entries are recorded
+# as a repo or module extension input becomes non-readable between builds: the
+# build fails. This is not necessarily the desired behavior.
+function test_path_readdir_unreadable_dir() {
+  if is_windows; then
+    echo "Skipping test on Windows (no POSIX permissions)"
+    return 0
+  fi
+  if [[ "$(id -u)" == 0 ]]; then
+    echo "Skipping test when running as root (permissions are not enforced)"
+    return 0
+  fi
+
+  create_new_workspace
+  cat > $(setup_module_dot_bazel) <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  p = rctx.workspace_root.get_child("foo")
+  rctx.watch(p)
+  if p.exists:
+    print("I see: " + ",".join(sorted([c.basename for c in p.readdir()])))
+  else:
+    print("I see: nothing")
+  rctx.file("BUILD", "filegroup(name='r')")
+r=repository_rule(_r)
+EOF
+
+  mkdir foo
+  touch foo/bar
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: bar"
+
+  chmod 000 foo
+  local exit_code=0
+  bazel build @r >& $TEST_log || exit_code=$?
+  chmod 755 foo
+  (( exit_code != 0 )) || fail "expected bazel to fail"
+  expect_log "foo (Permission denied)"
+
+  bazel shutdown
+  chmod 000 foo
+  exit_code=0
+  bazel build @r >& $TEST_log || exit_code=$?
+  chmod 755 foo
+  (( exit_code != 0 )) || fail "expected bazel to fail"
+  expect_log "foo (Permission denied)"
+
+  # After the directory becomes readable again, the build succeeds without a
+  # refetch since its contents didn't change.
+  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  expect_not_log "I see:"
+}
+
 # Regression test for https://github.com/bazelbuild/bazel/issues/21823.
 function test_repository_cache_concurrency() {
   sha=cd55a062e763b9349921f0f5db8c3933288dc8ba4f76dd9416aac68acee3cb94
@@ -3501,6 +3730,37 @@ EOF
 
   output_base="$(bazel info output_base)"
   assert_contains "bar" "$output_base/external/+repo+foo/out_dir/Ä_foo_∅.txt"
+}
+
+# Verifies that PAX names containing only Latin-1 code points remain distinguishable from raw
+# single-byte USTAR names.
+function test_extract_pax_tar_latin1_unicode_file_names() {
+  local archive_tar="${TEST_TMPDIR}/pax-latin1.tar"
+
+  pushd "${TEST_TMPDIR}"
+  mkdir "Ä_pax"
+  echo "bar" > "Ä_pax/Ä_foo.txt"
+  tar --format=pax -cvf pax-latin1.tar "Ä_pax"
+  popd
+
+  cat > $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
+repo(name = 'foo')
+EOF
+  touch BUILD
+
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.extract('${archive_tar}', 'out_dir', 'Ä_pax/')
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=[])")
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+
+  output_base="$(bazel info output_base)"
+  assert_contains "bar" "$output_base/external/+repo+foo/out_dir/Ä_foo.txt"
 }
 
 # Verifies that tar entries with USTAR headers, for which an encoding isn't specified, are extracted

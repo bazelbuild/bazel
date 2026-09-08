@@ -117,12 +117,36 @@ sh_test(
         "@rules_java//toolchains:current_java_runtime",
     ],
     env = {
-        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for remote_helpers setup_javabase
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",
     },
     toolchains = [
         "@rules_java//toolchains:current_java_runtime",
     ],
 )
+
+[sh_test(
+    name = "bazel_windows_java%s_cross_drive_test" % jdk,
+    size = "large",
+    srcs = ["bazel_windows_java_cross_drive_test.sh"],
+    args = [str(jdk)],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+        "@rules_java//toolchains:" + runtime,
+    ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",
+    },
+    toolchains = [
+        "@rules_java//toolchains:" + runtime,
+    ],
+) for (jdk, runtime) in [
+    (8, "jdk_8"),
+    (11, "remote_jdk11"),
+    (17, "remotejdk_17"),
+    (21, "remotejdk_21"),
+    (25, "remotejdk_25"),
+]]
 
 sh_test(
     name = "cpp_darwin_integration_test",
@@ -287,9 +311,9 @@ sh_test(
     ],
 )
 
-JAVA_VERSIONS = ("11", "17", "21")
+JAVA_VERSIONS = ("11", "17", "21", "25")
 
-JAVA_VERSIONS_COVERAGE = ("11", "17", "21")
+JAVA_VERSIONS_COVERAGE = ("11", "17", "21", "25")
 
 [
     sh_test(
@@ -321,6 +345,11 @@ JAVA_VERSIONS_COVERAGE = ("11", "17", "21")
     )
     for java_version in JAVA_VERSIONS
 ]
+
+test_suite(
+    name = "bazel_java_toolchain_head_tests",
+    tests = ["bazel_java_test_jdk" + java_version + "_toolchain_head" for java_version in JAVA_VERSIONS],
+)
 
 [
     sh_test(
@@ -460,6 +489,9 @@ sh_test(
     name = "bazel_spawnstats_test",
     srcs = ["bazel_spawnstats_test.sh"],
     data = [":test-deps"],
+    exec_group_compatible_with = {
+        "test": ["//:highcpu_machine"],
+    },
     tags = ["no_windows"],
 )
 
@@ -1218,11 +1250,18 @@ sh_test(
         "//:bazel-distfile",
         "//src:embedded_jdk_allmodules",
         "@bazel_tools//tools/bash/runfiles",
+        "@rules_java//toolchains:remotejdk_25",
     ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for setup_javabase
+    },
     exec_compatible_with = ["//:highcpu_machine"],
     tags = [
         "block-network",
         "no_presubmit",
+    ],
+    toolchains = [
+        "@rules_java//toolchains:remotejdk_25",
     ],
 )
 
@@ -1239,12 +1278,19 @@ sh_test(
         "//:bazel-distfile-tar",
         "//src:embedded_jdk_allmodules",
         "@bazel_tools//tools/bash/runfiles",
+        "@rules_java//toolchains:remotejdk_25",
     ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",  # for setup_javabase
+    },
     exec_compatible_with = ["//:highcpu_machine"],
     tags = [
         "block-network",
         "no_presubmit",
         "no_windows",
+    ],
+    toolchains = [
+        "@rules_java//toolchains:remotejdk_25",
     ],
 )
 
@@ -1460,4 +1506,134 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+)
+
+sh_test(
+    name = "bazel_aquery_test",
+    size = "large",
+    srcs = ["bazel_aquery_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "minimal_jdk_test",
+    size = "large",
+    srcs = ["minimal_jdk_test.sh"],
+    data = [
+        "//src:bazel-bin_jdk_minimal",
+        "//src/test/shell:bin/bazel_jdk_minimal",
+        "//src/test/shell/bazel:test-deps-wo-bazel",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = [
+        "no_windows",
+    ],
+)
+
+sh_test(
+    name = "nojdk_startup_options_test",
+    size = "medium",
+    srcs = ["nojdk_startup_options_test.sh"],
+    data = [
+        "//src:bazel-bin_nojdk",
+        "//src/test/shell:bin/bazel_nojdk",
+        "//src/test/shell/bazel:test-deps-wo-bazel",
+        "@bazel_tools//tools/bash/runfiles",
+        "@rules_java//toolchains:current_java_runtime",
+    ],
+    env = {
+        "JAVA_ROOTPATH": "$(JAVA_ROOTPATH)",
+    },
+    # Windows doesn't support sandboxing, which BAZEL_SUFFIX needs.
+    tags = ["no_windows"],
+    toolchains = [
+        "@rules_java//toolchains:current_java_runtime",
+    ],
+)
+
+sh_test(
+    name = "bazel_java_integration_test",
+    size = "medium",
+    srcs = ["bazel_java_integration_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+)
+
+# These tests are currently Bazel-only. This should be resolved when the
+# internal execution_phase_tests is open-sourced, because some tests will
+# apply to both products and some will not.
+sh_test(
+    name = "execution_phase_tests",
+    size = "large",
+    srcs = ["execution_phase_tests.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "implicit_dependency_reporting_test",
+    size = "medium",
+    srcs = ["implicit_dependency_reporting_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "linux_sandbox_network_test",
+    size = "large",
+    srcs = ["linux-sandbox_network_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/test/shell:sandboxing_test_utils.sh",
+    ],
+    tags = ["no_windows"],
+)
+
+sh_test(
+    name = "prelude_test",
+    size = "medium",
+    srcs = ["prelude_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+)
+
+sh_test(
+    name = "py_args_escaping_test",
+    srcs = ["py_args_escaping_test.sh"],
+    data = [":test-deps"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+# Tests SOURCE_DATE_EPOCH, which is only supported in Bazel
+sh_test(
+    name = "stamping_test",
+    size = "medium",
+    srcs = ["stamping_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+)
+
+sh_test(
+    name = "starlark_configurations_external_workspaces_test",
+    size = "medium",
+    srcs = ["starlark_configurations_external_workspaces_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "target_compatible_with_external_repo_test",
+    timeout = "long",
+    srcs = ["target_compatible_with_test_external_repo.sh"],
+    data = [":test-deps"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )

@@ -193,6 +193,28 @@ message CancelResponse {
   string cookie = 1;
 }
 
+// Passed to CommandServer.update_terminal_size to update terminal dimensions
+// for an in-flight command.
+message TerminalSizeRequest {
+  // The client request cookie (see RunRequest.cookie).
+  string cookie = 1;
+
+  // The id of the command whose UI should use the updated terminal size.
+  string command_id = 2;
+
+  // Terminal width in columns.
+  int32 columns = 3;
+
+  // Terminal height in rows. This is not currently used by Bazel's progress UI
+  // but is included so the RPC can carry the complete terminal size.
+  int32 rows = 4;
+}
+
+message TerminalSizeResponse {
+  // The server response cookie (see RunResponse.cookie).
+  string cookie = 1;
+}
+
 // Passed to CommandServer.ping to initiate a ping request.
 message PingRequest {
   // The client request cookie (see RunRequest.cookie).
@@ -249,6 +271,9 @@ service CommandServer {
   // Cancel a currently running Bazel command. May return before the run command
   // actually terminates.
   rpc Cancel(CancelRequest) returns (CancelResponse) {}
+
+  // Updates the terminal dimensions for a currently running Bazel command.
+  rpc UpdateTerminalSize(TerminalSizeRequest) returns (TerminalSizeResponse) {}
 
   // Does not do anything. Used for liveness check.
   rpc Ping(PingRequest) returns (PingResponse) {}

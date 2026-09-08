@@ -29,8 +29,8 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.clock.JavaClock;
-import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.chunking.FastCdcChunker;
+import com.google.devtools.build.lib.remote.chunking.FastCdcChunkingConfig;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -88,13 +88,13 @@ public class ChunkedBlobUploaderTest {
     execRoot = fs.getPath("/execroot");
     execRoot.createDirectoryAndParents();
 
-    ChunkingConfig config = new ChunkingConfig(1024, 2, 0);
+    FastCdcChunkingConfig config = new FastCdcChunkingConfig(1024, 2, 0);
     uploader = new ChunkedBlobUploader(grpcCacheClient, combinedCache, config, DIGEST_UTIL);
   }
 
   @Test
   public void getChunkingThreshold_returnsConfiguredValue() {
-    ChunkingConfig config = new ChunkingConfig(512, 2, 0);
+    FastCdcChunkingConfig config = new FastCdcChunkingConfig(512, 2, 0);
     ChunkedBlobUploader uploader =
         new ChunkedBlobUploader(grpcCacheClient, combinedCache, config, DIGEST_UTIL);
 
@@ -119,7 +119,7 @@ public class ChunkedBlobUploaderTest {
             });
     when(combinedCache.uploadBlob(any(), any(Digest.class), any(Blob.class)))
         .thenReturn(immediateVoidFuture());
-    when(grpcCacheClient.spliceBlob(any(), any(), any())).thenReturn(immediateVoidFuture());
+    when(grpcCacheClient.spliceBlob(any(), any(), any(), any())).thenReturn(immediateVoidFuture());
 
     uploader.uploadChunked(context, blobDigest, file);
 
@@ -140,12 +140,12 @@ public class ChunkedBlobUploaderTest {
 
     when(grpcCacheClient.findMissingDigests(any(), any()))
         .thenReturn(immediateFuture(ImmutableSet.of()));
-    when(grpcCacheClient.spliceBlob(any(), any(), any())).thenReturn(immediateVoidFuture());
+    when(grpcCacheClient.spliceBlob(any(), any(), any(), any())).thenReturn(immediateVoidFuture());
 
     uploader.uploadChunked(context, blobDigest, file);
 
     verify(combinedCache, never()).uploadBlob(any(), any(Digest.class), any(Blob.class));
-    verify(grpcCacheClient).spliceBlob(any(), eq(blobDigest), any());
+    verify(grpcCacheClient).spliceBlob(any(), eq(blobDigest), any(), any());
   }
 
   @Test
@@ -157,7 +157,7 @@ public class ChunkedBlobUploaderTest {
     writeFile(file, fileData);
     Digest blobDigest = DIGEST_UTIL.compute(fileData);
 
-    ChunkingConfig config = new ChunkingConfig(1024, 2, 0);
+    FastCdcChunkingConfig config = new FastCdcChunkingConfig(1024, 2, 0);
     FastCdcChunker testChunker = new FastCdcChunker(config, DIGEST_UTIL);
     List<Digest> allChunkDigests;
     try (InputStream input = file.getInputStream()) {
@@ -198,7 +198,7 @@ public class ChunkedBlobUploaderTest {
               }
               return immediateVoidFuture();
             });
-    when(grpcCacheClient.spliceBlob(any(), any(), any())).thenReturn(immediateVoidFuture());
+    when(grpcCacheClient.spliceBlob(any(), any(), any(), any())).thenReturn(immediateVoidFuture());
 
     uploader.uploadChunked(context, blobDigest, file);
 
@@ -206,7 +206,7 @@ public class ChunkedBlobUploaderTest {
     for (Map.Entry<Digest, ByteString> entry : expectedChunkData.entrySet()) {
       assertThat(actualUploads.get(entry.getKey())).isEqualTo(entry.getValue());
     }
-    verify(grpcCacheClient).spliceBlob(any(), eq(blobDigest), eq(allChunkDigests));
+    verify(grpcCacheClient).spliceBlob(any(), eq(blobDigest), eq(allChunkDigests), any());
   }
 
   @Test
@@ -218,7 +218,8 @@ public class ChunkedBlobUploaderTest {
     writeFile(file, data);
     Digest blobDigest = DIGEST_UTIL.compute(data);
 
-    FastCdcChunker testChunker = new FastCdcChunker(new ChunkingConfig(1024, 2, 0), DIGEST_UTIL);
+    FastCdcChunker testChunker =
+        new FastCdcChunker(new FastCdcChunkingConfig(1024, 2, 0), DIGEST_UTIL);
     List<Digest> chunkDigests;
     try (InputStream input = file.getInputStream()) {
       chunkDigests = testChunker.chunkToDigests(input);
@@ -238,7 +239,7 @@ public class ChunkedBlobUploaderTest {
 
     when(grpcCacheClient.findMissingDigests(any(), any()))
         .thenReturn(immediateFuture(ImmutableSet.copyOf(uniqueChunkDigests)));
-    when(grpcCacheClient.spliceBlob(any(), any(), any())).thenReturn(immediateVoidFuture());
+    when(grpcCacheClient.spliceBlob(any(), any(), any(), any())).thenReturn(immediateVoidFuture());
 
     List<SettableFuture<Void>> uploads = new ArrayList<>(uniqueChunkDigests.size());
     for (int i = 0; i < uniqueChunkDigests.size(); i++) {
@@ -286,7 +287,7 @@ public class ChunkedBlobUploaderTest {
     uploadThread.join(TimeUnit.SECONDS.toMillis(1));
 
     assertThat(uploadThread.isAlive()).isFalse();
-    verify(grpcCacheClient).spliceBlob(any(), eq(blobDigest), eq(chunkDigests));
+    verify(grpcCacheClient).spliceBlob(any(), eq(blobDigest), eq(chunkDigests), any());
   }
 
   @Test
@@ -298,7 +299,8 @@ public class ChunkedBlobUploaderTest {
     writeFile(file, data);
     Digest blobDigest = DIGEST_UTIL.compute(data);
 
-    FastCdcChunker testChunker = new FastCdcChunker(new ChunkingConfig(1024, 2, 0), DIGEST_UTIL);
+    FastCdcChunker testChunker =
+        new FastCdcChunker(new FastCdcChunkingConfig(1024, 2, 0), DIGEST_UTIL);
     List<Digest> chunkDigests;
     try (InputStream input = file.getInputStream()) {
       chunkDigests = testChunker.chunkToDigests(input);
@@ -355,7 +357,7 @@ public class ChunkedBlobUploaderTest {
 
     assertThat(uploadThread.isAlive()).isFalse();
     assertThat(cancelledUpload.isCancelled()).isTrue();
-    verify(grpcCacheClient, never()).spliceBlob(any(), any(), any());
+    verify(grpcCacheClient, never()).spliceBlob(any(), any(), any(), any());
   }
 
   @Test
@@ -367,7 +369,8 @@ public class ChunkedBlobUploaderTest {
     writeFile(file, data);
     Digest blobDigest = DIGEST_UTIL.compute(data);
 
-    FastCdcChunker testChunker = new FastCdcChunker(new ChunkingConfig(1024, 2, 0), DIGEST_UTIL);
+    FastCdcChunker testChunker =
+        new FastCdcChunker(new FastCdcChunkingConfig(1024, 2, 0), DIGEST_UTIL);
     List<Digest> chunkDigests;
     try (InputStream input = file.getInputStream()) {
       chunkDigests = testChunker.chunkToDigests(input);
@@ -384,7 +387,7 @@ public class ChunkedBlobUploaderTest {
 
     assertThrows(
         InterruptedException.class, () -> uploader.uploadChunked(context, blobDigest, file));
-    verify(grpcCacheClient, never()).spliceBlob(any(), any(), any());
+    verify(grpcCacheClient, never()).spliceBlob(any(), any(), any(), any());
   }
 
   @Test
@@ -395,7 +398,8 @@ public class ChunkedBlobUploaderTest {
     new Random(42).nextBytes(data);
     Digest blobDigest = DIGEST_UTIL.compute(data);
 
-    FastCdcChunker testChunker = new FastCdcChunker(new ChunkingConfig(1024, 2, 0), DIGEST_UTIL);
+    FastCdcChunker testChunker =
+        new FastCdcChunker(new FastCdcChunkingConfig(1024, 2, 0), DIGEST_UTIL);
     List<Digest> chunkDigests;
     try (InputStream input = new ByteArrayInputStream(data)) {
       chunkDigests = testChunker.chunkToDigests(input);
@@ -428,7 +432,7 @@ public class ChunkedBlobUploaderTest {
     uploadThread.join(TimeUnit.SECONDS.toMillis(1));
     assertThat(uploadThread.isAlive()).isFalse();
     verify(file, times(1)).getInputStream();
-    verify(grpcCacheClient, never()).spliceBlob(any(), any(), any());
+    verify(grpcCacheClient, never()).spliceBlob(any(), any(), any(), any());
   }
 
   @Test
@@ -439,7 +443,8 @@ public class ChunkedBlobUploaderTest {
     new Random(42).nextBytes(data);
     Digest blobDigest = DIGEST_UTIL.compute(data);
 
-    FastCdcChunker testChunker = new FastCdcChunker(new ChunkingConfig(1024, 2, 0), DIGEST_UTIL);
+    FastCdcChunker testChunker =
+        new FastCdcChunker(new FastCdcChunkingConfig(1024, 2, 0), DIGEST_UTIL);
     List<Digest> chunkDigests;
     try (InputStream input = new ByteArrayInputStream(data)) {
       chunkDigests = testChunker.chunkToDigests(input);
@@ -467,7 +472,7 @@ public class ChunkedBlobUploaderTest {
 
     assertThat(e).hasMessageThat().contains("file was concurrently modified during upload");
     assertThat(e).hasCauseThat().isInstanceOf(EOFException.class);
-    verify(grpcCacheClient, never()).spliceBlob(any(), any(), any());
+    verify(grpcCacheClient, never()).spliceBlob(any(), any(), any(), any());
   }
 
   private void writeFile(Path path, byte[] data) throws IOException {

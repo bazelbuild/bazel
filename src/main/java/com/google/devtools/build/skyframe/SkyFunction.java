@@ -207,6 +207,11 @@ public interface SkyFunction {
      * <p>The exception class given cannot be a supertype or a subtype of {@link RuntimeException},
      * or a subtype of {@link InterruptedException}. See {@link
      * SkyFunctionException#validateExceptionType} for details.
+     *
+     * <p>Note that exceptions may not always be propagated in this way (e.g., when not in "keep
+     * going" mode), so callers must not depend on this for control flow. When it is necessary to
+     * allow recovery from a failed function evaluation in all cases, then the failure needs to be
+     * represented in that function's regular value instead.
      */
     @CanIgnoreReturnValue
     @Nullable

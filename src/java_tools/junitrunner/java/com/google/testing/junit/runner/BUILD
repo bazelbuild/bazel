@@ -15,7 +15,7 @@ java_library(
     deps = [
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/junit4",
-        "//third_party:junit4",
+        "//third_party/java/junit:not-testonly",
     ],
 )
 
@@ -41,5 +41,5 @@ filegroup(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding:srcs",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/java_tools/junitrunner:__pkg__"],
 )

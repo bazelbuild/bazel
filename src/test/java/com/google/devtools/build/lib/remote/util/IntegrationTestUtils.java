@@ -15,9 +15,11 @@ package com.google.devtools.build.lib.remote.util;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.util.OS;
@@ -50,8 +52,8 @@ public final class IntegrationTestUtils {
    * <p>Should be kept in a static variable annotated with both {@link org.junit.ClassRule} and
    * {@link org.junit.Rule}.
    */
-  public static WorkerInstance createWorker() {
-    return createWorker(/* useHttp= */ false);
+  public static WorkerInstance createWorker(String... extraArgs) {
+    return createWorker(/* useHttp= */ false, extraArgs);
   }
 
   /**
@@ -60,20 +62,45 @@ public final class IntegrationTestUtils {
    * <p>Should be kept in a static variable annotated with both {@link org.junit.ClassRule} and
    * {@link org.junit.Rule}.
    */
-  public static WorkerInstance createWorker(boolean useHttp) {
+  public static WorkerInstance createWorker(boolean useHttp, String... extraArgs) {
+    return new WorkerInstance(
+        useHttp,
+        newWorkerTmpDir(),
+        /* failureCount= */ 0,
+        /* failureMethod= */ "",
+        ImmutableList.copyOf(extraArgs));
+  }
+
+  /**
+   * Creates a worker that returns {@code UNAVAILABLE} for the first {@code n} {@code
+   * ByteStream.Read} calls made while its failure marker is armed (see {@link
+   * WorkerInstance#armReadFailures}). This injects a transient remote read failure that then heals
+   * on its own — e.g. to trip and then recover the remote failure circuit breaker.
+   *
+   * <p>Should be kept in a static variable annotated with both {@link org.junit.ClassRule} and
+   * {@link org.junit.Rule}.
+   */
+  public static WorkerInstance createFailFirstReadWorker(int n) {
+    return new WorkerInstance(
+        /* useHttp= */ false,
+        newWorkerTmpDir(),
+        /* failureCount= */ n,
+        /* failureMethod= */ "google.bytestream.ByteStream/Read",
+        /* extraArgs= */ ImmutableList.of());
+  }
+
+  private static Path newWorkerTmpDir() {
     // The worker directory must not be a subdirectory of the test temporary directory for two
     // reasons:
     // 1. It should be preserved between individual tests so that the worker can be kept running.
     // 2. Even if that wasn't needed, JUnit runs "after" methods of rules after those of
     //    superclasses, which means that BuildIntegrationtestCase's cleanup method would attempt
     //    to delete the worker directory before the worker is stopped, which fails on Windows.
-    Path workerTmpDir;
     try {
-      workerTmpDir = Files.createTempDirectory(systemTmpDir(), "remote.");
+      return Files.createTempDirectory(systemTmpDir(), "remote.");
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
-    return new WorkerInstance(useHttp, workerTmpDir);
   }
 
   private static Path systemTmpDir() {
@@ -101,17 +128,31 @@ public final class IntegrationTestUtils {
     private final Path stderrPath;
     private final Path workPath;
     private final Path casPath;
+    private final int failureCount;
+    private final String failureMethod;
+    private final Path markerPath;
+    private final ImmutableList<String> extraArgs;
 
     @Nullable private Integer port;
     @Nullable private Subprocess process;
 
-    private WorkerInstance(boolean useHttp, Path dir) {
+    private WorkerInstance(
+        boolean useHttp,
+        Path dir,
+        int failureCount,
+        String failureMethod,
+        ImmutableList<String> extraArgs) {
       this.useHttp = useHttp;
       this.stdPath = dir.resolve("std");
       this.stdoutPath = stdPath.resolve("stdout");
       this.stderrPath = stdPath.resolve("stderr");
       this.workPath = dir.resolve("work_path");
       this.casPath = dir.resolve("cas_path");
+      this.failureCount = failureCount;
+      this.failureMethod = failureMethod;
+      // Sibling of casPath so reset()'s CAS clear does not touch it.
+      this.markerPath = dir.resolve("fail_marker");
+      this.extraArgs = extraArgs;
     }
 
     @Override
@@ -120,11 +161,8 @@ public final class IntegrationTestUtils {
         return new Statement() {
           @Override
           public void evaluate() throws Throwable {
-            start();
-            try {
+            try (var ignored = start()) {
               base.evaluate();
-            } finally {
-              stop();
             }
           }
         };
@@ -144,7 +182,7 @@ public final class IntegrationTestUtils {
       }
     }
 
-    private void start() throws IOException, InterruptedException {
+    public AutoCloseable start() throws IOException, InterruptedException {
       Preconditions.checkState(process == null);
       Preconditions.checkState(port == null);
 
@@ -159,19 +197,29 @@ public final class IntegrationTestUtils {
       env.putAll(System.getenv());
       env.putAll(runfiles.getEnvVars());
       port = FreePortFinder.pickUnusedRandomPort();
+      ImmutableList.Builder<String> argv =
+          ImmutableList.<String>builder()
+              .add(
+                  workerPath,
+                  "--work_path=" + workPath,
+                  "--cas_path=" + casPath,
+                  (useHttp ? "--http_listen_port=" : "--listen_port=") + port);
+      if (failureCount > 0) {
+        argv.add("--failure_count=" + failureCount)
+            .add("--failure_method=" + failureMethod)
+            .add("--failure_marker_file=" + markerPath);
+      }
+      argv.addAll(extraArgs);
       process =
           new SubprocessBuilder(System.getenv())
               .setEnv(env.buildKeepingLast())
               .setStdout(stdoutPath.toFile())
               .setStderr(stderrPath.toFile())
-              .setArgv(
-                  ImmutableList.of(
-                      workerPath,
-                      "--work_path=" + workPath,
-                      "--cas_path=" + casPath,
-                      (useHttp ? "--http_listen_port=" : "--listen_port=") + port))
+              .setArgv(argv.build())
               .start();
       waitForPortOpen(process, port);
+
+      return this::stop;
     }
 
     private void waitForPortOpen(Subprocess process, int port)
@@ -213,6 +261,8 @@ public final class IntegrationTestUtils {
     }
 
     public void reset() throws IOException, InterruptedException {
+      // Disarm any injected read failures so the next test starts clean.
+      disarmReadFailures();
       // The DiskCacheClient in the worker expects the CAS subdirectories to exist.
       List<Path> toClear;
       try (var stream = Files.list(casPath)) {
@@ -222,6 +272,20 @@ public final class IntegrationTestUtils {
         deleteTree(path);
         ensureMkdir(path);
       }
+    }
+
+    /**
+     * Arms the injected read failures configured via {@link #createFailFirstReadWorker}: the next
+     * {@code failureCount} matching calls will fail with {@code UNAVAILABLE}. Re-arming (calling
+     * this again after {@link #disarmReadFailures}) resets the budget for another build.
+     */
+    public void armReadFailures() throws IOException {
+      Files.write(markerPath, new byte[0]);
+    }
+
+    /** Disarms injected read failures so matching calls succeed again. */
+    public void disarmReadFailures() throws IOException {
+      Files.deleteIfExists(markerPath);
     }
 
     public String getStdout() {
@@ -258,6 +322,34 @@ public final class IntegrationTestUtils {
 
     public PathFragment getCasPath() {
       return PathFragment.create(casPath.toString());
+    }
+
+    /** Returns the path of the blob with the given contents in the worker's CAS. */
+    public PathFragment getCasBlobPath(byte[] contents) {
+      return getCasBlobPath(
+          Digest.newBuilder()
+              .setHash(Hashing.sha256().hashBytes(contents).toString())
+              .setSizeBytes(contents.length)
+              .build());
+    }
+
+    /** Returns the path of the blob with the given digest in the worker's CAS. */
+    public PathFragment getCasBlobPath(Digest digest) {
+      return PathFragment.create(casBlobPath(digest).toString());
+    }
+
+    /**
+     * Deletes the blob with the given contents from the worker's CAS, leaving all other state (in
+     * particular action cache entries referencing the blob) intact.
+     */
+    public void evictBlob(byte[] contents) throws IOException {
+      Files.delete(Path.of(getCasBlobPath(contents).getPathString()));
+    }
+
+    // Mirrors the on-disk layout of DiskCacheClient.
+    private Path casBlobPath(Digest digest) {
+      String hash = digest.getHash();
+      return casPath.resolve("cas").resolve(hash.substring(0, 2)).resolve(hash);
     }
   }
 }

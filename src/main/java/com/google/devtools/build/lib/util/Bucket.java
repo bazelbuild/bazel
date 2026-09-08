@@ -18,4 +18,10 @@ import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 
 /** A bucket of values. min is inclusive, max is exclusive. */
 @SkybridgeInterface
-public record Bucket(long minInclusive, long maxExclusive, long count) {}
+public interface Bucket {
+  long minInclusive();
+
+  long maxExclusive();
+
+  long count();
+}

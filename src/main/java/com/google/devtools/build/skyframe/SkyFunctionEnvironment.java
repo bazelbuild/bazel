@@ -1045,13 +1045,6 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   @Override
   public void injectVersion(Version version) {
     var hermeticity = skyKey.functionName().getHermeticity();
-    if (hermeticity == FunctionHermeticity.HERMETIC && inErrorBubbling()) {
-      // Do nothing -- version is null during error bubbling, since
-      // SkyFunctionEnvironments will set a null MTSV anyway.
-      //
-      // See also Javadoc for SkyFunction.Environment#getMaxTransitiveSourceVersionSoFar.
-      return;
-    }
     switch (hermeticity) {
       case NONHERMETIC ->
           checkState(
@@ -1060,26 +1053,33 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
               maxTransitiveSourceVersion,
               version,
               skyKey);
+      case SEMI_HERMETIC -> {
+        if (inErrorBubbling()) {
+          // Do nothing -- version is null during error bubbling, since SkyFunctionEnvironments will
+          // set a null MTSV anyway.
+          //
+          // See also Javadoc for SkyFunction.Environment#getMaxTransitiveSourceVersionSoFar.
+          return;
+        }
+        // It's possible, but rare, for the sketch function to get a Skycache hit after partially
+        // resolving its deps (and collecting a temporary MTSV), specifically under
+        // SkyKeyComputeState eviction conditions. This temporary MTSV must be less than or equal to
+        // the version that would be provided by a Skycache hit injected here.
+        //
+        // A higher MTSV would imply that the Skycache version is stale.
+        //
+        // It's also possible for the MTSV to be the Minimal Version during the initial evaluation
+        // and getting a Skycache hit without resolving any dep.
+        checkState(
+            maxTransitiveSourceVersion.atMost(version),
+            "Multiple versions (%s, %s) for %s",
+            maxTransitiveSourceVersion,
+            version,
+            skyKey);
+      }
       case HERMETIC ->
-          // It's possible, but rare, for the sketch function to get a Skycache
-          // hit after partially resolving its deps (and collecting a temporary
-          // MTSV), specifically under SkyKeyComputeState eviction conditions.
-          // This temporary MTSV must be less than or equal to the version that
-          // would be provided by a Skycache hit injected here.
-          //
-          // A higher MTSV would imply that the Skycache version is stale.
-          //
-          // It's also possible for the MTSV to be the Minimal Version during the initial
-          // evaluation and getting a Skycache hit without resolving any dep.
-          checkState(
-              maxTransitiveSourceVersion.atMost(version),
-              "Multiple versions (%s, %s) for %s",
-              maxTransitiveSourceVersion,
-              version,
-              skyKey);
-      default ->
-          throw new IllegalArgumentException(
-              "Unsupported hermeticity: " + skyKey.functionName().getHermeticity());
+          throw new IllegalStateException(
+              "Version injection unsupported for hermetic function: " + skyKey);
     }
     checkNotNull(version, skyKey);
     checkState(

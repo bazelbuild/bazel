@@ -428,7 +428,9 @@ public class BuildRequest implements OptionsProvider {
         OutputGroupInfo.determineOutputGroups(
             buildOptions.getOutputGroups(),
             validationMode(),
-            /* shouldRunTests= */ shouldRunTests()));
+            /* shouldRunTests= */ shouldRunTests()),
+        buildOptions.getIncompatibleFailOnUnknownOutputGroups(),
+        /* forRunCommand= */ commandName.equals("run"));
   }
 
   public ImmutableList<String> getAspects() {

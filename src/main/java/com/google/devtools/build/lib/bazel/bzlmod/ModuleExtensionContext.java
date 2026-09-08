@@ -267,8 +267,12 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
         @Param(
             name = "reproducible",
             doc =
-                "States that this module extension ensures complete reproducibility, thereby it "
-                    + "should not be stored in the lockfile.",
+                "States that this module extension ensures complete reproducibility, which means "
+                    + "that given the same usages, tags, and watched inputs, it will always "
+                    + "instantiate the same set of repository rules with the same attributes. "
+                    + "Note that the repository rules themselves do not have to be reproducible."
+                    + "<p>A reproducible module extension does not result in an entry in the "
+                    + "<code>MODULE.bazel.lock</code> file.",
             positional = false,
             named = true,
             defaultValue = "False",

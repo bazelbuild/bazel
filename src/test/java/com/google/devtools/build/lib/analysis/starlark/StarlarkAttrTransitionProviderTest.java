@@ -1194,8 +1194,8 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
 
   @Test
   public void testBannedNativeOptionOutput() throws Exception {
-    // Just picked an arbitrary incompatible_ flag; however, could be any flag
-    // besides incompatible_enable_cc_toolchain_resolution (and might not even need to be real).
+    // Just picked an arbitrary incompatible_ flag; however, this could be any incompatible flag
+    // besides incompatible_enable_apple_toolchain_resolution and might not even need to be real.
     scratch.file(
         "test/starlark/my_rule.bzl",
         """

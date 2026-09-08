@@ -127,7 +127,7 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
     if (t instanceof WriteTimeoutException) {
       super.exceptionCaught(ctx, new UploadTimeoutException(path, contentLength));
     } else if (t instanceof TooLongFrameException) {
-      super.exceptionCaught(ctx, new IOException(t));
+      super.exceptionCaught(ctx, new IOException("HTTP response too large", t));
     } else {
       super.exceptionCaught(ctx, t);
     }

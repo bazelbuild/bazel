@@ -169,7 +169,7 @@ public final class OutputPathMnemonicComputer {
    * different between buildOptions and baselineOptions but were also not excluded from the output
    * path by a call to {@link Fragment.OutputDirectoriesContext.markAsExplicitInOutputPathFor}
    */
-  static final String computeMnemonic(
+  public static final String computeMnemonic(
       BuildOptions buildOptions,
       @Nullable BuildOptions baselineOptions,
       ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments)

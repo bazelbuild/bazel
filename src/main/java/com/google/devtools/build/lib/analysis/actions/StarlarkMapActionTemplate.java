@@ -261,8 +261,13 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
       checkActionOutputsArtifactOwner(actions, artifactOwner);
       return actions;
     } catch (EvalException e) {
+      var messageWithStack = e.getMessageWithStack();
       throw new ActionExecutionException(
-          e, this, /* catastrophe= */ true, makeDetailedExitCode(e.getMessage()));
+          messageWithStack,
+          e,
+          this,
+          /* catastrophe= */ true,
+          makeDetailedExitCode(messageWithStack));
     } finally {
       context.close();
     }

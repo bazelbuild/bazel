@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.devtools.build.lib.remote.util.BulkTransfers.mergeBulkTransfer;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -28,7 +30,6 @@ import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
-import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.vfs.OutputService.RewoundActionSynchronizer;
@@ -135,33 +136,43 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
       Iterable<Artifact> importantArtifacts, InputMetadataProvider metadataProvider)
       throws IOException, InterruptedException {
     var futures = new ArrayList<ListenableFuture<Void>>();
+    var ensuredOutputMetadata = new ArrayList<FileArtifactValue>();
 
     for (var artifact : importantArtifacts) {
-      downloadArtifact(metadataProvider, artifact, futures);
+      downloadArtifact(metadataProvider, artifact, futures, ensuredOutputMetadata);
     }
 
     for (var runfileTree : metadataProvider.getRunfilesTrees()) {
       for (var artifact : runfileTree.getArtifacts().toList()) {
-        downloadArtifact(metadataProvider, artifact, futures);
+        downloadArtifact(metadataProvider, artifact, futures, ensuredOutputMetadata);
       }
     }
 
     // TODO: Only wait for failed futures to complete as long as they can all be explained by
     // lost outputs.
     try {
-      var unused = Utils.mergeBulkTransfer(futures).get();
+      var unused = mergeBulkTransfer(futures).get();
     } catch (ExecutionException e) {
       Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
       Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
       Throwables.throwIfUnchecked(e.getCause());
       throw new IllegalStateException(e.getCause());
     }
+
+    // These outputs are now present in the local filesystem, but their generating actions were not
+    // reexecuted, so the metadata tracked for them in Skyframe remains remote. Record the
+    // materialization on the metadata so that if such a file is deleted locally, a later
+    // invocation reruns the generating action to restore it.
+    for (var metadata : ensuredOutputMetadata) {
+      metadata.setMaterializedAsToplevelOutput(true);
+    }
   }
 
   private void downloadArtifact(
       InputMetadataProvider metadataProvider,
       Artifact artifact,
-      List<ListenableFuture<Void>> futures)
+      List<ListenableFuture<Void>> futures,
+      List<FileArtifactValue> ensuredOutputMetadata)
       throws IOException, InterruptedException {
     if (!RemoteOutputChecker.mayBeRemote(artifact)) {
       return;
@@ -200,6 +211,7 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
       }
 
       if (remoteOutputChecker.shouldDownloadOutput(artifact, metadata)) {
+        ensuredOutputMetadata.add(metadata);
         futures.add(
             actionInputPrefetcher.prefetchFiles(
                 artifact instanceof DerivedArtifact derivedArtifact

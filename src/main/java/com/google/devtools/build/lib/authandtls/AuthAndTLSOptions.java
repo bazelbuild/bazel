@@ -70,11 +70,14 @@ public abstract class AuthAndTLSOptions extends OptionsBase {
       name = "google_credentials",
       oldName = "auth_credentials",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.FULLY_REDACTED_IN_LOGS},
       help =
-          "Specifies the file to get authentication credentials from. See "
-              + "https://cloud.google.com/docs/authentication for details.")
+          "Specifies the file to get authentication credentials from. An empty value resets the"
+              + " flag to its default. See https://cloud.google.com/docs/authentication for"
+              + " details.")
   public abstract String getGoogleCredentials();
 
   public abstract void setGoogleCredentials(String value);
@@ -107,6 +110,7 @@ public abstract class AuthAndTLSOptions extends OptionsBase {
       converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.FULLY_REDACTED_IN_LOGS},
       help =
           "Specify the TLS client key to use; you also need to provide a client certificate to "
               + "enable client authentication. An empty value resets the flag to its default.")
@@ -115,12 +119,13 @@ public abstract class AuthAndTLSOptions extends OptionsBase {
   @Option(
       name = "tls_authority_override",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       metadataTags = {OptionMetadataTag.HIDDEN},
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "TESTING ONLY! Can be used with a self-signed certificate to consider the specified "
-              + "value a valid TLS authority.")
+              + "value a valid TLS authority. An empty value resets the flag to its default.")
   public abstract String getTlsAuthorityOverride();
 
   @Option(
@@ -132,8 +137,8 @@ public abstract class AuthAndTLSOptions extends OptionsBase {
       help =
           """
           Configures keep-alive pings for outgoing gRPC connections. If this is set, then Bazel
-          sends pings after this much time of no read operations on the connection, but
-          only if there is at least one pending gRPC call. The value 0 disables the keep-alives.
+          sends pings after this much time of no read operations on the connection, even if
+          there are no pending gRPC calls. The value 0 disables the keep-alives.
           """)
   public abstract Duration getGrpcKeepaliveTime();
 

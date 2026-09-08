@@ -305,7 +305,8 @@ public class RuleFactory {
     public NoneType call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
       if (!args.isEmpty()) {
-        throw Starlark.errorf("unexpected positional arguments");
+        throw Starlark.errorf(
+            "%s() does not accept positional arguments, but got %d", getName(), args.size());
       }
       try {
         TargetDefinitionContext targetDefinitionContext =

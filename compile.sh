@@ -55,11 +55,6 @@ if [ "${EMBED_LABEL-x}" = "x" ]; then
   EMBED_LABEL="$(get_last_version) (@${git_sha1:-non-git})"
 fi
 
-if [[ $PLATFORM == "darwin" ]] && \
-    xcodebuild -showsdks 2> /dev/null | grep -q '\-sdk iphonesimulator'; then
-  EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS-} --define IPHONE_SDK=1"
-fi
-
 source scripts/bootstrap/bootstrap.sh
 
 new_step 'Building Bazel with Bazel'

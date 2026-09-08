@@ -1,0 +1,115 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title">Command-Line Reference</h1>
+
+<pre>
+bazel [&lt;startup options&gt;] &lt;command&gt; [&lt;args&gt;]
+</pre>
+
+<h2>Option Syntax</h2>
+
+<p>
+Options can be passed to Bazel in different ways.
+</p>
+
+<h2>Commands</h2>
+<table>
+<tr>
+  <td><a href="#build"><code>build</code></a></td>
+  <td>Builds the specified targets.</td>
+</tr>
+<tr>
+  <td><a href="#test"><code>test</code></a></td>
+  <td>Builds and runs the specified test targets.</td>
+</tr>
+</table>
+
+<h2>Startup Options</h2>
+<dl>Options that appear before the command and are parsed by the client:
+<dt id="startup_options-flag--batch"><code id="batch"><a href="#startup_options-flag--batch">--[no]batch</a></code> default: "false"</dt>
+<dd>
+<p>If set, Bazel will be run as just a client process without a server.</p>
+<p>Tags:
+<a href="#effect_tag_LOSES_INCREMENTAL_STATE"><code>loses_incremental_state</code></a>, <a href="#metadata_tag_DEPRECATED"><code>deprecated</code></a>
+</p></dd>
+<dt id="startup_options-flag--connect_timeout_secs"><code id="connect_timeout_secs"><a href="#startup_options-flag--connect_timeout_secs">--connect_timeout_secs</a>=&lt;an integer&gt;</code> default: "30"</dt>
+<dd>
+<p>The amount of time the client waits for each attempt to connect to the server</p>
+<p>Tags:
+<a href="#effect_tag_BAZEL_INTERNAL_CONFIGURATION"><code>bazel_internal_configuration</code></a>
+</p></dd>
+<dt id="startup_options-flag--bazelrc"><code id="bazelrc"><a href="#startup_options-flag--bazelrc">--bazelrc</a>=&lt;path&gt;</code> multiple uses are accumulated</dt>
+<dd>
+<p>The location of the user .bazelrc file.</p>
+<p>Tags:
+<a href="#effect_tag_CHANGES_INPUTS"><code>changes_inputs</code></a>
+</p></dd>
+<dt id="startup_options-flag--host_jvm_debug"><code id="host_jvm_debug"><a href="#startup_options-flag--host_jvm_debug">--host_jvm_debug</a></code></dt>
+<dd>
+<p>Convenience option to add some additional JVM startup flags.</p>
+<p>Expands to:
+<br/>&nbsp;&nbsp;<code><a href="#flag--host_jvm_args">--host_jvm_args=-agentlib:jdwp=transport=dt_socket,server=y,address=5005</a></code>
+</p></dd>
+<dt id="startup_options-flag--digest_function"><code id="digest_function"><a href="#startup_options-flag--digest_function">--digest_function</a>=&lt;hash function&gt;</code> default: see description</dt>
+<dd>
+<p>The hash function to use when computing file digests.</p>
+<p>Tags:
+<a href="#effect_tag_LOSES_INCREMENTAL_STATE"><code>loses_incremental_state</code></a>
+</p></dd>
+<dt id="startup_options-flag--io_nice_level"><code id="io_nice_level"><a href="#startup_options-flag--io_nice_level">--io_nice_level</a>={-1,0,1,2,3,4,5,6,7}</code> default: "-1"</dt>
+<dd>
+<p>Only on Linux; set a level from 0-7 for best-effort IO scheduling.</p>
+<p>Tags:
+<a href="#effect_tag_HOST_MACHINE_RESOURCE_OPTIMIZATIONS"><code>host_machine_resource_optimizations</code></a>
+</p></dd>
+</dl>
+
+<h2><a name="common_options">Options Common to all Commands</a></h2>
+<dl>Verbosity options:
+<dt id="common_options-flag--verbose"><code id="verbose"><a href="#common_options-flag--verbose">--[no]verbose</a></code> default: "false"</dt>
+<dd>
+<p>If true, enable verbose output.</p>
+<p>Tags:
+<a href="#effect_tag_AFFECTS_OUTPUTS"><code>affects_outputs</code></a>
+</p></dd>
+</dl>
+
+<h2><a name="build">Build Options</a></h2>
+<p>Inherits all options from <a href="#common_options">common_options</a>.</p>
+
+<dl>Build-specific options:
+<dt id="build-flag--jobs"><code id="jobs"><a href="#build-flag--jobs">--jobs</a>=&lt;an integer&gt;</code> [<code>-j</code>] default: "auto"</dt>
+<dd>
+<p>The number of concurrent jobs to run. Takes an integer, or "auto".</p>
+<p>Tags:
+<a href="#effect_tag_EXECUTION"><code>execution</code></a>
+</p></dd>
+</dl>
+
+<h3>Option Effect Tags</h3>
+<table>
+<tr>
+<td id="effect_tag_LOSES_INCREMENTAL_STATE"><code>loses_incremental_state</code></td>
+<td>This option affects the incremental state.</td>
+</tr>
+<tr>
+<td id="effect_tag_AFFECTS_OUTPUTS"><code>affects_outputs</code></td>
+<td>This option affects the outputs.</td>
+</tr>
+</table>
+
+<h3>Option Metadata Tags</h3>
+<table>
+<tr>
+<td id="metadata_tag_DEPRECATED"><code>deprecated</code></td>
+<td>This option is deprecated.</td>
+</tr>
+</table>
+
+</body>
+</html>

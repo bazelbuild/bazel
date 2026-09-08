@@ -33,6 +33,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupSummaryKey;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
@@ -47,8 +48,10 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.PooledInterner;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
@@ -176,6 +179,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile,
       boolean shouldUseRepoDotBazel,
       SkyKeyStateReceiver skyKeyStateReceiver,
+      CompressionService compressionService,
       BugReporter bugReporter,
       boolean globUnderSingleDep,
       Optional<DiffCheckNotificationOptions> diffCheckNotificationOptions) {
@@ -199,6 +203,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         new PackageProgressReceiver(),
         new AnalysisProgressReceiver(),
         skyKeyStateReceiver,
+        compressionService,
         bugReporter,
         diffAwarenessFactories,
         workspaceInfoFromDiffReceiver,
@@ -264,6 +269,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       PathPackageLocator packageLocator,
       UUID commandId,
       Map<String, String> clientEnv,
+      Map<String, String> repoEnv,
       TimestampGranularityMonitor tsgm,
       QuiescingExecutors executors,
       OptionsProvider options,
@@ -310,12 +316,28 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         }
         needGcAfterResettingEvaluator = false;
       }
+    } else {
+      var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
+      if (buildRequestOptions != null) {
+        Label target = buildRequestOptions.getBustActionCachesTarget();
+        if (target != null) {
+          invalidate(
+              key ->
+                  switch (key) {
+                    case ActionLookupData lookupData -> target.equals(lookupData.getLabel());
+                    case ActionLookupSummaryKey summaryKey ->
+                        target.equals(summaryKey.argument().getLabel());
+                    default -> false;
+                  });
+        }
+      }
     }
     super.sync(
         eventHandler,
         packageLocator,
         commandId,
         clientEnv,
+        repoEnv,
         tsgm,
         executors,
         options,
@@ -375,8 +397,17 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     invalidate(SkyFunctionName.functionIsIn(PACKAGE_LOCATOR_DEPENDENT_VALUES));
   }
 
-  void invalidate(Predicate<SkyKey> pred) {
-    recordingDiffer.invalidate(Iterables.filter(memoizingEvaluator.getValues().keySet(), pred));
+  private void invalidate(Predicate<SkyKey> pred) {
+    Set<SkyKey> keysToInvalidate = Sets.newConcurrentHashSet();
+    memoizingEvaluator
+        .getInMemoryGraph()
+        .parallelForEach(
+            e -> {
+              if (pred.apply(e.getKey())) {
+                keysToInvalidate.add(e.getKey());
+              }
+            });
+    recordingDiffer.invalidate(keysToInvalidate);
   }
 
   /** Sets the packages that should be treated as deleted and ignored. */
@@ -798,11 +829,11 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public void deleteOldNodes(long versionWindowForDirtyGc) {
+  public void deleteOldNodes(long versionWindowForDirtyGc, boolean keepChangePrunableNodes) {
     // TODO(bazel-team): perhaps we should come up with a separate GC class dedicated to maintaining
     // value garbage. If we ever do so, this logic should be moved there.
     if (trackIncrementalState) {
-      memoizingEvaluator.deleteDirty(versionWindowForDirtyGc);
+      memoizingEvaluator.deleteDirty(versionWindowForDirtyGc, keepChangePrunableNodes);
     }
   }
 
@@ -857,6 +888,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     private Supplier<Path> repoContentsCachePathSupplier = () -> null;
     private Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit = skyframeExecutor -> {};
     private SkyFunction ignoredSubdirectoriesFunction;
+    private CompressionService compressionService;
     private BugReporter bugReporter = BugReporter.defaultInstance();
     private SkyKeyStateReceiver skyKeyStateReceiver = SkyKeyStateReceiver.NULL_INSTANCE;
     private SyscallCache syscallCache = null;
@@ -898,6 +930,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
               actionOnFilesystemErrorCodeLoadingBzlFile,
               shouldUseRepoDotBazel,
               skyKeyStateReceiver,
+              compressionService,
               bugReporter,
               globUnderSingleDep,
               Optional.ofNullable(diffCheckNotificationOptions));
@@ -932,6 +965,12 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     @CanIgnoreReturnValue
     public Builder setIgnoredSubdirectories(SkyFunction ignoredSubdirectoriesFunction) {
       this.ignoredSubdirectoriesFunction = ignoredSubdirectoriesFunction;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setCompressionService(CompressionService compressionService) {
+      this.compressionService = compressionService;
       return this;
     }
 

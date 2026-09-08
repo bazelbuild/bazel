@@ -22,5 +22,12 @@ import com.google.devtools.build.lib.actions.Artifact;
  * execution of its generating action, and its behavior is undefined afterwards.
  */
 public interface EphemeralCheckIfOutputConsumed {
+
+  /**
+   * Tests whether a generated artifact is known to be consumed.
+   *
+   * <p>Should not be called for {@linkplain Artifact#isSourceArtifact source artifacts}. Children
+   * of tree artifacts should be tested by passing their {@linkplain Artifact#getParent parent}.
+   */
   boolean test(Artifact artifact);
 }

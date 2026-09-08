@@ -331,7 +331,7 @@ public class SourceFileReader {
   }
 
   private static String expandVariables(String line, Map<String, String> variables) {
-    if (variables == null || line.indexOf("${") == -1) {
+    if (variables == null || !line.contains("${")) {
       return line;
     }
 

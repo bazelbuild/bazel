@@ -108,8 +108,7 @@ public abstract class QueryExpression {
   }
 
   /** Checks if this QueryExpression has a SomePathFunction at its top level. */
-  public boolean isTopLevelSomePathFunction() {
-    return this instanceof FunctionExpression functionExpression
-        && "somepath".equals(functionExpression.getFunction().getName());
+  public boolean isSomePathFunction() {
+    return false;
   }
 }

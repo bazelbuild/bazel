@@ -38,7 +38,6 @@ import org.junit.runners.JUnit4;
 public class ProjectResolutionTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     writeProjectSclDefinition("test/project_proto.scl");
     scratch.file("test/BUILD");
   }

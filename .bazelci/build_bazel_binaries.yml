@@ -14,7 +14,7 @@ platforms:
     build_flags:
       - "-c"
       - "opt"
-  ubuntu2004:
+  ubuntu2204:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"

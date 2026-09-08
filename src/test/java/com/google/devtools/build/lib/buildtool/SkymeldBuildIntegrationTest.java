@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -319,6 +320,100 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     }
   }
 
+  @Test
+  public void sequentialBuilds_sameTarget_noNullPointerException(
+      @TestParameter boolean mergedAnalysisExecution) throws Exception {
+    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt"],
+            outs = ["out"],
+            cmd = "cat $< > $@",
+        )
+        """);
+
+    buildTarget("//hello:target");
+    buildTarget("//hello:target");
+  }
+
+  @Test
+  public void sequentialBuilds_sameTargetWithAspect_noNullPointerException(
+      @TestParameter boolean mergedAnalysisExecution) throws Exception {
+    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+    addOptions("--aspects=//foo:aspect.bzl%simple_aspect");
+    write(
+        "foo/aspect.bzl",
+        """
+        def _aspect_impl(target, ctx):
+            return []
+
+        simple_aspect = aspect(implementation = _aspect_impl)
+        """);
+    write(
+        "foo/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = [],
+            outs = ["out"],
+            cmd = "touch $@",
+        )
+        """);
+
+    buildTarget("//foo:target");
+    buildTarget("//foo:target");
+  }
+
+  @Test
+  public void sequentialBuilds_multipleTargets_noNullPointerException(
+      @TestParameter boolean mergedAnalysisExecution) throws Exception {
+    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target1",
+            srcs = ["x.txt"],
+            outs = ["out1"],
+            cmd = "cat $< > $@",
+        )
+        genrule(
+            name = "target2",
+            srcs = ["x.txt"],
+            outs = ["out2"],
+            cmd = "cat $< > $@",
+        )
+        """);
+
+    buildTarget("//hello:target1", "//hello:target2");
+    buildTarget("//hello:target1", "//hello:target2");
+  }
+
+  @Test
+  public void sequentialBuilds_sameInvocationId_noNullPointerException(
+      @TestParameter boolean mergedAnalysisExecution) throws Exception {
+    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+    addOptions("--invocation_id=00000000-0000-0000-0000-000000000000");
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt"],
+            outs = ["out"],
+            cmd = "cat $< > $@",
+        )
+        """);
+
+    buildTarget("//hello:target");
+    buildTarget("//hello:target");
+  }
 
   @Test
   public void aspectAnalysisFailure_consistentWithNonSkymeld(
@@ -372,7 +467,10 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     addOptions("--aspects=//foo:aspect.bzl%execution_err_aspect", "--output_groups=files");
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
     events.assertContainsError(
-        "Action foo/aspect_output failed: (Exit 1): bash failed: error executing Action command");
+        // The shell binary is "bash" on Unix and "bash.exe" on Windows.
+        Pattern.compile(
+            "\\QAction foo/aspect_output (from target //foo:foo) failed: (Exit 1): bash\\E"
+                + "(\\.exe)?\\Q failed: error executing Action command\\E"));
   }
 
   @Test
@@ -405,7 +503,8 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
       assertSingleOutputBuilt("//foo:foo");
     }
     events.assertContainsError(
-        "Action foo/execution_failure.out failed: missing input file '//foo:missing'");
+        "Action foo/execution_failure.out (from target //foo:execution_failure) failed: missing"
+            + " input file '//foo:missing'");
   }
 
   @Test
@@ -500,7 +599,8 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
         BuildFailedException.class,
         () -> buildTarget("//foo:analysis_failure", "//foo:execution_failure"));
     events.assertContainsError(
-        "Action foo/execution_failure.out failed: missing input file '//foo:missing'");
+        "Action foo/execution_failure.out (from target //foo:execution_failure) failed: missing"
+            + " input file '//foo:missing'");
     events.assertContainsError("rule '//foo:missing' does not exist");
 
     assertThat(getLabelsOfAnalyzedTargets()).contains("//foo:execution_failure");
@@ -831,7 +931,10 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     // Verify that the build did not crash.
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
     events.assertContainsError(
-        "Action foo/aspect_output failed: (Exit 1): bash failed: error executing Action command");
+        // The shell binary is "bash" on Unix and "bash.exe" on Windows.
+        Pattern.compile(
+            "\\QAction foo/aspect_output (from target //foo:foo) failed: (Exit 1): bash\\E"
+                + "(\\.exe)?\\Q failed: error executing Action command\\E"));
   }
 
   @Test

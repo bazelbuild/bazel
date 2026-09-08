@@ -712,13 +712,8 @@ EOF
   # "unset RUNFILES_MANIFEST_FILE" is necessary because the environment
   # variables set by //pkg:greetings are otherwise passed to //pkg:farewell and
   # break its runfiles discovery.
-  if is_windows; then
-    expect_log "hello there friend"
-    expect_log "goodbye buddy"
-  else
-    expect_log "hello there friend && unset RUNFILES_MANIFEST_FILE && .*bin/$pkg/farewell buddy"
-    expect_not_log "goodbye"
-  fi
+  expect_log "hello there friend && unset RUNFILES_MANIFEST_FILE && .*bin/$pkg/farewell${EXE_EXT} buddy"
+  expect_not_log "goodbye"
 }
 
 function test_run_under_command_change_preserves_cache() {

@@ -13,12 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.docgen.annot.GlobalMethods;
-import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -30,6 +32,7 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -39,7 +42,9 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TokenKind;
+import net.starlark.java.syntax.TypeConstructor;
 
 /**
  * An attribute value consisting of a concatenation (via the {@code +} operator for lists or the
@@ -71,6 +76,10 @@ public final class SelectorList implements StarlarkValue, HasBinary {
   private final Class<?> type;
   private final List<Object> elements;
 
+  public static TypeConstructor getAssociatedTypeConstructor() {
+    return SelectorValue.TYPE_CONSTRUCTOR;
+  }
+
   private SelectorList(Class<?> type, List<Object> elements) {
     this.type = type;
     this.elements = elements;
@@ -90,7 +99,7 @@ public final class SelectorList implements StarlarkValue, HasBinary {
   }
 
   /** Implementation of the Starlark {@code select()} function exposed to BUILD and .bzl files. */
-  private static Object select(
+  private static SelectorList select(
       Dict<?, ?> dict, String noMatchError, @Nullable LabelConverter labelConverter)
       throws EvalException, LabelSyntaxException {
     if (dict.isEmpty()) {
@@ -237,15 +246,15 @@ public final class SelectorList implements StarlarkValue, HasBinary {
     if (this == other) {
       return true;
     }
-    if (!(other instanceof SelectorList)) {
+    if (!(other instanceof SelectorList that)) {
       return false;
     }
-    SelectorList that = (SelectorList) other;
     return Objects.equals(this.type, that.type) && Objects.equals(this.elements, that.elements);
   }
 
   /** The user-facing API to the {@code select()} callable. */
-  @GlobalMethods(environment = {Environment.BUILD, Environment.BZL})
+  @GlobalMethodDocs(environment = {Environment.BUILD, Environment.BZL})
+  @StarlarkLibrary
   public static final class SelectLibrary {
 
     private SelectLibrary() {}
@@ -278,8 +287,9 @@ public final class SelectorList implements StarlarkValue, HasBinary {
               doc = "Optional custom error to report if no condition matches.",
               named = true),
         },
-        useStarlarkThread = true)
-    public Object select(Dict<?, ?> dict, String noMatchError, StarlarkThread thread)
+        useStarlarkThread = true,
+        isTypeConstructor = true)
+    public SelectorList select(Dict<?, ?> dict, String noMatchError, StarlarkThread thread)
         throws EvalException {
       // If this is not null, string keys in the dict will be resolved to Labels eagerly using the
       // given context.
@@ -307,5 +317,29 @@ public final class SelectorList implements StarlarkValue, HasBinary {
         throw Starlark.errorf("invalid label in select(): %s", e.getMessage());
       }
     }
+  }
+
+  @Override
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+    StarlarkType overallType = null;
+    TokenKind operator = null;
+    for (Object element : elements) {
+      StarlarkType elementType = Starlark.getStarlarkType(element, semantics);
+      if (overallType == null) {
+        overallType = elementType;
+        operator = binaryOpToken(element);
+      } else {
+        overallType =
+            checkNotNull(
+                StarlarkType.inferBinaryOperator(overallType, operator, elementType),
+                "In %s, cannot apply %s operator to element types '%s' and '%s'. This is a bug in"
+                    + " SelectorList machinery.",
+                Starlark.repr(this, semantics),
+                operator,
+                overallType,
+                elementType);
+      }
+    }
+    return overallType; // non-null because elements is non-empty
   }
 }

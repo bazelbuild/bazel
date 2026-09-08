@@ -319,7 +319,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
       formatter.verifyCompatible(queryEnvironment, expr);
       targets =
-          graphlessQuery && !expr.isTopLevelSomePathFunction()
+          graphlessQuery && !expr.isSomePathFunction()
               ? QueryUtil.newLexicographicallySortedTargetAggregator()
               : QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnvironment);
       queryResult = queryEnvironment.evaluateQuery(expr, targets);

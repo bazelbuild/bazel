@@ -15,13 +15,16 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
-import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
+import static com.google.devtools.build.lib.remote.util.BulkTransfers.waitForBulkTransfer;
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
@@ -31,6 +34,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.FastCdc2020Params;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
+import build.bazel.remote.execution.v2.SplitBlobResponse;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -53,15 +57,19 @@ import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
+import com.google.devtools.build.lib.remote.common.BlobNotSplittableException;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
+import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -83,8 +91,11 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.Map;
 import java.util.SortedMap;
@@ -909,7 +920,7 @@ public class CombinedCacheTest {
               return spliceFuture;
             })
         .when(grpcCacheClient)
-        .spliceBlob(any(), any(), any());
+        .spliceBlob(any(), any(), any(), any());
 
     CombinedCache combinedCache =
         new CombinedCache(
@@ -917,7 +928,8 @@ public class CombinedCacheTest {
             /* diskCacheClient= */ null,
             /* symlinkTemplate= */ null,
             digestUtil,
-            /* chunkingEnabled= */ true);
+            /* chunkingFunction= */ RemoteOptions.ChunkingFunctionValue.FAST_CDC_2020,
+            new ChunkLocationMap());
     byte[] data = new byte[8192];
     Path file = execRoot.getRelative("chunked-output");
     try (var out = file.getOutputStream()) {
@@ -935,7 +947,7 @@ public class CombinedCacheTest {
 
       assertThat(grpcCacheClient.getUploadSubscriberCount(digest)).isEqualTo(2);
       verify(grpcCacheClient).findMissingDigests(any(), any());
-      verify(grpcCacheClient).spliceBlob(any(), any(), any());
+      verify(grpcCacheClient).spliceBlob(any(), any(), any(), any());
 
       spliceFuture.set(null);
       getFromFuture(firstUpload);
@@ -943,6 +955,273 @@ public class CombinedCacheTest {
     } finally {
       combinedCache.release();
     }
+  }
+
+
+  @Test
+  public void downloadBlob_chunkMissingAfterPartialWrite_doesNotRestartIntoSameStream()
+      throws Exception {
+    // Larger than the chunking threshold (4 * 1024, derived from the advertised average chunk size
+    // of 1024) so that the download is chunked, with chunks small enough not to be chunked again.
+    byte[] chunk1Data = new byte[4096];
+    Arrays.fill(chunk1Data, (byte) 1);
+    byte[] chunk2Data = new byte[4096];
+    Arrays.fill(chunk2Data, (byte) 2);
+    byte[] blobData = new byte[8192];
+    System.arraycopy(chunk1Data, 0, blobData, 0, chunk1Data.length);
+    System.arraycopy(chunk2Data, 0, blobData, chunk1Data.length, chunk2Data.length);
+    Digest blobDigest = digestUtil.compute(blobData);
+    Digest chunk1Digest = digestUtil.compute(chunk1Data);
+    Digest chunk2Digest = digestUtil.compute(chunk2Data);
+
+    GrpcCacheClient grpcCacheClient = newChunkingGrpcCacheClient();
+    doAnswer(
+            unused ->
+                immediateFuture(
+                    SplitBlobResponse.newBuilder()
+                        .addChunkDigests(chunk1Digest)
+                        .addChunkDigests(chunk2Digest)
+                        .build()))
+        .when(grpcCacheClient)
+        .splitBlob(any(), eq(blobDigest), any());
+    doAnswer(
+            invocation -> {
+              OutputStream chunkOut = invocation.getArgument(2);
+              chunkOut.write(chunk1Data);
+              return Futures.immediateVoidFuture();
+            })
+        .when(grpcCacheClient)
+        .downloadBlob(any(), eq(chunk1Digest), any());
+    // The second chunk was evicted between SplitBlob and the read of the chunk itself.
+    doAnswer(unused -> Futures.immediateFailedFuture(new CacheNotFoundException(chunk2Digest)))
+        .when(grpcCacheClient)
+        .downloadBlob(any(), eq(chunk2Digest), any());
+    // Only reached if the whole-blob fallback is (incorrectly) attempted, in which case `out` ends
+    // up holding the first chunk followed by the entire blob.
+    doAnswer(
+            invocation -> {
+              OutputStream blobOut = invocation.getArgument(2);
+              blobOut.write(blobData);
+              return Futures.immediateVoidFuture();
+            })
+        .when(grpcCacheClient)
+        .downloadBlob(any(), eq(blobDigest), any());
+
+    CombinedCache combinedCache = newChunkingCombinedCache(grpcCacheClient);
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try {
+      assertThrows(
+          CacheNotFoundException.class,
+          () ->
+              getFromFuture(
+                  combinedCache.downloadBlob(remoteActionExecutionContext, blobDigest, out)));
+
+      // Falling back to a whole-blob download here would append the blob to the chunks already
+      // written, silently producing a blob longer than its digest claims.
+      verify(grpcCacheClient, never()).downloadBlob(any(), eq(blobDigest), any());
+      assertThat(out.toByteArray()).isEqualTo(chunk1Data);
+    } finally {
+      combinedCache.release();
+    }
+  }
+
+  @Test
+  public void downloadBlob_firstChunkMissing_doesNotFallBackToWholeBlobDownload() throws Exception {
+    byte[] chunk1Data = new byte[4096];
+    Arrays.fill(chunk1Data, (byte) 1);
+    byte[] chunk2Data = new byte[4096];
+    Arrays.fill(chunk2Data, (byte) 2);
+    byte[] blobData = new byte[8192];
+    System.arraycopy(chunk1Data, 0, blobData, 0, chunk1Data.length);
+    System.arraycopy(chunk2Data, 0, blobData, chunk1Data.length, chunk2Data.length);
+    Digest blobDigest = digestUtil.compute(blobData);
+    Digest chunk1Digest = digestUtil.compute(chunk1Data);
+    Digest chunk2Digest = digestUtil.compute(chunk2Data);
+
+    GrpcCacheClient grpcCacheClient = newChunkingGrpcCacheClient();
+    doAnswer(
+            unused ->
+                immediateFuture(
+                    SplitBlobResponse.newBuilder()
+                        .addChunkDigests(chunk1Digest)
+                        .addChunkDigests(chunk2Digest)
+                        .build()))
+        .when(grpcCacheClient)
+        .splitBlob(any(), eq(blobDigest), any());
+    doAnswer(unused -> Futures.immediateFailedFuture(new CacheNotFoundException(chunk1Digest)))
+        .when(grpcCacheClient)
+        .downloadBlob(any(), eq(chunk1Digest), any());
+    doAnswer(
+            invocation -> {
+              OutputStream blobOut = invocation.getArgument(2);
+              blobOut.write(blobData);
+              return Futures.immediateVoidFuture();
+            })
+        .when(grpcCacheClient)
+        .downloadBlob(any(), eq(blobDigest), any());
+
+    CombinedCache combinedCache = newChunkingCombinedCache(grpcCacheClient);
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try {
+      // Nothing has been written yet, so restarting would be safe, but the blob is genuinely
+      // incomplete in the CAS. Report it as missing and let lost input handling regenerate it
+      // rather than papering over it, which also keeps the behavior independent of which chunk
+      // happens to be missing.
+      assertThrows(
+          CacheNotFoundException.class,
+          () ->
+              getFromFuture(
+                  combinedCache.downloadBlob(remoteActionExecutionContext, blobDigest, out)));
+
+      verify(grpcCacheClient, never()).downloadBlob(any(), eq(blobDigest), any());
+    } finally {
+      combinedCache.release();
+    }
+  }
+
+  @Test
+  public void downloadBlob_blobNotSplittable_fallsBackToWholeBlobDownload() throws Exception {
+    byte[] blobData = new byte[8192];
+    Arrays.fill(blobData, (byte) 1);
+    Digest blobDigest = digestUtil.compute(blobData);
+
+    GrpcCacheClient grpcCacheClient = newChunkingGrpcCacheClient();
+    // What GrpcCacheClient#splitBlob reports when the server answers NOT_FOUND or UNIMPLEMENTED.
+    doAnswer(unused -> Futures.immediateFailedFuture(new BlobNotSplittableException(blobDigest)))
+        .when(grpcCacheClient)
+        .splitBlob(any(), eq(blobDigest), any());
+    doAnswer(
+            invocation -> {
+              OutputStream blobOut = invocation.getArgument(2);
+              blobOut.write(blobData);
+              return Futures.immediateVoidFuture();
+            })
+        .when(grpcCacheClient)
+        .downloadBlob(any(), eq(blobDigest), any());
+
+    CombinedCache combinedCache = newChunkingCombinedCache(grpcCacheClient);
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try {
+      getFromFuture(combinedCache.downloadBlob(remoteActionExecutionContext, blobDigest, out));
+
+      assertThat(out.toByteArray()).isEqualTo(blobData);
+    } finally {
+      combinedCache.release();
+    }
+  }
+
+  private GrpcCacheClient newChunkingGrpcCacheClient() throws IOException {
+    GrpcCacheClient grpcCacheClient =
+        spy(
+            new GrpcCacheClient(
+                mock(ReferenceCountedChannel.class),
+                mock(CallCredentialsProvider.class),
+                Options.getDefaults(RemoteOptions.class),
+                mock(RemoteRetrier.class),
+                digestUtil));
+    doAnswer(unused -> chunkingCapabilities()).when(grpcCacheClient).getServerCapabilities();
+    return grpcCacheClient;
+  }
+
+  private CombinedCache newChunkingCombinedCache(GrpcCacheClient grpcCacheClient) {
+    return new CombinedCache(
+        grpcCacheClient,
+        /* diskCacheClient= */ null,
+        /* symlinkTemplate= */ null,
+        digestUtil,
+        RemoteOptions.ChunkingFunctionValue.FAST_CDC_2020,
+        new ChunkLocationMap());
+  }
+
+  @Test
+  public void findMissingDigests_onlyQueriesRemoteCache() throws Exception {
+    Path diskRoot = fs.getPath("/diskroot");
+    diskRoot.createDirectoryAndParents();
+    DiskCacheClient diskCacheClient =
+        new DiskCacheClient(diskRoot, digestUtil, /* checkActionResultIntegrity= */ true);
+
+    RemoteCacheClient remoteCacheClient = spy(new InMemoryCacheClient());
+    CombinedCache combinedCache = newCombinedCache(remoteCacheClient, diskCacheClient);
+
+    Digest digestInDisk =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file1"), "disk");
+    Digest digestInRemote =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file2"), "remote");
+    Digest digestMissingFromBoth =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file3"), "missing");
+
+    // Populate disk cache with digestInDisk
+    diskCacheClient.saveFile(
+        digestInDisk, Store.CAS, new ByteArrayInputStream("disk".getBytes(UTF_8)));
+
+    // Populate remote cache with digestInRemote
+    getFromFuture(
+        remoteCacheClient.uploadBlob(
+            remoteActionExecutionContext,
+            digestInRemote,
+            ByteString.copyFromUtf8("remote"),
+            /* force= */ true));
+
+    ImmutableList<Digest> allDigests =
+        ImmutableList.of(digestInDisk, digestInRemote, digestMissingFromBoth);
+
+    // findMissingDigests should only query remoteCacheClient and ignore local disk presence
+    ImmutableSet<Digest> missing =
+        getFromFuture(combinedCache.findMissingDigests(remoteActionExecutionContext, allDigests));
+
+    assertThat(missing).containsExactly(digestInDisk, digestMissingFromBoth);
+    verify(remoteCacheClient).findMissingDigests(any(), any());
+  }
+
+  @Test
+  public void uploadManifest_decoupledDiskAndRemote_uploadsToDiskAndRemoteIndependently()
+      throws Exception {
+    Path diskRoot = fs.getPath("/diskroot2");
+    diskRoot.createDirectoryAndParents();
+    DiskCacheClient diskCacheClient =
+        new DiskCacheClient(diskRoot, digestUtil, /* checkActionResultIntegrity= */ true);
+
+    RemoteCacheClient remoteCacheClient = spy(new InMemoryCacheClient());
+    CombinedCache combinedCache = newCombinedCache(remoteCacheClient, diskCacheClient);
+
+    Path file1 = execRoot.getRelative("file1");
+    FileSystemUtils.writeContent(file1, "hot-remote-cold-disk".getBytes(UTF_8));
+    Digest digest1 = digestUtil.compute(file1);
+
+    Path file2 = execRoot.getRelative("file2");
+    FileSystemUtils.writeContent(file2, "cold-remote-cold-disk".getBytes(UTF_8));
+    Digest digest2 = digestUtil.compute(file2);
+
+    // Pre-populate remote cache with digest1
+    getFromFuture(
+        remoteCacheClient.uploadBlob(
+            remoteActionExecutionContext,
+            digest1,
+            ByteString.copyFromUtf8("hot-remote-cold-disk"),
+            /* force= */ true));
+
+    ActionResult.Builder result = ActionResult.newBuilder();
+    RemotePathResolver remotePathResolver =
+        new RemotePathResolver.DefaultRemotePathResolver(execRoot);
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil, remotePathResolver, result, /* allowAbsoluteSymlinks= */ false);
+    um.addFiles(ImmutableList.of(file1, file2));
+
+    clearInvocations(remoteCacheClient);
+
+    ActionResult actionResult =
+        um.upload(remoteActionExecutionContext, combinedCache, mock(ExtendedEventHandler.class));
+    assertThat(actionResult).isNotNull();
+
+    // Verify remote upload was only called for digest2 (not digest1, which was already in remote
+    // cache)
+    verify(remoteCacheClient, never()).uploadBlobImpl(any(), eq(digest1), any());
+    verify(remoteCacheClient).uploadBlobImpl(any(), eq(digest2), any());
+
+    // Verify disk cache has BOTH files saved
+    assertThat(diskCacheClient.toPath(digest1, Store.CAS).exists()).isTrue();
+    assertThat(diskCacheClient.toPath(digest2, Store.CAS).exists()).isTrue();
   }
 
   private InMemoryCombinedCache newCombinedCache() {
@@ -954,13 +1233,25 @@ public class CombinedCacheTest {
     return new InMemoryCombinedCache(casEntries, digestUtil, symlinkTemplate);
   }
 
+  private CombinedCache newCombinedCache(
+      RemoteCacheClient remoteCacheClient, DiskCacheClient diskCacheClient) {
+    return new CombinedCache(
+        remoteCacheClient,
+        diskCacheClient,
+        /* symlinkTemplate= */ null,
+        digestUtil,
+        /* chunkingFunction= */ null,
+        new ChunkLocationMap());
+  }
+
   private CombinedCache newCombinedCache(RemoteCacheClient remoteCacheClient) {
     return new CombinedCache(
         remoteCacheClient,
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
         digestUtil,
-        /* chunkingEnabled= */ false);
+        /* chunkingFunction= */ null,
+        new ChunkLocationMap());
   }
 
   private RemoteExecutionCache newRemoteExecutionCache(RemoteCacheClient remoteCacheClient) {
@@ -969,7 +1260,8 @@ public class CombinedCacheTest {
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
         digestUtil,
-        /* chunkingEnabled= */ false);
+        /* chunkingFunction= */ null,
+        new ChunkLocationMap());
   }
 
   private static ServerCapabilities chunkingCapabilities() {

@@ -14,11 +14,13 @@
 package com.google.devtools.build.lib.concurrent;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.atomic.AtomicReference;
@@ -104,6 +106,38 @@ public class ForkJoinQuiescingExecutorTest {
       underTest.awaitTermination(/*interruptWorkers=*/ false);
 
       assertThat(forkJoinPool.isTerminated()).isTrue();
+    } finally {
+      // Avoid leaving dangling threads.
+      forkJoinPool.shutdownNow();
+    }
+  }
+
+  @Test
+  public void testInterruptedAwaitQuiescence() throws Exception {
+    ForkJoinPool forkJoinPool = new ForkJoinPool();
+    try {
+      ForkJoinQuiescingExecutor underTest =
+          ForkJoinQuiescingExecutor.newBuilder().withOwnershipOf(forkJoinPool).build();
+
+      CountDownLatch startedLatch = new CountDownLatch(1);
+      CountDownLatch blockLatch = new CountDownLatch(1);
+      AtomicReference<Boolean> interrupted = new AtomicReference<>(false);
+      underTest.execute(
+          () -> {
+            try {
+              startedLatch.countDown();
+              blockLatch.await();
+            } catch (InterruptedException e) {
+              interrupted.set(true);
+            }
+          });
+
+      startedLatch.await();
+      Thread.currentThread().interrupt();
+      assertThrows(
+          InterruptedException.class,
+          () -> underTest.awaitQuiescence(/* interruptWorkers= */ true));
+      assertThat(interrupted.get()).isTrue();
     } finally {
       // Avoid leaving dangling threads.
       forkJoinPool.shutdownNow();

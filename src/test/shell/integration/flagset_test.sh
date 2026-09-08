@@ -87,7 +87,7 @@ function test_scl_config_plus_user_bazelrc_fails(){
   add_to_bazelrc "build '--//test:starlark_flags_always_affect_configuration=yes'"
   add_to_bazelrc "build --define=bar=baz"
   cat .bazelrc >> test/test.bazelrc
-  bazel --bazelrc=test/test.bazelrc build --nobuild //test:test --enforce_project_configs --scl_config=test_config --experimental_enable_scl_dialect &> "$TEST_log" && \
+  bazel --bazelrc=test/test.bazelrc build --nobuild //test:test --enforce_project_configs --scl_config=test_config &> "$TEST_log" && \
     fail "Scl enabled build expected to fail with starlark flag in user bazelrc"
   expect_log "does not allow output-affecting flags in the command line or user bazelrc"
   expect_log "--//test:starlark_flags_always_affect_configuration=yes"
@@ -96,7 +96,7 @@ function test_scl_config_plus_user_bazelrc_fails(){
 
 function test_scl_config_plus_command_line_flag_fails(){
   set_up_project_file
-  bazel build --nobuild //test:test --enforce_project_configs --scl_config=test_config --experimental_enable_scl_dialect --//test:starlark_flags_always_affect_configuration=yes --define=bar=baz &> "$TEST_log" && \
+  bazel build --nobuild //test:test --enforce_project_configs --scl_config=test_config --//test:starlark_flags_always_affect_configuration=yes --define=bar=baz &> "$TEST_log" && \
     fail "Scl enabled build expected to fail with command-line flags"
   expect_log "does not allow output-affecting flags in the command line or user bazelrc"
   expect_log "--//test:starlark_flags_always_affect_configuration=yes"
@@ -105,7 +105,7 @@ function test_scl_config_plus_command_line_flag_fails(){
 
 function test_scl_config_plus_expanded_command_line_flag_fails(){
   set_up_project_file
-  bazel build --nobuild //test:test --enforce_project_configs --scl_config=test_config --experimental_enable_scl_dialect -c opt &> "$TEST_log" && \
+  bazel build --nobuild //test:test --enforce_project_configs --scl_config=test_config -c opt &> "$TEST_log" && \
     fail "Scl enabled build expected to fail with command line flag"
   expect_log "does not allow output-affecting flags in the command line or user bazelrc"
   expect_log "--compilation_mode=opt"
@@ -776,7 +776,7 @@ project = project_pb2.Project.create(
 )
 EOF
 
-  bazel build --nobuild //test:test --enforce_project_configs --experimental_enable_scl_dialect \
+  bazel build --nobuild //test:test --enforce_project_configs \
     &> "$TEST_log" || fail "Build with space-separated and --no prefix flags in project file failed"
   expect_log "Applying flags from the config 'test_config' defined in //test:PROJECT.scl: \[--define=foo=bar, --nostamp, --define=foo='bar baz'\]"
 }

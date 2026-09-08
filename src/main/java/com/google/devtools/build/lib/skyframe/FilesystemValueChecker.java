@@ -478,15 +478,15 @@ public class FilesystemValueChecker {
   private boolean treeArtifactIsDirty(Artifact artifact, TreeArtifactValue value)
       throws InterruptedException {
     Path path = artifact.getPath();
-    if (path.isSymbolicLink()) {
-      return true; // TreeArtifacts may not be symbolic links.
-    }
 
     // This could be improved by short-circuiting as soon as we see a child that is not present in
     // the TreeArtifactValue, but it doesn't seem to be a major source of overhead.
     // visitTree() is called from multiple threads in parallel so this need to be a concurrent set
     Set<PathFragment> currentLocalChildren = Sets.newConcurrentHashSet();
     try {
+      if (path.isSymbolicLink()) {
+        return true; // TreeArtifacts may not be symbolic links.
+      }
       TreeArtifactValue.visitTree(
           path,
           (child, type, traversedSymlink) -> {
@@ -531,11 +531,26 @@ public class FilesystemValueChecker {
       FileArtifactValue fileMetadata =
           ActionOutputMetadataStore.fileArtifactValueFromArtifact(
               file, null, xattrProviderOverrider.getXattrProvider(syscallCache), tsgm);
-      boolean isTrustedRemoteValue =
+      // Remote metadata may record that the file has been materialized in the local filesystem as
+      // a requested top-level output without its generating action having been reexecuted (e.g. by
+      // the completion function after an action cache hit). If the file is missing now, the action
+      // has to be invalidated so that its reevaluation can restore the file in case the current
+      // invocation wants it locally.
+      boolean deletedAfterMaterialization =
           fileMetadata.getType() == FileStateType.NONEXISTENT
+              && lastKnownData.isRemote()
+              && lastKnownData.wasMaterializedAsToplevelOutput();
+      boolean isTrustedRemoteValue =
+          !deletedAfterMaterialization
+              && fileMetadata.getType() == FileStateType.NONEXISTENT
               && lastKnownData.isRemote()
               && outputChecker.shouldTrustMetadata(file, lastKnownData);
       if (!isTrustedRemoteValue && fileMetadata.couldBeModifiedSince(lastKnownData)) {
+        if (deletedAfterMaterialization) {
+          // Clear the record so that a reevaluation that chooses not to rematerialize the file
+          // doesn't invalidate the action again on every subsequent invocation.
+          lastKnownData.setMaterializedAsToplevelOutput(false);
+        }
         modifiedOutputsReceiver.reportModifiedOutputFile(
             fileMetadata.getType() != FileStateType.NONEXISTENT
                 ? file.getPath().getLastModifiedTime(Symlinks.FOLLOW)

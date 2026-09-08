@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
@@ -57,10 +58,12 @@ import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.util.AbstractSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
@@ -274,8 +277,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
       // Expect the user to provide valid syntax.
       throw new IllegalArgumentException(e);
     }
-    Set<T> targets = env.createThreadSafeMutableSet();
-    targets.addAll(callback.getResult());
+    Set<T> targets = new OrderedThreadSafeImmutableSet<>(env, callback.getResult());
     return new ResultAndTargets<>(queryEvalResult, targets);
   }
 
@@ -380,6 +382,47 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
         throws Exception {
       super.useRuleClassProvider(ruleClassProvider);
       update();
+    }
+  }
+
+  private static class OrderedThreadSafeImmutableSet<T> extends AbstractSet<T> {
+    private final ThreadSafeMutableSet<T> targetSet;
+    private final List<T> orderedTargetList;
+
+    private OrderedThreadSafeImmutableSet(QueryEnvironment<T> env, Set<T> targets) {
+      this.targetSet = env.createThreadSafeMutableSet();
+      this.orderedTargetList = new ArrayList<>(targets.size());
+
+      for (T target : targets) {
+        if (targetSet.add(target)) {
+          orderedTargetList.add(target);
+        }
+      }
+    }
+
+    @Override
+    public Iterator<T> iterator() {
+      return orderedTargetList.iterator();
+    }
+
+    @Override
+    public int size() {
+      return targetSet.size();
+    }
+
+    @Override
+    public boolean add(T element) {
+      throw new IllegalStateException("Add operation on immutable set is not supported.");
+    }
+
+    @Override
+    public boolean contains(Object obj) {
+      return targetSet.contains(obj);
+    }
+
+    @Override
+    public boolean remove(Object obj) {
+      throw new IllegalStateException("Remove operation on immutable set is not supported.");
     }
   }
 }

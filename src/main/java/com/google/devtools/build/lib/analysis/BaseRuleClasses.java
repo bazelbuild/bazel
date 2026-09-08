@@ -291,7 +291,7 @@ public class BaseRuleClasses {
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .dontCheckConstraints()
                 .nonconfigurable("applicable_metadata is not configurable"))
-        .add(attr("aspect_hints", LABEL_LIST).allowedFileTypes(FileTypeSet.NO_FILE));
+        .add(attr(RuleClass.ASPECT_HINTS_ATTR, LABEL_LIST).allowedFileTypes(FileTypeSet.NO_FILE));
   }
 
   public static RuleClass.Builder execPropertiesAttribute(RuleClass.Builder builder)

@@ -68,7 +68,7 @@ public final class TaskGroupTest {
     var policy =
         new TaskGroup.Policy<Object>() {
           @Override
-          public boolean onComplete(Subtask<? extends Object> subtask) {
+          public boolean onComplete(Subtask<?> subtask) {
             if (subtask.state() == Subtask.State.FAILED) {
               // Assert that the joiner has the error from subtask1 before we decide to cancel the
               // group.

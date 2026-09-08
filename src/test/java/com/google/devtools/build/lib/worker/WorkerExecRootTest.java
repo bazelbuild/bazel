@@ -203,41 +203,4 @@ public class WorkerExecRootTest {
             FileSystemUtils.readContent(workDir.getRelative("some_file"), Charset.defaultCharset()))
         .isEmpty();
   }
-
-  @Test
-  public void createsAndDeletesSiblingExternalRepoFiles() throws Exception {
-    // With the sibling repository layout, external repository source files are no longer symlinked
-    // under <execroot>/external/<repo name>/<path>. Instead, they become *siblings* of the main
-    // workspace files in that they're placed at <execroot>/../<repo name>/<path>. Simulate this
-    // layout and check if inputs are correctly created and irrelevant symlinks are deleted.
-
-    Path fooRepoDir = execRoot.getRelative("external_dir/foo");
-    Path input1 = fooRepoDir.getRelative("bar/input1");
-    Path input2 = fooRepoDir.getRelative("input2");
-    Path random = fooRepoDir.getRelative("bar/random");
-
-    SandboxHelper sandboxHelper =
-        new SandboxHelper(execRoot, workDir)
-            .createWorkspaceDirFile("external_dir/foo/bar/input1", "This is input1.")
-            .createWorkspaceDirFile("external_dir/foo/input2", "This is input2.")
-            .createWorkspaceDirFile("external_dir/foo/bar/random", "This is random.")
-            .createSymlink("../foo/bar/input1", input1.getPathString())
-            .createSymlink("../foo/bar/random", random.getPathString())
-            .addInputFile("../foo/bar/input1", input1.getPathString())
-            .addInputFile("../foo/input2", input2.getPathString());
-
-    WorkerExecRoot workerExecRoot = new WorkerExecRoot(workDir, ImmutableList.of(), false);
-    workerExecRoot.createFileSystem(
-        sandboxHelper.getWorkerFiles(),
-        sandboxHelper.getSandboxInputs(),
-        sandboxHelper.getSandboxOutputs(),
-        new SynchronousTreeDeleter());
-
-    assertThat(workDir.getRelative("../foo/bar/input1").readSymbolicLink())
-        .isEqualTo(input1.asFragment());
-    assertThat(workDir.getRelative("../foo/input2").readSymbolicLink())
-        .isEqualTo(input2.asFragment());
-    assertThat(workDir.getRelative("bar/random").exists()).isFalse();
-  }
-
 }

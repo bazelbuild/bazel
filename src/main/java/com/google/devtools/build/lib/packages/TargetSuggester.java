@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Iterables;
 import java.util.Locale;
-import java.util.Set;
 import net.starlark.java.spelling.SpellChecker;
 
 /**
@@ -47,13 +46,13 @@ public final class TargetSuggester {
    *
    * <p>Suggested targets "a", "b", "c" -> "a, b, or c".
    */
-  static String suggestTargets(String input, Set<String> words) {
+  static String suggestTargets(String input, Iterable<String> words) {
     ImmutableList<String> suggestedTargets = suggestedTargets(input, words);
     return prettyPrintTargets(suggestedTargets);
   }
 
   /**
-   * Given a requested target and a Set of targets in the same package, return a list of the targets
+   * Given a requested target and the targets in the same package, return a list of the targets
    * closest to the requested target based on edit distance.
    *
    * <p>If any strings are identical minus capitalization changes, they will be returned. If any
@@ -61,7 +60,7 @@ public final class TargetSuggester {
    * (within a small edit distance) will be returned.
    */
   @VisibleForTesting
-  static ImmutableList<String> suggestedTargets(String input, Set<String> words) {
+  static ImmutableList<String> suggestedTargets(String input, Iterable<String> words) {
 
     final String lowerCaseInput = input.toLowerCase(Locale.US);
 

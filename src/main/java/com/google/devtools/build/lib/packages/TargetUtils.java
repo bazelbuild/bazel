@@ -37,10 +37,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.syntax.Location;
 
-/**
- * Utility functions over Targets that don't really belong in the base {@link
- * Target} interface.
- */
+/** Utility functions over Targets that don't really belong in the base {@link Target} interface. */
 public final class TargetUtils {
 
   // *_test / test_suite attribute that used to specify constraint keywords.
@@ -76,26 +73,21 @@ public final class TargetUtils {
     return target instanceof Rule rule && rule.isExecutable() && !isTestRule(rule);
   }
 
-  /**
-   * Returns true iff {@code target} is a {@code *_test} rule; excludes {@code
-   * test_suite}.
-   */
+  /** Returns true iff {@code target} is a {@code *_test} rule; excludes {@code test_suite}. */
   public static boolean isTestRule(Target target) {
-    return (target instanceof Rule) && isTestRuleName(((Rule) target).getRuleClass());
+    return target instanceof Rule rule && isTestRuleName(rule.getRuleClass());
   }
 
-  /**
-   * Returns true iff {@code target} is a {@code test_suite} rule.
-   */
+  /** Returns true iff {@code target} is a {@code test_suite} rule. */
   public static boolean isTestSuiteRule(Target target) {
-    return target instanceof Rule && isTestSuiteRuleName(((Rule) target).getRuleClass());
+    return target instanceof Rule rule
+        && isTestSuiteRuleName(rule.getRuleClass())
+        && !rule.getRuleClassObject().isStarlark();
   }
 
-  /**
-   * Returns true iff {@code target} is a {@code *_test} or {@code test_suite}.
-   */
+  /** Returns true iff {@code target} is a {@code *_test} or {@code test_suite}. */
   public static boolean isTestOrTestSuiteRule(Target target) {
-    return isTestRule (target) || isTestSuiteRule(target);
+    return isTestRule(target) || isTestSuiteRule(target);
   }
 
   /**
@@ -103,16 +95,14 @@ public final class TargetUtils {
    * command-line wildcards or by test_suite $implicit_tests attribute.
    */
   public static boolean hasManualTag(Target target) {
-    return (target instanceof Rule) && hasConstraint((Rule) target, "manual");
+    return target instanceof Rule rule && hasConstraint(rule, "manual");
   }
 
   /**
-   * Returns true if test marked as "exclusive" by the appropriate keyword
-   * in the tags attribute.
+   * Returns true if test marked as "exclusive" by the appropriate keyword in the tags attribute.
    *
-   * Method assumes that passed target is a test rule, so usually it should be
-   * used only after isTestRule() or isTestOrTestSuiteRule(). Behavior is
-   * undefined otherwise.
+   * <p>Method assumes that passed target is a test rule, so usually it should be used only after
+   * isTestRule() or isTestOrTestSuiteRule(). Behavior is undefined otherwise.
    */
   public static boolean isExclusiveTestRule(Rule rule) {
     return hasConstraint(rule, "exclusive");
@@ -128,13 +118,12 @@ public final class TargetUtils {
   public static boolean isExclusiveIfLocalTestRule(Rule rule) {
     return hasConstraint(rule, "exclusive-if-local");
   }
+
   /**
-   * Returns true if test marked as "local" by the appropriate keyword
-   * in the tags attribute.
+   * Returns true if test marked as "local" by the appropriate keyword in the tags attribute.
    *
-   * Method assumes that passed target is a test rule, so usually it should be
-   * used only after isTestRule() or isTestOrTestSuiteRule(). Behavior is
-   * undefined otherwise.
+   * <p>Method assumes that passed target is a test rule, so usually it should be used only after
+   * isTestRule() or isTestOrTestSuiteRule(). Behavior is undefined otherwise.
    */
   public static boolean isLocalTestRule(Rule rule) {
     return hasConstraint(rule, "local")
@@ -142,12 +131,10 @@ public final class TargetUtils {
   }
 
   /**
-   * Returns true if test marked as "external" by the appropriate keyword
-   * in the tags attribute.
+   * Returns true if test marked as "external" by the appropriate keyword in the tags attribute.
    *
-   * Method assumes that passed target is a test rule, so usually it should be
-   * used only after isTestRule() or isTestOrTestSuiteRule(). Behavior is
-   * undefined otherwise.
+   * <p>Method assumes that passed target is a test rule, so usually it should be used only after
+   * isTestRule() or isTestOrTestSuiteRule(). Behavior is undefined otherwise.
    */
   public static boolean isExternalTestRule(Rule rule) {
     return hasConstraint(rule, "external");
@@ -214,21 +201,20 @@ public final class TargetUtils {
    */
   @Nullable
   public static String getDeprecation(Target target) {
-    if (!(target instanceof Rule)) {
+    if (!(target instanceof Rule rule)) {
       return null;
     }
-    Rule rule = (Rule) target;
     return rule.isAttrDefined("deprecation", Type.STRING)
         ? NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING)
         : null;
   }
 
   /**
-   * Checks whether specified constraint keyword is present in the
-   * tags attribute of the test or test suite rule.
+   * Checks whether specified constraint keyword is present in the tags attribute of the test or
+   * test suite rule.
    *
-   * Method assumes that provided rule is a test or a test suite. Behavior is
-   * undefined otherwise.
+   * <p>Method assumes that provided rule is a test or a test suite. Behavior is undefined
+   * otherwise.
    */
   private static boolean hasConstraint(Rule rule, String keyword) {
     return NonconfigurableAttributeMapper.of(rule)
@@ -373,7 +359,7 @@ public final class TargetUtils {
         return true;
       }
 
-      if (!(input instanceof Rule)) {
+      if (!(input instanceof Rule rule)) {
         return requiredTags.isEmpty();
       }
       // Note that test_tags are those originating from the XX_test rule, whereas the requiredTags
@@ -381,7 +367,7 @@ public final class TargetUtils {
       // TODO(ulfjack): getRuleTags is inconsistent with TestFunction and other places that use
       // tags + size, but consistent with TestSuite.
       return TestTargetUtils.testMatchesFilters(
-          ((Rule) input).getRuleTags(), requiredTags, excludedTags, false);
+          rule.getRuleTags(), requiredTags, excludedTags, false);
     };
   }
 
@@ -418,12 +404,13 @@ public final class TargetUtils {
             rule.getRuleClass(), label, e.getMessage(), additionalInfo);
       }
     } else if (target instanceof InputFile) {
-      return e.getMessage() + " (this is usually caused by a missing package group in the"
-          + " package-level visibility declaration)";
+      return e.getMessage()
+          + " (this is usually caused by a missing package group in the package-level visibility"
+          + " declaration)";
     } else {
       if (target != null) {
-        return String.format("in target '%s', no such label '%s': %s", target.getLabel(), label,
-            e.getMessage());
+        return String.format(
+            "in target '%s', no such label '%s': %s", target.getLabel(), label, e.getMessage());
       }
       return e.getMessage();
     }

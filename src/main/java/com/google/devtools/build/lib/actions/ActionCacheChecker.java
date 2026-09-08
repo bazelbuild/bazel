@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.SerializableTreeArtifactValue;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -75,13 +76,19 @@ public class ActionCacheChecker {
 
   @Nullable private final ActionCache actionCache; // Null when not enabled.
 
-
   /** Cache config parameters for ActionCacheChecker. */
   @AutoValue
   public abstract static class CacheConfig {
     abstract boolean enabled();
 
     abstract boolean storeOutputMetadata();
+
+    /**
+     * Optional target for which all actions are unconditionally executed, as requested by {@code
+     * --bust_action_caches}.
+     */
+    @Nullable
+    abstract Label bustActionCachesTarget();
 
     public static Builder builder() {
       return new AutoValue_ActionCacheChecker_CacheConfig.Builder();
@@ -93,6 +100,8 @@ public class ActionCacheChecker {
       public abstract Builder setEnabled(boolean value);
 
       public abstract Builder setStoreOutputMetadata(boolean value);
+
+      public abstract Builder setBustActionCachesTarget(@Nullable Label value);
 
       public abstract CacheConfig build();
     }
@@ -249,7 +258,7 @@ public class ActionCacheChecker {
     if (outputChecker == null) {
       return true;
     }
-    return outputChecker.shouldTrustMetadata(artifact, metadata);
+    return outputChecker.shouldTrustCachedMetadata(artifact, metadata);
   }
 
   private static boolean shouldTrustTreeMetadata(
@@ -269,7 +278,7 @@ public class ActionCacheChecker {
               .getArchivedRepresentation()
               .map(ArchivedRepresentation::archivedFileValue)
               .orElseThrow();
-      if (!outputChecker.shouldTrustMetadata(archivedArtifact, archivedMetadata)) {
+      if (!outputChecker.shouldTrustCachedMetadata(archivedArtifact, archivedMetadata)) {
         return false;
       }
     }
@@ -277,7 +286,7 @@ public class ActionCacheChecker {
         treeMetadata.getChildValues().entrySet()) {
       TreeFileArtifact child = entry.getKey();
       FileArtifactValue childMetadata = entry.getValue();
-      if (!outputChecker.shouldTrustMetadata(child, childMetadata)) {
+      if (!outputChecker.shouldTrustCachedMetadata(child, childMetadata)) {
         return false;
       }
     }
@@ -285,7 +294,15 @@ public class ActionCacheChecker {
   }
 
   private boolean unconditionalExecution(Action action) {
-    return !isActionExecutionProhibited(action) && action.executeUnconditionally();
+    if (isActionExecutionProhibited(action)) {
+      return false;
+    }
+    if (action.executeUnconditionally()) {
+      checkState(action.isVolatile());
+      return true;
+    }
+    Label target = cacheConfig.bustActionCachesTarget();
+    return target != null && target.equals(action.getOwner().getLabel());
   }
 
   private static ImmutableMap<String, String> computeEffectiveEnvironment(
@@ -551,7 +568,6 @@ public class ActionCacheChecker {
       throws InterruptedException {
     // Unconditional execution can be applied only for actions that are allowed to be executed.
     if (unconditionalExecution(action)) {
-      checkState(action.isVolatile());
       reportUnconditionalExecution(handler, action);
       actionCache.accountMiss(MissReason.UNCONDITIONAL_EXECUTION);
       return true;

@@ -28,6 +28,7 @@ import com.google.devtools.common.options.Converters.AssignmentConverter;
 import com.google.devtools.common.options.Converters.BooleanConverter;
 import com.google.devtools.common.options.Converters.ByteSizeConverter;
 import com.google.devtools.common.options.Converters.DurationConverter;
+import com.google.devtools.common.options.Converters.EmptyToNullStringConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -50,11 +51,13 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       name = "remote_proxy",
       oldName = "remote_cache_proxy",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Connect to the remote cache through a proxy. Currently this flag can only be used to "
-              + "configure a Unix domain socket (unix:/path/to/socket).")
+              + "configure a Unix domain socket (unix:/path/to/socket). An empty value resets the"
+              + " flag to its default.")
   public abstract String getRemoteProxy();
 
   public abstract void setRemoteProxy(String value);
@@ -96,13 +99,14 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   @Option(
       name = "remote_executor",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "HOST or HOST:PORT of a remote execution endpoint. The supported schemes are grpc, "
               + "grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If no scheme is "
               + "provided Bazel will default to grpcs. Specify grpc:// or unix: scheme to "
-              + "disable TLS.")
+              + "disable TLS. An empty value resets the flag to its default.")
   public abstract String getRemoteExecutor();
 
   public abstract void setRemoteExecutor(String value);
@@ -122,8 +126,10 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      converter = OptionsUtils.PathFragmentConverter.class,
-      help = "A path to a directory where the corrupted outputs will be captured to.")
+      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
+      help =
+          "A path to a directory where the corrupted outputs will be captured to. An empty value"
+              + " resets the flag to its default.")
   public abstract PathFragment getRemoteCaptureCorruptedOutputs();
 
   @Option(
@@ -143,13 +149,15 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       name = "remote_cache",
       oldName = "remote_http_cache",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "A URI of a caching endpoint. The supported schemes are http, https, grpc, grpcs "
-              + "(grpc with TLS enabled) and unix (local UNIX sockets). If no scheme is provided "
-              + "Bazel will default to grpcs. Specify grpc://, http:// or unix: scheme to disable "
-              + "TLS. See https://bazel.build/remote/caching")
+          "A URI of a caching endpoint. The supported schemes are http, https, grpc, grpcs (grpc"
+              + " with TLS enabled) and unix (local UNIX sockets). If no scheme is provided Bazel"
+              + " will default to grpcs. Specify grpc://, http:// or unix: scheme to disable TLS."
+              + " An empty value resets the flag to its default. See"
+              + " https://bazel.build/remote/caching")
   public abstract String getRemoteCache();
 
   public abstract void setRemoteCache(String value);
@@ -158,12 +166,14 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       name = "remote_downloader",
       oldName = "experimental_remote_downloader",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "A Remote Asset API endpoint URI, to be used as a remote download proxy. The supported"
               + " schemes are grpc, grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If"
-              + " no scheme is provided Bazel will default to grpcs. See: "
+              + " no scheme is provided Bazel will default to grpcs. An empty value resets the flag"
+              + " to its default. See: "
               + "https://github.com/bazelbuild/remote-apis/blob/master/build/bazel/remote/asset/v1/remote_asset.proto")
   public abstract String getRemoteDownloader();
 
@@ -200,6 +210,7 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.FULLY_REDACTED_IN_LOGS},
       help =
           "Specify a header that will be included in requests: --remote_header=Name=Value. "
               + "Multiple headers can be passed by specifying the flag multiple times. Multiple "
@@ -215,6 +226,7 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.FULLY_REDACTED_IN_LOGS},
       help =
           "Specify a header that will be included in cache requests: "
               + "--remote_cache_header=Name=Value. "
@@ -231,6 +243,7 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.FULLY_REDACTED_IN_LOGS},
       help =
           "Specify a header that will be included in execution requests: "
               + "--remote_exec_header=Name=Value. "
@@ -247,6 +260,7 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.FULLY_REDACTED_IN_LOGS},
       help =
           "Specify a header that will be included in remote downloader requests: "
               + "--remote_downloader_header=Name=Value. "
@@ -269,8 +283,37 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   public abstract Duration getRemoteTimeout();
 
   @Option(
+      name = "remote_grpc_service_config",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
+      help =
+          "Path to a gRPC service config JSON file for remote gRPC channels. This replaces the"
+              + " service config Bazel generates from --remote_timeout. Only a subset of the gRPC"
+              + " service config JSON schema is supported: top-level methodConfig entries with"
+              + " name objects containing service and optional method, plus timeout. Other service"
+              + " config fields are rejected and may be supported in the future.")
+  @Nullable
+  public abstract PathFragment getRemoteGrpcServiceConfig();
+
+  @Option(
+      name = "remote_grpc_download_idle_timeout",
+      defaultValue = "60s",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = RemoteDurationConverter.class,
+      help =
+          "The maximum amount of time a remote gRPC download may go without receiving response"
+              + " data before Bazel cancels and retries the download. This applies to ByteStream"
+              + " Read. The value 0 disables the timeout. If the unit is omitted, the value is"
+              + " interpreted as seconds.")
+  public abstract Duration getRemoteGrpcDownloadIdleTimeout();
+
+  @Option(
       name = "remote_bytestream_uri_prefix",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -278,7 +321,8 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
               + "build event streams. This option can be set when builds are performed using a "
               + "proxy, which causes the values of --remote_executor and --remote_instance_name "
               + "to no longer correspond to the canonical name of the remote execution service. "
-              + "When not set, it will default to \"${hostname}/${instance_name}\".")
+              + "When not set, it will default to \"${hostname}/${instance_name}\". An empty"
+              + " value resets the flag to its default.")
   public abstract String getRemoteBytestreamUriPrefix();
 
   @Option(
@@ -794,6 +838,51 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   public abstract Duration getRemoteFailureWindowInterval();
 
   @Option(
+      name = "experimental_remote_min_call_count_to_compute_failure_rate",
+      defaultValue = "100",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "The minimum number of remote calls that must be observed within the failure window"
+              + " before the circuit breaker computes the failure rate. The rate is computed (and"
+              + " the breaker may trip) once either this many total calls or"
+              + " --experimental_remote_min_fail_count_to_compute_failure_rate failures are"
+              + " observed. Only takes effect with"
+              + " --experimental_circuit_breaker_strategy=failure.")
+  public abstract int getRemoteMinCallCountToComputeFailureRate();
+
+  @Option(
+      name = "experimental_remote_min_fail_count_to_compute_failure_rate",
+      defaultValue = "12",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "The minimum number of failed remote calls that must be observed within the failure"
+              + " window before the circuit breaker computes the failure rate. The rate is computed"
+              + " (and the breaker may trip) once either this many failures or"
+              + " --experimental_remote_min_call_count_to_compute_failure_rate total calls are"
+              + " observed. Only takes effect with"
+              + " --experimental_circuit_breaker_strategy=failure.")
+  public abstract int getRemoteMinFailCountToComputeFailureRate();
+
+  @Option(
+      name = "experimental_remote_circuit_breaker_recovery_delay",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = RemoteDurationConverter.class,
+      help =
+          "The delay after the failure circuit breaker trips before it allows a single trial remote"
+              + " call to probe whether the remote cache/executor has recovered. If the trial"
+              + " succeeds the breaker closes and normal calls resume; otherwise it re-opens and"
+              + " waits again before the next trial. A zero or negative value (the default)"
+              + " disables recovery, so a tripped breaker stays open for the remainder of the"
+              + " build. Following units can be used: Days (d), hours (h), minutes (m), seconds"
+              + " (s), and milliseconds (ms). If the unit is omitted, the value is interpreted as"
+              + " seconds. Only takes effect with --experimental_circuit_breaker_strategy=failure.")
+  public abstract Duration getRemoteCircuitBreakerRecoveryDelay();
+
+  @Option(
       name = "experimental_remote_cache_lease_extension",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
@@ -826,8 +915,8 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
               + " local filesystem or internal caches; a clean build is required to reexecute"
               + " affected actions.\n\n"
               + "In order to successfully use this feature, you likely want to set a custom"
-              + " --host_platform together with --experimental_platform_in_output_dir (to normalize"
-              + " output prefixes).")
+              + " --host_platform (to normalize output prefixes). An empty value disables"
+              + " scrubbing.")
   public abstract Scrubber getScrubber();
 
   public abstract void setScrubber(Scrubber value);
@@ -839,11 +928,55 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "If enabled, large blobs are split into content-defined chunks using FastCDC 2020 and "
+          "If enabled, large blobs are split into content-defined chunks and "
               + "uploaded/downloaded in chunks, enabling deduplication across blobs. The server "
-              + "must advertise SplitBlob/SpliceBlob RPCs and FastCDC 2020 parameters in its "
+              + "must advertise SplitBlob/SpliceBlob RPCs and the parameters of the chunking "
+              + "function selected by --experimental_remote_cache_chunking_function in its "
               + "capabilities.")
   public abstract boolean getExperimentalRemoteCacheChunking();
+
+  @Option(
+      name = "experimental_remote_cache_chunking_function",
+      defaultValue = "auto",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = ChunkingFunctionConverter.class,
+      help =
+          "The content-defined chunking function used to split large blobs when "
+              + "--experimental_remote_cache_chunking is enabled. If set to 'auto' (the "
+              + "default), the function is negotiated with the server: FastCDC 2020 is used if "
+              + "the server advertises it, otherwise RepMaxCDC. Set to 'fast_cdc_2020' or "
+              + "'rep_max_cdc' to require a specific function, in which case the server must "
+              + "advertise the parameters of that function in its capabilities. All clients "
+              + "sharing a cache should use the same function to maximize chunk reuse.")
+  public abstract ChunkingFunctionValue getExperimentalRemoteCacheChunkingFunction();
+
+  /**
+   * Returns the chunking function to use for chunked cache transfers, or {@code null} if chunking
+   * is disabled.
+   */
+  @Nullable
+  public ChunkingFunctionValue getEffectiveChunkingFunction() {
+    return getExperimentalRemoteCacheChunking()
+        ? getExperimentalRemoteCacheChunkingFunction()
+        : null;
+  }
+
+  /** Values for --experimental_remote_cache_chunking_function. */
+  public enum ChunkingFunctionValue {
+    /** Negotiate with the server: FastCDC 2020 if advertised, otherwise RepMaxCDC. */
+    AUTO,
+    FAST_CDC_2020,
+    REP_MAX_CDC
+  }
+
+  /** Chunking function flag parser. */
+  public static class ChunkingFunctionConverter extends EnumConverter<ChunkingFunctionValue> {
+    public ChunkingFunctionConverter() {
+      super(ChunkingFunctionValue.class, "chunking function");
+    }
+  }
 
   @Option(
       name = "experimental_throttle_remote_action_building",
@@ -861,13 +994,14 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   @Option(
       name = "experimental_remote_output_service",
       defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "HOST or HOST:PORT of a remote output service endpoint. The supported schemes are grpc, "
               + "grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If no scheme is "
               + "provided Bazel will default to grpcs. Specify grpc:// or unix: scheme to "
-              + "disable TLS.")
+              + "disable TLS. An empty value resets the flag to its default.")
   public abstract String getRemoteOutputService();
 
   public abstract void setRemoteOutputService(String value);
@@ -887,7 +1021,11 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
   private static final class ScrubberConverter extends Converter.Contextless<Scrubber> {
 
     @Override
+    @Nullable
     public Scrubber convert(String path) throws OptionsParsingException {
+      if (path.isEmpty()) {
+        return null;
+      }
       try {
         return Scrubber.parse(path);
       } catch (Scrubber.ConfigParseException e) {

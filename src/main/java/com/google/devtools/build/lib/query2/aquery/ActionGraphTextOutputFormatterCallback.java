@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.LabelPrinter;
+import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
@@ -54,7 +56,9 @@ import java.io.PrintStream;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
 /** Output callback for aquery, prints human readable output. */
@@ -83,9 +87,12 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       TargetAccessor<ConfiguredTargetValue> accessor,
       OutputType outputType,
       AqueryActionFilter actionFilters,
-      LabelPrinter labelPrinter) {
-    super(eventHandler, options, out, accessor);
+      LabelPrinter labelPrinter,
+      TopLevelConfigurations topLevelConfigurations,
+      @Nullable TopLevelArtifactContext topLevelArtifactContext) {
+    super(eventHandler, options, out, accessor, topLevelConfigurations, topLevelArtifactContext);
     this.outputType = outputType;
+
     this.actionFilters = actionFilters;
     this.labelPrinter = labelPrinter;
   }
@@ -99,7 +106,9 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
   public void processOutput(Iterable<ConfiguredTargetValue> partialResult)
       throws IOException, InterruptedException {
     try {
+      Set<ActionAnalysisMetadata> reachableActions = getReachableActions(partialResult);
       // Enabling includeParamFiles should enable includeCommandline by default.
+
       options.setIncludeCommandline(
           options.getIncludeCommandline() || options.getIncludeParamFiles());
 
@@ -111,13 +120,13 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
         }
         for (ActionAnalysisMetadata action :
             ((RuleConfiguredTargetValue) configuredTargetValue).getActions()) {
-          writeAction(action, printStream);
+          writeAction(action, printStream, reachableActions);
         }
         if (options.getUseAspects()) {
           for (AspectValue aspectValue : accessor.getAspectValues(configuredTargetValue)) {
             if (aspectValue != null) {
               for (ActionAnalysisMetadata action : aspectValue.getActions()) {
-                writeAction(action, printStream);
+                writeAction(action, printStream, reachableActions);
               }
             }
           }
@@ -128,7 +137,10 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
     }
   }
 
-  private void writeAction(ActionAnalysisMetadata action, PrintStream printStream)
+  private void writeAction(
+      ActionAnalysisMetadata action,
+      PrintStream printStream,
+      @Nullable Set<ActionAnalysisMetadata> reachableActions)
       throws IOException, CommandLineExpansionException, InterruptedException, EvalException {
     if (options.getIncludeParamFiles()
         && action instanceof ParameterFileWriteAction parameterFileWriteAction) {
@@ -140,7 +152,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
     }
 
     if (!AqueryUtils.matchesAqueryFilters(
-        action, actionFilters, options.getIncludePrunedInputs())) {
+        action, actionFilters, options.getIncludePrunedInputs(), reachableActions)) {
       return;
     }
 
@@ -165,7 +177,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
     if (actionOwner != null) {
       BuildEvent configuration = actionOwner.getBuildConfigurationEvent();
       BuildEventStreamProtos.Configuration configProto =
-          configuration.asStreamProto(/*context=*/ null).getConfiguration();
+          configuration.asStreamProto(/* context= */ null).getConfiguration();
 
       stringBuilder
           .append("  Target: ")

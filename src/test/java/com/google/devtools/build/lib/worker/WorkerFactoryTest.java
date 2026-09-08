@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -115,7 +116,7 @@ public class WorkerFactoryTest {
 
     workerBaseDir.delete();
     workerBaseDir.createSymbolicLink(workerBaseDir.getRelative("whatevs"));
-    assertThat(workerBaseDir.isDirectory()).isFalse();
+    assertThrows(FileSymlinkLoopException.class, () -> workerBaseDir.stat());
     assertThrows(IOException.class, () -> workerFactory.create(sandboxedWorkerKey));
   }
 

@@ -611,16 +611,19 @@ public class BuildDriverFunction implements SkyFunction {
     ImmutableSet.Builder<SkyKey> keysToRequest =
         ImmutableSet.<SkyKey>builder().addAll(Artifact.keys(artifactsToBuild.build()));
     postEventIfNecessary(postedEventsTypes, env, SomeExecutionStartedEvent.create());
-    if (testType.equals(NOT_TEST)) {
-      keysToRequest.add(
-          TargetCompletionValue.key(
-              ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
-              topLevelArtifactContext,
-              /* willTest= */ false));
+
+    boolean targetIsTest = isTest(testType);
+    SkyKey targetCompletionKey =
+        TargetCompletionValue.key(
+            ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
+            topLevelArtifactContext,
+            /* willTest= */ targetIsTest);
+    keysToRequest.add(targetCompletionKey);
+
+    if (!targetIsTest) {
       declareDependenciesAndCheckValues(env, keysToRequest.build());
       return;
     }
-
     postEventIfNecessary(
         postedEventsTypes,
         env,
@@ -636,17 +639,25 @@ public class BuildDriverFunction implements SkyFunction {
               ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
               topLevelArtifactContext,
               /* exclusiveTesting= */ false));
-      declareDependenciesAndCheckValues(env, keysToRequest.build());
-      return;
     }
 
     // Exclusive tests will be run with sequential Skyframe evaluations afterwards.
-    keysToRequest.add(
-        TargetCompletionValue.key(
-            ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
-            topLevelArtifactContext,
-            /* willTest= */ true));
     declareDependenciesAndCheckValues(env, keysToRequest.build());
+
+    // If the target is completed and is a test, then we post a TopLevelTargetBuiltEvent. This is
+    // typically done in the ExecutionProgressReceiver, which also handles the non-skymeld case.
+    // That approach does not work in the specific case where skymeld is used *and* the
+    // TargetCompletionValue is already done and cached from a previous build. In that case, the
+    // ExecutionProgressReceiver is not notified, because the EvaluationProgressReceiver is never
+    // notified when a intermediates node are already done.
+    SkyframeLookupResult result = env.getValuesAndExceptions(ImmutableSet.of(targetCompletionKey));
+    if (result.get(targetCompletionKey) != null) {
+      postEventIfNecessary(
+          postedEventsTypes,
+          env,
+          TopLevelStatusEvents.TopLevelTargetBuiltEvent.create(
+              ConfiguredTargetKey.fromConfiguredTarget(configuredTarget)));
+    }
   }
 
   /**

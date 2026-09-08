@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTreeUploader;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.ChunkingFunctionValue;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
@@ -118,9 +119,16 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
                     },
                     directExecutor());
           }
-          return Futures.transform(
+          return Futures.transformAsync(
               downloadFromDiskCache,
-              unused -> remoteActionFileSystem.getHostFileSystem().exists(path.asFragment()),
+              _ -> {
+                try {
+                  return immediateFuture(
+                      remoteActionFileSystem.getHostFileSystem().exists(path.asFragment()));
+                } catch (IOException e) {
+                  return immediateFailedFuture(e);
+                }
+              },
               directExecutor());
         }
       };
@@ -130,13 +138,15 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
       @Nullable DiskCacheClient diskCacheClient,
       @Nullable String symlinkTemplate,
       DigestUtil digestUtil,
-      boolean chunkingEnabled) {
+      @Nullable ChunkingFunctionValue chunkingFunction,
+      ChunkLocationMap chunkLocationMap) {
     super(
         checkNotNull(remoteCacheClient),
         diskCacheClient,
         symlinkTemplate,
         digestUtil,
-        chunkingEnabled);
+        chunkingFunction,
+        chunkLocationMap);
   }
 
   @VisibleForTesting

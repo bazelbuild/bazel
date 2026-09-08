@@ -79,8 +79,12 @@ public interface MemoizingEvaluator {
    * be recomputed and the new values stored in the cache again.
    *
    * <p>To delete all dirty values, you can specify 0 for the limit.
+   *
+   * <p>If {@code keepChangePrunableNodes} is true, dirty values that change pruning would mark
+   * clean when they are next requested are exempt from deletion, regardless of how long they have
+   * been dirty.
    */
-  void deleteDirty(long versionAgeLimit);
+  void deleteDirty(long versionAgeLimit, boolean keepChangePrunableNodes);
 
   /**
    * Returns the values in the graph.

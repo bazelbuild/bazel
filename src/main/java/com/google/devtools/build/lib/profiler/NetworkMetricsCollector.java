@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.profiler.SystemNetworkStatsService.NetIoCounter;
 import java.io.IOException;
 import java.net.NetworkInterface;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -52,7 +53,10 @@ public final class NetworkMetricsCollector {
 
   @Nullable
   public SystemNetworkUsages collectSystemNetworkUsages(
-      double deltaNanos, SystemNetworkStatsService systemNetworkStatsService) {
+      double deltaNanos, @Nullable SystemNetworkStatsService systemNetworkStatsService) {
+    if (systemNetworkStatsService == null) {
+      return null;
+    }
     if (loopbackInterfaceNames == null) {
       try {
         loopbackInterfaceNames = getLoopbackInterfaceNames();
@@ -151,10 +155,11 @@ public final class NetworkMetricsCollector {
   private static ImmutableSet<String> getLoopbackInterfaceNames() throws IOException {
     ImmutableSet.Builder<String> result = ImmutableSet.builder();
     Enumeration<NetworkInterface> ifaces = NetworkInterface.getNetworkInterfaces();
-    while (ifaces.hasMoreElements()) {
-      NetworkInterface iface = ifaces.nextElement();
-      if (iface.isLoopback()) {
-        result.add(iface.getName());
+    if (ifaces != null) {
+      for (NetworkInterface iface : Collections.list(ifaces)) {
+        if (iface.isLoopback()) {
+          result.add(iface.getName());
+        }
       }
     }
     return result.build();

@@ -158,7 +158,7 @@ public abstract class ShellUtils {
       boolean needsEscape = false;
       for (int i = 0; i < s.length(); ++i) {
         char c = s.charAt(i);
-        if (c == ' ' || c == '"') {
+        if (c == ' ' || c == '\t' || c == '"') {
           needsEscape = true;
           break;
         }

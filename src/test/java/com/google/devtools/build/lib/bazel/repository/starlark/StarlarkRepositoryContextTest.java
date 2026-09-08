@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
@@ -172,7 +173,7 @@ public final class StarlarkRepositoryContextTest {
     fakeFileLabel = Label.parseCanonical("//:foo");
     when(environment.getValue(PackageLookupValue.key(fakeFileLabel.getPackageIdentifier())))
         .thenReturn(PackageLookupValue.success(root, BuildFileName.BUILD));
-    when(environment.getValueOrThrow(any(), eq(IOException.class)))
+    when(environment.getValue(argThat(key -> key instanceof FileKey)))
         .thenReturn(Mockito.mock(FileValue.class));
     PathPackageLocator packageLocator =
         new PathPackageLocator(
@@ -366,8 +367,35 @@ public final class StarlarkRepositoryContextTest {
     StarlarkPath patchFile = context.getPath("my.patch");
     context.createFile(
         context.getPath("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
-    context.patch(patchFile, StarlarkInt.of(0), "auto", thread);
+    context.patch(patchFile, StarlarkInt.of(0), "", "auto", thread);
     testOutputFile(foo.getPath(), "line one\nline two\n");
+  }
+
+  @Test
+  public void testPatchInDirectory() throws Exception {
+    setUpRepo("test");
+    StarlarkPath foo = context.getPath("sub/foo");
+    context.createFile(foo, "line one\n", false, true, thread);
+    StarlarkPath patchFile = context.getPath("my.patch");
+    context.createFile(patchFile, "--- a/foo\n+++ b/foo\n" + ONE_LINE_PATCH, false, true, thread);
+    context.patch(patchFile, StarlarkInt.of(1), "sub", "auto", thread);
+    testOutputFile(foo.getPath(), "line one\nline two\n");
+  }
+
+  @Test
+  public void testPatchInDirectoryOutsideOfExternalRepository() throws Exception {
+    setUpRepo("test");
+    StarlarkPath patchFile = context.getPath("my.patch");
+    context.createFile(patchFile, "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
+    try {
+      context.patch(patchFile, StarlarkInt.of(0), "/other_root", "auto", thread);
+      fail("Expected RepositoryFunctionException");
+    } catch (RepositoryFunctionException ex) {
+      assertThat(ex)
+          .hasCauseThat()
+          .hasMessageThat()
+          .isEqualTo("Cannot write outside of the repository directory for path /other_root");
+    }
   }
 
   @Test
@@ -377,7 +405,7 @@ public final class StarlarkRepositoryContextTest {
     context.createFile(
         context.getPath("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
     try {
-      context.patch(patchFile, StarlarkInt.of(0), "auto", thread);
+      context.patch(patchFile, StarlarkInt.of(0), "", "auto", thread);
       fail("Expected RepositoryFunctionException");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -400,7 +428,7 @@ public final class StarlarkRepositoryContextTest {
         true,
         thread);
     try {
-      context.patch(patchFile, StarlarkInt.of(0), "auto", thread);
+      context.patch(patchFile, StarlarkInt.of(0), "", "auto", thread);
       fail("Expected RepositoryFunctionException");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -433,7 +461,7 @@ public final class StarlarkRepositoryContextTest {
         """;
     context.createFile(context.getPath("my.patch"), patch, false, true, thread);
     try {
-      context.patch(patchFile, StarlarkInt.of(0), "auto", thread);
+      context.patch(patchFile, StarlarkInt.of(0), "", "auto", thread);
       fail("Expected RepositoryFunctionException");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)

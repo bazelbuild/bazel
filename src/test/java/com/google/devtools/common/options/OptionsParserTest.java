@@ -2693,6 +2693,23 @@ public final class OptionsParserTest {
     assertThat(parser.getUserOptions().keySet()).containsExactly("--foo", "--nobar");
   }
 
+  @Test
+  public void testOptionsParser_getUserOptions_retainsOptionValueContainingDefaultOverride()
+      throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(TestOptions.class).build();
+    parser.parse(
+        PriorityCategory.RC_FILE,
+        ".bazelrc",
+        ImmutableList.of("--test_string=prefix_default_override_suffix"));
+    parser.parse(
+        PriorityCategory.COMMAND_LINE,
+        "command line",
+        ImmutableList.of("--test_string=-Ddefault_override_flag=1"));
+
+    assertThat(parser.getUserOptions()).containsKey("--test_string=prefix_default_override_suffix");
+    assertThat(parser.getUserOptions()).containsKey("--test_string=-Ddefault_override_flag=1");
+  }
+
   private static OptionInstanceOrigin createInvocationPolicyOrigin() {
     return createInvocationPolicyOrigin(/*implicitDependent=*/ null, /*expandedFrom=*/ null);
   }

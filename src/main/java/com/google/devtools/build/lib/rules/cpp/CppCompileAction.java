@@ -70,7 +70,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -651,11 +650,6 @@ public class CppCompileAction extends AbstractAction
       }
       commandLineKey = computeCommandLineKey(options);
       ImmutableList<PathFragment> systemIncludeDirs = getSystemIncludeDirs(options);
-      boolean siblingLayout =
-          actionExecutionContext
-              .getOptions()
-              .getOptions(BuildLanguageOptions.class)
-              .getExperimentalSiblingRepositoryLayout();
       if (!shouldScanIncludes) {
         usedCpp20Modules = computeUsedCpp20Modules(actionExecutionContext);
         // When not actually doing include scanning, add all prunable headers to additionalInputs.
@@ -668,7 +662,7 @@ public class CppCompileAction extends AbstractAction
                 .addAll(usedCpp20Modules)
                 .build();
         if (needsIncludeValidation) {
-          verifyActionIncludePaths(systemIncludeDirs, siblingLayout);
+          verifyActionIncludePaths(systemIncludeDirs);
         }
         return additionalInputs;
       }
@@ -683,13 +677,18 @@ public class CppCompileAction extends AbstractAction
       // In theory, we could verify include paths even earlier, but we want to avoid the restart
       // above necessitating a double-execution.
       if (needsIncludeValidation) {
-        verifyActionIncludePaths(systemIncludeDirs, siblingLayout);
+        verifyActionIncludePaths(systemIncludeDirs);
       }
       IncludeScanningHeaderData includeScanningHeaderData =
           includeScanningHeaderDataBuilder
               .setSystemIncludeDirs(systemIncludeDirs)
               .setCmdlineIncludes(getCmdlineIncludes(options))
               .setIsValidUndeclaredHeader(getValidUndeclaredHeaderPredicate())
+              // Register generated prunable/toolchain headers as declared so the include scanner
+              // can resolve them; it never stats output-directory paths. Keep in sync with the
+              // matching call in the rediscovery path below. See
+              // IncludeScanningHeaderData.Builder#addDeclaredHeaders.
+              .addDeclaredHeaders(additionalPrunableHeaders)
               .build();
       additionalInputs = findUsedHeaders(actionExecutionContext, includeScanningHeaderData);
       if (additionalInputs == null) {
@@ -1152,8 +1151,7 @@ public class CppCompileAction extends AbstractAction
   }
 
   @VisibleForTesting
-  void verifyActionIncludePaths(
-      List<PathFragment> systemIncludeDirs, boolean siblingRepositoryLayout)
+  void verifyActionIncludePaths(List<PathFragment> systemIncludeDirs)
       throws ActionExecutionException {
     ImmutableSet<PathFragment> ignoredDirs = ImmutableSet.copyOf(getValidationIgnoredDirs());
     // We currently do not check the output of:
@@ -1171,15 +1169,9 @@ public class CppCompileAction extends AbstractAction
         continue;
       }
 
-      // Two conditions:
-      // 1. Paths cannot be absolute (e.g. multiple uplevels to /etc/passwd)
-      // 2. For relative paths, one starting ../ is okay for getting to a sibling repository.
-      PathFragment prefix =
-          siblingRepositoryLayout
-              ? LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX
-              : LabelConstants.EXTERNAL_PATH_PREFIX;
-      if (includePath.startsWith(prefix)) {
-        includePath = includePath.relativeTo(prefix);
+      // Paths cannot be absolute (e.g. multiple uplevels to /etc/passwd).
+      if (includePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
+        includePath = includePath.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX);
       }
       if (includePath.isAbsolute() || includePath.containsUplevelReferences()) {
         String message =
@@ -1448,7 +1440,10 @@ public class CppCompileAction extends AbstractAction
       throws ActionExecutionException, InterruptedException {
     PathMapper pathMapper =
         PathMappers.create(
-            this, PathMappers.getOutputPathsMode(configuration), /* isStarlarkAction= */ false);
+            this,
+            PathMappers.getOutputPathsMode(configuration),
+            /* isStarlarkAction= */ false,
+            actionExecutionContext.getInputMetadataProvider());
 
     ArgumentsAndParamFileActionInput argumentsAndParamFileActionInput =
         getArgumentsForExecute(pathMapper);
@@ -1516,11 +1511,6 @@ public class CppCompileAction extends AbstractAction
     CppIncludeExtractionContext scanningContext =
         actionExecutionContext.getContext(CppIncludeExtractionContext.class);
     Path execRoot = actionExecutionContext.getExecRoot();
-    boolean siblingRepositoryLayout =
-        actionExecutionContext
-            .getOptions()
-            .getOptions(BuildLanguageOptions.class)
-            .getExperimentalSiblingRepositoryLayout();
 
     if (shouldParseShowIncludes()) {
       NestedSet<Artifact> discoveredInputs =
@@ -1529,7 +1519,6 @@ public class CppCompileAction extends AbstractAction
               scanningContext.getArtifactResolver(),
               showIncludesFilterForStdout,
               showIncludesFilterForStderr,
-              siblingRepositoryLayout,
               pathMapper);
       updateActionInputs(discoveredInputs);
       validateInclusions(actionExecutionContext, discoveredInputs);
@@ -1548,7 +1537,6 @@ public class CppCompileAction extends AbstractAction
             execRoot,
             scanningContext.getArtifactResolver(),
             dotDContents,
-            siblingRepositoryLayout,
             pathMapper);
     dotDContents = null; // Garbage collect in-memory .d contents.
 
@@ -1699,10 +1687,17 @@ public class CppCompileAction extends AbstractAction
       DetailedExitCode code = createDetailedExitCode(message, Code.MODMAP_INPUT_FILE_READ_FAILURE);
       throw new ActionExecutionException(message, this, /* catastrophe= */ false, code);
     }
+    var pathMapper =
+        PathMappers.create(
+            this,
+            PathMappers.getOutputPathsMode(configuration),
+            /* isStarlarkAction= */ false,
+            actionExecutionContext.getInputMetadataProvider());
     // All module files referenced in the modmap input file are expected to be known modules. We
     // delegate error reporting to the compiler by silently skipping over unknown files.
     return moduleFiles.toList().stream()
-        .filter(moduleFile -> usedModulePaths.contains(moduleFile.getExecPathString()))
+        .filter(
+            moduleFile -> usedModulePaths.contains(pathMapper.getMappedExecPathString(moduleFile)))
         .collect(toImmutableSet());
   }
 
@@ -1799,7 +1794,6 @@ public class CppCompileAction extends AbstractAction
       ArtifactResolver artifactResolver,
       ShowIncludesFilter showIncludesFilterForStdout,
       ShowIncludesFilter showIncludesFilterForStderr,
-      boolean siblingRepositoryLayout,
       PathMapper pathMapper)
       throws ActionExecutionException {
     Collection<Path> stdoutDeps = showIncludesFilterForStdout.getDependencies(execRoot);
@@ -1832,7 +1826,6 @@ public class CppCompileAction extends AbstractAction
         getAllowedDerivedInputs(),
         execRoot,
         artifactResolver,
-        siblingRepositoryLayout,
         pathMapper);
   }
 
@@ -1842,7 +1835,6 @@ public class CppCompileAction extends AbstractAction
       Path execRoot,
       ArtifactResolver artifactResolver,
       byte[] dotDContents,
-      boolean siblingRepositoryLayout,
       PathMapper pathMapper)
       throws ActionExecutionException {
     Preconditions.checkNotNull(getDotdFile(), "Trying to scan .d file which is unset");
@@ -1855,7 +1847,6 @@ public class CppCompileAction extends AbstractAction
         getAllowedDerivedInputs(),
         execRoot,
         artifactResolver,
-        siblingRepositoryLayout,
         pathMapper);
   }
 
@@ -1903,8 +1894,14 @@ public class CppCompileAction extends AbstractAction
       return;
     }
     Path outputPath = actionExecutionContext.getInputPath(gcnoFile);
-    if (outputPath.exists()) {
-      return;
+    try {
+      if (outputPath.exists()) {
+        return;
+      }
+    } catch (IOException e) {
+      String message = "Error checking whether '" + outputPath + "' exists: " + e.getMessage();
+      DetailedExitCode code = createDetailedExitCode(message, Code.COVERAGE_NOTES_CREATION_FAILURE);
+      throw new ActionExecutionException(message, e, this, false, code);
     }
     try {
       FileSystemUtils.createEmptyFile(outputPath);
@@ -1948,6 +1945,11 @@ public class CppCompileAction extends AbstractAction
               includeScanningHeaderData
                   .setSystemIncludeDirs(getSystemIncludeDirs())
                   .setCmdlineIncludes(getCmdlineIncludes(getCompilerOptions()))
+                  // Register generated prunable/toolchain headers as declared so the include
+                  // scanner can resolve them; it never stats output-directory paths. Keep in sync
+                  // with the matching call in discoverInputs above. See
+                  // IncludeScanningHeaderData.Builder#addDeclaredHeaders.
+                  .addDeclaredHeaders(additionalPrunableHeaders)
                   .build());
       if (usedHeaders == null) {
         return null;

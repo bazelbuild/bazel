@@ -34,6 +34,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkThread;
@@ -43,6 +44,7 @@ import net.starlark.java.eval.StarlarkThread;
 // This module needs to be exported to Starlark so it can be passed as a mandatory exec/target
 // configuration fragment in aspect definitions.
 @RequiresOptions(options = {ProtoConfiguration.Options.class})
+@StarlarkBuiltin(name = "proto", documented = false)
 public class ProtoConfiguration extends Fragment implements ProtoConfigurationApi {
 
   /** Command line options. */
@@ -63,7 +65,10 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help = "Run extra actions for alternative Java api versions in a proto_library.")
+        help =
+            "Pass the --include_source_info flag when building a proto_library. This results in"
+                + " vastly larger descriptors that include information about the original location"
+                + " of each decl in the source file as well as surrounding comments.")
     public abstract boolean getExperimentalProtoDescriptorSetsIncludeSourceInfo();
 
     @Option(

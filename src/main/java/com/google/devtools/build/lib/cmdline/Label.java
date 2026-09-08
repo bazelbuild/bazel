@@ -104,13 +104,6 @@ public final class Label
           // Used for the public and private visibility labels (not targets)
           "visibility");
 
-  // Intern "__pkg__" and "__subpackages__" pseudo-targets, which appears in labels used for
-  // visibility specifications. This saves a couple tenths of a percent of RAM off the loading
-  // phase. Note that general interning of all values for `name` is *not* beneficial. See
-  // Google-internal cl/386077913 and cl/185394812 for more context.
-  private static final String PKG_VISIBILITY_NAME = "__pkg__";
-  private static final String SUBPACKAGES_VISIBILITY_NAME = "__subpackages__";
-
   public static final SkyFunctionName TRANSITIVE_TRAVERSAL =
       SkyFunctionName.createHermetic("TRANSITIVE_TRAVERSAL");
 
@@ -323,17 +316,8 @@ public final class Label
    * arbitrary {@code name} inputs
    */
   public static Label createUnvalidated(PackageIdentifier packageIdentifier, String name) {
-    return interner.intern(new Label(packageIdentifier, internIfConstantName(name)));
-  }
-
-  static String internIfConstantName(String name) {
-    if (name.equals(PKG_VISIBILITY_NAME)) {
-      return PKG_VISIBILITY_NAME;
-    }
-    if (name.equals(SUBPACKAGES_VISIBILITY_NAME)) {
-      return SUBPACKAGES_VISIBILITY_NAME;
-    }
-    return name;
+    return interner.intern(
+        new Label(packageIdentifier, LabelNameDeduper.deduplicateTargetName(name)));
   }
 
   /** The name and repository of the package. */
@@ -389,15 +373,11 @@ public final class Label
           "Returns the execution root for the repository containing the target referred to by this"
               + " label, relative to the execroot. For instance:<br><pre"
               + " class=language-python>Label(\"@repo//pkg/foo:abc\").workspace_root =="
-              + " \"external/repo\"</pre>",
-      useStarlarkSemantics = true)
+              + " \"external/repo\"</pre>")
   @Deprecated
-  public String getWorkspaceRootForStarlarkOnly(StarlarkSemantics semantics) throws EvalException {
+  public String getWorkspaceRootForStarlarkOnly() throws EvalException {
     checkRepoVisibilityForStarlark("workspace_root");
-    return packageIdentifier
-        .getRepository()
-        .getExecPath(semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT))
-        .toString();
+    return packageIdentifier.getRepository().getExecPath().toString();
   }
 
   /**
@@ -686,6 +666,11 @@ public final class Label
 
   @Override
   public boolean isImmutable() {
+    return true;
+  }
+
+  @Override
+  public boolean isAcyclic() {
     return true;
   }
 

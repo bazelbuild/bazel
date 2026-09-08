@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.PackagePiece;
 import com.google.devtools.build.lib.packages.PackagePieceIdentifier;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackagePieceException;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.skyframe.MacroInstanceFunction.NoSuchMacroInstanceException;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -45,7 +46,6 @@ import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.Map;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
@@ -138,9 +138,9 @@ public final class EvalMacroFunction implements SkyFunction {
         return null;
       } else if (!nonFinalizerPackagePiecesValue.containsErrors()) {
         existingRulesMapForFinalizer =
-            nonFinalizerPackagePiecesValue.targets().entrySet().stream()
-                .filter(e -> e.getValue() instanceof Rule)
-                .collect(toImmutableMap(Map.Entry::getKey, e -> (Rule) e.getValue()));
+            nonFinalizerPackagePiecesValue.targets().stream()
+                .filter(t -> t instanceof Rule)
+                .collect(toImmutableMap(Target::getName, t -> (Rule) t));
       }
     }
 

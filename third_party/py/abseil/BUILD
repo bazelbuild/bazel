@@ -1,4 +1,4 @@
-load("@rules_python//python:defs.bzl", "py_library")
+load("@bazel_pip_dev_deps//:requirements.bzl", "requirement")
 
 licenses(["notice"])
 
@@ -8,10 +8,8 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-py_library(
+alias(
     name = "abseil",
-    srcs = glob(["**/*.py"]),
-    imports = ["."],
-    srcs_version = "PY3",
+    actual = requirement("absl-py"),
     visibility = ["//visibility:public"],
 )

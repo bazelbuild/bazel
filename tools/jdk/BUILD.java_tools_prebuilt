@@ -2,6 +2,8 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache 2.0
 
+# LINT.IfChange
+
 filegroup(
     name = "prebuilt_one_version",
     srcs = glob(
@@ -34,6 +36,8 @@ filegroup(
         allow_empty = True,
     ) or fail("No ijar binary found"),
 )
+
+# LINT.ThenChange(//tools/jdk/BUILD.java_tools_prebuilt_darwin_x86_64)
 
 filegroup(
     name = "turbine_direct_graal",

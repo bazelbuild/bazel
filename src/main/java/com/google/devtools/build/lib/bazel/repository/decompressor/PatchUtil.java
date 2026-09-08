@@ -88,6 +88,7 @@ public class PatchUtil {
     NEW_MODE,
     NEW_FILE_MODE,
     OTHER_GIT_LINE,
+    CHUNK_NO_NEWLINE,
     UNKNOWN
   }
 
@@ -106,6 +107,10 @@ public class PatchUtil {
   };
 
   private static LineType getLineType(String line, boolean isReadingChunk, boolean isGitDiff) {
+    // A line starting with '\' is a diff comment line, such as "\ No newline at end of file".
+    if (line.startsWith("\\")) {
+      return LineType.CHUNK_NO_NEWLINE;
+    }
     if (isReadingChunk) {
       if (line.startsWith("+")) {
         return LineType.CHUNK_ADD;
@@ -347,7 +352,7 @@ public class PatchUtil {
 
   private static void checkFilesStatusForRenaming(
       Path oldFile, Path newFile, String oldFileStr, String newFileStr, int loc)
-      throws PatchFailedException {
+      throws IOException, PatchFailedException {
     // If we're doing a renaming,
     // old file should be specified and exists,
     // new file should be specified but doesn't exist yet.
@@ -376,7 +381,7 @@ public class PatchUtil {
       String oldFileStr,
       String newFileStr,
       int loc)
-      throws PatchFailedException {
+      throws IOException, PatchFailedException {
     // At least one of oldFile or newFile should be specified.
     if (oldFile == null && newFile == null) {
       throw new PatchFailedException(
@@ -547,6 +552,11 @@ public class PatchUtil {
                     + ": "
                     + line
                     + ", does not expect a context line here.");
+          }
+        }
+        case CHUNK_NO_NEWLINE -> {
+          if (!patchContent.isEmpty() && header != null) {
+            patchContent.add(line);
           }
         }
         case RENAME_FROM -> {

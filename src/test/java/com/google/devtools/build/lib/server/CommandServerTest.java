@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.server.CommandProtos.CancelResponse;
 import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.RunRequest;
 import com.google.devtools.build.lib.server.CommandProtos.RunResponse;
+import com.google.devtools.build.lib.server.CommandProtos.TerminalSizeRequest;
+import com.google.devtools.build.lib.server.CommandProtos.TerminalSizeResponse;
 import com.google.devtools.build.lib.server.CommandServerGrpc.CommandServerStub;
 import com.google.devtools.build.lib.server.FailureDetails.Command;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -60,6 +62,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -619,6 +622,131 @@ public final class CommandServerTest {
     assertThat(secondResponse.get().getFailureDetail().hasInterrupted()).isTrue();
     assertThat(secondResponse.get().getFailureDetail().getInterrupted().getCode())
         .isEqualTo(Code.INTERRUPTED);
+  }
+
+  @Test
+  public void updateTerminalSize_updatesRunningCommandMonitor() throws Exception {
+    CountDownLatch execStarted = new CountDownLatch(1);
+    CountDownLatch allowListenerRegistration = new CountDownLatch(1);
+    CountDownLatch resizeSeen = new CountDownLatch(1);
+    AtomicInteger columnsSeen = new AtomicInteger();
+    AtomicInteger rowsSeen = new AtomicInteger();
+
+    CommandDispatcher dispatcher =
+        new CommandDispatcher() {
+          @Override
+          public BlazeCommandResult exec(
+              InvocationPolicy invocationPolicy,
+              List<String> args,
+              OutErr outErr,
+              LockingMode lockingMode,
+              UiVerbosity uiVerbosity,
+              String clientDescription,
+              long firstContactTimeMillis,
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              Supplier<ImmutableList<IdleTask.Result>> idleTaskResultsSupplier,
+              List<Any> commandExtensions,
+              CommandExtensionReporter commandExtensionReporter) {
+            throw new AssertionError("exec overload without terminal size monitor called");
+          }
+
+          @Override
+          public BlazeCommandResult exec(
+              InvocationPolicy invocationPolicy,
+              List<String> args,
+              OutErr outErr,
+              LockingMode lockingMode,
+              UiVerbosity uiVerbosity,
+              String clientDescription,
+              long firstContactTimeMillis,
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              Supplier<ImmutableList<IdleTask.Result>> idleTaskResultsSupplier,
+              List<Any> commandExtensions,
+              CommandExtensionReporter commandExtensionReporter,
+              TerminalSizeMonitor terminalSizeMonitor)
+              throws InterruptedException {
+            execStarted.countDown();
+            assertThat(allowListenerRegistration.await(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+            terminalSizeMonitor.addListener(
+                (columns, rows) -> {
+                  columnsSeen.set(columns);
+                  rowsSeen.set(rows);
+                  resizeSeen.countDown();
+                });
+            assertThat(resizeSeen.await(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+            return BlazeCommandResult.success();
+          }
+        };
+
+    ServerAndStub serverAndStub = createServerAndStub(dispatcher);
+    CommandServer server = serverAndStub.server();
+    CommandServerStub stub = serverAndStub.stub();
+
+    AtomicReference<String> commandId = new AtomicReference<>();
+    CountDownLatch gotCommandId = new CountDownLatch(1);
+    CountDownLatch commandDone = new CountDownLatch(1);
+    stub.run(
+        createRequest("Foo"),
+        new StreamObserver<RunResponse>() {
+          @Override
+          public void onNext(RunResponse value) {
+            if (commandId.compareAndSet(null, value.getCommandId())) {
+              gotCommandId.countDown();
+            }
+          }
+
+          @Override
+          public void onError(Throwable t) {
+            commandDone.countDown();
+          }
+
+          @Override
+          public void onCompleted() {
+            commandDone.countDown();
+          }
+        });
+
+    assertThat(gotCommandId.await(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+    assertThat(execStarted.await(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+
+    CountDownLatch terminalSizeRequestComplete = new CountDownLatch(1);
+    AtomicReference<TerminalSizeResponse> terminalSizeResponse = new AtomicReference<>();
+    TerminalSizeRequest terminalSizeRequest =
+        TerminalSizeRequest.newBuilder()
+            .setCookie(REQUEST_COOKIE)
+            .setCommandId(commandId.get())
+            .setColumns(47)
+            .setRows(12)
+            .build();
+    stub.updateTerminalSize(
+        terminalSizeRequest,
+        new StreamObserver<TerminalSizeResponse>() {
+          @Override
+          public void onNext(TerminalSizeResponse value) {
+            terminalSizeResponse.set(value);
+          }
+
+          @Override
+          public void onError(Throwable t) {
+            terminalSizeRequestComplete.countDown();
+          }
+
+          @Override
+          public void onCompleted() {
+            terminalSizeRequestComplete.countDown();
+          }
+        });
+
+    assertThat(terminalSizeRequestComplete.await(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+    allowListenerRegistration.countDown();
+    assertThat(commandDone.await(WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+    server.shutdown();
+    server.awaitTermination();
+
+    assertThat(terminalSizeResponse.get()).isNotNull();
+    assertThat(terminalSizeResponse.get().getCookie()).isEqualTo(RESPONSE_COOKIE);
+    assertThat(columnsSeen.get()).isEqualTo(47);
+    assertThat(rowsSeen.get()).isEqualTo(12);
   }
 
   /**

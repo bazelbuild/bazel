@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.base.CharMatcher;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
@@ -144,7 +145,19 @@ public final class Spawns {
   /** Returns the mnemonic that should be used in the worker's key. */
   public static String getWorkerKeyMnemonic(Spawn spawn) {
     String customValue = spawn.getExecutionInfo().get(ExecutionRequirements.WORKER_KEY_MNEMONIC);
-    return customValue != null ? customValue : spawn.getMnemonic();
+    String mnemonic = customValue != null ? customValue : spawn.getMnemonic();
+    if (!CharMatcher.inRange('a', 'z')
+        .or(CharMatcher.inRange('A', 'Z'))
+        .or(CharMatcher.inRange('0', '9'))
+        .or(CharMatcher.anyOf("-_"))
+        .matchesAllOf(mnemonic)) {
+      throw new IllegalArgumentException(
+          String.format(
+              "worker-key-mnemonic must only contain letters, digits, underscores, and/or hyphens,"
+                  + " was: \"%s\"",
+              mnemonic));
+    }
+    return mnemonic;
   }
 
   /**

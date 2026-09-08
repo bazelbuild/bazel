@@ -81,8 +81,8 @@ final class WorkerExecRoot {
     // Then do a full traversal of the parent directory of `workDir`. This will use what we computed
     // above, delete anything unnecessary and update `inputsToCreate`/`dirsToCreate` if something is
     // can be left without changes (e.g., a symlink that already points to the right destination).
-    // We're traversing from workDir's parent directory because external repositories can now be
-    // symlinked as siblings of workDir when --experimental_sibling_repository_layout is in effect.
+    // The traversal starts at the parent directory because that is where the sandbox contents map
+    // is rooted; `workDir` is its only entry.
     SandboxHelpers.cleanExisting(
         workDir.getParentDirectory(),
         inputs,

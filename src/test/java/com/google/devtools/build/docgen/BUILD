@@ -2,7 +2,7 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//visibility:public"],
 )
 
 filegroup(
@@ -18,12 +18,13 @@ java_test(
     srcs = ["DocumentationTests.java"],
     shard_count = 1,
     tags = ["docgen"],
+    visibility = ["//visibility:private"],
     runtime_deps = [
         ":documentation-tests",
     ],
     deps = [
         "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
-        "//third_party:junit4",
+        "//third_party/java/junit",
     ],
 )
 
@@ -50,7 +51,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:labelrenderer",
@@ -61,10 +61,11 @@ java_library(
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:stardoc_output_java_proto",
         "//src/test/java/com/google/devtools/build/lib/starlark/util",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 

@@ -17,15 +17,15 @@ information about Bazel's release model.
 | LTS release | Support stage | Latest version | End of support |
 | ----------- | ------------- | -------------- | -------------- |
 | Bazel 10 | Rolling| [Check rolling release page](/release/rolling) | N/A |
-| Bazel 9 | Active| [9.1.1](https://github.com/bazelbuild/bazel/releases/tag/9.1.1) | Dec 2028 |
-| Bazel 8 | Maintenance| [8.7.0](https://github.com/bazelbuild/bazel/releases/tag/8.7.0) | Dec 2027 |
+| Bazel 9 | Active| [9.2.0](https://github.com/bazelbuild/bazel/releases/tag/9.2.0) | Dec 2028 |
+| Bazel 8 | Maintenance| [8.8.0](https://github.com/bazelbuild/bazel/releases/tag/8.8.0) | Dec 2027 |
 | Bazel 7 | Maintenance| [7.7.1](https://github.com/bazelbuild/bazel/releases/tag/7.7.1) | Dec 2026 |
 | Bazel 6 | Deprecated | [6.6.0](https://github.com/bazelbuild/bazel/releases/tag/6.6.0) | Dec 2025 |
 | Bazel 5 | Deprecated | [5.4.1](https://github.com/bazelbuild/bazel/releases/tag/5.4.1) | Jan 2025 |
 | Bazel 4 | Deprecated | [4.2.4](https://github.com/bazelbuild/bazel/releases/tag/4.2.4) | Jan 2024 |
 
 All Bazel LTS releases can be found on the [release
-page](https://github.com/bazelbuild/bazel/releases){: .external} on GitHub.
+page](https://github.com/bazelbuild/bazel/releases){: .external} on GitHub. The "Latest" badge on GitHub always points to the highest semantic version, even if a maintenance patch for an older version is released more recently.
 
 ## Release versioning {:#bazel-versioning}
 

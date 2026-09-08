@@ -111,10 +111,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -333,6 +333,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setSyscallCache(SyscallCache.NO_CACHE)
+            .setCompressionService(new CompressionServiceImpl())
             .setDiffAwarenessFactories(diffAwarenessFactories)
             .allowExternalRepositories(allowExternalRepositories())
             .setGlobUnderSingleDep(globUnderSingleDep)
@@ -357,6 +358,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
         tsgm);
     skyframeExecutor.setActionEnv(ImmutableMap.of());
@@ -390,7 +392,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             // aren't present in the cache.
             /* bzlLoadValueCacheSize= */ 2);
     // The builtins should be empty since this was just created but reset it anyway to be sure.
-    inliningBzlLoadFunction.resetInliningCacheAndBuiltinsForTesting();
+    inliningBzlLoadFunction.resetInliningCacheAndBuiltins();
     // This doesn't override the BZL_LOAD -> BzlLoadFunction mapping, but nothing besides
     // PackageFunction should be requesting that key while using the inlining code path.
     ((PackageFunction) skyFunctions.get(SkyFunctions.PACKAGE))
@@ -494,7 +496,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     assertContainsEvent(expectedError);
   }
 
-  private void setUpSkyframe() {
+  private void setUpSkyframe() throws AbruptExitException {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             outputBase,
@@ -511,6 +513,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
         tsgm);
     skyframeExecutor.setActionEnv(ImmutableMap.of());
@@ -602,7 +605,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.invalidateFilesUnderPathForTesting(
         reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
     if (inliningBzlLoadFunction != null) {
-      inliningBzlLoadFunction.resetInliningCacheAndBuiltinsForTesting();
+      inliningBzlLoadFunction.resetInliningCacheAndBuiltins();
     }
     if (alsoConfigs) {
       try {
@@ -1482,7 +1485,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     ActionLookupKey actionLookupKey = ConfiguredTargetKey.fromConfiguredTarget(owner);
     return getDerivedArtifact(
         owner.getLabel().getPackageFragment().getRelative(packageRelativePath),
-        getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
+        getConfiguration(owner).getBinDirectory(),
         actionLookupKey);
   }
 
@@ -1522,7 +1525,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Artifact.DerivedArtifact getBinArtifactWithNoOwner(String rootRelativePath) {
     return getDerivedArtifact(
         PathFragment.create(rootRelativePath),
-        targetConfig.getBinDirectory(RepositoryName.MAIN),
+        targetConfig.getBinDirectory(),
         ActionsTestUtil.NULL_ARTIFACT_OWNER);
   }
 
@@ -1597,7 +1600,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Artifact getGenfilesArtifactWithNoOwner(String rootRelativePath) {
     return getDerivedArtifact(
         PathFragment.create(rootRelativePath),
-        targetConfig.getGenfilesDirectory(RepositoryName.MAIN),
+        targetConfig.getGenfilesDirectory(),
         ActionsTestUtil.NULL_ARTIFACT_OWNER);
   }
 
@@ -1653,7 +1656,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       AspectParameters params) {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
-        getConfiguration(owner).getGenfilesDirectory(owner.getLabel().getRepository()),
+        getConfiguration(owner).getGenfilesDirectory(),
         getOwnerForAspect(owner, creatingAspectFactory, params));
   }
 
@@ -1666,7 +1669,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   private Artifact getGenfilesArtifact(
       String packageRelativePath, ArtifactOwner owner, BuildConfigurationValue config) {
     return getPackageRelativeDerivedArtifact(
-        packageRelativePath, config.getGenfilesDirectory(RepositoryName.MAIN), owner);
+        packageRelativePath, config.getGenfilesDirectory(), owner);
   }
 
   protected AspectKey getOwnerForAspect(
@@ -2346,8 +2349,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         .isEqualTo(
             String.format(
                 "%s%s.extra_action_dummy",
-                targetConfig.getGenfilesFragment(RepositoryName.MAIN),
-                convertLabelToPath(targetLabel)));
+                targetConfig.getGenfilesFragment(), convertLabelToPath(targetLabel)));
 
     return (PseudoAction<?>) pseudoAction;
   }

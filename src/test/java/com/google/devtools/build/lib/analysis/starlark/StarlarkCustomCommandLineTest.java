@@ -447,6 +447,66 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
+  public void uniquify() throws Exception {
+    CommandLine commandLine =
+        builder
+            .add(vectorArg("a", "b", "a", "c", "b", "d").uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(commandLine, "a", "b", "c", "d");
+  }
+
+  @Test
+  public void uniquify_withMapEach() throws Exception {
+    StarlarkFunction mapEach =
+        (StarlarkFunction)
+            execStarlark(
+                """
+                def map_each(x):
+                  return x.lower()
+                map_each
+                """);
+    CommandLine commandLine =
+        builder
+            .add(
+                vectorArg("A", "b", "a", "B", "c")
+                    .setMapEach(mapEach)
+                    .setLocation(Location.BUILTIN)
+                    .uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(commandLine, "a", "b", "c");
+  }
+
+  @Test
+  public void uniquify_withMapEachReturningList() throws Exception {
+    StarlarkFunction mapEach =
+        (StarlarkFunction)
+            execStarlark(
+                """
+                def map_each(x):
+                  return [x, x]
+                map_each
+                """);
+    CommandLine commandLine =
+        builder
+            .add(
+                vectorArg("a", "b", "a")
+                    .setMapEach(mapEach)
+                    .setLocation(Location.BUILTIN)
+                    .uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(commandLine, "a", "b");
+  }
+
+  @Test
+  public void uniquify_withJoinWith() throws Exception {
+    CommandLine commandLine =
+        builder
+            .add(vectorArg("a", "b", "a", "c", "b").setJoinWith(",").uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(commandLine, "a,b,c");
+  }
+
+  @Test
   public void flagPerLine() throws Exception {
     CommandLine commandLine =
         builder
@@ -886,7 +946,11 @@ public final class StarlarkCustomCommandLineTest {
   private void verifyStrippedCommandLine(CommandLine commandLine, String... expected)
       throws CommandLineExpansionException, InterruptedException {
     verifyCommandLine(
-        PathMappers.create(action, CoreOptions.OutputPathsMode.STRIP, /* isStarlarkAction= */ true),
+        PathMappers.create(
+            action,
+            CoreOptions.OutputPathsMode.STRIP,
+            /* isStarlarkAction= */ true,
+            /* inputMetadataProvider= */ null),
         commandLine,
         expected);
   }
@@ -914,6 +978,24 @@ public final class StarlarkCustomCommandLineTest {
         derivedRoot.getExecPath().getRelative(relativePath),
         ActionsTestUtil.NULL_ARTIFACT_OWNER,
         type);
+  }
+
+  @Test
+  public void vectorArg_nonGlobalMapEach() throws Exception {
+    StarlarkFunction lambda1 = (StarlarkFunction) execStarlark("lambda x: x + '_foo'");
+    StarlarkFunction lambda2 = (StarlarkFunction) execStarlark("lambda x: x + '_bar'");
+
+    CommandLine commandLine1 =
+        builder
+            .add(vectorArg("val1", "val2").setLocation(Location.BUILTIN).setMapEach(lambda1))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    CommandLine commandLine2 =
+        new StarlarkCustomCommandLine.Builder(StarlarkSemantics.DEFAULT)
+            .add(vectorArg("val3", "val4").setLocation(Location.BUILTIN).setMapEach(lambda2))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+
+    assertThat(commandLine1.arguments()).containsExactly("val1_foo", "val2_foo").inOrder();
+    assertThat(commandLine2.arguments()).containsExactly("val3_bar", "val4_bar").inOrder();
   }
 
   private static Object execStarlark(String code) throws Exception {

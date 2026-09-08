@@ -2117,15 +2117,6 @@ function test_exclusive_test_wont_remote_exec() {
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 
-# This test uses the flag experimental_split_coverage_postprocessing. Without
-# the flag coverage won't work remotely. Without the flag, tests and coverage
-# post-processing happen in the same spawn, but only the runfiles tree of the
-# tests is made available to the spawn. The solution was not to merge the
-# runfiles tree which could cause its own problems but to split both into
-# different spawns. The reason why this only failed remotely and not locally was
-# because the coverage post-processing tool escaped the sandbox to find its own
-# runfiles. The error we would see here without the flag would be "Cannot find
-# runfiles". See #4685.
 function test_java_rbe_coverage_produces_report() {
   add_rules_java "MODULE.bazel"
   mkdir -p java/factorial
@@ -2184,8 +2175,6 @@ EOF
 
   bazel coverage \
     --test_output=all \
-    --experimental_fetch_all_coverage_outputs \
-    --experimental_split_coverage_postprocessing \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
     --instrumentation_filter=//java/factorial \
@@ -2255,13 +2244,6 @@ function test_empty_tree_artifact_as_inputs() {
     --remote_executor=grpc://localhost:${worker_port} \
     --experimental_remote_discard_merkle_trees=false \
     //pkg:a &>$TEST_log || fail "expected build to succeed without Merkle tree discarding"
-
-  bazel clean --expunge
-  bazel build \
-    --spawn_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_sibling_repository_layout \
-    //pkg:a &>$TEST_log || fail "expected build to succeed with sibling repository layout"
 }
 
 function test_empty_tree_artifact_as_inputs_remote_cache() {
@@ -2326,15 +2308,6 @@ function test_create_tree_artifact_outputs() {
     --remote_executor=grpc://localhost:${worker_port} \
     --experimental_remote_discard_merkle_trees=false \
     //pkg:a &>$TEST_log || fail "expected build to succeed without Merkle tree discarding"
-  [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
-  [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
-
-  bazel clean --expunge
-  bazel build \
-    --spawn_strategy=remote \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_sibling_repository_layout \
-    //pkg:a &>$TEST_log || fail "expected build to succeed with sibling repository layout"
   [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
   [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
 }
@@ -2502,8 +2475,6 @@ EOF
 
   bazel coverage \
       --test_output=all \
-      --experimental_fetch_all_coverage_outputs \
-      --experimental_split_coverage_postprocessing \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
       //"$test_dir":hello-test >& $TEST_log \
@@ -2643,9 +2614,7 @@ EOF
   BAZEL_USE_LLVM_NATIVE_COVERAGE=1 BAZEL_LLVM_PROFDATA=llvm-profdata BAZEL_LLVM_COV=llvm-cov CC=clang \
     bazel coverage \
       --test_output=all \
-      --experimental_fetch_all_coverage_outputs \
       --experimental_generate_llvm_lcov \
-      --experimental_split_coverage_postprocessing \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
       //"$test_dir":hello-test >& $TEST_log \
@@ -3077,16 +3046,6 @@ function test_external_cc_test() {
       @other_repo//test >& $TEST_log || fail "Test should pass"
 }
 
-function test_external_cc_test_sibling_repository_layout() {
-  setup_external_cc_test
-
-  bazel test \
-      --test_output=errors \
-      --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_sibling_repository_layout \
-      @other_repo//test >& $TEST_log || fail "Test should pass"
-}
-
 function do_test_unresolved_symlink() {
   local -r strategy=$1
   local -r link_target=$2
@@ -3177,7 +3136,7 @@ function setup_cc_binary_tool_with_dynamic_deps() {
   local repo=$1
 
   cat >> MODULE.bazel <<'EOF'
-bazel_dep(name = "apple_support", version = "1.21.0")
+bazel_dep(name = "apple_support", version = "2.5.2")
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "other_repo",
@@ -3253,28 +3212,10 @@ function test_cc_binary_tool_with_dynamic_deps() {
       //pkg:rule >& $TEST_log || fail "Build should succeed"
 }
 
-function test_cc_binary_tool_with_dynamic_deps_sibling_repository_layout() {
-  setup_cc_binary_tool_with_dynamic_deps .
-
-  bazel build \
-      --experimental_sibling_repository_layout \
-      --remote_executor=grpc://localhost:${worker_port} \
-      //pkg:rule >& $TEST_log || fail "Build should succeed"
-}
-
 function test_external_cc_binary_tool_with_dynamic_deps() {
   setup_cc_binary_tool_with_dynamic_deps other_repo
 
   bazel build \
-      --remote_executor=grpc://localhost:${worker_port} \
-      @other_repo//pkg:rule >& $TEST_log || fail "Build should succeed"
-}
-
-function test_external_cc_binary_tool_with_dynamic_deps_sibling_repository_layout() {
-  setup_cc_binary_tool_with_dynamic_deps other_repo
-
-  bazel build \
-      --experimental_sibling_repository_layout \
       --remote_executor=grpc://localhost:${worker_port} \
       @other_repo//pkg:rule >& $TEST_log || fail "Build should succeed"
 }

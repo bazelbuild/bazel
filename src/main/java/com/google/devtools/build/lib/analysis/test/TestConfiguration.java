@@ -336,7 +336,7 @@ public class TestConfiguration extends Fragment {
 
     @Option(
         name = "experimental_fetch_all_coverage_outputs",
-        defaultValue = "false",
+        defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_FETCH_ALL_COVERAGE_OUTPUTS,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
@@ -360,7 +360,7 @@ public class TestConfiguration extends Fragment {
 
     @Option(
         name = "experimental_split_coverage_postprocessing",
-        defaultValue = "false",
+        defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_SPLIT_COVERAGE_POSTPROCESSING,
         documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
         effectTags = {OptionEffectTag.EXECUTION},
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},

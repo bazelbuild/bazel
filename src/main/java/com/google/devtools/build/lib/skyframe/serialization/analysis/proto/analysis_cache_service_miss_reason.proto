@@ -29,4 +29,6 @@ enum MissReason {
   MISS_REASON_NOT_ATTEMPTED = 4;
   // There was an infrastructure failure during the lookup.
   MISS_REASON_INFRA_FAILURE = 5;
+  // The cache client is saturated and shed the lookup request.
+  MISS_REASON_CACHE_SATURATED = 6;
 }

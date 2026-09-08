@@ -35,6 +35,8 @@ import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /** Stores the {@link OptionsParsingResult} from {@link ParsedFlagsFunction}. */
@@ -143,8 +145,10 @@ public class ParsedFlagsValue implements SkyValue {
    *   <li>Any native flags in this instance, for fragments that are kept, are set to the value from
    *       this instance.
    *   <li>All Starlark flags from the original {@link BuildOptions} are kept, then all Starlark
-   *       options from this instance are added.
+   *       options from this instance are added, along with the scope from their parsed {@code
+   *       scope} attribute when known.
    *   <li>Any Starlark flags which are present in both, the value from this instance is kept.
+   *   <li>Any Starlark flags set back to their default value are removed, along with their scope.
    * </ul>
    *
    * <p>To preserve fragment trimming, this method will not expand the set of included native
@@ -179,12 +183,18 @@ public class ParsedFlagsValue implements SkyValue {
       updateOptionValue(fragment, optionDefinition, optionValue);
     }
 
-    // Also copy Starlark options.
+    // Merge Starlark options. The scope info from the source options is already in the builder,
+    // copied by source.toBuilder(). Add the scope info from this instance's parsed scope
+    // attributes on top of it, then merge the values: flags reset to their default value are
+    // removed by removeStarlarkOption, which also deletes the scope info just added.
+    builder.addScopeTypeMap(
+        BuildOptions.convertScopesAttributes(
+            parsingResult.getScopesAttributes(), parsingResult.getStarlarkOptions()));
     for (Map.Entry<String, Object> starlarkOption : parsingResult.getStarlarkOptions().entrySet()) {
       updateStarlarkFlag(builder, starlarkOption.getKey(), starlarkOption.getValue());
     }
 
-    return BuildConfigurationKey.create(builder.addScopeTypeMap(source.getScopeTypeMap()).build());
+    return BuildConfigurationKey.create(builder.build());
   }
 
   private static void updateOptionValue(
@@ -194,6 +204,25 @@ public class ParsedFlagsValue implements SkyValue {
     // TODO: https://github.com/bazelbuild/bazel/issues/22453 - This will completely overwrite
     //  accumulating flags, which is almost certainly not what users want. Instead this should
     //  intelligently merge options.
+    if (optionDefinition.getOptionName().equals("override_platform_cpu_name")) {
+      List<?> previousValue = (List<?>) optionDefinition.getValue(fragment);
+      List<?> newValue = (List<?>) optionValue.getValue();
+      Map<Object, Map.Entry<?, ?>> combined = new LinkedHashMap<>();
+      if (previousValue != null) {
+        for (Object item : previousValue) {
+          Map.Entry<?, ?> entry = (Map.Entry<?, ?>) item;
+          combined.put(entry.getKey(), entry);
+        }
+      }
+      if (newValue != null) {
+        for (Object item : newValue) {
+          Map.Entry<?, ?> entry = (Map.Entry<?, ?>) item;
+          combined.put(entry.getKey(), entry);
+        }
+      }
+      optionDefinition.setValue(fragment, ImmutableList.copyOf(combined.values()));
+      return;
+    }
     Object value = optionValue.getValue();
     optionDefinition.setValue(fragment, value);
   }

@@ -2,7 +2,9 @@ load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
 )
 
 filegroup(
@@ -10,7 +12,7 @@ filegroup(
     srcs = glob(
         ["**"],
     ),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__"],
 )
 
 # @AutoCodec annotation and plugin. Used by clients. Use
@@ -23,7 +25,9 @@ java_library(
         # Generated classes have the following dependencies.
         ":registered-singleton",
         ":runtime-helpers",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/guava:collect",
+        "//third_party/java/protobuf",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
     ],
@@ -37,6 +41,7 @@ java_library(
 java_library(
     name = "registered-singleton",
     srcs = ["RegisteredSingletonDoNotUse.java"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__"],
 )
 
 java_library(
@@ -51,11 +56,13 @@ java_library(
 java_library(
     name = "serialization-constant-annotation",
     srcs = ["SerializationConstant.java"],
+    visibility = ["//visibility:private"],
 )
 
 java_plugin(
     name = "serialization-constant-plugin",
     processor_class = "com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstantProcessor",
+    visibility = ["//visibility:private"],
     deps = [
         ":serialization-constant-processor",
     ],
@@ -64,39 +71,45 @@ java_plugin(
 java_library(
     name = "serialization-processing-exception",
     srcs = ["SerializationProcessingException.java"],
-    deps = ["//third_party:error_prone_annotations"],
+    visibility = ["//visibility:private"],
+    deps = ["//third_party/java/error_prone:annotations"],
 )
 
 java_library(
     name = "type-operations",
     srcs = ["TypeOperations.java"],
+    visibility = ["//visibility:private"],
     deps = [
         ":serialization-processing-exception",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
         "//third_party/java/javapoet",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
 java_library(
     name = "serialization-constant-processor",
     srcs = ["SerializationConstantProcessor.java"],
+    visibility = ["//visibility:private"],
     deps = [
         ":registered-singleton",
         ":serialization-constant-annotation",
         ":serialization-processing-exception",
         ":type-operations",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:codec-scanning-constants",
-        "//third_party:auto_service",
-        "//third_party:guava",
+        "//third_party/java/auto:auto_service",
+        "//third_party/java/guava:collect",
         "//third_party/java/javapoet",
     ],
 )
 
-# @AutoCodec annotation only. Used by clients and the processor.
+# @AutoCodec annotation only. Clients should not depend on this directly as it doesn't include the processor.
+# Depend on :autocodec instead.
 java_library(
     name = "autocodec-annotation",
     srcs = ["AutoCodec.java"],
+    visibility = ["//visibility:private"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
     ],
@@ -106,6 +119,7 @@ java_library(
 java_plugin(
     name = "autocodec-plugin",
     processor_class = "com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodecProcessor",
+    visibility = ["//visibility:private"],
     deps = [
         ":autocodec-processor",
     ],
@@ -132,13 +146,15 @@ java_library(
         ":runtime-helpers",
         ":serialization-processing-exception",
         ":type-operations",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
         "//src/main/java/com/google/devtools/build/lib/util:string",
-        "//third_party:auto_service",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/auto:auto_service",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
         "//third_party/java/javapoet",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )

@@ -134,10 +134,7 @@ public class GenRuleWindowsConfiguredTargetTest extends BuildViewTestCase {
         "outs = ['message.txt'],",
         "cmd_bat  = ' && '.join([\"echo \\\"Hello, Batch cmd, %s.\\\" >$(location message.txt)\" %"
             + " i for i in range(1, 1000)]),)");
-    useConfiguration(
-        "--platforms=//platforms:windows",
-        "--host_platform=//platforms:windows",
-        "--experimental_platform_in_output_dir");
+    useConfiguration("--platforms=//platforms:windows", "--host_platform=//platforms:windows");
 
     Artifact messageArtifact = getFileConfiguredTarget("//genrule1:message.txt").getArtifact();
     SpawnAction shellAction = (SpawnAction) getGeneratingAction(messageArtifact);
@@ -160,10 +157,7 @@ public class GenRuleWindowsConfiguredTargetTest extends BuildViewTestCase {
         "outs = ['message.txt'],",
         "cmd_ps  = '; '.join([\"echo \\\"Hello, Powershell cmd, %s.\\\" >$(location message.txt)\""
             + " % i for i in range(1, 1000)]),)");
-    useConfiguration(
-        "--platforms=//platforms:windows",
-        "--host_platform=//platforms:windows",
-        "--experimental_platform_in_output_dir");
+    useConfiguration("--platforms=//platforms:windows", "--host_platform=//platforms:windows");
 
     Artifact messageArtifact = getFileConfiguredTarget("//genrule1:message.txt").getArtifact();
     SpawnAction shellAction = (SpawnAction) getGeneratingAction(messageArtifact);

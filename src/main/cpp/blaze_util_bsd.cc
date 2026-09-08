@@ -211,12 +211,13 @@ string GetSystemJavabase() {
   string javahome = GetPathEnv("JAVA_HOME");
 
   if (!javahome.empty()) {
-    string javac = blaze_util::JoinPath(javahome, "bin/javac");
-    if (access(javac.c_str(), X_OK) == 0) {
+    string java = blaze_util::JoinPath(javahome, "bin/java");
+    if (access(java.c_str(), X_OK) == 0) {
       return javahome;
     }
     BAZEL_LOG(WARNING)
-        << "Ignoring JAVA_HOME, because it must point to a JDK, not a JRE.";
+        << "Ignoring JAVA_HOME, because it does not contain a bin/java "
+           "executable.";
   }
 
   return DEFAULT_SYSTEM_JAVABASE;
@@ -237,6 +238,13 @@ bool VerifyServerProcess(int pid, const blaze_util::Path &output_base) {
   // unrelated process if the server died and the PID got reused.
   return killpg(pid, 0) == 0;
 }
+
+std::string ParseProcStatDiagnosis(absl::string_view /*statline*/,
+                                   int /*pid*/) {
+  return "";
+}
+
+std::string GetProcessTerminationDiagnosis(int /*pid*/) { return ""; }
 
 // Not supported.
 void ExcludePathFromBackup(const blaze_util::Path &path) {}

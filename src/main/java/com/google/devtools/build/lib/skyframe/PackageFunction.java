@@ -1607,51 +1607,47 @@ public abstract class PackageFunction implements SkyFunction {
     }
 
     public PackageFunction build() {
-      switch (globbingStrategy) {
-        case MULTIPLE_GLOB_HYBRID -> {
-          return new PackageFunctionWithMultipleGlobDeps(
-              packageFactory,
-              pkgLocator,
-              showLoadingProgress,
-              numPackagesSuccessfullyLoaded,
-              bzlLoadFunctionForInlining,
-              packageProgress,
-              actionOnIOExceptionReadingBuildFile,
-              actionOnFilesystemErrorCodeLoadingBzlFile,
-              shouldUseRepoDotBazel,
-              threadStateReceiverFactoryForMetrics,
-              cpuBoundSemaphore);
-        }
-        case SINGLE_GLOBS_HYBRID -> {
-          return new PackageFunctionWithSingleGlobsDep(
-              packageFactory,
-              pkgLocator,
-              showLoadingProgress,
-              numPackagesSuccessfullyLoaded,
-              bzlLoadFunctionForInlining,
-              packageProgress,
-              actionOnIOExceptionReadingBuildFile,
-              actionOnFilesystemErrorCodeLoadingBzlFile,
-              shouldUseRepoDotBazel,
-              threadStateReceiverFactoryForMetrics,
-              cpuBoundSemaphore);
-        }
-        case NON_SKYFRAME -> {
-          return new PackageFunctionWithoutGlobDeps(
-              packageFactory,
-              pkgLocator,
-              showLoadingProgress,
-              numPackagesSuccessfullyLoaded,
-              bzlLoadFunctionForInlining,
-              packageProgress,
-              actionOnIOExceptionReadingBuildFile,
-              actionOnFilesystemErrorCodeLoadingBzlFile,
-              shouldUseRepoDotBazel,
-              threadStateReceiverFactoryForMetrics,
-              cpuBoundSemaphore);
-        }
-      }
-      throw new IllegalStateException();
+      return switch (globbingStrategy) {
+        case MULTIPLE_GLOB_HYBRID ->
+            new PackageFunctionWithMultipleGlobDeps(
+                packageFactory,
+                pkgLocator,
+                showLoadingProgress,
+                numPackagesSuccessfullyLoaded,
+                bzlLoadFunctionForInlining,
+                packageProgress,
+                actionOnIOExceptionReadingBuildFile,
+                actionOnFilesystemErrorCodeLoadingBzlFile,
+                shouldUseRepoDotBazel,
+                threadStateReceiverFactoryForMetrics,
+                cpuBoundSemaphore);
+        case SINGLE_GLOBS_HYBRID ->
+            new PackageFunctionWithSingleGlobsDep(
+                packageFactory,
+                pkgLocator,
+                showLoadingProgress,
+                numPackagesSuccessfullyLoaded,
+                bzlLoadFunctionForInlining,
+                packageProgress,
+                actionOnIOExceptionReadingBuildFile,
+                actionOnFilesystemErrorCodeLoadingBzlFile,
+                shouldUseRepoDotBazel,
+                threadStateReceiverFactoryForMetrics,
+                cpuBoundSemaphore);
+        case NON_SKYFRAME ->
+            new PackageFunctionWithoutGlobDeps(
+                packageFactory,
+                pkgLocator,
+                showLoadingProgress,
+                numPackagesSuccessfullyLoaded,
+                bzlLoadFunctionForInlining,
+                packageProgress,
+                actionOnIOExceptionReadingBuildFile,
+                actionOnFilesystemErrorCodeLoadingBzlFile,
+                shouldUseRepoDotBazel,
+                threadStateReceiverFactoryForMetrics,
+                cpuBoundSemaphore);
+      };
     }
   }
 

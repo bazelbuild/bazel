@@ -95,6 +95,15 @@ public class RemoteOptionsTest {
   }
 
   @Test
+  public void remoteGrpcDownloadIdleTimeout_defaultsTo60Seconds() {
+    // Keep gRPC downloads protected by default with the same timeout used by the HTTP remote
+    // cache. Users can still explicitly set the option to zero to disable it.
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+
+    assertThat(options.getRemoteGrpcDownloadIdleTimeout()).isEqualTo(Duration.ofSeconds(60));
+  }
+
+  @Test
   public void testRemoteGrpcLogWithEmptyString() throws Exception {
     OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
     parser.parse("--remote_grpc_log=test.log", "--remote_grpc_log=");
@@ -124,6 +133,14 @@ public class RemoteOptionsTest {
     parser.parse("--disk_cache=");
     RemoteOptions options = parser.getOptions(RemoteOptions.class);
     assertThat(options.getDiskCache()).isNull();
+  }
+
+  @Test
+  public void scrubbingConfig_emptyValue_disables() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse("--experimental_remote_scrubbing_config=");
+    RemoteOptions options = parser.getOptions(RemoteOptions.class);
+    assertThat(options.getScrubber()).isNull();
   }
 
   @Test
@@ -159,4 +176,69 @@ public class RemoteOptionsTest {
     RemoteOptions options = parser.getOptions(RemoteOptions.class);
     assertThat(options.getDiskCache()).isEqualTo(PathFragment.create("custom/cache/dir"));
   }
+
+  private static RemoteOptions parseOptions(String... args) throws OptionsParsingException {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse(args);
+    return parser.getOptions(RemoteOptions.class);
+  }
+
+  @Test
+  public void remoteProxy_emptyValue_resetsToNull() throws Exception {
+    assertThat(parseOptions("--remote_proxy=unix:/tmp/socket", "--remote_proxy=").getRemoteProxy())
+        .isNull();
+  }
+
+  @Test
+  public void remoteExecutor_emptyValue_resetsToNull() throws Exception {
+    assertThat(
+            parseOptions("--remote_executor=some.endpoint:1234", "--remote_executor=")
+                .getRemoteExecutor())
+        .isNull();
+  }
+
+  @Test
+  public void remoteCache_emptyValue_resetsToNull() throws Exception {
+    assertThat(
+            parseOptions("--remote_cache=http://cache.endpoint", "--remote_cache=")
+                .getRemoteCache())
+        .isNull();
+  }
+
+  @Test
+  public void remoteDownloader_emptyValue_resetsToNull() throws Exception {
+    assertThat(
+            parseOptions("--remote_downloader=grpcs://downloader.endpoint", "--remote_downloader=")
+                .getRemoteDownloader())
+        .isNull();
+  }
+
+  @Test
+  public void remoteBytestreamUriPrefix_emptyValue_resetsToNull() throws Exception {
+    assertThat(
+            parseOptions("--remote_bytestream_uri_prefix=prefix", "--remote_bytestream_uri_prefix=")
+                .getRemoteBytestreamUriPrefix())
+        .isNull();
+  }
+
+  @Test
+  public void experimentalRemoteOutputService_emptyValue_resetsToNull() throws Exception {
+    assertThat(
+            parseOptions(
+                    "--experimental_remote_output_service=endpoint",
+                    "--experimental_remote_output_service=")
+                .getRemoteOutputService())
+        .isNull();
+  }
+
+  @Test
+  public void experimentalRemoteCaptureCorruptedOutputs_emptyValue_resetsToNull() throws Exception {
+    assertThat(
+            parseOptions(
+                    "--experimental_remote_capture_corrupted_outputs=some/path",
+                    "--experimental_remote_capture_corrupted_outputs=")
+                .getRemoteCaptureCorruptedOutputs())
+        .isNull();
+  }
 }
+

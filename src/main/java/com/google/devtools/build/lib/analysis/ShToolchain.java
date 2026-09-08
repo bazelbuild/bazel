@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** Class to work with the shell toolchain, e.g. get the shell interpreter's path. */
@@ -49,9 +48,8 @@ public final class ShToolchain {
       return shellConfiguration.getOptionsBasedDefault();
     }
 
-    return Optional.ofNullable(platformInfo)
-        .map(ConstraintConstants::getOsFromConstraintsOrHost)
-        .flatMap(ShellConfiguration::getShellExecutable)
+    return ShellConfiguration.getShellExecutable(
+            ConstraintConstants.getOsFromConstraintsOrHost(platformInfo))
         .or(() -> ShellConfiguration.getShellExecutable(OS.UNKNOWN))
         .orElseThrow();
   }

@@ -37,10 +37,12 @@ static_assert(sizeof(jchar) == sizeof(WCHAR),
 wstring GetJavaWstring(JNIEnv* env, jstring str) {
   wstring result;
   if (str != nullptr) {
+    const jsize len = env->GetStringLength(str);
     const jchar* jstr = env->GetStringChars(str, nullptr);
     // We can safely reinterpret_cast because of the static_assert checking that
     // sizeof(jchar) = sizeof(WCHAR).
-    result.assign(reinterpret_cast<const WCHAR*>(jstr));
+    result.assign(reinterpret_cast<const WCHAR*>(jstr),
+                  static_cast<size_t>(len));
     env->ReleaseStringChars(str, jstr);
   }
   return result;

@@ -14,11 +14,12 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor.safeDirectExecutor;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueCache;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
@@ -139,6 +140,7 @@ public final class GraphDumper {
   public static ImmutableList<Edge> collectEdgesForSkyValue(
       InMemoryGraph graph,
       ObjectCodecs codecs,
+      CompressionService compressionService,
       FingerprintValueStore fingerprintValueStore,
       SkyValueEntry skyValue,
       PackedFingerprint targetFingerprint)
@@ -149,13 +151,14 @@ public final class GraphDumper {
 
     var fingerprintValueService =
         new FingerprintValueService(
-            directExecutor(),
+            safeDirectExecutor(),
             fingerprintValueStore,
             new FingerprintValueCache(FingerprintValueCache.SyncMode.NOT_LINKED),
             FingerprintValueService.NONPROD_FINGERPRINTER);
 
     Object deserialized =
         codecs.deserializeWithSkyframe(
+            compressionService,
             fingerprintValueService,
             skyValue.rawValueBytes().newCodedInput(),
             new DebugContext(targetFingerprint, edgeReceiver));
@@ -201,11 +204,14 @@ public final class GraphDumper {
   }
 
   public static InvalidationGraph collectInvalidationGraph(
-      PackedFingerprint rootFingerprint, FingerprintValueStore store, Fingerprinter fingerprinter)
+      PackedFingerprint rootFingerprint,
+      CompressionService compressionService,
+      FingerprintValueStore store,
+      Fingerprinter fingerprinter)
       throws InterruptedException {
 
     FileDependencyDeserializer deserializer =
-        new FileDependencyDeserializer(directExecutor(), fingerprinter);
+        new FileDependencyDeserializer(safeDirectExecutor(), compressionService, fingerprinter);
 
     GraphDumper dumper = new GraphDumper(store, deserializer);
     dumper.collectRecursive(rootFingerprint);

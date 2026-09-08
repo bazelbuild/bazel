@@ -18,6 +18,8 @@
 
 #include <algorithm>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file_platform.h"
@@ -157,6 +159,19 @@ TEST_F(BazelStartupOptionsTest,
 }
 
 TEST_F(BazelStartupOptionsTest,
+       UpdateConfigurationOnLinuxOrDarwinWithSpecialCharactersInUser) {
+  SetEnv("USER", "foo/bar\\baz");
+  SetEnv("HOME", "/nonexistent/home");
+  SetEnv("XDG_CACHE_HOME", "/nonexistent/cache");
+  UnsetEnv("TEST_TMPDIR");
+  ReinitStartupOptions();
+  UpdateConfiguration();
+
+  ASSERT_EQ(blaze_util::Path("/nonexistent/cache/bazel/_bazel_foo_bar_baz"),
+            startup_options_->output_user_root);
+}
+
+TEST_F(BazelStartupOptionsTest,
        UpdateConfigurationOnLinuxOrDarwinNoShellExpansion) {
   SetEnv("USER", "gandalf");
   SetEnv("TEST_TMPDIR", "~/\"$foo/test\"");
@@ -200,6 +215,7 @@ TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnWindowsWithHome) {
   SetEnv("USER", "gandalf");
   SetEnv("HOME", "C:\\Users\\gandalf");
   UnsetEnv("TEST_TMPDIR");
+  UnsetEnv("XDG_CACHE_HOME");
   ReinitStartupOptions();
   UpdateConfiguration();
 
@@ -216,6 +232,7 @@ TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnWindowsWithUserProfile) {
   UnsetEnv("HOME");
   SetEnv("USERPROFILE", "C:\\Users\\gandalf");
   UnsetEnv("TEST_TMPDIR");
+  UnsetEnv("XDG_CACHE_HOME");
   ReinitStartupOptions();
   UpdateConfiguration();
 
@@ -224,6 +241,40 @@ TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnWindowsWithUserProfile) {
   ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/install/deadbeef"),
             startup_options_->install_base);
   ASSERT_EQ(blaze_util::Path("C:/Users/gandalf/_bazel_gandalf/"
+                             "1629dee48cc4e53161f9b2be8614e062"),
+            startup_options_->output_base);
+}
+
+TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnWindowsWithTestTmpdir) {
+  SetEnv("USER", "gandalf");
+  SetEnv("HOME", "C:\\Users\\gandalf");
+  SetEnv("XDG_CACHE_HOME", "C:\\cache");
+  SetEnv("TEST_TMPDIR", "C:\\tmpdir");
+  ReinitStartupOptions();
+  UpdateConfiguration();
+
+  EXPECT_EQ(blaze_util::Path("C:/tmpdir/_bazel_gandalf"),
+            startup_options_->output_user_root);
+  EXPECT_EQ(blaze_util::Path("C:/tmpdir/_bazel_gandalf/install/deadbeef"),
+            startup_options_->install_base);
+  EXPECT_EQ(blaze_util::Path("C:/tmpdir/_bazel_gandalf/"
+                             "1629dee48cc4e53161f9b2be8614e062"),
+            startup_options_->output_base);
+}
+
+TEST_F(BazelStartupOptionsTest, UpdateConfigurationOnWindowsWithXdgCacheHome) {
+  SetEnv("USER", "gandalf");
+  SetEnv("HOME", "C:\\Users\\gandalf");
+  SetEnv("XDG_CACHE_HOME", "C:\\cache");
+  UnsetEnv("TEST_TMPDIR");
+  ReinitStartupOptions();
+  UpdateConfiguration();
+
+  EXPECT_EQ(blaze_util::Path("C:/cache/bazel/_bazel_gandalf"),
+            startup_options_->output_user_root);
+  EXPECT_EQ(blaze_util::Path("C:/cache/bazel/_bazel_gandalf/install/deadbeef"),
+            startup_options_->install_base);
+  EXPECT_EQ(blaze_util::Path("C:/cache/bazel/_bazel_gandalf/"
                              "1629dee48cc4e53161f9b2be8614e062"),
             startup_options_->output_base);
 }
@@ -265,6 +316,31 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectIsUnaryOption(options, "output_base");
   ExpectIsUnaryOption(options, "output_user_root");
   ExpectIsUnaryOption(options, "server_javabase");
+}
+
+TEST_F(BazelStartupOptionsTest, MacosQosClassValues) {
+  for (const std::string qos_class : {"default", "utility", "background"}) {
+    ReinitStartupOptions();
+    std::string error;
+    const std::vector<RcStartupFlag> flags{
+        RcStartupFlag("somewhere", "--macos_qos_class=" + qos_class)};
+
+    EXPECT_EQ(blaze_exit_code::SUCCESS,
+              startup_options_->ProcessArgs(flags, &error))
+        << error;
+  }
+
+  for (const std::string qos_class : {"user-interactive", "user-initiated"}) {
+    ReinitStartupOptions();
+    std::string error;
+    const std::vector<RcStartupFlag> flags{
+        RcStartupFlag("somewhere", "--macos_qos_class=" + qos_class)};
+
+    EXPECT_EQ(blaze_exit_code::BAD_ARGV,
+              startup_options_->ProcessArgs(flags, &error));
+    EXPECT_EQ("Invalid argument to --macos_qos_class: '" + qos_class + "'.",
+              error);
+  }
 }
 
 TEST_F(BazelStartupOptionsTest, BlazercFlagsAreNotAccepted) {

@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
@@ -33,7 +32,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.Options;
-import java.util.Collection;
 import java.util.UUID;
 import org.junit.Before;
 import org.junit.Test;
@@ -193,21 +191,17 @@ public class StarlarkFileContentHashTests extends BuildViewTestCase {
             parseBuildLanguageOptions(),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
+            /* repoEnv= */ ImmutableMap.of(),
             QuiescingExecutorsImpl.forTesting(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
     SkyKey pkgLookupKey = PackageIdentifier.createInMainRepo(pkg);
     EvaluationResult<PackageValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), pkgLookupKey, /*keepGoing=*/ false, reporter);
+            getSkyframeExecutor(), pkgLookupKey, /* keepGoing= */ false, reporter);
     assertThat(result.hasError()).isFalse();
-    Collection<Target> targets = result.get(pkgLookupKey).getPackage().getTargets().values();
-    for (Target target : targets) {
-      if (target.getName().equals(name)) {
-        byte[] hash = ((Rule) target).getRuleClassObject().getRuleDefinitionEnvironmentDigest();
-        return BaseEncoding.base16().lowerCase().encode(hash); // hexify
-      }
-    }
-    throw new IllegalStateException("target not found: " + name);
+    Rule rule = result.get(pkgLookupKey).getPackage().getRule(name);
+    byte[] hash = rule.getRuleClassObject().getRuleDefinitionEnvironmentDigest();
+    return BaseEncoding.base16().lowerCase().encode(hash); // hexify
   }
 }

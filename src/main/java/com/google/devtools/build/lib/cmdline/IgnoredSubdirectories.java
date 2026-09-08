@@ -51,6 +51,10 @@ public final class IgnoredSubdirectories {
   private final ImmutableList<String[]> splitPatterns;
   private final ImmutableSet<PathFragment> traversalExclusions;
 
+  public static ObjectCodec<IgnoredSubdirectories> ignoredSubdirectoriesCodec() {
+    return Codec.INSTANCE;
+  }
+
   private static class Codec implements ObjectCodec<IgnoredSubdirectories> {
     private static final Codec INSTANCE = new Codec();
 
@@ -159,8 +163,7 @@ public final class IgnoredSubdirectories {
     ImmutableSet<PathFragment> filteredTraversalExclusions =
         traversalExclusions.stream().filter(p -> p.startsWith(directory)).collect(toImmutableSet());
 
-    String[] splitDirectory =
-        Iterables.toArray(SLASH_SPLITTER.split(directory.getPathString()), String.class);
+    String[] splitDirectory = Iterables.toArray(directory.segments(), String.class);
     ImmutableList.Builder<String> filteredPatterns = ImmutableList.builder();
     for (int i = 0; i < patterns.size(); i++) {
       if (UnixGlob.canMatchChild(splitPatterns.get(i), splitDirectory)) {

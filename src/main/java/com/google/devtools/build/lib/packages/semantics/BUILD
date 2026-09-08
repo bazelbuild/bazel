@@ -2,13 +2,13 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 # This package defines the StarlarkSemantics keys used by Bazel, and their command-line flags.
@@ -20,12 +20,17 @@ java_library(
         "BuildLanguageOptions.java",
         "FlagConstants.java",
     ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:starlark_access",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/guava:cache",
+        "//third_party/java/guava:collect",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )

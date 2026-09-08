@@ -218,13 +218,13 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  public boolean isDirectory(PathFragment path, boolean followSymlinks) {
+  public boolean isDirectory(PathFragment path, boolean followSymlinks) throws IOException {
     if (!followSymlinks) {
       try {
         if (isSymlinkOrJunction(getNioPath(path))) {
           return false;
         }
-      } catch (IOException e) {
+      } catch (FileNotFoundException e) {
         return false;
       }
     }

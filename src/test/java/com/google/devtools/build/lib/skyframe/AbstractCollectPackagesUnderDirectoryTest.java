@@ -23,10 +23,13 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
+import com.google.devtools.build.lib.bazel.repository.RepoMetadataRequirements;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.Reporter;
@@ -306,6 +309,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
                 /* allowExternalRepositories= */ false,
                 /* repoContentsCachePathSupplier= */ () -> null,
                 SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE,
+                new CompressionServiceImpl(),
                 BugReporter.defaultInstance());
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
@@ -315,8 +319,10 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
             PrecomputedValue.injected(
                 RepositoryDirectoryValue.FORCE_FETCH,
                 RepositoryDirectoryValue.FORCE_FETCH_DISABLED),
+            PrecomputedValue.injected(RepositoryDirectoryValue.VENDOR_DIRECTORY, Optional.empty()),
             PrecomputedValue.injected(
-                RepositoryDirectoryValue.VENDOR_DIRECTORY, Optional.empty())));
+                RepoMetadataRequirements.REQUIRE_REPO_EXTENSION_METADATA,
+                RepositoryOptions.RequireRepoExtensionMetadataMode.FALSE)));
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
     parser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
@@ -326,6 +332,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
         pathPackageLocator,
         UUID.randomUUID(),
         /* clientEnv= */ ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()),
         QuiescingExecutorsImpl.forTesting(),
         FakeOptions.builder().put(packageOptions).put(options).build(),

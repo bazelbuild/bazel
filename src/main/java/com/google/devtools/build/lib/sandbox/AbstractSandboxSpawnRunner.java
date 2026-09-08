@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
@@ -66,10 +67,6 @@ import java.util.stream.Stream;
 /** Abstract common ancestor for sandbox spawn runners implementing the common parts. */
 abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   private static final int LOCAL_EXEC_ERROR = -1;
-
-  private static final String SANDBOX_DEBUG_SUGGESTION =
-      "\n\nUse --sandbox_debug to see verbose messages from the sandbox "
-          + "and retain the sandbox build root for debugging";
 
   private final SandboxOptions sandboxOptions;
   private final boolean verboseFailures;
@@ -195,11 +192,10 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
           sandbox);
     } else {
       return CommandFailureUtils.describeCommandFailure(
-              verboseFailures,
-              expandParamFiles,
-              sandbox.getSandboxExecRoot().getPathString(),
-              originalSpawn)
-          + SANDBOX_DEBUG_SUGGESTION;
+          verboseFailures,
+          expandParamFiles,
+          sandbox.getSandboxExecRoot().getPathString(),
+          originalSpawn);
     }
   }
 
@@ -400,7 +396,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     }
 
     FileSystem fileSystem = sandboxExecRoot.getFileSystem();
-    for (String writablePath : sandboxOptions.getSandboxWritablePath()) {
+    for (PathFragment writablePath : sandboxOptions.getSandboxWritablePath()) {
       Path path = fileSystem.getPath(writablePath);
       writablePaths.add(path);
       // TODO(laszlocsomor): Remove if guard when path.resolveSymbolicLinks supports non-symlink
@@ -451,12 +447,17 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   }
 
   @Override
-  public void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter) throws IOException {
+  public void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter)
+      throws IOException, InterruptedException {
     Path root = sandboxBase.getChild(getName());
     if (root.exists()) {
       for (Path child : root.getDirectoryEntries()) {
+        if (Thread.currentThread().isInterrupted()) {
+          throw new InterruptedException();
+        }
         treeDeleter.deleteTree(child);
       }
+      root.delete();
     }
   }
 }

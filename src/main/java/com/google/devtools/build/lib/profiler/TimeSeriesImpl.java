@@ -15,11 +15,13 @@ package com.google.devtools.build.lib.profiler;
 
 import static java.lang.Math.max;
 
+import com.google.devtools.build.lib.skybridge.ScOnly;
 import java.time.Duration;
 import java.util.Arrays;
 import javax.annotation.concurrent.GuardedBy;
 
 /** Implementation of {@link TimeSeries}. */
+@ScOnly
 public class TimeSeriesImpl implements TimeSeries {
   private final Duration startTime;
   private final long bucketSizeMillis;

@@ -2,7 +2,10 @@ load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
 )
 
 filegroup(
@@ -15,7 +18,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
@@ -42,6 +45,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:vendor",
         "//src/main/java/com/google/devtools/build/lib/bazel/commands",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition_function",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_metadata_requirements",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_fetch_function",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:utils",
@@ -74,8 +78,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -94,6 +101,12 @@ java_library(
         "BazelDiffAwarenessModule.java",
         "BazelStartupOptionsModule.java",
         "BazelWorkspaceStatusModule.java",
+    ],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/bazel:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/buildtool:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/runtime:__pkg__",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -119,8 +132,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -129,11 +144,14 @@ java_library(
     srcs = [
         "SpawnLogModule.java",
     ],
+    visibility = [
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_prefetcher",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildtool:build_request",
         "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/exec:executor_builder",
@@ -145,10 +163,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/guava:primitives",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -169,14 +191,17 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/windows",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
 java_library(
     name = "main",
     srcs = ["Bazel.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
     deps = [
         ":bazel_filesystem_module",
         ":bazel_services",
@@ -204,7 +229,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/platform:sleep_prevention_module",
         "//src/main/java/com/google/devtools/build/lib/platform:system_suspension_module",
         "//src/main/java/com/google/devtools/build/lib/profiler:command_profiler_module",
-        "//src/main/java/com/google/devtools/build/lib/profiler/memory:allocationtracker_module",
+        "//src/main/java/com/google/devtools/build/lib/profiler/memory:allocation_tracker_module",
         "//src/main/java/com/google/devtools/build/lib/remote:remote_module",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/runtime:block_waiting_module",
@@ -224,7 +249,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/module",
         "//src/main/java/com/google/devtools/build/lib/starlarkprofiler:cpu_profiler_module",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_module",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -234,6 +259,7 @@ java_binary(
         "-Xlint:all",
     ],
     main_class = "com.google.devtools.build.lib.bazel.Bazel",
+    visibility = ["//src:__subpackages__"],
     runtime_deps = [
         ":main",
         "//src/main/java/com/google/devtools/build/lib/util:simple_log_handler",  # See startup_options.cc
@@ -245,9 +271,10 @@ java_library(
     name = "bazel_version",
     srcs = ["BazelVersion.java"],
     deps = [
-        "//third_party:auto_value",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -255,9 +282,11 @@ java_library(
     name = "bazel_services",
     srcs = ["BazelServices.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
         "//src/main/java/com/google/devtools/build/lib/platform:platform_native_deps_service_impl",
         "//src/main/java/com/google/devtools/build/lib/profiler:profiler_impl",
         "//src/main/java/com/google/devtools/build/lib/profiler:system_network_stats_service_impl",
+        "//src/main/java/com/google/devtools/build/lib/profiler/memory:allocation_tracker_service_impl",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
         "//src/main/java/com/google/devtools/build/lib/server:grpc_command_server_service_impl",
         "//src/main/java/com/google/devtools/build/lib/skyframe:fs_events_native_deps_service_impl",
@@ -265,6 +294,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/unix:native_posix_files_service_impl",
         "//src/main/java/com/google/devtools/build/lib/unix:process_utils_service_impl",
         "//src/main/java/com/google/devtools/build/lib/util:server_log_path_service_impl",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )

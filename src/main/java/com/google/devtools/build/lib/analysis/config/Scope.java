@@ -45,7 +45,15 @@ public class Scope {
      */
     public static final String PROJECT = "project";
 
-    /** Placeholder for flags that don't explicitly specify scope. Shouldn't be set directly. */
+    /**
+     * Placeholder for flags that don't explicitly specify scope. Cannot be set by users in BUILD
+     * files.
+     *
+     * <p>If --incompatible_exclude_starlark_flags_from_exec_config=true, this aliases to "target".
+     * Else it aliases to "universal".
+     */
+    // TODO: bazel-team: remove this when --incompatible_exclude_starlark_flags_from_exec_config is
+    //       removed in Bazel 10. At that point, default directly to TARGET.
     public static final String DEFAULT = "default";
 
     public ScopeType {

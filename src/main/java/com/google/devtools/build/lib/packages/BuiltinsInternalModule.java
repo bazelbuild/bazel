@@ -64,6 +64,11 @@ public class BuiltinsInternalModule implements StarlarkValue {
     return true;
   }
 
+  @Override
+  public boolean isAcyclic() {
+    return true;
+  }
+
   @StarlarkMethod(
       name = "native",
       doc =

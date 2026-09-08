@@ -302,6 +302,20 @@ public final class CppCompileActionBuilder implements StarlarkValue {
             .addTransitive(cacheKeyInputs)
             .build();
     NestedSet<Artifact> prunableHeaders = additionalPrunableHeaders;
+    if (getShouldScanIncludes()) {
+      // With include scanning enabled, only compiler_files_without_includes is staged as a
+      // mandatory input; the rest of the toolchain files (compiler_files) are expected to be
+      // discovered on demand by the include scanner. Generated toolchain headers -- e.g. a
+      // sysroot whose headers are symlinked into the output tree -- are only discoverable if they
+      // are known inputs, so fold compiler_files into the prunable set here. They must also be
+      // registered as declared headers (the scanner never stats output-directory paths); see the
+      // addDeclaredHeaders calls in discoverInputs below.
+      prunableHeaders =
+          NestedSetBuilder.<Artifact>stableOrder()
+              .addTransitive(additionalPrunableHeaders)
+              .addTransitive(ccToolchain.getCompilerFiles())
+              .build();
+    }
 
     configuration.modifyExecutionInfo(
         executionInfo,

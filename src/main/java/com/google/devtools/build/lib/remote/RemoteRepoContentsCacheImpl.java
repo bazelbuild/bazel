@@ -20,7 +20,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transformAsync;
 import static com.google.common.util.concurrent.Futures.whenAllSucceed;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
+import static com.google.devtools.build.lib.remote.util.BulkTransfers.waitForBulkTransfer;
 import static com.google.devtools.build.lib.unsafe.StringUnsafe.getInternalStringBytes;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.stream.Collectors.joining;
@@ -42,14 +42,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.repository.DigestWriter;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
@@ -65,12 +63,12 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.ExtensionRegistryLite;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.SortedMap;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
@@ -105,11 +103,15 @@ import javax.annotation.Nullable;
  * "least recently added" eviction when the size of action result exceeds a certain threshold.
  */
 public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCache {
-  private static final UUID GUID = UUID.fromString("f4a165a9-5557-45a7-bf25-230b6d42393a");
+  // Salts all cache keys; change it whenever previously cached entries may no longer be valid.
+  private static final UUID GUID = UUID.fromString("06a53d89-9f52-46ed-8064-f7af6ba27769");
   private static final String MARKER_FILE_PATH = ".recorded_inputs";
   private static final String REPO_DIRECTORY_PATH = "repo_contents";
   private static final Splitter SPLIT_ON_SPACE = Splitter.on(' ');
 
+  // addOutputFiles and addOutputDirectories are deprecated in REAPI v2 in favor of addOutputPaths,
+  // but are populated here for backwards compatibility with older RE backends.
+  @SuppressWarnings("deprecation")
   private static final Command COMMAND =
       Command.newBuilder()
           // A unique but nonsensical command that is valid on all platforms. It is never executed,
@@ -121,6 +123,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
           .addOutputDirectories(REPO_DIRECTORY_PATH)
           .setPlatform(Platform.getDefaultInstance())
           .build();
+
   private static final ByteString COMMAND_BYTES = COMMAND.toByteString();
   private static final Directory INPUT_ROOT = Directory.getDefaultInstance();
 
@@ -175,7 +178,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     if (!context.getWriteCachePolicy().allowRemoteCache()) {
       return;
     }
-    List<RepoRecordedInput.WithValue> recordedInputValues;
+    ImmutableList<RepoRecordedInput.WithValue> recordedInputValues;
     try {
       var maybeRecordedInputValues =
           DigestWriter.readMarkerFile(
@@ -270,9 +273,11 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     var repoDirectory = finalEntry.repoDirectory();
     var repoDirectoryContentFuture =
         transformAsync(
-            cache.downloadBlob(
+            cache.downloadBlobAsByteString(
                 context, REPO_DIRECTORY_PATH, /* execPath= */ null, repoDirectory.getTreeDigest()),
-            (treeBytes) -> immediateFuture(Tree.parseFrom(treeBytes)),
+            (treeBytes) ->
+                immediateFuture(
+                    Tree.parseFrom(treeBytes, ExtensionRegistryLite.getEmptyRegistry())),
             directExecutor());
     waitForBulkTransfer(ImmutableList.of(markerFileContentFuture, repoDirectoryContentFuture));
 
@@ -603,23 +608,12 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
     }
 
     @Override
-    public PathFragment getWorkingDirectory() {
-      throw new UnsupportedOperationException("Not used");
-    }
-
-    @Override
     public Path outputPathToLocalPath(String outputPath) {
       throw new UnsupportedOperationException("Not used");
     }
 
     @Override
     public PathFragment localPathToExecPath(PathFragment localPath) {
-      throw new UnsupportedOperationException("Not used");
-    }
-
-    @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(
-        SpawnRunner.SpawnExecutionContext context, boolean willAccessRepeatedly) {
       throw new UnsupportedOperationException("Not used");
     }
   }

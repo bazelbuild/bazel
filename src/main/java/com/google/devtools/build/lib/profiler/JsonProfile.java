@@ -72,7 +72,7 @@ public final class JsonProfile {
               if (ProfilerTask.PHASE.description.equals(traceEvent.category())) {
                 if (lastPhaseEvent != null) {
                   phaseSummaryStatistics.addProfilePhase(
-                      ProfilePhase.getPhaseFromDescription(lastPhaseEvent.name()),
+                      getPhaseFromDescription(lastPhaseEvent.name()),
                       traceEvent.timestamp().minus(lastPhaseEvent.timestamp()));
                 }
                 lastPhaseEvent = traceEvent;
@@ -80,7 +80,7 @@ public final class JsonProfile {
             }
             if (lastPhaseEvent != null) {
               phaseSummaryStatistics.addProfilePhase(
-                  ProfilePhase.getPhaseFromDescription(lastPhaseEvent.name()),
+                  getPhaseFromDescription(lastPhaseEvent.name()),
                   maxEndTime.minus(lastPhaseEvent.timestamp()));
             }
           } else {
@@ -140,6 +140,29 @@ public final class JsonProfile {
         @Nullable String buildId, @Nullable String date, @Nullable String outputBase) {
       return new BuildMetadata(buildId, date, outputBase);
     }
+  }
 
+  private static ProfilePhase getPhaseFromDescription(String description) {
+    if (ProfilePhase.LAUNCH.description.equals(description)) {
+      return ProfilePhase.LAUNCH;
+    } else if (ProfilePhase.INIT.description.equals(description)) {
+      return ProfilePhase.INIT;
+    } else if (ProfilePhase.TARGET_PATTERN_EVAL.description.equals(description)) {
+      return ProfilePhase.TARGET_PATTERN_EVAL;
+    } else if (ProfilePhase.ANALYZE.description.equals(description)) {
+      return ProfilePhase.ANALYZE;
+    } else if (ProfilePhase.ANALYZE_AND_EXECUTE.description.equals(description)) {
+      return ProfilePhase.ANALYZE_AND_EXECUTE;
+    } else if (ProfilePhase.LICENSE.description.equals(description)) {
+      return ProfilePhase.LICENSE;
+    } else if (ProfilePhase.PREPARE.description.equals(description)) {
+      return ProfilePhase.PREPARE;
+    } else if (ProfilePhase.EXECUTE.description.equals(description)) {
+      return ProfilePhase.EXECUTE;
+    } else if (ProfilePhase.FINISH.description.equals(description)) {
+      return ProfilePhase.FINISH;
+    } else {
+      return ProfilePhase.UNKNOWN;
+    }
   }
 }

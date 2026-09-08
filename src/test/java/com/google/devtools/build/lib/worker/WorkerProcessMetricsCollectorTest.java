@@ -523,6 +523,28 @@ public class WorkerProcessMetricsCollectorTest {
         .containsExactly(alive1, alive2, evicted4, others6);
   }
 
+  @Test
+  public void testRegisterWorker_initializesLastCallTimeOnCreation() throws Exception {
+    Instant startTime = DEFAULT_CLOCK_START_INSTANT.plusSeconds(5);
+    clock.setTime(startTime.toEpochMilli());
+
+    spyCollector.registerWorker(
+        WORKER_ID_1,
+        PROCESS_ID_1,
+        new WorkerProcessStatus(),
+        JAVAC_MNEMONIC,
+        /* isMultiplex= */ true,
+        /* isSandboxed= */ false,
+        WORKER_KEY_HASH_1,
+        /* cgroup= */ null);
+
+    WorkerProcessMetrics metrics = spyCollector.getPidToWorkerProcessMetrics().get(PROCESS_ID_1);
+    assertThat(metrics.getLastCallTime()).isPresent();
+    assertThat(metrics.getLastCallTime().get()).isEqualTo(startTime);
+    assertThat(metrics.toProto().getWorkerStats(0).getLastActionStartTimeInMs())
+        .isEqualTo(startTime.toEpochMilli());
+  }
+
   private WorkerMetrics newWorkerMetrics(int id, WorkerStatus status, int memoryInKb) {
     return WorkerMetrics.newBuilder()
         .addWorkerIds(id)

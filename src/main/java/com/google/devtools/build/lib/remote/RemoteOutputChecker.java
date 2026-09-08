@@ -350,12 +350,12 @@ public class RemoteOutputChecker implements OutputChecker {
       // If Bazel should download this file, but it does not exist locally, returns false to rerun
       // the generating action to trigger the download (just like in the normal build, when local
       // outputs are missing).
-      if (lastRemoteOutputChecker != null) {
-        // This is an incremental build. If the file was downloaded by previous build and is now
-        // missing, invalidate the action.
-        if (lastRemoteOutputChecker.shouldDownloadOutput(file, metadata)) {
-          return false;
-        }
+      //
+      // Under Skymeld, this check may run before analysis has registered the current build's
+      // toplevel targets. Checks the toplevel outputs tracked by the previous build's checker.
+      if (lastRemoteOutputChecker != null
+          && lastRemoteOutputChecker.pathsToDownload.contains(file.getExecPath())) {
+        return false;
       }
 
       if (shouldDownloadOutput(file, metadata)) {
@@ -374,6 +374,30 @@ public class RemoteOutputChecker implements OutputChecker {
     return true;
   }
 
+  @Override
+  public boolean shouldTrustCachedMetadata(ActionInput file, FileArtifactValue metadata) {
+    // Local metadata is always trusted.
+    if (!metadata.isRemote()) {
+      return true;
+    }
+
+    if (!metadata.isInMemoryOutput()) {
+      // For ActionCache validation in the current build, only check whether this file is
+      // requested for download in the CURRENT build (do NOT check lastRemoteOutputChecker,
+      // which would incorrectly invalidate intermediate outputs that were temporarily top-level
+      // in a previous build, e.g. rules_xcodeproj index builds, see issue #26924).
+      if (shouldDownloadOutput(file, metadata)) {
+        return false;
+      }
+    }
+
+    if (clock != null) {
+      return isAlive(metadata);
+    }
+
+    return true;
+  }
+
   private boolean isAlive(FileArtifactValue metadata) {
     var expirationTime = metadata.getExpirationTime();
     return expirationTime == null || expirationTime.isAfter(clock.now());
@@ -384,10 +408,12 @@ public class RemoteOutputChecker implements OutputChecker {
       return;
     }
 
-    // If the outputsMode or commandMode is changed, we invalidate completion functions. Otherwise,
-    // some requested outputs might not be correctly downloaded.
+    // Run mode is part of TopLevelArtifactContext, and thus of target and aspect completion keys,
+    // so transitions to and from it do not require manual invalidation.
+    boolean runTransition =
+        lastRemoteOutputChecker.commandMode == CommandMode.RUN || commandMode == CommandMode.RUN;
     if (lastRemoteOutputChecker.outputsMode != outputsMode
-        || lastRemoteOutputChecker.commandMode != commandMode) {
+        || (lastRemoteOutputChecker.commandMode != commandMode && !runTransition)) {
       memoizingEvaluator.delete(
           k -> {
             var functionName = k.functionName();

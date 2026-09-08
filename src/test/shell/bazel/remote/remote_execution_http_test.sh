@@ -575,6 +575,7 @@ EOF
   bazel clean
   bazel build \
       --remote_cache=http://localhost:${http_port} \
+      --norewind_lost_inputs \
       --experimental_remote_cache_eviction_retries=1 \
       //a:foo &> $TEST_log \
       || fail "Failed to build //a:foo with remote cache"

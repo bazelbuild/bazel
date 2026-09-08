@@ -125,7 +125,6 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
   @Test
   public void activeDirectories_canBeAutomaticallyDerivedUsingProjectFile() throws Exception {
     writeProjectSclDefinition("test/project_proto.scl", /* alsoWriteBuildFile= */ true);
-    addOptions("--experimental_enable_scl_dialect");
 
     write("hello/x.txt", "x");
     write("hello/world/y.txt", "y");
@@ -180,7 +179,6 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
   public void activeDirectories_ignoresTopLevelPackageDirectoriesWhenUsingProjectFile()
       throws Exception {
     writeProjectSclDefinition("test/project_proto.scl", /* alsoWriteBuildFile= */ true);
-    addOptions("--experimental_enable_scl_dialect");
 
     write("hello/x.txt", "x");
     write(
@@ -217,7 +215,6 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
   @Test
   public void activeDirectories_projectFileCanHandleExcludedDirectories() throws Exception {
     writeProjectSclDefinition("test/project_proto.scl", /* alsoWriteBuildFile= */ true);
-    addOptions("--experimental_enable_scl_dialect");
 
     write("hello/x.txt", "x");
     write("hello/world/y.txt", "y");

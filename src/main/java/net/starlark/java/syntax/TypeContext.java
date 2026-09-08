@@ -14,6 +14,7 @@
 
 package net.starlark.java.syntax;
 
+import com.google.common.collect.ImmutableList;
 import javax.annotation.Nullable;
 
 /**
@@ -23,7 +24,7 @@ import javax.annotation.Nullable;
  * syntax/} package, e.g. the method APIs of {@link StarlarkList}.
  */
 public interface TypeContext {
-
+  
   /** Returns the type of the given field of a {@code str} type, or null if no such field exists. */
   @Nullable
   StarlarkType getStrFieldType(String name);
@@ -46,6 +47,26 @@ public interface TypeContext {
    */
   @Nullable
   StarlarkType getSetFieldType(String name);
+
+  /**
+   * Returns the type of the given field of a {@link net.starlark.java.annot.StarlarkBuiltin}
+   * annotated class (or a subclass of one), or null if the class is not a @StarlarkBuiltin or has
+   * no such field.
+   */
+  @Nullable
+  default StarlarkType getStarlarkBuiltinFieldType(Class<?> clazz, String fieldName) {
+    return null;
+  }
+
+  /**
+   * Returns the supertypes of the auto-generated Starlark type associated with the given {@link
+   * net.starlark.java.annot.StarlarkBuiltin} annotated class (or a subclass of one), or null if no
+   * such auto-generated type exists.
+   */
+  @Nullable
+  default ImmutableList<StarlarkType> getStarlarkBuiltinAutoTypeSupertypes(Class<?> clazz) {
+    return null;
+  }
 
   /**
    * Returns the value type of a {@link Resolver.Scope#PREDECLARED} symbol, or null if there is no

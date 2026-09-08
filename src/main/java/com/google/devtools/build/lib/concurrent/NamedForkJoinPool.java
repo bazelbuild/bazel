@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent;
 
+import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinWorkerThread;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.annotation.Nullable;
 
 /** A {@link ForkJoinPool} with support for thread naming. */
 public class NamedForkJoinPool extends ForkJoinPool {
@@ -28,14 +30,28 @@ public class NamedForkJoinPool extends ForkJoinPool {
    * @param numThreads The maximum number of threads to create, see {@link ForkJoinPool}.
    */
   public static NamedForkJoinPool newNamedPool(String name, int numThreads) {
-    return new NamedForkJoinPool(name, numThreads);
+    return newNamedPool(name, numThreads, null);
   }
 
-  private NamedForkJoinPool(String name, int poolSize) {
+  /**
+   * Creates a new NamedForkJoinPool with an explicit uncaught exception handler.
+   *
+   * @param name A string identifying the pool. This string must not contain any formatting
+   *     parameters.
+   * @param numThreads The maximum number of threads to create, see {@link ForkJoinPool}.
+   * @param uncaughtExceptionHandler The handler for uncaught exceptions in worker threads.
+   */
+  public static NamedForkJoinPool newNamedPool(
+      String name, int numThreads, @Nullable UncaughtExceptionHandler uncaughtExceptionHandler) {
+    return new NamedForkJoinPool(name, numThreads, uncaughtExceptionHandler);
+  }
+
+  private NamedForkJoinPool(
+      String name, int poolSize, @Nullable UncaughtExceptionHandler uncaughtExceptionHandler) {
     super(
         poolSize,
         new NamedForkJoinWorkerThreadFactory(name + "-%s"),
-        null, // Uncaught exception handler.
+        uncaughtExceptionHandler,
         /* asyncMode= */ false);
   }
 

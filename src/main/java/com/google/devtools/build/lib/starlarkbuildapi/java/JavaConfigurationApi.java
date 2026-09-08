@@ -95,7 +95,7 @@ public interface JavaConfigurationApi extends StarlarkValue {
   @StarlarkMethod(
       name = "multi_release_deploy_jars",
       structField = true,
-      doc = "The value of the --incompatible_multi_release_deploy_jars flag.")
+      doc = "Always true. Java deploy jars preserve multi-release entries.")
   boolean multiReleaseDeployJars();
 
   @StarlarkMethod(

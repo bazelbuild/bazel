@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import static com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction.LOCKFILE_MODE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -29,14 +28,14 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.Lockfile
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import com.google.gson.JsonIOException;
+import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Predicate;
@@ -47,10 +46,7 @@ import java.util.function.Predicate;
  */
 public class BazelLockFileModule extends BlazeModule {
 
-  private SkyframeExecutor executor;
-  private Path workspaceRoot;
-  private Path outputBase;
-  private LockfileMode optionsLockfileMode;
+  private CommandEnvironment env;
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -59,34 +55,32 @@ public class BazelLockFileModule extends BlazeModule {
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    executor = env.getSkyframeExecutor();
-    workspaceRoot = env.getWorkspace();
-    outputBase = env.getOutputBase();
-    optionsLockfileMode = env.getOptions().getOptions(RepositoryOptions.class).getLockfileMode();
+    this.env = env;
   }
 
   @Override
   public void afterCommand() {
-    MemoizingEvaluator evaluator = executor.getEvaluator();
+    CommandEnvironment env = this.env;
+    this.env = null;
+    if (env == null || !env.hasSyncedPackageLoading()) {
+      // The current command (e.g. shutdown) didn't evaluate the lockfile values so they may
+      // be stale, e.g., if a server with a different output base changed the lockfile
+      // in the meantime.
+      return;
+    }
+    LockfileMode lockfileMode =
+        env.getOptions().getOptions(RepositoryOptions.class).getLockfileMode();
+    if (!ENABLED_IN_MODES.contains(lockfileMode)) {
+      return;
+    }
+    Path workspaceRoot = env.getWorkspace();
+    Path outputBase = env.getOutputBase();
+    MemoizingEvaluator evaluator = env.getSkyframeExecutor().getEvaluator();
     BazelModuleResolutionValue moduleResolutionValue;
     BazelDepGraphValue depGraphValue;
     BazelLockFileValue oldLockfile;
     BazelLockFileValue oldHiddenLockfile;
     try {
-      PrecomputedValue lockfileModeValue =
-          (PrecomputedValue) evaluator.getExistingValue(LOCKFILE_MODE.getKey());
-      if (lockfileModeValue == null) {
-        // No command run on this server has triggered module resolution yet.
-        return;
-      }
-      // Check the Skyframe value in addition to the option since some commands (e.g. shutdown)
-      // don't propagate the options to Skyframe, but we can only operate on Skyframe values that
-      // were generated in UPDATE mode.
-      LockfileMode skyframeLockfileMode = (LockfileMode) lockfileModeValue.get();
-      if (!(ENABLED_IN_MODES.contains(optionsLockfileMode)
-          && ENABLED_IN_MODES.contains(skyframeLockfileMode))) {
-        return;
-      }
       moduleResolutionValue =
           (BazelModuleResolutionValue) evaluator.getExistingValue(BazelModuleResolutionValue.KEY);
       depGraphValue = (BazelDepGraphValue) evaluator.getExistingValue(BazelDepGraphValue.KEY);
@@ -315,14 +309,23 @@ public class BazelLockFileModule extends BlazeModule {
    * @param lockfileRoot Root under which the lockfile is located
    * @param updatedLockfile The updated lockfile data to save
    */
-  private static void updateLockfile(Path lockfileRoot, BazelLockFileValue updatedLockfile) {
+  @VisibleForTesting
+  static void updateLockfile(Path lockfileRoot, BazelLockFileValue updatedLockfile) {
     RootedPath lockfilePath =
         RootedPath.toRootedPath(Root.fromPath(lockfileRoot), LabelConstants.MODULE_LOCKFILE_NAME);
-    try {
-      FileSystemUtils.writeContent(
-          lockfilePath.asPath(),
-          UTF_8,
-          GsonTypeAdapterUtil.LOCKFILE_GSON.toJson(updatedLockfile) + "\n");
+    try (var outputStream = lockfilePath.asPath().getOutputStream();
+        var outputStreamWriter = new OutputStreamWriter(outputStream, UTF_8);
+        var writer = new BufferedWriter(outputStreamWriter)) {
+      try {
+        GsonTypeAdapterUtil.LOCKFILE_GSON.toJson(updatedLockfile, writer);
+      } catch (JsonIOException e) {
+        // Gson.toJson(Object, Appendable) documents JsonIOException for writer failures.
+        if (e.getCause() instanceof IOException ioException) {
+          throw ioException;
+        }
+        throw new IOException(e);
+      }
+      writer.append('\n');
     } catch (IOException e) {
       logger.atSevere().withCause(e).log(
           "Error while updating MODULE.bazel.lock file: %s", e.getMessage());

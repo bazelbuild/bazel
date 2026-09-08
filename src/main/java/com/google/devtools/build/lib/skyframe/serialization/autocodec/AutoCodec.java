@@ -97,6 +97,18 @@ public @interface AutoCodec {
   Class<?> deserializedInterface() default void.class;
 
   /**
+   * If true, deserialized instances (which implement {@link #deserializedInterface}) are interned
+   * using a weak interner.
+   *
+   * <p>Only supported when {@link #deserializedInterface} is set.
+   *
+   * <p>The interner is managed entirely by the generated codec and is distinct from any interner
+   * used for non-deserialized instances. This ensures deserialized instances are only deduplicated
+   * against other deserialized instances and are never mixed with non-deserialized instances.
+   */
+  boolean internDeserialized() default false;
+
+  /**
    * Whether or not the generated codec should be automatically registered. See {@link
    * com.google.devtools.build.lib.skyframe.serialization.ObjectCodec#autoRegister()}.
    */

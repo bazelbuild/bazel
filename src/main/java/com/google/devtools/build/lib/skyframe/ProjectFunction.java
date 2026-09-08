@@ -80,32 +80,30 @@ public class ProjectFunction implements SkyFunction {
       return null;
     }
     Object projectRaw = bzlLoadValue.getModule().getGlobal(ReservedGlobals.PROJECT.getKey());
-    switch (projectRaw) {
-      case null -> {
-        throw new ProjectFunctionException(
-            new TypecheckFailureException(
-                "Project files must define exactly one top-level variable called \"project\""));
-      }
+    return switch (projectRaw) {
+      case null ->
+          throw new ProjectFunctionException(
+              new TypecheckFailureException(
+                  "Project files must define exactly one top-level variable called \"project\""));
       case Dict<?, ?> asDict -> {
         Label actualProjectFile = maybeResolveAlias(key.getProjectFile(), asDict, bzlLoadValue);
         if (!actualProjectFile.equals(key.getProjectFile())) {
           // This is an alias for another project file. Delegate there.
           // TODO: b/382265245 - handle cycles, including self references.
-          return env.getValueOrThrow(
+          yield env.getValueOrThrow(
               new ProjectValue.Key(actualProjectFile), ProjectFunctionException.class);
         }
-        return parseLegacyProjectSchema(asDict, key.getProjectFile());
+        yield parseLegacyProjectSchema(asDict, key.getProjectFile());
       }
-      case StarlarkInfoNoSchema starlarkInfo -> {
-        return parseProtoProjectSchema(starlarkInfo, key.getProjectFile());
-      }
+      case StarlarkInfoNoSchema starlarkInfo ->
+          parseProtoProjectSchema(starlarkInfo, key.getProjectFile());
       default ->
           throw new ProjectFunctionException(
               new TypecheckFailureException(
                   String.format(
                       "%s variable: expected a map of string to objects, got %s",
                       ReservedGlobals.PROJECT.getKey(), projectRaw.getClass())));
-    }
+    };
   }
 
   /**

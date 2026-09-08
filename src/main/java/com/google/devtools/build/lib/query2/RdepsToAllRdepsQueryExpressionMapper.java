@@ -104,19 +104,18 @@ class RdepsToAllRdepsQueryExpressionMapper extends QueryExpressionMapper<Void> {
       return Eligibility.NOT_ELIGIBLE;
     }
 
-    switch (absoluteUniverseScopePattern.getType()) {
-      case PATH_AS_TARGET, SINGLE_TARGET -> {
-        return absoluteUniverseScopePattern
-                .getOriginalPattern()
-                .equals(absoluteRdepsUniverseTargetPattern.getOriginalPattern())
-            ? Eligibility.ELIGIBLE_AS_IS
-            : Eligibility.NOT_ELIGIBLE;
-      }
+    return switch (absoluteUniverseScopePattern.getType()) {
+      case PATH_AS_TARGET, SINGLE_TARGET ->
+          absoluteUniverseScopePattern
+                  .getOriginalPattern()
+                  .equals(absoluteRdepsUniverseTargetPattern.getOriginalPattern())
+              ? Eligibility.ELIGIBLE_AS_IS
+              : Eligibility.NOT_ELIGIBLE;
       case TARGETS_IN_PACKAGE, TARGETS_BELOW_DIRECTORY -> {
         if (!absoluteUniverseScopePattern
             .getDirectory()
             .equals(absoluteRdepsUniverseTargetPattern.getDirectory())) {
-          return Eligibility.NOT_ELIGIBLE;
+          yield Eligibility.NOT_ELIGIBLE;
         }
 
         // Note: If we're here, both patterns are either TARGETS_IN_PACKAGE or
@@ -124,10 +123,10 @@ class RdepsToAllRdepsQueryExpressionMapper extends QueryExpressionMapper<Void> {
 
         if (absoluteUniverseScopePattern.getRulesOnly()
             == absoluteRdepsUniverseTargetPattern.getRulesOnly()) {
-          return Eligibility.ELIGIBLE_AS_IS;
+          yield Eligibility.ELIGIBLE_AS_IS;
         }
 
-        return absoluteUniverseScopePattern.getRulesOnly()
+        yield absoluteUniverseScopePattern.getRulesOnly()
             // If the actual universe is narrower, then allrdeps would be unsound because it may
             // produce narrower results.
             ? Eligibility.NOT_ELIGIBLE
@@ -135,7 +134,6 @@ class RdepsToAllRdepsQueryExpressionMapper extends QueryExpressionMapper<Void> {
             // Therefore, we'd want to filter those results.
             : Eligibility.ELIGIBLE_WITH_FILTERING;
       }
-    }
-    throw new IllegalStateException(absoluteUniverseScopePattern.getType().toString());
+    };
   }
 }

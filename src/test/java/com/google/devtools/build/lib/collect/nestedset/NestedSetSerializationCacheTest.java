@@ -28,6 +28,8 @@ import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.PutOperation;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SettableWriteStatus;
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -314,5 +316,96 @@ public final class NestedSetSerializationCacheTest {
 
     assertThat(cache.putIfAbsent(contents, result1, new Context())).isNull();
     assertThat(cache.putIfAbsent(contents, result2, new Context())).isSameInstanceAs(result1);
+  }
+
+  @Test
+  public void cancelPendingFetches_cancelsAndRemovesOnlyPendingFutures() {
+    PackedFingerprint fp1 = getFingerprintForTesting("abc");
+    PackedFingerprint fp2 = getFingerprintForTesting("xyz");
+    PackedFingerprint fp3 = getFingerprintForTesting("123");
+
+    SettableFuture<Object[]> pendingFuture = SettableFuture.create();
+    SettableFuture<Object[]> completedFuture = SettableFuture.create();
+    Object[] completedContents = new Object[] {"completed"};
+
+    // Put one pending future
+    assertThat(cache.putFutureIfAbsent(fp1, pendingFuture, DEFAULT_CONTEXT)).isNull();
+
+    // Put one that we will complete
+    assertThat(cache.putFutureIfAbsent(fp2, completedFuture, DEFAULT_CONTEXT)).isNull();
+    completedFuture.set(completedContents);
+
+    // Put one immediate contents (via putIfAbsent)
+    Object[] immediateContents = new Object[] {"immediate"};
+    PutOperation putOp = new PutOperation(fp3, new SettableWriteStatus());
+    assertThat(cache.putIfAbsent(immediateContents, putOp, DEFAULT_CONTEXT)).isNull();
+
+    cache.cancelPendingFetches();
+
+    // 1. Pending future should be cancelled
+    assertThat(pendingFuture.isCancelled()).isTrue();
+
+    // 2. Pending future should be removed from cache (so putting a new one returns null)
+    assertThat(cache.putFutureIfAbsent(fp1, SettableFuture.create(), DEFAULT_CONTEXT)).isNull();
+
+    // 3. Completed future (which was replaced by contents) should still be in cache
+    assertThat(cache.putFutureIfAbsent(fp2, SettableFuture.create(), DEFAULT_CONTEXT))
+        .isSameInstanceAs(completedContents);
+
+    // 4. Immediate contents should still be in cache
+    assertThat(cache.putFutureIfAbsent(fp3, SettableFuture.create(), DEFAULT_CONTEXT))
+        .isSameInstanceAs(immediateContents);
+  }
+
+  @Test
+  public void cancelPendingFetches_doesNotAffectFailedFutures() {
+    BugReporter mockBugReporter = mock(BugReporter.class);
+    NestedSetSerializationCache cacheWithCustomBugReporter =
+        new NestedSetSerializationCache(mockBugReporter);
+    PackedFingerprint fingerprint = getFingerprintForTesting("abc");
+    SettableFuture<Object[]> future = SettableFuture.create();
+    Throwable e = new MissingFingerprintValueException(fingerprint);
+
+    assertThat(cacheWithCustomBugReporter.putFutureIfAbsent(fingerprint, future, DEFAULT_CONTEXT))
+        .isNull();
+    future.setException(e);
+
+    cacheWithCustomBugReporter.cancelPendingFetches();
+
+    // 1. Future should NOT be cancelled
+    assertThat(future.isCancelled()).isFalse();
+    assertThat(future.isDone()).isTrue();
+
+    // 2. Future should still be in the cache
+    assertThat(
+            cacheWithCustomBugReporter.putFutureIfAbsent(
+                fingerprint, SettableFuture.create(), DEFAULT_CONTEXT))
+        .isSameInstanceAs(future);
+  }
+
+  @Test
+  public void cancelPendingFetches_largeCache_cancelsAllParallel() {
+    int count = NestedSetSerializationCache.CANCELLATION_PARALLELISM_THRESHOLD + 10;
+    List<SettableFuture<Object[]>> futures = new ArrayList<>(count);
+    List<PackedFingerprint> fingerprints = new ArrayList<>(count);
+
+    for (int i = 0; i < count; i++) {
+      PackedFingerprint fp = getFingerprintForTesting("fp" + i);
+      SettableFuture<Object[]> future = SettableFuture.create();
+      assertThat(cache.putFutureIfAbsent(fp, future, DEFAULT_CONTEXT)).isNull();
+      futures.add(future);
+      fingerprints.add(fp);
+    }
+
+    cache.cancelPendingFetches();
+
+    for (int i = 0; i < count; i++) {
+      assertThat(futures.get(i).isCancelled()).isTrue();
+      // Verify removed from cache
+      assertThat(
+              cache.putFutureIfAbsent(
+                  fingerprints.get(i), SettableFuture.create(), DEFAULT_CONTEXT))
+          .isNull();
+    }
   }
 }

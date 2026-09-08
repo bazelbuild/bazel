@@ -57,6 +57,7 @@ public interface JavaPluginInfoApi<
   JavaPluginDataT apiGeneratingPlugins();
 
   /** Info object encapsulating information about a Java compatible plugin. */
+  @StarlarkBuiltin(name = "JavaPluginData", documented = false)
   interface JavaPluginDataApi extends StructApi {
     @StarlarkMethod(
         name = "processor_jars",

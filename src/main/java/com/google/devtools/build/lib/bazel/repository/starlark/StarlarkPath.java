@@ -65,6 +65,11 @@ public final class StarlarkPath implements StarlarkValue {
   }
 
   @Override
+  public boolean isAcyclic() {
+    return true;
+  }
+
+  @Override
   public boolean equals(Object obj) {
     return (obj instanceof StarlarkPath) && path.equals(((StarlarkPath) obj).path);
   }
@@ -165,8 +170,12 @@ public final class StarlarkPath implements StarlarkValue {
           like the repo rule or module extension to be sensitive to the path's existence, \
           use the <code>watch()</code> method on the context object.
           """)
-  public boolean exists() {
-    return path.exists();
+  public boolean exists() throws RepositoryFunctionException {
+    try {
+      return path.exists();
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
   }
 
   @StarlarkMethod(
@@ -179,8 +188,12 @@ public final class StarlarkPath implements StarlarkValue {
           extension to be sensitive to whether the path is a directory or a file, use the \
           <code>watch()</code> method on the context object.
           """)
-  public boolean isDir() {
-    return path.isDirectory();
+  public boolean isDir() throws RepositoryFunctionException {
+    try {
+      return path.isDirectory();
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
   }
 
   @StarlarkMethod(

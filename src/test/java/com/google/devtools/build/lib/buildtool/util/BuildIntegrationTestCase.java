@@ -432,9 +432,9 @@ public abstract class BuildIntegrationTestCase {
   @After
   public final void cleanUp() throws Exception {
     try {
-      doCleanup();
-    } finally {
       getRuntime().getBlazeModules().forEach(BlazeModule::blazeShutdown);
+    } finally {
+      doCleanup();
     }
   }
 
@@ -1132,6 +1132,14 @@ public abstract class BuildIntegrationTestCase {
 
   protected TreeArtifactValue getTreeArtifactValue(Artifact treeArtifact)
       throws InterruptedException {
+    assertThat(treeArtifact.isTreeArtifact()).isTrue();
+    SkyValue value = getSkyframeExecutor().getEvaluator().getExistingValue(treeArtifact);
+    if (value != null) {
+      assertThat(value).isInstanceOf(TreeArtifactValue.class);
+      return (TreeArtifactValue) value;
+    }
+    // Tree artifacts may not have an artifact node in the graph if they are produced by an action
+    // but not consumed, e.g. undeclared test outputs. Fall back to the ActionExecutionValue.
     return checkNotNull(
         getActionExecutionValue(treeArtifact).getAllTreeArtifactValues().get(treeArtifact),
         treeArtifact);

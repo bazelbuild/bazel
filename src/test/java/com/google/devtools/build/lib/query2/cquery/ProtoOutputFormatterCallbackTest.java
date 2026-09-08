@@ -362,10 +362,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     args.add("--incompatible_bep_cpu_from_platform=" + bepCpuFromPlatform);
     if (!platformToCpuMap.isEmpty()) {
       args.add(
-          "--experimental_override_platform_cpu_name="
-              + TestConstants.PLATFORM_LABEL
-              + "="
-              + platformToCpuMap);
+          "--override_platform_cpu_name=" + TestConstants.PLATFORM_LABEL + "=" + platformToCpuMap);
     }
     getHelper().useConfiguration(args.toArray(new String[0]));
 

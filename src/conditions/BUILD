@@ -157,12 +157,6 @@ config_setting(
 )
 
 config_setting(
-    name = "iphonesdk",
-    values = {"define": "IPHONE_SDK=1"},
-    visibility = ["//visibility:public"],
-)
-
-config_setting(
     name = "freebsd",
     constraint_values = ["@platforms//os:freebsd"],
     visibility = ["//visibility:public"],

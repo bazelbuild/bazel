@@ -149,7 +149,7 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
       FileStatusWithDigest stat,
       XattrProvider xattrProvider,
       @Nullable TimestampGranularityMonitor tsgm)
-      throws InconsistentFilesystemException {
+      throws IOException {
     checkState(stat.isFile(), path);
 
     if (stat instanceof FileStatusWithMetadata fileStatusWithMetadata) {

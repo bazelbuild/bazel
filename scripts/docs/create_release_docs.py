@@ -15,7 +15,6 @@
 # limitations under the License.
 """A tool for building the documentation for a Bazel release."""
 import os
-import shutil
 import sys
 import tarfile
 import tempfile
@@ -29,18 +28,6 @@ from scripts.docs import rewriter
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string("version", None, "Name of the Bazel release.")
-flags.DEFINE_string(
-    "toc_path",
-    None,
-    "Path to the _toc.yaml file that contains the table of contents for the"
-    " versions menu. Optional.",
-)
-flags.DEFINE_string(
-    "buttons_path",
-    None,
-    "Path to the _buttons.html file that contains the version indicator."
-    " Optional.",
-)
 flags.DEFINE_string(
     "narrative_docs_path",
     None,
@@ -64,34 +51,24 @@ _ARCHIVE_FUNCTIONS = {".tar": tarfile.open, ".zip": zipfile.ZipFile}
 
 
 def create_docs_tree(
-    version, toc_path, buttons_path, narrative_docs_path, reference_docs_path
+    version, narrative_docs_path, reference_docs_path
 ):
   """Creates a directory tree containing the docs for the Bazel version.
 
   Args:
     version: Version of this Bazel release.
-    toc_path: Absolute path to the _toc.yaml file that lists the most recent
-      Bazel versions.
-    buttons_path: Absolute path of the _buttons.html file that contains the
-      version indicator.
     narrative_docs_path: Absolute path of an archive that contains the narrative
       documentation (can be .zip or .tar).
     reference_docs_path: Absolute path of an archive that contains the reference
       documentation (can be .zip or .tar).
 
   Returns:
-    The absolute paths of the root of the directory tree and of
-      the final _toc.yaml file.
+    The absolute paths of the root of the directory tree.
   """
   root_dir = tempfile.mkdtemp()
 
   versions_dir = os.path.join(root_dir, "versions")
   os.makedirs(versions_dir)
-
-  toc_dest_path = ""
-  if toc_path:
-    toc_dest_path = os.path.join(versions_dir, "_toc.yaml")
-    shutil.copyfile(toc_path, toc_dest_path)
 
   release_dir = os.path.join(versions_dir, version)
   os.makedirs(release_dir)
@@ -99,11 +76,7 @@ def create_docs_tree(
   try_extract(narrative_docs_path, release_dir)
   try_extract(reference_docs_path, release_dir)
 
-  if buttons_path:
-    buttons_dest_path = os.path.join(root_dir, "_buttons.html")
-    shutil.copyfile(buttons_path, buttons_dest_path)
-
-  return root_dir, toc_dest_path, release_dir
+  return root_dir, release_dir
 
 
 def try_extract(archive_path, output_dir):
@@ -130,7 +103,7 @@ def try_extract(archive_path, output_dir):
     archive.extractall(output_dir)
 
 
-def build_archive(version, root_dir, toc_path, output_path, release_dir):
+def build_archive(version, root_dir, output_path, release_dir):
   """Builds a documentation archive for the given Bazel release.
 
   This function reads all documentation files from the tree rooted in root_dir,
@@ -141,8 +114,6 @@ def build_archive(version, root_dir, toc_path, output_path, release_dir):
     version: Version of the Bazel release whose documentation is being built.
     root_dir: Absolute path of the directory that contains the documentation
       tree.
-    toc_path: Absolute path of the _toc.yaml file. Can be empty if no toc file
-      exists.
     output_path: Absolute path where the archive should be written to.
     release_dir: Absolute path of the root directory for this version.
   """
@@ -153,7 +124,7 @@ def build_archive(version, root_dir, toc_path, output_path, release_dir):
         dest = src[len(root_dir) + 1:]
         rel_path = os.path.relpath(src, release_dir)
 
-        if src != toc_path and rewriter.can_rewrite(src):
+        if rewriter.can_rewrite(src):
           archive.writestr(dest, get_versioned_content(src, rel_path, version))
         else:
           archive.write(src, dest)
@@ -179,10 +150,8 @@ def get_versioned_content(path, rel_path, version):
 def main(unused_argv):
   version = FLAGS.version
   output_path = FLAGS.output_path
-  root_dir, toc_path, release_dir = create_docs_tree(
+  root_dir, release_dir = create_docs_tree(
       version=version,
-      toc_path=FLAGS.toc_path,
-      buttons_path=FLAGS.buttons_path,
       narrative_docs_path=FLAGS.narrative_docs_path,
       reference_docs_path=FLAGS.reference_docs_path,
   )
@@ -190,7 +159,6 @@ def main(unused_argv):
   build_archive(
       version=version,
       root_dir=root_dir,
-      toc_path=toc_path,
       output_path=output_path,
       release_dir=release_dir,
   )

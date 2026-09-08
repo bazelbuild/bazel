@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
+import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 
 /** Encapsulates data to be written to the JSON trace profile. */
+@ScOnly
 public interface TraceData {
   void writeTraceData(JsonWriter jsonWriter, long profileStartTimeNanos) throws IOException;
 }

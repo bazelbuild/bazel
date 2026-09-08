@@ -43,18 +43,26 @@ void portable_start_disk_space_monitoring() {
     int status = notify_register_dispatch(kNotifyVFSLowDiskSpace,
                                           &notifyToken,
                                           queue, lowHandler);
-    BAZEL_CHECK_EQ(status, NOTIFY_STATUS_OK);
+    if (status != NOTIFY_STATUS_OK) {
+      BAZEL_LOG(ERROR) << "notify_register_dispatch failed: " << status;
+    }
     status = notify_register_dispatch(kNotifyVFSVeryLowDiskSpace,
                                           &notifyToken,
                                           queue, veryLowHandler);
-    BAZEL_CHECK_EQ(status, NOTIFY_STATUS_OK);
+    if (status != NOTIFY_STATUS_OK) {
+      BAZEL_LOG(ERROR) << "notify_register_dispatch failed: " << status;
+    }
     // These are registered solely so we can test the system from end-to-end.
     status = notify_register_dispatch(
         "com.google.bazel.test.diskspace.low", &notifyToken, queue, lowHandler);
-    BAZEL_CHECK_EQ(status, NOTIFY_STATUS_OK);
+    if (status != NOTIFY_STATUS_OK) {
+      BAZEL_LOG(ERROR) << "notify_register_dispatch failed: " << status;
+    }
     status = notify_register_dispatch("com.google.bazel.test.diskspace.verylow",
                                       &notifyToken, queue, veryLowHandler);
-    BAZEL_CHECK_EQ(status, NOTIFY_STATUS_OK);
+    if (status != NOTIFY_STATUS_OK) {
+      BAZEL_LOG(ERROR) << "notify_register_dispatch failed: " << status;
+    }
   });
 }
 

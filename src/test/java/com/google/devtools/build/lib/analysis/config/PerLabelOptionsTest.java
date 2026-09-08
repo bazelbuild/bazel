@@ -62,9 +62,15 @@ public class PerLabelOptionsTest {
     assertOptions("a/b,+^c,_test$", ", ,\t,", Collections.<String> emptyList());
     assertOptions("a/b,+^c,_test$", "", Collections.<String> emptyList());
     assertOptions("a/b,+^c,_test$", "-g,-O0", Arrays.asList("-g", "-O0"));
-    assertOptions("a/b,+^c,_test$", "-g@,-O0", Arrays.asList("-g@", "-O0"));
+    assertOptions("a/b,+^c,_test$", "-g\\@,-O0", Arrays.asList("-g@", "-O0"));
     assertOptions("a/b,+^c,_test$", "-g\\,,-O0", Arrays.asList("-g,", "-O0"));
-    assertOptions("a/b,+^c,_test$", "-g\\,,,,,-O0,,,@,", Arrays.asList("-g,", "-O0", "@"));
+    assertOptions("a/b,+^c,_test$", "-g\\,,,,,-O0,,,\\@,", Arrays.asList("-g,", "-O0", "@"));
+    assertOptions("//foo:v@lid-target", "3", Collections.singletonList("3"));
+    assertOptions("//foo:v@lid-target", "-g,-O0", Arrays.asList("-g", "-O0"));
+    assertOptions("@repo//foo:bar", "3", Collections.singletonList("3"));
+    assertOptions("@repo//foo:bar", "-g,-O0", Arrays.asList("-g", "-O0"));
+    assertOptions("//foo:v@lid-target", "-g\\@,-O0", Arrays.asList("-g@", "-O0"));
+    assertOptions("//foo:v\\@lid-target", "-g,-O0", Arrays.asList("-g", "-O0"));
   }
 
   @Test

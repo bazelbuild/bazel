@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.starlarkdocextract;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static com.google.devtools.build.lib.starlarkdocextract.ModuleInfoExtractor.IMPLICIT_MACRO_ATTRIBUTES;
 import static com.google.devtools.build.lib.starlarkdocextract.RuleInfoExtractor.IMPLICIT_RULE_ATTRIBUTES;
 import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_KWARGS;
@@ -74,7 +73,7 @@ public final class ModuleInfoExtractorTest {
     ev.setSemantics(options.toArray(new String[0]));
     Module moduleForCompilation = ev.newModule();
     Label fakeLabel = BazelModuleContext.of(moduleForCompilation).label();
-    ev.setThreadOwner(keyForBuild(fakeLabel));
+    ev.setBzlLoadThreadOwner(fakeLabel);
     fakeLabelString = fakeLabel.getCanonicalForm();
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, FileOptions.DEFAULT);

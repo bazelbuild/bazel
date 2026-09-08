@@ -22,8 +22,6 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -46,6 +44,7 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFil
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
@@ -83,6 +82,7 @@ import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -124,6 +124,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   private final ImmutableMap<String, String> executionInfo;
   private final CommandLine executableLine;
   private final CommandLine flagLine;
+  private final ImmutableList<CommandLine> extraCommandLineArgs;
   private final BuildConfigurationValue configuration;
   private final OnDemandString progressMessage;
 
@@ -150,6 +151,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       ExtraActionInfoSupplier extraActionInfoSupplier,
       CommandLine executableLine,
       CommandLine flagLine,
+      ImmutableList<CommandLine> extraCommandLineArgs,
       BuildConfigurationValue configuration,
       NestedSet<Artifact> dependencyArtifacts,
       Artifact outputDepsProto,
@@ -172,6 +174,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         configuration.modifiedExecutionInfo(executionInfo, compilationType.mnemonic);
     this.executableLine = executableLine;
     this.flagLine = flagLine;
+    this.extraCommandLineArgs = extraCommandLineArgs;
     this.configuration = configuration;
     this.progressMessage = progressMessage;
     this.extraActionInfoSupplier = extraActionInfoSupplier;
@@ -231,6 +234,10 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         actionKeyContext, inputMetadataProvider, effectiveOutputPathsMode, fp);
     flagLine.addToFingerprint(
         actionKeyContext, inputMetadataProvider, effectiveOutputPathsMode, fp);
+    for (CommandLine extraCommandLine : extraCommandLineArgs) {
+      extraCommandLine.addToFingerprint(
+          actionKeyContext, inputMetadataProvider, effectiveOutputPathsMode, fp);
+    }
     // As the classpath is no longer part of commandLines implicitly, we need to explicitly add
     // the transitive inputs to the key here.
     actionKeyContext.addNestedSetToFingerprint(fp, transitiveInputs);
@@ -289,7 +296,10 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     CustomCommandLine.Builder classpathLine = CustomCommandLine.builder();
     PathMapper pathMapper =
         PathMappers.create(
-            this, PathMappers.getOutputPathsMode(configuration), /* isStarlarkAction= */ false);
+            this,
+            PathMappers.getOutputPathsMode(configuration),
+            /* isStarlarkAction= */ false,
+            actionExecutionContext.getInputMetadataProvider());
 
     if (fallback) {
       classpathLine.addExecPaths("--classpath", transitiveInputs);
@@ -307,12 +317,15 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       classpathLine.add("--reduce_classpath_mode", fallback ? "BAZEL_FALLBACK" : "BAZEL_REDUCED");
     }
 
-    CommandLines reducedCommandLine =
+    CommandLines.Builder commandLinesBuilder =
         CommandLines.builder()
             .addCommandLine(executableLine)
             .addCommandLine(flagLine, PARAM_FILE_INFO)
-            .addCommandLine(classpathLine.build(), PARAM_FILE_INFO)
-            .build();
+            .addCommandLine(classpathLine.build(), PARAM_FILE_INFO);
+    for (CommandLine extraCommandLine : extraCommandLineArgs) {
+      commandLinesBuilder.addCommandLine(extraCommandLine, PARAM_FILE_INFO);
+    }
+    CommandLines reducedCommandLine = commandLinesBuilder.build();
     CommandLines.ExpandedCommandLines expandedCommandLines =
         reducedCommandLine.expand(
             actionExecutionContext.getInputMetadataProvider(),
@@ -337,7 +350,10 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       throws CommandLineExpansionException, InterruptedException {
     PathMapper pathMapper =
         PathMappers.create(
-            this, PathMappers.getOutputPathsMode(configuration), /* isStarlarkAction= */ false);
+            this,
+            PathMappers.getOutputPathsMode(configuration),
+            /* isStarlarkAction= */ false,
+            actionExecutionContext.getInputMetadataProvider());
     CommandLines.ExpandedCommandLines expandedCommandLines =
         getCommandLines()
             .expand(
@@ -547,11 +563,12 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
       throws CommandLineExpansionException, InterruptedException {
     ExtraActionInfo.Builder builder = super.getExtraActionInfo(actionKeyContext);
-    CommandLines commandLinesWithoutExecutable =
-        CommandLines.builder()
-            .addCommandLine(flagLine)
-            .addCommandLine(getFullClasspathLine())
-            .build();
+    CommandLines.Builder commandLinesBuilder =
+        CommandLines.builder().addCommandLine(flagLine).addCommandLine(getFullClasspathLine());
+    for (CommandLine extraCommandLine : extraCommandLineArgs) {
+      commandLinesBuilder.addCommandLine(extraCommandLine);
+    }
+    CommandLines commandLinesWithoutExecutable = commandLinesBuilder.build();
     if (extraActionInfoSupplier != null) {
       extraActionInfoSupplier.extend(builder, commandLinesWithoutExecutable.allArguments());
     }
@@ -599,11 +616,15 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
 
   @VisibleForTesting
   public CommandLines getCommandLines() {
-    return CommandLines.builder()
-        .addCommandLine(executableLine)
-        .addCommandLine(flagLine, PARAM_FILE_INFO)
-        .addCommandLine(getFullClasspathLine(), PARAM_FILE_INFO)
-        .build();
+    CommandLines.Builder builder =
+        CommandLines.builder()
+            .addCommandLine(executableLine)
+            .addCommandLine(flagLine, PARAM_FILE_INFO)
+            .addCommandLine(getFullClasspathLine(), PARAM_FILE_INFO);
+    for (CommandLine extraCommandLine : extraCommandLineArgs) {
+      builder.addCommandLine(extraCommandLine, PARAM_FILE_INFO);
+    }
+    return builder.build();
   }
 
   private CommandLine getFullClasspathLine() {
@@ -736,19 +757,21 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     }
 
     // For each of the action's generated inputs, revert its mapped path back to its original path.
-    BiMap<String, PathFragment> mappedToOriginalPath = HashBiMap.create();
+    HashMap<String, PathFragment> mappedToOriginalPath = new HashMap<>();
+    HashSet<String> originalPaths = new HashSet<>();
     for (Artifact actionInput :
         Iterables.concat(actionInputs.toList(), additionalArtifactsForPathMapping.toList())) {
       if (actionInput.isSourceArtifact()) {
         continue;
       }
       String mappedPath = pathMapper.getMappedExecPathString(actionInput);
+      originalPaths.add(actionInput.getExecPath().getPathString());
       PathFragment previousPath = mappedToOriginalPath.put(mappedPath, actionInput.getExecPath());
       if (previousPath != null && !previousPath.equals(actionInput.getExecPath())) {
-        throw new IllegalStateException(
-            String.format(
-                "Duplicate mapped path %s derived from %s and %s",
-                mappedPath, actionInput.getExecPath(), mappedToOriginalPath.get(mappedPath)));
+        // Multiple inputs from different configs map to the same path. This is allowed when they
+        // have identical content (checked by StrippingPathMapper.isPathStrippable). Pick any
+        // original path for jdeps rewriting.
+        mappedToOriginalPath.put(mappedPath, previousPath);
       }
     }
 
@@ -767,7 +790,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       // we can leave it as is. For entirely unexpected paths, we still report an error.
       if (originalPath == null
           && pathOnExecutor.subFragment(0, 1).equals(outputRoot)
-          && !mappedToOriginalPath.containsValue(pathOnExecutor)) {
+          && !originalPaths.contains(pathOnExecutor.getPathString())) {
         throw new IllegalStateException(
             String.format(
                 "Missing original path for mapped path %s in %s%njdeps: %s%npath map: %s",
@@ -791,8 +814,29 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
           .getOutputMetadataStore()
           .resetOutputs(ImmutableList.of(outputDepsProto));
       fsPath.setWritable(true);
+      byte[] rewritten = fullOutputDeps.toByteArray();
       try (var outputStream = fsPath.getOutputStream()) {
-        fullOutputDeps.writeTo(outputStream);
+        outputStream.write(rewritten);
+      }
+      if (spawnResult.getInMemoryOutput(outputDepsProto) != null) {
+        // Reached only with --experimental_output_paths=strip (otherwise the isNoOp() check above
+        // would have returned early).
+        // The executor may have stripped config prefixes from the .jdeps file, and we just rewrote
+        // it to restore the original paths. If the executor produced an in-memory version of the
+        // .jdeps file, we need to update the output metadata store with the new digest and size so
+        // that Bazel can read it from memory instead of reading the on-disk version.
+        actionExecutionContext
+            .getOutputMetadataStore()
+            .injectFile(
+                outputDepsProto,
+                FileArtifactValue.createForVirtualActionInput(
+                    fsPath
+                        .getFileSystem()
+                        .getDigestFunction()
+                        .getHashFunction()
+                        .hashBytes(rewritten)
+                        .asBytes(),
+                    rewritten.length));
       }
     }
 

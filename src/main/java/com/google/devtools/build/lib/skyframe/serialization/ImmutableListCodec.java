@@ -34,7 +34,9 @@ import java.io.IOException;
  * </ul>
  */
 @SuppressWarnings("rawtypes") // Intentional erasure of ImmutableList.
-class ImmutableListCodec extends AsyncObjectCodec<ImmutableList> {
+public class ImmutableListCodec extends AsyncObjectCodec<ImmutableList> {
+  public ImmutableListCodec() {}
+
   private static final Class<? extends ImmutableList> SINGLETON_IMMUTABLE_LIST_CLASS =
       ImmutableList.<Integer>of(0).getClass();
   private static final Class<? extends ImmutableList> REGULAR_IMMUTABLE_LIST_CLASS =

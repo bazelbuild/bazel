@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.pkgcache.PackagePathCodecDependencies;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -170,8 +171,17 @@ public final class ActionExecutionValueTest {
                 ImmutableMap.of(output("file"), VALUE_1_REMOTE),
                 ImmutableMap.of(tree("tree"), TreeArtifactValue.empty()),
                 /* richArtifactData= */ null,
-                /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER)))
+                /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER)),
+            // Resolved symlink artifact value
+            createWithArtifactData(
+                ImmutableMap.of(
+                    output("symlink"),
+                    FileArtifactValue.createFromExistingWithResolvedPath(
+                        VALUE_1_REMOTE,
+                        OUTPUT_ROOT.getRoot().getRelative("resolved/path").asFragment()))))
         .addDependency(FileSystem.class, OUTPUT_ROOT.getRoot().getFileSystem())
+        .addDependency(
+            PackagePathCodecDependencies.class, () -> ImmutableList.of(OUTPUT_ROOT.getRoot()))
         .addDependency(
             RootCodecDependencies.class, new RootCodecDependencies(OUTPUT_ROOT.getRoot()))
         .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -57,7 +58,14 @@ class PathExistenceCache {
           isSource
               ? artifactFactory.getPathFromSourceExecPath(execRoot, execPath)
               : execRoot.getRelative(execPath);
-      newFuture.set(path.isFile());
+      boolean isFile;
+      try {
+        isFile = path.isFile();
+      } catch (IOException e) {
+        // TODO(tjgq): Propagate the error.
+        isFile = false;
+      }
+      newFuture.set(isFile);
     }
     try {
       return Uninterruptibles.getUninterruptibly(existingFuture);
@@ -74,7 +82,14 @@ class PathExistenceCache {
     if (existingFuture == null) {
       existingFuture = newFuture;
       Path path = artifactFactory.getPathFromSourceExecPath(execRoot, execPath);
-      newFuture.set(path.isDirectory());
+      boolean isDirectory;
+      try {
+        isDirectory = path.isDirectory();
+      } catch (IOException e) {
+        // TODO(tjgq): Propagate the error.
+        isDirectory = false;
+      }
+      newFuture.set(isDirectory);
     }
     try {
       return Uninterruptibles.getUninterruptibly(existingFuture);

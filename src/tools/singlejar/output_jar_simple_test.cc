@@ -1176,4 +1176,63 @@ TEST_F(OutputJarSimpleTest, AddExportsTokenize) {
       manifest);
 }
 
+std::string CreateZipWithMalformedExtraField() {
+  std::string zip_data;
+  const std::string filename = "evil.bin";
+
+  // 1. Local File Header (LFH)
+  size_t lh_offset = zip_data.size();
+  size_t lh_size = sizeof(LH) + filename.size();
+  zip_data.resize(lh_offset + lh_size, 0);
+  auto* lh = reinterpret_cast<LH*>(&zip_data[lh_offset]);
+  lh->signature();
+  lh->version(10);
+  lh->file_name(filename.data(), filename.size());
+
+  // 2. Extra field payload containing an oversized payload_size
+  uint8_t ef_buffer[8] = {0};
+  auto* ef1 = reinterpret_cast<ExtraField*>(ef_buffer);
+  ef1->signature(0x000d);
+  ef1->payload_size(0);
+
+  auto* ef2 = reinterpret_cast<ExtraField*>(ef_buffer + ef1->size());
+  ef2->signature(0xdead);
+  ef2->payload_size(0xf000);  // Malformed size exceeding extra field buffer
+
+  // 3. Central Directory Header (CDH)
+  size_t cdh_offset = zip_data.size();
+  size_t cdh_size = sizeof(CDH) + filename.size() + sizeof(ef_buffer);
+  zip_data.resize(cdh_offset + cdh_size, 0);
+  auto* cdh = reinterpret_cast<CDH*>(&zip_data[cdh_offset]);
+  cdh->signature();
+  cdh->version(20);
+  cdh->version_to_extract(10);
+  cdh->local_header_offset32(lh_offset);
+  cdh->file_name(filename.data(), filename.size());
+  cdh->extra_fields(ef_buffer, sizeof(ef_buffer));
+
+  // 4. End of Central Directory (EOCD)
+  size_t ecd_offset = zip_data.size();
+  zip_data.resize(ecd_offset + sizeof(ECD), 0);
+  auto* ecd = reinterpret_cast<ECD*>(&zip_data[ecd_offset]);
+  ecd->signature();
+  ecd->this_disk_entries16(1);
+  ecd->total_entries16(1);
+  ecd->cen_size32(cdh_size);
+  ecd->cen_offset32(cdh_offset);
+
+  return zip_data;
+}
+
+TEST_F(OutputJarSimpleTest, MalformedExtraField) {
+  string out_path = OutputFilePath("out.jar");
+  string bad_jar = OutputFilePath("malformed.jar");
+  ASSERT_TRUE(
+      blaze_util::WriteFile(CreateZipWithMalformedExtraField(), bad_jar));
+
+  ParseCommandLine(out_path, {"--sources", bad_jar});
+  OutputJar output_jar(&options_);
+  ASSERT_DEATH(output_jar.Doit(), "malformed extra field");
+}
+
 }  // namespace

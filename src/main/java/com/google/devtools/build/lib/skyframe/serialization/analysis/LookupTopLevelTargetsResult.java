@@ -15,15 +15,18 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 
-/**
- * The result of a top-level targets lookup.
- *
- * @param status Corresponds to
- *     com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus.
- *     We use an int instead of the proto to keep the SkybridgeInterface simple. Since older LCs may
- *     not know about the new enum values, consumers must check for possible version skews and map
- *     the value to MATCH_STATUS_UNSPECIFIED.
- * @param statusMessage A human-readable message explaining the status.
- */
+/** The result of a top-level targets lookup. */
 @SkybridgeInterface
-public record LookupTopLevelTargetsResult(int status, String statusMessage) {}
+public interface LookupTopLevelTargetsResult {
+  /**
+   * Corresponds to
+   * com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus.
+   * We use an int instead of the proto to keep the SkybridgeInterface simple. Since older LCs may
+   * not know about the new enum values, consumers must check for possible version skews and map the
+   * value to MATCH_STATUS_UNSPECIFIED.
+   */
+  int status();
+
+  /** A human-readable message explaining the status. */
+  String statusMessage();
+}

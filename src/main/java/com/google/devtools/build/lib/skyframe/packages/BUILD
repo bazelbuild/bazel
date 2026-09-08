@@ -2,13 +2,16 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        ":__subpackages__",
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__subpackages__"],
 )
 
 # Description:
@@ -17,6 +20,12 @@ filegroup(
 java_library(
     name = "PackageLoader",
     srcs = ["PackageLoader.java"],
+    visibility = [
+        ":__subpackages__",
+        "//src/main/java/com/google/devtools/build/lib:package_loader_access",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/packages:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/testutil:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -26,14 +35,17 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:value_or_exception",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
 java_library(
     name = "AbstractPackageLoader",
     srcs = ["AbstractPackageLoader.java"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/skyframe/packages:__pkg__",
+    ],
     deps = [
         ":PackageLoader",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -74,16 +86,24 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/build/skyframe:version",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:caffeine",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/caffeine",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:hash",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
 java_library(
     name = "BazelPackageLoader",
     srcs = ["BazelPackageLoader.java"],
+    visibility = [
+        ":__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/packages:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/testutil:__pkg__",
+    ],
     deps = [
         ":AbstractPackageLoader",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -92,6 +112,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution_impl",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition_function",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition_value",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_metadata_requirements",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_fetch_function",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
@@ -110,18 +131,26 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 
 java_library(
     name = "PackageFactoryBuilderWithSkyframeForTesting",
     srcs = ["PackageFactoryBuilderWithSkyframeForTesting.java"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/analysis/util:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/packages:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/query2/testutil:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/testutil:__pkg__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )

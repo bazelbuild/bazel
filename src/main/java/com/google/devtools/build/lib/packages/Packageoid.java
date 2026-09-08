@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.TargetRecorder.MacroNamespaceViolationException;
@@ -76,12 +76,11 @@ public abstract class Packageoid {
   // ==== Common target and macro fields ====
 
   /**
-   * The collection of all targets defined in this packageoid, indexed by name. Null until the
-   * packageoid is fully initialized by its builder's {@code finishBuild()}.
+   * The collection of all targets defined in this packageoid, ordered by {@link Target#getName}.
+   * Null until the packageoid is fully initialized by its builder's {@code finishBuild()}.
    */
-  // TODO(bazel-team): Clarify what this map contains when a rule and its output both share the same
-  // name.
-  @Nullable protected ImmutableSortedMap<String, Target> targets;
+  // TODO(bazel-team): Clarify what this contains when a rule and its output share the same name.
+  @Nullable protected ImmutableList<Target> targets;
 
   /**
    * Returns the metadata of the package; in other words, information which is known about a package
@@ -125,12 +124,35 @@ public abstract class Packageoid {
   public abstract String getShortDescription();
 
   /**
-   * Returns an (immutable, ordered) view of all the targets belonging to this packageoid. Note that
+   * Returns an (immutable, ordered) list of all the targets belonging to this packageoid. Note that
    * if this packageoid is a package piece, this method does not search for targets in any other
    * package pieces.
    */
-  public ImmutableSortedMap<String, Target> getTargets() {
+  public ImmutableList<Target> getTargets() {
     return targets;
+  }
+
+  /**
+   * Returns the target in this packageoid whose name is {@code targetName}, or {@code null} if no
+   * such target exists. Binary searches the sorted list of targets by name.
+   */
+  @Nullable
+  public Target getTargetOrNull(String targetName) {
+    int low = 0;
+    int high = targets.size() - 1;
+    while (low <= high) {
+      int mid = (low + high) >>> 1;
+      Target midTarget = targets.get(mid);
+      int cmp = midTarget.getName().compareTo(targetName);
+      if (cmp < 0) {
+        low = mid + 1;
+      } else if (cmp > 0) {
+        high = mid - 1;
+      } else {
+        return midTarget;
+      }
+    }
+    return null;
   }
 
   /**

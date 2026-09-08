@@ -132,3 +132,12 @@ landing_page:
       - label: Learn more
         path: https://www.hermetiq.com/
         classname: button
+    # Item 12
+    - image_path: /community/images/trunk-logo.svg
+      heading: Trunk
+      description: >
+        Trunk is the developer experience platform for engineering teams working in large, shared codebases. Trunk keeps main green and engineers unblocked with two deeply integrated products: a parallel Merge Queue that reads Bazel build metadata to test non-overlapping changes simultaneously and batch them into a single CI run, and Flaky Tests, which automatically detects and quarantines flaky tests from Bazel test results without changing test code. Teams like Brex, Faire, Zillow, and Chainlink use Trunk to cut merge times and reclaim engineering hours lost to CI babysitting. Available as a cloud service or self-hosted.
+      buttons:
+      - label: Learn more
+        path: https://trunk.io
+        classname: button

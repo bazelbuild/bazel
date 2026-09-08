@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CPP_LINK_EXEC_GROUP;
 
 import com.google.common.collect.ImmutableList;
@@ -51,6 +52,12 @@ import org.junit.runner.RunWith;
 /** Test for automatic exec groups. */
 @RunWith(TestParameterInjector.class)
 public class AutoExecGroupsTest extends BuildViewTestCase {
+
+  @Override
+  protected boolean allowExternalRepositories() {
+    return true;
+  }
+
   /**
    * Sets up two toolchains types, each with a single toolchain implementation and a single
    * exec_compatible_with platform.
@@ -239,8 +246,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     String[] flags = {
       "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain,//toolchain:baz_toolchain,//toolchain:quz_toolchain,toolchain:qux_toolchain",
       "--platforms=//platforms:platform_1",
-      "--extra_execution_platforms=//platforms:platform_1,//platforms:platform_2,//platforms:platform_3,//platforms:platform_4",
-      "--incompatible_enable_cc_toolchain_resolution"
+      "--extra_execution_platforms=//platforms:platform_1,//platforms:platform_2,//platforms:platform_3,//platforms:platform_4"
     };
 
     super.useConfiguration(ObjectArrays.concat(flags, args, String.class));
@@ -912,6 +918,78 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
 
     assertContainsEvent(
         "invalid label 'rule:toolchain_type_1': absolute label must begin with '@'" + " or '//'");
+  }
+
+  @Test
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
+  public void toolchainParameterAsString_stringLabelResolvedRelativeToBzlFile(String action)
+      throws Exception {
+    // create a rule + a toolchain type in an external repository; use a
+    // repo-relative (`//...`) string label to refer to the toolchain type
+    //
+    // then instantiate this rule in the main repository — the toolchain type
+    // specified by the rule should be resolved to be within the external
+    // repository
+    registry.addModule(createModuleKey("ext", "1.0"), "module(name = 'ext', version = '1.0')");
+    scratch.overwriteFile(moduleRoot.getRelative("ext+1.0/REPO.bazel").getPathString());
+    scratch.overwriteFile(
+        moduleRoot.getRelative("ext+1.0/BUILD.bazel").getPathString(),
+        """
+        load(":defs.bzl", "mk_toolchain")
+        toolchain_type(name = "toolchain_type")
+        mk_toolchain(name = "toolchain_inner")
+        toolchain(
+            name = "toolchain",
+            toolchain_type = ":toolchain_type",
+            toolchain = ":toolchain_inner",
+        )
+        """);
+    scratch.overwriteFile(
+        moduleRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
+        """
+        mk_toolchain = rule(lambda _: platform_common.ToolchainInfo())
+
+        def _impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name)
+        """,
+        "    " + action + "(",
+        action.equals("ctx.actions.run")
+            ? "        executable = '/...',"
+            : "        command = '...',",
+        """
+                outputs = [out],
+                toolchain = '//:toolchain_type',
+            )
+            return [DefaultInfo(files = depset([out]))]
+        custom_rule = rule(
+            implementation = _impl,
+            toolchains = ["//:toolchain_type"],
+        )
+        """);
+
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        """
+        module(name = 'top', version = '1.0')
+        bazel_dep(name = 'ext', version = '1.0')
+        """);
+    scratch.overwriteFile(
+        "BUILD.bazel",
+        """
+        load("@ext//:defs.bzl", "custom_rule")
+        custom_rule(name = "test")
+        """);
+
+    invalidatePackages();
+
+    useConfiguration("--extra_toolchains=@ext//:all", "--incompatible_auto_exec_groups");
+
+    getConfiguredTarget("//:test");
+
+    assertNoEvents();
   }
 
   @Test

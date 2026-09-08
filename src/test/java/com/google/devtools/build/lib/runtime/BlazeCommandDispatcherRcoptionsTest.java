@@ -123,7 +123,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
             scratch.dir("install_base"),
             scratch.dir("output_base"),
             scratch.dir("user_output_root"));
-    this.runtime =
+    var runtimeBuilder =
         new BlazeRuntime.Builder()
             .setFileSystem(scratch.getFileSystem())
             .setProductName(productName)
@@ -140,9 +140,11 @@ public class BlazeCommandDispatcherRcoptionsTest {
                     // The tools repository is needed for createGlobals
                     builder.setToolsRepository(TestConstants.TOOLS_REPOSITORY);
                   }
-                })
-            .build();
-
+                });
+    for (var service : BAZEL_SERVICES) {
+      runtimeBuilder.addBlazeService(service);
+    }
+    this.runtime = runtimeBuilder.build();
     BlazeDirectories directories =
         new BlazeDirectories(serverDirectories, scratch.dir("pkg"), productName);
     this.runtime.initWorkspace(directories, /* binTools= */ null);

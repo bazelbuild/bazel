@@ -56,21 +56,6 @@ public abstract class ObjcCommandLineOptions extends FragmentOptions {
               + " objc_import.")
   public abstract boolean getIncompatibleObjcAlwayslinkByDefault();
 
-  /**
-   * @deprecated delete when we are sure it's not used anywhere.
-   */
-  @Deprecated
-  @Option(
-      name = "incompatible_disable_native_apple_binary_rule",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {
-        OptionEffectTag.EAGERNESS_TO_EXIT,
-      },
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
-      help = "No-op. Kept here for backwards compatibility.")
-  public abstract boolean getIncompatibleDisableNativeAppleBinaryRule();
-
   @Option(
       name = "incompatible_strip_executable_safely",
       defaultValue = "false",

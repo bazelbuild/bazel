@@ -45,6 +45,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
 
@@ -125,6 +126,10 @@ public class NestedSetStore {
         directExecutor(),
         BugReporter.defaultInstance(),
         NO_CONTEXT);
+  }
+
+  public void cancelPendingFetches() {
+    nestedSetCache.cancelPendingFetches();
   }
 
   /**
@@ -278,6 +283,9 @@ public class NestedSetStore {
               ImmutableList.Builder<ListenableFuture<?>> deserializationFutures =
                   ImmutableList.builderWithExpectedSize(numberOfElements);
               for (int i = 0; i < numberOfElements; i++) {
+                if (future.isCancelled()) {
+                  throw new CancellationException("NestedSet deserialization cancelled");
+                }
                 Object deserializedElement = newDeserializationContext.deserialize(codedIn);
                 if (deserializedElement instanceof PackedFingerprint transitiveFingerprint) {
                   Object innerContents =

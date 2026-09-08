@@ -31,6 +31,7 @@ function strip_lines_from_bazel_cc() {
   clean_log=$(\
     sed \
     -e '/^WARNING: ignoring JAVA_TOOL_OPTIONS in environment.$/d' \
+    -e '/^\.\.\. still trying to connect to local B[azel]* server ([1-9][0-9]*) after [1-9][0-9]* seconds \.\.\.\.*$/d' \
     $TEST_log)
 
   echo "$clean_log" > $TEST_log
@@ -738,7 +739,7 @@ function test_proxy_settings() {
 }
 
 function test_macos_qos_class() {
-  for class in utility background; do
+  for class in default utility background; do
     bazel --macos_qos_class="${class}" info >"${TEST_log}" 2>&1 \
       || fail "Unknown QoS class ${class}"
     # On macOS it'd be nice to verify that the server is indeed running at the
@@ -748,7 +749,7 @@ function test_macos_qos_class() {
     # real thing would be quite expensive.
   done
 
-  for class in user-interactive user-initiated default ; do
+  for class in user-interactive user-initiated ; do
     bazel --macos_qos_class="${class}" >"${TEST_log}" 2>&1 \
       && fail "Expected failure with invalid QoS class name"
     expect_log "Invalid argument.*qos_class.*${class}"

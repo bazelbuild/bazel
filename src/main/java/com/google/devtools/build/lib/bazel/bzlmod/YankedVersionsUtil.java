@@ -77,16 +77,16 @@ public final class YankedVersionsUtil {
         continue;
       }
 
-      String[] pieces = moduleStr.split("@", 2);
+      List<String> pieces = Splitter.on('@').limit(2).splitToList(moduleStr);
 
-      if (pieces.length != 2) {
+      if (pieces.size() != 2) {
         throw ExternalDepsException.withMessage(
             FailureDetails.ExternalDeps.Code.VERSION_RESOLUTION_ERROR,
             "Parsing %s failed, module versions must be of the form '<module name>@<version>'",
             context);
       }
 
-      if (!RepositoryName.VALID_MODULE_NAME.matcher(pieces[0]).matches()) {
+      if (!RepositoryName.VALID_MODULE_NAME.matcher(pieces.get(0)).matches()) {
         throw ExternalDepsException.withMessage(
             FailureDetails.ExternalDeps.Code.VERSION_RESOLUTION_ERROR,
             "Parsing %s failed, invalid module name '%s': valid names must 1) only contain"
@@ -94,22 +94,22 @@ public final class YankedVersionsUtil {
                 + " underscores (_); 2) begin with a lowercase letter; 3) end with a lowercase"
                 + " letter or digit.",
             context,
-            pieces[0]);
+            pieces.get(0));
       }
 
       Version version;
       try {
-        version = Version.parse(pieces[1]);
+        version = Version.parse(pieces.get(1));
       } catch (Version.ParseException e) {
         throw ExternalDepsException.withCauseAndMessage(
             FailureDetails.ExternalDeps.Code.VERSION_RESOLUTION_ERROR,
             e,
             "Parsing %s failed, invalid version specified for module: %s",
             context,
-            pieces[1]);
+            pieces.get(1));
       }
 
-      allowedYankedVersionBuilder.add(new ModuleKey(pieces[0], version));
+      allowedYankedVersionBuilder.add(new ModuleKey(pieces.get(0), version));
     }
     return false;
   }

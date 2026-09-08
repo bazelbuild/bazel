@@ -2,7 +2,7 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
@@ -21,12 +21,31 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/remote/util:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/zstd:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+)
+
+java_library(
+    name = "remote_grpc_service_config",
+    srcs = ["RemoteGrpcServiceConfig.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/remote/options",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party/google/bytestream:bytestream_grpc",
+        "//third_party/java/gson",
+        "//third_party/java/guava:collect",
+        "@remoteapis//:build_bazel_remote_asset_v1_remote_asset_java_grpc",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
+    ],
 )
 
 java_library(
     name = "remote_action",
     srcs = ["RemoteAction.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
@@ -42,6 +61,10 @@ java_library(
 java_library(
     name = "combined_cache_client_factory",
     srcs = ["CombinedCacheClientFactory.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":Retrier",
         "//src/main/java/com/google/devtools/build/lib/authandtls",
@@ -52,16 +75,21 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:auth",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:netty",
+        "//third_party/java/auth_kit",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/netty4:transport_native_unix_common",
     ],
 )
 
 java_library(
     name = "remote_repo_contents_cache_impl",
     srcs = ["RemoteRepoContentsCacheImpl.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":combined_cache",
         ":remote_external_overlay_file_system",
@@ -75,9 +103,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/common:action_key",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:bulk_transfers",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
-        "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repo_recorded_input",
         "//src/main/java/com/google/devtools/build/lib/runtime:remote_repo_contents_cache",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
@@ -85,9 +113,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -95,6 +125,10 @@ java_library(
 java_library(
     name = "remote_module",
     srcs = ["RemoteModule.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":ReferenceCountedChannel",
         ":Retrier",
@@ -109,8 +143,10 @@ java_library(
         ":lease_service",
         ":remote_action_context_provider",
         ":remote_action_input_fetcher",
+        ":remote_download_idle_timeout_interceptor",
         ":remote_execution_cache",
         ":remote_external_overlay_file_system",
+        ":remote_grpc_service_config",
         ":remote_important_output_handler",
         ":remote_lease_extension",
         ":remote_output_checker",
@@ -169,24 +205,43 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:remote_execution_log_java_proto",
-        "//third_party:auth",
-        "//third_party:caffeine",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:netty",
-        "//third_party:rxjava3",
-        "//third_party/grpc-java:grpc-jar",
+        "//third_party/java/auth_kit",
+        "//third_party/java/caffeine",
+        "//third_party/java/grpc:core",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/netty4:codec",
+        "//third_party/java/netty4:codec_http",
+        "//third_party/java/rxjava3",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
+
+java_library(
+    name = "remote_download_idle_timeout_interceptor",
+    srcs = ["RemoteDownloadIdleTimeoutInterceptor.java"],
+    deps = [
+        "//third_party/google/bytestream:bytestream_grpc",
+        "//third_party/java/grpc:core",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
 java_library(
     name = "client_api_version",
     srcs = ["ClientApiVersion.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":api_version",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -194,6 +249,10 @@ java_library(
 java_library(
     name = "grpc_remote_executor",
     srcs = ["GrpcRemoteExecutor.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":ExecutionStatusException",
         ":ReferenceCountedChannel",
@@ -204,11 +263,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
         "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/grpc-java:grpc-jar",
-        "@googleapis//google/longrunning:longrunning_java_proto",
-        "@googleapis//google/rpc:rpc_java_proto",
+        "//third_party/google/longrunning:operations_java_proto",
+        "//third_party/google/rpc:status_java_proto",
+        "//third_party/java/grpc:core",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
@@ -217,6 +276,10 @@ java_library(
 java_library(
     name = "google_channel_connection_factory",
     srcs = ["GoogleChannelConnectionFactory.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":ReferenceCountedChannel",
         ":channel_factory",
@@ -228,10 +291,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/grpc",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/remote/util:rx_futures",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:rxjava3",
-        "//third_party/grpc-java:grpc-jar",
+        "//third_party/java/grpc:core",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/rxjava3",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -239,42 +303,55 @@ java_library(
 java_library(
     name = "channel_factory",
     srcs = ["ChannelFactory.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/authandtls",
-        "//third_party/grpc-java:grpc-jar",
+        "//third_party/java/grpc:core",
     ],
 )
 
 java_library(
     name = "path_canonicalizer",
     srcs = ["PathCanonicalizer.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
 java_library(
     name = "api_version",
     srcs = ["ApiVersion.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = ["@remoteapis//:build_bazel_semver_semver_java_proto"],
 )
 
 java_library(
     name = "remote_action_input_fetcher",
     srcs = ["RemoteActionInputFetcher.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":abstract_action_input_prefetcher",
         ":combined_cache",
-        ":concurrent_artifact_path_trie",
         ":remote_output_checker",
-        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_prefetcher",
         "//src/main/java/com/google/devtools/build/lib/actions:action_output_directory_helper",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:virtual_action_input",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -284,8 +361,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
         "//src/main/java/com/google/devtools/build/lib/util:temp_path_generator",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -293,6 +371,10 @@ java_library(
 java_library(
     name = "remote_spawn_runner",
     srcs = ["RemoteSpawnRunner.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":ExecutionStatusException",
         ":Retrier",
@@ -319,13 +401,19 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/grpc-java:grpc-jar",
-        "@com_google_protobuf//:protobuf_java",
-        "@com_google_protobuf//:protobuf_java_util",
-        "@googleapis//google/longrunning:longrunning_java_proto",
-        "@googleapis//google/rpc:rpc_java_proto",
+        "//third_party/google/longrunning:operations_java_proto",
+        "//third_party/google/protobuf:any_java_proto",
+        "//third_party/google/protobuf:timestamp_java_proto",
+        "//third_party/google/rpc:code_java_proto",
+        "//third_party/google/rpc:error_details_java_proto",
+        "//third_party/google/rpc:status_java_proto",
+        "//third_party/java/grpc:core",
+        "//third_party/java/grpc:protobuf",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf/util:time",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -333,6 +421,10 @@ java_library(
 java_library(
     name = "remote_execution_cache",
     srcs = ["RemoteExecutionCache.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":chunker",
         ":combined_cache",
@@ -343,16 +435,20 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/common:cache_not_found_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/disk",
         "//src/main/java/com/google/devtools/build/lib/remote/merkletree",
+        "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/remote/util:async_task_cache",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
         "//src/main/java/com/google/devtools/build/lib/remote/util:rx_futures",
         "//src/main/java/com/google/devtools/build/lib/remote/util:rx_utils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:rxjava3",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf",
+        "//third_party/java/rxjava3",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -360,18 +456,28 @@ java_library(
 java_library(
     name = "chunker",
     srcs = ["Chunker.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/zstd",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:io",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
 java_library(
     name = "remote_action_file_system",
     srcs = ["RemoteActionFileSystem.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":path_canonicalizer",
         ":remote_action_input_fetcher",
@@ -382,20 +488,27 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
-        "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:futures",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
 java_library(
     name = "grpc_cache_client",
     srcs = ["GrpcCacheClient.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":ReferenceCountedChannel",
         ":Retrier",
@@ -413,13 +526,18 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
         "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
         "//src/main/java/com/google/devtools/build/lib/remote/zstd",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/grpc-java:grpc-jar",
-        "@com_google_protobuf//:protobuf_java",
-        "@googleapis//google/bytestream:bytestream_java_grpc",
-        "@googleapis//google/bytestream:bytestream_java_proto",
+        "//third_party/google/bytestream:bytestream_grpc",
+        "//third_party/google/bytestream:bytestream_java_proto",
+        "//third_party/java/flogger",
+        "//third_party/java/grpc:core",
+        "//third_party/java/grpc:stub",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
@@ -428,9 +546,14 @@ java_library(
 java_library(
     name = "byte_stream_build_event_artifact_uploader",
     srcs = ["ByteStreamBuildEventArtifactUploader.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":combined_cache",
         ":remote_action_file_system",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
@@ -440,10 +563,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
         "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:netty",
-        "//third_party:rxjava3",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/netty4:common",
+        "//third_party/java/rxjava3",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -451,6 +576,10 @@ java_library(
 java_library(
     name = "remote_action_context_provider",
     srcs = ["RemoteActionContextProvider.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":bazel_output_service_cluster",
         ":combined_cache",
@@ -472,8 +601,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:temp_path_generator",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -481,23 +611,34 @@ java_library(
 java_library(
     name = "execute_retrier",
     srcs = ["ExecuteRetrier.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":Retrier",
         "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
-        "//third_party:guava",
-        "//third_party/grpc-java:grpc-jar",
-        "@com_google_protobuf//:protobuf_java",
-        "@com_google_protobuf//:protobuf_java_util",
-        "@googleapis//google/rpc:rpc_java_proto",
+        "//third_party/google/protobuf:any_java_proto",
+        "//third_party/google/rpc:error_details_java_proto",
+        "//third_party/google/rpc:status_java_proto",
+        "//third_party/java/grpc:core",
+        "//third_party/java/grpc:protobuf",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/protobuf/util:time",
     ],
 )
 
 java_library(
     name = "network_time_interceptor",
     srcs = ["NetworkTimeInterceptor.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote/common",
-        "//third_party/grpc-java:grpc-jar",
+        "//third_party/java/grpc:core",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
     ],
 )
@@ -505,6 +646,10 @@ java_library(
 java_library(
     name = "remote_lease_extension",
     srcs = ["RemoteLeaseExtension.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":combined_cache",
         ":lease_service",
@@ -516,15 +661,17 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:futures",
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
-        "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -532,6 +679,10 @@ java_library(
 java_library(
     name = "byte_stream_build_event_artifact_uploader_factory",
     srcs = ["ByteStreamBuildEventArtifactUploaderFactory.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":byte_stream_build_event_artifact_uploader",
         ":combined_cache",
@@ -539,14 +690,18 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
 java_library(
     name = "byte_stream_uploader",
     srcs = ["ByteStreamUploader.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":ReferenceCountedChannel",
         ":Retrier",
@@ -556,12 +711,15 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
         "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:netty",
-        "//third_party/grpc-java:grpc-jar",
-        "@googleapis//google/bytestream:bytestream_java_grpc",
-        "@googleapis//google/bytestream:bytestream_java_proto",
+        "//third_party/google/bytestream:bytestream_grpc",
+        "//third_party/google/bytestream:bytestream_java_proto",
+        "//third_party/java/grpc:core",
+        "//third_party/java/grpc:stub",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/netty4:common",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -569,6 +727,10 @@ java_library(
 java_library(
     name = "remote_spawn_strategy",
     srcs = ["RemoteSpawnStrategy.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/exec:abstract_spawn_strategy",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
@@ -579,11 +741,19 @@ java_library(
 java_library(
     name = "platform_properties",
     srcs = ["PlatformProperties.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
 )
 
 java_library(
     name = "remote_output_service",
     srcs = ["RemoteOutputService.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":lease_service",
         ":remote_action_file_system",
@@ -602,23 +772,30 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
 java_library(
     name = "remote_server_capabilities",
     srcs = ["RemoteServerCapabilities.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":Retrier",
         ":client_api_version",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/grpc-java:grpc-jar",
+        "//third_party/java/grpc:core",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
@@ -627,9 +804,14 @@ java_library(
 java_library(
     name = "combined_cache",
     srcs = [
+        "ChunkLocationMap.java",
         "ChunkedBlobDownloader.java",
         "ChunkedBlobUploader.java",
         "CombinedCache.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
     ],
     deps = [
         ":grpc_cache_client",
@@ -641,19 +823,25 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/common:action_key",
         "//src/main/java/com/google/devtools/build/lib/remote/common:cache_not_found_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/disk",
+        "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_output_stream",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:futures",
         "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:netty",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/caffeine",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/netty4:common",
+        "//third_party/java/protobuf:protobuf_lite",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -661,6 +849,10 @@ java_library(
 java_library(
     name = "upload_manifest",
     srcs = ["UploadManifest.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":combined_cache",
         ":store",
@@ -670,17 +862,22 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/common:action_key",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:bulk_transfers",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
-        "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:futures",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/google/protobuf:timestamp_java_proto",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -688,6 +885,10 @@ java_library(
 java_library(
     name = "repository_remote_helpers_factory_impl",
     srcs = ["RepositoryRemoteHelpersFactoryImpl.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":combined_cache",
         ":remote_execution_cache",
@@ -698,13 +899,17 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:remote_repo_contents_cache",
         "//src/main/java/com/google/devtools/build/lib/runtime:repository_remote_executor",
         "//src/main/java/com/google/devtools/build/lib/runtime:repository_remote_helpers_factory",
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
 java_library(
     name = "remote_repository_remote_executor",
     srcs = ["RemoteRepositoryRemoteExecutor.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":combined_cache",
         ":remote_execution_cache",
@@ -714,13 +919,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/common:action_key",
         "//src/main/java/com/google/devtools/build/lib/remote/merkletree",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:futures",
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
         "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
         "//src/main/java/com/google/devtools/build/lib/runtime:repository_remote_executor",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/guava:collect",
+        "//third_party/java/protobuf",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -728,30 +934,40 @@ java_library(
 java_library(
     name = "remote_external_overlay_file_system",
     srcs = ["RemoteExternalOverlayFileSystem.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":abstract_action_input_prefetcher",
         ":combined_cache",
+        ":lazy_materializer",
         ":remote_action_file_system",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:task_deduplicator",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:bulk_transfers",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:futures",
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
-        "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -759,6 +975,10 @@ java_library(
 java_library(
     name = "remote_spawn_cache",
     srcs = ["RemoteSpawnCache.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
     deps = [
         ":bazel_output_service_cluster",
         ":remote_action",
@@ -777,7 +997,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
         "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
-        "//third_party:guava",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -785,9 +1006,10 @@ java_library(
     name = "ExecutionStatusException",
     srcs = ["ExecutionStatusException.java"],
     deps = [
-        "//third_party:jsr305",
-        "//third_party/grpc-java:grpc-jar",
-        "@googleapis//google/rpc:rpc_java_proto",
+        "//third_party/google/rpc:status_java_proto",
+        "//third_party/java/grpc:core",
+        "//third_party/java/grpc:protobuf",
+        "//third_party/java/jsr305_annotations",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -802,11 +1024,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/remote/grpc",
         "//src/main/java/com/google/devtools/build/lib/remote/util:rx_futures",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:netty",
-        "//third_party:rxjava3",
-        "//third_party/grpc-java:grpc-jar",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/grpc:core",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/netty4:common",
+        "//third_party/java/rxjava3",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -820,10 +1044,17 @@ java_library(
     ],
     deps = [
         ":ExecutionStatusException",
+        "//src/main/java/com/google/devtools/build/lib/remote/logging",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/grpc-java:grpc-jar",
+        "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
+        "//src/main/protobuf:remote_execution_log_java_proto",
+        "//third_party/java/flogger",
+        "//third_party/java/grpc:context",
+        "//third_party/java/grpc:core",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -848,8 +1079,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -857,6 +1089,8 @@ java_library(
     name = "abstract_action_input_prefetcher",
     srcs = ["AbstractActionInputPrefetcher.java"],
     deps = [
+        ":concurrent_artifact_path_trie",
+        ":lazy_materializer",
         ":remote_output_checker",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
@@ -867,15 +1101,29 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/remote/util:async_task_cache",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:bulk_transfers",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:futures",
         "//src/main/java/com/google/devtools/build/lib/remote/util:rx_futures",
-        "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
         "//src/main/java/com/google/devtools/build/lib/util:temp_path_generator",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:rxjava3",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/rxjava3",
+    ],
+)
+
+java_library(
+    name = "lazy_materializer",
+    srcs = ["LazyMaterializer.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
     ],
 )
 
@@ -890,8 +1138,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/skyframe",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -902,9 +1150,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:remote_scrubbing_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf",
     ],
 )
 
@@ -915,7 +1164,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -923,15 +1172,17 @@ java_library(
     name = "remote_rewound_action_synchronizer",
     srcs = ["RemoteRewoundActionSynchronizer.java"],
     deps = [
-        ":remote_action_input_fetcher",
+        ":abstract_action_input_prefetcher",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
-        "//third_party:caffeine",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/caffeine",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -952,13 +1203,15 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
-        "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:bulk_transfers",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
     ],
 )
 
@@ -967,6 +1220,10 @@ java_library(
     srcs = [
         "BazelOutputService.java",
         "RemoteExecutionService.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
     ],
     deps = [
         ":ReferenceCountedChannel",
@@ -995,6 +1252,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:platform_utils",
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper",
         "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:cancellable_task",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
@@ -1006,7 +1264,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/common:lost_inputs_event",
         "//src/main/java/com/google/devtools/build/lib/remote/merkletree",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:bulk_transfers",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:futures",
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
         "//src/main/java/com/google/devtools/build/lib/remote/util:utils",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -1029,10 +1289,17 @@ java_library(
         "//src/main/protobuf:bazel_output_service_rev2_java_proto",
         "//src/main/protobuf:cache_salt_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/grpc-java:grpc-jar",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/google/protobuf:any_java_proto",
+        "//third_party/java/grpc:core",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/guava:hash",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf",
+        "//third_party/java/protobuf:protobuf_lite",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )

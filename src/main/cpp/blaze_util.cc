@@ -146,11 +146,30 @@ std::string AbsolutePathFromFlag(const std::string& value) {
   }
 }
 
-void LogWait(unsigned int elapsed_seconds, unsigned int wait_seconds) {
-  SigPrintf(
-      "WARNING: Waiting for server process to terminate "
-      "(waited %d seconds, waiting at most %d)\n",
-      elapsed_seconds, wait_seconds);
+void LogWait(unsigned int elapsed_seconds, unsigned int wait_seconds,
+             TerminationReason reason) {
+  const char* reason_str = nullptr;
+  switch (reason) {
+    case TerminationReason::kShutdownRequest:
+      reason_str = "after shutdown request";
+      break;
+    case TerminationReason::kKillSignal:
+      reason_str = "after SIGKILL";
+      break;
+    case TerminationReason::kUnspecified:
+      break;
+  }
+  if (reason_str != nullptr) {
+    SigPrintf(
+        "WARNING: Waiting for server process to terminate "
+        "(waited %d seconds, waiting at most %d; %s)\n",
+        elapsed_seconds, wait_seconds, reason_str);
+  } else {
+    SigPrintf(
+        "WARNING: Waiting for server process to terminate "
+        "(waited %d seconds, waiting at most %d)\n",
+        elapsed_seconds, wait_seconds);
+  }
 }
 
 // Install a signal handler and restore the previous handler after the scope
@@ -176,7 +195,8 @@ static void SignalHandlerDuringAwaitTermination(int signal) {
 }
 
 bool AwaitServerProcessTermination(int pid, const blaze_util::Path& output_base,
-                                   unsigned int wait_seconds) {
+                                   unsigned int wait_seconds,
+                                   TerminationReason reason) {
   uint64_t st = GetMillisecondsMonotonic();
   const unsigned int first_seconds = 5;
   bool logged_first = false;
@@ -204,15 +224,15 @@ bool AwaitServerProcessTermination(int pid, const blaze_util::Path& output_base,
     TrySleep(100);
     uint64_t elapsed_millis = GetMillisecondsMonotonic() - st;
     if (!logged_first && elapsed_millis > first_seconds * 1000) {
-      LogWait(first_seconds, wait_seconds);
+      LogWait(first_seconds, wait_seconds, reason);
       logged_first = true;
     }
     if (!logged_second && elapsed_millis > second_seconds * 1000) {
-      LogWait(second_seconds, wait_seconds);
+      LogWait(second_seconds, wait_seconds, reason);
       logged_second = true;
     }
     if (!logged_third && elapsed_millis > third_seconds * 1000) {
-      LogWait(third_seconds, wait_seconds);
+      LogWait(third_seconds, wait_seconds, reason);
       logged_third = true;
     }
     if (elapsed_millis > wait_seconds * 1000) {
