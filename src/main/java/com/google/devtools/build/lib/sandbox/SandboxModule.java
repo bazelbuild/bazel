@@ -222,6 +222,11 @@ public final class SandboxModule extends BlazeModule {
         firstBuild = true;
       }
     }
+    // Whenever a build starts, ensure the tree deleter runs in single-threaded mode so it
+    // does not compete with the active build for CPU and I/O resources.
+    if (treeDeleter instanceof AsynchronousTreeDeleter asyncTreeDeleter) {
+      asyncTreeDeleter.setThreads(1);
+    }
     try (SilentCloseable c = Profiler.instance().profile("SandboxStash.initialize")) {
       SandboxStash.initialize(env.getWorkspaceName(), sandboxBase, options, treeDeleter);
     }
@@ -231,13 +236,27 @@ public final class SandboxModule extends BlazeModule {
     // previous builds. However, on the very first build of an instance of the server, we must
     // wipe old contents to avoid reusing stale directories.
     if (firstBuild && sandboxBase.exists()) {
+      int idleThreads = options.getAsyncTreeDeleteIdleThreads();
+      AsynchronousTreeDeleter asyncDeleter =
+          treeDeleter instanceof AsynchronousTreeDeleter atd ? atd : null;
+      if (idleThreads > 0 && asyncDeleter != null) {
+        asyncDeleter.setThreads(idleThreads);
+      }
       try (SilentCloseable c = Profiler.instance().profile("clean sandbox on first build")) {
         if (trashBase.exists()) {
           // Delete stale trash from a previous server instance.
           Path staleTrash = getStaleTrashDir(trashBase);
           trashBase.renameTo(staleTrash);
           trashBase.createDirectory();
-          treeDeleter.deleteTree(staleTrash);
+          for (Dirent dirent : staleTrash.readdir(Symlinks.NOFOLLOW)) {
+            Path childPath = staleTrash.getChild(dirent.getName());
+            if (dirent.getType() == Dirent.Type.DIRECTORY) {
+              treeDeleter.deleteTree(childPath);
+            } else {
+              childPath.delete();
+            }
+          }
+          staleTrash.delete();
         } else {
           trashBase.createDirectory();
         }
@@ -262,6 +281,10 @@ public final class SandboxModule extends BlazeModule {
         // that we need to do for asynchronous deletion will fail. When that happens we fall back to
         // synchronous deletion here.
         sandboxBase.deleteTree();
+      } finally {
+        if (idleThreads > 0 && asyncDeleter != null) {
+          asyncDeleter.setThreads(1);
+        }
       }
     }
     firstBuild = false;

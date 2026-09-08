@@ -508,7 +508,6 @@ public class SandboxHelpersTest {
 
     assertThat(trashBase.getDirectoryEntries()).isEmpty();
   }
-
   @Test
   public void asynchronousTreeDeleter_differentFileSystem_deletesSynchronously() throws Exception {
     FileSystem fs1 = new InMemoryFileSystem(DigestHashFunction.SHA256);
@@ -524,6 +523,97 @@ public class SandboxHelpersTest {
 
     assertThat(dir.exists()).isFalse();
     assertThat(trashBase.exists()).isFalse();
+  }
+
+  @Test
+  public void asynchronousTreeDeleter_setThreads_allowsQueuedTasksToDrainInParallel()
+      throws Exception {
+    CountDownLatch task1Started = new CountDownLatch(1);
+    CountDownLatch task2Started = new CountDownLatch(1);
+    CountDownLatch allowActiveTasksToComplete = new CountDownLatch(1);
+
+    CountDownLatch task3Started = new CountDownLatch(1);
+    CountDownLatch task4Started = new CountDownLatch(1);
+    CountDownLatch allowQueuedTasksToComplete = new CountDownLatch(1);
+
+    FileSystem customFs =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          @Override
+          public boolean delete(PathFragment path) throws IOException {
+            String base = path.getBaseName();
+            switch (base) {
+              case "file1.txt" -> {
+                task1Started.countDown();
+                awaitLatch(allowActiveTasksToComplete);
+              }
+              case "file2.txt" -> {
+                task2Started.countDown();
+                awaitLatch(allowActiveTasksToComplete);
+              }
+              case "file3.txt" -> {
+                task3Started.countDown();
+                awaitLatch(allowQueuedTasksToComplete);
+              }
+              case "file4.txt" -> {
+                task4Started.countDown();
+                awaitLatch(allowQueuedTasksToComplete);
+              }
+              default -> {}
+            }
+            return super.delete(path);
+          }
+
+          private void awaitLatch(CountDownLatch latch) throws IOException {
+            try {
+              latch.await();
+            } catch (InterruptedException e) {
+              throw new IOException(e);
+            }
+          }
+        };
+
+    Scratch customScratch = new Scratch(customFs);
+    Path trashBase = customScratch.dir("/trash");
+    Path dir1 = customScratch.dir("/dir1");
+    Path dir2 = customScratch.dir("/dir2");
+    Path dir3 = customScratch.dir("/dir3");
+    Path dir4 = customScratch.dir("/dir4");
+    customScratch.file("/dir1/file1.txt");
+    customScratch.file("/dir2/file2.txt");
+    customScratch.file("/dir3/file3.txt");
+    customScratch.file("/dir4/file4.txt");
+
+    AsynchronousTreeDeleter deleter = new AsynchronousTreeDeleter(trashBase);
+    // Expand pool to 2 threads
+    deleter.setThreads(2);
+    // Queue task 1 and task 2 (occupying both workers)
+    deleter.deleteTree(dir1);
+    deleter.deleteTree(dir2);
+
+    // Wait until both workers are actively running task 1 and task 2
+    assertThat(task1Started.await(5, TimeUnit.SECONDS)).isTrue();
+    assertThat(task2Started.await(5, TimeUnit.SECONDS)).isTrue();
+
+    // Now submit task 3 and task 4 into the backlog queue
+    deleter.deleteTree(dir3);
+    deleter.deleteTree(dir4);
+
+    // Downsize corePoolSize to 1 thread immediately (simulating post-startup reset)
+    deleter.setThreads(1);
+
+    // Allow task 1 and task 2 to complete, releasing the workers to drain the queue
+    allowActiveTasksToComplete.countDown();
+
+    // Both queued tasks (task 3 and task 4) should still be executed in parallel by the 2 workers
+    assertThat(task3Started.await(5, TimeUnit.SECONDS)).isTrue();
+    assertThat(task4Started.await(5, TimeUnit.SECONDS)).isTrue();
+
+    // Allow queued tasks to finish
+    allowQueuedTasksToComplete.countDown();
+
+    deleter.shutdown();
+
+    assertThat(trashBase.getDirectoryEntries()).isEmpty();
   }
 }
 
