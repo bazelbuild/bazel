@@ -43,7 +43,6 @@ filegroup(
         "//docs:srcs",
         "//examples:srcs",
         "//scripts:srcs",
-        "//site:srcs",
         "//src:srcs",
         "//third_party:srcs",
         "//tools:srcs",
@@ -177,7 +176,6 @@ pkg_files(
     excludes = [
         "MODULE.bazel.lock",  # Use MODULE.bazel.lock.dist instead
         "//examples:srcs",
-        "//site:srcs",
         "//docs:srcs",
         "//src:srcs-to-exclude-in-distfile",
     ] + glob(

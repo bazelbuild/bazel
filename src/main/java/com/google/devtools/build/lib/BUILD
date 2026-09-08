@@ -215,7 +215,6 @@ genrule(
         "//src/main/java/com/google/devtools/build/docgen:docgen_bin",
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
     ],
-    visibility = ["//site:__pkg__"],
 )
 
 genrule(
@@ -241,7 +240,6 @@ genrule(
     tools = [
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer",
     ],
-    visibility = ["//site:__pkg__"],
 )
 
 genrule(
@@ -258,7 +256,6 @@ genrule(
           " && zip -qr $$OUTPUT ." +
           " && popd",
     tools = ["//src/main/java/com/google/devtools/build/docgen:skydoc_bin"],
-    visibility = ["//site:__pkg__"],
 )
 
 # TODO: Rename to gen_reference_docs once the docs migration is done.
