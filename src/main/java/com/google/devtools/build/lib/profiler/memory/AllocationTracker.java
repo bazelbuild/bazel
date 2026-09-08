@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFunction;
+import com.google.devtools.build.lib.profiler.memory.AllocationTrackerService.AllocationSampler;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.monitoring.runtime.instrumentation.Sampler;
 import com.google.perftools.profiles.ProfileProto.Function;
 import com.google.perftools.profiles.ProfileProto.Line;
 import com.google.perftools.profiles.ProfileProto.Profile;
@@ -47,7 +47,7 @@ import net.starlark.java.syntax.Location;
 /** Tracks allocations for memory reporting. */
 @ConditionallyThreadCompatible
 @SuppressWarnings("ThreadLocalUsage") // the AllocationTracker is effectively a global
-public final class AllocationTracker implements Sampler, Debug.ThreadHook {
+public final class AllocationTracker implements AllocationSampler, Debug.ThreadHook {
 
   // A mapping from Java thread to StarlarkThread.
   // Used to effect a hidden StarlarkThread parameter to sampleAllocation.
