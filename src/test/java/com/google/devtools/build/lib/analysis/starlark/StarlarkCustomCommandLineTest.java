@@ -447,6 +447,66 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
+  public void uniquify() throws Exception {
+    CommandLine commandLine =
+        builder
+            .add(vectorArg("a", "b", "a", "c", "b", "d").uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(commandLine, "a", "b", "c", "d");
+  }
+
+  @Test
+  public void uniquify_withMapEach() throws Exception {
+    StarlarkFunction mapEach =
+        (StarlarkFunction)
+            execStarlark(
+                """
+                def map_each(x):
+                  return x.lower()
+                map_each
+                """);
+    CommandLine commandLine =
+        builder
+            .add(
+                vectorArg("A", "b", "a", "B", "c")
+                    .setMapEach(mapEach)
+                    .setLocation(Location.BUILTIN)
+                    .uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(commandLine, "a", "b", "c");
+  }
+
+  @Test
+  public void uniquify_withMapEachReturningList() throws Exception {
+    StarlarkFunction mapEach =
+        (StarlarkFunction)
+            execStarlark(
+                """
+                def map_each(x):
+                  return [x, x]
+                map_each
+                """);
+    CommandLine commandLine =
+        builder
+            .add(
+                vectorArg("a", "b", "a")
+                    .setMapEach(mapEach)
+                    .setLocation(Location.BUILTIN)
+                    .uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(commandLine, "a", "b");
+  }
+
+  @Test
+  public void uniquify_withJoinWith() throws Exception {
+    CommandLine commandLine =
+        builder
+            .add(vectorArg("a", "b", "a", "c", "b").setJoinWith(",").uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(commandLine, "a,b,c");
+  }
+
+  @Test
   public void flagPerLine() throws Exception {
     CommandLine commandLine =
         builder
