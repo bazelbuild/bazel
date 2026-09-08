@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxContents;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
+import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -320,6 +321,30 @@ public class SandboxHelpersTest {
     SandboxContents apiContents = workDirContents.dirMap().get("api");
     assertThat(apiContents).isNotNull();
     assertThat(apiContents.fileMap()).containsEntry("__init__.py", null);
+  }
+
+  @Test
+  public void updateContentMap_preservesEmptyInputInUpdatedDirectory() throws Exception {
+    ManualClock clock = new ManualClock();
+    Scratch scratch = new Scratch(new InMemoryFileSystem(clock, DigestHashFunction.SHA256));
+    Path workDir = scratch.dir("/execroot");
+    Path emptyFile = scratch.file("/execroot/api/__init__.py");
+    PathFragment emptyInput = PathFragment.create("api/__init__.py");
+    Map<PathFragment, Path> files = new HashMap<>();
+    files.put(emptyInput, null);
+    SandboxInputs inputs = new SandboxInputs(files, ImmutableMap.of(), ImmutableMap.of());
+    SandboxContents contents =
+        SandboxHelpers.createContentMap(workDir, inputs, SandboxOutputs.getEmptyInstance());
+    long timestamp = clock.currentTimeMillis();
+
+    clock.advanceMillis(1);
+    Path unexpectedFile = scratch.file("/execroot/api/unexpected", "unexpected");
+    SandboxHelpers.updateContentMap(workDir.getParentDirectory(), timestamp, contents);
+
+    assertThat(emptyFile.isFile()).isTrue();
+    assertThat(unexpectedFile.exists()).isFalse();
+    assertThat(contents.dirMap().get("execroot").dirMap().get("api").fileMap())
+        .containsEntry("__init__.py", null);
   }
 
   @Test

@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.DIRECTORY;
+import static com.google.devtools.build.lib.vfs.Dirent.Type.FILE;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
 import static java.util.Objects.requireNonNull;
 
@@ -875,6 +876,14 @@ public final class SandboxHelpers {
           } else {
             absPath.deleteTree();
             stashContents.dirMap().remove(dirent.getName());
+          }
+        } else if (dirent.getType().equals(FILE)) {
+          if (stashContents.fileMap().containsKey(dirent.getName())
+              && stashContents.fileMap().get(dirent.getName()) == null
+              && absPath.stat().getLastChangeTime() <= timestamp) {
+            filesAndSymlinksToKeep.add(dirent.getName());
+          } else {
+            absPath.delete();
           }
         } else {
           absPath.delete();
