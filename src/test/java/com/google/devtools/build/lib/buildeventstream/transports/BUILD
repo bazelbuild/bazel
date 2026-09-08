@@ -17,7 +17,7 @@ java_test(
     name = "BuildEventTransportTest",
     srcs = glob(["*.java"]),
     test_class = "com.google.devtools.build.lib.AllTests",
-    runtime_deps = ["//src/test/java/com/google/devtools/build/lib:test_runner"],
+    runtime_deps = ["//src/test/java/com/google/devtools/build/lib:AllTests"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice:build_event_service_options",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",

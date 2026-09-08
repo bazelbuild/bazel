@@ -89,12 +89,6 @@ filegroup(
     ],
 )
 
-alias(
-    name = "test_runner",
-    actual = ":AllTests",
-    visibility = ["//src/test:__subpackages__"],
-)
-
 java_library(
     name = "AllTests",
     testonly = 1,

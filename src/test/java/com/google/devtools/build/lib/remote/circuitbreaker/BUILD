@@ -21,7 +21,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/remote/circuitbreaker",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",  # keep
+        "//src/test/java/com/google/devtools/build/lib:AllTests",  # keep
         "//third_party/java/junit",
         "//third_party/java/mockito",
         "//third_party/java/truth",

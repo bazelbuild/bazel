@@ -394,10 +394,6 @@ java_library(
 java_library(
     name = "TestType",
     srcs = ["TestType.java"],
-    visibility = [
-        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
-        "//src/main/java/com/google/devtools/build/skyframe:__subpackages__",
-    ],
 )
 
 java_library(
@@ -475,9 +471,6 @@ java_library(
     srcs = [
         "ExitCode.java",
     ],
-    visibility = [
-        "//src/main/java/com/google/devtools/build/lib:build_lib",
-    ],
     deps = [
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:base",
@@ -508,9 +501,6 @@ java_library(
 java_library(
     name = "detailed_exit_code",
     srcs = ["DetailedExitCode.java"],
-    visibility = [
-        "//src/main/java/com/google/devtools/build/lib:build_lib",
-    ],
     deps = [
         ":exit_code",
         "//src/main/protobuf:failure_details_java_proto",
@@ -593,9 +583,6 @@ java_library(
 java_library(
     name = "value_or_exception",
     srcs = ["ValueOrException.java"],
-    visibility = [
-        "//src/main/java/com/google/devtools/build/lib:build_lib",
-    ],
     deps = [
         "//third_party/java/guava:base",
     ],
