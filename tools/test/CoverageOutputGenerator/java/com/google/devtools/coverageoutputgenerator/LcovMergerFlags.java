@@ -26,7 +26,10 @@ import javax.annotation.Nullable;
 @Parameters(separators = "= ")
 class LcovMergerFlags {
   private static final Logger logger = Logger.getLogger(LcovMergerFlags.class.getName());
-  private static final int DEFAULT_PARSE_FILE_PARALLELISM = 4;
+  // Use available processors for better parallelism on modern machines.
+  // Minimum of 4 to ensure reasonable performance even on small machines.
+  private static final int DEFAULT_PARSE_FILE_PARALLELISM =
+      Math.max(4, Runtime.getRuntime().availableProcessors());
 
   @Parameter(names = "--coverage_dir")
   private String coverageDir;
