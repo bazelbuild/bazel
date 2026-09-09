@@ -26,7 +26,6 @@ java_library(
 
 java_test(
     name = "PythonTests",
-    tags = ["manual"],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":PythonTests_lib",
