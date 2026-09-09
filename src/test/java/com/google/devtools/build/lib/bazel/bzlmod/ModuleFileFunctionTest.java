@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -400,6 +401,47 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             "java-foo",
             SingleVersionOverride.create(
                 Version.parse("2.0"), "", ImmutableList.of(), ImmutableList.of(), 0));
+  }
+
+  @Test
+  public void testRootModule_include_nestedIncludeSurvivesRestart() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "include('//:first.MODULE.bazel')",
+        "include('//:second.MODULE.bazel')");
+    scratch.overwriteFile(rootDirectory.getRelative("BUILD").getPathString());
+    Path first =
+        scratch.overwriteFile(
+            rootDirectory.getRelative("first.MODULE.bazel").getPathString(),
+            "include('//:nested.MODULE.bazel')");
+    scratch.overwriteFile(
+        rootDirectory.getRelative("nested.MODULE.bazel").getPathString(),
+        "bazel_dep(name='nested', version='1.0')");
+    scratch.overwriteFile(
+        rootDirectory.getRelative("second.MODULE.bazel").getPathString(),
+        "bazel_dep(name='second', version='1.0')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    // Warm only the first FileValue so its nested include is discovered before the second
+    // FileValue causes a Skyframe restart.
+    EvaluationResult<FileValue> firstFileResult =
+        evaluator.evaluate(
+            ImmutableList.of(
+                FileValue.key(RootedPath.toRootedPath(Root.fromPath(rootDirectory), first))),
+            evaluationContext);
+    assertThat(firstFileResult.hasError()).isFalse();
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).module().getDeps())
+        .containsExactly(
+            "nested", createModuleKey("nested", "1.0"), "second", createModuleKey("second", "1.0"))
+        .inOrder();
   }
 
   @Test
