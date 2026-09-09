@@ -115,6 +115,9 @@ public final class StarlarkTemplateContext implements StarlarkTemplateContextApi
     switch (executableUnchecked) {
       case Artifact executable -> builder.setExecutable(executable);
       case FilesToRunProvider filesToRun -> builder.setExecutable(filesToRun);
+      // Normalise if needed and then pass as a String; this keeps the reference when PathFragment
+      // is passed from native to Starlark.
+      case String executablePath -> builder.setExecutableAsString(PathFragment.create(executablePath).getPathString());
       default -> {
         throw Starlark.errorf(
             "Expected a File or FilesToRunProvider but got %s", Starlark.type(executableUnchecked));
