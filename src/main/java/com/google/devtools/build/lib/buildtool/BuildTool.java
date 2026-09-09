@@ -985,6 +985,42 @@ public class BuildTool {
     Throwable crash = null;
     DetailedExitCode detailedExitCode = null;
     try {
+      detailedExitCode =
+          processRequestHandleCheckedExceptions(
+              request, result, validator, options, targetsForProjectResolution, postBuildCallback);
+    } catch (Throwable throwable) {
+      crash = throwable;
+      detailedExitCode = CrashFailureDetails.detailedExitCodeForThrowable(crash);
+      Throwables.throwIfUnchecked(throwable);
+      throw new IllegalStateException(throwable);
+    } finally {
+      if (detailedExitCode == null) {
+        detailedExitCode =
+            CrashFailureDetails.detailedExitCodeForThrowable(
+                new IllegalStateException("Unspecified DetailedExitCode"));
+      }
+      try (SilentCloseable c = Profiler.instance().profile("stopRequest")) {
+        stopRequest(result, crash, detailedExitCode);
+      }
+    }
+
+    return result;
+  }
+
+  private DetailedExitCode processRequestHandleCheckedExceptions(
+      BuildRequest request,
+      BuildResult result,
+      TargetValidator validator,
+      OptionsParsingResult options,
+      List<String> targetsForProjectResolution,
+      PostBuildCallback postBuildCallback)
+      // Don't add any throws here. The purpose of this method is to catch all checked exceptions
+      // so that the catch-all `catch (Throwable throwable)` in `processRequest` only gets to handle
+      // unchecked exceptions.
+      // TODO(b/556811853): Replace throws clause with exception handling within the method.
+      throws LabelSyntaxException, OptionsParsingException {
+    DetailedExitCode detailedExitCode;
+    try {
       try (SilentCloseable c = Profiler.instance().profile("buildTargets")) {
         // This OptionsParsingResult is essentially a wrapper around the OptionsParser in
         // https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/runtime/BlazeCommandDispatcher.java#L341. Casting it back to
@@ -1032,8 +1068,8 @@ public class BuildTool {
       AbruptExitException environmentPendingAbruptExitException = env.getPendingException();
       if (detailedExitCode == null && environmentPendingAbruptExitException != null) {
         detailedExitCode = environmentPendingAbruptExitException.getDetailedExitCode();
-        // Report the exception from the environment - the exception we're handling here is just an
-        // interruption.
+        // Report the exception from the environment - the exception we're handling here is just
+        // an interruption.
         reportExceptionError(environmentPendingAbruptExitException);
       }
       if (detailedExitCode == null) {
@@ -1084,23 +1120,11 @@ public class BuildTool {
                           .build())
                   .build());
       reportExceptionError(e);
-    } catch (Throwable throwable) {
-      crash = throwable;
-      detailedExitCode = CrashFailureDetails.detailedExitCodeForThrowable(crash);
-      Throwables.throwIfUnchecked(throwable);
-      throw new IllegalStateException(throwable);
-    } finally {
-      if (detailedExitCode == null) {
-        detailedExitCode =
-            CrashFailureDetails.detailedExitCodeForThrowable(
-                new IllegalStateException("Unspecified DetailedExitCode"));
-      }
-      try (SilentCloseable c = Profiler.instance().profile("stopRequest")) {
-        stopRequest(result, crash, detailedExitCode);
-      }
     }
-
-    return result;
+    // Don't add a `catch (Throwable throwable)` or similar here. The purpose of this method is to
+    // check at compile time that all checked exceptions are handled here so that the catch-all
+    // `catch (Throwable throwable)` in `processRequest` only gets to handle unchecked exceptions.
+    return detailedExitCode;
   }
 
   private void reportRemoteAnalysisServiceStats(
