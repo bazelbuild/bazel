@@ -2077,6 +2077,14 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
 
     for attempt in range(5):
       self.RunBazel(['clean', '--expunge'])
+      # The drop budget is shared by all fetches in the build below and is used
+      # up by whichever of them allocates first, so an unrelated repo can
+      # exhaust it before my_repo is even fetched. On Windows, test_base
+      # registers a Python toolchain from rules_python, whose fetch reliably
+      # does so. Fetching it without a remote cache materializes it on disk, so
+      # that the build below finds it up to date instead of having to inject it
+      # from the remote repo contents cache into the memory of its own server.
+      self.RunBazel(['fetch', '--repo=@@rules_python+', '--remote_cache='])
       exit_code, _, stderr = self.RunBazel(
           [
               # A small heap makes minor GC events frequent under allocation
@@ -2363,8 +2371,8 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     # contents cache hit, the repo is injected into the overlay file system but
     # not materialized on disk. Reads of .bzl (and REPO.bazel) files are
     # redirected to the native file system on the assumption that they were
-    # prefetched during injection, but symlinks are not prefetched, only their
-    # target if they match the name pattern.
+    # prefetched during injection, but symlinks are never prefetched
+    # themselves, only the regular file they resolve to.
     if self.IsWindows():
       self.ScratchFile(
           '.bazelrc',
@@ -2408,6 +2416,58 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'helper.bzl')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'real_helper.bzl')))
+
+  def testBzlSymlinkToNonBzlFileLoadedByBuildFile(self):
+    # Like testBzlSymlinkLoadedByBuildFile, but the symlink target's own name
+    # does not mark it for prefetching. Whether a read is served from the
+    # native file system is decided by the path it is made through, so the
+    # target has to be prefetched anyway.
+    if self.IsWindows():
+      self.ScratchFile(
+          '.bazelrc',
+          ['startup --windows_enable_symlinks'],
+          mode='a',
+      )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", """',
+            'load(":helper.bzl", "the_name")',
+            'filegroup(name = the_name)',
+            '""")',
+            '  rctx.file("real_helper.txt", \'the_name = "haha"\')',
+            '  rctx.symlink("real_helper.txt", "helper.bzl")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+
+    repo_dir = self.RepoDir('my_repo')
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.islink(os.path.join(repo_dir, 'helper.bzl')))
+
+    # After expunging: cached. The repo is injected but not materialized; the
+    # symlink target must have been prefetched even though it isn't named like
+    # a file that is loaded.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'helper.bzl')))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'real_helper.txt')))
 
   def testBzlSymlinkToOtherRepoLoadedByBuildFile(self):
     # Regression test for
@@ -2651,6 +2711,102 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     # via its contents proxy, so my_repo is neither invalidated nor refetched.
     _, _, stderr = self.RunBazel(['build', '//main:use_data'])
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+
+  def testMaterializedFileIsNotTreatedAsDirtied(self):
+    # Regression test for https://github.com/bazelbuild/bazel/issues/31006.
+    # Materializing a repo restored from the remote repo contents cache makes
+    # Bazel serve its files from disk instead of from memory, but this
+    # difference in representation should not result in Skyframe invalidation.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+            'other_repo = use_repo_rule("//:other_repo.bzl", "other_repo")',
+            'other_repo(name = "other", data_file = "@my_repo//:data.txt")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("defs.bzl", "DATA = \'data\'")',
+            '  rctx.file("data.txt", "hello")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'other_repo.bzl',
+        [
+            'def _other_repo_impl(rctx):',
+            # Reading my_repo's data.txt forces full materialization of my_repo.
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            (
+                '  rctx.file("data_copy.txt",'
+                ' rctx.read(rctx.path(rctx.attr.data_file)))'
+            ),
+            '  return rctx.repo_metadata()',
+            (
+                'other_repo = repository_rule(_other_repo_impl,'
+                ' attrs={"data_file": attr.label()})'
+            ),
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'load("@my_repo//:defs.bzl", "DATA")',
+            'genrule(',
+            '  name = "use_" + DATA,',
+            '  srcs = ["@my_repo//:data.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $< > $@",',
+            ')',
+        ],
+    )
+
+    # Cold build: fetch my_repo and upload it to the remote repo contents cache.
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:use_data'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # Restore my_repo from the cache into the overlay. Its package and .bzl
+    # file are loaded from memory.
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:use_data'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    # The lockfile is updated at the end of the first command after an expunge,
+    # which invalidates the repo definitions in the next command. Let that
+    # settle in a command that verifies all of the target's nodes so that the
+    # following commands only observe the effect of materialization.
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:use_data'])
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('JUST FETCHED', stderr)
+    self.assertIn(
+        'Analyzed target //main:use_data (0 packages loaded, 0 targets'
+        ' configured).',
+        stderr,
+    )
+
+    # Fully materialize my_repo onto the local disk by fetching @other, which
+    # reads one of its files.
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '@other//:haha'])
+    self.assertIn('Materializing remote repo', '\n'.join(stderr))
+
+    # Nothing has changed for //main:use_data, so nothing is reloaded or
+    # analyzed again.
+    _, _, stderr = self.RunBazel(['build', '--nobuild', '//main:use_data'])
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('JUST FETCHED', stderr)
+    self.assertNotIn('will be fetched again', stderr)
+    self.assertIn(
+        'Analyzed target //main:use_data (0 packages loaded, 0 targets'
+        ' configured).',
+        stderr,
+    )
 
 
 if __name__ == '__main__':

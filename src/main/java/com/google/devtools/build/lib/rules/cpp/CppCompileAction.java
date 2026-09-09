@@ -692,6 +692,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
               .setSystemIncludeDirs(systemIncludeDirs)
               .setCmdlineIncludes(getCmdlineIncludes(options))
               .setIsValidUndeclaredHeader(getValidUndeclaredHeaderPredicate())
+              // Register generated prunable/toolchain headers as declared so the include scanner
+              // can resolve them; it never stats output-directory paths. Keep in sync with the
+              // matching call in the rediscovery path below. See
+              // IncludeScanningHeaderData.Builder#addDeclaredHeaders.
+              .addDeclaredHeaders(additionalPrunableHeaders)
               .build();
       additionalInputs = findUsedHeaders(actionExecutionContext, includeScanningHeaderData);
       if (additionalInputs == null) {
@@ -1451,7 +1456,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       throws ActionExecutionException, InterruptedException {
     PathMapper pathMapper =
         PathMappers.create(
-            this, PathMappers.getOutputPathsMode(configuration), /* isStarlarkAction= */ false);
+            this,
+            PathMappers.getOutputPathsMode(configuration),
+            /* isStarlarkAction= */ false,
+            actionExecutionContext.getInputMetadataProvider());
 
     if (featureConfiguration.isEnabled(CppRuleClasses.COMPILER_PARAM_FILE)) {
       try {
@@ -1663,7 +1671,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     var pathMapper =
         PathMappers.create(
-            this, PathMappers.getOutputPathsMode(configuration), /* isStarlarkAction= */ false);
+            this,
+            PathMappers.getOutputPathsMode(configuration),
+            /* isStarlarkAction= */ false,
+            actionExecutionContext.getInputMetadataProvider());
     // All module files referenced in the modmap input file are expected to be known modules. We
     // delegate error reporting to the compiler by silently skipping over unknown files.
     return moduleFiles.toList().stream()
@@ -1910,6 +1921,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
               includeScanningHeaderData
                   .setSystemIncludeDirs(getSystemIncludeDirs())
                   .setCmdlineIncludes(getCmdlineIncludes(getCompilerOptions()))
+                  // Register generated prunable/toolchain headers as declared so the include
+                  // scanner can resolve them; it never stats output-directory paths. Keep in sync
+                  // with the matching call in discoverInputs above. See
+                  // IncludeScanningHeaderData.Builder#addDeclaredHeaders.
+                  .addDeclaredHeaders(additionalPrunableHeaders)
                   .build());
       if (usedHeaders == null) {
         return null;

@@ -201,10 +201,12 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     // Since this depends on the consumer but the decision is only made at execution time, it is not
     // clear how to improve that situation. Actions that are prone to such collisions should avoid
     // depending on parameter files.
-    var pathMapper = PathMappers.create(this, getOutputPathsMode(), /* isStarlarkAction= */ false);
+    InputMetadataProvider inputMetadataProvider =
+        Preconditions.checkNotNull(ctx.getInputMetadataProvider());
+    var pathMapper =
+        PathMappers.create(
+            this, getOutputPathsMode(), /* isStarlarkAction= */ false, inputMetadataProvider);
     try {
-      InputMetadataProvider inputMetadataProvider =
-          Preconditions.checkNotNull(ctx.getInputMetadataProvider());
       arguments = commandLine.expand(inputMetadataProvider, pathMapper);
     } catch (CommandLineExpansionException e) {
       throw new UserExecException(

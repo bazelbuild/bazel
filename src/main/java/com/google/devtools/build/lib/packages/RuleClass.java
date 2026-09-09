@@ -151,10 +151,19 @@ public class RuleClass implements RuleClassData {
   public static final String APPLICABLE_METADATA_ATTR_ALT = "applicable_licenses";
 
   public static final String DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME = "test";
+
+  // The toolchain type is optional so that test targets can still be built (but not run) when no
+  // execution platform matches the constraints of the target platform, e.g. when cross-compiling a
+  // test for a platform that isn't available as an execution platform. Since toolchain resolution
+  // prefers execution platforms that provide the most toolchains, an execution platform matching
+  // the target platform is still selected whenever one exists. If none does, the test action is
+  // created, but fails when executed.
   public static final DeclaredExecGroup DEFAULT_TEST_RUNNER_EXEC_GROUP =
       DeclaredExecGroup.builder()
           .addToolchainType(
-              ToolchainTypeRequirement.create(PlatformConstants.DEFAULT_TEST_TOOLCHAIN_TYPE))
+              ToolchainTypeRequirement.builder(PlatformConstants.DEFAULT_TEST_TOOLCHAIN_TYPE)
+                  .mandatory(false)
+                  .build())
           .build();
 
   /** Interface for determining whether a rule needs toolchain resolution or not. */

@@ -51,6 +51,7 @@ class JsonTraceFileWriter implements Runnable {
 
   private final OutputStream outStream;
   private final long profileStartTimeNanos;
+  private final long profileStartEpochMillis;
   private final ThreadLocal<Boolean> metadataPosted = ThreadLocal.withInitial(() -> Boolean.FALSE);
   private final boolean slimProfile;
   private final UUID buildID;
@@ -64,9 +65,15 @@ class JsonTraceFileWriter implements Runnable {
       new TaskData(
           /* threadId= */ 0, /* startTimeNanos= */ 0, /* eventType= */ null, "poison pill");
 
+  /**
+   * @param profileStartTimeNanos the monotonic clock reading that every event in the profile is
+   *     emitted relative to
+   * @param profileStartEpochMillis the same instant on the wall clock
+   */
   JsonTraceFileWriter(
       OutputStream outStream,
       long profileStartTimeNanos,
+      long profileStartEpochMillis,
       boolean slimProfile,
       String outputBase,
       UUID buildID) {
@@ -74,6 +81,7 @@ class JsonTraceFileWriter implements Runnable {
     this.thread = new Thread(this, "profile-writer-thread");
     this.outStream = outStream;
     this.profileStartTimeNanos = profileStartTimeNanos;
+    this.profileStartEpochMillis = profileStartEpochMillis;
     this.slimProfile = slimProfile;
     this.buildID = buildID;
     this.outputBase = outputBase;
@@ -239,7 +247,7 @@ class JsonTraceFileWriter implements Runnable {
               // Bazel internally stores strings as raw bytes encoded in ISO_8859_1, so we use the
               // same encoding here to also write out raw bytes.
               new OutputStreamWriter(new BufferedOutputStream(outStream, 262144), ISO_8859_1))) {
-        var startDate = Instant.now();
+        var startDate = Instant.ofEpochMilli(profileStartEpochMillis);
         writer.beginObject();
         writer.name("otherData");
         writer.beginObject();

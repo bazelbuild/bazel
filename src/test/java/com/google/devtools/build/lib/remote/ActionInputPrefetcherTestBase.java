@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.remote.AbstractActionInputPrefetcher.MetadataSupplier;
@@ -309,6 +310,26 @@ public abstract class ActionInputPrefetcherTestBase {
         .doDownloadFile(eq(action), any(), eq(a), any(), any(), any(), any());
     assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath());
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
+  }
+
+  @Test
+  public void prefetchFiles_fileExists_recordsContentsProxy()
+      throws IOException, ExecException, InterruptedException {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Artifact a = createRemoteArtifact("file", "hello world", metadata, cas);
+    FileSystemUtils.writeContent(a.getPath(), "hello world".getBytes(UTF_8));
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+    assertThat(metadata.get(a).getContentsProxy()).isNull();
+
+    wait(
+        prefetcher.prefetchFilesInterruptibly(
+            action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
+
+    // The already present file was verified to be up to date by digest and its contents proxy was
+    // recorded to make future modification checks cheaper.
+    assertThat(metadata.get(a).getContentsProxy())
+        .isEqualTo(FileContentsProxy.create(a.getPath().stat()));
   }
 
   @Test
