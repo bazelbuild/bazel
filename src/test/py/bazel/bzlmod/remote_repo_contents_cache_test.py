@@ -2538,23 +2538,62 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
       self.assertTrue(os.path.islink(os.path.join(repo_dir, 'helper.bzl')))
 
   def testRun(self):
+    ext = '.bat' if self.IsWindows() else '.sh'
+    script_content = (
+        '@echo hello from my_bin'
+        if self.IsWindows()
+        else '#!/bin/sh\necho hello from my_bin'
+    )
+    declare_exe = f'  exe = ctx.actions.declare_file(ctx.label.name + "{ext}")'
+    write_exe = f"  ctx.actions.write(exe, '''{script_content}"
+
     self.ScratchFile(
         'MODULE.bazel',
         [
-            'bazel_dep(name = "buildozer", version = "8.5.1")',
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("my_binary.bzl", """',
+            'def _my_binary_impl(ctx):',
+            declare_exe,
+            write_exe,
+            "''', is_executable=True)",
+            '  return [DefaultInfo(executable = exe)]',
+            'my_binary = rule(',
+            '  implementation = _my_binary_impl,',
+            '  executable = True,',
+            ')',
+            '""")',
+            '  rctx.file("BUILD", """',
+            'load(":my_binary.bzl", "my_binary")',
+            'my_binary(name = "my_bin")',
+            '""")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
         ],
     )
 
+    repo_dir = self.RepoDir('my_repo')
+
     # First fetch: not cached
-    _, stdout, _ = self.RunBazel(['run', '@buildozer', '--', '--version'])
-    self.assertIn('buildozer version: 8.5.1', '\n'.join(stdout))
+    _, stdout, stderr = self.RunBazel(['run', '@my_repo//:my_bin'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertIn('hello from my_bin', '\n'.join(stdout))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
     # After expunging: cached
     self.RunBazel(['clean', '--expunge'])
-    _, stdout, _ = self.RunBazel(['run', '@buildozer', '--', '--version'])
-    self.assertIn('buildozer version: 8.5.1', '\n'.join(stdout))
-    repo_dir = self.RepoDir('buildozer')
-    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'MODULE.bazel')))
+    _, stdout, stderr = self.RunBazel(['run', '@my_repo//:my_bin'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertIn('hello from my_bin', '\n'.join(stdout))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'BUILD')))
 
   def testReverseDependencyDirection(self):
     # Set up two repos that retain their predeclared input hashes across two
