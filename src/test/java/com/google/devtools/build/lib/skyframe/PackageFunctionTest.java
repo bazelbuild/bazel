@@ -970,9 +970,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(ex)
         .hasMessageThat()
         .isEqualTo(
-            "error loading package 'test/starlark': "
-                + "at /workspace/test/starlark/extension.bzl:1:6: "
-                + "cannot load '//test/starlark:bad_extension.bzl': no such file");
+            """
+            error loading package 'test/starlark': at /workspace/test/starlark/extension.bzl:1:6:
+            cannot load '//test/starlark:bad_extension.bzl': no such file\
+            """);
     assertDetailedExitCode(
         ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
   }

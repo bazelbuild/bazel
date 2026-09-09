@@ -478,7 +478,8 @@ use_toolchain(
 EOF
 
   bazel build "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:use[^:]*: No matching toolchains found for types:$"
+  expect_log "While resolving toolchains for target //${pkg}/demo:use"
+  expect_log "No matching toolchains found for types:"
   expect_log "  //${pkg}/toolchain:test_toolchain$"
 }
 
@@ -507,8 +508,9 @@ use_toolchain(
 EOF
 
   bazel build "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:use[^:]*: No matching toolchains found for types:$"
-  expect_log "^  //${pkg}/toolchain:test_toolchain_with_message: Go register a toolchain!$"
+  expect_log "While resolving toolchains for target //${pkg}/demo:use"
+  expect_log "No matching toolchains found for types:"
+  expect_log "//${pkg}/toolchain:test_toolchain_with_message: Go register a toolchain!"
 }
 
 function test_toolchain_use_in_rule_missing_with_custom_platform_error {
@@ -686,8 +688,9 @@ use_toolchains(
 EOF
 
   bazel build "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:use[^:]*: No matching toolchains found for types:$"
-  expect_log "^  //${pkg}/toolchain:test_toolchain_2$"
+  expect_log "While resolving toolchains for target //${pkg}/demo:use"
+  expect_log "No matching toolchains found for types:"
+  expect_log "//${pkg}/toolchain:test_toolchain_2"
 }
 
 function test_toolchain_use_in_rule_non_required_toolchain {
@@ -1027,8 +1030,9 @@ EOF
     --host_platform="//${pkg}:platform1" \
     --platforms="//${pkg}:platform1" \
     "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:use[^:]*: No matching toolchains found for types:$"
-  expect_log "^  //${pkg}/toolchain:test_toolchain$"
+  expect_log "While resolving toolchains for target //${pkg}/demo:use"
+  expect_log "No matching toolchains found for types:"
+  expect_log "//${pkg}/toolchain:test_toolchain"
   expect_not_log 'Using toolchain: rule message:'
 }
 
@@ -1083,7 +1087,10 @@ use_toolchain(
 EOF
 
   bazel build "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:use[^:]*: invalid registered toolchain '//${pkg}/demo:not_a_target': no such target '//${pkg}/demo:not_a_target': target 'not_a_target' not declared in package '${pkg}/demo'"
+  expect_log "While resolving toolchains for target //${pkg}/demo:use"
+  expect_log "invalid registered toolchain '//${pkg}/demo:not_a_target'"
+  expect_log "no such target '//${pkg}/demo:not_a_target'"
+  expect_log "target 'not_a_target' not declared in package '${pkg}/demo'"
 }
 
 function test_register_toolchain_error_target_not_a_toolchain() {
@@ -1115,7 +1122,9 @@ use_toolchain(
 EOF
 
   bazel build "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:use[^:]*: invalid registered toolchain '//${pkg}/demo:invalid': target does not provide the DeclaredToolchainInfo provider"
+  expect_log "While resolving toolchains for target //${pkg}/demo:use"
+  expect_log "invalid registered toolchain '//${pkg}/demo:invalid'"
+  expect_log "target does not provide the DeclaredToolchainInfo provider"
 }
 
 
@@ -1149,7 +1158,55 @@ EOF
 
   bazel build "//${pkg}:foo" &> $TEST_log && fail "Build failure expected"
   # It's uncertain which error will happen first, so handle either.
-  expect_log "While resolving toolchains for target //${pkg}:foo[^:]*: invalid registered toolchain '//${pkg}:bad[12]': no such target"
+  expect_log "While resolving toolchains for target //${pkg}:foo"
+  expect_log "invalid registered toolchain '//${pkg}:bad[12]'"
+  expect_log "no such target"
+}
+
+function test_transitive_toolchain_error_multiline_hierarchy() {
+  local -r pkg="${FUNCNAME[0]}"
+  write_test_toolchain "${pkg}"
+  write_test_rule "${pkg}"
+
+  cat > $TOOLCHAIN_REGISTRATION_FILE <<EOF
+register_toolchains('//${pkg}/toolchain_pkg:my_toolchain')
+EOF
+
+  mkdir -p "${pkg}/toolchain_pkg"
+  cat > "${pkg}/toolchain_pkg/BUILD" <<EOF
+load(':defs.bzl', 'my_toolchain_rule')
+package(default_visibility = ["//visibility:public"])
+
+my_toolchain_rule(name = 'my_toolchain')
+EOF
+
+  cat > "${pkg}/toolchain_pkg/defs.bzl" <<EOF
+load(':bad.bzl', 'bad_symbol')
+def _impl(ctx):
+  pass
+my_toolchain_rule = rule(implementation = _impl)
+EOF
+
+  cat > "${pkg}/toolchain_pkg/bad.bzl" <<EOF
+1 // 0
+EOF
+
+  mkdir -p "${pkg}/demo"
+  cat > "${pkg}/demo/BUILD" <<EOF
+load('//${pkg}/toolchain:rule_use_toolchain.bzl', 'use_toolchain')
+package(default_visibility = ["//visibility:public"])
+
+use_toolchain(
+    name = 'use',
+    message = 'demo')
+EOF
+
+  bazel build "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
+  expect_log "While resolving toolchains for target //${pkg}/demo:use"
+  expect_log "invalid registered toolchain '//${pkg}/toolchain_pkg:my_toolchain'"
+  expect_log "error loading package '${pkg}/toolchain_pkg'"
+  expect_log "${pkg}/toolchain_pkg/defs.bzl:1:6"
+  expect_log "initialization of module '${pkg}/toolchain_pkg/bad.bzl' failed"
 }
 
 
@@ -1189,7 +1246,8 @@ use_toolchain(
 EOF
 
   bazel build "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "Target '//${pkg}/demo:use' depends on toolchain '//${pkg}/toolchain:does_not_exist', which cannot be found: no such target '//${pkg}/toolchain:does_not_exist': target 'does_not_exist' not declared in package '${pkg}/toolchain'"
+  expect_log "Target '//${pkg}/demo:use' depends on toolchain '//${pkg}/toolchain:does_not_exist', which cannot be found: no such target '//${pkg}/toolchain:does_not_exist'"
+  expect_log "target 'does_not_exist' not declared in package '${pkg}/toolchain'"
 }
 
 
@@ -1273,7 +1331,8 @@ EOF
   bazel build \
     --toolchain_resolution_debug=.* \
     "//${pkg}/demo:target" &> $TEST_log && fail "Build failure expected"
-    expect_log "While resolving toolchains for target //${pkg}/demo:target[^:]*: .* from available execution platforms \[\]"
+    expect_log "While resolving toolchains for target //${pkg}/demo:target"
+    expect_log "from available execution platforms \[\]"
 
   # When the platform exists, it is used.
   bazel build \

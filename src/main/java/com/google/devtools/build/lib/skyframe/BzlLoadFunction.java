@@ -1585,7 +1585,7 @@ public class BzlLoadFunction implements SkyFunction {
     // TODO(bazel-team): This exception should hold a Location of the requesting file's load
     // statement, and code that catches it should use the location in the Event they create.
     return new BzlLoadFailedException(
-        "at " + loc + ": " + cause.getMessage(), cause.getDetailedExitCode());
+        "at " + loc + ":\n" + cause.getMessage(), cause.getDetailedExitCode());
   }
 
   static BzlLoadFailedException typingFailed(Label label) {

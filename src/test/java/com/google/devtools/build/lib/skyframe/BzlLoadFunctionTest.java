@@ -656,8 +656,30 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     checkFailingLookup(
         "//a:foo.bzl",
-        "at /workspace/a/foo.bzl:1:6: module //b:bar.bzl contains .bzl load visibility violations");
+        """
+        at /workspace/a/foo.bzl:1:6:
+        module //b:bar.bzl contains .bzl load visibility violations\
+        """);
     assertContainsEvent("Starlark file //c:baz.bzl is not visible for loading from package //b.");
+  }
+
+  @Test
+  public void testTransitiveBzlLoadErrorFormatting() throws Exception {
+    scratch.file("a/BUILD");
+    scratch.file("a/a.bzl", "load('//b:b.bzl', 'b')");
+    scratch.file("b/BUILD");
+    scratch.file("b/b.bzl", "load('//c:c.bzl', 'c')");
+    scratch.file("c/BUILD");
+    scratch.file("c/c.bzl", "1 // 0");
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup(
+        "//a:a.bzl",
+        """
+        at /workspace/a/a.bzl:1:6:
+        at /workspace/b/b.bzl:1:6:
+        initialization of module 'c/c.bzl' failed\
+        """);
   }
 
   @Test
