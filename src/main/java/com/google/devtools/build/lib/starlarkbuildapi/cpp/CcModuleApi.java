@@ -1908,6 +1908,12 @@ public interface CcModuleApi<
             doc =
                 "The built-in sysroot. If this attribute is not present, Bazel does not "
                     + "allow using a different sysroot, i.e. through the --grte_top option."),
+        @Param(
+            name = "disallowed_copts_infos",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            doc = "A list of disallowed_copts_info structs used for disallowed copts enforcement."),
       })
   default void ccToolchainConfigInfoFromStarlark(
       StarlarkRuleContextT starlarkRuleContext,
@@ -1926,6 +1932,7 @@ public interface CcModuleApi<
       Sequence<?> toolPaths, // <StructApi> expected
       Sequence<?> makeVariables, // <StructApi> expected
       Object builtinSysroot,
+      Sequence<?> disallowedCoptsInfos, // <StructApi> expected
       StarlarkThread thread) {
     throw new UnsupportedOperationException("only for documentation");
   }
