@@ -598,7 +598,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
    * @param target source target
    * @param deps next level of deps to filter
    */
-  private ImmutableList<T> getAllowedDeps(T target, Collection<ClassifiedDependency<T>> deps) {
+  private ImmutableList<T> getAllowedDeps(
+      @Nullable T target, Collection<ClassifiedDependency<T>> deps) {
     if (target == null) {
       return getDependencies(deps);
     }
@@ -631,7 +632,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       }
     }
     if (settings.contains(Setting.NO_IMPLICIT_DEPS)) {
-        deps = deps.stream().filter(dep -> !dep.implicit).collect(Collectors.toList());
+      deps = deps.stream().filter(dep -> !dep.implicit).collect(Collectors.toList());
     }
     return getDependencies(deps);
   }
