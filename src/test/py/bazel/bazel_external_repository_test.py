@@ -580,6 +580,60 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     )
     self.doTestSymlinkToFileInOtherRepoNoticesFileChange()
 
+  def testDirectorySymlinkOnWindowsDoesNotRefetchWhenTargetContentsChange(self):
+    if not self.IsWindows():
+      self.skipTest('junction fallback is only relevant on Windows')
+    self.ScratchFile(
+        '.bazelrc',
+        [
+            'startup --nowindows_enable_symlinks',
+        ],
+        mode='a',
+    )
+    source_dir = self.ScratchDir('source').replace('\\', '/')
+    self.ScratchFile('source/data.txt', ['original'])
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(ctx):',
+            '    ctx.symlink(ctx.path(ctx.attr.path), "linked")',
+            '    ctx.file("BUILD", "exports_files([\'linked/data.txt\'])")',
+            '    print("JUST FETCHED")',
+            '    return ctx.repo_metadata(reproducible = True)',
+            'repo = repository_rule(',
+            '    implementation = _repo_impl,',
+            '    attrs = {"path": attr.string(mandatory = True)},',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "bar", path = "%s")' % source_dir,
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'genrule(',
+            '    name = "cat",',
+            '    srcs = ["@bar//:linked/data.txt"],',
+            '    outs = ["out.txt"],',
+            '    cmd = "cp $< $@",',
+            ')',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '//:cat'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.AssertFileContentContains(self.Path('bazel-bin/out.txt'), 'original')
+
+    self.ScratchFile('source/data.txt', ['modified'])
+    _, _, stderr = self.RunBazel(['build', '//:cat'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.AssertFileContentContains(self.Path('bazel-bin/out.txt'), 'modified')
+
   def testRepoEnv(self):
     # Testing fix for issue: https://github.com/bazelbuild/bazel/issues/15430
 
