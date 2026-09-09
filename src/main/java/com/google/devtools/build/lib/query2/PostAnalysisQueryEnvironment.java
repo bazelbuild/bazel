@@ -483,7 +483,10 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     Map<T, ImmutableList<ClassifiedDependency<T>>> reverseDepsByCT = new HashMap<>();
     for (Map.Entry<SkyKey, ImmutableList<ClassifiedDependency<T>>> entry :
         reverseDepsByKey.entrySet()) {
-      reverseDepsByCT.put(targetsByKey.get(entry.getKey()), entry.getValue());
+      T target = targetsByKey.get(entry.getKey());
+      if (target != null) {
+        reverseDepsByCT.put(target, entry.getValue());
+      }
     }
     return reverseDepsByCT.isEmpty() ? Collections.emptyList() : filterReverseDeps(reverseDepsByCT);
   }
@@ -493,6 +496,9 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     Set<T> result = CompactHashSet.create();
     for (Map.Entry<T, ImmutableList<ClassifiedDependency<T>>> targetAndRdeps :
         rawReverseDeps.entrySet()) {
+      if (targetAndRdeps.getKey() == null) {
+        continue;
+      }
       ImmutableList.Builder<ClassifiedDependency<T>> ruleDeps = ImmutableList.builder();
       for (ClassifiedDependency<T> parent : targetAndRdeps.getValue()) {
         T dependency = parent.dependency;
@@ -593,6 +599,9 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
    * @param deps next level of deps to filter
    */
   private ImmutableList<T> getAllowedDeps(T target, Collection<ClassifiedDependency<T>> deps) {
+    if (target == null) {
+      return getDependencies(deps);
+    }
     // It's possible to query on a target that's configured in an exec configuration. In those
     // cases if --notool_deps is turned on, we only allow reachable targets that are ALSO in an
     // exec config. This is somewhat counterintuitive and subject to change in the future but seems
