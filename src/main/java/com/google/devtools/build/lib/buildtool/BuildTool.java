@@ -992,7 +992,18 @@ public class BuildTool {
       crash = throwable;
       detailedExitCode = CrashFailureDetails.detailedExitCodeForThrowable(crash);
       Throwables.throwIfUnchecked(throwable);
-      throw new IllegalStateException(throwable);
+      // This point should not be reached. Unchecked exceptions have just been thrown by
+      // Throwables.throwIfUnchecked(), and all checked exceptions should be caught in
+      // processRequestHandleCheckedExceptions.
+      IllegalStateException illegalStateException =
+          new IllegalStateException(
+              "This checked exception should have been handled by"
+                  + " processRequestHandleCheckedExceptions()",
+              throwable);
+      // crash must be an unchecked exception because in the finally block it is passed to
+      // stopRequest() which accepts only Error or RuntimeException.
+      crash = illegalStateException;
+      throw illegalStateException;
     } finally {
       if (detailedExitCode == null) {
         detailedExitCode =
