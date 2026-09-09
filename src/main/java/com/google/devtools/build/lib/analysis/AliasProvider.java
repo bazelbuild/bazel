@@ -14,15 +14,17 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.stream.Collectors.joining;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import javax.annotation.Nullable;
 
 /** A provider that gives information about the aliases a rule was resolved through. */
 @Immutable
@@ -108,39 +110,62 @@ public final class AliasProvider implements TransitiveInfoProvider {
   /** The way {@link #describeTargetWithAliases(ConfiguredTargetAndData, TargetMode) reports the
    * kind of a target. */
   public enum TargetMode {
-    WITH_KIND,      // Specify the kind of the target
-    WITHOUT_KIND,   // Only say "target"
+    WITH_KIND, // Specify the kind of the target
+    WITHOUT_KIND, // Only say "target"
   }
 
   /**
    * Prints a nice description of a target.
    *
-   * Also adds the aliases it was reached through, if any.
+   * <p>Also adds the aliases it was reached through, if any.
    *
    * @param target the target to describe
    * @param targetMode how to express the kind of the target
    */
   public static String describeTargetWithAliases(
       ConfiguredTargetAndData target, TargetMode targetMode) {
+    return describeTargetWithAliases(target, targetMode, /* repositoryMapping= */ null);
+  }
+
+  /**
+   * Prints a nice description of a target, formatting labels using the given repository mapping.
+   *
+   * <p>Also adds the aliases it was reached through, if any.
+   *
+   * @param target the target to describe
+   * @param targetMode how to express the kind of the target
+   * @param repositoryMapping the repository mapping to use for displaying labels, or null
+   */
+  public static String describeTargetWithAliases(
+      ConfiguredTargetAndData target,
+      TargetMode targetMode,
+      @Nullable RepositoryMapping repositoryMapping) {
     String kind = targetMode == TargetMode.WITH_KIND ? target.getTargetKind() : "target";
     AliasProvider aliasProvider = target.getConfiguredTarget().getProvider(AliasProvider.class);
     if (aliasProvider == null) {
-      return kind + " '" + target.getTargetLabel() + "'";
+      return kind + " '" + target.getTargetLabel().getDisplayForm(repositoryMapping) + "'";
     }
 
     ImmutableList<Label> aliasChain = aliasProvider.aliasChain;
     StringBuilder result = new StringBuilder();
-    result.append("alias '").append(aliasChain.get(0)).append("'");
+    result
+        .append("alias '")
+        .append(aliasChain.get(0).getDisplayForm(repositoryMapping))
+        .append("'");
     result
         .append(" referring to ")
         .append(kind)
         .append(" '")
-        .append(target.getTargetLabel())
+        .append(target.getTargetLabel().getDisplayForm(repositoryMapping))
         .append("'");
     if (aliasChain.size() > 1) {
       result
           .append(" through '")
-          .append(Joiner.on("' -> '").join(aliasChain.subList(1, aliasChain.size())))
+          .append(
+              aliasChain.stream()
+                  .skip(1)
+                  .map(label -> label.getDisplayForm(repositoryMapping))
+                  .collect(joining("' -> '")))
           .append("'");
     }
 
