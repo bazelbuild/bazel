@@ -120,7 +120,7 @@ class Docs2MdxTableCellTest(parameterized.TestCase):
   </tr>
 </table>
 """,
-          "<pre><code>",
+          "`https://example.com/file.tar.gz`",
           "```",
       ),
   )
