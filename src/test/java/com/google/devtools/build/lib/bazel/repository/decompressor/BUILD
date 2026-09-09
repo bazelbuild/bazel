@@ -55,7 +55,6 @@ java_library(
 
 java_test(
     name = "DecompressorTests",
-    data = ["//tools/build_defs/repo:http.bzl"],
     tags = [
         "rules",
     ],
