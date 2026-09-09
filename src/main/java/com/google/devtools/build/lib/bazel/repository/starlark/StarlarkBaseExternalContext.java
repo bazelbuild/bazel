@@ -594,7 +594,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
     @Override
     public boolean cancel() {
-      return !future.cancel(false);
+      return !future.cancel(true);
     }
 
     @StarlarkMethod(
