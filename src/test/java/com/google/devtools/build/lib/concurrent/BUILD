@@ -18,6 +18,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:cancellable_task",
         "//src/main/java/com/google/devtools/build/lib/concurrent:settable_future_keyed_value",
         "//src/main/java/com/google/devtools/build/lib/concurrent:task_deduplicator",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
