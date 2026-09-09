@@ -1636,6 +1636,63 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testRuleClassImplicitOutputUnsetOptionalAttributeFailsCleanly() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "test/starlark/extension.bzl",
+        """
+        def custom_rule_impl(ctx):
+          pass
+
+        custom_rule = rule(
+          implementation = custom_rule_impl,
+          attrs = {'src': attr.label(mandatory = False, allow_single_file = True)},
+          outputs = {'o': '%{src}.css'})
+        """);
+
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load('//test/starlark:extension.bzl', 'custom_rule')
+
+        custom_rule(name = 'cr')
+        """);
+
+    getConfiguredTarget("//test/starlark:cr");
+    assertContainsEvent(
+        "For attribute 'o' in outputs: Attribute 'src' has no value (is None or empty)");
+  }
+
+  @Test
+  public void testRuleClassImplicitOutputNonexistentAttributePlaceholderFailsCleanly()
+      throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "test/starlark/extension.bzl",
+        """
+        def custom_rule_impl(ctx):
+          pass
+
+        custom_rule = rule(
+          implementation = custom_rule_impl,
+          outputs = {'o': '%{nonexistent}.css'})
+        """);
+
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load('//test/starlark:extension.bzl', 'custom_rule')
+
+        custom_rule(name = 'cr')
+        """);
+
+    getConfiguredTarget("//test/starlark:cr");
+    assertContainsEvent(
+        "For attribute 'o' in outputs: Template placeholder '%{nonexistent}' does not correspond"
+            + " to any attribute");
+  }
+
+  @Test
   public void testPrintProviderCollection() throws Exception {
     scratch.file(
         "test/starlark/rules.bzl",
