@@ -63,6 +63,13 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   }
 
   private CcToolchainFeatures buildFeatures(String... content) throws Exception {
+    String packageName = setUpFeaturesRule(content);
+    ConfiguredTarget target = getConfiguredTarget("//" + packageName + ":f");
+    assertThat(target).isNotNull();
+    return (CcToolchainFeatures) getStarlarkProvider(target, "MyInfo").getValue("f");
+  }
+
+  private String setUpFeaturesRule(String... content) throws Exception {
     loadCcToolchainConfigLib();
     String packageName = "crosstool" + starlarkConfigCounter.getAndIncrement();
     scratch.overwriteFile(
@@ -120,9 +127,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
         "cc_toolchain_features(name = 'f', config = ':r')",
         "cc_toolchain_config_rule(name = 'r')");
 
-    ConfiguredTarget target = getConfiguredTarget("//" + packageName + ":f");
-    assertThat(target).isNotNull();
-    return (CcToolchainFeatures) getStarlarkProvider(target, "MyInfo").getValue("f");
+    return packageName;
   }
 
   /**
@@ -2054,5 +2059,53 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
     assertThat(
             toolchainFeatures.getArtifactNameExtensionForCategory(ArtifactCategory.STATIC_LIBRARY))
         .isEqualTo(".a");
+  }
+
+  @Test
+  public void testArtifactNamePattern_unrecognizedExtension_rejectedByDefault() throws Exception {
+    String packageName =
+        setUpFeaturesRule(
+            "artifact_name_patterns = [",
+            "    artifact_name_pattern(",
+            "        category_name = 'executable',",
+            "        prefix = '',",
+            "        extension = '.axf',",
+            "    ),",
+            "]");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//" + packageName + ":f")).isNull();
+    assertContainsEvent("Unrecognized file extension '.axf'");
+  }
+
+  @Test
+  public void testArtifactNamePattern_permissiveFlag_allowsAxfForExecutable() throws Exception {
+    useConfiguration("--experimental_cc_permissive_artifact_extensions=true");
+    CcToolchainFeatures toolchainFeatures =
+        buildFeatures(
+            "artifact_name_patterns = [",
+            "    artifact_name_pattern(",
+            "        category_name = 'executable',",
+            "        prefix = '',",
+            "        extension = '.axf',",
+            "    ),",
+            "]");
+    assertThat(toolchainFeatures.getArtifactNameExtensionForCategory(ArtifactCategory.EXECUTABLE))
+        .isEqualTo(".axf");
+  }
+
+  @Test
+  public void testArtifactNamePattern_permissiveFlag_appliesAcrossCategories() throws Exception {
+    useConfiguration("--experimental_cc_permissive_artifact_extensions=true");
+    CcToolchainFeatures toolchainFeatures =
+        buildFeatures(
+            "artifact_name_patterns = [",
+            "    artifact_name_pattern(",
+            "        category_name = 'object_file',",
+            "        prefix = '',",
+            "        extension = '.weird',",
+            "    ),",
+            "]");
+    assertThat(toolchainFeatures.getArtifactNameExtensionForCategory(ArtifactCategory.OBJECT_FILE))
+        .isEqualTo(".weird");
   }
 }
