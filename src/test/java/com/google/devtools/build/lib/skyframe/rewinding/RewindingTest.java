@@ -272,6 +272,11 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void actionTemplateExpansionRewound_fileUnderSubtreeArtifactLost() throws Exception {
+    helper.runActionTemplateExpansionRewound_fileUnderSubtreeArtifactLost();
+  }
+
+  @Test
   public void generatedRunfilesRewound_allFilesLost() throws Exception {
     helper.runGeneratedRunfilesRewound_allFilesLost_spawnFailed();
   }

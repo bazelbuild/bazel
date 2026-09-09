@@ -636,8 +636,14 @@ public final class ActionRewindStrategy {
     for (ActionInput lostInput : lostInputs) {
       lostInputsAndOwners.add(lostInput);
       if (lostInput instanceof Artifact artifact && artifact.hasParent()) {
-        lostInputsAndOwners.add(artifact.getParent());
-        owners.put(artifact, artifact.getParent());
+        Artifact parent = artifact.getParent();
+        lostInputsAndOwners.add(parent);
+        owners.put(artifact, parent);
+        if (parent.isSubTreeArtifact()) {
+          Artifact grandparent = parent.getParent();
+          lostInputsAndOwners.add(grandparent);
+          owners.put(parent, grandparent);
+        }
       }
     }
 

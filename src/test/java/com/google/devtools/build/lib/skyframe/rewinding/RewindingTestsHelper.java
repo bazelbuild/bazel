@@ -1922,6 +1922,78 @@ public class RewindingTestsHelper {
     assertThat(executedSpawns).hasCount("Mapping foo/mapped_dir (2)", 2);
   }
 
+  public final void runActionTemplateExpansionRewound_fileUnderSubtreeArtifactLost()
+      throws Exception {
+    testCase.addOptions("--experimental_allow_map_directory");
+    testCase.write(
+        "foo/map.bzl",
+        """
+        def _map_impl(template_ctx, input_directories, output_directories, tools, **kwargs):
+            for in_file in input_directories["in"].children:
+                out_subdir = template_ctx.declare_subdirectory(
+                  in_file.basename + "_subdir",
+                  directory = output_directories["out"],
+                )
+                template_ctx.run(
+                    progress_message = "Copying file to %{output}",
+                    inputs = [in_file],
+                    outputs = [out_subdir],
+                    executable = tools["copy_tool"],
+                    arguments = [out_subdir.path + "/file", in_file.path],
+                )
+
+        def _map_dir_impl(ctx):
+            tool = ctx.actions.declare_file(ctx.attr.name + ".bat")
+            ctx.actions.write(tool, r\"\"\"COPY_TOOL_SCRIPT\"\"\", is_executable = True)
+
+            in_dir = ctx.actions.declare_directory("in_tree")
+            ctx.actions.run_shell(
+                progress_message = "Creating in_tree",
+                outputs = [in_dir],
+                command = "echo 1 > $1/a && echo 2 > $1/b",
+                arguments = [in_dir.path],
+            )
+            out_dir = ctx.actions.declare_directory("out_tree")
+            ctx.actions.map_directory(
+                implementation = _map_impl,
+                input_directories = {"in": in_dir},
+                output_directories = {"out": out_dir},
+                tools = {"copy_tool": tool},
+            )
+            return DefaultInfo(files = depset([out_dir]))
+
+        map_dir = rule(implementation = _map_dir_impl)
+        """
+            .replace("COPY_TOOL_SCRIPT", COPY_TOOL_SCRIPT));
+    testCase.write(
+        "foo/BUILD",
+        """
+        load(":map.bzl", "map_dir")
+        map_dir(name = "map")
+        genrule(name = "consumer", srcs = [":map"], outs = ["consumer.out"], cmd = "ls $< > $@")
+        """);
+
+    addSpawnShim(
+        "Executing genrule //foo:consumer",
+        (spawn, context) -> {
+          SpecialArtifact outTree = SpawnInputUtils.getTreeArtifactWithName(spawn, "out_tree");
+          Artifact lost =
+              SpawnInputUtils.getExpandedToArtifact("a_subdir/file", outTree, spawn, context);
+          assertThat(lost.getParent().isSubTreeArtifact()).isTrue();
+          return createLostInputsExecException(context, lost);
+        });
+
+    testCase.buildTarget("//foo:consumer");
+
+    verifyAllSpawnShimsConsumed();
+    var executedSpawns = ImmutableMultiset.copyOf(getExecutedSpawnDescriptions());
+    assertThat(executedSpawns).hasCount("Creating in_tree", 1);
+    assertThat(executedSpawns).hasCount("Copying file to foo/out_tree/a_subdir", 2);
+    // TODO(b/149943300): Only rewind template expansion actions that produce lost inputs.
+    assertThat(executedSpawns).hasCount("Copying file to foo/out_tree/b_subdir", 2);
+    assertThat(executedSpawns).hasCount("Executing genrule //foo:consumer", 2);
+  }
+
   public final void runGeneratedRunfilesRewound_allFilesLost_spawnFailed() throws Exception {
     // This test demonstrates that rewinding works when an action fails due to lost inputs which are
     // generated files in the action's runfiles. Rewinding must propagate across the runfiles tree
