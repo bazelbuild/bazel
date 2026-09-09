@@ -810,7 +810,7 @@ public final class RemoteModuleTest {
             "--remote_cache=grpc://cache1",
             "--remote_executor=grpc://exec1",
             "--remote_instance_name=instance1",
-            "--remote_downloader=grpc://downloader1");
+            "--experimental_remote_downloader=grpc://downloader1");
     assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteDownloader))
         .isNotEqualTo(baseSalt);
 
