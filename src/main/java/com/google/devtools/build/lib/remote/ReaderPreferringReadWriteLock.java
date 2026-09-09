@@ -52,10 +52,10 @@ final class ReaderPreferringReadWriteLock {
   private volatile int holds;
 
   void lockReadInterruptibly() throws InterruptedException {
-    if (Thread.interrupted()) {
-      throw new InterruptedException();
-    }
     while (true) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
       int currentHolds = holds;
       if (currentHolds != WRITER) {
         // Readers are admitted even if a writer is waiting.
@@ -95,11 +95,11 @@ final class ReaderPreferringReadWriteLock {
   }
 
   void lockWriteInterruptibly() throws InterruptedException {
-    if (Thread.interrupted()) {
-      throw new InterruptedException();
-    }
     synchronized (this) {
       while (true) {
+        if (Thread.interrupted()) {
+          throw new InterruptedException();
+        }
         int currentHolds = holds;
         if (currentHolds == 0) {
           // Barging ahead of another waiting writer is safe since it will be woken up and recheck
