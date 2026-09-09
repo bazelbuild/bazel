@@ -165,7 +165,11 @@ _common_attrs = {
     ),
     "strip_prefix": attr.string(
         default = "",
-        doc = "A directory prefix to strip from the extracted files.",
+        doc = """A directory prefix to strip from the extracted files.
+
+For large repositories, consider combining this with `sparse_checkout_patterns`
+to limit the files checked out before this prefix is stripped. Patterns match
+paths in the original Git repository.""",
     ),
     "add_prefix": attr.string(
         default = "",
