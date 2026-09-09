@@ -33,6 +33,12 @@ public final class BuildConfigurationKeyValue implements SkyValue {
   public record Key(BuildOptions buildOptions) implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
+    /**
+     * @deprecated Use {@link #create} instead to ensure interning.
+     */
+    @Deprecated
+    public Key {}
+
     @AutoCodec.Instantiator
     public static Key create(BuildOptions buildOptions) {
       return interner.intern(new Key(buildOptions));
