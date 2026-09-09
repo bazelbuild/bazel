@@ -23,6 +23,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContentAsLatin1;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.writeContent;
 import static java.util.Arrays.stream;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -82,6 +83,7 @@ import com.google.devtools.build.lib.testutil.SpawnController.ExecResult;
 import com.google.devtools.build.lib.testutil.SpawnController.SpawnShim;
 import com.google.devtools.build.lib.testutil.SpawnInputUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -105,6 +107,7 @@ import java.util.Map;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
@@ -2033,8 +2036,8 @@ public class RewindingTestsHelper {
           "Mapping foo/mapped_dir " + child,
           (spawn, context) -> {
             try {
-              allSiblingsReExecuting.await();
-            } catch (BrokenBarrierException e) {
+              allSiblingsReExecuting.await(TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS);
+            } catch (BrokenBarrierException | TimeoutException e) {
               throw new IllegalStateException(e);
             }
             return ExecResult.delegate();
