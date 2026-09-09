@@ -214,7 +214,6 @@ public class StarlarkBaseExternalContextTest {
               /* output= */ any(),
               /* clientEnv= */ any(),
               /* context= */ any(),
-              /* downloadPhaser= */ any(),
               /* mayHardlink= */ anyBoolean()))
           .thenReturn(testFuture);
 
@@ -258,7 +257,6 @@ public class StarlarkBaseExternalContextTest {
               /* output= */ any(),
               /* clientEnv= */ any(),
               /* context= */ any(),
-              /* downloadPhaser= */ any(),
               /* mayHardlink= */ anyBoolean()))
           .thenReturn(failingFuture);
       Object failingDownload =
@@ -314,7 +312,6 @@ public class StarlarkBaseExternalContextTest {
             /* output= */ any(),
             /* clientEnv= */ any(),
             /* context= */ any(),
-            /* downloadPhaser= */ any(),
             /* mayHardlink= */ anyBoolean()))
         .thenReturn(new CompletableFuture<>());
 
@@ -380,7 +377,6 @@ public class StarlarkBaseExternalContextTest {
             /* output= */ any(),
             /* clientEnv= */ any(),
             /* context= */ any(),
-            /* downloadPhaser= */ any(),
             /* mayHardlink= */ anyBoolean()))
         .thenReturn(new CompletableFuture<>());
     try (StarlarkBaseExternalContext sbec = setupStarlarkContext(testPath)) {
@@ -438,7 +434,6 @@ public class StarlarkBaseExternalContextTest {
             /* output= */ any(),
             /* clientEnv= */ any(),
             /* context= */ any(),
-            /* downloadPhaser= */ any(),
             /* mayHardlink= */ anyBoolean()))
         .thenReturn(new CompletableFuture<>());
     try (StarlarkBaseExternalContext sbec = setupStarlarkContext(testPath)) {
