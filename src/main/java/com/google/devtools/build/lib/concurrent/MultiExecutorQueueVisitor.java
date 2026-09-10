@@ -110,6 +110,22 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
     super.executeWithExecutorService(runnable, getExecutorServiceByThreadPoolType(threadPoolType));
   }
 
+  @Override
+  public void execute(
+      QuiescingTask task, ThreadPoolType threadPoolType, boolean shouldStallAwaitingSignal) {
+    if (shouldStallAwaitingSignal && !executionPhaseTasksGoAhead) {
+      synchronized (this) {
+        if (!executionPhaseTasksGoAhead) {
+          Preconditions.checkNotNull(queuedPendingGoAhead).add(task);
+          return;
+        }
+      }
+    }
+    ExecutorService targetExecutor = getExecutorServiceByThreadPoolType(threadPoolType);
+    incrementRemainingTasks();
+    super.executeQuiescingTask(task, targetExecutor);
+  }
+
   @VisibleForTesting
   ExecutorService getExecutorServiceByThreadPoolType(ThreadPoolType threadPoolType) {
     return switch (threadPoolType) {
@@ -151,7 +167,14 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
     synchronized (this) {
       executionPhaseTasksGoAhead = true;
       for (Runnable runnable : Preconditions.checkNotNull(queuedPendingGoAhead)) {
-        execute(runnable, ThreadPoolType.EXECUTION_PHASE, /* shouldStallAwaitingSignal= */ false);
+        if (runnable instanceof QuiescingTask quiescingTask) {
+          execute(
+              quiescingTask,
+              ThreadPoolType.EXECUTION_PHASE,
+              /* shouldStallAwaitingSignal= */ false);
+        } else {
+          execute(runnable, ThreadPoolType.EXECUTION_PHASE, /* shouldStallAwaitingSignal= */ false);
+        }
       }
       queuedPendingGoAhead = null;
     }

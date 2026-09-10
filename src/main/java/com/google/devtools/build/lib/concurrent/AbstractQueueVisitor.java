@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -326,16 +327,23 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     executeWithExecutorService(runnable, executorService);
   }
 
+  @Override
+  public void execute(QuiescingTask task) {
+    incrementRemainingTasks();
+    executeQuiescingTask(task, executorService);
+  }
+
+  void incrementRemainingTasks() {
+    long tasks = remainingTasks.incrementAndGet();
+    Preconditions.checkState(
+        tasks > 0,
+        "Incrementing remaining tasks counter resulted in impossible non-positive number.");
+  }
+
   protected void executeWithExecutorService(Runnable runnable, ExecutorService executorService) {
     WrappedRunnable wrappedRunnable = new WrappedRunnable(runnable);
     try {
-      // It's impossible for this increment to result in remainingTasks.get <= 0 because
-      // remainingTasks is never negative. Therefore it isn't necessary to check its value for
-      // the purpose of updating zeroRemainingTasks.
-      long tasks = remainingTasks.incrementAndGet();
-      Preconditions.checkState(
-          tasks > 0,
-          "Incrementing remaining tasks counter resulted in impossible non-positive number.");
+      incrementRemainingTasks();
       executeWrappedRunnable(wrappedRunnable, executorService);
     } catch (Throwable e) {
       if (!wrappedRunnable.ran) {
@@ -348,11 +356,29 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     }
   }
 
+  protected void executeQuiescingTask(QuiescingTask task, ExecutorService executorService) {
+    try {
+      if (executorService instanceof ForkJoinPool forkJoinPool) {
+        if (forkJoinPool.equals(ForkJoinTask.getPool())) {
+          task.fork();
+        } else {
+          forkJoinPool.execute((ForkJoinTask<?>) task);
+        }
+      } else {
+        executorService.execute(task);
+      }
+    } catch (Throwable e) {
+      if (!task.hasRun()) {
+        recordError(e, task);
+      }
+    }
+  }
+
   protected void executeWrappedRunnable(WrappedRunnable runnable, ExecutorService executorService) {
     executorService.execute(runnable);
   }
 
-  private synchronized void maybeSaveUnhandledThrowable(Throwable e, boolean markToStopJobs) {
+  synchronized void maybeSaveUnhandledThrowable(Throwable e, boolean markToStopJobs) {
     boolean critical = false;
     ErrorClassification errorClassification = errorClassifier.classify(e);
     switch (errorClassification) {
@@ -399,6 +425,18 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       maybeSaveUnhandledThrowable(e, /*markToStopJobs=*/ false);
     } finally {
       wrappedRunnable.decrementRemainingTasksOnce();
+    }
+  }
+
+  private void recordError(Throwable e, QuiescingTask task) {
+    try {
+      if (e instanceof RejectedExecutionException && threadInterrupted) {
+        return;
+      }
+      catastrophe = e;
+      maybeSaveUnhandledThrowable(e, /* markToStopJobs= */ false);
+    } finally {
+      task.decrementRemainingTasksOnce();
     }
   }
 
@@ -467,7 +505,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     }
   }
 
-  private void addJob(Thread thread) {
+  void addJob(Thread thread) {
     // Fast-path get() avoids monitor lock contention on hash collision bins in computeIfAbsent.
     AtomicInteger count = jobs.get(thread);
     if (count == null) {
@@ -476,7 +514,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     count.incrementAndGet();
   }
 
-  private void removeJob(Thread thread) {
+  void removeJob(Thread thread) {
     jobs.get(thread).decrementAndGet();
   }
 
@@ -485,7 +523,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     threadInterrupted = true;
   }
 
-  private void decrementRemainingTasks() {
+  void decrementRemainingTasks() {
     // This decrement statement may result in remainingTasks.get() == 0, so it must be checked
     // and the zeroRemainingTasks condition object notified if that condition is obtained.
     long tasks = remainingTasks.decrementAndGet();

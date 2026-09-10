@@ -50,7 +50,7 @@ public class NodeEntryVisitorTest {
 
     nodeEntryVisitor.enqueueEvaluation(nonCPUHeavyKey, null);
 
-    verify(executor).execute(any(), eq(ThreadPoolType.REGULAR), anyBoolean());
+    verify(executor).execute((Runnable) any(), eq(ThreadPoolType.REGULAR), anyBoolean());
   }
 
   @Test
@@ -61,6 +61,6 @@ public class NodeEntryVisitorTest {
 
     nodeEntryVisitor.enqueueEvaluation(cpuHeavyKey, null);
 
-    verify(executor).execute(any(), eq(ThreadPoolType.CPU_HEAVY), anyBoolean());
+    verify(executor).execute((Runnable) any(), eq(ThreadPoolType.CPU_HEAVY), anyBoolean());
   }
 }
