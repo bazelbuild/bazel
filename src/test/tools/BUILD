@@ -45,6 +45,9 @@ sh_test(
     data = [
         "//src/main/tools:linux-sandbox",
     ],
+    exec_group_compatible_with = {
+        "test": ["//:mount_capable"],
+    },
     tags = [
         "no_macos",
         "no_windows",
