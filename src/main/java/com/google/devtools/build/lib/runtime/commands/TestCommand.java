@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.runtime.commands;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.EXECUTES;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -95,15 +96,17 @@ public class TestCommand implements BlazeCommand {
     }
   }
 
+  @VisibleForTesting
+  static final String STREAMED_OUTPUT_WARNING =
+      "Streamed test output requested. All tests will be run without sharding, one at a time"
+          + " (sequential execution forced by --test_strategy=exclusive). For parallel execution of"
+          + " multiple tests, use --test_output=errors or --test_output=all.";
+
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     TestOutputFormat testOutput = options.getOptions(ExecutionOptions.class).getTestOutput();
     if (testOutput == TestOutputFormat.STREAMED) {
-      env.getReporter()
-          .handle(
-              Event.warn(
-                  "Streamed test output requested. All tests will be run without sharding, "
-                      + "one at a time"));
+      env.getReporter().handle(Event.warn(STREAMED_OUTPUT_WARNING));
     }
 
     AnsiTerminalPrinter printer =
