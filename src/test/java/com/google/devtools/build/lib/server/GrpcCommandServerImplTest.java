@@ -407,4 +407,22 @@ public final class GrpcCommandServerImplTest {
     onCancelHandler.getValue().run(); // arrives late, as gRPC delivers it on its own schedule
     assertThat(Thread.interrupted()).isFalse();
   }
+
+  @Test
+  public void testBlockingStreamObserverIgnoresOnNextAfterCompletion() throws Exception {
+    // This test attempts to verify that an onNext call arriving after onCompleted does not
+    // interrupt the thread making it, since a thread pool may already run an unrelated command on
+    // it by then.
+    ServerCallStreamObserver<RunResponse> observer = mock(ServerCallStreamObserver.class);
+    when(observer.isReady()).thenReturn(true);
+    BlockingStreamObserver<RunResponse> blockingStreamObserver =
+        new BlockingStreamObserver<>(observer, RunResponse.getDefaultInstance());
+
+    byte[] response = RunResponse.getDefaultInstance().toByteArray();
+    blockingStreamObserver.onNext(response); // the call commandThread gets remembered by
+    blockingStreamObserver.onCompleted();
+    when(observer.isCancelled()).thenReturn(true);
+    blockingStreamObserver.onNext(response); // arrives late, from some other thread in practice
+    assertThat(Thread.interrupted()).isFalse();
+  }
 }

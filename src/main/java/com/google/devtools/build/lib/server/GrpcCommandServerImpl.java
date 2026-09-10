@@ -75,11 +75,12 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
    * command while printing output as well as sending the final exit code to the client. However, it
    * maintains the interrupt flag if it is already set.
    *
-   * <p>Once the client prematurely closed the connection, the main thread of the command is
-   * interrupted once, so that the command terminates even when it writes nothing more. Interrupting
-   * the calling thread instead loses that interrupt whenever cli-update-thread writes first, as it
-   * ignores interrupts, and interrupting on every call keeps a command retrying an interruptible
-   * step from ever converging, see https://github.com/bazelbuild/bazel/issues/30435.
+   * <p>When the client connection closes prematurely, the command thread is interrupted exactly
+   * once, allowing it to terminate even if it produces no further output. Interrupting the thread
+   * calling {@link #onNext} instead may lose the signal when {@code cli-update-thread} writes
+   * first because that thread ignores interrupts. Also, interrupting on every write may repeatedly
+   * re-arm the interrupt and prevent a retry of an interruptible step from ever converging, see
+   * https://github.com/bazelbuild/bazel/issues/30435.
    */
   @VisibleForTesting
   static class BlockingStreamObserver<T extends Message> implements GrpcCommandServer.Responder {
@@ -88,14 +89,14 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
 
     /**
      * Taken from the first {@link #onNext} call, which {@link CommandServer} performs before any
-     * output can reach this observer, and cleared in {@link #onCompleted} when done.
+     * output can reach this observer.
      */
     @GuardedBy("this")
     @Nullable
     private Thread commandThread;
 
     @GuardedBy("this")
-    private boolean commandInterrupted;
+    private boolean commandInterruptible = true;
 
     BlockingStreamObserver(StreamObserver<T> observer, T responseType) {
       this((ServerCallStreamObserver<T>) observer, responseType);
@@ -118,9 +119,9 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
 
     private synchronized void notifyWaitersAndInterruptCommand() {
       notifyAll(); // for the reason given in notifyWaiters
-      if (commandThread != null && !commandInterrupted) {
+      if (commandInterruptible && commandThread != null) {
         commandThread.interrupt(); // the client went away after the first write
-        commandInterrupted = true;
+        commandInterruptible = false;
       }
     }
 
@@ -155,16 +156,16 @@ public class GrpcCommandServerImpl extends CommandServerGrpc.CommandServerImplBa
         if (interrupted) {
           Thread.currentThread().interrupt();
         }
-        if (observer.isCancelled() && !commandInterrupted) {
+        if (commandInterruptible && observer.isCancelled()) {
           commandThread.interrupt(); // the client was already gone at the first write
-          commandInterrupted = true;
+          commandInterruptible = false;
         }
       }
     }
 
     @Override
     public synchronized void onCompleted() throws IOException {
-      commandThread = null; // a thread pool may already run another command on it
+      commandInterruptible = false; // a late event may otherwise interrupt the pooled commandThread
       try {
         observer.onCompleted();
       } catch (StatusRuntimeException e) {
