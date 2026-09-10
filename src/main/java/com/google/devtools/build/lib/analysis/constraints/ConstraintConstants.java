@@ -65,6 +65,14 @@ public final class ConstraintConstants {
           OS.OPENBSD,
           ConstraintValueInfo.create(
               OS_CONSTRAINT_SETTING,
+              Label.parseCanonicalUnchecked("@platforms//os:netbsd")),
+          OS.NETBSD,
+          ConstraintValueInfo.create(
+              OS_CONSTRAINT_SETTING,
+              Label.parseCanonicalUnchecked("@platforms//os:dragonfly")),
+          OS.DRAGONFLY,
+          ConstraintValueInfo.create(
+              OS_CONSTRAINT_SETTING,
               Label.parseCanonicalUnchecked("@platforms//os:none")),
           OS.UNKNOWN);
 

@@ -22,11 +22,13 @@ public enum OS {
   DARWIN("osx", "Mac OS X"),
   FREEBSD("freebsd", "FreeBSD"),
   OPENBSD("openbsd", "OpenBSD"),
+  NETBSD("netbsd", "NetBSD"),
+  DRAGONFLY("dragonfly", "DragonFly"),
   LINUX("linux", "Linux"),
   WINDOWS("windows", "Windows"),
   UNKNOWN("unknown", "");
 
-  private static final EnumSet<OS> POSIX_COMPATIBLE = EnumSet.of(DARWIN, FREEBSD, OPENBSD, LINUX);
+  private static final EnumSet<OS> POSIX_COMPATIBLE = EnumSet.of(DARWIN, FREEBSD, OPENBSD, NETBSD, DRAGONFLY, LINUX);
 
   private final String canonicalName;
   private final String detectionName;
