@@ -101,10 +101,11 @@ public final class CoverageReportActionBuilder {
       ResourceSet.createWithRamCpu(/* memoryMb= */ 750, /* cpu= */ 1);
 
   private static final Comparator<ActionOwner> ACTION_OWNER_COMPARATOR =
-      comparing(
-              (ActionOwner actionOwner) -> actionOwner.getExecProperties().isEmpty(), falseFirst())
-          .thenComparing(ActionOwner::getLabel)
-          .thenComparing(ActionOwner::getConfigurationChecksum);
+      Comparator.nullsFirst(
+          comparing(
+                  (ActionOwner actionOwner) -> actionOwner.getExecProperties().isEmpty(), falseFirst())
+              .thenComparing(ActionOwner::getLabel)
+              .thenComparing(ActionOwner::getConfigurationChecksum));
 
   // SpawnActions can't be used because they need the AnalysisEnvironment and this action is
   // created specially at the very end of the analysis phase when we don't have it anymore.
@@ -221,14 +222,18 @@ public final class CoverageReportActionBuilder {
         continue;
       }
       builder.addAll(testParams.getCoverageArtifacts());
+      ActionOwner candidateOwner = testParams.getActionOwnerForCoverage();
+      if (candidateOwner == null) {
+        continue;
+      }
       // targetsToTest has non-deterministic order, so we ensure that we pick the same action owner
       // and matching report generator each time by picking the owner that's lexicographically
       // largest. We prefer an owner with exec properties set in case the action is run remotely.
       if (reportGenerator == null
-          || ACTION_OWNER_COMPARATOR.compare(testParams.getActionOwnerForCoverage(), actionOwner)
-              > 0) {
+          || actionOwner == null
+          || ACTION_OWNER_COMPARATOR.compare(candidateOwner, actionOwner) > 0) {
         reportGenerator = generator;
-        actionOwner = testParams.getActionOwnerForCoverage();
+        actionOwner = candidateOwner;
       }
     }
     // If all tests are incompatible, there's nothing to do.
