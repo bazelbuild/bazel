@@ -378,10 +378,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               ruleContext, (Artifact) output, (String) content, isExecutable, mnemonic);
     } else if (content instanceof Args args) {
       var unmodifiedExecutionRequirements =
-          TargetUtils.getFilteredExecutionInfo(
-              executionRequirementsUnchecked,
-              ruleContext.getRule(),
-              getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
+          getExecutionInfo(executionRequirementsUnchecked, ruleContext);
       action =
           new ParameterFileWriteAction(
               ruleContext.getActionOwner(),
@@ -835,10 +832,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
 
     ImmutableMap<String, String> executionInfo =
-        TargetUtils.getFilteredExecutionInfo(
-            executionRequirementsUnchecked,
-            ruleContext.getRule(),
-            getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
+        getExecutionInfo(executionRequirementsUnchecked, ruleContext);
     builder.setExecutionInfo(executionInfo);
 
     String execGroup = determineExecGroup(ruleContext, execGroupUnchecked, toolchainUnchecked);
@@ -1147,12 +1141,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         ruleContext
             .getConfiguration()
             .modifiedExecutionInfo(
-                TargetUtils.getFilteredExecutionInfo(
-                    executionRequirementsUnchecked,
-                    ruleContext.getRule(),
-                    getSemantics()
-                        .getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION)),
-                mnemonic);
+                getExecutionInfo(executionRequirementsUnchecked, ruleContext), mnemonic);
     executionInfo =
         ImmutableMap.<String, String>builderWithExpectedSize(executionInfo.size() + 1)
             .putAll(executionInfo)
@@ -1299,6 +1288,25 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
   private InterruptibleSupplier<RepositoryMapping> getMainRepoMappingSupplier() {
     return context.getRuleContext().getAnalysisEnvironment()::getMainRepoMapping;
+  }
+
+  private ImmutableMap<String, String> getExecutionInfo(
+      Object executionRequirementsUnchecked, RuleContext ruleContext) throws EvalException {
+    if (executionRequirementsUnchecked != null && executionRequirementsUnchecked != Starlark.NONE) {
+      Dict<?, ?> dict =
+          Dict.noneableCast(
+              executionRequirementsUnchecked, String.class, String.class, "execution_requirements");
+      if (dict.containsKey(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING)) {
+        throw Starlark.errorf(
+            "execution requirement '%s' cannot be set directly; it can only be enabled via"
+                + " --modify_execution_info",
+            ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING);
+      }
+    }
+    return TargetUtils.getFilteredExecutionInfo(
+        executionRequirementsUnchecked,
+        ruleContext.getRule(),
+        getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
   }
 
   /** The analysis context for {@code Starlark} actions */
