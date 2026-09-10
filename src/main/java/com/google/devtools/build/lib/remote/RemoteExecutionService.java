@@ -1100,6 +1100,15 @@ public class RemoteExecutionService {
     }
   }
 
+  private static void validateOutputPath(String path) throws IOException {
+    if (path.isEmpty()
+        || PathFragment.containsUplevelReferences(path)
+        || PathFragment.create(path).isAbsolute()
+        || PathFragment.create(path).isEmpty()) {
+      throw new IOException("Malformed output path: " + path);
+    }
+  }
+
   private static DirectoryMetadata parseDirectory(
       Path parent, Directory dir, Map<Digest, Directory> childDirectoriesMap) throws IOException {
     ImmutableList.Builder<FileMetadata> filesBuilder = ImmutableList.builder();
@@ -1159,8 +1168,9 @@ public class RemoteExecutionService {
     Map<Path, ListenableFuture<Tree>> dirMetadataDownloads =
         Maps.newHashMapWithExpectedSize(result.getOutputDirectoriesCount());
     for (OutputDirectory dir : result.getOutputDirectoriesList()) {
-      var outputPath = dir.getPath();
-      var localPath = remotePathResolver.outputPathToLocalPath(unicodeToInternal(outputPath));
+      var outputPath = unicodeToInternal(dir.getPath());
+      validateOutputPath(outputPath);
+      var localPath = remotePathResolver.outputPathToLocalPath(outputPath);
       if (dir.getTreeDigest().getSizeBytes() == 2) {
         // A valid Tree message contains at least a non-empty root field. The only way for a Tree
         // message to have a size of 2 bytes is if the root field is the only non-empty field and
@@ -1175,7 +1185,7 @@ public class RemoteExecutionService {
             Futures.transformAsync(
                 combinedCache.downloadBlobAsByteString(
                     context,
-                    outputPath,
+                    dir.getPath(),
                     remotePathResolver.localPathToExecPath(localPath.asFragment()),
                     dir.getTreeDigest()),
                 (treeBytes) ->
@@ -1202,8 +1212,9 @@ public class RemoteExecutionService {
 
     ImmutableMap.Builder<Path, FileMetadata> files = ImmutableMap.builder();
     for (OutputFile outputFile : result.getOutputFilesList()) {
-      Path localPath =
-          remotePathResolver.outputPathToLocalPath(unicodeToInternal(outputFile.getPath()));
+      var outputPath = unicodeToInternal(outputFile.getPath());
+      validateOutputPath(outputPath);
+      Path localPath = remotePathResolver.outputPathToLocalPath(outputPath);
       files.put(
           localPath,
           new FileMetadata(
@@ -1220,8 +1231,9 @@ public class RemoteExecutionService {
             result.getOutputDirectorySymlinksList(),
             result.getOutputSymlinksList());
     for (var symlink : outputSymlinks) {
-      var localPath =
-          remotePathResolver.outputPathToLocalPath(unicodeToInternal(symlink.getPath()));
+      var outputPath = unicodeToInternal(symlink.getPath());
+      validateOutputPath(outputPath);
+      var localPath = remotePathResolver.outputPathToLocalPath(outputPath);
       var target = PathFragment.create(unicodeToInternal(symlink.getTarget()));
       var existingMetadata = symlinkMap.get(localPath);
       if (existingMetadata != null) {

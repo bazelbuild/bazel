@@ -186,6 +186,17 @@ public class RemoteExecutionServiceTest {
   private static final ImmutableList<String> INVALID_PATH_COMPONENTS =
       ImmutableList.of("..", ".", "/", "a/b", "");
 
+  private static final ImmutableList<String> INVALID_OUTPUT_PATHS =
+      ImmutableList.of(
+          "",
+          ".",
+          "./.",
+          "..",
+          "../outside",
+          "a/../../outside",
+          "a/../b",
+          "/abs/path");
+
   @Mock private RemoteOutputChecker remoteOutputChecker; // download nothing by default.
 
   @Mock private OutputService outputService;
@@ -3594,5 +3605,69 @@ public class RemoteExecutionServiceTest {
                 RemoteExecutionService.parseActionResultMetadata(
                     cache, digestUtil, remoteActionExecutionContext, ar, remotePathResolver));
     assertThat(e).hasMessageThat().contains("Malformed path component: " + expectedName);
+  }
+
+  @Test
+  public void parseActionResultMetadata_invalidOutputFilePaths_rejected() throws Exception {
+    for (String invalidPath : INVALID_OUTPUT_PATHS) {
+      ActionResult ar =
+          ActionResult.newBuilder()
+              .addOutputFiles(
+                  OutputFile.newBuilder()
+                      .setPath(invalidPath)
+                      .setDigest(digestUtil.compute("content".getBytes(UTF_8))))
+              .build();
+
+      IOException e =
+          assertThrows(
+              IOException.class,
+              () ->
+                  RemoteExecutionService.parseActionResultMetadata(
+                      cache, digestUtil, remoteActionExecutionContext, ar, remotePathResolver));
+      assertThat(e).hasMessageThat().contains("Malformed output path: " + invalidPath);
+    }
+  }
+
+  @Test
+  public void parseActionResultMetadata_invalidOutputDirectoryPaths_rejected() throws Exception {
+    for (String invalidPath : INVALID_OUTPUT_PATHS) {
+      ActionResult ar =
+          ActionResult.newBuilder()
+              .addOutputDirectories(
+                  OutputDirectory.newBuilder()
+                      .setPath(invalidPath)
+                      .setTreeDigest(
+                          cache.addContents(
+                              remoteActionExecutionContext,
+                              Tree.newBuilder().setRoot(Directory.getDefaultInstance()).build())))
+              .build();
+
+      IOException e =
+          assertThrows(
+              IOException.class,
+              () ->
+                  RemoteExecutionService.parseActionResultMetadata(
+                      cache, digestUtil, remoteActionExecutionContext, ar, remotePathResolver));
+      assertThat(e).hasMessageThat().contains("Malformed output path: " + invalidPath);
+    }
+  }
+
+  @Test
+  public void parseActionResultMetadata_invalidOutputSymlinkPaths_rejected() throws Exception {
+    for (String invalidPath : INVALID_OUTPUT_PATHS) {
+      ActionResult ar =
+          ActionResult.newBuilder()
+              .addOutputSymlinks(
+                  OutputSymlink.newBuilder().setPath(invalidPath).setTarget("target"))
+              .build();
+
+      IOException e =
+          assertThrows(
+              IOException.class,
+              () ->
+                  RemoteExecutionService.parseActionResultMetadata(
+                      cache, digestUtil, remoteActionExecutionContext, ar, remotePathResolver));
+      assertThat(e).hasMessageThat().contains("Malformed output path: " + invalidPath);
+    }
   }
 }
