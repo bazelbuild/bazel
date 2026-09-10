@@ -600,15 +600,12 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
    */
   private ImmutableList<T> getAllowedDeps(
       @Nullable T target, Collection<ClassifiedDependency<T>> deps) {
-    if (target == null) {
-      return getDependencies(deps);
-    }
     // It's possible to query on a target that's configured in an exec configuration. In those
     // cases if --notool_deps is turned on, we only allow reachable targets that are ALSO in an
     // exec config. This is somewhat counterintuitive and subject to change in the future but seems
     // like the best option right now.
     if (settings.contains(Setting.ONLY_TARGET_DEPS)) {
-      BuildConfigurationValue currentConfig = getConfiguration(target);
+      BuildConfigurationValue currentConfig = target != null ? getConfiguration(target) : null;
       if (currentConfig != null && currentConfig.isToolConfiguration()) {
         deps =
             deps.stream()
