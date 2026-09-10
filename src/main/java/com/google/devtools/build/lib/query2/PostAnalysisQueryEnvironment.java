@@ -483,7 +483,10 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     Map<T, ImmutableList<ClassifiedDependency<T>>> reverseDepsByCT = new HashMap<>();
     for (Map.Entry<SkyKey, ImmutableList<ClassifiedDependency<T>>> entry :
         reverseDepsByKey.entrySet()) {
-      reverseDepsByCT.put(targetsByKey.get(entry.getKey()), entry.getValue());
+      T target = targetsByKey.get(entry.getKey());
+      if (target != null) {
+        reverseDepsByCT.put(target, entry.getValue());
+      }
     }
     return reverseDepsByCT.isEmpty() ? Collections.emptyList() : filterReverseDeps(reverseDepsByCT);
   }
@@ -493,6 +496,9 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     Set<T> result = CompactHashSet.create();
     for (Map.Entry<T, ImmutableList<ClassifiedDependency<T>>> targetAndRdeps :
         rawReverseDeps.entrySet()) {
+      if (targetAndRdeps.getKey() == null) {
+        continue;
+      }
       ImmutableList.Builder<ClassifiedDependency<T>> ruleDeps = ImmutableList.builder();
       for (ClassifiedDependency<T> parent : targetAndRdeps.getValue()) {
         T dependency = parent.dependency;
@@ -592,13 +598,14 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
    * @param target source target
    * @param deps next level of deps to filter
    */
-  private ImmutableList<T> getAllowedDeps(T target, Collection<ClassifiedDependency<T>> deps) {
+  private ImmutableList<T> getAllowedDeps(
+      @Nullable T target, Collection<ClassifiedDependency<T>> deps) {
     // It's possible to query on a target that's configured in an exec configuration. In those
     // cases if --notool_deps is turned on, we only allow reachable targets that are ALSO in an
     // exec config. This is somewhat counterintuitive and subject to change in the future but seems
     // like the best option right now.
     if (settings.contains(Setting.ONLY_TARGET_DEPS)) {
-      BuildConfigurationValue currentConfig = getConfiguration(target);
+      BuildConfigurationValue currentConfig = target != null ? getConfiguration(target) : null;
       if (currentConfig != null && currentConfig.isToolConfiguration()) {
         deps =
             deps.stream()
@@ -622,7 +629,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       }
     }
     if (settings.contains(Setting.NO_IMPLICIT_DEPS)) {
-        deps = deps.stream().filter(dep -> !dep.implicit).collect(Collectors.toList());
+      deps = deps.stream().filter(dep -> !dep.implicit).collect(Collectors.toList());
     }
     return getDependencies(deps);
   }
