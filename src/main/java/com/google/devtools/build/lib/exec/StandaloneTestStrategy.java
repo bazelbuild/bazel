@@ -437,6 +437,17 @@ public class StandaloneTestStrategy extends TestStrategy {
                     .build())
             .build());
 
+    // Peak memory usage is only measured for spawns that ran under the process-wrapper or a
+    // sandbox that reports rusage; it is unavailable for remotely executed or cached spawns.
+    long measuredMemoryPeakBytes = sm.measuredMemoryPeak();
+    if (measuredMemoryPeakBytes > 0) {
+      executionInfo.addResourceUsage(
+          BuildEventStreamProtos.TestResult.ExecutionInfo.ResourceUsage.newBuilder()
+              .setName("memory_bytes")
+              .setValue(measuredMemoryPeakBytes)
+              .build());
+    }
+
     return executionInfo.build();
   }
 
