@@ -560,6 +560,8 @@ EOF
     # Work-around replacing the path with a short DOS path.
     tmpdir_value="$(cygpath -m -l "${tmpdir_value}")"
     expected_prefix="${bazel_root}"
+  elif [[ -n "${BAZEL_NATIVE_IMAGE_TEST:-}" ]]; then
+    expected_prefix="${bazel_root}"
   fi
   assert_starts_with "${expected_prefix}/" "${tmpdir_value}"
 }

@@ -297,6 +297,18 @@ function run_bazel_and_interrupt() {
   echo 'Bazel command terminated'
 }
 
+function get_interrupt_test_server_jvm_out() {
+  local output_base
+  output_base="$(bazel --max_idle_secs=600 info output_base)"
+  if [[ -n "${BAZEL_NATIVE_IMAGE_TEST:-}" \
+        && -n "${BAZEL_NATIVE_IMAGE_CAPTURE_SERVER_LOGS:-}" \
+        && -n "${TEST_UNDECLARED_OUTPUTS_DIR:-}" ]]; then
+    echo "${TEST_UNDECLARED_OUTPUTS_DIR}/native-image-server/jvm.out"
+  else
+    echo "${output_base}/server/jvm.out"
+  fi
+}
+
 function do_test_interrupt_streamed_output() {
   # TODO(jmmv): --test_output=streamed, which we need below, doesn't seem to
   # work on Windows: we cannot find the expected test output as it makes
@@ -332,7 +344,7 @@ EOF
   # interrupt. Try to do this a few times, checking after each interrupt if
   # Bazel died.
   bazel shutdown
-  local jvm_out="$(bazel --max_idle_secs=600 info output_base)/server/jvm.out"
+  local jvm_out="$(get_interrupt_test_server_jvm_out)"
   for i in 1 2; do
     run_bazel_and_interrupt "Ready for interrupt" \
         --max_idle_secs=600 \
@@ -344,9 +356,10 @@ EOF
 
     # If Bazel crashed at any point, we expect it to tell us it had to restart
     # and/or the jvm.out log contains an error message.
+    [[ -f "${jvm_out}" ]] || fail "Expected server log at ${jvm_out}"
     cat "${jvm_out}" >>"${TEST_log}"
     expect_not_log "Starting local Blaze server"
-    if grep -q 'crash in async thread' "${jvm_out}"; then
+    if [[ -f "${jvm_out}" ]] && grep -q 'crash in async thread' "${jvm_out}"; then
       fail "Bazel crashed"
     fi
   done

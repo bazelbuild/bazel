@@ -27,6 +27,8 @@ eclipse-*bin/
 /bazel-*
 # Ignore outputs generated during Bazel bootstrapping.
 /output/
+# Ignore the PGO profile staged temporarily by the native-image benchmark.
+/src/bazel_server_native_pgo_profile.iprof
 # Ignore jekyll build output.
 /production
 /.sass-cache

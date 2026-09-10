@@ -6,7 +6,10 @@ load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup", "d
 
 package(default_visibility = ["//visibility:public"])
 
-exports_files(["remoteapis/MODULE.bazel"])
+exports_files([
+    "graalvm_25_2_4_linux_x64.BUILD",
+    "remoteapis/MODULE.bazel",
+])
 
 filegroup(
     name = "srcs",

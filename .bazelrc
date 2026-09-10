@@ -1,6 +1,10 @@
 common --enable_platform_specific_config
 common --@rules_python//python/config_settings:bootstrap_impl=script
 
+common:native-image-tests --//src/test/shell/bazel:use_native_bazel
+common:native-image-tests --test_env=BAZEL_NATIVE_IMAGE_TEST=1
+common:native-image-tests --test_env=BAZEL_NATIVE_IMAGE_CAPTURE_SERVER_LOGS=1
+
 # Either consumed as @remoteapis or as files.
 common --deleted_packages=third_party/remoteapis
 
