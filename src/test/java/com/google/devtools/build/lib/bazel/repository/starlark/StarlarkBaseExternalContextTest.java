@@ -486,7 +486,6 @@ public class StarlarkBaseExternalContextTest {
             /* output= */ any(),
             /* clientEnv= */ any(),
             /* context= */ any(),
-            /* downloadPhaser= */ any(),
             /* mayHardlink= */ anyBoolean()))
         .thenReturn(new CompletableFuture<>());
 
