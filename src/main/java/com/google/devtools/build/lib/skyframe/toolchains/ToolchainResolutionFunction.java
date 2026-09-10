@@ -414,10 +414,12 @@ public class ToolchainResolutionFunction implements SkyFunction {
           """
           No matching toolchains found for types:
           %s
+          Target platform: %s
           To debug, rerun with --toolchain_resolution_debug='%s'
           %s\
           """,
           String.join("\n", missingToolchainRows),
+          targetPlatformInfo.label(),
           String.join("|", labelStrings),
           platformSpecificMessage);
     }
