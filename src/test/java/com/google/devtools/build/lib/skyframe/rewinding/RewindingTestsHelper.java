@@ -147,6 +147,7 @@ import java.util.stream.IntStream;
  *       and others, which test different combinations of types of action inputs which can get lost.
  * </ol>
  */
+@SuppressWarnings("IdentifierName") // Using test method naming conventions.
 public class RewindingTestsHelper {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -1584,13 +1585,6 @@ public class RewindingTestsHelper {
     // This test is like runTreeArtifactRewound_allFilesLost_spawnFailed, except it loses only one
     // of the files in the tree that "Linking tree/libconsumes_tree.so" depends on. By doing so it
     // exercises the case when only a subset of a tree's files are lost.
-    //
-    // The linking action which failed is reset, and *all* the compilation actions whose outputs
-    // are included by the tree are rewound.
-    //
-    // It would be better if only the compilation action responsible for the lost file was rewound,
-    // but rewinding is expected to be uncommon, so the overkill effort shouldn't be a problem in
-    // practice.
 
     ImmutableList<String> lostTreeFileArtifactNames = ImmutableList.of("make_cc_dir/file1.pic.o");
 
@@ -1634,37 +1628,69 @@ public class RewindingTestsHelper {
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
     testCase.buildTarget("//tree:consumes_tree");
     verifyAllSpawnShimsConsumed();
-    assertThat(getExecutedSpawnDescriptions())
-        .containsExactly(
-            "TreeGenerator tree/make_cc_dir.cc",
-            "Compiling tree/make_cc_dir.cc/file1.cc",
-            "Compiling tree/make_cc_dir.cc/file2.cc",
-            "Compiling tree/source_2.cc",
-            "Linking tree/libconsumes_tree.so",
-            "Compiling tree/make_cc_dir.cc/file1.cc",
-            "Compiling tree/make_cc_dir.cc/file2.cc",
-            "Linking tree/libconsumes_tree.so",
-            "Linking tree/libconsumes_tree.a");
 
-    recorder.assertEvents(
-        /* runOnce= */ ImmutableList.of(
-            "TreeGenerator tree/make_cc_dir.cc", "Linking tree/libconsumes_tree.a"),
-        /* completedRewound= */ ImmutableList.of(
-            "Compiling tree/make_cc_dir.cc/file1.cc", "Compiling tree/make_cc_dir.cc/file2.cc"),
-        /* failedRewound= */ ImmutableList.of("Linking tree/libconsumes_tree.so"),
-        /* actionRewindingPostLostInputCounts= */ ImmutableList.of(
-            lostTreeFileArtifactNames.size()));
+    if (precise() && lostTreeFileArtifactNames.size() == 1) {
+      assertThat(lostTreeFileArtifactNames).containsExactly("make_cc_dir/file1.pic.o");
+      assertThat(getExecutedSpawnDescriptions())
+          .containsExactly(
+              "TreeGenerator tree/make_cc_dir.cc",
+              "Compiling tree/make_cc_dir.cc/file1.cc",
+              "Compiling tree/make_cc_dir.cc/file2.cc",
+              "Compiling tree/source_2.cc",
+              "Linking tree/libconsumes_tree.so",
+              "Compiling tree/make_cc_dir.cc/file1.cc",
+              "Linking tree/libconsumes_tree.so",
+              "Linking tree/libconsumes_tree.a");
 
-    assertThat(rewoundKeys).hasSize(3);
-    HashSet<Integer> treeActionIndices = new HashSet<>(ImmutableList.of(0, 1));
-    for (int i = 0; i < 2; i++) {
-      assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
-      assertThat(((ActionLookupData) rewoundKeys.get(i)).getLabel().getCanonicalForm())
+      recorder.assertEvents(
+          /* runOnce= */ ImmutableList.of(
+              "TreeGenerator tree/make_cc_dir.cc",
+              "Compiling tree/make_cc_dir.cc/file2.cc",
+              "Linking tree/libconsumes_tree.a"),
+          /* completedRewound= */ ImmutableList.of("Compiling tree/make_cc_dir.cc/file1.cc"),
+          /* failedRewound= */ ImmutableList.of("Linking tree/libconsumes_tree.so"),
+          /* actionRewindingPostLostInputCounts= */ ImmutableList.of(
+              lostTreeFileArtifactNames.size()));
+
+      assertThat(rewoundKeys).hasSize(2);
+      assertThat(rewoundKeys.get(0)).isInstanceOf(ActionLookupData.class);
+      assertThat(((ActionLookupData) rewoundKeys.get(0)).getLabel().getCanonicalForm())
           .isEqualTo("//tree:consumes_tree");
-      assertThat(treeActionIndices.remove(((ActionLookupData) rewoundKeys.get(i)).getActionIndex()))
-          .isTrue();
+      assertArtifactKey(rewoundKeys.get(1), "tree/_pic_objs/consumes_tree/make_cc_dir");
+    } else {
+      assertThat(getExecutedSpawnDescriptions())
+          .containsExactly(
+              "TreeGenerator tree/make_cc_dir.cc",
+              "Compiling tree/make_cc_dir.cc/file1.cc",
+              "Compiling tree/make_cc_dir.cc/file2.cc",
+              "Compiling tree/source_2.cc",
+              "Linking tree/libconsumes_tree.so",
+              "Compiling tree/make_cc_dir.cc/file1.cc",
+              "Compiling tree/make_cc_dir.cc/file2.cc",
+              "Linking tree/libconsumes_tree.so",
+              "Linking tree/libconsumes_tree.a");
+
+      recorder.assertEvents(
+          /* runOnce= */ ImmutableList.of(
+              "TreeGenerator tree/make_cc_dir.cc", "Linking tree/libconsumes_tree.a"),
+          /* completedRewound= */ ImmutableList.of(
+              "Compiling tree/make_cc_dir.cc/file1.cc", "Compiling tree/make_cc_dir.cc/file2.cc"),
+          /* failedRewound= */ ImmutableList.of("Linking tree/libconsumes_tree.so"),
+          /* actionRewindingPostLostInputCounts= */ ImmutableList.of(
+              lostTreeFileArtifactNames.size()));
+
+      assertThat(rewoundKeys).hasSize(3);
+      HashSet<Integer> treeActionIndices = new HashSet<>(ImmutableList.of(0, 1));
+      for (int i = 0; i < 2; i++) {
+        assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
+        assertThat(((ActionLookupData) rewoundKeys.get(i)).getLabel().getCanonicalForm())
+            .isEqualTo("//tree:consumes_tree");
+        assertThat(
+                treeActionIndices.remove(((ActionLookupData) rewoundKeys.get(i)).getActionIndex()))
+            .isTrue();
+      }
+      assertArtifactKey(rewoundKeys.get(2), "tree/_pic_objs/consumes_tree/make_cc_dir");
     }
-    assertArtifactKey(rewoundKeys.get(2), "tree/_pic_objs/consumes_tree/make_cc_dir");
   }
 
   /**
@@ -1882,19 +1908,27 @@ public class RewindingTestsHelper {
             return ExecResult.delegate();
           });
     }
-    // The expansion actions are the only writers, so they must never observe a reader. Both of them
-    // run twice: once initially and once after the expansion has been rewound.
-    for (String expansionAction :
-        ImmutableList.of("Mapping foo/mapped_dir (1)", "Mapping foo/mapped_dir (2)")) {
-      for (int run = 0; run < 2; run++) {
-        addSpawnShim(
-            expansionAction,
-            (spawn, context) -> {
-              maxConsumersReadingDuringExpansion.accumulateAndGet(
-                  consumersReadingTree.get(), Math::max);
-              return ExecResult.delegate();
-            });
-      }
+
+    SpawnShim updateMaxConsumers =
+        (spawn, context) -> {
+          maxConsumersReadingDuringExpansion.accumulateAndGet(
+              consumersReadingTree.get(), Math::max);
+          return ExecResult.delegate();
+        };
+
+    // The expansion actions are the only writers, so they must never observe a reader. (2) runs
+    // twice since its output is lost. (1) runs twice under imprecise rewinding, which rewinds all
+    // template expansion actions.
+    addSpawnShim(
+        "Mapping foo/mapped_dir (1)",
+        (spawn, context) -> {
+          if (!precise()) {
+            addSpawnShim("Mapping foo/mapped_dir (1)", updateMaxConsumers);
+          }
+          return updateMaxConsumers.getExecResult(spawn, context);
+        });
+    for (int run = 0; run < 2; run++) {
+      addSpawnShim("Mapping foo/mapped_dir (2)", updateMaxConsumers);
     }
     // Fails without executing a spawn, so that the expansion is rewound while the other consumers
     // are as likely as possible to still be reading the tree artifact. The consumers deliberately
@@ -1918,7 +1952,7 @@ public class RewindingTestsHelper {
         .isEqualTo(0);
     // Rewinding an expanded action re-expands the template, so both actions of the chain re-run.
     var executedSpawns = ImmutableMultiset.copyOf(getExecutedSpawnDescriptions());
-    assertThat(executedSpawns).hasCount("Mapping foo/mapped_dir (1)", 2);
+    assertThat(executedSpawns).hasCount("Mapping foo/mapped_dir (1)", precise() ? 1 : 2);
     assertThat(executedSpawns).hasCount("Mapping foo/mapped_dir (2)", 2);
   }
 
@@ -1989,8 +2023,7 @@ public class RewindingTestsHelper {
     var executedSpawns = ImmutableMultiset.copyOf(getExecutedSpawnDescriptions());
     assertThat(executedSpawns).hasCount("Creating in_tree", 1);
     assertThat(executedSpawns).hasCount("Copying file to foo/out_tree/a_subdir", 2);
-    // TODO(b/149943300): Only rewind template expansion actions that produce lost inputs.
-    assertThat(executedSpawns).hasCount("Copying file to foo/out_tree/b_subdir", 2);
+    assertThat(executedSpawns).hasCount("Copying file to foo/out_tree/b_subdir", precise() ? 1 : 2);
     assertThat(executedSpawns).hasCount("Executing genrule //foo:consumer", 2);
   }
 
