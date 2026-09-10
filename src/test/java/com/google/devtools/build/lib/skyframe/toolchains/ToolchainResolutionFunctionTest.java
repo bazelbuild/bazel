@@ -377,6 +377,38 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   @Test
   public void resolve_mandatory_missing() throws Exception {
     // There is no toolchain for the requested type.
+    useConfiguration("--platforms=//platforms:linux", "--host_platform=//platforms:linux");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(testToolchainType)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .isEqualTo(
+"""
+No matching toolchains found for target platform //platforms:linux:
+  //toolchain:test_toolchain
+    Closest candidate: //toolchain:toolchain_2
+    Execution constraints mismatch for platform //platforms:linux:
+      - //constraints:os: requires //constraints:mac (platform has //constraints:linux)
+To debug, rerun with --toolchain_resolution_debug='//toolchain:test_toolchain'
+For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro.\
+""");
+  }
+
+  @Test
+  public void resolve_mandatory_missing_targetPlatformMismatch() throws Exception {
+    rewriteModuleDotBazel(
+        """
+        register_toolchains("//toolchain:toolchain_1")
+        """);
+
     useConfiguration("--platforms=//platforms:linux");
     ToolchainContextKey key =
         ToolchainContextKey.key()
@@ -392,9 +424,97 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         .hasMessageThat()
         .isEqualTo(
 """
-No matching toolchains found for types:
+No matching toolchains found for target platform //platforms:linux:
   //toolchain:test_toolchain
-Target platform: //platforms:linux
+    Closest candidate: //toolchain:toolchain_1
+    Target constraints mismatch:
+      - //constraints:os: requires //constraints:mac (platform has //constraints:linux)
+To debug, rerun with --toolchain_resolution_debug='//toolchain:test_toolchain'
+For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro.\
+""");
+  }
+
+  @Test
+  public void resolve_mandatory_missing_multipleTargetConstraintMismatches() throws Exception {
+    addToolchain(
+        "extra",
+        "extra_toolchain_multi",
+        ImmutableList.of(),
+        ImmutableList.of("//constraints:mac", "//constraints:default_value"),
+        "baz");
+    rewriteModuleDotBazel(
+        """
+        register_toolchains("//extra:extra_toolchain_multi")
+        """);
+
+    useConfiguration("--platforms=//platforms:linux");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(testToolchainType)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .isEqualTo(
+"""
+No matching toolchains found for target platform //platforms:linux:
+  //toolchain:test_toolchain
+    Closest candidate: //extra:extra_toolchain_multi
+    Target constraints mismatch:
+      - //constraints:os: requires //constraints:mac (platform has //constraints:linux)
+      - //constraints:setting_with_default: requires //constraints:default_value (platform has //constraints:non_default_value)
+To debug, rerun with --toolchain_resolution_debug='//toolchain:test_toolchain'
+For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro.\
+""");
+  }
+
+  @Test
+  public void resolve_mandatory_missing_multipleExecutionPlatforms() throws Exception {
+    scratch.appendFile(
+        "constraints/BUILD",
+        """
+        constraint_value(
+            name = "freebsd",
+            constraint_setting = ":os",
+        )
+        """);
+    addToolchain(
+        "extra",
+        "extra_toolchain_no_exec",
+        ImmutableList.of("//constraints:freebsd"),
+        ImmutableList.of("//constraints:linux"),
+        "baz");
+    rewriteModuleDotBazel(
+        """
+        register_toolchains("//extra:extra_toolchain_no_exec")
+        register_execution_platforms("//platforms:linux", "//platforms:mac")
+        """);
+
+    useConfiguration("--platforms=//platforms:linux", "--host_platform=//platforms:linux");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(testToolchainType)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .isEqualTo(
+"""
+No matching toolchains found for target platform //platforms:linux:
+  //toolchain:test_toolchain
+    Closest candidate: //extra:extra_toolchain_no_exec
+    Execution constraints mismatch:
+      - Incompatible with all 2 execution platform(s)
 To debug, rerun with --toolchain_resolution_debug='//toolchain:test_toolchain'
 For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro.\
 """);
@@ -420,9 +540,8 @@ For more information on platforms or toolchains see https://bazel.build/concepts
         .hasMessageThat()
         .isEqualTo(
 """
-No matching toolchains found for types:
+No matching toolchains found for target platform //platforms:test_platform:
   @@repo+//toolchain:test_toolchain
-Target platform: //platforms:test_platform
 To debug, rerun with --toolchain_resolution_debug='\\Q@@repo+//toolchain:test_toolchain\\E'
 """);
   }
