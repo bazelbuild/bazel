@@ -1375,12 +1375,24 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // This is to prevent throwing away Packages we may need during execution.
     ImmutableSet.Builder<PackageIdentifier> packageSetBuilder = ImmutableSet.builder();
     if (discardType.discardsLoading()) {
-      packageSetBuilder.addAll(
-          Collections2.transform(
-              topLevelTargets, target -> target.getLabel().getPackageIdentifier()));
-      packageSetBuilder.addAll(
-          Collections2.transform(
-              topLevelAspects, aspect -> aspect.getLabel().getPackageIdentifier()));
+      for (ConfiguredTarget target : topLevelTargets) {
+        // Collect packages of top-level targets. In the case of an alias chain
+        // (//alias_a -> //alias_b -> //real), traverse the chain to ensure packages
+        // of both intermediate aliases and the resolved actual target are preserved.
+        ConfiguredTarget cur = target;
+        while (cur != null) {
+          packageSetBuilder.add(cur.getLabel().getPackageIdentifier());
+          packageSetBuilder.add(cur.getOriginalLabel().getPackageIdentifier());
+          ConfiguredTarget actual = cur.getActualNoFollow();
+          if (actual == cur) {
+            break;
+          }
+          cur = actual;
+        }
+      }
+      for (AspectKey aspect : topLevelAspects) {
+        packageSetBuilder.add(aspect.getLabel().getPackageIdentifier());
+      }
     }
     ImmutableSet<PackageIdentifier> topLevelPackages = packageSetBuilder.build();
     lastAnalysisDiscarded = true;
