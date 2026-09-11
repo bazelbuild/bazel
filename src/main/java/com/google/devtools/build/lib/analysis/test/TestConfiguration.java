@@ -364,7 +364,10 @@ public class TestConfiguration extends Fragment {
         documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
         effectTags = {OptionEffectTag.EXECUTION},
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help = "If true, then Bazel will run coverage postprocessing for test in a new spawn.")
+        help =
+            "If true, then Bazel will run coverage postprocessing for each test in a separate spawn"
+                + " with the CoveragePostProcessing mnemonic. --strategy and --modify_execution_info"
+                + " can configure this spawn independently of TestRunner.")
     public abstract boolean getSplitCoveragePostProcessing();
 
     @Option(
