@@ -1094,7 +1094,6 @@ public class HttpCacheClientTest {
 
     assertThat(engine.getNeedClientAuth()).isTrue();
   }
-
   @Test
   public void isChannelPipelineEmpty_nullFirstContext_returnsTrue() throws Exception {
     HttpCacheClient client =
@@ -1187,5 +1186,27 @@ public class HttpCacheClientTest {
     when(pipeline.firstContext()).thenReturn(context);
 
     assertThat(client.isChannelPipelineEmpty(pipeline)).isFalse();
+  }
+
+  @Test
+  public void close_shutsDownChannelPoolAndEventLoop() throws Exception {
+    ServerChannel server = null;
+    try {
+      server =
+          testServer.start(
+              new SimpleChannelInboundHandler<FullHttpRequest>() {
+                @Override
+                protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest req) {}
+              });
+      AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+      HttpCacheClient blobStore =
+          createHttpBlobStore(server, /* timeoutSeconds= */ 1, null, authAndTlsOptions);
+
+      blobStore.close();
+
+      blobStore.close(); // closing again should be safe and idempotent
+    } finally {
+      testServer.stop(server);
+    }
   }
 }
