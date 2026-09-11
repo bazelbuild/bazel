@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
@@ -48,19 +47,31 @@ public final class SandboxModuleTest {
   }
 
   @Test
-  public void checkSandboxBaseTopOnlyContainsPersistentDirs_unexpectedDirThrows() throws Exception {
+  public void
+      checkSandboxBaseTopOnlyContainsPersistentDirs_withUnexpectedDirs_logsWarningWithoutCrashing()
+          throws Exception {
     scratch.dir("/sandbox_base/_moved_trash_dir");
     scratch.dir("/sandbox_base/sandbox_stash");
     scratch.dir("/sandbox_base/linux-sandbox");
 
-    IllegalStateException e =
-        assertThrows(
-            IllegalStateException.class,
-            () -> SandboxModule.checkSandboxBaseTopOnlyContainsPersistentDirs(sandboxBase));
+    // Must not throw IllegalStateException (issue #27892)
+    SandboxModule.checkSandboxBaseTopOnlyContainsPersistentDirs(sandboxBase);
+  }
 
-    assertThat(e).hasMessageThat().contains("linux-sandbox");
-    assertThat(e).hasMessageThat().doesNotContain("_moved_trash_dir");
-    assertThat(e).hasMessageThat().doesNotContain("sandbox_stash");
+  @Test
+  public void checkSandboxBaseTopOnlyContainsPersistentDirs_withInaccessibleHelpers_cleansUp()
+      throws Exception {
+    Path helperDir = sandboxBase.getChild(SandboxHelpers.INACCESSIBLE_HELPER_DIR);
+    helperDir.createDirectoryAndParents();
+    helperDir.getChild("nested_file").createDirectoryAndParents();
+
+    Path helperFile = sandboxBase.getChild(SandboxHelpers.INACCESSIBLE_HELPER_FILE);
+    scratch.file(helperFile.getPathString(), "dummy content");
+
+    SandboxModule.checkSandboxBaseTopOnlyContainsPersistentDirs(sandboxBase);
+
+    assertThat(helperDir.exists()).isFalse();
+    assertThat(helperFile.exists()).isFalse();
   }
 
   @Test

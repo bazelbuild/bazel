@@ -465,9 +465,8 @@ public final class SandboxModule extends BlazeModule {
   }
 
   /**
-   * If there is anything other than SANDBOX_BASE_PERSISTENT_DIRS in sandboxBase when we hit this
-   * precondition then there is a programming error somewhere (or I made a wrong assumption that
-   * wasn't caught by any of our tests).
+   * Checks that sandboxBase only contains persistent directories, logging a warning if unexpected
+   * entries are found.
    */
   // Package-private for testing
   static void checkSandboxBaseTopOnlyContainsPersistentDirs(Path sandboxBase) {
@@ -496,13 +495,9 @@ public final class SandboxModule extends BlazeModule {
               .filter(entry -> !SANDBOX_BASE_PERSISTENT_DIRS.contains(entry))
               .collect(toImmutableList());
       if (!unexpectedEntries.isEmpty()) {
-        StringBuilder message =
-            new StringBuilder(
-                "Found unexpected entries in sandbox base. Please report this in"
-                    + " https://github.com/bazelbuild/bazel/issues.");
-        message.append(" The entries are: ");
+        StringBuilder message = new StringBuilder("Found unexpected entries in sandbox base: ");
         Joiner.on(", ").appendTo(message, unexpectedEntries);
-        throw new IllegalStateException(message.toString());
+        logger.atWarning().log("%s", message);
       }
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Failed to clean up sandbox base %s", sandboxBase);
