@@ -66,6 +66,9 @@ final class PathCanonicalizer {
      * @throws IOException if an I/O error occurs
      */
     PathFragment readSymbolicLink(PathFragment path) throws IOException;
+
+    /** Whether a directory may be reused without checking its status on the next traversal. */
+    boolean cacheDirectory(FileStatus status);
   }
 
   /** A trie node. */
@@ -76,8 +79,15 @@ final class PathCanonicalizer {
 
   /** A trie node corresponding to a directory. */
   private static final class DirectoryNode extends ConcurrentHashMap<String, Node> implements Node {
+    private final boolean revalidate;
+
     DirectoryNode() {
+      this(false);
+    }
+
+    DirectoryNode(boolean revalidate) {
       super(/* initialCapacity= */ 1);
+      this.revalidate = revalidate;
     }
   }
 
@@ -136,21 +146,30 @@ final class PathCanonicalizer {
     //   or to the root path when `segmentIndex` is 0.
     for (String segment : segments) {
       Node nextNode = node.get(segment);
-      if (nextNode == null) {
+      if (nextNode == null
+          || nextNode instanceof DirectoryNode directory && directory.revalidate) {
         PathFragment naivePath = path.subFragment(0, segmentIndex + 1);
         FileStatus status = resolver.statIfFound(naivePath);
         if (status == null) {
           throw new FileNotFoundException(naivePath.getPathString() + ERR_NO_SUCH_FILE_OR_DIR);
         }
-        Node resolvedNode;
-        if (status.isSymbolicLink()) {
-          resolvedNode = new SymlinkNode(resolver.readSymbolicLink(naivePath));
-        } else if (status.isDirectory()) {
-          resolvedNode = new DirectoryNode();
-        } else {
-          resolvedNode = NonDirectoryNode.INSTANCE;
+        if (nextNode == null) {
+          Node resolvedNode;
+          if (status.isSymbolicLink()) {
+            resolvedNode = new SymlinkNode(resolver.readSymbolicLink(naivePath));
+          } else if (status.isDirectory()) {
+            resolvedNode = new DirectoryNode(/* revalidate= */ !resolver.cacheDirectory(status));
+          } else {
+            resolvedNode = NonDirectoryNode.INSTANCE;
+          }
+          nextNode = node.computeIfAbsent(segment, unused -> resolvedNode);
+        } else if (status.isSymbolicLink()) {
+          // Retain the virtual directory as a probe if the physical symlink is later removed.
+          nextNode = new SymlinkNode(resolver.readSymbolicLink(naivePath));
+        } else if (!status.isDirectory()) {
+          // Likewise, preserve its cached children if a physical file is later removed.
+          nextNode = NonDirectoryNode.INSTANCE;
         }
-        nextNode = node.computeIfAbsent(segment, unused -> resolvedNode);
       }
 
       switch (nextNode) {

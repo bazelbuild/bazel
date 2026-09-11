@@ -98,12 +98,36 @@ public class RemoteOutputService implements OutputService {
       InputMetadataProvider inputArtifactData,
       Iterable<Artifact> outputArtifacts,
       boolean rewindingEnabled) {
+    return createActionFileSystem(
+        delegateFileSystem,
+        execRootFragment,
+        relativeOutputPath,
+        sourceRoots,
+        inputArtifactData,
+        inputArtifactData instanceof ActionInputMap inputs ? inputs : new ActionInputMap(0),
+        outputArtifacts,
+        rewindingEnabled);
+  }
+
+  @Nullable
+  @Override
+  public FileSystem createActionFileSystem(
+      FileSystem delegateFileSystem,
+      PathFragment execRootFragment,
+      String relativeOutputPath,
+      ImmutableList<Root> sourceRoots,
+      InputMetadataProvider inputArtifactData,
+      ActionInputMap checkedInputs,
+      Iterable<Artifact> outputArtifacts,
+      boolean rewindingEnabled) {
     checkNotNull(actionInputFetcher, "actionInputFetcher");
     return new RemoteActionFileSystem(
         delegateFileSystem,
         execRootFragment,
         relativeOutputPath,
         inputArtifactData,
+        checkedInputs,
+        outputArtifacts,
         actionInputFetcher);
   }
 

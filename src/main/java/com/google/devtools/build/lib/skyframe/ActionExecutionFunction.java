@@ -343,6 +343,7 @@ public class ActionExecutionFunction implements SkyFunction {
             skyframeActionExecutor.createActionFileSystem(
                 directories.getRelativeOutputPath(),
                 state.compositeInputMetadataProvider,
+                state.inputArtifactData,
                 action.getOutputs());
       }
     }
