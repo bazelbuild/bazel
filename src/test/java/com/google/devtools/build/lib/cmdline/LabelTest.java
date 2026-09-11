@@ -337,9 +337,10 @@ public class LabelTest {
   @Test
   public void testGetWorkspaceRoot() throws Exception {
     Label label = Label.parseCanonical("//bar/baz");
-    assertThat(label.getWorkspaceRootForStarlarkOnly()).isEmpty();
+    assertThat(label.getWorkspaceRootForStarlarkOnly(StarlarkSemantics.DEFAULT)).isEmpty();
     label = Label.parseCanonical("@repo//bar/baz");
-    assertThat(label.getWorkspaceRootForStarlarkOnly()).isEqualTo("external/repo");
+    assertThat(label.getWorkspaceRootForStarlarkOnly(StarlarkSemantics.DEFAULT))
+        .isEqualTo("external/repo");
   }
 
   @Test

@@ -85,6 +85,8 @@ public class IncrementalPackageRoots implements PackageRoots {
 
   private final IgnoredSubdirectories ignoredPaths;
 
+  private final boolean useBazelExternalDirectory;
+
   private final boolean allowExternalRepositories;
   @Nullable private EventBus eventBus;
   @Nullable private final PackageRootLookup fallbackPackageRootLookup;
@@ -98,6 +100,7 @@ public class IncrementalPackageRoots implements PackageRoots {
       EventBus eventBus,
       String prefix,
       IgnoredSubdirectories ignoredPaths,
+      boolean useBazelExternalDirectory,
       boolean allowExternalRepositories,
       @Nullable PackageRootLookup fallbackPackageRootLookup) {
     this.threadSafeExternalRepoPackageRootsMap = new ConcurrentHashMap<>();
@@ -106,6 +109,7 @@ public class IncrementalPackageRoots implements PackageRoots {
     this.prefix = prefix;
     this.ignoredPaths = ignoredPaths;
     this.eventBus = eventBus;
+    this.useBazelExternalDirectory = useBazelExternalDirectory;
     this.allowExternalRepositories = allowExternalRepositories;
     this.fallbackPackageRootLookup = fallbackPackageRootLookup;
     this.symlinkPlantingPool =
@@ -128,6 +132,7 @@ public class IncrementalPackageRoots implements PackageRoots {
         eventBus,
         prefix,
         ignoredSubdirectories,
+        /* useBazelExternalDirectory= */ false,
         allowExternalRepositories,
         /* fallbackPackageRootLookup= */ null);
   }
@@ -138,6 +143,7 @@ public class IncrementalPackageRoots implements PackageRoots {
       EventBus eventBus,
       String prefix,
       IgnoredSubdirectories ignoredSubdirectories,
+      boolean useBazelExternalDirectory,
       boolean allowExternalRepositories,
       @Nullable PackageRootLookup fallbackPackageRootLookup) {
     IncrementalPackageRoots incrementalPackageRoots =
@@ -147,6 +153,7 @@ public class IncrementalPackageRoots implements PackageRoots {
             eventBus,
             prefix,
             ignoredSubdirectories,
+            useBazelExternalDirectory,
             allowExternalRepositories,
             fallbackPackageRootLookup);
     eventBus.register(incrementalPackageRoots);
@@ -183,7 +190,7 @@ public class IncrementalPackageRoots implements PackageRoots {
     try {
       maybeConflictingBaseNamesLowercase =
           SymlinkForest.eagerlyPlantSymlinkForestSinglePackagePath(
-              execroot, singleSourceRoot.asPath(), prefix, ignoredPaths);
+              execroot, singleSourceRoot.asPath(), prefix, ignoredPaths, useBazelExternalDirectory);
     } catch (IOException e) {
       throwAbruptExitException(e);
     }
@@ -337,6 +344,7 @@ public class IncrementalPackageRoots implements PackageRoots {
             pkgId.getRepository(),
             pkg.sourceRoot().asPath(),
             execroot,
+            useBazelExternalDirectory,
             lazilyPlantedSymlinksRef);
       } else if (!maybeConflictingBaseNamesLowercase.isEmpty()) {
         String originalBaseName = pkgId.getTopLevelDir();
@@ -350,7 +358,7 @@ public class IncrementalPackageRoots implements PackageRoots {
         if (originalBaseName.isEmpty()
             || !maybeConflictingBaseNamesLowercase.contains(baseNameLowercase)
             || !SymlinkForest.symlinkShouldBePlanted(
-                prefix, ignoredPaths, originalBaseName, target)) {
+                prefix, ignoredPaths, useBazelExternalDirectory, originalBaseName, target)) {
           // We should have already eagerly planted a symlink for this, or there's nothing to do.
           return null;
         }
