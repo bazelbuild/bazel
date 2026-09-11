@@ -34,6 +34,7 @@ public final class ActionListenerRule implements RuleDefinition {
         for, e.g. <code>[ "Javac" ]</code>.
         <p>
           Mnemonics are not a public interface.
+          This is a TEST.
           There's no guarantee that the mnemonics and their actions don't change.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
