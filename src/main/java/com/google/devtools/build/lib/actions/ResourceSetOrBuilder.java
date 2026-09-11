@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.util.OS;
+import java.util.Map;
 
 /** Common interface for ResourceSet and builder. */
 @FunctionalInterface
@@ -26,4 +27,43 @@ public interface ResourceSetOrBuilder {
    */
   public ResourceSet buildResourceSet(OS os, int inputsSize)
       throws ExecException, InterruptedException;
+
+  /**
+   * Returns the resources a spawn with this declaration should book with the {@code
+   * ResourceManager} (the built resource set), with the "resources:*" entries in {@code
+   * executionInfo} and {@code execProperties} applied as overrides.
+   *
+   * <p>The entries are taken unparsed so that a declaration which ignores them, such as {@link
+   * #ignoringOverrides}, doesn't pay to parse them.
+   */
+  default ResourceSet buildLocalResources(
+      OS os, int inputsSize, Map<String, String> executionInfo, Map<String, String> execProperties)
+      throws ExecException, InterruptedException {
+    return buildResourceSet(os, inputsSize)
+        .withResourceOverrides(
+            ExecutionRequirements.parseResources(executionInfo),
+            ExecutionRequirements.parseResources(execProperties));
+  }
+
+  /**
+   * Returns a declaration of {@code resources} that the owning target's "resources:*" entries
+   * do not override.
+   */
+  static ResourceSetOrBuilder ignoringOverrides(ResourceSet resources) {
+    return new ResourceSetOrBuilder() {
+      @Override
+      public ResourceSet buildResourceSet(OS os, int inputsSize) {
+        return resources;
+      }
+
+      @Override
+      public ResourceSet buildLocalResources(
+          OS os,
+          int inputsSize,
+          Map<String, String> executionInfo,
+          Map<String, String> execProperties) {
+        return resources;
+      }
+    };
+  }
 }

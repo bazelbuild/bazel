@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -466,8 +467,15 @@ public class SpawnIncludeScanner {
         Artifact grepIncludes,
         Artifact input,
         ActionInput output) {
+      // The resources are fixed because the execution info is the compile action's: its
+      // `resources:` entries describe the compiler process rather than this grep, and charging them
+      // here would make include scanning book a full compile's worth of resources.
       super(
-          arguments, /* environment= */ ImmutableMap.of(), executionInfo, action, LOCAL_RESOURCES);
+          arguments,
+          /* environment= */ ImmutableMap.of(),
+          executionInfo,
+          action,
+          ResourceSetOrBuilder.ignoringOverrides(LOCAL_RESOURCES));
       this.inputs =
           SpawnInputs.of(NestedSetBuilder.create(Order.STABLE_ORDER, grepIncludes, input));
       this.outputs = ImmutableSet.of(output);
