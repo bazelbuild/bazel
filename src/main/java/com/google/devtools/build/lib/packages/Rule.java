@@ -222,16 +222,6 @@ public class Rule extends RuleOrMacroInstance implements Target {
     return AbstractAttributeMapper.isConfigurable(this, attributeName);
   }
 
-  /**
-   * Returns the attribute definition whose name is {@code attrName}, or null if not found. (Use
-   * get[X]Attr for the actual value.)
-   *
-   * @deprecated use {@link AbstractAttributeMapper#getAttributeDefinition} instead
-   */
-  @Deprecated
-  public Attribute getAttributeDefinition(String attrName) {
-    return ruleClass.getAttributeProvider().getAttributeByNameMaybe(attrName);
-  }
 
   /**
    * Constructs and returns an immutable list containing all the declared output files of this rule.
