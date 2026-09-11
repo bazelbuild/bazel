@@ -23,18 +23,30 @@
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/path_platform.h"
+#include "src/main/cpp/util/strings.h"
 
 namespace blaze {
+
+namespace {
+
+bool IsTruthyEnv(const std::string &name) {
+  std::string value = blaze_util::ToLower(blaze::GetEnv(name));
+  return !value.empty() && value != "0" && value != "false" && value != "no";
+}
+
+}  // namespace
 
 BazelStartupOptions::BazelStartupOptions()
     : StartupOptions("Bazel", /* lock_install_base= */ true),
       user_bazelrc_(""),
       use_system_rc(true),
       use_workspace_rc(true),
-      use_home_rc(true) {
+      use_home_rc(true),
+      use_system_certs(IsTruthyEnv("BAZEL_USE_SYSTEM_CERTS")) {
   RegisterNullaryStartupFlagNoRc("home_rc", &use_home_rc);
   RegisterNullaryStartupFlagNoRc("system_rc", &use_system_rc);
   RegisterNullaryStartupFlagNoRc("workspace_rc", &use_workspace_rc);
+  RegisterNullaryStartupFlag("use_system_certs", &use_system_certs);
   RegisterUnaryStartupFlag("bazelrc");
   use_compact_object_headers_ = true;
 }
@@ -107,6 +119,23 @@ void BazelStartupOptions::MaybeLogStartupOptionWarnings() const {
 void BazelStartupOptions::AddExtraOptions(
     std::vector<std::string> *result) const {
   StartupOptions::AddExtraOptions(result);
+  if (use_system_certs) {
+    result->push_back("--use_system_certs");
+  }
+}
+
+void BazelStartupOptions::AddJVMArgumentPrefix(
+    const blaze_util::Path &javabase, std::vector<std::string> *result) const {
+  StartupOptions::AddJVMArgumentPrefix(javabase, result);
+  if (!use_system_certs) {
+    return;
+  }
+
+#if defined(__APPLE__)
+  result->push_back("-Djavax.net.ssl.trustStoreType=KeychainStore");
+#elif defined(_WIN32) || defined(__CYGWIN__)
+  result->push_back("-Djavax.net.ssl.trustStoreType=Windows-ROOT");
+#endif
 }
 
 }  // namespace blaze
