@@ -531,6 +531,22 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  arguments = [ruleContext.files.srcs[0].path])");
   }
 
+  @Test
+  public void testRequireMnemonicForRunActions() throws Exception {
+    setBuildLanguageOptions("--incompatible_require_mnemonic_for_run_actions=true");
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.checkEvalErrorContains(
+        "actions.run and actions.run_shell require an explicit mnemonic.",
+        "ruleContext.actions.run_shell(",
+        "  outputs = ruleContext.files.srcs,",
+        "  command = 'echo hello')");
+    ev.checkEvalErrorContains(
+        "actions.run and actions.run_shell require an explicit mnemonic.",
+        "ruleContext.actions.run(",
+        "  outputs = ruleContext.files.srcs,",
+        "  executable = ruleContext.files.tools[0])");
+  }
+
   private void setupToolInInputsTest(String... ruleImpl) throws Exception {
     ImmutableList.Builder<String> lines = ImmutableList.builder();
     lines.add("def _main_rule_impl(ctx):");

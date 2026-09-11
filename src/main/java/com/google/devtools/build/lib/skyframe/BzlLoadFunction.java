@@ -894,6 +894,7 @@ public class BzlLoadFunction implements SkyFunction {
             transitiveDigest,
             ruleClassProvider.getToolsRepository(),
             ruleClassProvider.getNetworkAllowlistForTests(),
+            ruleClassProvider.getNoExplicitMnemonicAllowlist(),
             ruleClassProvider.getConfigurationFragmentMap(),
             mainRepoMapping);
 

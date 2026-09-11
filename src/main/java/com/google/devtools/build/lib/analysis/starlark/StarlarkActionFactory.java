@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
@@ -36,6 +35,7 @@ import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -86,6 +86,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -806,7 +807,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
     if (mnemonicUnchecked == Starlark.NONE
         && getSemantics()
-            .getBool(BuildLanguageOptions.INCOMPATIBLE_REQUIRE_MNEMONIC_FOR_RUN_ACTIONS)) {
+            .getBool(BuildLanguageOptions.INCOMPATIBLE_REQUIRE_MNEMONIC_FOR_RUN_ACTIONS)
+        && !(Allowlist.hasAllowlist(getRuleContext(), "no_explicit_mnemonic")
+            && Allowlist.isAvailableBasedOnRuleLocation(
+                getRuleContext(), "no_explicit_mnemonic"))) {
       throw Starlark.errorf("actions.run and actions.run_shell require an explicit mnemonic.");
     }
 
@@ -991,14 +995,14 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       if (!(o instanceof StarlarkActionResourceSetBuilder that)) {
         return false;
       }
-      return Objects.equal(fn, that.fn)
-          && Objects.equal(mnemonic, that.mnemonic)
-          && Objects.equal(semantics, that.semantics);
+      return Objects.equals(fn, that.fn)
+          && Objects.equals(mnemonic, that.mnemonic)
+          && Objects.equals(semantics, that.semantics);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(fn, mnemonic, semantics);
+      return Objects.hash(fn, mnemonic, semantics);
     }
   }
 

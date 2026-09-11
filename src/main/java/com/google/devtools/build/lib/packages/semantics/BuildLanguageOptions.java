@@ -428,7 +428,7 @@ public abstract class BuildLanguageOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, ctx.actions.run and ctx.actions.run_shell will require an explicit"
-              + " mnemonic")
+              + " mnemonic.")
   public abstract boolean getIncompatibleRequireMnemonicForRunActions();
 
   /** Used in an integration test to confirm that flags are visible to the interpreter. */
