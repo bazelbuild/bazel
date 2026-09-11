@@ -124,12 +124,17 @@ bool InputJar::LocateCentralDirectory(const std::string& path) {
     cdh_ = reinterpret_cast<const CDH*>(ecd);
     preamble_size_ = mapped_file_.offset(cdh_) - cen_position;
   } else {
-    auto ecd64loc = reinterpret_cast<const ECD64Locator*>(ziph::byte_ptr(ecd) -
-                                                          sizeof(ECD64Locator));
-    if (ecd64loc->is()) {
-      auto ecd64 = reinterpret_cast<const ECD64*>(ziph::byte_ptr(ecd64loc) -
-                                                  sizeof(ECD64));
-      if (!ecd64->is()) {
+    // The optional ECD64 locator and ECD64 records precede the ECD. Their
+    // locations are derived from an untrusted archive, so verify that each
+    // probed record lies within the mapped file before dereferencing it.
+    const unsigned char* ecd64loc_start =
+        ziph::byte_ptr(ecd) - sizeof(ECD64Locator);
+    auto ecd64loc = reinterpret_cast<const ECD64Locator*>(ecd64loc_start);
+    if (ecd64loc_start >= mapped_file_.start() && ecd64loc->is()) {
+      const unsigned char* ecd64_start =
+          ziph::byte_ptr(ecd64loc) - sizeof(ECD64);
+      auto ecd64 = reinterpret_cast<const ECD64*>(ecd64_start);
+      if (ecd64_start < mapped_file_.start() || !ecd64->is()) {
         diag_warnx(
             "%s:%d: %s is corrupt, expected ECD64 record at offset 0x%" PRIx64
             " is missing",
@@ -137,8 +142,18 @@ bool InputJar::LocateCentralDirectory(const std::string& path) {
         mapped_file_.Close();
         return false;
       }
-      cdh_ = reinterpret_cast<const CDH*>(ziph::byte_ptr(ecd64) -
-                                          ecd64->cen_size());
+      // The Central Directory precedes the ECD64 record by cen_size bytes.
+      // Reject a size that would place it before the start of the mapping, as
+      // that would make cdh_ point outside the mapped file.
+      uint64_t ecd64_cen_size = ecd64->cen_size();
+      if (ecd64_cen_size > static_cast<uint64_t>(mapped_file_.offset(ecd64))) {
+        diag_warnx("%s:%d: %s is corrupt: Central Directory size 0x%" PRIx64
+                   " is too large",
+                   __FILE__, __LINE__, path.c_str(), ecd64_cen_size);
+        mapped_file_.Close();
+        return false;
+      }
+      cdh_ = reinterpret_cast<const CDH*>(ziph::byte_ptr(ecd64) - ecd64_cen_size);
       preamble_size_ = mapped_file_.offset(cdh_) - ecd64->cen_offset();
       // Find CEN and preamble size.
     } else {
