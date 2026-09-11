@@ -946,7 +946,8 @@ public final class RemoteModule extends BlazeModule {
             remoteOptions.getRemoteBytestreamUriPrefix(),
             buildRequestId,
             invocationId,
-            remoteOptions.getRemoteBuildEventUploadMode()));
+            remoteOptions.getRemoteBuildEventUploadMode(),
+            remoteOptions.getMaximumOpenFiles()));
 
     if (enableRemoteDownloader) {
       ReferenceCountedChannel downloaderChannel;
