@@ -2753,6 +2753,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return consumedArtifactsTracker;
   }
 
+  /** Determines whether the given action was rewound during the current build. */
+  public boolean wasActionRewound(ActionAnalysisMetadata action) {
+    return skyframeActionExecutor.wasRewound(action);
+  }
+
   /**
    * Checks the action lookup values owning the given artifacts for action conflicts. Artifacts
    * satisfying the returned predicate are known to be transitively free from action conflicts.

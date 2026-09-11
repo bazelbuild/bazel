@@ -526,7 +526,10 @@ public final class SkyframeActionExecutor {
 
   /** Determines whether the given action was rewound during the current build. */
   public boolean wasRewound(ActionAnalysisMetadata action) {
-    return rewoundActions.contains(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
+    Artifact primaryOutput = action.getPrimaryOutput();
+    // Only GrepIncludesAction (from include scanning) has a null primary output.
+    return primaryOutput != null
+        && rewoundActions.contains(new OwnerlessArtifactWrapper(primaryOutput));
   }
 
   /**

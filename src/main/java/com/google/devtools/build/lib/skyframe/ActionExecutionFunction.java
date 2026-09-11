@@ -426,17 +426,6 @@ public class ActionExecutionFunction implements SkyFunction {
 
     // After the action execution is finalized, unregister the outputs from the consumed set to save
     // memory.
-    // Note: This can theoretically lead to infinite action rewinding if we're unlucky enough.
-    // Consider an action foo whose outputs A and B are needed by 2 separate actions consumerA and
-    // consumerB. If these 2 actions trigger rewinding alternately, at the correct timing, e.g.:
-    // 1. consumerA requests for A. A is registered. foo produces only A since B isn't registered. A
-    // is de-registered. consumerA isn't executed yet.
-    // 2. consumerB requests for B. B is registered. foo is rewound and produces only B since A
-    // isn't registered. B is de-registered. consumerB isn't executed yet.
-    // 3. Before consumerA enters execution, A falls out of the CAS. consumerA sees that A is
-    // missing and triggers rewinding for A. Repeat step (1).
-    // 4. Before consumerB enters execution, B falls out of the CAS. consumerB sees that B is
-    // missing and triggers rewinding for B. Repeat step (2).
     if (consumedArtifactsTrackerSupplier.get() != null) {
       consumedArtifactsTrackerSupplier
           .get()
