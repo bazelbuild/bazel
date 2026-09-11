@@ -35,6 +35,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -384,6 +385,16 @@ public final class ActionInputMap implements InputMetadataProvider {
    */
   public int sizeForDebugging() {
     return size;
+  }
+
+  /** Visits the paths of present inputs without copying the map. */
+  public void forEachPresentPath(Consumer<? super PathFragment> consumer) {
+    for (int i = 0; i < size; i++) {
+      if (values[i] != FileArtifactValue.MISSING_FILE_MARKER
+          && values[i] != TreeArtifactValue.MISSING_TREE_ARTIFACT) {
+        consumer.accept(keys[i].getExecPath());
+      }
+    }
   }
 
   public void put(ActionInput input, FileArtifactValue metadata) {
