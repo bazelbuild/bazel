@@ -143,6 +143,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
@@ -2601,7 +2602,9 @@ public class RemoteExecutionServiceTest {
 
   @Test
   public void outputUploadTask_completes_unregistersItself() throws Exception {
-    var synchronizer = new RemoteRewoundActionSynchronizer(mock(RemoteActionInputFetcher.class));
+    var synchronizer =
+        new RemoteRewoundActionSynchronizer(
+            mock(RemoteActionInputFetcher.class), mock(WalkableGraph.class));
     RemoteOutputService remoteOutputService = mock(RemoteOutputService.class);
     when(remoteOutputService.getRewoundActionSynchronizer()).thenReturn(synchronizer);
     outputService = remoteOutputService;

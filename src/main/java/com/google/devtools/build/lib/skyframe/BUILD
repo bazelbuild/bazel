@@ -641,7 +641,9 @@ java_library(
     deps = [
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
