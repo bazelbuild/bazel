@@ -157,6 +157,18 @@ java_library(
 )
 
 java_test(
+    name = "CompactSortedDirentsTest",
+    srcs = ["CompactSortedDirentsTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:dirents",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "LocalDiffAwarenessTest",
     timeout = "short",
     srcs = ["LocalDiffAwarenessTest.java"],

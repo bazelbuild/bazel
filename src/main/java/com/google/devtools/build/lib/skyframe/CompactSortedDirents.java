@@ -19,13 +19,14 @@ import java.util.AbstractCollection;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
 /** A space-efficient, sorted, immutable dirent structure. */
 final class CompactSortedDirents extends AbstractCollection<Dirent> implements Dirents {
+
+  static final CompactSortedDirents EMPTY = new CompactSortedDirents(new String[0], new BitSet(0));
 
   private final String[] names;
   private final BitSet packedTypes;
@@ -36,16 +37,18 @@ final class CompactSortedDirents extends AbstractCollection<Dirent> implements D
   }
 
   static CompactSortedDirents create(Collection<Dirent> dirents) {
-    final Dirent[] direntArray = dirents.toArray(Dirent[]::new);
-    Integer[] indices = new Integer[dirents.size()];
-    for (int i = 0; i < dirents.size(); i++) {
-      indices[i] = i;
+    if (dirents instanceof CompactSortedDirents csd) {
+      return csd;
     }
-    Arrays.sort(indices, Comparator.comparing(o -> direntArray[o]));
-    String[] names = new String[dirents.size()];
-    BitSet packedTypes = new BitSet(dirents.size() * 2);
-    for (int i = 0; i < dirents.size(); i++) {
-      Dirent dirent = direntArray[indices[i]];
+    if (dirents.isEmpty()) {
+      return EMPTY;
+    }
+    Dirent[] direntArray = dirents.toArray(Dirent[]::new);
+    Arrays.sort(direntArray);
+    String[] names = new String[direntArray.length];
+    BitSet packedTypes = new BitSet(direntArray.length * 2);
+    for (int i = 0; i < direntArray.length; i++) {
+      Dirent dirent = direntArray[i];
       names[i] = dirent.getName();
       packType(packedTypes, dirent.getType(), i);
     }
