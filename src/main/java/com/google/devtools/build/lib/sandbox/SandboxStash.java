@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
@@ -40,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -80,12 +82,20 @@ public class SandboxStash {
   private final Path sandboxBase;
 
   private final Map<Path, String> stashPathToRunfilesDir = new ConcurrentHashMap<>();
+  private final Set<Path> inProgressStashes = ConcurrentHashMap.newKeySet();
 
-  private static final int POOL_SIZE = Runtime.getRuntime().availableProcessors();
+  private static final int POOL_SIZE =
+      Math.min(2, Math.max(1, Runtime.getRuntime().availableProcessors() / 8));
+
+  @SuppressWarnings("ThreadPriorityCheck") // Low-priority background directory scanning pool.
   private final ExecutorService stashFileListingPool =
       Executors.newFixedThreadPool(
           POOL_SIZE,
-          new ThreadFactoryBuilder().setNameFormat("stash-file-listing-thread-%d").build());
+          new ThreadFactoryBuilder()
+              .setNameFormat("stash-file-listing-thread-%d")
+              .setDaemon(true)
+              .setPriority(Thread.MIN_PRIORITY)
+              .build());
 
   public final Map<Path, SandboxContents> pathToContents = new ConcurrentHashMap<>();
   private final Map<Path, Label> sandboxToTarget = new ConcurrentHashMap<>();
@@ -131,13 +141,26 @@ public class SandboxStash {
         return null;
       }
 
-      ImmutableList<Path> stashes = sortStashesByMatchingTargetSegments(target, diskStashes);
+      List<Path> candidateStashes = new ArrayList<>();
+      for (Path stash : diskStashes) {
+        if (!inProgressStashes.contains(stash)) {
+          candidateStashes.add(stash);
+        }
+      }
+      if (candidateStashes.isEmpty()) {
+        return null;
+      }
+
+      ImmutableList<Path> stashes = sortStashesByMatchingTargetSegments(target, candidateStashes);
       // We have to remove the sandbox execroot dir to move a stash there, but it is currently empty
       // and we reinstate it later if we don't get a sandbox. We can't just move the stash dir
       // fully, as we would then lose siblings of the execroot dir, such as hermetic-tmp dirs.
       Path sandboxExecroot = sandboxPath.getChild("execroot");
       sandboxExecroot.deleteTree();
       for (Path stash : stashes) {
+        if (inProgressStashes.contains(stash)) {
+          continue;
+        }
         try {
           Path stashExecroot = stash.getChild("execroot");
           stashExecroot.renameTo(sandboxExecroot);
@@ -222,41 +245,52 @@ public class SandboxStash {
       Map<String, String> environment,
       TreeDeleter treeDeleter,
       Label target) {
-    Path temporaryStashes = sandboxBase.getChild(TEMPORARY_SANDBOX_STASH_BASE);
-    Path temporaryStash = temporaryStashes.getChild(stashName);
+    Path stashPath = sandboxes.getChild(stashName);
+    Path stashPathExecroot = stashPath.getChild("execroot");
+    inProgressStashes.add(stashPath);
     try {
-      temporaryStashes.createDirectory();
-      path.getChild("execroot").renameTo(temporaryStash);
+      stashPath.createDirectory();
+      path.getChild("execroot").renameTo(stashPathExecroot);
     } catch (IOException e) {
-      turnOffReuse("Error stashing sandbox at %s: %s", temporaryStash, e);
+      inProgressStashes.remove(stashPath);
+      try {
+        stashPath.deleteTree();
+      } catch (IOException ignored) {
+        // Ignored.
+      }
+      turnOffReuse("Error stashing sandbox at %s: %s", stashPath, e);
+      return;
     }
     stashFileListingPool.submit(
         () -> {
-          Path stashPath = sandboxes.getChild(stashName);
           try {
             SandboxContents stashContents = pathToContents.remove(path);
             long lastModified = checkNotNull(pathToLastModified.remove(path));
-            SandboxHelpers.updateContentMap(temporaryStash, lastModified, stashContents);
-            stashPath.createDirectory();
-            Path stashPathExecroot = stashPath.getChild("execroot");
+            SandboxHelpers.updateContentMap(stashPathExecroot, lastModified, stashContents);
             if (isTestAction(mnemonic)) {
-              if (environment.get("TEST_TMPDIR").startsWith("_tmp")) {
+              if (environment.get("TEST_TMPDIR") != null
+                  && environment.get("TEST_TMPDIR").startsWith("_tmp")) {
                 treeDeleter.deleteTree(
-                    temporaryStash.getRelative(environment.get("TEST_WORKSPACE") + "/_tmp"));
+                    stashPathExecroot.getRelative(environment.get("TEST_WORKSPACE") + "/_tmp"));
               }
-              // We do this before the rename operation to avoid a race condition.
+              // We do this before marking the stash ready to avoid a race condition.
               stashPathToRunfilesDir.put(stashPathExecroot, getCurrentRunfilesDir(environment));
             }
             setPathContents(stashPath, stashContents);
-            temporaryStash.renameTo(stashPathExecroot);
             if (target != null) {
               sandboxToTarget.put(stashPath, target);
             }
-          } catch (InterruptedException e) {
-            // Finish the job without stashing the sandbox
-          } catch (IOException e) {
-            // TODO(bazel-team): Are we sure we don't want to surface this error?
-            turnOffReuse("Error stashing sandbox at %s: %s", stashPath, e);
+          } catch (InterruptedException | IOException | RuntimeException e) {
+            try {
+              stashPath.deleteTree();
+            } catch (IOException ignored) {
+              // Ignored.
+            }
+            if (!(e instanceof InterruptedException)) {
+              turnOffReuse("Error stashing sandbox at %s: %s", stashPath, e);
+            }
+          } finally {
+            inProgressStashes.remove(stashPath);
           }
         });
   }
@@ -374,6 +408,7 @@ public class SandboxStash {
           clean(
               !Objects.equals(sandboxBase, instance.sandboxBase) ? null : treeDeleter,
               instance.sandboxBase);
+          shutdown();
           instance =
               new SandboxStash(
                   workspaceName, sandboxBase, options.getExperimentalInMemorySandboxStashes());
@@ -385,6 +420,7 @@ public class SandboxStash {
         clean(
             !Objects.equals(sandboxBase, instance.sandboxBase) ? null : treeDeleter,
             instance.sandboxBase);
+        shutdown();
       }
       instance = null;
     }
@@ -416,6 +452,26 @@ public class SandboxStash {
     }
   }
 
+  @VisibleForTesting
+  static int getPoolSizeForTesting() {
+    return POOL_SIZE;
+  }
+
+  @VisibleForTesting
+  ExecutorService getStashFileListingPoolForTesting() {
+    return stashFileListingPool;
+  }
+
+  @VisibleForTesting
+  static SandboxStash getInstanceForTesting() {
+    return instance;
+  }
+
+  @VisibleForTesting
+  Set<Path> getInProgressStashesForTesting() {
+    return inProgressStashes;
+  }
+
   /** Cleans up the entire current stash, if any. Cleaning may be asynchronous. */
   static void clean(@Nullable TreeDeleter treeDeleter, Path sandboxBase) {
     try (SilentCloseable c = Profiler.instance().profile("SandboxStash.clean")) {
@@ -429,6 +485,7 @@ public class SandboxStash {
         instance.pathToContents.clear();
         instance.sandboxToTarget.clear();
         instance.pathToLastModified.clear();
+        instance.inProgressStashes.clear();
       }
     }
   }
