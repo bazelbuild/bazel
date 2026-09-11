@@ -272,6 +272,18 @@ static void DeleteDirsUnder(const wstring& basedir,
     ASSERT_EQ(actual, wstring(L"\"") + input + L"\"");                    \
   }
 
+// This is a macro so the assertions will have the correct line number.
+#define ASSERT_BATCH_FALLBACK_SUCCEEDS(/* const WCHAR* */ input)          \
+  {                                                                       \
+    wstring actual;                                                       \
+    wstring extended_path;                                                \
+    ASSERT_EQ(                                                            \
+        AsExecutablePathForCreateProcess(input, &actual, &extended_path), \
+        L"");                                                             \
+    ASSERT_EQ(extended_path, wstring(input));                             \
+    ASSERT_EQ(actual, wstring(L"\"") + input + L"\"");                    \
+  }
+
 TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessBadInputs) {
   ASSERT_SHORTENING_FAILS(L"", L"should not be empty");
   ASSERT_SHORTENING_FAILS(L"\"cmd.exe\"", L"path should not be quoted");
@@ -324,10 +336,12 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessConversions) {
     // When i>0 then `wfilename` is at least `kMaxPath` long, so
     // `AsExecutablePathForCreateProcess` will attempt to shorten it, but
     // because the file doesn't yet exist, the shortening attempt will fail.
+    // For batch files, the fallback returns the native path (without the
+    // "\\?\" prefix) because cmd.exe cannot handle extended-length paths.
     if (i > 0) {
       ASSERT_EQ(::GetFileAttributesW(wfilename.c_str()),
                 INVALID_FILE_ATTRIBUTES);
-      ASSERT_SHORTENING_FAILS(wfilename.c_str(), L"GetShortPathNameW");
+      ASSERT_BATCH_FALLBACK_SUCCEEDS(wfilename.c_str());
     }
 
     // Create the file, now we should be able to shorten it when i=0, but not
@@ -340,8 +354,9 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessConversions) {
     } else {
       // The wfilename was too long to begin with, and it was impossible to
       // shorten any of the segments (since we deliberately created them that
-      // way), so shortening failed.
-      ASSERT_SHORTENING_FAILS(wfilename.c_str(), L"cannot shorten the path");
+      // way), so shortening failed. Batch files still succeed via the fallback
+      // which returns the native path without the "\\?\" prefix.
+      ASSERT_BATCH_FALLBACK_SUCCEEDS(wfilename.c_str());
     }
     DELETE_FILE(wfilename);
   }
@@ -358,8 +373,9 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessConversions) {
                          wstring(L".bat");
   ASSERT_GT(wshortenable.size(), kMaxPath);
 
-  // Attempt to shorten. It will fail because the file doesn't exist yet.
-  ASSERT_SHORTENING_FAILS(wshortenable, L"GetShortPathNameW");
+  // Attempt to shorten. It will fail because the file doesn't exist yet, but
+  // batch files still succeed via the fallback (native path, no "\\?\" prefix).
+  ASSERT_BATCH_FALLBACK_SUCCEEDS(wshortenable);
 
   // Create the file so shortening will succeed.
   CREATE_FILE(wshortenable);
@@ -378,9 +394,12 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessFallback) {
   // extended-length form and `quoted_path` the quoted path.
   ASSERT_FALLBACK_SUCCEEDS(dir + L"\\foo.exe");
 
-  // A batch file is denied the fallback even with an absolute, normalized path:
-  // CreateProcessW's lpApplicationName can only take a plain executable.
-  ASSERT_SHORTENING_FAILS(dir + L"\\foo.bat", L"GetShortPathNameW");
+  // Batch files (.bat, .cmd) get the fallback with the native path (no "\\?\"
+  // prefix) because cmd.exe cannot handle extended-length paths.
+  ASSERT_BATCH_FALLBACK_SUCCEEDS(dir + L"\\foo.bat");
+  ASSERT_BATCH_FALLBACK_SUCCEEDS(dir + L"\\foo.cmd");
+  ASSERT_BATCH_FALLBACK_SUCCEEDS(dir + L"\\foo.BAT");
+  ASSERT_BATCH_FALLBACK_SUCCEEDS(dir + L"\\foo.Cmd");
 
   // A non-normalized path is denied the fallback because the "\\?\" prefix
   // disables path normalization, so "." and ".." would reach the filesystem

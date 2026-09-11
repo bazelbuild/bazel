@@ -73,7 +73,7 @@ cc_binary(
     }),
     target_compatible_with = ["@platforms//os:windows"],
     visibility = ["//visibility:private"],
-    deps = [":tw_lib"],
+    deps = [":tw_lib", ":tw_resources"],
 )
 
 # Test wrapper binary to run tests on Windows.
