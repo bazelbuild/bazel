@@ -86,6 +86,40 @@ EOF
   assert_equals "" "$(<$TEST_TMPDIR/query_stdout)"
 }
 
+function test_parallel_streamed_proto_matches_serial() {
+  rm -rf peach
+  mkdir -p peach
+  cat > peach/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name='target_0')
+EOF
+  local i previous
+  for i in {1..100}; do
+    previous=$((i - 1))
+    echo "sh_library(name='target_${i}', deps=[':target_${previous}'])" >> peach/BUILD
+  done
+
+  local serial_output="$TEST_TMPDIR/streamed_proto_serial"
+  local parallel_output="$TEST_TMPDIR/streamed_proto_parallel"
+  local direct_output="$TEST_TMPDIR/streamed_proto_direct"
+  local query_stdout="$TEST_TMPDIR/streamed_proto_stdout"
+
+  # 101 results exercise two full 50-target chunks and a trailing partial chunk.
+  bazel query 'deps(//peach:target_100)' \
+      --output=streamed_proto --order_output=full > "$serial_output"
+  bazel query 'deps(//peach:target_100)' \
+      --output=streamed_proto --order_output=full \
+      --experimental_parallel_streamed_proto_output > "$parallel_output"
+  cmp "$serial_output" "$parallel_output" || fail "Parallel streamed proto output differed"
+
+  bazel query 'deps(//peach:target_100)' \
+      --output=streamed_proto --order_output=full \
+      --experimental_parallel_streamed_proto_output \
+      --output_file="$direct_output" > "$query_stdout"
+  assert_equals "" "$(<"$query_stdout")"
+  cmp "$serial_output" "$direct_output" || fail "Direct streamed proto output differed"
+}
+
 function test_invalid_query_fails_parsing() {
   bazel query 'deps("--bad_target_name_from_bad_script")' >& "$TEST_log" \
     && fail "Expected failure"
