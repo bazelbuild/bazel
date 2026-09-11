@@ -904,17 +904,20 @@ EOF
   local sandbox_stash="${output_base}/sandbox/sandbox_stash"
   [[ -d "${sandbox_stash}" ]] \
     || fail "${sandbox_stash} not present"
-  [[ -d "${sandbox_stash}/Genrule/3" ]] \
+  local stash_a="$(ls "${sandbox_stash}/Genrule" 2>/dev/null | head -n 1)"
+  [[ -n "$stash_a" && -d "${sandbox_stash}/Genrule/$stash_a" ]] \
     || fail "${sandbox_stash} did not stash anything"
-  [[ -L "${sandbox_stash}/Genrule/3/$execroot_reldir/pkg/a.txt" ]] \
+  [[ -L "${sandbox_stash}/Genrule/$stash_a/$execroot_reldir/pkg/a.txt" ]] \
     || fail "${sandbox_stash} did not have a link to a.txt"
 
   bazel build --reuse_sandbox_directories //pkg:b >"${TEST_log}" 2>&1 \
     || fail "Expected build to succeed"
   ls -R "${sandbox_stash}/Genrule/"
-  [[ ! -L "${sandbox_stash}/Genrule/6/$execroot_reldir/pkg/a.txt" ]] \
+  local stash_b="$(ls "${sandbox_stash}/Genrule" 2>/dev/null | head -n 1)"
+  [[ -n "$stash_b" ]] || fail "${sandbox_stash}/Genrule is empty"
+  [[ ! -L "${sandbox_stash}/Genrule/$stash_b/$execroot_reldir/pkg/a.txt" ]] \
     || fail "${sandbox_stash} should no longer have a link to a.txt"
-  [[ -L "${sandbox_stash}/Genrule/6/$execroot_reldir/pkg/b.txt" ]] \
+  [[ -L "${sandbox_stash}/Genrule/$stash_b/$execroot_reldir/pkg/b.txt" ]] \
     || fail "${sandbox_stash} should now have a link to b.txt"
 
   bazel clean
@@ -953,17 +956,20 @@ EOF
   local sandbox_stash="${output_base}/sandbox/sandbox_stash"
   [[ -d "${sandbox_stash}" ]] \
     || fail "${sandbox_stash} not present"
-  [[ -d "${sandbox_stash}/Genrule/3" ]] \
+  local stash_a="$(ls "${sandbox_stash}/Genrule" 2>/dev/null | head -n 1)"
+  [[ -n "$stash_a" && -d "${sandbox_stash}/Genrule/$stash_a" ]] \
     || fail "${sandbox_stash} did not stash anything"
-  [[ -L "${sandbox_stash}/Genrule/3/$execroot_reldir/pkg/a.txt" ]] \
+  [[ -L "${sandbox_stash}/Genrule/$stash_a/$execroot_reldir/pkg/a.txt" ]] \
     || fail "${sandbox_stash} did not have a link to a.txt"
 
   bazel build //pkg:b >"${TEST_log}" 2>&1 \
     || fail "Expected build to succeed"
   ls -R "${sandbox_stash}/Genrule/"
-  [[ ! -L "${sandbox_stash}/Genrule/6/$execroot_reldir/pkg/a.txt" ]] \
+  local stash_b="$(ls "${sandbox_stash}/Genrule" 2>/dev/null | head -n 1)"
+  [[ -n "$stash_b" ]] || fail "${sandbox_stash}/Genrule is empty"
+  [[ ! -L "${sandbox_stash}/Genrule/$stash_b/$execroot_reldir/pkg/a.txt" ]] \
     || fail "${sandbox_stash} should no longer have a link to a.txt"
-  [[ -L "${sandbox_stash}/Genrule/6/$execroot_reldir/pkg/b.txt" ]] \
+  [[ -L "${sandbox_stash}/Genrule/$stash_b/$execroot_reldir/pkg/b.txt" ]] \
     || fail "${sandbox_stash} should now have a link to b.txt"
 
   bazel clean
@@ -1097,7 +1103,8 @@ EOF
     || fail "Expected first test to succeed"
 
   local sandbox_stash="${output_base}/sandbox/sandbox_stash"
-  [[ -d "${sandbox_stash}/TestRunner/3/$bazel_bin_reldir/pkg/create_readonly_dir_in_pwd.runfiles/_main/readonly_dir" ]] \
+  local stash_test="$(ls "${sandbox_stash}/TestRunner" 2>/dev/null | head -n 1)"
+  [[ -n "$stash_test" && -d "${sandbox_stash}/TestRunner/$stash_test/$bazel_bin_reldir/pkg/create_readonly_dir_in_pwd.runfiles/_main/readonly_dir" ]] \
     || fail "${sandbox_stash} did not stash readonly_dir"
 
   bazel test --reuse_sandbox_directories --nocache_test_results //pkg:create_readonly_dir_in_pwd >"${TEST_log}" 2>&1 \
@@ -1225,7 +1232,8 @@ EOF
 
   local output_base="$(bazel info output_base)"
   local WORKSPACE_NAME=$TEST_WORKSPACE
-  local stashed_test_dir="${output_base}/sandbox/sandbox_stash/TestRunner/6/execroot/$WORKSPACE_NAME"
+  local stash_test="$(ls "${output_base}/sandbox/sandbox_stash/TestRunner" 2>/dev/null | head -n 1)"
+  local stashed_test_dir="${output_base}/sandbox/sandbox_stash/TestRunner/$stash_test/execroot/$WORKSPACE_NAME"
   touch $(find "$stashed_test_dir/$out_directory/" -name a.sh.runfiles -type d)"/$WORKSPACE_NAME/pkg/file4.txt"
 
   [[ -d "${stashed_test_dir}/$out_directory" ]] \

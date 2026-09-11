@@ -134,6 +134,11 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
     }
 
     // Finally create what needs creating.
+    // Ensure sandboxExecRoot exists. If stashing or the runner deferred creation,
+    // ensure it exists lazily before creating input directories and files.
+    if (!sandboxExecRoot.exists()) {
+      sandboxExecRoot.createDirectoryAndParents();
+    }
     try (SilentCloseable c = Profiler.instance().profile("sandbox.createDirectories")) {
       SandboxHelpers.createDirectories(dirsToCreate, sandboxExecRoot, /* strict= */ true);
     }
