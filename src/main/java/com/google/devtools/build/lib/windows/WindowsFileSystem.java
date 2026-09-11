@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.DosFileAttributes;
@@ -54,10 +55,16 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
   @Override
   public boolean delete(PathFragment path) throws IOException {
+    Path nioPath;
+    try {
+      nioPath = getNioPath(path);
+    } catch (InvalidPathException e) {
+      return false;
+    }
+
     long startTime = Profiler.instance().nanoTimeMaybe();
     try {
-      return WindowsFileOperations.deletePath(
-          StringEncoding.internalToPlatform(path.getPathString()));
+      return WindowsFileOperations.deletePath(nioPath.toString());
     } catch (java.nio.file.DirectoryNotEmptyException e) {
       throw new IOException(path.getPathString() + ERR_DIRECTORY_NOT_EMPTY, e);
     } catch (java.nio.file.AccessDeniedException e) {
@@ -74,7 +81,9 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     PathFragment targetPath =
         targetFragment.isAbsolute()
             ? targetFragment
-            : linkPath.getParentDirectory().getRelative(targetFragment);
+            : (linkPath.getParentDirectory() != null
+                ? linkPath.getParentDirectory().getRelative(targetFragment)
+                : targetFragment);
 
     FileStatus stat = statIfFound(targetPath, /* followSymlinks= */ true);
     boolean existingFile = stat != null && stat.isFile();
@@ -98,15 +107,23 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       }
     } catch (IOException e) {
       throw translateNioToIoException(linkPath, e);
+    } catch (InvalidPathException e) {
+      throw new IOException(linkPath.getPathString() + ERR_NO_SUCH_FILE_OR_DIR, e);
     }
   }
 
   @Override
   public PathFragment readSymbolicLink(PathFragment path) throws IOException {
-    java.nio.file.Path nioPath = getNioPath(path);
-    return PathFragment.create(
-        StringEncoding.platformToInternal(
-            WindowsFileOperations.readSymlinkOrJunction(nioPath.toString())));
+    try {
+      Path nioPath = getNioPath(path);
+      return PathFragment.create(
+          StringEncoding.platformToInternal(
+              WindowsFileOperations.readSymlinkOrJunction(nioPath.toString())));
+    } catch (InvalidPathException e) {
+      FileNotFoundException fnfe = new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
+      fnfe.initCause(e);
+      throw fnfe;
+    }
   }
 
   @Override
@@ -125,7 +142,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       if (isSymlinkOrJunction(file)) {
         return true;
       }
-    } catch (IOException e) {
+    } catch (IOException | InvalidPathException e) {
       // Did not work, try in another way
     }
     return super.fileIsSymbolicLink(file);
@@ -137,12 +154,15 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
   @Override
   public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
-    Path nioPath = getNioPath(path);
+    final Path nioPath;
     final DosFileAttributes attributes;
     try {
+      nioPath = getNioPath(path);
       attributes = getAttribs(nioPath, followSymlinks);
-    } catch (IOException e) {
-      throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
+    } catch (IOException | InvalidPathException e) {
+      FileNotFoundException fnfe = new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
+      fnfe.initCause(e);
+      throw fnfe;
     }
 
     FileStatus status =
@@ -190,8 +210,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
           public long getLastChangeTime() throws IOException {
             if (lastChangeTime == -1) {
               lastChangeTime =
-                  WindowsFileOperations.getLastChangeTime(
-                      getNioPath(path).toString(), followSymlinks);
+                  WindowsFileOperations.getLastChangeTime(nioPath.toString(), followSymlinks);
             }
             return lastChangeTime;
           }
@@ -213,8 +232,12 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  public boolean isSymbolicLink(PathFragment path) {
-    return fileIsSymbolicLink(getNioPath(path));
+  public boolean isSymbolicLink(PathFragment path) throws IOException {
+    try {
+      return fileIsSymbolicLink(getNioPath(path));
+    } catch (InvalidPathException e) {
+      return false;
+    }
   }
 
   @Override
@@ -224,7 +247,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
         if (isSymlinkOrJunction(getNioPath(path))) {
           return false;
         }
-      } catch (FileNotFoundException e) {
+      } catch (FileNotFoundException | InvalidPathException e) {
         return false;
       }
     }
