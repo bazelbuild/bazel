@@ -82,8 +82,12 @@ public class DownloadManager {
   // Downloads of identical content requested concurrently (e.g. two repos with the same URL) are
   // coalesced so that only the first one transfers bytes; the rest fetch the payload from the
   // repository cache.
-  private final TaskDeduplicator<String, Void, Path> downloadDeduplicator =
+  private final TaskDeduplicator<DedupeKey, Void, Path> downloadDeduplicator =
       new TaskDeduplicator<>();
+
+  // The repository cache restricts hits to entries added with the same canonicalId, so callers
+  // with different canonicalIds cannot share a download either.
+  private record DedupeKey(KeyType keyType, Checksum checksum, String canonicalId) {}
 
   /** Creates {@code Credentials} from a map of per-{@code URI} authentication headers. */
   public interface CredentialFactory {
@@ -172,13 +176,10 @@ public class DownloadManager {
       return submitDownload.get();
     }
 
-    // The repository cache restricts hits to entries added with the same canonicalId, so callers
-    // with different canonicalIds cannot share a download either.
-    String dedupeKey = checksum.get().getKeyType() + ":" + checksum.get() + ":" + canonicalId;
     var isLeader = new AtomicBoolean();
     ListenableFuture<Path> download =
         downloadDeduplicator.execute(
-            dedupeKey,
+            new DedupeKey(checksum.get().getKeyType(), checksum.get(), canonicalId),
             /* attributes= */ null,
             /* canJoin= */ unused -> true,
             () -> {
