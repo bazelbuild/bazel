@@ -27,12 +27,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCacheHitEvent;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter.RewrittenURL;
+import com.google.devtools.build.lib.concurrent.TaskDeduplicator;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -53,6 +57,8 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -72,6 +78,16 @@ public class DownloadManager {
   private int retries = 0;
   @Nullable private Credentials netrcCreds;
   private CredentialFactory credentialFactory = StaticCredentials::new;
+
+  // Downloads of identical content requested concurrently (e.g. two repos with the same URL) are
+  // coalesced so that only the first one transfers bytes; the rest fetch the payload from the
+  // repository cache.
+  private final TaskDeduplicator<DedupeKey, Void, Path> downloadDeduplicator =
+      new TaskDeduplicator<>();
+
+  // The repository cache restricts hits to entries added with the same canonicalId, so callers
+  // with different canonicalIds cannot share a download either.
+  private record DedupeKey(Checksum checksum, String canonicalId) {}
 
   /** Creates {@code Credentials} from a map of per-{@code URI} authentication headers. */
   public interface CredentialFactory {
@@ -134,22 +150,58 @@ public class DownloadManager {
       Map<String, String> clientEnv,
       String context,
       boolean mayHardlink) {
-    return executorService.submit(
-        () -> {
-          try (SilentCloseable c = Profiler.instance().profile("fetching: " + context)) {
-            return downloadInExecutor(
-                originalUrls,
-                headers,
-                authHeaders,
-                checksum,
-                canonicalId,
-                type,
-                output,
-                clientEnv,
-                context,
-                mayHardlink);
+    Supplier<ListenableFuture<Path>> submitDownload =
+        () ->
+            MoreExecutors.listeningDecorator(executorService)
+                .submit(
+                    () -> {
+                      try (SilentCloseable c = Profiler.instance().profile("fetching: " + context)) {
+                        return downloadInExecutor(
+                            originalUrls,
+                            headers,
+                            authHeaders,
+                            checksum,
+                            canonicalId,
+                            type,
+                            output,
+                            clientEnv,
+                            context,
+                            mayHardlink);
+                      }
+                    });
+
+    // Callers that join an ongoing download fetch the payload from the repository cache (published
+    // by the download via an atomic rename); this requires the cache to be enabled.
+    if (checksum.isEmpty() || !downloadCache.isEnabled()) {
+      return submitDownload.get();
+    }
+
+    var isLeader = new AtomicBoolean();
+    ListenableFuture<Path> download =
+        downloadDeduplicator.execute(
+            new DedupeKey(checksum.get(), canonicalId),
+            /* attributes= */ null,
+            /* canJoin= */ unused -> true,
+            () -> {
+              // taskSupplier is called only by the caller that starts the shared download.
+              isLeader.set(true);
+              return submitDownload.get();
+            });
+    return Futures.transformAsync(
+        download,
+        downloaded -> {
+          if (isLeader.get()) {
+            return Futures.immediateFuture(downloaded);
           }
-        });
+          // This call joined an ongoing download. The shared download has put the payload into
+          // the repository cache, so the standard download path now hits it; a cache miss is
+          // practically impossible since the repository cache does not evict entries, but in that
+          // case this call downloads by itself. A failed shared download is propagated to all
+          // callers as-is, as it is the same failure they would have gotten by downloading
+          // themselves.
+          return submitDownload.get();
+        },
+        executorService);
   }
 
   public Path finalizeDownload(Future<Path> download) throws IOException, InterruptedException {
