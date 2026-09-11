@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.metrics.criticalpath;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Interners;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.AggregatedSpawnMetrics;
@@ -56,10 +58,16 @@ public class CriticalPathComponent {
   private int longestRunningTotalDurationInMs = 0;
   private boolean phaseChange;
 
-  /** Name of the runner used for the spawn. */
-  @Nullable private String longestPhaseSpawnRunnerName;
-  /** Details about the runner used for the spawn. */
-  @Nullable private String longestPhaseSpawnRunnerSubtype;
+  private record RunnerDetails(String name, String subtype) {
+    private static final Interner<RunnerDetails> interner = Interners.newWeakInterner();
+
+    static RunnerDetails of(String name, @Nullable String subtype) {
+      return interner.intern(new RunnerDetails(name, subtype != null ? subtype : ""));
+    }
+  }
+
+  @Nullable private RunnerDetails longestPhaseSpawnRunner;
+
   /** Child with the maximum critical path. */
   @Nullable private CriticalPathComponent child;
 
@@ -104,10 +112,9 @@ public class CriticalPathComponent {
       // this component.
       aggregatedElapsedTime = Math.max(aggregatedElapsedTime, this.finishNanos - this.startNanos);
       isRunning = false;
-      if (longestPhaseSpawnRunnerName == null && !finalizeReason.isEmpty()) {
+      if (longestPhaseSpawnRunner == null && !finalizeReason.isEmpty()) {
         // This is probably not the best way to do it in face of getting called multiple times.
-        longestPhaseSpawnRunnerName = finalizeReason;
-        longestPhaseSpawnRunnerSubtype = "";
+        longestPhaseSpawnRunner = RunnerDetails.of(finalizeReason, "");
         longestRunningTotalDurationInMs =
             (int) Duration.ofNanos(this.finishNanos - this.startNanos).toMillis();
       }
@@ -219,8 +226,7 @@ public class CriticalPathComponent {
     }
 
     if (runnerName != null && metrics.totalTimeInMs() > this.longestRunningTotalDurationInMs) {
-      this.longestPhaseSpawnRunnerName = runnerName;
-      this.longestPhaseSpawnRunnerSubtype = runnerSubtype;
+      this.longestPhaseSpawnRunner = RunnerDetails.of(runnerName, runnerSubtype);
       this.longestRunningTotalDurationInMs = metrics.totalTimeInMs();
     }
   }
@@ -245,13 +251,13 @@ public class CriticalPathComponent {
    */
   @Nullable
   public String getLongestPhaseSpawnRunnerName() {
-    return longestPhaseSpawnRunnerName;
+    return longestPhaseSpawnRunner != null ? longestPhaseSpawnRunner.name() : null;
   }
 
   /** Like getLongestPhaseSpawnRunnerName(), but returns the runner details. */
   @Nullable
   public String getLongestPhaseSpawnRunnerSubtype() {
-    return longestPhaseSpawnRunnerSubtype;
+    return longestPhaseSpawnRunner != null ? longestPhaseSpawnRunner.subtype() : null;
   }
 
   /**
