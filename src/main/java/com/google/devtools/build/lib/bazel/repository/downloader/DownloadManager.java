@@ -87,7 +87,7 @@ public class DownloadManager {
 
   // The repository cache restricts hits to entries added with the same canonicalId, so callers
   // with different canonicalIds cannot share a download either.
-  private record DedupeKey(KeyType keyType, Checksum checksum, String canonicalId) {}
+  private record DedupeKey(Checksum checksum, String canonicalId) {}
 
   /** Creates {@code Credentials} from a map of per-{@code URI} authentication headers. */
   public interface CredentialFactory {
@@ -179,7 +179,7 @@ public class DownloadManager {
     var isLeader = new AtomicBoolean();
     ListenableFuture<Path> download =
         downloadDeduplicator.execute(
-            new DedupeKey(checksum.get().getKeyType(), checksum.get(), canonicalId),
+            new DedupeKey(checksum.get(), canonicalId),
             /* attributes= */ null,
             /* canJoin= */ unused -> true,
             () -> {
