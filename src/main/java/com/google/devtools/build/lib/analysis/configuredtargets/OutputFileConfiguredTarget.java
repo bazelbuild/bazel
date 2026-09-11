@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Printer;
@@ -129,6 +130,15 @@ public final class OutputFileConfiguredTarget extends FileConfiguredTarget {
     addStarlarkProviderIfPresent(dict, OutputGroupInfo.STARLARK_CONSTRUCTOR);
     addNativeProviderFromRuleIfPresent(dict, RequiredConfigFragmentsProvider.class);
     return dict.buildImmutable();
+  }
+
+  @Override
+  protected void addDeclaredProviders(Consumer<Info> collector) {
+    collector.accept(get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR));
+    OutputGroupInfo outputGroupInfo = get(OutputGroupInfo.STARLARK_CONSTRUCTOR);
+    if (outputGroupInfo != null) {
+      collector.accept(outputGroupInfo);
+    }
   }
 
   private void addStarlarkProviderIfPresent(Dict.Builder<String, Object> dict, Provider provider) {

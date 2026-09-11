@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -83,5 +84,10 @@ public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget {
   @Nullable
   protected Object rawGetStarlarkProvider(String providerKey) {
     return null;
+  }
+
+  @Override
+  protected void addDeclaredProviders(Consumer<Info> collector) {
+    collector.accept(packageSpecificationProvider);
   }
 }
