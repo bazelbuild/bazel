@@ -1519,6 +1519,13 @@ public class BzlLoadFunction implements SkyFunction {
         if (value != null) {
           bzlCompileCache.put(key, value);
         }
+      } else {
+        // The cache hit may have been populated on behalf of a different BzlLoadValue node with
+        // the same compile key; make sure this node depends on the .bzl file too.
+        var bzlFileKey = key.getBzlFileKey();
+        if (bzlFileKey != null) {
+          env.registerDependencies(ImmutableList.of(bzlFileKey));
+        }
       }
       return value;
     }

@@ -885,6 +885,7 @@ java_library(
     name = "bzl_compile_value",
     srcs = ["BzlCompileValue.java"],
     deps = [
+        ":filesystem_keys",
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
