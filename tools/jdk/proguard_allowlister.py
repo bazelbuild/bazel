@@ -56,7 +56,7 @@ class ProguardConfigValidator(object):
   def _Validate(self, config: str) -> Sequence[str]:
     """Checks the config for illegal arguments."""
     config = re.sub(PROGUARD_COMMENTS_PATTERN, '', config)
-    args = re.compile('(?:^-|\n-)').split(config)
+    args = re.compile(r'(?:^\s*-|\n\s*-)').split(config)
 
     invalid_configs = []
     for arg in args:
