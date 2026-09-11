@@ -442,6 +442,13 @@ struct Constant_InvokeDynamic : Constant {
  *                                                                    *
  **********************************************************************/
 
+// Returns true iff at least n bytes remain between p and end. Used to bound
+// every attacker-controlled read against the end of the class data, mirroring
+// the checks in ClassFile::ReadConstantPool.
+static inline bool HasBytes(const u1 *p, const u1 *end, size_t n) {
+  return p <= end && static_cast<size_t>(end - p) >= n;
+}
+
 // See sec.4.7 of JVM spec.
 struct Attribute {
 
@@ -462,7 +469,7 @@ struct HasAttrs {
   std::vector<Attribute*> attributes;
 
   void WriteAttrs(u1 *&p);
-  void ReadAttrs(const u1 *&p);
+  bool ReadAttrs(const u1 *&p, const u1 *end);
 
   virtual ~HasAttrs() {
     for (const auto *attribute : attributes) {
@@ -480,11 +487,17 @@ struct HasAttrs {
 // See sec.4.7.5 of JVM spec.
 struct ExceptionsAttribute : Attribute {
 
-  static ExceptionsAttribute* Read(const u1 *&p, Constant *attribute_name) {
+  static ExceptionsAttribute* Read(const u1 *&p, const u1 *end,
+                                   Constant *attribute_name) {
+    if (!HasBytes(p, end, 2)) return nullptr;
     ExceptionsAttribute *attr = new ExceptionsAttribute;
     attr->attribute_name_ = attribute_name;
     u2 number_of_exceptions = get_u2be(p);
     for (int ii = 0; ii < number_of_exceptions; ++ii) {
+      if (!HasBytes(p, end, 2)) {
+        delete attr;
+        return nullptr;
+      }
       attr->exceptions_.push_back(constant(get_u2be(p)));
     }
     return attr;
@@ -517,12 +530,18 @@ struct InnerClassesAttribute : Attribute {
     }
   }
 
-  static InnerClassesAttribute* Read(const u1 *&p, Constant *attribute_name) {
+  static InnerClassesAttribute* Read(const u1 *&p, const u1 *end,
+                                     Constant *attribute_name) {
+    if (!HasBytes(p, end, 2)) return nullptr;
     InnerClassesAttribute *attr = new InnerClassesAttribute;
     attr->attribute_name_ = attribute_name;
 
     u2 number_of_classes = get_u2be(p);
     for (int ii = 0; ii < number_of_classes; ++ii) {
+      if (!HasBytes(p, end, 8)) {
+        delete attr;
+        return nullptr;
+      }
       Entry *entry = new Entry;
       entry->inner_class_info = constant(get_u2be(p));
       entry->outer_class_info = constant(get_u2be(p));
@@ -602,8 +621,9 @@ struct InnerClassesAttribute : Attribute {
 // of generics (see b/9070939).
 struct EnclosingMethodAttribute : Attribute {
 
-  static EnclosingMethodAttribute* Read(const u1 *&p,
+  static EnclosingMethodAttribute* Read(const u1 *&p, const u1 *end,
                                         Constant *attribute_name) {
+    if (!HasBytes(p, end, 4)) return nullptr;
     EnclosingMethodAttribute *attr = new EnclosingMethodAttribute;
     attr->attribute_name_ = attribute_name;
     attr->class_ = constant(get_u2be(p));
@@ -627,7 +647,7 @@ struct ElementValue {
   virtual ~ElementValue() {}
   virtual void Write(u1 *&p) = 0;
   virtual void ExtractClassNames() {}
-  static ElementValue* Read(const u1 *&p);
+  static ElementValue* Read(const u1 *&p, const u1 *end);
   u1 tag_;
   u4 length_;
 };
@@ -637,7 +657,8 @@ struct BaseTypeElementValue : ElementValue {
     put_u1(p, tag_);
     put_u2be(p, const_value_->slot());
   }
-  static BaseTypeElementValue *Read(const u1 *&p) {
+  static BaseTypeElementValue *Read(const u1 *&p, const u1 *end) {
+    if (!HasBytes(p, end, 2)) return nullptr;
     BaseTypeElementValue *value = new BaseTypeElementValue;
     value->const_value_ = constant(get_u2be(p));
     return value;
@@ -651,7 +672,8 @@ struct EnumTypeElementValue : ElementValue {
     put_u2be(p, type_name_->slot());
     put_u2be(p, const_name_->slot());
   }
-  static EnumTypeElementValue *Read(const u1 *&p) {
+  static EnumTypeElementValue *Read(const u1 *&p, const u1 *end) {
+    if (!HasBytes(p, end, 4)) return nullptr;
     EnumTypeElementValue *value = new EnumTypeElementValue;
     value->type_name_ = constant(get_u2be(p));
     value->const_name_ = constant(get_u2be(p));
@@ -672,7 +694,8 @@ struct ClassTypeElementValue : ElementValue {
     devtools_ijar::ExtractClassNames(class_info_->Display(), &idx);
   }
 
-  static ClassTypeElementValue *Read(const u1 *&p) {
+  static ClassTypeElementValue *Read(const u1 *&p, const u1 *end) {
+    if (!HasBytes(p, end, 2)) return nullptr;
     ClassTypeElementValue *value = new ClassTypeElementValue;
     value->class_info_ = constant(get_u2be(p));
     return value;
@@ -700,11 +723,17 @@ struct ArrayTypeElementValue : ElementValue {
       value->Write(p);
     }
   }
-  static ArrayTypeElementValue *Read(const u1 *&p) {
+  static ArrayTypeElementValue *Read(const u1 *&p, const u1 *end) {
+    if (!HasBytes(p, end, 2)) return nullptr;
     ArrayTypeElementValue *value = new ArrayTypeElementValue;
     u2 num_values = get_u2be(p);
     for (int ii = 0; ii < num_values; ++ii) {
-      value->values_.push_back(ElementValue::Read(p));
+      ElementValue *element = ElementValue::Read(p, end);
+      if (element == nullptr) {
+        delete value;
+        return nullptr;
+      }
+      value->values_.push_back(element);
     }
     return value;
   }
@@ -734,14 +763,24 @@ struct Annotation {
       element_value_pairs_[ii]->element_value_->Write(p);
     }
   }
-  static Annotation *Read(const u1 *&p) {
+  static Annotation *Read(const u1 *&p, const u1 *end) {
+    if (!HasBytes(p, end, 4)) return nullptr;
     Annotation *value = new Annotation;
     value->type_ = constant(get_u2be(p));
     u2 num_element_value_pairs = get_u2be(p);
     for (int ii = 0; ii < num_element_value_pairs; ++ii) {
+      if (!HasBytes(p, end, 2)) {
+        delete value;
+        return nullptr;
+      }
       ElementValuePair *pair = new ElementValuePair;
       pair->element_name_ = constant(get_u2be(p));
-      pair->element_value_ = ElementValue::Read(p);
+      pair->element_value_ = ElementValue::Read(p, end);
+      if (pair->element_value_ == nullptr) {
+        delete pair;
+        delete value;
+        return nullptr;
+      }
       value->element_value_pairs_.push_back(pair);
     }
     return value;
@@ -802,12 +841,25 @@ struct TypeAnnotation {
     annotation_->Write(p);
   }
 
-  static TypeAnnotation *Read(const u1 *&p) {
+  static TypeAnnotation *Read(const u1 *&p, const u1 *end) {
+    if (!HasBytes(p, end, 1)) return nullptr;
     TypeAnnotation *value = new TypeAnnotation;
     value->target_type_ = get_u1(p);
-    value->target_info_ = ReadTargetInfo(p, value->target_type_);
-    value->type_path_ = TypePath::Read(p);
-    value->annotation_ = Annotation::Read(p);
+    value->target_info_ = ReadTargetInfo(p, end, value->target_type_);
+    if (value->target_info_ == nullptr) {
+      delete value;
+      return nullptr;
+    }
+    value->type_path_ = TypePath::Read(p, end);
+    if (value->type_path_ == nullptr) {
+      delete value;
+      return nullptr;
+    }
+    value->annotation_ = Annotation::Read(p, end);
+    if (value->annotation_ == nullptr) {
+      delete value;
+      return nullptr;
+    }
     return value;
   }
 
@@ -820,7 +872,8 @@ struct TypeAnnotation {
     void Write(u1 *&p) {
       put_u1(p, type_parameter_index_);
     }
-    static TypeParameterTargetInfo *Read(const u1 *&p) {
+    static TypeParameterTargetInfo *Read(const u1 *&p, const u1 *end) {
+      if (!HasBytes(p, end, 1)) return nullptr;
       TypeParameterTargetInfo *value = new TypeParameterTargetInfo;
       value->type_parameter_index_ = get_u1(p);
       return value;
@@ -832,7 +885,8 @@ struct TypeAnnotation {
     void Write(u1 *&p) {
       put_u2be(p, supertype_index_);
     }
-    static ClassExtendsInfo *Read(const u1 *&p) {
+    static ClassExtendsInfo *Read(const u1 *&p, const u1 *end) {
+      if (!HasBytes(p, end, 2)) return nullptr;
       ClassExtendsInfo *value = new ClassExtendsInfo;
       value->supertype_index_ = get_u2be(p);
       return value;
@@ -845,7 +899,8 @@ struct TypeAnnotation {
       put_u1(p, type_parameter_index_);
       put_u1(p, bound_index_);
     }
-    static TypeParameterBoundInfo *Read(const u1 *&p) {
+    static TypeParameterBoundInfo *Read(const u1 *&p, const u1 *end) {
+      if (!HasBytes(p, end, 2)) return nullptr;
       TypeParameterBoundInfo *value = new TypeParameterBoundInfo;
       value->type_parameter_index_ = get_u1(p);
       value->bound_index_ = get_u1(p);
@@ -857,14 +912,17 @@ struct TypeAnnotation {
 
   struct EmptyInfo : TargetInfo {
     void Write(u1 *& /*p*/) {}
-    static EmptyInfo *Read(const u1 *& /*p*/) { return new EmptyInfo; }
+    static EmptyInfo *Read(const u1 *& /*p*/, const u1 * /*end*/) {
+      return new EmptyInfo;
+    }
   };
 
   struct MethodFormalParameterInfo : TargetInfo {
     void Write(u1 *&p) {
       put_u1(p, method_formal_parameter_index_);
     }
-    static MethodFormalParameterInfo *Read(const u1 *&p) {
+    static MethodFormalParameterInfo *Read(const u1 *&p, const u1 *end) {
+      if (!HasBytes(p, end, 1)) return nullptr;
       MethodFormalParameterInfo *value = new MethodFormalParameterInfo;
       value->method_formal_parameter_index_ = get_u1(p);
       return value;
@@ -876,7 +934,8 @@ struct TypeAnnotation {
     void Write(u1 *&p) {
       put_u2be(p, throws_type_index_);
     }
-    static ThrowsTypeInfo *Read(const u1 *&p) {
+    static ThrowsTypeInfo *Read(const u1 *&p, const u1 *end) {
+      if (!HasBytes(p, end, 2)) return nullptr;
       ThrowsTypeInfo *value = new ThrowsTypeInfo;
       value->throws_type_index_ = get_u2be(p);
       return value;
@@ -884,24 +943,25 @@ struct TypeAnnotation {
     u2 throws_type_index_;
   };
 
-  static TargetInfo *ReadTargetInfo(const u1 *&p, u1 target_type) {
+  static TargetInfo *ReadTargetInfo(const u1 *&p, const u1 *end,
+                                    u1 target_type) {
     switch (target_type) {
       case CLASS_TYPE_PARAMETER:
       case METHOD_TYPE_PARAMETER:
-        return TypeParameterTargetInfo::Read(p);
+        return TypeParameterTargetInfo::Read(p, end);
       case CLASS_EXTENDS:
-        return ClassExtendsInfo::Read(p);
+        return ClassExtendsInfo::Read(p, end);
       case CLASS_TYPE_PARAMETER_BOUND:
       case METHOD_TYPE_PARAMETER_BOUND:
-        return TypeParameterBoundInfo::Read(p);
+        return TypeParameterBoundInfo::Read(p, end);
       case FIELD:
       case METHOD_RETURN:
       case METHOD_RECEIVER:
         return new EmptyInfo;
       case METHOD_FORMAL_PARAMETER:
-        return MethodFormalParameterInfo::Read(p);
+        return MethodFormalParameterInfo::Read(p, end);
       case THROWS:
-        return ThrowsTypeInfo::Read(p);
+        return ThrowsTypeInfo::Read(p, end);
       default:
         fprintf(stderr, "Illegal type annotation target type: %d\n",
                 target_type);
@@ -917,10 +977,15 @@ struct TypeAnnotation {
         put_u1(p, entry.type_argument_index_);
       }
     }
-    static TypePath *Read(const u1 *&p) {
+    static TypePath *Read(const u1 *&p, const u1 *end) {
+      if (!HasBytes(p, end, 1)) return nullptr;
       TypePath *value = new TypePath;
       u1 path_length = get_u1(p);
       for (int ii = 0; ii < path_length; ++ii) {
+        if (!HasBytes(p, end, 2)) {
+          delete value;
+          return nullptr;
+        }
         TypePathEntry entry;
         entry.type_path_kind_ = get_u1(p);
         entry.type_argument_index_ = get_u1(p);
@@ -936,10 +1001,10 @@ struct TypeAnnotation {
     std::vector<TypePathEntry> path_;
   };
 
-  u1 target_type_;
-  TargetInfo *target_info_;
-  TypePath *type_path_;
-  Annotation *annotation_;
+  u1 target_type_ = 0;
+  TargetInfo *target_info_ = nullptr;
+  TypePath *type_path_ = nullptr;
+  Annotation *annotation_ = nullptr;
 };
 
 struct AnnotationTypeElementValue : ElementValue {
@@ -951,33 +1016,37 @@ struct AnnotationTypeElementValue : ElementValue {
     put_u1(p, tag_);
     annotation_->Write(p);
   }
-  static AnnotationTypeElementValue *Read(const u1 *&p) {
+  static AnnotationTypeElementValue *Read(const u1 *&p, const u1 *end) {
+    Annotation *annotation = Annotation::Read(p, end);
+    if (annotation == nullptr) return nullptr;
     AnnotationTypeElementValue *value = new AnnotationTypeElementValue;
-    value->annotation_ = Annotation::Read(p);
+    value->annotation_ = annotation;
     return value;
   }
 
   Annotation *annotation_;
 };
 
-ElementValue* ElementValue::Read(const u1 *&p) {
+ElementValue* ElementValue::Read(const u1 *&p, const u1 *end) {
   const u1* start = p;
+  if (!HasBytes(p, end, 1)) return nullptr;
   ElementValue *result;
   u1 tag = get_u1(p);
   if (tag != 0 && strchr("BCDFIJSZs", (char) tag) != NULL) {
-    result = BaseTypeElementValue::Read(p);
+    result = BaseTypeElementValue::Read(p, end);
   } else if ((char) tag == 'e') {
-    result = EnumTypeElementValue::Read(p);
+    result = EnumTypeElementValue::Read(p, end);
   } else if ((char) tag == 'c') {
-    result = ClassTypeElementValue::Read(p);
+    result = ClassTypeElementValue::Read(p, end);
   } else if ((char) tag == '[') {
-    result = ArrayTypeElementValue::Read(p);
+    result = ArrayTypeElementValue::Read(p, end);
   } else if ((char) tag == '@') {
-    result = AnnotationTypeElementValue::Read(p);
+    result = AnnotationTypeElementValue::Read(p, end);
   } else {
     fprintf(stderr, "Illegal element_value::tag: %d\n", tag);
-    abort();
+    return nullptr;
   }
+  if (result == nullptr) return nullptr;
   result->tag_ = tag;
   result->length_ = p - start;
   return result;
@@ -991,11 +1060,13 @@ struct AnnotationDefaultAttribute : Attribute {
     delete default_value_;
   }
 
-  static AnnotationDefaultAttribute* Read(const u1 *&p,
+  static AnnotationDefaultAttribute* Read(const u1 *&p, const u1 *end,
                                           Constant *attribute_name) {
+    ElementValue *default_value = ElementValue::Read(p, end);
+    if (default_value == nullptr) return nullptr;
     AnnotationDefaultAttribute *attr = new AnnotationDefaultAttribute;
     attr->attribute_name_ = attribute_name;
-    attr->default_value_ = ElementValue::Read(p);
+    attr->default_value_ = default_value;
     return attr;
   }
 
@@ -1016,7 +1087,9 @@ struct AnnotationDefaultAttribute : Attribute {
 // compile-time constant propagation.
 struct ConstantValueAttribute : Attribute {
 
-  static ConstantValueAttribute* Read(const u1 *&p, Constant *attribute_name) {
+  static ConstantValueAttribute* Read(const u1 *&p, const u1 *end,
+                                      Constant *attribute_name) {
+    if (!HasBytes(p, end, 2)) return nullptr;
     ConstantValueAttribute *attr = new ConstantValueAttribute;
     attr->attribute_name_ = attribute_name;
     attr->constantvalue_ = constant(get_u2be(p));
@@ -1036,7 +1109,9 @@ struct ConstantValueAttribute : Attribute {
 // compiler for type-checking of generics.
 struct SignatureAttribute : Attribute {
 
-  static SignatureAttribute* Read(const u1 *&p, Constant *attribute_name) {
+  static SignatureAttribute* Read(const u1 *&p, const u1 *end,
+                                  Constant *attribute_name) {
+    if (!HasBytes(p, end, 2)) return nullptr;
     SignatureAttribute *attr = new SignatureAttribute;
     attr->attribute_name_ = attribute_name;
     attr->signature_  = constant(get_u2be(p));
@@ -1060,7 +1135,7 @@ struct SignatureAttribute : Attribute {
 // We preserve Deprecated attributes because they are required by the
 // compiler to generate warning messages.
 struct DeprecatedAttribute : Attribute {
-  static DeprecatedAttribute *Read(const u1 *& /*p*/,
+  static DeprecatedAttribute *Read(const u1 *& /*p*/, const u1 * /*end*/,
                                    Constant *attribute_name) {
     DeprecatedAttribute *attr = new DeprecatedAttribute;
     attr->attribute_name_ = attribute_name;
@@ -1083,12 +1158,18 @@ struct AnnotationsAttribute : Attribute {
     }
   }
 
-  static AnnotationsAttribute* Read(const u1 *&p, Constant *attribute_name) {
+  static AnnotationsAttribute* Read(const u1 *&p, const u1 *end,
+                                    Constant *attribute_name) {
+    if (!HasBytes(p, end, 2)) return nullptr;
     AnnotationsAttribute *attr = new AnnotationsAttribute;
     attr->attribute_name_ = attribute_name;
     u2 num_annotations = get_u2be(p);
     for (int ii = 0; ii < num_annotations; ++ii) {
-      Annotation *annotation = Annotation::Read(p);
+      Annotation *annotation = Annotation::Read(p, end);
+      if (annotation == nullptr) {
+        delete attr;
+        return nullptr;
+      }
       attr->annotations_.push_back(annotation);
     }
     return attr;
@@ -1128,16 +1209,26 @@ struct AnnotationsAttribute : Attribute {
 // We preserve all annotations.
 struct ParameterAnnotationsAttribute : Attribute {
 
-  static ParameterAnnotationsAttribute* Read(const u1 *&p,
+  static ParameterAnnotationsAttribute* Read(const u1 *&p, const u1 *end,
                                              Constant *attribute_name) {
+    if (!HasBytes(p, end, 1)) return nullptr;
     ParameterAnnotationsAttribute *attr = new ParameterAnnotationsAttribute;
     attr->attribute_name_ = attribute_name;
     u1 num_parameters = get_u1(p);
     for (int ii = 0; ii < num_parameters; ++ii) {
       std::vector<Annotation*> annotations;
+      if (!HasBytes(p, end, 2)) {
+        delete attr;
+        return nullptr;
+      }
       u2 num_annotations = get_u2be(p);
       for (int ii = 0; ii < num_annotations; ++ii) {
-        Annotation *annotation = Annotation::Read(p);
+        Annotation *annotation = Annotation::Read(p, end);
+        if (annotation == nullptr) {
+          for (Annotation *a : annotations) delete a;
+          delete attr;
+          return nullptr;
+        }
         annotations.push_back(annotation);
       }
       attr->parameter_annotations_.push_back(annotations);
@@ -1174,13 +1265,19 @@ struct ParameterAnnotationsAttribute : Attribute {
 // See sec.4.7.20 of Java 8 JVM spec. Includes RuntimeVisibleTypeAnnotations
 // and RuntimeInvisibleTypeAnnotations.
 struct TypeAnnotationsAttribute : Attribute {
-  static TypeAnnotationsAttribute *Read(const u1 *&p, Constant *attribute_name,
+  static TypeAnnotationsAttribute *Read(const u1 *&p, const u1 *end,
+                                        Constant *attribute_name,
                                         u4 /*attribute_length*/) {
+    if (!HasBytes(p, end, 2)) return nullptr;
     auto attr = new TypeAnnotationsAttribute;
     attr->attribute_name_ = attribute_name;
     u2 num_annotations = get_u2be(p);
     for (int ii = 0; ii < num_annotations; ++ii) {
-      TypeAnnotation *annotation = TypeAnnotation::Read(p);
+      TypeAnnotation *annotation = TypeAnnotation::Read(p, end);
+      if (annotation == nullptr) {
+        delete attr;
+        return nullptr;
+      }
       attr->type_annotations_.push_back(annotation);
     }
     return attr;
@@ -1207,12 +1304,18 @@ struct TypeAnnotationsAttribute : Attribute {
 
 // See JVMS §4.7.24
 struct MethodParametersAttribute : Attribute {
-  static MethodParametersAttribute *Read(const u1 *&p, Constant *attribute_name,
+  static MethodParametersAttribute *Read(const u1 *&p, const u1 *end,
+                                         Constant *attribute_name,
                                          u4 /*attribute_length*/) {
+    if (!HasBytes(p, end, 1)) return nullptr;
     auto attr = new MethodParametersAttribute;
     attr->attribute_name_ = attribute_name;
     u1 parameters_count = get_u1(p);
     for (int ii = 0; ii < parameters_count; ++ii) {
+      if (!HasBytes(p, end, 4)) {
+        delete attr;
+        return nullptr;
+      }
       MethodParameter* parameter = new MethodParameter;
       int name_id = get_u2be(p);
       parameter->name_ = name_id == 0 ? NULL : constant(name_id);
@@ -1243,8 +1346,10 @@ struct MethodParametersAttribute : Attribute {
 
 // See JVMS §4.7.28
 struct NestHostAttribute : Attribute {
-  static NestHostAttribute *Read(const u1 *&p, Constant *attribute_name,
+  static NestHostAttribute *Read(const u1 *&p, const u1 *end,
+                                 Constant *attribute_name,
                                  u4 /*attribute_length*/) {
+    if (!HasBytes(p, end, 2)) return nullptr;
     auto attr = new NestHostAttribute;
     attr->attribute_name_ = attribute_name;
     attr->host_class_index_ = constant(get_u2be(p));
@@ -1261,12 +1366,18 @@ struct NestHostAttribute : Attribute {
 
 // See JVMS §4.7.29
 struct NestMembersAttribute : Attribute {
-  static NestMembersAttribute *Read(const u1 *&p, Constant *attribute_name,
+  static NestMembersAttribute *Read(const u1 *&p, const u1 *end,
+                                    Constant *attribute_name,
                                     u4 /*attribute_length*/) {
+    if (!HasBytes(p, end, 2)) return nullptr;
     auto attr = new NestMembersAttribute;
     attr->attribute_name_ = attribute_name;
     u2 number_of_classes = get_u2be(p);
     for (int ii = 0; ii < number_of_classes; ++ii) {
+      if (!HasBytes(p, end, 2)) {
+        delete attr;
+        return nullptr;
+      }
       attr->classes_.push_back(constant(get_u2be(p)));
     }
     return attr;
@@ -1297,14 +1408,21 @@ struct NestMembersAttribute : Attribute {
 
 // See JVMS §4.7.30
 struct RecordAttribute : Attribute {
-  static RecordAttribute *Read(const u1 *&p, Constant *attribute_name,
+  static RecordAttribute *Read(const u1 *&p, const u1 *end,
+                                    Constant *attribute_name,
                                     u4 attribute_length) {
+    if (!HasBytes(p, end, 2)) return nullptr;
     auto attr = new RecordAttribute;
     attr->attribute_name_ = attribute_name;
     attr->attribute_length_ = attribute_length;
     u2 components_length = get_u2be(p);
     for (int i = 0; i < components_length; ++i) {
-      attr->components_.push_back(RecordComponentInfo::Read(p));
+      RecordComponentInfo *component = RecordComponentInfo::Read(p, end);
+      if (component == nullptr) {
+        delete attr;
+        return nullptr;
+      }
+      attr->components_.push_back(component);
     }
     return attr;
   }
@@ -1328,11 +1446,15 @@ struct RecordAttribute : Attribute {
       put_u2be(p, descriptor_->slot());
       WriteAttrs(p);
     }
-    static RecordComponentInfo *Read(const u1 *&p) {
+    static RecordComponentInfo *Read(const u1 *&p, const u1 *end) {
+      if (!HasBytes(p, end, 4)) return nullptr;
       RecordComponentInfo *value = new RecordComponentInfo;
       value->name_ = constant(get_u2be(p));
       value->descriptor_ = constant(get_u2be(p));
-      value->ReadAttrs(p);
+      if (!value->ReadAttrs(p, end)) {
+        delete value;
+        return nullptr;
+      }
       return value;
     }
 
@@ -1346,12 +1468,17 @@ struct RecordAttribute : Attribute {
 
 // See JVMS §4.7.31
 struct PermittedSubclassesAttribute : Attribute {
-  static PermittedSubclassesAttribute *Read(const u1 *&p,
+  static PermittedSubclassesAttribute *Read(const u1 *&p, const u1 *end,
                                             Constant *attribute_name) {
+    if (!HasBytes(p, end, 2)) return nullptr;
     PermittedSubclassesAttribute *attr = new PermittedSubclassesAttribute;
     attr->attribute_name_ = attribute_name;
     u2 number_of_exceptions = get_u2be(p);
     for (int ii = 0; ii < number_of_exceptions; ++ii) {
+      if (!HasBytes(p, end, 2)) {
+        delete attr;
+        return nullptr;
+      }
       attr->permitted_subclasses_.push_back(constant(get_u2be(p)));
     }
     return attr;
@@ -1369,8 +1496,10 @@ struct PermittedSubclassesAttribute : Attribute {
 };
 
 struct GeneralAttribute : Attribute {
-  static GeneralAttribute* Read(const u1 *&p, Constant *attribute_name,
+  static GeneralAttribute* Read(const u1 *&p, const u1 *end,
+                                Constant *attribute_name,
                                 u4 attribute_length) {
+    if (!HasBytes(p, end, attribute_length)) return nullptr;
     auto attr = new GeneralAttribute;
     attr->attribute_name_ = attribute_name;
     attr->attribute_length_ = attribute_length;
@@ -1401,12 +1530,16 @@ struct Member : HasAttrs {
   Constant *name;
   Constant *descriptor;
 
-  static Member* Read(const u1 *&p) {
+  static Member* Read(const u1 *&p, const u1 *end) {
+    if (!HasBytes(p, end, 6)) return nullptr;
     Member *m = new Member;
     m->access_flags = get_u2be(p);
     m->name = constant(get_u2be(p));
     m->descriptor = constant(get_u2be(p));
-    m->ReadAttrs(p);
+    if (!m->ReadAttrs(p, end)) {
+      delete m;
+      return nullptr;
+    }
     return m;
   }
 
@@ -1521,11 +1654,20 @@ struct ClassFile : HasAttrs {
 
 };
 
-void HasAttrs::ReadAttrs(const u1 *&p) {
+bool HasAttrs::ReadAttrs(const u1 *&p, const u1 *end) {
+  if (!HasBytes(p, end, 2)) return false;
   u2 attributes_count = get_u2be(p);
   for (int ii = 0; ii < attributes_count; ii++) {
+    // attribute_info has a 2-byte name index and a 4-byte length prolog.
+    if (!HasBytes(p, end, 6)) return false;
     Constant *attribute_name = constant(get_u2be(p));
     u4 attribute_length = get_u4be(p);
+
+    // The attribute body must lie entirely within the class data. Bound each
+    // attribute to its own declared length so a dispatched reader can never
+    // walk past either the attribute or the class buffer.
+    if (!HasBytes(p, end, attribute_length)) return false;
+    const u1 *attr_end = p + attribute_length;
 
     std::string attr_name = attribute_name->Display();
     if (attr_name == "SourceFile" ||
@@ -1539,53 +1681,89 @@ void HasAttrs::ReadAttrs(const u1 *&p) {
         attr_name == "SourceDebugExtension") {
       p += attribute_length; // drop these attributes
     } else if (attr_name == "Exceptions") {
-      attributes.push_back(ExceptionsAttribute::Read(p, attribute_name));
+      Attribute *attr = ExceptionsAttribute::Read(p, attr_end, attribute_name);
+      if (attr == nullptr) return false;
+      attributes.push_back(attr);
     } else if (attr_name == "Signature") {
-      attributes.push_back(SignatureAttribute::Read(p, attribute_name));
+      Attribute *attr = SignatureAttribute::Read(p, attr_end, attribute_name);
+      if (attr == nullptr) return false;
+      attributes.push_back(attr);
     } else if (attr_name == "Deprecated") {
-      attributes.push_back(DeprecatedAttribute::Read(p, attribute_name));
+      Attribute *attr = DeprecatedAttribute::Read(p, attr_end, attribute_name);
+      if (attr == nullptr) return false;
+      attributes.push_back(attr);
     } else if (attr_name == "EnclosingMethod") {
-      attributes.push_back(EnclosingMethodAttribute::Read(p, attribute_name));
+      Attribute *attr =
+          EnclosingMethodAttribute::Read(p, attr_end, attribute_name);
+      if (attr == nullptr) return false;
+      attributes.push_back(attr);
     } else if (attr_name == "InnerClasses") {
       // TODO(bazel-team): omit private inner classes
-      attributes.push_back(InnerClassesAttribute::Read(p, attribute_name));
+      Attribute *attr =
+          InnerClassesAttribute::Read(p, attr_end, attribute_name);
+      if (attr == nullptr) return false;
+      attributes.push_back(attr);
     } else if (attr_name == "AnnotationDefault") {
-      attributes.push_back(AnnotationDefaultAttribute::Read(p, attribute_name));
+      Attribute *attr =
+          AnnotationDefaultAttribute::Read(p, attr_end, attribute_name);
+      if (attr == nullptr) return false;
+      attributes.push_back(attr);
     } else if (attr_name == "ConstantValue") {
-      attributes.push_back(ConstantValueAttribute::Read(p, attribute_name));
+      Attribute *attr =
+          ConstantValueAttribute::Read(p, attr_end, attribute_name);
+      if (attr == nullptr) return false;
+      attributes.push_back(attr);
     } else if (attr_name == "RuntimeVisibleAnnotations" ||
                attr_name == "RuntimeInvisibleAnnotations") {
-      attributes.push_back(AnnotationsAttribute::Read(p, attribute_name));
+      Attribute *attr = AnnotationsAttribute::Read(p, attr_end, attribute_name);
+      if (attr == nullptr) return false;
+      attributes.push_back(attr);
     } else if (attr_name == "RuntimeVisibleParameterAnnotations" ||
                attr_name == "RuntimeInvisibleParameterAnnotations") {
-      attributes.push_back(
-          ParameterAnnotationsAttribute::Read(p, attribute_name));
+      Attribute *attr =
+          ParameterAnnotationsAttribute::Read(p, attr_end, attribute_name);
+      if (attr == nullptr) return false;
+      attributes.push_back(attr);
     } else if (attr_name == "Scala" || attr_name == "ScalaSig" ||
                attr_name == "ScalaInlineInfo" || attr_name == "TASTY" ||
                attr_name == "TurbineTransitiveJar") {
       // These are opaque blobs, so can be handled with a general
       // attribute handler
-      attributes.push_back(GeneralAttribute::Read(p, attribute_name,
-                                                  attribute_length));
+      Attribute *attr = GeneralAttribute::Read(p, attr_end, attribute_name,
+                                               attribute_length);
+      if (attr == nullptr) return false;
+      attributes.push_back(attr);
     } else if (attr_name == "RuntimeVisibleTypeAnnotations" ||
                attr_name == "RuntimeInvisibleTypeAnnotations") {
-      attributes.push_back(TypeAnnotationsAttribute::Read(p, attribute_name,
-                                                          attribute_length));
+      Attribute *attr = TypeAnnotationsAttribute::Read(
+          p, attr_end, attribute_name, attribute_length);
+      if (attr == nullptr) return false;
+      attributes.push_back(attr);
     } else if (attr_name == "MethodParameters") {
-      attributes.push_back(
-          MethodParametersAttribute::Read(p, attribute_name, attribute_length));
+      Attribute *attr = MethodParametersAttribute::Read(
+          p, attr_end, attribute_name, attribute_length);
+      if (attr == nullptr) return false;
+      attributes.push_back(attr);
     } else if (attr_name == "NestHost") {
-      attributes.push_back(
-          NestHostAttribute::Read(p, attribute_name, attribute_length));
+      Attribute *attr = NestHostAttribute::Read(p, attr_end, attribute_name,
+                                                attribute_length);
+      if (attr == nullptr) return false;
+      attributes.push_back(attr);
     } else if (attr_name == "NestMembers") {
-      attributes.push_back(
-          NestMembersAttribute::Read(p, attribute_name, attribute_length));
+      Attribute *attr = NestMembersAttribute::Read(p, attr_end, attribute_name,
+                                                   attribute_length);
+      if (attr == nullptr) return false;
+      attributes.push_back(attr);
     } else if (attr_name == "Record") {
-      attributes.push_back(
-          RecordAttribute::Read(p, attribute_name, attribute_length));
+      Attribute *attr = RecordAttribute::Read(p, attr_end, attribute_name,
+                                              attribute_length);
+      if (attr == nullptr) return false;
+      attributes.push_back(attr);
     } else if (attr_name == "PermittedSubclasses") {
-      attributes.push_back(
-          PermittedSubclassesAttribute::Read(p, attribute_name));
+      Attribute *attr =
+          PermittedSubclassesAttribute::Read(p, attr_end, attribute_name);
+      if (attr == nullptr) return false;
+      attributes.push_back(attr);
     } else {
       // Skip over unknown attributes with a warning.  The JVM spec
       // says this is ok, so long as we handle the mandatory attributes.
@@ -1601,7 +1779,13 @@ void HasAttrs::ReadAttrs(const u1 *&p) {
       }
       p += attribute_length;
     }
+    // Resynchronize to the attribute's declared end. A handled reader may
+    // consume fewer bytes than attribute_length (e.g. a malformed internal
+    // length); without this, the trailing bytes of this attribute body would
+    // be misread as the next attribute header.
+    p = attr_end;
   }
+  return true;
 }
 
 void HasAttrs::WriteAttrs(u1 *&p) {
@@ -1756,11 +1940,17 @@ bool ClassFile::KeepForCompile() {
 
 static ClassFile *ReadClass(const void *classdata, size_t length) {
   const u1 *p = (u1*) classdata;
+  const u1 *end = static_cast<const u1 *>(classdata) + length;
 
   ClassFile *clazz = new ClassFile;
 
   clazz->length = length;
 
+  // magic (4) + major (2) + minor (2).
+  if (!HasBytes(p, end, 8)) {
+    delete clazz;
+    return NULL;
+  }
   clazz->magic = get_u4be(p);
   if (clazz->magic != 0xCAFEBABE) {
     fprintf(stderr, "Bad magic %" PRIx32 "\n", clazz->magic);
@@ -1774,6 +1964,11 @@ static ClassFile *ReadClass(const void *classdata, size_t length) {
     return NULL;
   }
 
+  // access_flags (2) + this_class (2) + super_class (2) + interfaces_count (2).
+  if (!HasBytes(p, end, 8)) {
+    delete clazz;
+    return NULL;
+  }
   clazz->access_flags = get_u2be(p);
   clazz->this_class = constant(get_u2be(p));
   class_name = clazz->this_class;
@@ -1783,12 +1978,24 @@ static ClassFile *ReadClass(const void *classdata, size_t length) {
 
   u2 interfaces_count = get_u2be(p);
   for (int ii = 0; ii < interfaces_count; ++ii) {
+    if (!HasBytes(p, end, 2)) {
+      delete clazz;
+      return NULL;
+    }
     clazz->interfaces.push_back(constant(get_u2be(p)));
   }
 
+  if (!HasBytes(p, end, 2)) {
+    delete clazz;
+    return NULL;
+  }
   u2 fields_count = get_u2be(p);
   for (int ii = 0; ii < fields_count; ++ii) {
-    Member *field = Member::Read(p);
+    Member *field = Member::Read(p, end);
+    if (field == NULL) {
+      delete clazz;
+      return NULL;
+    }
 
     if ((field->access_flags & ACC_PRIVATE) == ACC_PRIVATE) {
       // drop private fields
@@ -1797,9 +2004,17 @@ static ClassFile *ReadClass(const void *classdata, size_t length) {
     clazz->fields.push_back(field);
   }
 
+  if (!HasBytes(p, end, 2)) {
+    delete clazz;
+    return NULL;
+  }
   u2 methods_count = get_u2be(p);
   for (int ii = 0; ii < methods_count; ++ii) {
-    Member *method = Member::Read(p);
+    Member *method = Member::Read(p, end);
+    if (method == NULL) {
+      delete clazz;
+      return NULL;
+    }
 
     // drop class initializers
     if (method->name->Display() == "<clinit>") continue;
@@ -1818,7 +2033,10 @@ static ClassFile *ReadClass(const void *classdata, size_t length) {
     clazz->methods.push_back(method);
   }
 
-  clazz->ReadAttrs(p);
+  if (!clazz->ReadAttrs(p, end)) {
+    delete clazz;
+    return NULL;
+  }
 
   return clazz;
 }
