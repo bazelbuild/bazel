@@ -49,6 +49,8 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -99,6 +101,66 @@ public class HttpDownloaderTest {
     executor.shutdown();
   }
 
+  private record BlockingServer(
+      ServerSocket socket,
+      AtomicInteger requestCount,
+      CountDownLatch requestReceived,
+      CountDownLatch releaseResponse)
+      implements AutoCloseable {
+    @Override
+    public void close() throws IOException {
+      socket.close();
+    }
+  }
+
+  /**
+   * Starts a server that serves "hello" to every request. The first response is held until {@code
+   * releaseResponse} is counted down so that tests can overlap concurrent downloads.
+   */
+  private BlockingServer startBlockingServer() throws IOException {
+    return startBlockingServer("HTTP/1.1 200 OK", "hello");
+  }
+
+  private BlockingServer startBlockingServer(String statusLine, String body) throws IOException {
+    ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null));
+    AtomicInteger requestCount = new AtomicInteger();
+    CountDownLatch requestReceived = new CountDownLatch(1);
+    CountDownLatch releaseResponse = new CountDownLatch(1);
+    @SuppressWarnings("unused")
+    Future<?> possiblyIgnoredError =
+        executor.submit(
+            () -> {
+              try {
+                while (true) {
+                  Socket socket = server.accept();
+                  requestCount.incrementAndGet();
+                  readHttpRequest(socket.getInputStream());
+                  requestReceived.countDown();
+                  releaseResponse.await();
+                  sendLines(
+                      socket,
+                      statusLine,
+                      "Connection: close",
+                      "Content-Length: " + body.length(),
+                      "",
+                      body);
+                  socket.close();
+                }
+              } catch (SocketException | InterruptedException e) {
+                // server closed
+              }
+              return null;
+            });
+    return new BlockingServer(server, requestCount, requestReceived, releaseResponse);
+  }
+
+  private static Optional<Checksum> helloChecksum() throws Checksum.InvalidChecksumException {
+    return Optional.of(
+        Checksum.fromString(
+            DownloadCache.KeyType.SHA256,
+            Hashing.sha256().hashBytes("hello".getBytes(UTF_8)).toString()));
+  }
+
   @Test
   public void downloadFrom1UrlOk() throws IOException, InterruptedException {
     try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
@@ -141,40 +203,74 @@ public class HttpDownloaderTest {
 
   @Test
   public void concurrentDownloadsOfSameUrl_areCoalesced() throws Exception {
-    AtomicInteger requestCount = new AtomicInteger();
-    CountDownLatch requestReceived = new CountDownLatch(1);
-    CountDownLatch releaseResponse = new CountDownLatch(1);
-    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
-      @SuppressWarnings("unused")
-      Future<?> possiblyIgnoredError =
-          executor.submit(
-              () -> {
-                try {
-                  while (true) {
-                    Socket socket = server.accept();
-                    requestCount.incrementAndGet();
-                    readHttpRequest(socket.getInputStream());
-                    requestReceived.countDown();
-                    releaseResponse.await();
-                    sendLines(
-                        socket,
-                        "HTTP/1.1 200 OK",
-                        "Connection: close",
-                        "Content-Length: 5",
-                        "",
-                        "hello");
-                    socket.close();
-                  }
-                } catch (SocketException | InterruptedException e) {
-                  // server closed
-                }
-                return null;
-              });
-
+    try (BlockingServer server = startBlockingServer()) {
+      Path cacheDir = fs.getPath(workingDir.newFolder().getAbsolutePath());
+      DownloadCache downloadCache = new DownloadCache();
+      downloadCache.setPath(cacheDir);
+      downloadCache.setHardlink(true);
+      DownloadManager downloadManager =
+          new DownloadManager(downloadCache, httpDownloader, httpDownloader, eventHandler);
       ExecutorService downloadExecutor = Executors.newFixedThreadPool(2);
-      URI url = URI.create(String.format("http://localhost:%d/foo", server.getLocalPort()));
+      URI url =
+          URI.create(String.format("http://localhost:%d/foo", server.socket().getLocalPort()));
       Path destination1 = fs.getPath(workingDir.newFolder().getAbsolutePath()).getChild("file1");
       Path destination2 = fs.getPath(workingDir.newFolder().getAbsolutePath()).getChild("file2");
+      Future<Path> download1 =
+          downloadManager.startDownload(
+              downloadExecutor,
+              ImmutableList.of(url),
+              ImmutableMap.of(),
+              ImmutableMap.of(),
+              helloChecksum(),
+              "testCanonicalId",
+              Optional.empty(),
+              destination1,
+              ImmutableMap.of(),
+              "testRepo1",
+              /* mayHardlink= */ true);
+      assertThat(server.requestReceived().await(10, SECONDS)).isTrue();
+      Future<Path> download2 =
+          downloadManager.startDownload(
+              downloadExecutor,
+              ImmutableList.of(url),
+              ImmutableMap.of(),
+              ImmutableMap.of(),
+              helloChecksum(),
+              "testCanonicalId",
+              Optional.empty(),
+              destination2,
+              ImmutableMap.of(),
+              "testRepo2",
+              /* mayHardlink= */ true);
+
+      server.releaseResponse().countDown();
+
+      Path result1 = downloadManager.finalizeDownload(download1);
+      Path result2 = downloadManager.finalizeDownload(download2);
+      downloadExecutor.shutdown();
+
+      assertThat(new String(FileSystemUtils.readContent(result1), UTF_8)).isEqualTo("hello");
+      assertThat(new String(FileSystemUtils.readContent(result2), UTF_8)).isEqualTo("hello");
+      assertThat(server.requestCount().get()).isEqualTo(1);
+
+      // The caller that joined the download gets a hardlink to the repository cache entry.
+      Path cacheValue =
+          DownloadCache.KeyType.SHA256.getCachePath(cacheDir)
+              .getChild(helloChecksum().get().toString())
+              .getChild(DownloadCache.DEFAULT_CACHE_FILENAME);
+      assertThat(
+              Files.isSameFile(
+                  Paths.get(result2.getPathString()), Paths.get(cacheValue.getPathString())))
+          .isTrue();
+    }
+  }
+
+  @Test
+  public void concurrentDownloadsWithoutChecksum_areNotCoalesced() throws Exception {
+    try (BlockingServer server = startBlockingServer()) {
+      ExecutorService downloadExecutor = Executors.newFixedThreadPool(2);
+      URI url =
+          URI.create(String.format("http://localhost:%d/foo", server.socket().getLocalPort()));
       Future<Path> download1 =
           downloadManager.startDownload(
               downloadExecutor,
@@ -184,11 +280,11 @@ public class HttpDownloaderTest {
               Optional.empty(),
               "testCanonicalId",
               Optional.empty(),
-              destination1,
+              fs.getPath(workingDir.newFolder().getAbsolutePath()).getChild("file1"),
               ImmutableMap.of(),
               "testRepo1",
               /* mayHardlink= */ true);
-      assertThat(requestReceived.await(10, SECONDS)).isTrue();
+      assertThat(server.requestReceived().await(10, SECONDS)).isTrue();
       Future<Path> download2 =
           downloadManager.startDownload(
               downloadExecutor,
@@ -198,12 +294,62 @@ public class HttpDownloaderTest {
               Optional.empty(),
               "testCanonicalId",
               Optional.empty(),
+              fs.getPath(workingDir.newFolder().getAbsolutePath()).getChild("file2"),
+              ImmutableMap.of(),
+              "testRepo2",
+              /* mayHardlink= */ true);
+
+      server.releaseResponse().countDown();
+
+      downloadManager.finalizeDownload(download1);
+      downloadManager.finalizeDownload(download2);
+      downloadExecutor.shutdown();
+
+      assertThat(server.requestCount().get()).isEqualTo(2);
+    }
+  }
+
+  @Test
+  public void concurrentDownloadsWithDifferentCanonicalId_areNotCoalesced() throws Exception {
+    try (BlockingServer server = startBlockingServer()) {
+      DownloadCache downloadCache = new DownloadCache();
+      downloadCache.setPath(fs.getPath(workingDir.newFolder().getAbsolutePath()));
+      DownloadManager downloadManager =
+          new DownloadManager(downloadCache, httpDownloader, httpDownloader, eventHandler);
+      ExecutorService downloadExecutor = Executors.newFixedThreadPool(2);
+      URI url =
+          URI.create(String.format("http://localhost:%d/foo", server.socket().getLocalPort()));
+      Path destination1 = fs.getPath(workingDir.newFolder().getAbsolutePath()).getChild("file1");
+      Path destination2 = fs.getPath(workingDir.newFolder().getAbsolutePath()).getChild("file2");
+      Future<Path> download1 =
+          downloadManager.startDownload(
+              downloadExecutor,
+              ImmutableList.of(url),
+              ImmutableMap.of(),
+              ImmutableMap.of(),
+              helloChecksum(),
+              "testCanonicalId",
+              Optional.empty(),
+              destination1,
+              ImmutableMap.of(),
+              "testRepo1",
+              /* mayHardlink= */ true);
+      assertThat(server.requestReceived().await(10, SECONDS)).isTrue();
+      Future<Path> download2 =
+          downloadManager.startDownload(
+              downloadExecutor,
+              ImmutableList.of(url),
+              ImmutableMap.of(),
+              ImmutableMap.of(),
+              helloChecksum(),
+              "otherCanonicalId",
+              Optional.empty(),
               destination2,
               ImmutableMap.of(),
               "testRepo2",
               /* mayHardlink= */ true);
 
-      releaseResponse.countDown();
+      server.releaseResponse().countDown();
 
       Path result1 = downloadManager.finalizeDownload(download1);
       Path result2 = downloadManager.finalizeDownload(download2);
@@ -211,7 +357,111 @@ public class HttpDownloaderTest {
 
       assertThat(new String(FileSystemUtils.readContent(result1), UTF_8)).isEqualTo("hello");
       assertThat(new String(FileSystemUtils.readContent(result2), UTF_8)).isEqualTo("hello");
-      assertThat(requestCount.get()).isEqualTo(1);
+      // The repository cache restricts hits to entries with a matching canonicalId, so downloads
+      // with different canonicalIds are not deduplicated.
+      assertThat(server.requestCount().get()).isEqualTo(2);
+    }
+  }
+
+  @Test
+  public void failedSharedDownload_failsAllCallersWithoutRetry() throws Exception {
+    try (BlockingServer server = startBlockingServer("HTTP/1.1 404 Not Found", "")) {
+      DownloadCache downloadCache = new DownloadCache();
+      downloadCache.setPath(fs.getPath(workingDir.newFolder().getAbsolutePath()));
+      DownloadManager downloadManager =
+          new DownloadManager(downloadCache, httpDownloader, httpDownloader, eventHandler);
+      ExecutorService downloadExecutor = Executors.newFixedThreadPool(2);
+      URI url =
+          URI.create(String.format("http://localhost:%d/foo", server.socket().getLocalPort()));
+      Path destination1 = fs.getPath(workingDir.newFolder().getAbsolutePath()).getChild("file1");
+      Path destination2 = fs.getPath(workingDir.newFolder().getAbsolutePath()).getChild("file2");
+      Future<Path> download1 =
+          downloadManager.startDownload(
+              downloadExecutor,
+              ImmutableList.of(url),
+              ImmutableMap.of(),
+              ImmutableMap.of(),
+              helloChecksum(),
+              "testCanonicalId",
+              Optional.empty(),
+              destination1,
+              ImmutableMap.of(),
+              "testRepo1",
+              /* mayHardlink= */ true);
+      assertThat(server.requestReceived().await(10, SECONDS)).isTrue();
+      Future<Path> download2 =
+          downloadManager.startDownload(
+              downloadExecutor,
+              ImmutableList.of(url),
+              ImmutableMap.of(),
+              ImmutableMap.of(),
+              helloChecksum(),
+              "testCanonicalId",
+              Optional.empty(),
+              destination2,
+              ImmutableMap.of(),
+              "testRepo2",
+              /* mayHardlink= */ true);
+
+      server.releaseResponse().countDown();
+
+      // All callers get the shared download's failure instead of retrying on their own.
+      assertThrows(IOException.class, () -> downloadManager.finalizeDownload(download1));
+      assertThrows(IOException.class, () -> downloadManager.finalizeDownload(download2));
+      downloadExecutor.shutdown();
+      assertThat(server.requestCount().get()).isEqualTo(1);
+    }
+  }
+
+  @Test
+  public void concurrentDownloadsWithEmptyCanonicalId_areCoalesced() throws Exception {
+    try (BlockingServer server = startBlockingServer()) {
+      DownloadCache downloadCache = new DownloadCache();
+      downloadCache.setPath(fs.getPath(workingDir.newFolder().getAbsolutePath()));
+      DownloadManager downloadManager =
+          new DownloadManager(downloadCache, httpDownloader, httpDownloader, eventHandler);
+      ExecutorService downloadExecutor = Executors.newFixedThreadPool(2);
+      URI url =
+          URI.create(String.format("http://localhost:%d/foo", server.socket().getLocalPort()));
+      Path destination1 = fs.getPath(workingDir.newFolder().getAbsolutePath()).getChild("file1");
+      Path destination2 = fs.getPath(workingDir.newFolder().getAbsolutePath()).getChild("file2");
+      Future<Path> download1 =
+          downloadManager.startDownload(
+              downloadExecutor,
+              ImmutableList.of(url),
+              ImmutableMap.of(),
+              ImmutableMap.of(),
+              helloChecksum(),
+              /* canonicalId= */ "",
+              Optional.empty(),
+              destination1,
+              ImmutableMap.of(),
+              "testRepo1",
+              /* mayHardlink= */ true);
+      assertThat(server.requestReceived().await(10, SECONDS)).isTrue();
+      Future<Path> download2 =
+          downloadManager.startDownload(
+              downloadExecutor,
+              ImmutableList.of(url),
+              ImmutableMap.of(),
+              ImmutableMap.of(),
+              helloChecksum(),
+              /* canonicalId= */ "",
+              Optional.empty(),
+              destination2,
+              ImmutableMap.of(),
+              "testRepo2",
+              /* mayHardlink= */ true);
+
+      server.releaseResponse().countDown();
+
+      Path result1 = downloadManager.finalizeDownload(download1);
+      Path result2 = downloadManager.finalizeDownload(download2);
+      downloadExecutor.shutdown();
+
+      assertThat(new String(FileSystemUtils.readContent(result1), UTF_8)).isEqualTo("hello");
+      assertThat(new String(FileSystemUtils.readContent(result2), UTF_8)).isEqualTo("hello");
+      assertThat(server.requestCount().get()).isEqualTo(1);
     }
   }
 
@@ -253,6 +503,10 @@ public class HttpDownloaderTest {
                 return null;
               });
 
+      DownloadCache downloadCache = new DownloadCache();
+      downloadCache.setPath(fs.getPath(workingDir.newFolder().getAbsolutePath()));
+      DownloadManager downloadManager =
+          new DownloadManager(downloadCache, httpDownloader, httpDownloader, eventHandler);
       URI url = URI.create(String.format("http://localhost:%d/foo", server.getLocalPort()));
       Path destination1 = fs.getPath(workingDir.newFolder().getAbsolutePath()).getChild("file1");
       Path destination2 = fs.getPath(workingDir.newFolder().getAbsolutePath()).getChild("file2");
@@ -263,7 +517,7 @@ public class HttpDownloaderTest {
               ImmutableList.of(url),
               ImmutableMap.of(),
               ImmutableMap.of(),
-              Optional.empty(),
+              helloChecksum(),
               "testCanonicalId",
               Optional.empty(),
               destination1,
@@ -276,7 +530,7 @@ public class HttpDownloaderTest {
               ImmutableList.of(url),
               ImmutableMap.of(),
               ImmutableMap.of(),
-              Optional.empty(),
+              helloChecksum(),
               "testCanonicalId",
               Optional.empty(),
               destination2,
@@ -295,7 +549,7 @@ public class HttpDownloaderTest {
               ImmutableList.of(url),
               ImmutableMap.of(),
               ImmutableMap.of(),
-              Optional.empty(),
+              helloChecksum(),
               "testCanonicalId",
               Optional.empty(),
               destination3,
