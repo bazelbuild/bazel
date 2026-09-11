@@ -355,6 +355,39 @@ public class SandboxHelpersTest {
   }
 
   @Test
+  public void updateContentMap_preservesKnownSymlinksAndDeletesUnexpected() throws Exception {
+    ManualClock clock = new ManualClock();
+    Scratch scratch = new Scratch(new InMemoryFileSystem(clock, DigestHashFunction.SHA256));
+    Path workDir = scratch.dir("/execroot");
+    Path sourceFile = scratch.file("/source/input.txt", "content");
+    PathFragment knownInput = PathFragment.create("pkg/input.txt");
+    Path knownSymlink = workDir.getRelative(knownInput);
+    knownSymlink.getParentDirectory().createDirectoryAndParents();
+    knownSymlink.createSymbolicLink(sourceFile.asFragment());
+
+    Map<PathFragment, Path> files = new HashMap<>();
+    files.put(knownInput, sourceFile);
+    SandboxInputs inputs = new SandboxInputs(files, ImmutableMap.of(), ImmutableMap.of());
+    SandboxContents contents =
+        SandboxHelpers.createContentMap(workDir, inputs, SandboxOutputs.getEmptyInstance());
+    long timestamp = clock.currentTimeMillis();
+
+    clock.advanceMillis(1);
+    Path unexpectedSymlink = workDir.getRelative("pkg/unexpected");
+    unexpectedSymlink.createSymbolicLink(sourceFile.asFragment());
+    FileSystemUtils.appendIsoLatin1(sourceFile, "_modified");
+
+    SandboxHelpers.updateContentMap(workDir.getParentDirectory(), timestamp, contents);
+
+    assertThat(knownSymlink.isSymbolicLink()).isTrue();
+    assertThat(unexpectedSymlink.exists()).isFalse();
+    assertThat(contents.dirMap().get("execroot").dirMap().get("pkg").fileMap())
+        .containsEntry("input.txt", sourceFile.asFragment());
+    assertThat(contents.dirMap().get("execroot").dirMap().get("pkg").fileMap())
+        .doesNotContainKey("unexpected");
+  }
+
+  @Test
   public void cleanExisting_withInMemoryContents_tracksEmptyInputs(
       @TestParameter boolean keepEmptyInput) throws Exception {
     PathFragment emptyInput = PathFragment.create("api/__init__.py");

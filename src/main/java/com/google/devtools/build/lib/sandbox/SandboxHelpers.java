@@ -836,8 +836,7 @@ public final class SandboxHelpers {
         }
         Path absPath = root.getChild(dirent.getName());
         if (dirent.getType().equals(SYMLINK)) {
-          if (stashContents.fileMap().get(dirent.getName()) != null
-              && absPath.stat().getLastChangeTime() <= timestamp) {
+          if (stashContents.fileMap().get(dirent.getName()) != null) {
             filesAndSymlinksToKeep.add(dirent.getName());
           } else {
             absPath.delete();
