@@ -32,6 +32,7 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 public final class SimpleSpawn implements Spawn {
   private final ActionExecutionMetadata owner;
+  @Nullable private final String mnemonic;
   private final ImmutableList<String> arguments;
   private final ImmutableMap<String, String> environment;
   private final ImmutableMap<String, String> executionInfo;
@@ -46,6 +47,7 @@ public final class SimpleSpawn implements Spawn {
 
   private SimpleSpawn(
       ActionExecutionMetadata owner,
+      @Nullable String mnemonic,
       ImmutableList<String> arguments,
       ImmutableMap<String, String> environment,
       ImmutableMap<String, String> executionInfo,
@@ -57,6 +59,7 @@ public final class SimpleSpawn implements Spawn {
       @Nullable LocalResourcesSupplier localResourcesSupplier,
       PathMapper pathMapper) {
     this.owner = Preconditions.checkNotNull(owner);
+    this.mnemonic = mnemonic;
     this.arguments = Preconditions.checkNotNull(arguments);
     this.environment = Preconditions.checkNotNull(environment);
     this.executionInfo = Preconditions.checkNotNull(executionInfo);
@@ -90,6 +93,34 @@ public final class SimpleSpawn implements Spawn {
       ResourceSet localResources) {
     this(
         owner,
+        /* mnemonic= */ null,
+        arguments,
+        environment,
+        executionInfo,
+        inputs,
+        tools,
+        outputs,
+        mandatoryOutputs,
+        localResources,
+        /* localResourcesSupplier= */ null,
+        PathMapper.NOOP);
+  }
+
+  /** Creates a spawn whose mnemonic can differ from that of its owning action. */
+  public SimpleSpawn(
+      ActionExecutionMetadata owner,
+      String mnemonic,
+      ImmutableList<String> arguments,
+      ImmutableMap<String, String> environment,
+      ImmutableMap<String, String> executionInfo,
+      SpawnInputs inputs,
+      NestedSet<? extends ActionInput> tools,
+      Collection<? extends ActionInput> outputs,
+      @Nullable Set<? extends ActionInput> mandatoryOutputs,
+      ResourceSet localResources) {
+    this(
+        owner,
+        Preconditions.checkNotNull(mnemonic),
         arguments,
         environment,
         executionInfo,
@@ -115,6 +146,7 @@ public final class SimpleSpawn implements Spawn {
       LocalResourcesSupplier localResourcesSupplier) {
     this(
         owner,
+        /* mnemonic= */ null,
         arguments,
         environment,
         executionInfo,
@@ -140,6 +172,7 @@ public final class SimpleSpawn implements Spawn {
       PathMapper pathMapper) {
     this(
         owner,
+        /* mnemonic= */ null,
         arguments,
         environment,
         executionInfo,
@@ -165,6 +198,7 @@ public final class SimpleSpawn implements Spawn {
       PathMapper pathMapper) {
     this(
         owner,
+        /* mnemonic= */ null,
         arguments,
         environment,
         executionInfo,
@@ -260,7 +294,7 @@ public final class SimpleSpawn implements Spawn {
 
   @Override
   public String getMnemonic() {
-    return owner.getMnemonic();
+    return mnemonic != null ? mnemonic : owner.getMnemonic();
   }
 
   @Override

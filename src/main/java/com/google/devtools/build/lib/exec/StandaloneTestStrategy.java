@@ -511,6 +511,7 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     return new SimpleSpawn(
         action,
+        "CoveragePostProcessing",
         args,
         ImmutableMap.copyOf(testEnvironment),
         action.getExecutionInfo(),

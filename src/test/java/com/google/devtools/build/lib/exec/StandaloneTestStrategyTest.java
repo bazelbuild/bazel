@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.runtime.TestSummaryOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -1188,6 +1189,63 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             outputBase));
 
     verify(outputMetadataStore, atLeastOnce()).resetOutputs(any());
+  }
+
+  @Test
+  public void splitCoveragePostprocessingHasDistinctMnemonic() throws Exception {
+    useConfiguration(
+        "--collect_code_coverage",
+        "--experimental_split_coverage_postprocessing",
+        "--experimental_fetch_all_coverage_outputs");
+    scratch.file("standalone/coverage.sh", "mocked");
+    scratch.file(
+        "standalone/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "coverage",
+            srcs = ["coverage.sh"],
+            tags = ["no-remote-exec"],
+        )
+        """);
+    TestRunnerAction testRunnerAction = getTestAction("//standalone:coverage");
+    OutputMetadataStore outputMetadataStore = org.mockito.Mockito.mock(OutputMetadataStore.class);
+    when(outputMetadataStore.getTreeArtifactValue(any())).thenReturn(TreeArtifactValue.empty());
+    List<Spawn> spawns = new ArrayList<>();
+    when(spawnStrategy.exec(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Spawn spawn = invocation.getArgument(0);
+              spawns.add(spawn);
+              if (spawn.getEnvironment().containsKey("IS_COVERAGE_SPAWN")) {
+                FileSystemUtils.touchFile(testRunnerAction.getCoverageData().getPath());
+              }
+              return ImmutableList.of(PASSED_TEST_SPAWN);
+            });
+    ActionExecutionContext context =
+        new FakeActionExecutionContext(
+            createTempOutErr(outputBase),
+            toContextRegistry(spawnStrategy, fileSystem, directories),
+            inputMetadataFor(testRunnerAction),
+            outputMetadataStore);
+
+    execute(
+        testRunnerAction,
+        context,
+        new TestedStandaloneTestStrategy(
+            Options.getDefaults(ExecutionOptions.class),
+            Options.getDefaults(TestSummaryOptions.class),
+            outputBase));
+
+    assertThat(spawns.stream().map(Spawn::getMnemonic))
+        .containsExactly("TestRunner", "CoveragePostProcessing", "TestRunner")
+        .inOrder();
+    Spawn coverageSpawn = spawns.get(1);
+    assertThat(coverageSpawn.getResourceOwner()).isSameInstanceAs(testRunnerAction);
+    assertThat(coverageSpawn.getExecutionPlatform()).isEqualTo(testRunnerAction.getExecutionPlatform());
+    assertThat(coverageSpawn.getExecutionInfo()).isEqualTo(testRunnerAction.getExecutionInfo());
+    assertThat(coverageSpawn.getExecutionInfo()).containsKey("no-remote-exec");
+    assertThat(coverageSpawn.getOutputFiles()).containsExactly(testRunnerAction.getCoverageData());
   }
 
   @Test
