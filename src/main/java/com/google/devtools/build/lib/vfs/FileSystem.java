@@ -58,9 +58,9 @@ public abstract class FileSystem {
   protected static final String ERR_DIRECTORY_NOT_EMPTY = " (Directory not empty)";
   protected static final String ERR_FILE_EXISTS = " (File exists)";
   protected static final String ERR_IS_DIRECTORY = " (Is a directory)";
-  protected static final String ERR_NOT_A_DIRECTORY = " (Not a directory)";
-  protected static final String ERR_NO_SUCH_FILE_OR_DIR = " (No such file or directory)";
   protected static final String ERR_PERMISSION_DENIED = " (Permission denied)";
+  public static final String ERR_NOT_A_DIRECTORY = " (Not a directory)";
+  public static final String ERR_NO_SUCH_FILE_OR_DIR = " (No such file or directory)";
   public static final String ERR_TOO_MANY_SYMLINKS = " (Too many levels of symbolic links)";
 
   private final DigestHashFunction digestFunction;

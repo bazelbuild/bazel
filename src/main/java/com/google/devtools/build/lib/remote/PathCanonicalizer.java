@@ -14,10 +14,15 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.devtools.build.lib.vfs.FileSystem.ERR_NOT_A_DIRECTORY;
+import static com.google.devtools.build.lib.vfs.FileSystem.ERR_NO_SUCH_FILE_OR_DIR;
 
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
@@ -45,13 +50,22 @@ final class PathCanonicalizer {
 
   interface Resolver {
     /**
-     * Returns the result of {@link FileSystem#readSymbolicLink} if the path is a symlink, otherwise
-     * null. All but the last path segment must be canonical.
+     * Returns the {@link FileStatus} for a path without following symlinks, or null if it does not
+     * exist. All but the last path segment must be canonical; implementations may exploit this
+     * property for efficiency.
      *
-     * @throws IOException if the file type or symlink target path could not be determined
+     * @throws IOException if an I/O error occurs
      */
-    @Nullable
-    PathFragment resolveOneLink(PathFragment path) throws IOException;
+    @Nullable FileStatus statIfFound(PathFragment path) throws IOException;
+
+    /**
+     * Returns the target path of a symbolic link. All but the last path segment must be canonical;
+     * implementations may exploit this property for efficiency.
+     *
+     * @throws NotASymlinkException if the path is not a symbolic link
+     * @throws IOException if an I/O error occurs
+     */
+    PathFragment readSymbolicLink(PathFragment path) throws IOException;
   }
 
   /** A trie node. */
@@ -60,28 +74,32 @@ final class PathCanonicalizer {
   /** A trie node corresponding to a symlink. */
   private record SymlinkNode(PathFragment targetPath) implements Node {}
 
-  /** A trie node not corresponding to a symlink. */
-  private static final class NonSymlinkNode extends ConcurrentHashMap<String, Node>
-      implements Node {
-    NonSymlinkNode() {
+  /** A trie node corresponding to a directory. */
+  private static final class DirectoryNode extends ConcurrentHashMap<String, Node> implements Node {
+    DirectoryNode() {
       super(/* initialCapacity= */ 1);
     }
   }
 
+  /** A trie node corresponding to a file. */
+  private enum NonDirectoryNode implements Node {
+    INSTANCE
+  }
+
   private final Resolver resolver;
-  private final NonSymlinkNode root = new NonSymlinkNode();
+  private final DirectoryNode root = new DirectoryNode();
 
   PathCanonicalizer(Resolver resolver) {
     this.resolver = resolver;
   }
 
   /** Returns the root node for an absolute path. */
-  private NonSymlinkNode getRootNode(PathFragment path) {
+  private DirectoryNode getRootNode(PathFragment path) {
     checkArgument(path.isAbsolute());
     // Unix has a single root. Windows has one root per drive.
     if (path.getDriveStrLength() > 1) {
-      return (NonSymlinkNode)
-          root.computeIfAbsent(path.getDriveStr(), unused -> new NonSymlinkNode());
+      return (DirectoryNode)
+          root.computeIfAbsent(path.getDriveStr(), unused -> new DirectoryNode());
     }
     return root;
   }
@@ -93,6 +111,7 @@ final class PathCanonicalizer {
    * @param maxLinks the maximum number of symlinks that can be followed in the process of
    *     canonicalizing the path.
    * @throws FileSymlinkLoopException if too many symlinks had to be followed.
+   * @throws FileNotFoundException if one of the path components could not be found
    * @throws IOException if an I/O error occurs
    * @return the canonical path.
    */
@@ -101,7 +120,7 @@ final class PathCanonicalizer {
     // and has been previously cached. Avoid making changes without benchmarking. A tree artifact
     // with hundreds of thousands of files makes for a good benchmark.
 
-    NonSymlinkNode node = getRootNode(path);
+    DirectoryNode node = getRootNode(path);
     Iterable<String> segments = path.segments();
     int segmentIndex = 0;
 
@@ -116,11 +135,19 @@ final class PathCanonicalizer {
       Node nextNode = node.get(segment);
       if (nextNode == null) {
         PathFragment naivePath = path.subFragment(0, segmentIndex + 1);
-        PathFragment targetPath = resolver.resolveOneLink(naivePath);
-        nextNode =
-            node.computeIfAbsent(
-                segment,
-                unused -> targetPath != null ? new SymlinkNode(targetPath) : new NonSymlinkNode());
+        FileStatus status = resolver.statIfFound(naivePath);
+        if (status == null) {
+          throw new FileNotFoundException(naivePath.getPathString() + ERR_NO_SUCH_FILE_OR_DIR);
+        }
+        Node resolvedNode;
+        if (status.isSymbolicLink()) {
+          resolvedNode = new SymlinkNode(resolver.readSymbolicLink(naivePath));
+        } else if (status.isDirectory()) {
+          resolvedNode = new DirectoryNode();
+        } else {
+          resolvedNode = NonDirectoryNode.INSTANCE;
+        }
+        nextNode = node.computeIfAbsent(segment, unused -> resolvedNode);
       }
 
       switch (nextNode) {
@@ -148,8 +175,14 @@ final class PathCanonicalizer {
           // canonicalized prefix, but they're too rare to be worth optimizing for.
           return resolveSymbolicLinks(newPath, maxLinks);
         }
-        case NonSymlinkNode nonSymlinkNode -> {
-          node = nonSymlinkNode;
+        case DirectoryNode directoryNode -> {
+          node = directoryNode;
+          segmentIndex++;
+        }
+        case NonDirectoryNode ignored -> {
+          if (segmentIndex + 1 < path.segmentCount()) {
+            throw new FileNotFoundException(path.getPathString() + ERR_NOT_A_DIRECTORY);
+          }
           segmentIndex++;
         }
       }
@@ -175,7 +208,7 @@ final class PathCanonicalizer {
   /** Removes cached information for a path prefix. */
   void clearPrefix(PathFragment pathPrefix) {
     Node node = getRootNode(pathPrefix);
-    NonSymlinkNode parent = null;
+    DirectoryNode parent = null;
     String parentSegment = null;
     Iterator<String> segments = pathPrefix.segments().iterator();
     boolean hasNext = segments.hasNext();
@@ -192,14 +225,20 @@ final class PathCanonicalizer {
           }
           return;
         }
-        case NonSymlinkNode nonSymlinkNode -> {
+        case NonDirectoryNode ignored -> {
+          if (parent != null) {
+            parent.remove(parentSegment);
+          }
+          return;
+        }
+        case DirectoryNode directoryNode -> {
           if (!hasNext) {
             // Found the path prefix.
-            nonSymlinkNode.remove(segment);
+            directoryNode.remove(segment);
           } else {
-            parent = nonSymlinkNode;
+            parent = directoryNode;
             parentSegment = segment;
-            node = nonSymlinkNode.get(segment);
+            node = directoryNode.get(segment);
           }
         }
       }
