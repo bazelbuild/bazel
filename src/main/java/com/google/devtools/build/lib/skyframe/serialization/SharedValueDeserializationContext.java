@@ -35,7 +35,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult.QueryDepCallback;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import java.io.ByteArrayInputStream;
@@ -609,9 +608,6 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
     private final T parent;
     private final FieldSetter<? super T> setter;
 
-    /** Set true if the Skyframe dependency has an exception. */
-    private boolean isFailed = false;
-
     @VisibleForTesting
     SkyframeLookup(SkyKey key, T parent, FieldSetter<? super T> setter) {
       this.key = key;
@@ -639,19 +635,8 @@ public final class SharedValueDeserializationContext extends MemoizingDeserializ
       return true;
     }
 
-    boolean isFailed() {
-      return isFailed;
-    }
-
     void abandon(LookupAbandonedException exception) {
       setException(exception);
-    }
-
-    @Override
-    @CanIgnoreReturnValue
-    protected boolean setException(Throwable t) {
-      this.isFailed = true;
-      return super.setException(t);
     }
   }
 

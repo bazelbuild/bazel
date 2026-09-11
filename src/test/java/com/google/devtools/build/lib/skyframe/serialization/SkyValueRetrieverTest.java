@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.getDone;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.devtools.build.lib.skyframe.serialization.DependOnFutureShim.ObservedFutureStatus.DONE;
 import static com.google.devtools.build.lib.skyframe.serialization.DependOnFutureShim.ObservedFutureStatus.NOT_DONE;
@@ -704,6 +705,85 @@ public final class SkyValueRetrieverTest {
     var thrownByLookup1 = assertThrows(ExecutionException.class, lookups.get(1)::get).getCause();
     assertThat(thrownByLookup1).isInstanceOf(PeerFailedException.class);
     assertThat(thrownByLookup1).hasCauseThat().isSameInstanceAs(thrownByLookup0);
+  }
+
+  @Test
+  public void skyframeLookupError_withPriorSuccessfulLookup_preservesSuccessfulLookup()
+      throws Exception {
+    var fingerprintValueService = FingerprintValueService.createForAnalysisCacheTesting();
+    var analysisCacheServiceData = new HashMap<ByteString, ByteString>();
+    var state = new RetrievalContext();
+    RemoteAnalysisCacheClient analysisCacheClient =
+        createFakeAnalysisCacheClient(analysisCacheServiceData);
+
+    var key = new TrivialKey("a");
+
+    var lookupKey0 = new ExampleKey("a");
+    var lookupKey1 = new ExampleKey("b");
+    var multiLookupValue =
+        new MultiLookupValue(new ExampleValue(lookupKey0, 3), new ExampleValue(lookupKey1, 5));
+    uploadKeyValuePair(
+        key,
+        multiLookupValue,
+        COMPRESSION_SERVICE,
+        fingerprintValueService,
+        analysisCacheServiceData);
+
+    RetrievalResult result =
+        createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+            .tryRetrieve(
+                new EnvironmentForUtilities(k -> null),
+                SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                analysisCacheClient,
+                key,
+                state);
+
+    assertThat(result).isEqualTo(RESTART);
+    assertThat(state.getState()).isInstanceOf(WaitingForLookupContinuation.class);
+
+    var lookups =
+        ImmutableList.copyOf(
+            ((WaitingForLookupContinuation) state.getState())
+                .continuation()
+                .getSkyframeLookupsForTesting());
+    assertThat(lookups).hasSize(2);
+
+    var error = new Exception();
+    var thrown =
+        assertThrows(
+            SerializationException.class,
+            () ->
+                createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+                    .tryRetrieve(
+                        new EnvironmentForUtilities(
+                            k -> {
+                              if (k.equals(lookupKey0)) {
+                                return new ExampleValue(lookupKey0, 3);
+                              }
+                              if (k.equals(lookupKey1)) {
+                                return error;
+                              }
+                              return null;
+                            }),
+                        SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                        analysisCacheClient,
+                        key,
+                        state));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("skyframe dependency error during deserialization for " + key);
+    assertThat(thrown).hasCauseThat().isInstanceOf(SkyframeDependencyException.class);
+    assertThat(thrown).hasCauseThat().hasCauseThat().isSameInstanceAs(error);
+
+    // Verifies that the successful lookup is NOT marked failed.
+    assertThat(lookups.get(0).isDone()).isTrue();
+    assertThat(getDone(lookups.get(0))).isNull();
+
+    // Verifies that the failed lookup has the expected error.
+    assertThat(lookups.get(1).isDone()).isTrue();
+    var thrownByLookup1 = assertThrows(ExecutionException.class, lookups.get(1)::get).getCause();
+    assertThat(thrownByLookup1).isInstanceOf(SkyframeDependencyException.class);
+    assertThat(thrownByLookup1).hasCauseThat().isSameInstanceAs(error);
   }
 
   @Test

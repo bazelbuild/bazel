@@ -27,6 +27,7 @@ import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayDeque;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 
@@ -173,13 +174,10 @@ public final class SkyframeLookupContinuation {
 
   private void throwDependencyExceptionIfFailed(SkyframeLookup<?> lookup)
       throws SkyframeDependencyException, LookupAbandonedException {
-    if (!lookup.isFailed()) {
-      return;
-    }
-    this.state = State.ENDED;
     try {
       var unused = Futures.getDone(lookup);
     } catch (ExecutionException e) {
+      this.state = State.ENDED;
       Throwable cause = e.getCause();
       if (cause instanceof SkyframeDependencyException sde) {
         abandon(new PeerFailedException(sde));
@@ -190,7 +188,11 @@ public final class SkyframeLookupContinuation {
         throw lae;
       }
       throw new AssertionError("unexpected exception: " + lookup, cause);
+    } catch (CancellationException e) {
+      this.state = State.ENDED;
+      var lae = new LookupAbandonedException(e);
+      abandon(lae);
+      throw lae;
     }
-    throw new IllegalStateException("should have thrown an exception: " + lookup);
   }
 }
