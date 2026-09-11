@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.server.FailureDetails.MobileInstall.Code;
 import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.CommandBuilder;
+import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Converters;
@@ -198,21 +199,27 @@ public class MobileInstallCommand implements BlazeCommand {
 
     AtomicReference<ExecRequest> deployerRequestRef = new AtomicReference<>();
     BuildResult result =
-        new BuildTool(env)
-            .processRequest(
-                request,
-                /* validator= */ null,
-                successfulTargets ->
-                    doMobileInstall(
-                        env, options, runTargetArgs, successfulTargets, deployerRequestRef),
-                options,
-                /* targetsForProjectResolution= */ null);
+        new BuildTool(env).processRequest(request, /* validator= */ null, options);
     if (!result.getSuccess()) {
       env.getReporter().handle(Event.error("Build failed. Not running mobile-install on target."));
       return BlazeCommandResult.detailedExitCode(result.getDetailedExitCode());
     }
 
-    FailureDetail failureDetail = result.getPostBuildCallBackFailureDetail();
+    // The deployer must run after processRequest() has returned, not as a post-build callback
+    // inside it: the build summary ("Build completed successfully") is emitted at the end of
+    // processRequest(), and a deployer failure reported before it would be followed by a success
+    // message as the last line of output.
+    FailureDetail failureDetail;
+    try {
+      failureDetail =
+          doMobileInstall(
+              env, options, runTargetArgs, result.getSuccessfulTargets(), deployerRequestRef);
+    } catch (InterruptedException e) {
+      String message = "mobile-install: deployer interrupted";
+      env.getReporter().handle(Event.error(message));
+      return BlazeCommandResult.detailedExitCode(
+          InterruptedFailureDetails.detailedExitCode(message));
+    }
     if (failureDetail == null) {
       return deployerRequestRef.get() == null
           ? BlazeCommandResult.success()
