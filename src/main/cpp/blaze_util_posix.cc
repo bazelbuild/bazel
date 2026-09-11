@@ -767,19 +767,25 @@ bool KillServerProcess(int pid, const blaze_util::Path& output_base,
   // Kill the process and make sure it's dead before proceeding.
   errno = 0;
   if (killpg(pid, SIGKILL) == -1) {
+    if (errno == ESRCH || from_signal_handler) {
+      return false;
+    }
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Attempted to kill stale server process (pid=" << pid
         << ") using SIGKILL: " << GetLastErrorString();
   }
+  if (from_signal_handler) {
+    // In signal handler context, avoid non-async-signal-safe calls
+    // (AwaitServerProcessTermination, VerifyServerProcess, heap allocations,
+    // BAZEL_DIE).
+    return true;
+  }
   if (!AwaitServerProcessTermination(pid, output_base,
                                      kPostKillGracePeriodSeconds,
                                      TerminationReason::kKillSignal)) {
-    string diagnosis;
-    if (!from_signal_handler) {
-      diagnosis = GetProcessTerminationDiagnosis(pid);
-      if (!diagnosis.empty()) {
-        diagnosis = " Diagnosis: " + diagnosis;
-      }
+    string diagnosis = GetProcessTerminationDiagnosis(pid);
+    if (!diagnosis.empty()) {
+      diagnosis = " Diagnosis: " + diagnosis;
     }
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Attempted to kill stale server process (pid=" << pid
