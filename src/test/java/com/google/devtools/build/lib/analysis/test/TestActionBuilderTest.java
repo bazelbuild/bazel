@@ -418,6 +418,38 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCoverageExecutionInfoChangesActionKey(
+      @TestParameter boolean collectCoverage, @TestParameter boolean splitCoveragePostProcessing)
+      throws Exception {
+    useConfiguration(
+        "--collect_code_coverage=" + collectCoverage,
+        "--experimental_split_coverage_postprocessing=" + splitCoveragePostProcessing,
+        "--experimental_fetch_all_coverage_outputs");
+    Artifact testStatus1 = Iterables.getOnlyElement(getTestStatusArtifacts("//tests:small_test_1"));
+    TestRunnerAction action1 = (TestRunnerAction) getGeneratingAction(testStatus1);
+
+    initializeSkyframeExecutor();
+
+    useConfiguration(
+        "--collect_code_coverage=" + collectCoverage,
+        "--experimental_split_coverage_postprocessing=" + splitCoveragePostProcessing,
+        "--experimental_fetch_all_coverage_outputs",
+        "--modify_execution_info=CoveragePostProcessing=+no-remote-exec");
+    Artifact testStatus2 = Iterables.getOnlyElement(getTestStatusArtifacts("//tests:small_test_1"));
+    TestRunnerAction action2 = (TestRunnerAction) getGeneratingAction(testStatus2);
+
+    assertThat(action1.isCoverageMode()).isEqualTo(collectCoverage);
+    assertThat(action2.getExecutionInfo()).isEqualTo(action1.getExecutionInfo());
+    String key1 = action1.getKey(actionKeyContext, /* inputMetadataProvider= */ null);
+    String key2 = action2.getKey(actionKeyContext, /* inputMetadataProvider= */ null);
+    if (collectCoverage && splitCoveragePostProcessing) {
+      assertThat(key1).isNotEqualTo(key2);
+    } else {
+      assertThat(key1).isEqualTo(key2);
+    }
+  }
+
+  @Test
   public void testRunsPerTestWithSharding() throws Exception {
     useConfiguration("--runs_per_test=2");
     scratch.file(

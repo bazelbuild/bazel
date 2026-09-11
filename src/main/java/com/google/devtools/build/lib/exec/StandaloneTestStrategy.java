@@ -511,10 +511,10 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     return new SimpleSpawn(
         action,
-        "CoveragePostProcessing",
+        TestRunnerAction.COVERAGE_POST_PROCESSING_MNEMONIC,
         args,
         ImmutableMap.copyOf(testEnvironment),
-        action.getExecutionInfo(),
+        action.getCoveragePostProcessingExecutionInfo(),
         SpawnInputs.of(
             action.getInputs(),
             ImmutableList.<ActionInput>builderWithExpectedSize(expandedCoverageDir.size() + 1)

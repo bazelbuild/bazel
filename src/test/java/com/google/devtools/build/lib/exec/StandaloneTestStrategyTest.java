@@ -1193,10 +1193,70 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
   @Test
   public void splitCoveragePostprocessingHasDistinctMnemonic() throws Exception {
+    List<Spawn> spawns = runTestWithSplitCoverage();
+    TestRunnerAction testRunnerAction = (TestRunnerAction) spawns.get(0).getResourceOwner();
+
+    assertThat(spawns.stream().map(Spawn::getMnemonic))
+        .containsExactly("TestRunner", "CoveragePostProcessing", "TestRunner")
+        .inOrder();
+    Spawn coverageSpawn = spawns.get(1);
+    assertThat(coverageSpawn.getResourceOwner()).isSameInstanceAs(testRunnerAction);
+    assertThat(coverageSpawn.getExecutionPlatform()).isEqualTo(testRunnerAction.getExecutionPlatform());
+    assertThat(coverageSpawn.getExecutionInfo()).isEqualTo(testRunnerAction.getExecutionInfo());
+    assertThat(coverageSpawn.getExecutionInfo()).containsKey("no-remote-exec");
+    assertThat(coverageSpawn.getOutputFiles()).containsExactly(testRunnerAction.getCoverageData());
+  }
+
+  @Test
+  public void splitCoveragePostprocessingExecutionInfoIsModifiedIndependently() throws Exception {
+    List<Spawn> spawns =
+        runTestWithSplitCoverage(
+            "--modify_execution_info=TestRunner=-no-remote-exec,TestRunner=+no-cache,"
+                + "CoveragePostProcessing=+no-sandbox");
+
+    for (Spawn testSpawn : ImmutableList.of(spawns.get(0), spawns.get(2))) {
+      assertThat(testSpawn.getMnemonic()).isEqualTo("TestRunner");
+      assertThat(testSpawn.getExecutionInfo()).doesNotContainKey("no-remote-exec");
+      assertThat(testSpawn.getExecutionInfo()).containsEntry("no-cache", "");
+      assertThat(testSpawn.getExecutionInfo()).doesNotContainKey("no-sandbox");
+    }
+    Spawn coverageSpawn = spawns.get(1);
+    assertThat(coverageSpawn.getMnemonic()).isEqualTo("CoveragePostProcessing");
+    assertThat(coverageSpawn.getExecutionInfo())
+        .containsExactly("no-remote-exec", "", "no-sandbox", "");
+  }
+
+  @Test
+  public void splitCoveragePostprocessingCanRemoveExecutionInfoWithoutAffectingTest()
+      throws Exception {
+    List<Spawn> spawns =
+        runTestWithSplitCoverage("--modify_execution_info=CoveragePostProcessing=-no-remote-exec");
+
+    assertThat(spawns.get(0).getExecutionInfo()).containsEntry("no-remote-exec", "");
+    assertThat(spawns.get(1).getExecutionInfo()).isEmpty();
+    assertThat(spawns.get(2).getExecutionInfo()).containsEntry("no-remote-exec", "");
+  }
+
+  @Test
+  public void splitCoveragePostprocessingExecutionInfoMatchesWildcardModifier() throws Exception {
+    List<Spawn> spawns = runTestWithSplitCoverage("--modify_execution_info=.*=+no-sandbox");
+
+    for (Spawn spawn : spawns) {
+      assertThat(spawn.getExecutionInfo()).containsEntry("no-remote-exec", "");
+      assertThat(spawn.getExecutionInfo()).containsEntry("no-sandbox", "");
+    }
+  }
+
+  private List<Spawn> runTestWithSplitCoverage(String... extraOptions) throws Exception {
     useConfiguration(
-        "--collect_code_coverage",
-        "--experimental_split_coverage_postprocessing",
-        "--experimental_fetch_all_coverage_outputs");
+        ImmutableList.<String>builder()
+            .add(
+                "--collect_code_coverage",
+                "--experimental_split_coverage_postprocessing",
+                "--experimental_fetch_all_coverage_outputs")
+            .add(extraOptions)
+            .build()
+            .toArray(new String[0]));
     scratch.file("standalone/coverage.sh", "mocked");
     scratch.file(
         "standalone/BUILD",
@@ -1237,15 +1297,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             Options.getDefaults(TestSummaryOptions.class),
             outputBase));
 
-    assertThat(spawns.stream().map(Spawn::getMnemonic))
-        .containsExactly("TestRunner", "CoveragePostProcessing", "TestRunner")
-        .inOrder();
-    Spawn coverageSpawn = spawns.get(1);
-    assertThat(coverageSpawn.getResourceOwner()).isSameInstanceAs(testRunnerAction);
-    assertThat(coverageSpawn.getExecutionPlatform()).isEqualTo(testRunnerAction.getExecutionPlatform());
-    assertThat(coverageSpawn.getExecutionInfo()).isEqualTo(testRunnerAction.getExecutionInfo());
-    assertThat(coverageSpawn.getExecutionInfo()).containsKey("no-remote-exec");
-    assertThat(coverageSpawn.getOutputFiles()).containsExactly(testRunnerAction.getCoverageData());
+    return spawns;
   }
 
   @Test
