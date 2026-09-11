@@ -206,9 +206,7 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
         }
       }
       return new ReportedArtifacts(
-          artifacts,
-          new CompletionContext(
-              ArtifactPathResolver.IDENTITY, importantInputMap, /* expandFilesets= */ false));
+          artifacts, new CompletionContext(ArtifactPathResolver.IDENTITY, importantInputMap));
     }
 
     @Override

@@ -31,8 +31,7 @@ import javax.annotation.Nullable;
  */
 public final class CompletionContext {
   public static final CompletionContext FAILED_COMPLETION_CTX =
-      new CompletionContext(
-          ArtifactPathResolver.IDENTITY, new ActionInputMap(0), /* expandFilesets= */ false);
+      new CompletionContext(ArtifactPathResolver.IDENTITY, new ActionInputMap(0));
 
   private final ArtifactPathResolver pathResolver;
   // Only contains the metadata for 'important' artifacts of the Target/Aspect that completed. Any
@@ -40,24 +39,18 @@ public final class CompletionContext {
   // not be included to avoid retaining many GB on the heap. This ActionInputMap must only be
   // consulted with respect to known-important artifacts (e.g. artifacts referenced in BEP).
   private final ActionInputMap importantInputMap;
-  private final boolean expandFilesets;
 
   @VisibleForTesting
-  public CompletionContext(
-      ArtifactPathResolver pathResolver, ActionInputMap importantInputMap, boolean expandFilesets) {
+  public CompletionContext(ArtifactPathResolver pathResolver, ActionInputMap importantInputMap) {
     this.pathResolver = pathResolver;
     this.importantInputMap = importantInputMap;
-    this.expandFilesets = expandFilesets;
   }
 
   public static CompletionContext create(
-      boolean expandFilesets,
-      ActionInputMap importantInputMap,
-      PathResolverFactory pathResolverFactory) {
+      ActionInputMap importantInputMap, PathResolverFactory pathResolverFactory) {
     return new CompletionContext(
         pathResolverFactory.createPathResolverForArtifactValues(importantInputMap),
-        importantInputMap,
-        expandFilesets);
+        importantInputMap);
   }
 
   public ArtifactPathResolver pathResolver() {
@@ -80,15 +73,13 @@ public final class CompletionContext {
         continue;
       }
       if (artifact.isFileset()) {
-        if (expandFilesets) {
-          FilesetOutputTree filesetOutput =
-              checkNotNull(
-                  importantInputMap.getFileset(artifact),
-                  "missing metadata for fileset: %s",
-                  artifact);
-          for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
-            receiver.acceptFilesetMapping(artifact, link);
-          }
+        FilesetOutputTree filesetOutput =
+            checkNotNull(
+                importantInputMap.getFileset(artifact),
+                "missing metadata for fileset: %s",
+                artifact);
+        for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
+          receiver.acceptFilesetMapping(artifact, link);
         }
       } else if (artifact.isTreeArtifact()) {
         TreeArtifactValue treeValue =

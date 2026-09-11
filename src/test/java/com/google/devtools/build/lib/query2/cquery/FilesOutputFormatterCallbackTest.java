@@ -160,7 +160,6 @@ public final class FilesOutputFormatterCallbackTest extends ConfiguredTargetQuer
             // Based on BuildRequest#getTopLevelArtifactContext.
             new TopLevelArtifactContext(
                 false,
-                false,
                 OutputGroupInfo.determineOutputGroups(outputGroups, ValidationMode.OFF, false),
                 /* failOnUnknownOutputGroups= */ false,
                 /* forRunCommand= */ false));

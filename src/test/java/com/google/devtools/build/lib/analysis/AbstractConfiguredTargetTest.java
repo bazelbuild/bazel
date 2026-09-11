@@ -54,7 +54,6 @@ public class AbstractConfiguredTargetTest extends BuildViewTestCase {
                 x,
                 new TopLevelArtifactContext(
                     /* runTestsExclusively= */ false,
-                    /* expandFilesets= */ false,
                     /* outputGroups= */ ImmutableSortedSet.of(
                         OutputGroupInfo.DEFAULT, OutputGroupInfo.HIDDEN_TOP_LEVEL),
                     /* failOnUnknownOutputGroups= */ false,

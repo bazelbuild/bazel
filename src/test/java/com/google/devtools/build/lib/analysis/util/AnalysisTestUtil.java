@@ -81,7 +81,6 @@ public final class AnalysisTestUtil {
   public static final TopLevelArtifactContext TOP_LEVEL_ARTIFACT_CONTEXT =
       new TopLevelArtifactContext(
           /* runTestsExclusively= */ false,
-          /* expandFilesets= */ false,
           OutputGroupInfo.DEFAULT_GROUPS,
           /* failOnUnknownOutputGroups= */ false,
           /* forRunCommand= */ false);
