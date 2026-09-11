@@ -79,6 +79,13 @@ final class CompactSortedDirents extends AbstractCollection<Dirent> implements D
   }
 
   @Override
+  @Nullable
+  public Dirent.Type maybeGetDirentType(String baseName) {
+    int pos = Arrays.binarySearch(names, baseName);
+    return pos < 0 ? null : unpackType(pos);
+  }
+
+  @Override
   public Iterator<Dirent> iterator() {
     return new Iterator<>() {
 
@@ -126,18 +133,10 @@ final class CompactSortedDirents extends AbstractCollection<Dirent> implements D
   private static void packType(BitSet bitSet, Dirent.Type type, int i) {
     int start = i * 2;
     switch (type) {
-      case FILE:
-        pack(bitSet, start, false, false);
-        break;
-      case DIRECTORY:
-        pack(bitSet, start, false, true);
-        break;
-      case SYMLINK:
-        pack(bitSet, start, true, false);
-        break;
-      case UNKNOWN:
-        pack(bitSet, start, true, true);
-        break;
+      case FILE -> pack(bitSet, start, false, false);
+      case DIRECTORY -> pack(bitSet, start, false, true);
+      case SYMLINK -> pack(bitSet, start, true, false);
+      case UNKNOWN -> pack(bitSet, start, true, true);
     }
   }
 

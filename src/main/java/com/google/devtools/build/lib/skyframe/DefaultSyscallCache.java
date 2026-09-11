@@ -231,13 +231,13 @@ public final class DefaultSyscallCache implements SyscallCache {
     // stat.
     if (readdirCache.getIfPresent(parent) instanceof Dirents dirents) {
       String baseName = path.getBaseName();
-      var dirent = dirents.maybeGetDirent(baseName);
-      if (dirent != null) {
-        if (dirent.getType() == Dirent.Type.SYMLINK && symlinks == Symlinks.FOLLOW) {
+      Dirent.Type direntType = dirents.maybeGetDirentType(baseName);
+      if (direntType != null) {
+        if (direntType == Dirent.Type.SYMLINK && symlinks == Symlinks.FOLLOW) {
           // See above: We don't want to follow symlinks with readdir(). Do a stat() instead.
           return ofStat(statIfFound(path, Symlinks.FOLLOW));
         }
-        return DirentTypeWithSkip.of(dirent.getType());
+        return DirentTypeWithSkip.of(direntType);
       }
       if (!path.getFileSystem().mayBeCaseOrNormalizationInsensitive()) {
         return null;
