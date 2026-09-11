@@ -222,6 +222,84 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Test
+  public void stat_fromInputArtifactData_missingParents(
+      @TestParameter boolean followSymlinks) throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    Artifact artifact = createRemoteArtifact("missing/dir/file", "contents", inputs);
+    PathFragment path = artifact.getPath().asFragment();
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+
+    FileStatus st = actionFs.stat(path, followSymlinks);
+    assertThat(st.isFile()).isTrue();
+    assertThat(((FileStatusWithDigest) st).getDigest()).isEqualTo(getDigest("contents"));
+    assertThat(actionFs.isExecutable(path)).isTrue();
+
+    // Resolving remote metadata must not materialize its missing parent directories.
+    assertThat(fs.getPath(path.getParentDirectory()).exists()).isFalse();
+    assertThat(actionFs.getRemoteOutputTree().getPath(path.getParentDirectory()).exists()).isFalse();
+
+    PathFragment missing = path.replaceName("unknown");
+    assertThat(actionFs.statIfFound(missing, followSymlinks)).isNull();
+    assertThrows(FileNotFoundException.class, () -> actionFs.isExecutable(missing));
+  }
+
+  @Test
+  public void stat_missingParentsAreNotCached(
+      @TestParameter boolean knownInput, @TestParameter boolean followSymlinks) throws Exception {
+    ActionInputMap inputs = new ActionInputMap(2);
+    createRemoteArtifact("target/dir/file", "target contents", inputs);
+    if (knownInput) {
+      createRemoteArtifact("link/dir/file", "original contents", inputs);
+    }
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+    PathFragment path = getOutputPath("link/dir/file");
+
+    if (knownInput) {
+      FileStatusWithDigest before = (FileStatusWithDigest) actionFs.stat(path, followSymlinks);
+      assertThat(before.getDigest()).isEqualTo(getDigest("original contents"));
+    } else {
+      assertThat(actionFs.statIfFound(path, followSymlinks)).isNull();
+    }
+    // The local symlink must take precedence over any inference from the input's naive path.
+    fs.getPath(getOutputPath("link")).createSymbolicLink(getOutputPath("target"));
+
+    FileStatusWithDigest after = (FileStatusWithDigest) actionFs.stat(path, followSymlinks);
+    assertThat(after.getDigest()).isEqualTo(getDigest("target contents"));
+  }
+
+  @Test
+  public void stat_regularFileBlocksRemoteInput(
+      @TestParameter boolean followSymlinks, @TestParameter boolean cacheParent) throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    createRemoteArtifact("link/dir/file", "contents", inputs);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+    PathFragment link = getOutputPath("link");
+    FileSystemUtils.writeContent(fs.getPath(link), UTF_8, "local file");
+
+    if (cacheParent) {
+      assertThat(actionFs.stat(link, /* followSymlinks= */ true).isFile()).isTrue();
+    }
+
+    PathFragment path = getOutputPath("link/dir/file");
+    assertThat(actionFs.statIfFound(path, followSymlinks)).isNull();
+    assertThrows(FileNotFoundException.class, () -> actionFs.stat(path, followSymlinks));
+  }
+
+  @Test
+  public void stat_missingParentLaterBecomesFile(@TestParameter boolean followSymlinks)
+      throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    createRemoteArtifact("link/dir/file", "contents", inputs);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+    PathFragment path = getOutputPath("link/dir/file");
+    assertThat(actionFs.stat(path, followSymlinks).isFile()).isTrue();
+
+    FileSystemUtils.writeContent(fs.getPath(getOutputPath("link")), UTF_8, "local file");
+
+    assertThat(actionFs.statIfFound(path, followSymlinks)).isNull();
+  }
+
+  @Test
   public void statAndExists_fromInputArtifactData_treeSubDir() throws Exception {
     ActionInputMap inputs = new ActionInputMap(1);
     SpecialArtifact tree =
@@ -473,7 +551,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   @Test
   public void getDigest_fromInputArtifactData_forLocalArtifact() throws Exception {
     ActionInputMap inputs = new ActionInputMap(1);
-    Artifact artifact = createRemoteArtifact("file", "local contents", inputs);
+    Artifact artifact = createLocalArtifact("file", "local contents", inputs);
     PathFragment path = artifact.getPath().asFragment();
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
 
@@ -488,7 +566,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   @Test
   public void getDigest_fromInputArtifactData_forRemoteArtifact() throws Exception {
     ActionInputMap inputs = new ActionInputMap(1);
-    Artifact artifact = createRemoteArtifact("file", "remote contents", inputs);
+    Artifact artifact = createRemoteArtifact("missing/dir/file", "remote contents", inputs);
     PathFragment path = artifact.getPath().asFragment();
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
 
@@ -846,7 +924,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   @Test
   public void readSymbolicLink_fromInputArtifactData_regularFile() throws Exception {
     ActionInputMap inputs = new ActionInputMap(1);
-    Artifact artifact = createRemoteArtifact("file", "contents", inputs);
+    Artifact artifact = createRemoteArtifact("missing/dir/file", "contents", inputs);
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
 
     assertThrows(
@@ -922,7 +1000,8 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   public void createSymbolicLink_remoteFileArtifact() throws Exception {
     // arrange
     ActionInputMap inputs = new ActionInputMap(1);
-    Artifact remoteArtifact = createRemoteArtifact("remote-file", "remote contents", inputs);
+    Artifact remoteArtifact =
+        createRemoteArtifact("missing/dir/remote-file", "remote contents", inputs);
     Artifact outputArtifact = ActionsTestUtil.createArtifact(outputRoot, "out");
     FileSystem actionFs = createActionFileSystem(inputs);
 
@@ -940,6 +1019,9 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
         .isEqualTo(targetPath);
     assertThat(getLocalFileSystem(actionFs).getPath(linkPath).readSymbolicLink())
         .isEqualTo(targetPath);
+    assertThat(((FileStatusWithDigest) symlinkActionFs.stat()).getDigest())
+        .isEqualTo(getDigest("remote contents"));
+    assertThat(fs.getPath(targetPath.getParentDirectory()).exists()).isFalse();
   }
 
   @Test
