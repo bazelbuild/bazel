@@ -143,7 +143,7 @@ EOF
 int main() { return 1; }
 EOF
   bazel build \
-        --experimental_unsupported_and_brittle_include_scanning \
+        --cc_include_scanning \
         --features=cc_include_scanning \
         --remote_cache=grpc://localhost:${worker_port} \
         --remote_download_minimal \
