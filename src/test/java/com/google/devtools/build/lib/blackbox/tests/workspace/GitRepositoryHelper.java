@@ -76,6 +76,19 @@ class GitRepositoryHelper {
   }
 
   /**
+   * Sets a repository-local git config value.
+   *
+   * @param key config key
+   * @param value config value
+   * @throws Exception related to the invocation of the external git process (like IOException or
+   *     TimeoutException) or ProcessRunnerException if the process returned not expected return
+   *     code.
+   */
+  void config(String key, String value) throws Exception {
+    runGit("config", key, value);
+  }
+
+  /**
    * Tags the HEAD commit.
    *
    * @param tagName tag name
