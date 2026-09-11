@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <memory>
+#include <utility>
 
 #include "src/main/cpp/util/exit_code.h"
 

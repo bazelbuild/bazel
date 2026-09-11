@@ -30,6 +30,8 @@
 
 #include <cassert>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "src/main/cpp/util/exit_code.h"
 

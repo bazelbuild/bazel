@@ -14,6 +14,8 @@
 
 #include "src/tools/singlejar/zip_headers.h"
 
+#include <cstdint>
+
 #include "googletest/include/gtest/gtest.h"
 
 namespace {

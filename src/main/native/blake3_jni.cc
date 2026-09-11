@@ -16,6 +16,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <cstdint>
+
 #include "c/blake3.h"
 
 namespace blaze_jni {

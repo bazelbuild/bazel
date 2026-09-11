@@ -16,6 +16,7 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <string>
 #include <string_view>
 

@@ -14,6 +14,10 @@
 
 #include <stdlib.h>
 
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/port.h"

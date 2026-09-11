@@ -16,6 +16,8 @@
 
 #include <stdio.h>
 
+#include <algorithm>
+#include <cstdint>
 #include <fstream>
 #include <ios>
 #include <iostream>

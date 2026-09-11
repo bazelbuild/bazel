@@ -14,6 +14,12 @@
 
 #include "src/tools/singlejar/desugar_checking.h"
 
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "src/main/protobuf/desugar_deps.pb.h"
 #include "src/tools/singlejar/diag.h"
 

@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <string>
 
 #include "gtest/gtest.h"
 #include "src/main/cpp/util/file_platform.h"

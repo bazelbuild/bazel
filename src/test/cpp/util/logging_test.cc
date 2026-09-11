@@ -14,7 +14,9 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
+#include <utility>
 
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/bazel_log_handler.h"

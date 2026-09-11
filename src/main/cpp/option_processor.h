@@ -16,6 +16,7 @@
 #define BAZEL_SRC_MAIN_CPP_OPTION_PROCESSOR_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>

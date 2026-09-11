@@ -14,6 +14,8 @@
 
 #include "src/tools/singlejar/desugar_checking.h"
 
+#include <string>
+
 #include "src/tools/singlejar/input_jar.h"
 #include "src/tools/singlejar/zip_headers.h"
 #include "src/tools/singlejar/zlib_interface.h"

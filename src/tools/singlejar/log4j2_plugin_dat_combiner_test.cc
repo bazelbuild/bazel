@@ -14,7 +14,11 @@
 
 #include "src/tools/singlejar/log4j2_plugin_dat_combiner.h"
 
+#include <cstdint>
 #include <fstream>
+#include <ios>
+#include <iostream>
+#include <memory>
 #include <string>
 
 #include "googletest/include/gtest/gtest.h"

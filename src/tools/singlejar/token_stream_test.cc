@@ -19,6 +19,8 @@
 #include <wchar.h>
 
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "src/main/cpp/util/path_platform.h"
 #include "src/tools/singlejar/test_util.h"

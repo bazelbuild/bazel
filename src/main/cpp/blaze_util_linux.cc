@@ -27,6 +27,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"

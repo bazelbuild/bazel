@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include <cstdint>
+
 // Takes the arg and a state and posts it as a notification.
 int main(int argc, const char *argv[]) {
   if (argc != 3) {

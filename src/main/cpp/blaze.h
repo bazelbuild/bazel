@@ -14,6 +14,7 @@
 #ifndef BAZEL_SRC_MAIN_CPP_BLAZE_H_
 #define BAZEL_SRC_MAIN_CPP_BLAZE_H_
 
+#include <cstdint>
 #include <string>
 
 #include "src/main/cpp/command_extension_adder.h"
