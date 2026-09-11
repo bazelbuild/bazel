@@ -28,7 +28,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/bazel",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:external_file_system_lock",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",

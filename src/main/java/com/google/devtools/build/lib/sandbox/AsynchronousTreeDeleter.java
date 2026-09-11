@@ -67,7 +67,7 @@ public class AsynchronousTreeDeleter implements TreeDeleter {
 
     service =
         new ThreadPoolExecutor(
-            1, 1, 0L, TimeUnit.SECONDS, new LinkedBlockingQueue<>(), threadFactory);
+            1, 1, 10L, TimeUnit.SECONDS, new LinkedBlockingQueue<>(), threadFactory);
 
     this.trashBase = trashBase;
   }
@@ -76,15 +76,21 @@ public class AsynchronousTreeDeleter implements TreeDeleter {
    * Resizes the thread pool to the given number of threads.
    *
    * <p>If the pool of active threads is larger than the requested number of threads, the resize
-   * will progressively happen as those active threads become inactive. If the requested size is
-   * zero, this will wait for all pending deletions to complete.
+   * will progressively happen as those active threads become inactive.
    *
-   * @param threads desired number of threads, or 0 to go back to synchronous deletion
+   * @param threads desired number of threads
    */
   void setThreads(int threads) {
     checkState(threads > 0, "Use SynchronousTreeDeleter if no async behavior is desired");
     logger.atInfo().log("Resizing async tree deletion pool to %d threads", threads);
-    checkNotNull(service, "Cannot call setThreads after shutdown").setMaximumPoolSize(threads);
+    ThreadPoolExecutor pool = checkNotNull(service, "Cannot call setThreads after shutdown");
+    // Raise maximumPoolSize before corePoolSize when expanding to maintain the invariant
+    // corePoolSize <= maximumPoolSize. When shrinking, only lower corePoolSize so existing
+    // workers remain alive to drain remaining queued tasks in parallel before timing out.
+    if (threads > pool.getMaximumPoolSize()) {
+      pool.setMaximumPoolSize(threads);
+    }
+    pool.setCorePoolSize(threads);
   }
 
   @Override
@@ -117,7 +123,7 @@ public class AsynchronousTreeDeleter implements TreeDeleter {
                 trashPath.deleteTree();
               } catch (IOException e) {
                 logger.atWarning().withCause(e).log(
-                    "Failed to delete tree %s asynchronously", path);
+                    "Failed to delete tree %s (originally %s) asynchronously", trashPath, path);
               }
             });
   }

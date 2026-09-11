@@ -108,10 +108,10 @@ public class InputFile extends FileTarget {
    * Returns the exec path of the file, i.e. the path relative to the execution root working
    * directory.
    */
-  public PathFragment getExecPath(boolean siblingRepositoryLayout) {
+  public PathFragment getExecPath() {
     return label
         .getRepository()
-        .getExecPath(siblingRepositoryLayout)
+        .getExecPath()
         .getRelative(label.getPackageName())
         .getRelative(label.getName());
   }

@@ -142,7 +142,7 @@ public final class CallUtils {
     private final Class<?> clazz;
 
     private StarlarkBuiltinAutoType(Class<?> clazz) {
-      this.name = StarlarkAnnotations.getStarlarkBuiltin(clazz).name();
+      this.name = StarlarkAnnotations.getStarlarkTypeName(clazz);
       this.clazz = clazz;
     }
 
@@ -220,13 +220,28 @@ public final class CallUtils {
       };
 
   /**
-   * Returns the Starlark type to be used for valid Starlark values of the given class which doesn't
-   * override {@link StarlarkValue#getStarlarkType}; or null if it (or one of its superclasses) does
-   * override {@link StarlarkValue#getStarlarkType}.
+   * Returns the Starlark type to be used for valid Starlark values of the given class, which must
+   * have be annotated as (or have an ancestor annotated as) {@link StarlarkBuiltin} and mustn't
+   * override {@link StarlarkValue#getStarlarkType}. Returns null if the given class does not
+   * satisfy these conditions.
    */
   @Nullable
   static StarlarkType getStarlarkBuiltinAutoType(Class<?> clazz) {
     return starlarkBuiltinAutoTypeCache.get(clazz);
+  }
+
+  /**
+   * Like {@link #getStarlarkBuiltinAutoType}, but wraps the result in a reified {@link
+   * TypeConstructor} value.
+   */
+  @Nullable
+  public static TypeConstructorValue wrapStarlarkBuiltinAutoType(Class<?> clazz) {
+    @Nullable StarlarkType type = getStarlarkBuiltinAutoType(clazz);
+    if (type == null) {
+      return null;
+    }
+    return TypeConstructorValue.of(
+        Types.wrapType(StarlarkAnnotations.getStarlarkTypeName(clazz), type));
   }
 
   /**

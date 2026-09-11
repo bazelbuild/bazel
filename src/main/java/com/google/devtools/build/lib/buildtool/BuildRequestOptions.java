@@ -423,7 +423,7 @@ public abstract class BuildRequestOptions extends OptionsBase {
 
   @Option(
       name = "experimental_precise_rewinding",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},

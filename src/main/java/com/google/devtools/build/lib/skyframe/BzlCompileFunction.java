@@ -158,11 +158,18 @@ public class BzlCompileFunction implements SkyFunction {
       return null;
     }
 
+    TypeOptions typeOptions = getTypeOptions(semantics, key);
+    boolean resolveTypeSyntax =
+        typeOptions.wantStaticTypeChecking() || typeOptions.wantDynamicTypeChecking();
+
     ImmutableMap<String, Object> predeclared;
     if (key.isSclDialect()) {
       predeclared = bazelStarlarkEnvironment.getStarlarkGlobals().getSclToplevels();
     } else if (key.kind == BzlCompileValue.Kind.BUILTINS) {
-      predeclared = bazelStarlarkEnvironment.getBuiltinsBzlEnv();
+      predeclared =
+          resolveTypeSyntax
+              ? bazelStarlarkEnvironment.getBuiltinsBzlEnvWithExtraTypeConstructors()
+              : bazelStarlarkEnvironment.getBuiltinsBzlEnv();
     } else {
       // Use the predeclared environment for BUILD-loaded bzl files, ignoring injection. It is not
       // the right env for the actual evaluation of BUILD-loaded bzl files because it doesn't
@@ -173,7 +180,10 @@ public class BzlCompileFunction implements SkyFunction {
       // because the "native" object is different. But A) that will be fixed with #11954, and B) we
       // don't care for the same reason as above.
 
-      predeclared = bazelStarlarkEnvironment.getUninjectedBuildBzlEnv();
+      predeclared =
+          resolveTypeSyntax
+              ? bazelStarlarkEnvironment.getUninjectedBuildBzlEnvWithExtraTypeConstructors()
+              : bazelStarlarkEnvironment.getUninjectedBuildBzlEnv();
     }
 
     // We have all deps. Parse, resolve, and return.
@@ -205,7 +215,6 @@ public class BzlCompileFunction implements SkyFunction {
             // matching the error message or reworking the interpreter API to put more structured
             // detail in errors (i.e. new fields or error subclasses).
             .stringLiteralsAreAsciiOnly(key.isSclDialect());
-    TypeOptions typeOptions = getTypeOptions(semantics, key);
     updateFileOptions(optionsBuilder, typeOptions);
     StarlarkFile file = StarlarkFile.parse(input, optionsBuilder.build());
 

@@ -156,7 +156,6 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
             channel,
             callCredentialsProvider,
             retrier,
-            options.getMaximumOpenFiles(),
             digestUtil.getDigestFunction());
     maxMissingBlobsDigestsPerMessage = computeMaxMissingBlobsDigestsPerMessage();
     Preconditions.checkState(

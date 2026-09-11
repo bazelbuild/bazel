@@ -349,7 +349,7 @@ public final class ActionRewindStrategy {
     boolean missingDependencies = false;
     for (DerivedArtifact lostArtifact : lostArtifacts) {
       Map<ActionLookupData, ActionAnalysisMetadata> actionMap =
-          getActionsForLostArtifact(lostArtifact, env);
+          getActionsForLostArtifact(lostArtifact, env, lostInputsAndTransitiveOwners);
       if (actionMap == null) {
         // Some deps of the artifact are not done. If allowSkyframeRestarts() is false, another
         // rewind must be in-flight, and there is no need to rewind the shared deps twice.
@@ -636,8 +636,14 @@ public final class ActionRewindStrategy {
     for (ActionInput lostInput : lostInputs) {
       lostInputsAndOwners.add(lostInput);
       if (lostInput instanceof Artifact artifact && artifact.hasParent()) {
-        lostInputsAndOwners.add(artifact.getParent());
-        owners.put(artifact, artifact.getParent());
+        Artifact parent = artifact.getParent();
+        lostInputsAndOwners.add(parent);
+        owners.put(artifact, parent);
+        if (parent.isSubTreeArtifact()) {
+          Artifact grandparent = parent.getParent();
+          lostInputsAndOwners.add(grandparent);
+          owners.put(parent, grandparent);
+        }
       }
     }
 
@@ -810,7 +816,7 @@ public final class ActionRewindStrategy {
       }
       for (DerivedArtifact artifact : artifactsToCheck) {
         Map<ActionLookupData, ActionAnalysisMetadata> actionMap =
-            getActionsForLostArtifact(artifact, env);
+            getActionsForLostArtifact(artifact, env, lostInputsAndTransitiveOwners);
         if (actionMap == null) {
           missingDependencies = true;
           continue;
@@ -944,7 +950,10 @@ public final class ActionRewindStrategy {
    */
   @Nullable
   private Map<ActionLookupData, ActionAnalysisMetadata> getActionsForLostArtifact(
-      DerivedArtifact lostInput, Environment env) throws InterruptedException {
+      DerivedArtifact lostInput,
+      Environment env,
+      @Nullable Set<ActionInput> lostInputsAndTransitiveOwners)
+      throws InterruptedException {
     ImmutableSet<ActionLookupData> actionExecutionDeps = getActionExecutionDeps(lostInput, env);
     if (actionExecutionDeps == null) {
       return null;
@@ -959,7 +968,16 @@ public final class ActionRewindStrategy {
         missingAction = true;
         continue;
       }
-      actions.put(dep, actionAnalysisMetadata);
+      // Keep all actions unless precise rewinding is active (lostInputsAndTransitiveOwners !=
+      // null) and we're working with an action template expansion. In that case, only keep actions
+      // that output at least one lost input.
+      if (lostInputsAndTransitiveOwners == null
+          || !lostInput.isTreeArtifact()
+          || dep.equals(lostInput.getGeneratingActionKey())
+          || actionAnalysisMetadata.getOutputs().stream()
+              .anyMatch(lostInputsAndTransitiveOwners::contains)) {
+        actions.put(dep, actionAnalysisMetadata);
+      }
     }
     if (missingAction) {
       return null;

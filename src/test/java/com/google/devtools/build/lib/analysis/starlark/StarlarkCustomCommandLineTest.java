@@ -447,6 +447,66 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
+  public void uniquify() throws Exception {
+    CommandLine commandLine =
+        builder
+            .add(vectorArg("a", "b", "a", "c", "b", "d").uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(commandLine, "a", "b", "c", "d");
+  }
+
+  @Test
+  public void uniquify_withMapEach() throws Exception {
+    StarlarkFunction mapEach =
+        (StarlarkFunction)
+            execStarlark(
+                """
+                def map_each(x):
+                  return x.lower()
+                map_each
+                """);
+    CommandLine commandLine =
+        builder
+            .add(
+                vectorArg("A", "b", "a", "B", "c")
+                    .setMapEach(mapEach)
+                    .setLocation(Location.BUILTIN)
+                    .uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(commandLine, "a", "b", "c");
+  }
+
+  @Test
+  public void uniquify_withMapEachReturningList() throws Exception {
+    StarlarkFunction mapEach =
+        (StarlarkFunction)
+            execStarlark(
+                """
+                def map_each(x):
+                  return [x, x]
+                map_each
+                """);
+    CommandLine commandLine =
+        builder
+            .add(
+                vectorArg("a", "b", "a")
+                    .setMapEach(mapEach)
+                    .setLocation(Location.BUILTIN)
+                    .uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(commandLine, "a", "b");
+  }
+
+  @Test
+  public void uniquify_withJoinWith() throws Exception {
+    CommandLine commandLine =
+        builder
+            .add(vectorArg("a", "b", "a", "c", "b").setJoinWith(",").uniquify(true))
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+    verifyCommandLine(commandLine, "a,b,c");
+  }
+
+  @Test
   public void flagPerLine() throws Exception {
     CommandLine commandLine =
         builder
@@ -936,6 +996,116 @@ public final class StarlarkCustomCommandLineTest {
 
     assertThat(commandLine1.arguments()).containsExactly("val1_foo", "val2_foo").inOrder();
     assertThat(commandLine2.arguments()).containsExactly("val3_bar", "val4_bar").inOrder();
+  }
+
+  @Test
+  public void supportsHeuristicPathMapping_stripsAllArgsWithOutputPaths() throws Exception {
+    ActionsTestUtil.MockAction heuristicAction =
+        new ActionsTestUtil.MockAction(
+            ImmutableList.of(artifact1, artifact2), ImmutableSet.of(artifact3)) {
+          @Override
+          public ImmutableMap<String, String> getExecutionInfo() {
+            return ImmutableMap.of(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING, "");
+          }
+        };
+
+    CommandLine commandLine =
+        builder
+            .add("-I" + artifact1.getExecPathString())
+            .add("--plugin=protoc-gen-cpp=" + artifact2.getExecPathString())
+            .add("--descriptor_set_out=" + artifact3.getExecPathString())
+            .add(
+                "--custom_flag="
+                    + artifact1.getExecPathString()
+                    + ":"
+                    + artifact2.getExecPathString())
+            .add("--non_path_flag")
+            .add("-I.")
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+
+    verifyCommandLine(
+        PathMappers.create(
+            heuristicAction,
+            CoreOptions.OutputPathsMode.STRIP,
+            /* isStarlarkAction= */ true,
+            /* inputMetadataProvider= */ null),
+        commandLine,
+        "-Ibazel-out/cfg/bin/pkg/artifact1",
+        "--plugin=protoc-gen-cpp=bazel-out/cfg/bin/pkg/artifact2",
+        "--descriptor_set_out=bazel-out/cfg/bin/artifact3",
+        "--custom_flag=bazel-out/cfg/bin/pkg/artifact1:bazel-out/cfg/bin/pkg/artifact2",
+        "--non_path_flag",
+        "-I.");
+  }
+
+  @Test
+  public void supportsHeuristicPathMapping_stripsFormattedArguments() throws Exception {
+    ActionsTestUtil.MockAction heuristicAction =
+        new ActionsTestUtil.MockAction(
+            ImmutableList.of(artifact1, artifact2), ImmutableSet.of(artifact3)) {
+          @Override
+          public ImmutableMap<String, String> getExecutionInfo() {
+            return ImmutableMap.of(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING, "");
+          }
+        };
+
+    CommandLine commandLine =
+        builder
+            .addFormatted(artifact1.getRoot(), "--arg1_root=%s")
+            .addFormatted(artifact1.getExecPathString(), "--arg1_path=%s")
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+
+    verifyCommandLine(
+        PathMappers.create(
+            heuristicAction,
+            CoreOptions.OutputPathsMode.STRIP,
+            /* isStarlarkAction= */ true,
+            /* inputMetadataProvider= */ null),
+        commandLine,
+        "--arg1_root=bazel-out/cfg/bin",
+        "--arg1_path=bazel-out/cfg/bin/pkg/artifact1");
+  }
+
+  @Test
+  public void supportsPathMapping_onlyMapsStructuredCommandLineFragments() throws Exception {
+    ActionsTestUtil.MockAction structuredAction =
+        new ActionsTestUtil.MockAction(
+            ImmutableList.of(artifact1, artifact2), ImmutableSet.of(artifact3)) {
+          @Override
+          public ImmutableMap<String, String> getExecutionInfo() {
+            return ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, "");
+          }
+        };
+
+    CommandLine commandLine =
+        builder
+            .add("-I" + artifact1.getExecPathString())
+            .add("--plugin=protoc-gen-cpp=" + artifact2.getExecPathString())
+            .add("--descriptor_set_out=" + artifact3.getExecPathString())
+            .add(
+                "--custom_flag="
+                    + artifact1.getExecPathString()
+                    + ":"
+                    + artifact2.getExecPathString())
+            .add(artifact1)
+            .add("--non_path_flag")
+            .add("-I.")
+            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+
+    verifyCommandLine(
+        PathMappers.create(
+            structuredAction,
+            CoreOptions.OutputPathsMode.STRIP,
+            /* isStarlarkAction= */ true,
+            /* inputMetadataProvider= */ null),
+        commandLine,
+        "-I" + artifact1.getExecPathString(),
+        "--plugin=protoc-gen-cpp=" + artifact2.getExecPathString(),
+        "--descriptor_set_out=" + artifact3.getExecPathString(),
+        "--custom_flag=" + artifact1.getExecPathString() + ":" + artifact2.getExecPathString(),
+        "bazel-out/cfg/bin/pkg/artifact1",
+        "--non_path_flag",
+        "-I.");
   }
 
   private static Object execStarlark(String code) throws Exception {

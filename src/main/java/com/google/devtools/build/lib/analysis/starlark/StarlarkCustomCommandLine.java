@@ -63,7 +63,6 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -132,8 +131,6 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
   private static final Joiner LINE_JOINER = Joiner.on("\n").skipNulls();
   private static final Joiner FIELD_JOINER = Joiner.on(": ").skipNulls();
-
-  private static final AtomicBoolean interningEnabled = new AtomicBoolean(true);
 
   // Used to distinguish command line arguments that are potentially subject to special default
   // stringification (such as Artifacts when path mapped or Labels when not main repo labels) from

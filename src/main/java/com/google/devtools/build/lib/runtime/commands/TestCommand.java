@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.runtime.commands;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.EXECUTES;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -53,8 +54,8 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
+import com.google.devtools.build.lib.util.io.AnsiTerminal;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
@@ -95,15 +96,17 @@ public class TestCommand implements BlazeCommand {
     }
   }
 
+  @VisibleForTesting
+  static final String STREAMED_OUTPUT_WARNING =
+      "Streamed test output requested. All tests will be run without sharding, one at a time"
+          + " (sequential execution forced by --test_strategy=exclusive). For parallel execution of"
+          + " multiple tests, use --test_output=errors or --test_output=all.";
+
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     TestOutputFormat testOutput = options.getOptions(ExecutionOptions.class).getTestOutput();
     if (testOutput == TestOutputFormat.STREAMED) {
-      env.getReporter()
-          .handle(
-              Event.warn(
-                  "Streamed test output requested. All tests will be run without sharding, "
-                      + "one at a time"));
+      env.getReporter().handle(Event.warn(STREAMED_OUTPUT_WARNING));
     }
 
     AnsiTerminalPrinter printer =
@@ -292,22 +295,39 @@ public class TestCommand implements BlazeCommand {
         buildResult.getTestTargets(), buildResult.getSkippedTargets(), validatedTargets, notifier);
   }
 
-  private static TestLogPathFormatter makeTestLogPathFormatter(
+  @VisibleForTesting
+  public static TestLogPathFormatter makeTestLogPathFormatter(
       ImmutableMap<PathFragment, PathFragment> convenienceSymlinks,
       OptionsParsingResult options,
       CommandEnvironment env) {
-    BlazeRuntime runtime = env.getRuntime();
+    BlazeRuntime runtime = env != null ? env.getRuntime() : null;
     TestSummaryOptions summaryOptions = options.getOptions(TestSummaryOptions.class);
-    if (!summaryOptions.getPrintRelativeTestLogPaths()) {
-      return Path::getPathString;
+    UiOptions uiOptions = options.getOptions(UiOptions.class);
+    boolean useHyperlinks = uiOptions != null && uiOptions.useHyperlinks();
+    PathPrettyPrinter pathPrettyPrinter = null;
+    if (summaryOptions != null && summaryOptions.getPrintRelativeTestLogPaths()) {
+      String productName = runtime != null ? runtime.getProductName() : "bazel";
+      BuildRequestOptions requestOptions =
+          env != null && env.getOptions() != null
+              ? env.getOptions().getOptions(BuildRequestOptions.class)
+              : null;
+      String symlinkPrefix =
+          requestOptions != null ? requestOptions.getSymlinkPrefix(productName) : productName + "-";
+      PathFragment workingDirectory =
+          env != null ? env.getRelativeWorkingDirectory() : PathFragment.EMPTY_FRAGMENT;
+      pathPrettyPrinter =
+          new PathPrettyPrinter(workingDirectory, symlinkPrefix, convenienceSymlinks);
     }
-    String productName = runtime.getProductName();
-    BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
-    PathPrettyPrinter pathPrettyPrinter =
-        new PathPrettyPrinter(
-            env.getRelativeWorkingDirectory(),
-            requestOptions.getSymlinkPrefix(productName),
-            convenienceSymlinks);
-    return path -> pathPrettyPrinter.getPrettyPath(path.asFragment()).getPathString();
+    PathPrettyPrinter finalPrettyPrinter = pathPrettyPrinter;
+    return path -> {
+      String displayPath =
+          finalPrettyPrinter != null
+              ? finalPrettyPrinter.getPrettyPath(path.asFragment()).getPathString()
+              : path.getPathString();
+      if (useHyperlinks) {
+        return AnsiTerminal.hyperlink(AnsiTerminal.fileUri(path.getPathString()), displayPath);
+      }
+      return displayPath;
+    };
   }
 }

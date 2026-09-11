@@ -1882,7 +1882,6 @@ public final class BuildEventStreamerTest extends BuildEventStreamerTestBase {
     return BuildConfigurationValue.createForTesting(
         BuildOptions.of(ImmutableList.of(CoreOptions.class)),
         "some_mnemonic",
-        /* siblingRepositoryLayout= */ false,
         new BlazeDirectories(
             new ServerDirectories(outputBase, outputBase, outputBase),
             rootDirectory,

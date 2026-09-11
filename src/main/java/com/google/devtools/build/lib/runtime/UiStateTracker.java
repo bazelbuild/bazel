@@ -838,10 +838,11 @@ class UiStateTracker {
     long nanoRuntime = nanoTime - actionState.nanoStartTime;
     long runtimeSeconds = nanoRuntime / NANOS_PER_SECOND;
     String strategy = null;
-    ActionPhase phase = actionState.getPhase();
-    if (phase.equals(ActionPhase.CACHING) || phase.equals(ActionPhase.RUNNING)) {
+    if (actionState.getStrategyBitmap() != 0) {
       strategy = strategyIds.formatNames(actionState.getStrategyBitmap());
-    } else {
+    }
+    ActionPhase phase = actionState.getPhase();
+    if (!phase.equals(ActionPhase.CACHING) && !phase.equals(ActionPhase.RUNNING)) {
       String status = phase.describe();
       if (status == null) {
         status = NO_STATUS;
@@ -858,7 +859,7 @@ class UiStateTracker {
       postfix = "; " + runtimeSeconds + "s";
     }
     if (strategy != null) {
-      postfix += " " + strategy;
+      postfix += " (" + strategy + ")";
     }
 
     String message = action.getProgressMessage(mainRepositoryMapping);

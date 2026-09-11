@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -24,6 +25,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.auto.value.AutoBuilder;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -31,6 +33,9 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat;
+import com.google.devtools.build.lib.runtime.TestSummaryPrinter.TestLogPathFormatter;
+import com.google.devtools.build.lib.runtime.commands.TestCommand;
+import com.google.devtools.build.lib.util.io.AnsiTerminal;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
@@ -38,6 +43,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase.Status;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.common.options.TriState;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -647,5 +653,99 @@ public final class TerminalTestResultNotifierTest {
 
   private static String error(String message) {
     return AnsiTerminalPrinter.Mode.ERROR + message + AnsiTerminalPrinter.Mode.DEFAULT;
+  }
+
+  @Test
+  public void testUiOptions_useHyperlinks() {
+    UiOptions options = Options.getDefaults(UiOptions.class);
+    assertThat(options.getTerminalHyperlinks()).isEqualTo(TriState.AUTO);
+    assertThat(options.useHyperlinks()).isFalse();
+
+    options.setTerminalHyperlinks(TriState.YES);
+    assertThat(options.useHyperlinks()).isTrue();
+
+    options.setTerminalHyperlinks(TriState.NO);
+    assertThat(options.useHyperlinks()).isFalse();
+  }
+
+  @Test
+  public void testMakeTestLogPathFormatter_hyperlinksEnabled() throws Exception {
+    OptionsParsingResult options = mock(OptionsParsingResult.class);
+    TestSummaryOptions summaryOptions = Options.getDefaults(TestSummaryOptions.class);
+    UiOptions uiOptions = Options.getDefaults(UiOptions.class);
+    uiOptions.setTerminalHyperlinks(TriState.YES);
+    when(options.getOptions(TestSummaryOptions.class)).thenReturn(summaryOptions);
+    when(options.getOptions(UiOptions.class)).thenReturn(uiOptions);
+
+    TestLogPathFormatter formatter =
+        TestCommand.makeTestLogPathFormatter(ImmutableMap.of(), options, /* env= */ null);
+
+    Path mockPath = mock(Path.class);
+    when(mockPath.getPathString()).thenReturn("/abs/path/test.log");
+
+    String result = formatter.getPathStringToPrint(mockPath);
+    assertThat(result)
+        .isEqualTo("\033]8;;file:///abs/path/test.log\033\\/abs/path/test.log\033]8;;\033\\");
+  }
+
+  @Test
+  public void testMakeTestLogPathFormatter_hyperlinksDisabled() throws Exception {
+    OptionsParsingResult options = mock(OptionsParsingResult.class);
+    TestSummaryOptions summaryOptions = Options.getDefaults(TestSummaryOptions.class);
+    UiOptions uiOptions = Options.getDefaults(UiOptions.class);
+    uiOptions.setTerminalHyperlinks(TriState.NO);
+    when(options.getOptions(TestSummaryOptions.class)).thenReturn(summaryOptions);
+    when(options.getOptions(UiOptions.class)).thenReturn(uiOptions);
+
+    TestLogPathFormatter formatter =
+        TestCommand.makeTestLogPathFormatter(ImmutableMap.of(), options, /* env= */ null);
+
+    Path mockPath = mock(Path.class);
+    when(mockPath.getPathString()).thenReturn("/abs/path/test.log");
+
+    String result = formatter.getPathStringToPrint(mockPath);
+    assertThat(result).isEqualTo("/abs/path/test.log");
+  }
+
+  @Test
+  public void testSummary_withHyperlinkedLogPaths() throws Exception {
+    TestSummary testSummary = mock(TestSummary.class);
+    when(testSummary.getTotalTestCases()).thenReturn(0);
+    when(testSummary.getStatus()).thenReturn(BlazeTestStatus.FAILED);
+    when(testSummary.getFailedTestCases()).thenReturn(ImmutableList.of());
+    when(testSummary.getLabel()).thenReturn(Label.parseCanonical("//foo:bar_test"));
+    when(testSummary.actionRan()).thenReturn(true);
+    Path mockPath = mock(Path.class);
+    when(mockPath.exists()).thenReturn(true);
+    when(mockPath.getPathString())
+        .thenReturn("/workspace/bazel-out/testlogs/foo/bar_test/test.log");
+    when(testSummary.getFailedLogs()).thenReturn(ImmutableList.of(mockPath));
+
+    TestLogPathFormatter hyperlinkFormatter =
+        path ->
+            AnsiTerminal.hyperlink(
+                AnsiTerminal.fileUri(path.getPathString()), "bazel-testlogs/foo/bar_test/test.log");
+
+    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
+    executionOptions.setTestSummary(TestSummaryFormat.SHORT);
+    when(optionsParsingResult.getOptions(ExecutionOptions.class)).thenReturn(executionOptions);
+    TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
+    testSummaryOptions.setVerboseSummary(true);
+    when(optionsParsingResult.getOptions(TestSummaryOptions.class)).thenReturn(testSummaryOptions);
+
+    TerminalTestResultNotifier notifier =
+        new TerminalTestResultNotifier(
+            ansiTerminalPrinter, hyperlinkFormatter, optionsParsingResult, RepositoryMapping.EMPTY);
+    notifier.notify(ImmutableSet.of(testSummary), 1);
+
+    ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+    verify(ansiTerminalPrinter, atLeastOnce()).print(captor.capture());
+    assertThat(captor.getAllValues())
+        .contains(
+            "  "
+                + AnsiTerminal.hyperlink(
+                    "file:///workspace/bazel-out/testlogs/foo/bar_test/test.log",
+                    "bazel-testlogs/foo/bar_test/test.log")
+                + "\n");
   }
 }

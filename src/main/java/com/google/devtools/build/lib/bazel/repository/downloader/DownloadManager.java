@@ -57,7 +57,6 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.Phaser;
 import javax.annotation.Nullable;
 
 /**
@@ -143,7 +142,6 @@ public class DownloadManager {
       Path output,
       Map<String, String> clientEnv,
       String context,
-      Phaser downloadPhaser,
       boolean mayHardlink) {
     // TODO(andreisolo): This code path is inconsistent as the authHeaders are fetched from a
     //  .netrc only if it comes from a http_{archive,file,jar} - and it is handled directly
@@ -187,10 +185,6 @@ public class DownloadManager {
                 MoreExecutors.listeningDecorator(executorService)
                     .submit(
                         () -> {
-                          if (downloadPhaser.register() != 0) {
-                            // Not in download phase, must already have been cancelled.
-                            throw new InterruptedException();
-                          }
                           try (SilentCloseable c = Profiler.instance().profile("fetching: " + context)) {
                             return downloadInExecutor(
                                 originalUrls,
@@ -204,8 +198,6 @@ public class DownloadManager {
                                 clientEnv,
                                 context,
                                 mayHardlink);
-                          } finally {
-                            downloadPhaser.arrive();
                           }
                         }));
     // Every caller needs the payload at its own destination, so callers that joined an ongoing
@@ -217,17 +209,9 @@ public class DownloadManager {
           if (downloaded.equals(destination)) {
             return Futures.immediateFuture(destination);
           }
-          if (downloadPhaser.register() != 0) {
-            // Not in download phase, must already have been cancelled.
-            throw new InterruptedException();
-          }
-          try {
-            destination.getParentDirectory().createDirectoryAndParents();
-            FileSystemUtils.copyFile(downloaded, destination);
-            return Futures.immediateFuture(destination);
-          } finally {
-            downloadPhaser.arrive();
-          }
+          destination.getParentDirectory().createDirectoryAndParents();
+          FileSystemUtils.copyFile(downloaded, destination);
+          return Futures.immediateFuture(destination);
         },
         executorService);
   }

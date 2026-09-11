@@ -66,6 +66,9 @@ public final class PathMappers {
         getEffectiveOutputPathsMode(outputPathsMode, mnemonic, executionInfo);
     if (effectiveOutputPathsMode == OutputPathsMode.STRIP) {
       fingerprint.addString(StrippingPathMapper.GUID);
+      if (executionInfo.containsKey(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING)) {
+        fingerprint.addString(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING);
+      }
       // These artifacts are not part of the actual command line or inputs, but influence the
       // behavior of path mapping.
       actionKeyContext.addNestedSetToFingerprint(fingerprint, additionalArtifactsForPathMapping);
@@ -142,7 +145,8 @@ public final class PathMappers {
       return OutputPathsMode.OFF;
     }
     if (outputPathsMode == OutputPathsMode.STRIP
-        && executionInfo.containsKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING)) {
+        && (executionInfo.containsKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING)
+            || executionInfo.containsKey(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING))) {
       return OutputPathsMode.STRIP;
     }
     return OutputPathsMode.OFF;

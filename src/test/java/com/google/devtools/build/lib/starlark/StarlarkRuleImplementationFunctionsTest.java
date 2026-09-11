@@ -531,6 +531,22 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  arguments = [ruleContext.files.srcs[0].path])");
   }
 
+  @Test
+  public void testRequireMnemonicForRunActions() throws Exception {
+    setBuildLanguageOptions("--incompatible_require_mnemonic_for_run_actions=true");
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.checkEvalErrorContains(
+        "actions.run and actions.run_shell require an explicit mnemonic.",
+        "ruleContext.actions.run_shell(",
+        "  outputs = ruleContext.files.srcs,",
+        "  command = 'echo hello')");
+    ev.checkEvalErrorContains(
+        "actions.run and actions.run_shell require an explicit mnemonic.",
+        "ruleContext.actions.run(",
+        "  outputs = ruleContext.files.srcs,",
+        "  executable = ruleContext.files.tools[0])");
+  }
+
   private void setupToolInInputsTest(String... ruleImpl) throws Exception {
     ImmutableList.Builder<String> lines = ImmutableList.builder();
     lines.add("def _main_rule_impl(ctx):");
@@ -1287,6 +1303,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
                 dir = str(sorted(dir(provider))),
                 rule_data_runfiles = provider.data_runfiles,
                 rule_default_runfiles = provider.default_runfiles,
+                rule_executable = provider.executable,
                 rule_files = provider.files,
                 rule_files_to_run = provider.files_to_run,
                 rule_file_executable = provider.files_to_run.executable
@@ -1316,7 +1333,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         .isEqualTo(DefaultInfo.PROVIDER.getKey());
 
     assertThat(myInfo.getValue("dir"))
-        .isEqualTo("[\"data_runfiles\", \"default_runfiles\", \"files\", \"files_to_run\"]");
+        .isEqualTo(
+            "[\"data_runfiles\", \"default_runfiles\", \"executable\", \"files\","
+                + " \"files_to_run\"]");
 
     assertThat(myInfo.getValue("rule_data_runfiles")).isInstanceOf(Runfiles.class);
     assertThat(
@@ -1336,6 +1355,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
     assertThat(myInfo.getValue("rule_files")).isInstanceOf(Depset.class);
     assertThat(myInfo.getValue("rule_files_to_run")).isInstanceOf(FilesToRunProvider.class);
+    assertThat(myInfo.getValue("rule_executable")).isEqualTo(Starlark.NONE);
     assertThat(myInfo.getValue("rule_file_executable")).isEqualTo(Starlark.NONE);
   }
 
@@ -1400,7 +1420,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         .isEqualTo(DefaultInfo.PROVIDER.getKey());
 
     assertThat(myInfo.getValue("dir"))
-        .isEqualTo("[\"data_runfiles\", \"default_runfiles\", \"files\", \"files_to_run\"]");
+        .isEqualTo(
+            "[\"data_runfiles\", \"default_runfiles\", \"executable\", \"files\","
+                + " \"files_to_run\"]");
 
     assertThat(myInfo.getValue("rule_data_runfiles")).isInstanceOf(Runfiles.class);
     assertThat(
@@ -1436,6 +1458,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
                 dir = str(sorted(dir(provider))),
                 file_data_runfiles = provider.data_runfiles,
                 file_default_runfiles = provider.default_runfiles,
+                file_executable = provider.executable,
                 file_files = provider.files,
                 file_files_to_run = provider.files_to_run,
             )]
@@ -1463,7 +1486,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         .isEqualTo(DefaultInfo.PROVIDER.getKey());
 
     assertThat(myInfo.getValue("dir"))
-        .isEqualTo("[\"data_runfiles\", \"default_runfiles\", \"files\", \"files_to_run\"]");
+        .isEqualTo(
+            "[\"data_runfiles\", \"default_runfiles\", \"executable\", \"files\","
+                + " \"files_to_run\"]");
 
     assertThat(myInfo.getValue("file_data_runfiles")).isInstanceOf(Runfiles.class);
     assertThat(
@@ -1481,6 +1506,20 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
     assertThat(myInfo.getValue("file_files")).isInstanceOf(Depset.class);
     assertThat(myInfo.getValue("file_files_to_run")).isInstanceOf(FilesToRunProvider.class);
+    assertThat(myInfo.getValue("file_executable"))
+        .isEqualTo(((FilesToRunProvider) myInfo.getValue("file_files_to_run")).getExecutable());
+  }
+
+  @Test
+  public void testDefaultProviderOnPackageGroup() throws Exception {
+    scratch.file("test/BUILD", "package_group(name = 'group', packages = ['//...'])");
+
+    DefaultInfo provider =
+        (DefaultInfo) getConfiguredTarget("//test:group").get(DefaultInfo.PROVIDER.getKey());
+    ev.update("provider", provider);
+
+    assertThat(ev.eval("provider.executable")).isEqualTo(Starlark.NONE);
+    assertThat((String) ev.eval("str(provider)")).contains("executable = None");
   }
 
   @Test
@@ -2121,8 +2160,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     StarlarkRuleContext ctx = createRuleContext("//foo:bar");
     setRuleContext(ctx);
     Object result = ev.eval("ruleContext.bin_dir.path");
-    assertThat(result)
-        .isEqualTo(ctx.getConfiguration().getBinFragment(RepositoryName.MAIN).getPathString());
+    assertThat(result).isEqualTo(ctx.getConfiguration().getBinFragment().getPathString());
   }
 
   @Test

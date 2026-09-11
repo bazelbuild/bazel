@@ -143,4 +143,43 @@ public class ForkJoinQuiescingExecutorTest {
       forkJoinPool.shutdownNow();
     }
   }
+
+  @Test
+  public void testExecuteQuiescingTaskForksInSamePool() throws Exception {
+    ForkJoinPool forkJoinPool = spy(new ForkJoinPool());
+    try {
+      ForkJoinQuiescingExecutor underTest =
+          ForkJoinQuiescingExecutor.newBuilder().withOwnershipOf(forkJoinPool).build();
+
+      AtomicReference<ForkJoinPool> subtaskRanIn = new AtomicReference<>();
+      QuiescingTask subTask =
+          new QuiescingTask(underTest) {
+            @Override
+            public void runCore() {
+              subtaskRanIn.set(ForkJoinTask.getPool());
+            }
+          };
+
+      AtomicReference<ForkJoinPool> taskRanIn = new AtomicReference<>();
+      QuiescingTask mainTask =
+          new QuiescingTask(underTest) {
+            @Override
+            public void runCore() {
+              taskRanIn.set(ForkJoinTask.getPool());
+              underTest.execute(subTask);
+            }
+          };
+
+      underTest.execute(mainTask);
+      underTest.awaitQuiescence(/* interruptWorkers= */ false);
+
+      assertThat(taskRanIn.get()).isSameInstanceAs(forkJoinPool);
+      assertThat(subtaskRanIn.get()).isSameInstanceAs(forkJoinPool);
+
+      // Confirm the task ran without wrapping via ForkJoinTask.adapt
+      verify(forkJoinPool, times(1)).execute(any(ForkJoinTask.class));
+    } finally {
+      forkJoinPool.shutdownNow();
+    }
+  }
 }

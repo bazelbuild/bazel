@@ -168,20 +168,13 @@ compile_rule = rule(_impl,
    */
   @Test
   @TestParameters({
-    "{sibling: false, generated: false, expectedFlags:" + " ['-Iexternal/foo\\+']}",
-    "{sibling: false, generated: true, expectedFlags:"
-        + " ['-Ibl?azel?-out/k8-fastbuild/bin/external/foo\\+']}",
-    "{sibling: true, generated: false,expectedFlags:" + " ['-I../foo\\+']}",
-    "{sibling: true, generated: true, expectedFlags:"
-        + " ['-Ibl?azel?-out/foo\\+/k8-fastbuild/bin']}",
+    "{generated: false, expectedFlags:" + " ['-Iexternal/foo\\+']}",
+    "{generated: true, expectedFlags:" + " ['-Ibl?azel?-out/k8-fastbuild/bin/external/foo\\+']}",
   })
-  public void protoCommonCompile_externalProtoLibrary(
-      boolean sibling, boolean generated, List<String> expectedFlags) throws Exception {
+  public void protoCommonCompile_externalProtoLibrary(boolean generated, List<String> expectedFlags)
+      throws Exception {
     if (!analysisMock.isThisBazel()) {
       return;
-    }
-    if (sibling) {
-      setBuildLanguageOptions("--experimental_sibling_repository_layout");
     }
     scratch.appendFile(
         "MODULE.bazel",

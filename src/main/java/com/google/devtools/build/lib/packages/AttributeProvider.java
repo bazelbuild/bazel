@@ -319,6 +319,9 @@ public class AttributeProvider {
                 owner,
                 ruleOrMacroInstance.isRuleInstance() ? "rule" : "macro"),
             targetDefinitionContext);
+        if (ruleOrMacroInstance instanceof Rule ruleInstance) {
+          ruleInstance.setHasMissingMandatoryAttribute();
+        }
       }
 
       // Macros don't have computed defaults or special logic for licenses or distributions.

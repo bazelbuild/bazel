@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunction
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtension;
 import com.google.devtools.build.lib.bazel.bzlmod.TagClass;
 import com.google.devtools.build.lib.bazel.repository.RepoRule;
-import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule.StarlarkRepoRule;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.packages.AspectPropagationEdgesSupplier.FixedListSupplier;
 import com.google.devtools.build.lib.packages.AspectPropagationEdgesSupplier.FunctionSupplier;
@@ -241,8 +240,8 @@ public final class ModuleInfoExtractor {
           visitFunction(qualifiedName, starlarkFunction);
         } else if (value instanceof StarlarkDefinedAspect starlarkDefinedAspect) {
           visitAspect(qualifiedName, starlarkDefinedAspect);
-        } else if (value instanceof StarlarkRepoRule starlarkRepoRule) {
-          visitRepositoryRule(qualifiedName, starlarkRepoRule.getRepoRule());
+        } else if (value instanceof RepoRule.Supplier repoRuleSupplier) {
+          visitRepositoryRule(qualifiedName, repoRuleSupplier.getRepoRule());
         } else if (value instanceof ModuleExtension moduleExtension) {
           visitModuleExtension(qualifiedName, moduleExtension);
         } else {

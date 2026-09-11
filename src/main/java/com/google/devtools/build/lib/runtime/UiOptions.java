@@ -29,6 +29,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.TriState;
 import java.util.HashSet;
 import java.util.List;
 
@@ -285,6 +286,23 @@ public abstract class UiOptions extends OptionsBase {
           "The maximum size of the stdout / stderr files that will be printed to the console. "
               + "-1 implies no limit.")
   public abstract int getMaxStdoutErrBytes();
+
+  @Option(
+      name = "terminal_hyperlinks",
+      defaultValue = "auto",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "If true (or auto with color enabled and a tty), format terminal file paths and test"
+              + " logs as clickable OSC 8 hyperlinks.")
+  public abstract TriState getTerminalHyperlinks();
+
+  public abstract void setTerminalHyperlinks(TriState value);
+
+  public boolean useHyperlinks() {
+    return getTerminalHyperlinks() == TriState.YES
+        || (getTerminalHyperlinks() == TriState.AUTO && useColor());
+  }
 
   public boolean useColor() {
     return getUseColorEnum() == UseColor.YES || (getUseColorEnum() == UseColor.AUTO && getIsATty());

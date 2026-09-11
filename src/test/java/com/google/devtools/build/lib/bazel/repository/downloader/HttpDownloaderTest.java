@@ -61,7 +61,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 import org.junit.Ignore;
@@ -172,7 +171,6 @@ public class HttpDownloaderTest {
                 return null;
               });
 
-      Phaser phaser = new Phaser(1);
       ExecutorService downloadExecutor = Executors.newFixedThreadPool(2);
       URI url = URI.create(String.format("http://localhost:%d/foo", server.getLocalPort()));
       Path destination1 = fs.getPath(workingDir.newFolder().getAbsolutePath()).getChild("file1");
@@ -189,7 +187,6 @@ public class HttpDownloaderTest {
               destination1,
               ImmutableMap.of(),
               "testRepo1",
-              phaser,
               /* mayHardlink= */ true);
       assertThat(requestReceived.await(10, SECONDS)).isTrue();
       Future<Path> download2 =
@@ -204,7 +201,6 @@ public class HttpDownloaderTest {
               destination2,
               ImmutableMap.of(),
               "testRepo2",
-              phaser,
               /* mayHardlink= */ true);
 
       releaseResponse.countDown();
@@ -257,7 +253,6 @@ public class HttpDownloaderTest {
                 return null;
               });
 
-      Phaser phaser = new Phaser(1);
       URI url = URI.create(String.format("http://localhost:%d/foo", server.getLocalPort()));
       Path destination1 = fs.getPath(workingDir.newFolder().getAbsolutePath()).getChild("file1");
       Path destination2 = fs.getPath(workingDir.newFolder().getAbsolutePath()).getChild("file2");
@@ -274,7 +269,6 @@ public class HttpDownloaderTest {
               destination1,
               ImmutableMap.of(),
               "testRepo1",
-              phaser,
               /* mayHardlink= */ true);
       Future<Path> download2 =
           downloadManager.startDownload(
@@ -288,7 +282,6 @@ public class HttpDownloaderTest {
               destination2,
               ImmutableMap.of(),
               "testRepo2",
-              phaser,
               /* mayHardlink= */ true);
 
       // Both downloads are canceled while the download task is still queued behind the blocker.
@@ -308,7 +301,6 @@ public class HttpDownloaderTest {
               destination3,
               ImmutableMap.of(),
               "testRepo3",
-              phaser,
               /* mayHardlink= */ true);
       Path result = downloadManager.finalizeDownload(download3);
 
@@ -1565,7 +1557,6 @@ public class HttpDownloaderTest {
       Map<String, String> clientEnv,
       String context)
       throws IOException, InterruptedException {
-    Phaser downloadPhaser = new Phaser();
     try (ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor()) {
       Future<Path> future =
           downloadManager.startDownload(
@@ -1579,12 +1570,8 @@ public class HttpDownloaderTest {
               output,
               clientEnv,
               context,
-              downloadPhaser,
               /* mayHardlink= */ true);
-      Path downloadedPath = downloadManager.finalizeDownload(future);
-      // Should not be in the download phase.
-      assertThat(downloadPhaser.getPhase()).isNotEqualTo(0);
-      return downloadedPath;
+      return downloadManager.finalizeDownload(future);
     }
   }
 }

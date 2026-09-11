@@ -53,6 +53,82 @@ function test_execvp_error_message_contains_path() {
   expect_log "\"execvp(/does/not/exist, 0x[[:alnum:]]*)\": No such file or directory"
 }
 
+function test_execvp_error_message_missing_interpreter() {
+  local bad_script="$SANDBOX_DIR/bad_script.sh"
+  cat > "$bad_script" <<'EOF'
+#!/nonexistent/interpreter/foo
+echo "should not run"
+EOF
+  chmod +x "$bad_script"
+
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -- "$bad_script" &> $TEST_log || code=$?
+  expect_log "file exists, but interpreter '/nonexistent/interpreter/foo' does not exist in sandbox"
+}
+
+function test_execvp_error_message_shebang_with_leading_whitespace() {
+  local bad_script="$SANDBOX_DIR/leading_whitespace.sh"
+  cat > "$bad_script" <<'EOF'
+#!   /nonexistent/interpreter/whitespace
+echo "should not run"
+EOF
+  chmod +x "$bad_script"
+
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -- "$bad_script" &> $TEST_log || code=$?
+  expect_log "file exists, but interpreter '/nonexistent/interpreter/whitespace' does not exist in sandbox"
+}
+
+function test_execvp_successful_script_execution() {
+  local good_script="$SANDBOX_DIR/good_script.sh"
+  cat > "$good_script" <<'EOF'
+#!/bin/sh
+echo "script executed successfully"
+EOF
+  chmod +x "$good_script"
+
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -- "$good_script" &> $TEST_log || fail "Expected script to execute successfully"
+  expect_log "script executed successfully"
+  expect_not_log "does not exist in sandbox"
+}
+
+function test_execvp_error_message_shebang_with_args() {
+  local bad_script="$SANDBOX_DIR/args_script.sh"
+  cat > "$bad_script" <<'EOF'
+#!/nonexistent/interpreter/bar -x --arg
+echo "should not run"
+EOF
+  chmod +x "$bad_script"
+
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -- "$bad_script" &> $TEST_log || code=$?
+  expect_log "file exists, but interpreter '/nonexistent/interpreter/bar' does not exist in sandbox"
+}
+
+function test_execvp_error_message_shebang_with_escaped_space() {
+  local bad_script="$SANDBOX_DIR/escaped_space.sh"
+  cat > "$bad_script" <<'EOF'
+#!/home/Foo\ Bar/goo/interpreter.exe
+echo "should not run"
+EOF
+  chmod +x "$bad_script"
+
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -- "$bad_script" &> $TEST_log || code=$?
+  expect_log "file exists, but interpreter '/home/Foo\\\' does not exist in sandbox"
+}
+
+function test_execvp_error_message_shebang_not_a_directory() {
+  local dummy_file="$SANDBOX_DIR/dummy_file"
+  touch "$dummy_file"
+  local bad_script="$SANDBOX_DIR/not_a_dir.sh"
+  cat > "$bad_script" <<EOF
+#!$dummy_file/foo
+echo "should not run"
+EOF
+  chmod +x "$bad_script"
+
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -- "$bad_script" &> $TEST_log || code=$?
+  expect_log "file exists, but interpreter '$dummy_file/foo' does not exist in sandbox"
+}
+
+
 function test_default_user_is_current_user() {
   $linux_sandbox $SANDBOX_DEFAULT_OPTS -- /usr/bin/id &> $TEST_log || fail
   local current_uid_number="$(id -u)"

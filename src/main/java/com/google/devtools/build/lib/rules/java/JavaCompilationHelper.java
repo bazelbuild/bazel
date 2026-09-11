@@ -205,10 +205,7 @@ public final class JavaCompilationHelper {
           outputs.withOutput(
               ruleContext.getDerivedArtifact(
                   FileSystemUtils.appendWithoutExtension(
-                      outputs
-                          .output()
-                          .getOutputDirRelativePath(getConfiguration().isSiblingRepositoryLayout()),
-                      "-class"),
+                      outputs.output().getOutputDirRelativePath(), "-class"),
                   outputs.output().getRoot()));
       resourceJars.add(outputs.output());
       createResourceJarAction(originalOutput, ImmutableList.copyOf(resourceJars));
@@ -221,10 +218,7 @@ public final class JavaCompilationHelper {
           outputs.withOutput(
               ruleContext.getDerivedArtifact(
                   FileSystemUtils.replaceExtension(
-                      outputs
-                          .output()
-                          .getOutputDirRelativePath(getConfiguration().isSiblingRepositoryLayout()),
-                      "-pre-optimization.jar"),
+                      outputs.output().getOutputDirRelativePath(), "-pre-optimization.jar"),
                   outputs.output().getRoot()));
     }
 
@@ -429,9 +423,7 @@ public final class JavaCompilationHelper {
   private Artifact turbineOutput(Artifact classJar, String newExtension) {
     return getAnalysisEnvironment()
         .getDerivedArtifact(
-            FileSystemUtils.replaceExtension(
-                classJar.getOutputDirRelativePath(getConfiguration().isSiblingRepositoryLayout()),
-                newExtension),
+            FileSystemUtils.replaceExtension(classJar.getOutputDirRelativePath(), newExtension),
             classJar.getRoot());
   }
 

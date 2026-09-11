@@ -222,6 +222,11 @@ public final class SandboxModule extends BlazeModule {
         firstBuild = true;
       }
     }
+    // Whenever a build starts, ensure the tree deleter runs in single-threaded mode so it
+    // does not compete with the active build for CPU and I/O resources.
+    if (treeDeleter instanceof AsynchronousTreeDeleter asyncTreeDeleter) {
+      asyncTreeDeleter.setThreads(1);
+    }
     try (SilentCloseable c = Profiler.instance().profile("SandboxStash.initialize")) {
       SandboxStash.initialize(env.getWorkspaceName(), sandboxBase, options, treeDeleter);
     }
@@ -231,13 +236,27 @@ public final class SandboxModule extends BlazeModule {
     // previous builds. However, on the very first build of an instance of the server, we must
     // wipe old contents to avoid reusing stale directories.
     if (firstBuild && sandboxBase.exists()) {
+      int idleThreads = options.getAsyncTreeDeleteIdleThreads();
+      AsynchronousTreeDeleter asyncDeleter =
+          treeDeleter instanceof AsynchronousTreeDeleter atd ? atd : null;
+      if (idleThreads > 0 && asyncDeleter != null) {
+        asyncDeleter.setThreads(idleThreads);
+      }
       try (SilentCloseable c = Profiler.instance().profile("clean sandbox on first build")) {
         if (trashBase.exists()) {
           // Delete stale trash from a previous server instance.
           Path staleTrash = getStaleTrashDir(trashBase);
           trashBase.renameTo(staleTrash);
           trashBase.createDirectory();
-          treeDeleter.deleteTree(staleTrash);
+          for (Dirent dirent : staleTrash.readdir(Symlinks.NOFOLLOW)) {
+            Path childPath = staleTrash.getChild(dirent.getName());
+            if (dirent.getType() == Dirent.Type.DIRECTORY) {
+              treeDeleter.deleteTree(childPath);
+            } else {
+              childPath.delete();
+            }
+          }
+          staleTrash.delete();
         } else {
           trashBase.createDirectory();
         }
@@ -261,7 +280,22 @@ public final class SandboxModule extends BlazeModule {
         // docker image. The overlay filesystem is different and the renaming of the directories
         // that we need to do for asynchronous deletion will fail. When that happens we fall back to
         // synchronous deletion here.
+        logger.atWarning().withCause(e).log(
+            "Asynchronous sandbox deletion failed (likely due to overlayfs/container filesystem"
+                + " layers, see https://github.com/bazelbuild/bazel/issues/21719); falling back to"
+                + " synchronous deletion of %s",
+            sandboxBase);
+        if (treeDeleter != null) {
+          treeDeleter.shutdown();
+          if (options.getAsyncTreeDeleteIdleThreads() > 0) {
+            treeDeleter = new AsynchronousTreeDeleter(trashBase);
+          }
+        }
         sandboxBase.deleteTree();
+      } finally {
+        if (idleThreads > 0 && asyncDeleter != null) {
+          asyncDeleter.setThreads(1);
+        }
       }
     }
     firstBuild = false;
@@ -493,6 +527,7 @@ public final class SandboxModule extends BlazeModule {
     // will be nothing new to delete. See #13240.
 
     if (shouldCleanupSandboxBase) {
+      boolean cleanupSucceeded = false;
       try {
         checkNotNull(sandboxBase, "shouldCleanupSandboxBase implies sandboxBase has been set");
         for (SpawnRunner spawnRunner : spawnRunners) {
@@ -507,13 +542,17 @@ public final class SandboxModule extends BlazeModule {
           }
         }
         cleanSandboxBaseTopOnlyContainsPersistentDirs(sandboxBase, treeDeleter);
-        shouldCleanupSandboxBase = false;
-        checkSandboxBaseTopOnlyContainsPersistentDirs(sandboxBase);
+        cleanupSucceeded = true;
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
       } catch (IOException e) {
         env.getReporter()
             .handle(Event.warn("Failed to delete contents of sandbox " + sandboxBase + ": " + e));
+      }
+      shouldCleanupSandboxBase = false;
+
+      if (cleanupSucceeded) {
+        checkSandboxBaseTopOnlyContainsPersistentDirs(sandboxBase);
       }
       // We intentionally keep sandboxBase around, without resetting it to null, in case we have
       // asynchronous deletions going on. In that case, we'd still want to retry this during

@@ -35,6 +35,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -78,11 +79,14 @@ import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import io.reactivex.rxjava3.core.Single;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -242,7 +246,9 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     // number of permits is less than number of uploads to affirm permit is released
     CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
-    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
+    ByteStreamBuildEventArtifactUploader artifactUploader =
+        newArtifactUploader(
+            combinedCache, RemoteBuildEventUploadMode.ALL, /* maximumOpenFiles= */ 1);
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     for (Path file : filesToUpload.keySet()) {
@@ -255,6 +261,135 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     artifactUploader.release();
 
+    assertThat(combinedCache.refCnt()).isEqualTo(0);
+    assertThat(refCntChannel.isShutdown()).isTrue();
+  }
+
+  @Test
+  public void uploadsRespectMaxConcurrency() throws Exception {
+    int numUploads = 5;
+    int maxConcurrency = 2;
+    Map<Path, LocalFile> filesToUpload = new HashMap<>();
+    for (int i = 0; i < numUploads; i++) {
+      Path file = fs.getPath("/concurrency_file" + i);
+      FileSystemUtils.writeContent(file, new byte[] {(byte) i});
+      filesToUpload.put(
+          file, new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null));
+    }
+
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = spy(newCombinedCache(refCntChannel, retrier));
+
+    AtomicInteger inFlightUploads = new AtomicInteger(0);
+    AtomicInteger maxInFlightUploads = new AtomicInteger(0);
+    List<SettableFuture<Void>> futures = new ArrayList<>();
+
+    doAnswer(
+            invocation -> {
+              int current = inFlightUploads.incrementAndGet();
+              maxInFlightUploads.accumulateAndGet(current, Math::max);
+              SettableFuture<Void> f = SettableFuture.create();
+              synchronized (futures) {
+                futures.add(f);
+              }
+              f.addListener(inFlightUploads::decrementAndGet, MoreExecutors.directExecutor());
+              return f;
+            })
+        .when(combinedCache)
+        .uploadFile(any(), any(), any());
+
+    ByteStreamBuildEventArtifactUploader artifactUploader =
+        newArtifactUploader(combinedCache, RemoteBuildEventUploadMode.ALL, maxConcurrency);
+
+    ListenableFuture<PathConverter> uploadFuture = artifactUploader.upload(filesToUpload);
+
+    // Initial subscription should only request maxConcurrency uploads concurrently.
+    assertThat(inFlightUploads.get()).isEqualTo(maxConcurrency);
+
+    // Complete futures one by one to allow subsequent uploads to proceed.
+    while (true) {
+      SettableFuture<Void> toComplete = null;
+      synchronized (futures) {
+        for (SettableFuture<Void> f : futures) {
+          if (!f.isDone()) {
+            toComplete = f;
+            break;
+          }
+        }
+      }
+      if (toComplete == null) {
+        break;
+      }
+      toComplete.set(null);
+    }
+
+    PathConverter pathConverter = uploadFuture.get();
+    assertThat(pathConverter).isNotNull();
+    assertThat(maxInFlightUploads.get()).isEqualTo(maxConcurrency);
+
+    artifactUploader.release();
+    assertThat(combinedCache.refCnt()).isEqualTo(0);
+    assertThat(refCntChannel.isShutdown()).isTrue();
+  }
+
+  @Test
+  public void uploadsWithDefaultConcurrency_unbounded() throws Exception {
+    int numUploads = 5;
+    Map<Path, LocalFile> filesToUpload = new HashMap<>();
+    for (int i = 0; i < numUploads; i++) {
+      Path file = fs.getPath("/unbounded_concurrency_file" + i);
+      FileSystemUtils.writeContent(file, new byte[] {(byte) i});
+      filesToUpload.put(
+          file, new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null));
+    }
+
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = spy(newCombinedCache(refCntChannel, retrier));
+
+    AtomicInteger inFlightUploads = new AtomicInteger(0);
+    AtomicInteger maxInFlightUploads = new AtomicInteger(0);
+    List<SettableFuture<Void>> futures = new ArrayList<>();
+
+    doAnswer(
+            invocation -> {
+              int current = inFlightUploads.incrementAndGet();
+              maxInFlightUploads.accumulateAndGet(current, Math::max);
+              SettableFuture<Void> f = SettableFuture.create();
+              synchronized (futures) {
+                futures.add(f);
+              }
+              f.addListener(inFlightUploads::decrementAndGet, MoreExecutors.directExecutor());
+              return f;
+            })
+        .when(combinedCache)
+        .uploadFile(any(), any(), any());
+
+    ByteStreamBuildEventArtifactUploader artifactUploader =
+        newArtifactUploader(
+            combinedCache, RemoteBuildEventUploadMode.ALL, /* maximumOpenFiles= */ -1);
+
+    ListenableFuture<PathConverter> uploadFuture = artifactUploader.upload(filesToUpload);
+
+    // Unbounded concurrency should initiate all uploads concurrently.
+    assertThat(inFlightUploads.get()).isEqualTo(numUploads);
+
+    synchronized (futures) {
+      for (SettableFuture<Void> f : futures) {
+        f.set(null);
+      }
+    }
+
+    PathConverter pathConverter = uploadFuture.get();
+    assertThat(pathConverter).isNotNull();
+    assertThat(maxInFlightUploads.get()).isEqualTo(numUploads);
+
+    artifactUploader.release();
     assertThat(combinedCache.refCnt()).isEqualTo(0);
     assertThat(refCntChannel.isShutdown()).isTrue();
   }
@@ -729,11 +864,20 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   }
 
   private ByteStreamBuildEventArtifactUploader newArtifactUploader(CombinedCache combinedCache) {
-    return newArtifactUploader(combinedCache, RemoteBuildEventUploadMode.ALL);
+    return newArtifactUploader(
+        combinedCache, RemoteBuildEventUploadMode.ALL, /* maximumOpenFiles= */ -1);
   }
 
   private ByteStreamBuildEventArtifactUploader newArtifactUploader(
       CombinedCache combinedCache, RemoteBuildEventUploadMode remoteBuildEventUploadMode) {
+    return newArtifactUploader(
+        combinedCache, remoteBuildEventUploadMode, /* maximumOpenFiles= */ -1);
+  }
+
+  private ByteStreamBuildEventArtifactUploader newArtifactUploader(
+      CombinedCache combinedCache,
+      RemoteBuildEventUploadMode remoteBuildEventUploadMode,
+      int maximumOpenFiles) {
 
     return new ByteStreamBuildEventArtifactUploader(
         MoreExecutors.directExecutor(),
@@ -745,7 +889,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         /* buildRequestId= */ "none",
         /* commandId= */ "none",
         SyscallCache.NO_CACHE,
-        remoteBuildEventUploadMode);
+        remoteBuildEventUploadMode,
+        maximumOpenFiles);
   }
 
   private static class StaticMissingDigestsFinder implements MissingDigestsFinder {

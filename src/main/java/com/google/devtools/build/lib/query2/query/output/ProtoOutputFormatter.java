@@ -31,8 +31,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.hash.HashFunction;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -123,8 +121,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   /** Non-null if and only if --proto:rule_classes option is set. */
   @Nullable private RuleClassInfoFormatter ruleClassInfoFormatter;
 
-  @Nullable private EventHandler eventHandler;
-
   @Override
   public String getName() {
     return "proto";
@@ -151,11 +147,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     this.hashFunction = hashFunction;
     this.ruleClassInfoFormatter =
         options.getProtoRuleClasses() ? new RuleClassInfoFormatter() : null;
-  }
-
-  @Override
-  public void setEventHandler(@Nullable EventHandler eventHandler) {
-    this.eventHandler = eventHandler;
   }
 
   private static Predicate<String> newAttributePredicate(List<String> outputAttributes) {
@@ -463,28 +454,20 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       Preconditions.checkState(labels.size() == 1, "attribute=%s, labels=%s", attribute, labels);
       return Iterables.getOnlyElement(labels);
     } else if (attributeType.equals(BuildType.LABEL_KEYED_STRING_DICT)) {
-      // Ideally we'd support LABEL_KEYED_STRING_DICT by getting the value directly from the aspect
-      // definition vs. trying to reverse-construct it from the flattened labels as this method
-      // does. Unfortunately any proper support surfaces a latent bug between --output=proto and
-      // aspect attributes: "{@code labels} isn't the set of labels for a single attribute value but
-      // for all values of all attributes with the same name. We can have multiple attributes with
-      // the same name because multiple aspects may attach to a rule, and nothing is stopping them
-      // from defining the same attribute names. That means the "Attribute" proto message doesn't
-      // really represent a single attribute, in spite of its documented purpose. This all calls for
-      // an API design upgrade to properly consider these relationships. Details at b/149982967.
-      if (eventHandler != null) {
-        eventHandler.handle(
-            Event.error(
-                String.format(
-                    "Target \"%s\", aspect attribute \"%s\": type \"%s\" not yet supported with"
-                        + " --output=proto.",
-                    target.getLabel(), attribute.getName(), BuildType.LABEL_KEYED_STRING_DICT)));
+      Rule rule = target instanceof Rule r ? r : null;
+      // The default value of LABEL_KEYED_STRING_DICT is always Map<Label, String>.
+      @SuppressWarnings("unchecked")
+      Map<Label, String> defaultValue = (Map<Label, String>) attribute.getDefaultValue(rule);
+      if (defaultValue == null) {
+        return ImmutableMap.of();
       }
-      // This return value is misleading when the above error isn't get triggered: it implies an
-      // empty result with no signal that that result isn't accurate.
-      // TODO(bazel-team): either make the result accurate or trigger an error universally. Letting
-      // OutputFormatter.output() throw a QueryException is a promising approach.
-      return ImmutableMap.of();
+      ImmutableMap.Builder<Label, String> result = ImmutableMap.builder();
+      for (Map.Entry<Label, String> entry : defaultValue.entrySet()) {
+        if (labels.contains(entry.getKey())) {
+          result.put(entry);
+        }
+      }
+      return result.buildOrThrow();
     } else {
       Preconditions.checkState(
           attributeType.equals(BuildType.LABEL_LIST),

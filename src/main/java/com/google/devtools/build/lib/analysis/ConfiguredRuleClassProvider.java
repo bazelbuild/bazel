@@ -176,6 +176,7 @@ public /*final*/ class ConfiguredRuleClassProvider
 
     // TODO(b/192694287): Remove once we migrate all tests from the allowlist
     @Nullable private Label networkAllowlistForTests;
+    @Nullable private Label noExplicitMnemonicAllowlist;
 
     @CanIgnoreReturnValue
     public Builder setPrelude(String preludeLabelString) {
@@ -582,7 +583,8 @@ public /*final*/ class ConfiguredRuleClassProvider
           ImmutableSet.copyOf(reservedActionMnemonics),
           actionEnvironmentProvider,
           constraintSemantics,
-          networkAllowlistForTests);
+          networkAllowlistForTests,
+          noExplicitMnemonicAllowlist);
     }
 
     @Override
@@ -598,6 +600,17 @@ public /*final*/ class ConfiguredRuleClassProvider
     @CanIgnoreReturnValue
     public Builder setNetworkAllowlistForTests(Label allowlist) {
       networkAllowlistForTests = allowlist;
+      return this;
+    }
+
+    @Override
+    public Optional<Label> getNoExplicitMnemonicAllowlist() {
+      return Optional.ofNullable(noExplicitMnemonicAllowlist);
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setNoExplicitMnemonicAllowlist(Label allowlist) {
+      noExplicitMnemonicAllowlist = allowlist;
       return this;
     }
   }
@@ -664,6 +677,7 @@ public /*final*/ class ConfiguredRuleClassProvider
 
   // TODO(b/192694287): Remove once we migrate all tests from the allowlist
   @Nullable private final Label networkAllowlistForTests;
+  @Nullable private final Label noExplicitMnemonicAllowlist;
 
   private ConfiguredRuleClassProvider(
       Label preludeLabel,
@@ -687,7 +701,8 @@ public /*final*/ class ConfiguredRuleClassProvider
       ImmutableSet<String> reservedActionMnemonics,
       Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider,
       ConstraintSemantics<RuleContext> constraintSemantics,
-      @Nullable Label networkAllowlistForTests) {
+      @Nullable Label networkAllowlistForTests,
+      @Nullable Label noExplicitMnemonicAllowlist) {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
     this.toolsRepository = toolsRepository;
@@ -707,6 +722,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     this.configurationFragmentMap = createFragmentMap(fragmentRegistry.getAllFragments());
     this.constraintSemantics = constraintSemantics;
     this.networkAllowlistForTests = networkAllowlistForTests;
+    this.noExplicitMnemonicAllowlist = noExplicitMnemonicAllowlist;
 
     ImmutableMap<String, Object> registeredBzlToplevels =
         createRegisteredBzlToplevels(starlarkAccessibleTopLevels, starlarkBootstraps);
@@ -877,6 +893,11 @@ public /*final*/ class ConfiguredRuleClassProvider
   @Override
   public Optional<Label> getNetworkAllowlistForTests() {
     return Optional.ofNullable(networkAllowlistForTests);
+  }
+
+  @Override
+  public Optional<Label> getNoExplicitMnemonicAllowlist() {
+    return Optional.ofNullable(noExplicitMnemonicAllowlist);
   }
 
   /** Returns a reserved set of action mnemonics. These cannot be used from a Starlark action. */

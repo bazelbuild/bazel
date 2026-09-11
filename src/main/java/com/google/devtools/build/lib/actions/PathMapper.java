@@ -152,6 +152,15 @@ public interface PathMapper {
   }
 
   /**
+   * Maps a string argument if string mapping is enabled for this path mapper.
+   *
+   * <p>By default, returns the argument unchanged.
+   */
+  default String mapString(String arg) {
+    return arg;
+  }
+
+  /**
    * Returns a {@link FileRootApi} representing the new root of the given artifact after mapping.
    *
    * <p>All objects returned by this method must be {@link Comparable} among each other.

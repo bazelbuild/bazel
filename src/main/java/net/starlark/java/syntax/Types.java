@@ -1800,7 +1800,7 @@ public final class Types {
     }
   }
 
-  static TypeConstructor wrapType(String name, StarlarkType type) {
+  public static TypeConstructor wrapType(String name, StarlarkType type) {
     return argsTuple -> {
       if (!argsTuple.isEmpty()) {
         throw new TypeConstructor.Failure(String.format("'%s' does not accept arguments", name));

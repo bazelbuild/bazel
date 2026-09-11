@@ -12,16 +12,14 @@ filegroup(
 )
 
 java_library(
-    name = "allocationtracker_module",
-    srcs = [
-        "AllocationTrackerInstaller.java",
-        "AllocationTrackerModule.java",
-    ],
+    name = "allocation_tracker_module",
+    srcs = ["AllocationTrackerModule.java"],
     visibility = [
         "//src/main/java/com/google/devtools/build/lib:build_lib",
     ],
     deps = [
-        ":allocationtracker",
+        ":allocation_tracker",
+        ":allocation_tracker_service",
         ":current_rule_tracker",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
@@ -29,10 +27,47 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "allocation_tracker_service",
+    srcs = ["AllocationTrackerService.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+    ],
+)
+
+java_library(
+    name = "allocation_tracker_service_impl",
+    srcs = ["AllocationTrackerServiceImpl.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/bazel:__pkg__",
+    ],
+    deps = [
+        ":allocation_tracker_installer",
+        ":allocation_tracker_service",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
+    ],
+)
+
+java_library(
+    name = "allocation_tracker_installer",
+    srcs = ["AllocationTrackerInstaller.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
         "//third_party/java/allocation_instrumenter",
+        "//third_party/java/allocation_instrumenter:sampler",
     ],
 )
 
@@ -50,21 +85,19 @@ java_library(
 )
 
 java_library(
-    name = "allocationtracker",
-    srcs = [
-        "AllocationTracker.java",
-    ],
+    name = "allocation_tracker",
+    srcs = ["AllocationTracker.java"],
     visibility = [
         "//src/main/java/com/google/devtools/build/lib:__subpackages__",
         "//src/test/java/com/google/devtools/build/lib/profiler/memory:__subpackages__",
     ],
     deps = [
+        ":allocation_tracker_service",
         ":current_rule_tracker",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
-        "//third_party/java/allocation_instrumenter:sampler",
         "//third_party/java/caffeine",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:base",

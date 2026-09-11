@@ -14,10 +14,8 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
-import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
@@ -37,6 +35,7 @@ import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -87,6 +86,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -148,10 +148,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     if (Starlark.NONE.equals(sibling)) {
       fragment = ruleContext.getPackageDirectory().getRelative(PathFragment.create(filename));
     } else {
-      PathFragment original =
-          ((Artifact) sibling)
-              .getOutputDirRelativePath(
-                  getSemantics().getBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
+      PathFragment original = ((Artifact) sibling).getOutputDirRelativePath();
       fragment = original.replaceName(filename);
     }
 
@@ -173,10 +170,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     if (Starlark.NONE.equals(sibling)) {
       fragment = ruleContext.getPackageDirectory().getRelative(PathFragment.create(filename));
     } else {
-      PathFragment original =
-          ((Artifact) sibling)
-              .getOutputDirRelativePath(
-                  getSemantics().getBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
+      PathFragment original = ((Artifact) sibling).getOutputDirRelativePath();
       fragment = original.replaceName(filename);
     }
 
@@ -211,10 +205,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     if (Starlark.NONE.equals(sibling)) {
       rootRelativePath = ruleContext.getPackageDirectory().getRelative(filename);
     } else {
-      PathFragment original =
-          ((Artifact) sibling)
-              .getOutputDirRelativePath(
-                  getSemantics().getBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
+      PathFragment original = ((Artifact) sibling).getOutputDirRelativePath();
       rootRelativePath = original.replaceName(filename);
     }
 
@@ -388,10 +379,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               ruleContext, (Artifact) output, (String) content, isExecutable, mnemonic);
     } else if (content instanceof Args args) {
       var unmodifiedExecutionRequirements =
-          TargetUtils.getFilteredExecutionInfo(
-              executionRequirementsUnchecked,
-              ruleContext.getRule(),
-              getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
+          getExecutionInfo(executionRequirementsUnchecked, ruleContext);
       action =
           new ParameterFileWriteAction(
               ruleContext.getActionOwner(),
@@ -819,7 +807,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
     if (mnemonicUnchecked == Starlark.NONE
         && getSemantics()
-            .getBool(BuildLanguageOptions.INCOMPATIBLE_REQUIRE_MNEMONIC_FOR_RUN_ACTIONS)) {
+            .getBool(BuildLanguageOptions.INCOMPATIBLE_REQUIRE_MNEMONIC_FOR_RUN_ACTIONS)
+        && !(Allowlist.hasAllowlist(getRuleContext(), "no_explicit_mnemonic")
+            && Allowlist.isAvailableBasedOnRuleLocation(
+                getRuleContext(), "no_explicit_mnemonic"))) {
       throw Starlark.errorf("actions.run and actions.run_shell require an explicit mnemonic.");
     }
 
@@ -845,10 +836,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
 
     ImmutableMap<String, String> executionInfo =
-        TargetUtils.getFilteredExecutionInfo(
-            executionRequirementsUnchecked,
-            ruleContext.getRule(),
-            getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
+        getExecutionInfo(executionRequirementsUnchecked, ruleContext);
     builder.setExecutionInfo(executionInfo);
 
     String execGroup = determineExecGroup(ruleContext, execGroupUnchecked, toolchainUnchecked);
@@ -1007,14 +995,14 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       if (!(o instanceof StarlarkActionResourceSetBuilder that)) {
         return false;
       }
-      return Objects.equal(fn, that.fn)
-          && Objects.equal(mnemonic, that.mnemonic)
-          && Objects.equal(semantics, that.semantics);
+      return Objects.equals(fn, that.fn)
+          && Objects.equals(mnemonic, that.mnemonic)
+          && Objects.equals(semantics, that.semantics);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(fn, mnemonic, semantics);
+      return Objects.hash(fn, mnemonic, semantics);
     }
   }
 
@@ -1157,12 +1145,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         ruleContext
             .getConfiguration()
             .modifiedExecutionInfo(
-                TargetUtils.getFilteredExecutionInfo(
-                    executionRequirementsUnchecked,
-                    ruleContext.getRule(),
-                    getSemantics()
-                        .getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION)),
-                mnemonic);
+                getExecutionInfo(executionRequirementsUnchecked, ruleContext), mnemonic);
     executionInfo =
         ImmutableMap.<String, String>builderWithExpectedSize(executionInfo.size() + 1)
             .putAll(executionInfo)
@@ -1309,6 +1292,25 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
 
   private InterruptibleSupplier<RepositoryMapping> getMainRepoMappingSupplier() {
     return context.getRuleContext().getAnalysisEnvironment()::getMainRepoMapping;
+  }
+
+  private ImmutableMap<String, String> getExecutionInfo(
+      Object executionRequirementsUnchecked, RuleContext ruleContext) throws EvalException {
+    if (executionRequirementsUnchecked != null && executionRequirementsUnchecked != Starlark.NONE) {
+      Dict<?, ?> dict =
+          Dict.noneableCast(
+              executionRequirementsUnchecked, String.class, String.class, "execution_requirements");
+      if (dict.containsKey(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING)) {
+        throw Starlark.errorf(
+            "execution requirement '%s' cannot be set directly; it can only be enabled via"
+                + " --modify_execution_info",
+            ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING);
+      }
+    }
+    return TargetUtils.getFilteredExecutionInfo(
+        executionRequirementsUnchecked,
+        ruleContext.getRule(),
+        getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
   }
 
   /** The analysis context for {@code Starlark} actions */

@@ -154,7 +154,6 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   private final CompressionService compressionService;
   private final PathFragment execRoot;
   private final String workspaceName;
-  private final boolean siblingRepositoryLayout;
   @Nullable private final RemoteOptions remoteOptions;
   private final DigestHashFunction digestHashFunction;
   private final XattrProvider xattrProvider;
@@ -182,7 +181,6 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       String displayName,
       PathFragment execRoot,
       String workspaceName,
-      boolean siblingRepositoryLayout,
       @Nullable RemoteOptions remoteOptions,
       DigestHashFunction digestHashFunction,
       XattrProvider xattrProvider,
@@ -194,7 +192,6 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     super(logSpawnPredicate);
     this.execRoot = execRoot;
     this.workspaceName = workspaceName;
-    this.siblingRepositoryLayout = siblingRepositoryLayout;
     this.remoteOptions = remoteOptions;
     this.digestHashFunction = digestHashFunction;
     this.xattrProvider = xattrProvider;
@@ -221,7 +218,6 @@ public class CompactSpawnLogContext extends SpawnLogContext {
                     ExecLogEntry.Invocation.newBuilder()
                         .setHashFunctionName(internalToUnicode(digestHashFunction.toString()))
                         .setWorkspaceRunfilesDirectory(internalToUnicode(workspaceName))
-                        .setSiblingRepositoryLayout(siblingRepositoryLayout)
                         .setId(internalToUnicode(invocationId.toString()))));
   }
 

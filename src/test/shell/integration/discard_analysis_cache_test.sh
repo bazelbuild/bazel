@@ -351,5 +351,45 @@ EOF
       || fail "Second build of target_b failed"
 }
 
+function test_skymeld_top_level_alias_notrack_incremental_state() {
+  mkdir -p real aliased chain pkg
+  cat > real/BUILD << 'EOF'
+genrule(
+    name = "real_bin",
+    outs = ["real.out"],
+    cmd = "sleep 3 && echo real > $@",
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > aliased/BUILD << 'EOF'
+alias(
+    name = "aliased_bin",
+    actual = "//real:real_bin",
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > chain/BUILD << 'EOF'
+alias(
+    name = "chain_bin",
+    actual = "//aliased:aliased_bin",
+)
+EOF
+
+  cat > pkg/BUILD << 'EOF'
+genrule(
+    name = "quick",
+    outs = ["quick.out"],
+    cmd = "echo quick > $@",
+)
+EOF
+
+  bazel build --experimental_merged_skyframe_analysis_execution \
+      --notrack_incremental_state \
+      //chain:chain_bin //pkg:quick >& "$TEST_log" \
+      || fail "Expected build to succeed"
+}
+
 run_suite "test for --discard_analysis_cache"
 

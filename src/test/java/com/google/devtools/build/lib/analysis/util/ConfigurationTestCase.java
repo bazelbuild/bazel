@@ -229,15 +229,11 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   }
 
   /** Returns a raw {@link BuildConfigurationValue} with the given parameters. */
-  protected BuildConfigurationValue createRaw(
-      BuildOptions buildOptions,
-      String mnemonic,
-      boolean siblingRepositoryLayout)
+  protected BuildConfigurationValue createRaw(BuildOptions buildOptions, String mnemonic)
       throws Exception {
     return BuildConfigurationValue.createForTesting(
         buildOptions,
         mnemonic,
-        siblingRepositoryLayout,
         skyframeExecutor.getBlazeDirectoriesForTesting(),
         skyframeExecutor.getRuleClassProviderForTesting(),
         fragmentFactory);

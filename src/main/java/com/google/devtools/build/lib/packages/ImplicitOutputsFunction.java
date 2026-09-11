@@ -116,9 +116,7 @@ public abstract class ImplicitOutputsFunction {
           Iterable<String> substitutions =
               fromTemplates(entry.getValue()).getImplicitOutputs(eventHandler, map);
           if (Iterables.isEmpty(substitutions)) {
-            throw Starlark.errorf(
-                "For attribute '%s' in outputs: Invalid placeholder(s) in template",
-                entry.getKey());
+            checkEmptySubstitutions(entry.getKey(), entry.getValue(), map);
           }
 
           builder.put(entry.getKey(), Iterables.getOnlyElement(substitutions));
@@ -128,6 +126,26 @@ public abstract class ImplicitOutputsFunction {
         throw new EvalException(ex);
       }
     }
+  }
+
+  private static void checkEmptySubstitutions(String outputKey, String template, AttributeMap map)
+      throws EvalException {
+    ParsedTemplate parsedTemplate = ParsedTemplate.parse(template);
+    for (String placeholder : parsedTemplate.attributeNames()) {
+      if (map.getAttributeType(placeholder) == null) {
+        throw Starlark.errorf(
+            "For attribute '%s' in outputs: Template placeholder '%%{%s}' does not correspond to"
+                + " any attribute",
+            outputKey, placeholder);
+      }
+      if (attributeValues(map, placeholder).isEmpty()) {
+        throw Starlark.errorf(
+            "For attribute '%s' in outputs: Attribute '%s' has no value (is None or empty)",
+            outputKey, placeholder);
+      }
+    }
+    throw Starlark.errorf(
+        "For attribute '%s' in outputs: Invalid placeholder(s) in template", outputKey);
   }
 
   /** Implicit output functions using a simple an output map. */
@@ -151,8 +169,7 @@ public abstract class ImplicitOutputsFunction {
             fromUnsafeTemplates(ImmutableList.of(entry.getValue()));
         Iterable<String> substitutions = outputsFunction.getImplicitOutputs(eventHandler, map);
         if (Iterables.isEmpty(substitutions)) {
-          throw Starlark.errorf(
-              "For attribute '%s' in outputs: Invalid placeholder(s) in template", entry.getKey());
+          checkEmptySubstitutions(entry.getKey(), entry.getValue(), map);
         }
 
         builder.put(entry.getKey(), Iterables.getOnlyElement(substitutions));
@@ -369,29 +386,38 @@ public abstract class ImplicitOutputsFunction {
     }
     // String attributes and lists are easy.
     if (Type.STRING == attrType) {
-      return ImmutableSet.of(rule.get(attrName, Type.STRING));
+      String value = rule.get(attrName, Type.STRING);
+      return value == null ? ImmutableSet.of() : ImmutableSet.of(value);
     } else if (Type.STRING_NO_INTERN == attrType) {
-      return ImmutableSet.of(rule.get(attrName, Type.STRING_NO_INTERN));
+      String value = rule.get(attrName, Type.STRING_NO_INTERN);
+      return value == null ? ImmutableSet.of() : ImmutableSet.of(value);
     } else if (Types.STRING_LIST == attrType) {
-      return ImmutableSet.copyOf(rule.get(attrName, Types.STRING_LIST));
+      List<String> values = rule.get(attrName, Types.STRING_LIST);
+      return values == null ? ImmutableSet.of() : ImmutableSet.copyOf(values);
     } else if (BuildType.LABEL == attrType) {
       // Labels are most often used to change the extension,
       // e.g. %.foo -> %.java, so we return the basename w/o extension.
       Label label = rule.get(attrName, BuildType.LABEL);
-      return ImmutableSet.of(FileSystemUtils.removeExtension(label.getName()));
+      return label == null
+          ? ImmutableSet.of()
+          : ImmutableSet.of(FileSystemUtils.removeExtension(label.getName()));
     } else if (BuildType.LABEL_LIST == attrType) {
       // Labels are most often used to change the extension,
       // e.g. %.foo -> %.java, so we return the basename w/o extension.
-      return rule.get(attrName, BuildType.LABEL_LIST).stream()
-          .map(label -> FileSystemUtils.removeExtension(label.getName()))
-          .collect(toImmutableSet());
+      List<Label> labels = rule.get(attrName, BuildType.LABEL_LIST);
+      return labels == null
+          ? ImmutableSet.of()
+          : labels.stream()
+              .map(label -> FileSystemUtils.removeExtension(label.getName()))
+              .collect(toImmutableSet());
     } else if (BuildType.OUTPUT == attrType) {
       Label out = rule.get(attrName, BuildType.OUTPUT);
-      return ImmutableSet.of(out.getName());
+      return out == null ? ImmutableSet.of() : ImmutableSet.of(out.getName());
     } else if (BuildType.OUTPUT_LIST == attrType) {
-      return rule.get(attrName, BuildType.OUTPUT_LIST).stream()
-          .map(Label::getName)
-          .collect(toImmutableSet());
+      List<Label> outs = rule.get(attrName, BuildType.OUTPUT_LIST);
+      return outs == null
+          ? ImmutableSet.of()
+          : outs.stream().map(Label::getName).collect(toImmutableSet());
     }
     throw Starlark.errorf(
         "For attribute '%s' in outputs: Attributes of type %s cannot be used in an outputs"

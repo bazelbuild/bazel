@@ -40,7 +40,7 @@ java_test(
     ]),
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",

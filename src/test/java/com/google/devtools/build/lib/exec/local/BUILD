@@ -18,7 +18,7 @@ java_test(
     srcs = ["LocalSpawnRunnerTest.java"],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
         "//src/test/shell/integration:spend_cpu_time",
     ],
     deps = [

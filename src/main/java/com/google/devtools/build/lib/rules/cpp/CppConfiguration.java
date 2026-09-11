@@ -799,7 +799,7 @@ public final class CppConfiguration extends Fragment
   }
 
   public boolean disableNoCopts() {
-    return cppOptions.getDisableNoCopts();
+    return true;
   }
 
   @Override

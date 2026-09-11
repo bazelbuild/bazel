@@ -23,8 +23,8 @@ java_library(
         "FsApparatus.java",
     ],
     visibility = [
-        "//src:__subpackages__",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib:test_lib",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/clock",

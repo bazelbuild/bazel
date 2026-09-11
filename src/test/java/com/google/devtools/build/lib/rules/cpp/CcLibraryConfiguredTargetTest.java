@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
@@ -1229,9 +1228,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         """);
     ConfiguredTarget target = getConfiguredTarget("//foo");
     CppCompileAction action = getCppCompileAction(target);
-    String genfilesDir =
-        getConfiguration(target).getGenfilesFragment(RepositoryName.MAIN).toString();
-    String binDir = getConfiguration(target).getBinFragment(RepositoryName.MAIN).toString();
+    String genfilesDir = getConfiguration(target).getGenfilesFragment().toString();
+    String binDir = getConfiguration(target).getBinFragment().toString();
     // Local include paths come first.
     assertContainsSublist(
         action.getCompilerOptions(),
@@ -1364,7 +1362,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-Id/../../somewhere'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), false);
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()
@@ -1382,7 +1380,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-I/somewhere'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), false);
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()
@@ -1400,7 +1398,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-isystem../system'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), false);
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()
@@ -1418,7 +1416,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-isystem/system'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), false);
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()

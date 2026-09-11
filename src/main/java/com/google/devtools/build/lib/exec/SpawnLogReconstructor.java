@@ -63,26 +63,6 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
   private static final Pattern DEFAULT_SOURCE_FILE_RUNFILES_PATH_PATTERN =
       Pattern.compile("(?:external/(?<repo>[^/]+)/)?(?<path>.+)");
 
-  // Examples:
-  // * bazel-out/k8-fastbuild/bin/pkg/file.txt (repo: null, path: "pkg/file.txt")
-  // * bazel-out/some_repo/k8-fastbuild/bin/pkg/file.txt (repo: "some_repo", path: "pkg/file.txt")
-  // * bazel-out/k8-fastbuild/k8-fastbuild/bin/pkg/file.txt (repo: "k8-fastbuild", path:
-  //   "pkg/file.txt")
-  //
-  // Repo names are distinguished from mnemonics via a positive lookahead on the following segment,
-  // which in the case of a repo name is a mnemonic and thus contains a hyphen, whereas a mnemonic
-  // is followed by an output directory name, which does not contain a hyphen unless it is
-  // "coverage-metadata" (which in turn is not likely to be a mnemonic).
-  private static final Pattern SIBLING_LAYOUT_GENERATED_FILE_RUNFILES_PATH_PATTERN =
-      Pattern.compile(
-          "(?:bazel|blaze)-out/(?:(?<repo>[^/]+(?=/[^/]+-[^/]+/)(?!/coverage-metadata/))/)?[^/]+/[^/]+/(?<path>.+)");
-
-  // Examples:
-  // * pkg/file.txt (repo: null, path: "pkg/file.txt")
-  // * ../some_repo/pkg/file.txt (repo: "some_repo", path: "pkg/file.txt")
-  private static final Pattern SIBLING_LAYOUT_SOURCE_FILE_RUNFILES_PATH_PATTERN =
-      Pattern.compile("(?:\\.\\./(?<repo>[^/]+)/)?(?<path>.+)");
-
   private final ZstdInputStream in;
 
   /** Represents a reconstructed input file, symlink, or directory. */
@@ -111,7 +91,6 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
   private final ArrayList<Object> inputMap = new ArrayList<>();
   private String hashFunctionName = "";
   private String workspaceRunfilesDirectory = "";
-  private boolean siblingRepositoryLayout = false;
 
   public SpawnLogReconstructor(InputStream in) throws IOException {
     this.in = new ZstdInputStream(in);
@@ -128,7 +107,6 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
         case INVOCATION -> {
           hashFunctionName = entry.getInvocation().getHashFunctionName();
           workspaceRunfilesDirectory = entry.getInvocation().getWorkspaceRunfilesDirectory();
-          siblingRepositoryLayout = entry.getInvocation().getSiblingRepositoryLayout();
         }
         case FILE -> putInput(entry.getId(), reconstructFile(entry.getFile()));
         case DIRECTORY -> putInput(entry.getId(), reconstructDir(entry.getDirectory()));
@@ -444,30 +422,22 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
   }
 
   @VisibleForTesting
-  static MatchResult extractRunfilesPath(String execPath, boolean siblingRepositoryLayout) {
-    Matcher matcher =
-        (siblingRepositoryLayout
-                ? SIBLING_LAYOUT_GENERATED_FILE_RUNFILES_PATH_PATTERN
-                : DEFAULT_GENERATED_FILE_RUNFILES_PATH_PATTERN)
-            .matcher(execPath);
+  static MatchResult extractRunfilesPath(String execPath) {
+    Matcher matcher = DEFAULT_GENERATED_FILE_RUNFILES_PATH_PATTERN.matcher(execPath);
     if (matcher.matches()) {
       return matcher;
     }
-    matcher =
-        (siblingRepositoryLayout
-                ? SIBLING_LAYOUT_SOURCE_FILE_RUNFILES_PATH_PATTERN
-                : DEFAULT_SOURCE_FILE_RUNFILES_PATH_PATTERN)
-            .matcher(execPath);
+    matcher = DEFAULT_SOURCE_FILE_RUNFILES_PATH_PATTERN.matcher(execPath);
     checkState(matcher.matches());
     return matcher;
   }
 
   private boolean hasWorkspaceRunfilesDirectory(String path) {
-    return extractRunfilesPath(path, siblingRepositoryLayout).group("repo") == null;
+    return extractRunfilesPath(path).group("repo") == null;
   }
 
   private Stream<String> getRunfilesPaths(String execPath) {
-    MatchResult matchResult = extractRunfilesPath(execPath, siblingRepositoryLayout);
+    MatchResult matchResult = extractRunfilesPath(execPath);
     String repo = matchResult.group("repo");
     String repoRelativePath = matchResult.group("path");
     if (repo == null) {

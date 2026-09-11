@@ -1375,12 +1375,24 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // This is to prevent throwing away Packages we may need during execution.
     ImmutableSet.Builder<PackageIdentifier> packageSetBuilder = ImmutableSet.builder();
     if (discardType.discardsLoading()) {
-      packageSetBuilder.addAll(
-          Collections2.transform(
-              topLevelTargets, target -> target.getLabel().getPackageIdentifier()));
-      packageSetBuilder.addAll(
-          Collections2.transform(
-              topLevelAspects, aspect -> aspect.getLabel().getPackageIdentifier()));
+      for (ConfiguredTarget target : topLevelTargets) {
+        // Collect packages of top-level targets. In the case of an alias chain
+        // (//alias_a -> //alias_b -> //real), traverse the chain to ensure packages
+        // of both intermediate aliases and the resolved actual target are preserved.
+        ConfiguredTarget cur = target;
+        while (cur != null) {
+          packageSetBuilder.add(cur.getLabel().getPackageIdentifier());
+          packageSetBuilder.add(cur.getOriginalLabel().getPackageIdentifier());
+          ConfiguredTarget actual = cur.getActualNoFollow();
+          if (actual == cur) {
+            break;
+          }
+          cur = actual;
+        }
+      }
+      for (AspectKey aspect : topLevelAspects) {
+        packageSetBuilder.add(aspect.getLabel().getPackageIdentifier());
+      }
     }
     ImmutableSet<PackageIdentifier> topLevelPackages = packageSetBuilder.build();
     lastAnalysisDiscarded = true;
@@ -1681,7 +1693,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   protected void setCommandId(UUID commandId) {
-    PrecomputedValue.BUILD_ID.set(injectable(), commandId);
+    // PrecomputedValue.BUILD_ID is used by BuildDriverFunction and volatile actions to ensure
+    // re-evaluation on every build. Always generate a fresh UUID so that re-evaluation occurs
+    // even if consecutive invocations on this server reuse the same commandId / invocation_id
+    // (b/448084768).
+    PrecomputedValue.BUILD_ID.set(injectable(), UUID.randomUUID());
   }
 
   /** Returns the build-info.txt and build-changelist.txt artifacts. */
@@ -1805,8 +1821,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     StarlarkSemantics starlarkSemantics = getEffectiveStarlarkSemantics(buildLanguageOptions);
     setStarlarkSemantics(starlarkSemantics);
-    setSiblingDirectoryLayout(
-        starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
     setPackageLocator(pkgLocator);
     setLazyMacroExpansionPackages(packageOptions.getLazyMacroExpansionPackages());
     setStampSettingMarker();
@@ -1829,10 +1843,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // Reset the stateful SkyframeCycleReporter, which contains cycles from last run.
     cyclesReporter = createCyclesReporter();
     analysisCacheCleared = false;
-  }
-
-  private void setSiblingDirectoryLayout(boolean experimentalSiblingRepositoryLayout) {
-    this.artifactFactory.setSiblingRepositoryLayout(experimentalSiblingRepositoryLayout);
   }
 
   public StarlarkSemantics getEffectiveStarlarkSemantics(

@@ -41,6 +41,16 @@ public interface MultiThreadPoolsQuiescingExecutor extends QuiescingExecutor {
   }
 
   /**
+   * Execute the {@link QuiescingTask}, taking into consideration the preferred thread pool type.
+   */
+  void execute(
+      QuiescingTask task, ThreadPoolType threadPoolType, boolean shouldStallAwaitingSignal);
+
+  default void execute(QuiescingTask task, ThreadPoolType threadPoolType) {
+    execute(task, threadPoolType, /* shouldStallAwaitingSignal= */ false);
+  }
+
+  /**
    * Begin executing execution phase tasks.
    *
    * <p>The execution phase tasks sent to this executor will be queued up until this method is
