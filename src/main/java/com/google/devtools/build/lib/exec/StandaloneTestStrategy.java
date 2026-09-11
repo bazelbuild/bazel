@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.exec;
 
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -78,6 +79,15 @@ import java.util.TreeMap;
 // TODO(bazel-team): add tests for this strategy.
 public class StandaloneTestStrategy extends TestStrategy {
   private static final String TEST_NAME_ENV = "TEST_NAME";
+
+  /**
+   * If set to a non-empty value in the test environment, coverage post-processing runs even when the
+   * test fails. The test is still reported as failed. Keep in sync with
+   * tools/test/collect_coverage.sh.
+   */
+  private static final String COLLECT_COVERAGE_ON_TEST_FAILURE_ENV =
+      "BAZEL_COVERAGE_COLLECT_ON_TEST_FAILURE";
+
   private static final ImmutableMap<String, String> ENV_VARS =
       ImmutableMap.<String, String>builder()
           .put("TZ", "UTC")
@@ -745,7 +755,19 @@ public class StandaloneTestStrategy extends TestStrategy {
         .setHasCoverage(testAction.isCoverageMode());
 
     if (testAction.isCoverageMode() && testAction.getSplitCoveragePostProcessing()) {
-      if (testResultDataBuilder.getTestPassed()) {
+      // Coverage post-processing is skipped for a failing test unless the test environment opts
+      // into it. The test is reported as failed either way; only the coverage data differs.
+      boolean collectCoverageForFailedTest =
+          !testResultDataBuilder.getTestPassed()
+              && !isNullOrEmpty(spawn.getEnvironment().get(COLLECT_COVERAGE_ON_TEST_FAILURE_ENV))
+              // A test that failed before the coverage directory was created has nothing to
+              // post-process, and the post-processing spawn requires it as an input.
+              && testAction.getCoverageDirectoryTreeArtifact() != null
+              && actionExecutionContext
+                  .getPathResolver()
+                  .convertPath(testAction.getCoverageDirectoryTreeArtifact().getPath())
+                  .exists();
+      if (testResultDataBuilder.getTestPassed() || collectCoverageForFailedTest) {
         if (testAction.getCoverageDirectoryTreeArtifact() == null) {
           // Otherwise we'll get a NPE https://github.com/bazelbuild/bazel/issues/13185
           TestExecException e =
