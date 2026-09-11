@@ -62,6 +62,7 @@ def _local_repository_impl(rctx):
     path = _get_dir_path(rctx)
     rctx.watch(path)  # In case the target is removed
     rctx.symlink(path, ".")
+    return rctx.repo_metadata(reproducible = True)
 
 local_repository = repository_rule(
     implementation = _local_repository_impl,
@@ -104,6 +105,8 @@ def _new_local_repository_impl(rctx):
             rctx.watch(rctx.attr.build_file)  # same reason as above
     else:
         rctx.file("BUILD.bazel", rctx.attr.build_file_content)
+
+    return rctx.repo_metadata(reproducible = True)
 
 new_local_repository = repository_rule(
     implementation = _new_local_repository_impl,
