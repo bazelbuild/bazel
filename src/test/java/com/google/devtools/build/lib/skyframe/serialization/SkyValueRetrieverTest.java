@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec.DeferredValue;
 import com.google.devtools.build.lib.skyframe.serialization.DependOnFutureShim.ObservedFutureStatus;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.PeerFailedException;
+import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.SkyframeLookup;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.StateEvictedException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
@@ -65,11 +66,16 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import org.junit.Test;
@@ -908,6 +914,67 @@ public final class SkyValueRetrieverTest {
                         state));
     assertThat(thrown).hasMessageThat().contains("waiting for deserialization result for " + key);
     assertThat(thrown).hasCauseThat().hasCauseThat().isInstanceOf(StateEvictedException.class);
+  }
+
+  @Test
+  public void abandon_concurrentWithDoLookup_synchronizesSafely() throws Exception {
+    var parent1 = new AtomicReference<Object>();
+    var lookup1 =
+        new SkyframeLookup<AtomicReference<Object>>(
+            new ExampleKey("a"), parent1, AtomicReference::set);
+    var parent2 = new AtomicReference<Object>();
+    var lookup2 =
+        new SkyframeLookup<AtomicReference<Object>>(
+            new ExampleKey("b"), parent2, AtomicReference::set);
+
+    var lookups = new ArrayDeque<SkyframeLookup<?>>();
+    lookups.add(lookup1);
+    lookups.add(lookup2);
+    var resultFuture = SettableFuture.create();
+    var continuation = new SkyframeLookupContinuation(lookups, resultFuture);
+
+    var doLookupEntered = new CountDownLatch(1);
+    var abandonStarted = new CountDownLatch(1);
+    var executor = Executors.newSingleThreadExecutor();
+    Future<?> abandonFuture;
+    try {
+      abandonFuture =
+          executor.submit(
+              () -> {
+                try {
+                  doLookupEntered.await();
+                  abandonStarted.countDown();
+                  continuation.abandon(new StateEvictedException());
+                } catch (InterruptedException e) {
+                  Thread.currentThread().interrupt();
+                }
+              });
+
+      ListenableFuture<?> processResult =
+          continuation.process(
+              new EnvironmentForUtilities(
+                  k -> {
+                    doLookupEntered.countDown();
+                    try {
+                      abandonStarted.await();
+                      // Brief pause to allow the background thread to attempt abandon(),
+                      // verifying that it blocks on continuation's monitor until doLookup finishes.
+                      Thread.sleep(20);
+                    } catch (InterruptedException e) {
+                      Thread.currentThread().interrupt();
+                    }
+                    return null; // Returns null to trigger a restart.
+                  }));
+      abandonFuture.get();
+      assertThat(processResult).isNull();
+
+      // Subsequent process() call after restart: lookups were abandoned, so it returns resultFuture
+      // cleanly.
+      assertThat(continuation.process(new EnvironmentForUtilities(k -> null)))
+          .isSameInstanceAs(resultFuture);
+    } finally {
+      executor.shutdown();
+    }
   }
 
   @Test

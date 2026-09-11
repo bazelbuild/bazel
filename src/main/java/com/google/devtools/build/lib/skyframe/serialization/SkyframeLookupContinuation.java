@@ -36,6 +36,9 @@ import javax.annotation.Nullable;
  *
  * <p>This class is designed to reside in {@link SkyKeyComputeState}. In particular, note that
  * {@link #abandon} should be called.
+ *
+ * <p>This class is thread-safe because {@link #abandon} may be called concurrently by a background
+ * thread (e.g. state eviction) while {@link #process} is executing on an evaluator thread.
  */
 public final class SkyframeLookupContinuation {
   private final ArrayDeque<SkyframeLookup<?>> skyframeLookups;
@@ -75,7 +78,7 @@ public final class SkyframeLookupContinuation {
    *     occurring in other threads) or null if a Skyframe restart is needed
    */
   @Nullable
-  public ListenableFuture<?> process(LookupEnvironment env)
+  public synchronized ListenableFuture<?> process(LookupEnvironment env)
       throws InterruptedException, SkyframeDependencyException, LookupAbandonedException {
     return switch (state) {
       case LOOKUP -> doLookup(env);
@@ -90,7 +93,7 @@ public final class SkyframeLookupContinuation {
    * <p>This must be called if the lookups cannot be completed, for example, if {@link
    * SkyKeyComputeState#close} is called on any containing compute state or if there's an error.
    */
-  public void abandon(LookupAbandonedException exception) {
+  public synchronized void abandon(LookupAbandonedException exception) {
     for (SkyframeLookup<?> lookup : skyframeLookups) {
       lookup.abandon(exception);
     }
