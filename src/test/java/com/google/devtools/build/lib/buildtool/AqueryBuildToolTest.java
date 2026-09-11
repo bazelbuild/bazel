@@ -424,4 +424,49 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
     assertThat(result.getDetailedExitCode().getFailureDetail().getActionQuery().getCode())
         .isEqualTo(Code.SKYFRAME_STATE_PREREQ_UNMET);
   }
+
+  @Test
+  public void testAquery_treeArtifactInputWithMapEachAndExpandDirectories_bypassesMapEach()
+      throws Exception {
+    write(
+        "tree_test/defs.bzl",
+        """
+        def _get_path(file):
+            if file.is_directory:
+                fail("we should never see directory in map_each when expand_directories is true")
+            return file.path
+
+        def _impl(ctx):
+            dir = ctx.actions.declare_directory("dir")
+            ctx.actions.run_shell(outputs = [dir], command = "touch %s/file" % dir.path)
+
+            file = ctx.actions.declare_file(ctx.label.name + ".out")
+            args = ctx.actions.args()
+            args.add_all([dir], map_each = _get_path)
+            ctx.actions.run_shell(
+                inputs = [dir],
+                outputs = [file],
+                command = 'echo "$@" > %s' % file.path,
+                arguments = [args],
+            )
+            return DefaultInfo(files = depset([file]))
+
+        r = rule(implementation = _impl)
+        """);
+    write(
+        "tree_test/BUILD",
+        """
+        load(":defs.bzl", "r")
+
+        r(name = "a")
+        """);
+
+    ByteArrayOutputStream stdout = captureReporterStdout();
+    addOptions("--output=text", "--include_commandline=true");
+    runtimeWrapper.runAqueryExprCommand("//tree_test:a");
+
+    String outputText = stdout.toString(UTF_8);
+    assertThat(outputText).contains("tree_test/dir");
+    assertThat(outputText).doesNotContain("we should never see");
+  }
 }

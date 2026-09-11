@@ -4156,7 +4156,9 @@ args.add_all(d, map_each = _map_each, uniquify = True)
     CommandLine commandLine = args.build(() -> RepositoryMapping.EMPTY);
 
     // When asking for arguments without an artifact expander we just return the directory
-    assertThat(commandLine.arguments()).containsExactly("foo/dir");
+    // (without applying map_each, because expand_directories is true by default and contents are
+    // not yet available)
+    assertThat(commandLine.arguments()).containsExactly(directory.getExecPathString());
 
     // Now ask for one with an expanded directory
     InputMetadataProvider inputMetadataProvider =
@@ -4178,6 +4180,10 @@ args.add_all(d, map_each = _map_each, uniquify = True)
     Args args = (Args) result.get(0);
     Artifact directory = (Artifact) result.get(1);
     CommandLine commandLine = args.build(() -> RepositoryMapping.EMPTY);
+
+    // Without an artifact expander, expand_directories=True emits the directory exec path,
+    // while expand_directories=False applies map_each directly to the directory.
+    assertThat(commandLine.arguments()).containsExactly(directory.getExecPathString(), "foo/dir");
 
     InputMetadataProvider inputMetadataProvider =
         createInputMetadataProvider(directory.getRootRelativePathString(), "file1", "file2");
