@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.LookupAbandonedException;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.StateEvictedException;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpNodeMemoizingLookup;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.LookupResult;
@@ -392,6 +393,9 @@ public final class SkyValueRetriever {
             } catch (SkyframeDependencyException e) {
               throw new SerializationException(
                   "skyframe dependency error during deserialization for " + key, e);
+            } catch (LookupAbandonedException e) {
+              throw new SerializationException(
+                  "lookup abandoned during deserialization for " + key, e);
             }
             if (futureResult == null) {
               return Restart.RESTART;

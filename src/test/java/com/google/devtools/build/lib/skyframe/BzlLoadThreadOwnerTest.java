@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.LookupAbandonedException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyframeDependencyException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyframeLookupContinuation;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -161,7 +162,8 @@ public class BzlLoadThreadOwnerTest extends BuildViewTestCase {
       throws ExecutionException,
           InterruptedException,
           SerializationException,
-          SkyframeDependencyException {
+          SkyframeDependencyException,
+          LookupAbandonedException {
     // Deserialization always returns a future because there is a Skyframe lookup. The future is
     // always done because there are no shared values to wait on.
     SkyframeLookupContinuation continuation =

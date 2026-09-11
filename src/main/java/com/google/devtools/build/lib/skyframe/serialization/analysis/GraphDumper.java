@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs.DebugContext;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.LookupAbandonedException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyframeDependencyException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyframeLookupContinuation;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.AvailableFileDependencies;
@@ -196,7 +197,7 @@ public final class GraphDumper {
             "Read-only Skyframe lookup failed to resolve dependencies synchronously.");
       }
       resultFuture.get();
-    } catch (SkyframeDependencyException e) {
+    } catch (SkyframeDependencyException | LookupAbandonedException e) {
       throw new SerializationException("Cannot find node in Skyframe: " + e.getMessage(), e);
     } catch (ExecutionException e) {
       throw new SerializationException(e);

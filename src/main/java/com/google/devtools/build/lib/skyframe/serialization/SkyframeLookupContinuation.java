@@ -75,7 +75,7 @@ public final class SkyframeLookupContinuation {
    */
   @Nullable
   public ListenableFuture<?> process(LookupEnvironment env)
-      throws InterruptedException, SkyframeDependencyException {
+      throws InterruptedException, SkyframeDependencyException, LookupAbandonedException {
     return switch (state) {
       case LOOKUP -> doLookup(env);
       case RESUME -> resume(env);
@@ -108,7 +108,7 @@ public final class SkyframeLookupContinuation {
    */
   @Nullable
   private ListenableFuture<?> doLookup(LookupEnvironment env)
-      throws InterruptedException, SkyframeDependencyException {
+      throws InterruptedException, SkyframeDependencyException, LookupAbandonedException {
     if (skyframeLookups.isEmpty()) {
       this.state = State.ENDED;
       return result;
@@ -151,7 +151,8 @@ public final class SkyframeLookupContinuation {
    *
    * @return a future containing the deserialization result
    */
-  private ListenableFuture<?> resume(LookupEnvironment env) throws SkyframeDependencyException {
+  private ListenableFuture<?> resume(LookupEnvironment env)
+      throws SkyframeDependencyException, LookupAbandonedException {
     // There was a Skyframe restart. Everything that was requested should be available now. This
     // method should not be reachable by error bubbling because it can only be reached by
     // pre-existing SkyKeyComputeState, which is evicted before error bubbling.
@@ -171,7 +172,7 @@ public final class SkyframeLookupContinuation {
   }
 
   private void throwDependencyExceptionIfFailed(SkyframeLookup<?> lookup)
-      throws SkyframeDependencyException {
+      throws SkyframeDependencyException, LookupAbandonedException {
     if (!lookup.isFailed()) {
       return;
     }
@@ -179,12 +180,16 @@ public final class SkyframeLookupContinuation {
     try {
       var unused = Futures.getDone(lookup);
     } catch (ExecutionException e) {
-      // In general, SkyframeLookups can contain either SkyframeDependencyExceptions or
-      // LookupAbandonedExceptions. This is only reachable before any LookupAbandonedExceptions can
-      // be propagated.
-      var cause = (SkyframeDependencyException) e.getCause();
-      abandon(new PeerFailedException(cause));
-      throw cause;
+      Throwable cause = e.getCause();
+      if (cause instanceof SkyframeDependencyException sde) {
+        abandon(new PeerFailedException(sde));
+        throw sde;
+      }
+      if (cause instanceof LookupAbandonedException lae) {
+        abandon(lae);
+        throw lae;
+      }
+      throw new AssertionError("unexpected exception: " + lookup, cause);
     }
     throw new IllegalStateException("should have thrown an exception: " + lookup);
   }

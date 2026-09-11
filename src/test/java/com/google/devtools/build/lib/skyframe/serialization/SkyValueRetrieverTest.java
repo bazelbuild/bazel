@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec.DeferredValue;
 import com.google.devtools.build.lib.skyframe.serialization.DependOnFutureShim.ObservedFutureStatus;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.PeerFailedException;
+import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.StateEvictedException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalContext;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
@@ -703,6 +704,130 @@ public final class SkyValueRetrieverTest {
     var thrownByLookup1 = assertThrows(ExecutionException.class, lookups.get(1)::get).getCause();
     assertThat(thrownByLookup1).isInstanceOf(PeerFailedException.class);
     assertThat(thrownByLookup1).hasCauseThat().isSameInstanceAs(thrownByLookup0);
+  }
+
+  @Test
+  public void skyframeLookupStateEvicted_handlesEvictionGracefully() throws Exception {
+    var fingerprintValueService = FingerprintValueService.createForAnalysisCacheTesting();
+    var analysisCacheServiceData = new HashMap<ByteString, ByteString>();
+    var state = new RetrievalContext();
+    RemoteAnalysisCacheClient analysisCacheClient =
+        createFakeAnalysisCacheClient(analysisCacheServiceData);
+
+    var key = new TrivialKey("a");
+
+    var lookupKey0 = new ExampleKey("a");
+    var lookupKey1 = new ExampleKey("b");
+    var multiLookupValue =
+        new MultiLookupValue(new ExampleValue(lookupKey0, 3), new ExampleValue(lookupKey1, 5));
+    uploadKeyValuePair(
+        key,
+        multiLookupValue,
+        COMPRESSION_SERVICE,
+        fingerprintValueService,
+        analysisCacheServiceData);
+
+    RetrievalResult result =
+        createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+            .tryRetrieve(
+                new EnvironmentForUtilities(k -> null),
+                SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                analysisCacheClient,
+                key,
+                state);
+
+    assertThat(result).isEqualTo(RESTART);
+    assertThat(state.getState()).isInstanceOf(WaitingForLookupContinuation.class);
+
+    var lookups =
+        ImmutableList.copyOf(
+            ((WaitingForLookupContinuation) state.getState())
+                .continuation()
+                .getSkyframeLookupsForTesting());
+    assertThat(lookups).hasSize(2);
+
+    // Simulates an in-flight lookup being abandoned due to state eviction (e.g. from memory
+    // pressure).
+    lookups.get(0).abandon(new StateEvictedException());
+
+    var thrown =
+        assertThrows(
+            SerializationException.class,
+            () ->
+                createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+                    .tryRetrieve(
+                        new EnvironmentForUtilities(
+                            k -> {
+                              if (k.equals(lookupKey0)) {
+                                return new ExampleValue(lookupKey0, 10);
+                              }
+                              return null;
+                            }),
+                        SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                        analysisCacheClient,
+                        key,
+                        state));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("lookup abandoned during deserialization for " + key);
+    assertThat(thrown).hasCauseThat().isInstanceOf(StateEvictedException.class);
+
+    var thrownByLookup0 = assertThrows(ExecutionException.class, lookups.get(0)::get).getCause();
+    assertThat(thrownByLookup0).isInstanceOf(StateEvictedException.class);
+
+    var thrownByLookup1 = assertThrows(ExecutionException.class, lookups.get(1)::get).getCause();
+    assertThat(thrownByLookup1).isInstanceOf(StateEvictedException.class);
+  }
+
+  @Test
+  public void cleanupSerializationState_handlesEvictionGracefully() throws Exception {
+    var fingerprintValueService = FingerprintValueService.createForAnalysisCacheTesting();
+    var analysisCacheServiceData = new HashMap<ByteString, ByteString>();
+    var state = new RetrievalContext();
+    RemoteAnalysisCacheClient analysisCacheClient =
+        createFakeAnalysisCacheClient(analysisCacheServiceData);
+
+    var key = new TrivialKey("a");
+
+    var lookupKey0 = new ExampleKey("a");
+    var lookupKey1 = new ExampleKey("b");
+    var multiLookupValue =
+        new MultiLookupValue(new ExampleValue(lookupKey0, 3), new ExampleValue(lookupKey1, 5));
+    uploadKeyValuePair(
+        key,
+        multiLookupValue,
+        COMPRESSION_SERVICE,
+        fingerprintValueService,
+        analysisCacheServiceData);
+
+    RetrievalResult result =
+        createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+            .tryRetrieve(
+                new EnvironmentForUtilities(k -> null),
+                SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                analysisCacheClient,
+                key,
+                state);
+
+    assertThat(result).isEqualTo(RESTART);
+    assertThat(state.getState()).isInstanceOf(WaitingForLookupContinuation.class);
+
+    // Simulates compute state eviction before the next tryRetrieve call.
+    state.getState().cleanupSerializationState();
+
+    var thrown =
+        assertThrows(
+            SerializationException.class,
+            () ->
+                createSkyValueRetriever(fingerprintValueService, codecs, CONSTANT_FOR_TESTING)
+                    .tryRetrieve(
+                        new EnvironmentForUtilities(k -> new ExampleValue(lookupKey0, 10)),
+                        SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                        analysisCacheClient,
+                        key,
+                        state));
+    assertThat(thrown).hasMessageThat().contains("waiting for deserialization result for " + key);
+    assertThat(thrown).hasCauseThat().hasCauseThat().isInstanceOf(StateEvictedException.class);
   }
 
   @Test
