@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.util.Collection;
 import java.util.Map;
 
@@ -67,8 +68,8 @@ public final class BuildInfoEvent
     for (Map.Entry<String, String> entry : getBuildInfoMap().entrySet()) {
       status.addItem(
           BuildEventStreamProtos.WorkspaceStatus.Item.newBuilder()
-              .setKey(entry.getKey())
-              .setValue(entry.getValue())
+              .setKey(StringEncoding.internalToUnicode(entry.getKey()))
+              .setValue(StringEncoding.internalToUnicode(entry.getValue()))
               .build());
     }
     return GenericBuildEvent.protoChaining(this).setWorkspaceStatus(status.build()).build();
