@@ -215,15 +215,11 @@ public final class ToolchainContextUtil {
         if (toolchainTypes.stream()
             .map(ToolchainTypeRequirement::toolchainType)
             .noneMatch(label::equals)) {
-          ImmutableSet<String> suggestedLabels = ImmutableSet.of();
-          // TODO: Generalize Label#getDisplayForm to accept non-main repo mappings.
-          if (rule.getLabel().getRepository().isMain()) {
-            suggestedLabels =
-                toolchainTypes.stream()
-                    .map(ToolchainTypeRequirement::toolchainType)
-                    .map(type -> type.getDisplayForm(rule.getPackageMetadata().repositoryMapping()))
-                    .collect(toImmutableSet());
-          }
+          ImmutableSet<String> suggestedLabels =
+              toolchainTypes.stream()
+                  .map(ToolchainTypeRequirement::toolchainType)
+                  .map(type -> type.getDisplayForm(rule.getPackageMetadata().repositoryMapping()))
+                  .collect(toImmutableSet());
           throw new ExecGroupCollection.InvalidExecGroupException(
               "execution constraints",
               rule.getDisplayFormLabel(),

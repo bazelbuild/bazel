@@ -457,14 +457,15 @@ public final class Label
 
   /**
    * Returns a full label string that is suitable for display, i.e., it resolves to this label when
-   * parsed in the context of the main repository and has a repository part that is as simple as
-   * possible.
+   * parsed in the context of the repository whose repository mapping is provided and has a
+   * repository part that is as simple as possible.
    *
-   * @param mainRepositoryMapping the {@link RepositoryMapping} of the main repository
+   * @param repositoryMapping the {@link RepositoryMapping} of the context repository (usually the
+   *     main repository)
    * @return analogous to {@link PackageIdentifier#getDisplayForm(RepositoryMapping)}
    */
-  public String getDisplayForm(@Nullable RepositoryMapping mainRepositoryMapping) {
-    return packageIdentifier.getDisplayForm(mainRepositoryMapping) + ":" + name;
+  public String getDisplayForm(@Nullable RepositoryMapping repositoryMapping) {
+    return packageIdentifier.getDisplayForm(repositoryMapping) + ":" + name;
   }
 
   /**
@@ -472,25 +473,26 @@ public final class Label
    * the repository part, labels of the form {@code [@repo]//foo/bar:bar} are simplified to the
    * shorthand form {@code [@repo]//foo/bar}, and labels of the form {@code @repo//:repo} and
    * {@code @@repo//:repo} are simplified to {@code @repo}. The returned shorthand string resolves
-   * back to this label only when parsed in the context of the main repository whose repository
-   * mapping is provided.
+   * back to this label only when parsed in the context of the repository whose repository mapping
+   * is provided.
    *
    * <p>Unlike {@link #getDisplayForm}, this method elides the name part of the label if possible.
    *
-   * @param mainRepositoryMapping the {@link RepositoryMapping} of the main repository
+   * @param repositoryMapping the {@link RepositoryMapping} of the context repository (usually the
+   *     main repository)
    */
-  public String getShorthandDisplayForm(RepositoryMapping mainRepositoryMapping) {
+  public String getShorthandDisplayForm(@Nullable RepositoryMapping repositoryMapping) {
     if (getPackageFragment().getBaseName().equals(name)) {
-      return packageIdentifier.getDisplayForm(mainRepositoryMapping);
+      return packageIdentifier.getDisplayForm(repositoryMapping);
     } else if (getPackageFragment().getBaseName().isEmpty()) {
       String repositoryDisplayForm =
-          getPackageIdentifier().getRepository().getDisplayForm(mainRepositoryMapping);
+          getPackageIdentifier().getRepository().getDisplayForm(repositoryMapping);
       // Simplify @foo//:foo or @@foo//:foo to @foo; note that `name` cannot start with '@'
       if (repositoryDisplayForm.equals("@" + name) || repositoryDisplayForm.equals("@@" + name)) {
         return repositoryDisplayForm;
       }
     }
-    return getDisplayForm(mainRepositoryMapping);
+    return getDisplayForm(repositoryMapping);
   }
 
   /** Return the name of the repository label refers to without the leading `at` symbol. */

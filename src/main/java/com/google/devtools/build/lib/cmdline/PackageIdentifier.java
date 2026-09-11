@@ -220,22 +220,24 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
   /**
    * Returns a label representation for this package that is suitable for display. The returned
    * string is as simple as possible while referencing the current package when parsed in the
-   * context of the main repository whose repository mapping is provided.
+   * context of the repository whose repository mapping is provided.
    *
-   * @param mainRepositoryMapping the {@link RepositoryMapping} of the main repository
+   * @param repositoryMapping the {@link RepositoryMapping} of the context repository (usually the
+   *     main repository)
    * @return
    *     <dl>
    *       <dt><code>//some/pkg</code>
-   *       <dd>if this package lives in the main repository
+   *       <dd>if this package lives in the context repository (or the main repository if
+   *           repositoryMapping is null)
    *       <dt><code>@protobuf//some/pkg</code>
    *       <dd>if this package lives in a repository with "protobuf" as apparent name of a
-   *           dependency of the main module
+   *           dependency of the context repository
    *       <dt><code>@@protobuf+//some/pkg</code>
-   *       <dd>if the current package belongs to a repository that is not visible from the main
-   *           module
+   *       <dd>if the current package belongs to a repository that is not visible from the context
+   *           repository
    */
-  public String getDisplayForm(@Nullable RepositoryMapping mainRepositoryMapping) {
-    return repository.getDisplayForm(mainRepositoryMapping) + "//" + pkgName;
+  public String getDisplayForm(@Nullable RepositoryMapping repositoryMapping) {
+    return repository.getDisplayForm(repositoryMapping) + "//" + pkgName;
   }
 
   @Override

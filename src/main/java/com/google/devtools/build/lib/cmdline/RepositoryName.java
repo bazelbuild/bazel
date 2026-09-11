@@ -252,39 +252,39 @@ public final class RepositoryName {
 
   /**
    * Returns the repository part of a {@link Label}'s string representation suitable for display.
-   * The returned string is as simple as possible in the context of the main repo whose repository
-   * mapping is provided: an empty string for the main repo, or a string prefixed with a leading
+   * The returned string is as simple as possible in the context of the repository whose repository
+   * mapping is provided: an empty string for the context repo, or a string prefixed with a leading
    * "{@literal @}" or "{@literal @@}" otherwise.
    *
-   * @param mainRepositoryMapping the {@link RepositoryMapping} of the main repository
+   * @param repositoryMapping the {@link RepositoryMapping} of the context repository (usually the
+   *     main repository)
    * @return
    *     <dl>
    *       <dt>the empty string
-   *       <dd>if this is the main repository
+   *       <dd>if this is the context repository (or the main repository if repositoryMapping is
+   *           null)
    *       <dt><code>@protobuf</code>
-   *       <dd>if this repository is a direct dependency of the main module and its apparent name is
-   *           "protobuf" (only if mainRepositoryMapping is not null)
+   *       <dd>if this repository is a direct dependency of the context repository and its apparent
+   *           name is "protobuf" (only if repositoryMapping is not null)
    *       <dt><code>@@protobuf+</code>
-   *       <dd>if this a repository that is not visible from the main module
+   *       <dd>if this is a repository that is not visible from the context repository
    */
-  public String getDisplayForm(@Nullable RepositoryMapping mainRepositoryMapping) {
-    Preconditions.checkArgument(
-        mainRepositoryMapping == null || mainRepositoryMapping.contextRepo().isMain());
+  public String getDisplayForm(@Nullable RepositoryMapping repositoryMapping) {
     if (!isVisible()) {
       return getNameWithAt();
     }
-    if (isMain()) {
-      // Packages in the main repository can always use repo-relative form.
+    if (repositoryMapping == null) {
+      return isMain() ? "" : getNameWithAt();
+    }
+    if (repositoryMapping.contextRepo().equals(this)) {
+      // Packages in the context repository can always use repo-relative form.
       return "";
     }
-    if (mainRepositoryMapping == null) {
-      return getNameWithAt();
-    }
     // If possible, represent the repository with a non-canonical label using the apparent name the
-    // main repository has for it, otherwise fall back to a canonical label.
-    return mainRepositoryMapping
+    // context repository has for it, otherwise fall back to a canonical label.
+    return repositoryMapping
         .getInverse(this)
-        .map(apparentName -> "@" + apparentName)
+        .map(apparentName -> apparentName.isEmpty() ? "" : "@" + apparentName)
         .orElse(getNameWithAt());
   }
 

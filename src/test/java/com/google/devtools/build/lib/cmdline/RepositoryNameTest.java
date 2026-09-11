@@ -108,6 +108,28 @@ public class RepositoryNameTest {
   }
 
   @Test
+  public void testGetDisplayForm_nonMainRepositoryMapping() throws Exception {
+    RepositoryName canonicalOwner = RepositoryName.create("canonical_owner");
+    RepositoryMapping repositoryMapping =
+        RepositoryMapping.create(
+            ImmutableMap.of(
+                "dep_apparent",
+                RepositoryName.create("canonical_dep"),
+                "self_apparent",
+                canonicalOwner),
+            canonicalOwner);
+
+    // In canonicalOwner's context, canonicalOwner is the local repo, so it uses repo-relative form.
+    assertThat(canonicalOwner.getDisplayForm(repositoryMapping)).isEmpty();
+    // In canonicalOwner's context, canonical_dep has apparent name "dep_apparent".
+    assertThat(RepositoryName.create("canonical_dep").getDisplayForm(repositoryMapping))
+        .isEqualTo("@dep_apparent");
+    // Unmapped canonical repo falls back to canonical form.
+    assertThat(RepositoryName.create("unmapped").getDisplayForm(repositoryMapping))
+        .isEqualTo("@@unmapped");
+  }
+
+  @Test
   public void testGetDisplayFormWithNullMapping() throws Exception {
     assertThat(RepositoryName.create("").getDisplayForm(null)).isEmpty();
     assertThat(RepositoryName.create("canonical").getDisplayForm(null)).isEqualTo("@@canonical");
