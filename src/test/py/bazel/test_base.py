@@ -315,6 +315,33 @@ class TestBase(absltest.TestCase):
                            'uplevel references') % path)
     return os.path.join(self._test_cwd, path)
 
+  def GetTargetExecutable(self, target, flags=()):
+    """Returns the configured executable output path for a target."""
+    _, outputs, _ = self.RunBazel(
+        ['cquery', target, '--output=files'] + list(flags)
+    )
+    target_name = target.rsplit(':', 1)[-1]
+    if target_name == target:
+      target_name = target.rstrip('/').rsplit('/', 1)[-1]
+    if self.IsWindows():
+      target_name += '.exe'
+    executables = [
+        output
+        for output in outputs
+        if os.path.basename(output) == target_name
+    ]
+    self.assertLen(executables, 1, str(outputs))
+    return self.Path(executables[0])
+
+  def GetTargetTestlogs(self, target, flags=()):
+    """Returns the testlogs directory for a target's configuration."""
+    executable = self.GetTargetExecutable(target, flags)
+    relative_executable = os.path.relpath(executable, self._test_cwd)
+    path_parts = relative_executable.replace('\\', '/').split('/')
+    self.assertGreaterEqual(len(path_parts), 3, relative_executable)
+    self.assertEqual(path_parts[0], 'bazel-out', relative_executable)
+    return self.Path(os.path.join('bazel-out', path_parts[1], 'testlogs'))
+
   def Rlocation(self, runfile):
     """Returns the absolute path to a runfile."""
     return self._runfiles.Rlocation(runfile)
