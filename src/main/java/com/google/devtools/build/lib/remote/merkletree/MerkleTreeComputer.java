@@ -890,12 +890,17 @@ public final class MerkleTreeComputer {
       @Nullable RemoteActionExecutionContext remoteActionExecutionContext,
       @Nullable RemotePathResolver remotePathResolver,
       BlobPolicy blobPolicy) {
-    // A tree artifact contains either only tool inputs or only non-tool inputs.
+    // A tree artifact contains either only tool inputs or only non-tool inputs. Children may have
+    // a declared subdirectory as their immediate parent, so paths must be relative to this tree.
     boolean isTool =
         !treeArtifactValue.getChildren().isEmpty()
             && isToolInput.test(
                 mappedExecPath.getRelative(
-                    treeArtifactValue.getChildren().first().getParentRelativePath()));
+                    treeArtifactValue
+                        .getChildren()
+                        .first()
+                        .getExecPath()
+                        .relativeTo(unmappedExecPath)));
     // mappedExecPath and isToolInput must not be used below as they aren't part of the cache key -
     // use isTool instead.
     return computeIfAbsent(
@@ -906,10 +911,9 @@ public final class MerkleTreeComputer {
         () ->
             Lists.transform(
                 ImmutableList.sortedCopyOf(
-                    comparing(
-                        Artifact.TreeFileArtifact::getParentRelativePath, HIERARCHICAL_COMPARATOR),
+                    comparing(Artifact.TreeFileArtifact::getExecPath, HIERARCHICAL_COMPARATOR),
                     treeArtifactValue.getChildren()),
-                child -> entry(child.getParentRelativePath(), child)),
+                child -> entry(child.getExecPath().relativeTo(unmappedExecPath), child)),
         isTool,
         metadataProvider,
         artifactPathResolver,

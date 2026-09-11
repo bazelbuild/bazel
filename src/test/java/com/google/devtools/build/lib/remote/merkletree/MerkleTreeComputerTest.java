@@ -551,6 +551,76 @@ public class MerkleTreeComputerTest {
     assertThat(pkgDir.getFilesList()).isEmpty();
   }
 
+  @Test
+  public void subdirectoryInputs_matchExpandedFiles() throws Exception {
+    assertSubdirectoryInputsMatchExpandedFiles(PathMapper.NOOP, /* isTool= */ false);
+  }
+
+  @Test
+  public void subdirectoryToolInputs_matchMappedExpandedFiles() throws Exception {
+    assertSubdirectoryInputsMatchExpandedFiles(
+        execPath ->
+            PathFragment.create("mapped")
+                .getRelative(execPath.relativeTo(artifactRoot.getExecPath())),
+        /* isTool= */ true);
+  }
+
+  private void assertSubdirectoryInputsMatchExpandedFiles(PathMapper pathMapper, boolean isTool)
+      throws Exception {
+    var treeArtifact = ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "tree");
+    var treeBuilder = TreeArtifactValue.newBuilder(treeArtifact);
+    var childrenBuilder = ImmutableList.<Artifact.TreeFileArtifact>builder();
+    for (String subdirectoryPath : ImmutableList.of("a", "b/nested")) {
+      var subdirectory =
+          Artifact.SpecialArtifact.createSubTreeArtifact(
+              treeArtifact, PathFragment.create(subdirectoryPath), treeArtifact.getArtifactOwner());
+      subdirectory.setGeneratingActionKey(treeArtifact.getGeneratingActionKey());
+      for (String filename : ImmutableList.of("file", "nested/other")) {
+        var child = Artifact.TreeFileArtifact.createTreeOutput(subdirectory, filename);
+        child.getPath().getParentDirectory().createDirectoryAndParents();
+        FileSystemUtils.writeContentAsLatin1(child.getPath(), child.getExecPathString());
+        treeBuilder.putChild(child, FileArtifactValue.createForTesting(child));
+        childrenBuilder.add(child);
+      }
+    }
+    var directChild = Artifact.TreeFileArtifact.createTreeOutput(treeArtifact, "direct");
+    FileSystemUtils.writeContentAsLatin1(directChild.getPath(), "direct child");
+    treeBuilder.putChild(directChild, FileArtifactValue.createForTesting(directChild));
+    childrenBuilder.add(directChild);
+    var children = childrenBuilder.build();
+    var fakeFileCache = new FakeActionInputFileCache();
+    fakeFileCache.putTreeArtifact(treeArtifact, treeBuilder.build());
+    var toolInputsBuilder = ImmutableSet.<PathFragment>builder();
+    if (isTool) {
+      for (var child : children) {
+        toolInputsBuilder.add(pathMapper.map(child.getExecPath()));
+      }
+    }
+    var toolInputs = toolInputsBuilder.build();
+    var treeSpawn = new SpawnBuilder().withInputs(treeArtifact).setPathMapper(pathMapper).build();
+    var expandedSpawn = new SpawnBuilder().withInputs(children).setPathMapper(pathMapper).build();
+    var computer = createMerkleTreeComputer(/* uploader= */ null);
+    var tree =
+        computer.buildForSpawn(
+            treeSpawn,
+            toolInputs,
+            /* scrubber= */ null,
+            createSpawnExecutionContext(treeSpawn, fakeFileCache),
+            RemotePathResolver.createDefault(execRoot),
+            MerkleTreeComputer.BlobPolicy.KEEP);
+    var expandedTree =
+        computer.buildForSpawn(
+            expandedSpawn,
+            toolInputs,
+            /* scrubber= */ null,
+            createSpawnExecutionContext(expandedSpawn, fakeFileCache),
+            RemotePathResolver.createDefault(execRoot),
+            MerkleTreeComputer.BlobPolicy.KEEP);
+
+    assertThat(tree.digest()).isEqualTo(expandedTree.digest());
+    assertThat(tree.inputFiles()).isEqualTo(children.size());
+  }
+
   private static Directory findDirectory(MerkleTree.Uploadable merkleTree, String... pathSegments)
       throws Exception {
     var blobs = merkleTree.blobs();
