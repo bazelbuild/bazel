@@ -105,6 +105,112 @@ function test_cc_tree_remote_cache_download_minimal() {
       || fail "Failed to build //a:tree_cc with remote cache and minimal downloads"
 }
 
+function test_metadata_only_action_result_skips_unused_producer() {
+  mkdir -p metadata_only
+  local -r producer_log="${TEST_TMPDIR}/metadata_only_producer_executions"
+  local -r disk_cache="${TEST_TMPDIR}/metadata_only_disk_cache"
+  local -r empty_disk_cache="${TEST_TMPDIR}/metadata_only_empty_disk_cache"
+  local -r grpc_log="${TEST_TMPDIR}/metadata_only_no_remote_reads.grpc.log"
+  touch "${producer_log}"
+
+  cat > metadata_only/rules.bzl <<EOF
+def _metadata_only_pipeline_impl(ctx):
+    intermediate = ctx.actions.declare_file(ctx.label.name + ".intermediate")
+    final = ctx.actions.declare_file(ctx.label.name + ".final")
+    ctx.actions.run_shell(
+        outputs = [intermediate],
+        command = "echo producer >> '${producer_log}'; echo payload > \"\$1\"",
+        arguments = [intermediate.path],
+        mnemonic = "MetadataOnlyProducer",
+        execution_requirements = {"no-sandbox": ""},
+    )
+    ctx.actions.run_shell(
+        inputs = [intermediate, ctx.file.mode],
+        outputs = [final],
+        command = "cat \"\$1\" \"\$2\" > \"\$3\"",
+        arguments = [intermediate.path, ctx.file.mode.path, final.path],
+        mnemonic = "MetadataOnlyConsumer",
+    )
+    return [DefaultInfo(files = depset([final]))]
+
+metadata_only_pipeline = rule(
+    implementation = _metadata_only_pipeline_impl,
+    attrs = {"mode": attr.label(allow_single_file = True)},
+)
+EOF
+
+  cat > metadata_only/BUILD <<'EOF'
+load(":rules.bzl", "metadata_only_pipeline")
+
+metadata_only_pipeline(
+    name = "subject",
+    mode = "mode.txt",
+)
+EOF
+  echo first > metadata_only/mode.txt
+
+  local -a common_options=(
+    --remote_download_minimal
+    --modify_execution_info=MetadataOnlyProducer=+no-remote-cache-output-upload
+    --rewind_lost_inputs
+    --enable_bzlmod=false
+    --enable_workspace=true
+  )
+  if [[ -n "${METADATA_TEST_REPOSITORY_CACHE:-}" ]]; then
+    common_options+=(--repository_cache="${METADATA_TEST_REPOSITORY_CACHE}")
+  fi
+  if [[ -n "${METADATA_TEST_DISTDIR:-}" ]]; then
+    common_options+=(--distdir="${METADATA_TEST_DISTDIR}")
+  fi
+
+  bazel build "${common_options[@]}" \
+      --disk_cache="${disk_cache}" \
+      --remote_cache="grpc://localhost:${worker_port}" \
+      //metadata_only:subject >& "${TEST_log}" \
+    || fail "Failed to populate metadata-only producer and consumer results"
+  assert_equals 1 "$(wc -l < "${producer_log}" | tr -d ' ')"
+
+  # The execution requirement only affects the remote part of a combined cache. The disk cache
+  # receives the normal result and output blobs.
+  bazel clean >& "${TEST_log}"
+  bazel build "${common_options[@]}" \
+      --disk_cache="${disk_cache}" \
+      //metadata_only:subject >& "${TEST_log}" \
+    || fail "Failed to reuse the producer result from the disk cache"
+  assert_equals 1 "$(wc -l < "${producer_log}" | tr -d ' ')"
+
+  bazel clean >& "${TEST_log}"
+  bazel build "${common_options[@]}" \
+      --remote_cache="grpc://localhost:${worker_port}" \
+      //metadata_only:subject >& "${TEST_log}" \
+    || fail "Failed to reuse downstream result from metadata-only producer result"
+  assert_equals 1 "$(wc -l < "${producer_log}" | tr -d ' ')"
+
+  # Change only a downstream input. The consumer now misses, so fetching the deliberately absent
+  # intermediate blob must trigger lost-input recovery and execute the producer normally.
+  echo second > metadata_only/mode.txt
+  bazel clean >& "${TEST_log}"
+  bazel build "${common_options[@]}" \
+      --remote_cache="grpc://localhost:${worker_port}" \
+      //metadata_only:subject >& "${TEST_log}" \
+    || fail "Failed to fall back after downstream cache miss"
+  assert_equals 2 "$(wc -l < "${producer_log}" | tr -d ' ')"
+
+  # A configured remote cache may still be used for uploads when remote cache reads are disabled.
+  # The metadata-only fallback must preserve that read policy instead of querying its remote key.
+  bazel clean >& "${TEST_log}"
+  bazel build "${common_options[@]}" \
+      --disk_cache="${empty_disk_cache}" \
+      --remote_cache="grpc://localhost:${worker_port}" \
+      --noremote_accept_cached \
+      --remote_grpc_log="${grpc_log}" \
+      //metadata_only:subject >& "${TEST_log}" \
+    || fail "Failed to build with remote cache reads disabled"
+  if grep -q "ActionCache/GetActionResult" "${grpc_log}"; then
+    fail "Queried the remote action cache with remote cache reads disabled"
+  fi
+}
+
 function test_cc_tree_prefetching_download_minimal() {
   setup_cc_tree
 
