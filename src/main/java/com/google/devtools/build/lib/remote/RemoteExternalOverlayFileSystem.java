@@ -276,10 +276,12 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   }
 
   private static boolean isValidName(String name) {
+    // The normalization fast-check also flags valid basenames ending in dots.
     return !name.isEmpty()
         && !PathFragment.containsSeparator(name)
-        && !PathFragment.containsUplevelReferences(name)
-        && PathFragment.isNormalizedRelativePath(name);
+        && name.indexOf('\\') == -1
+        && !PathFragment.isAbsolute(name)
+        && PathFragment.isNormalized(name);
   }
 
   private static void injectRecursively(
