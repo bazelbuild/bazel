@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
+import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ToolDetails;
 import com.google.common.annotations.VisibleForTesting;
@@ -43,6 +44,14 @@ public class TracingMetadataUtils {
   @VisibleForTesting
   public static final Metadata.Key<RequestMetadata> METADATA_KEY =
       ProtoUtils.keyForProto(RequestMetadata.getDefaultInstance());
+
+  /**
+   * gRPC header attached to ByteStream Write calls for content-defined chunks. The value names the
+   * chunking function used to produce the uploaded chunk.
+   */
+  public static final Metadata.Key<String> CHUNKED_HEADER_KEY =
+      Metadata.Key.of(
+          "build.bazel.remote.execution.v2.chunked", Metadata.ASCII_STRING_MARSHALLER);
 
   public static RequestMetadata buildMetadata(
       String buildRequestId, String commandId, String actionId) {
@@ -117,6 +126,16 @@ public class TracingMetadataUtils {
 
   public static ClientInterceptor attachMetadataInterceptor(RequestMetadata requestMetadata) {
     return MetadataUtils.newAttachHeadersInterceptor(headersFromRequestMetadata(requestMetadata));
+  }
+
+  /** Returns an interceptor that attaches the chunked header to outgoing calls. */
+  public static ClientInterceptor attachChunkedHeaderInterceptor(
+      ChunkingFunction.Value chunkingFunction) {
+    Metadata metadata = new Metadata();
+    // The chunk size is already in the ByteStream resource digest, and the
+    // parent blob mapping is sent by SpliceBlob.
+    metadata.put(CHUNKED_HEADER_KEY, chunkingFunction.name());
+    return MetadataUtils.newAttachHeadersInterceptor(metadata);
   }
 
   private static Metadata newMetadataForHeaders(List<Entry<String, String>> headers) {
