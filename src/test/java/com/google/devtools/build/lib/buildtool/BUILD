@@ -320,6 +320,23 @@ java_test(
 )
 
 java_test(
+    name = "LocalResourcesIntegrationTest",
+    srcs = ["LocalResourcesIntegrationTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:invalid_configuration_exception",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "MissingInputActionTest",
     srcs = ["MissingInputActionTest.java"],
     deps = [
