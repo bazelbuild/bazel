@@ -27,7 +27,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableTable;
+import com.google.common.io.BaseEncoding;
 import com.google.common.io.CharStreams;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
+import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithContentsProxy;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -41,6 +44,8 @@ import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileName;
@@ -50,6 +55,7 @@ import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
@@ -59,6 +65,7 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.protobuf.ByteString;
@@ -98,6 +105,8 @@ public final class StarlarkRepositoryContextTest {
   private Path outputDirectory;
   private Root root;
   private StarlarkRepositoryContext context;
+  private SkyFunction.Environment environment;
+  private ExtendedEventHandler listener;
   private Label fakeFileLabel;
   private RepoRule repoRule;
   private static final StarlarkThread thread =
@@ -162,13 +171,13 @@ public final class StarlarkRepositoryContextTest {
       throws Exception {
     LabelConverter labelConverter =
         new LabelConverter(PackageIdentifier.EMPTY_PACKAGE_ID, RepositoryMapping.EMPTY);
-    ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
+    listener = Mockito.mock(ExtendedEventHandler.class);
     RepoSpec repoSpec =
         repoRule.instantiate(kwargs, DUMMY_STACK, labelConverter, listener, "somewhere");
     RepoDefinition repoDefinition =
         new RepoDefinition(repoRule, repoSpec.attributes(), (String) kwargs.get("name"), null);
     DownloadManager downloader = Mockito.mock(DownloadManager.class);
-    SkyFunction.Environment environment = Mockito.mock(SkyFunction.Environment.class);
+    environment = Mockito.mock(SkyFunction.Environment.class);
     when(environment.getListener()).thenReturn(listener);
     fakeFileLabel = Label.parseCanonical("//:foo");
     when(environment.getValue(PackageLookupValue.key(fakeFileLabel.getPackageIdentifier())))
@@ -657,5 +666,46 @@ public final class StarlarkRepositoryContextTest {
             context.getRecordedInputs().stream()
                 .filter(inputAndValue -> inputAndValue.input() instanceof RepoRecordedInput.File))
         .isEmpty();
+  }
+
+  @Test
+  public void testRecordedFileInputIsLockedInOnFirstAccess() throws Exception {
+    setUpRepo("test");
+    Path fooPath = scratch.file(root.getRelative("foo").getPathString(), "original");
+    // Simulate a file system without fast digests, on which the recorded digest of a file is
+    // computed from its current contents rather than taken from the cached Skyframe value.
+    when(environment.getValue(FileKey.create(RootedPath.toRootedPath(root, fooPath))))
+        .thenReturn(
+            new RegularFileStateValueWithContentsProxy(
+                fooPath.getFileSize(), FileContentsProxy.create(fooPath.stat())));
+    String originalDigest = BaseEncoding.base16().lowerCase().encode(fooPath.getDigest());
+
+    assertThat(context.readFile(fakeFileLabel, "yes", thread)).isEqualTo("original\n");
+    // The repo rule modifies the file, e.g. via ctx.execute, and then reads it again (#29114).
+    scratch.overwriteFile(fooPath.getPathString(), "modified");
+    assertThat(context.readFile(fakeFileLabel, "yes", thread)).isEqualTo("modified\n");
+    assertThat(context.readFile(fakeFileLabel, "yes", thread)).isEqualTo("modified\n");
+
+    // A single warning is emitted for the change.
+    verify(listener)
+        .handle(
+            argThat(
+                event ->
+                    event.getKind() == EventKind.WARNING
+                        && event
+                            .getMessage()
+                            .equals(
+                                "file info or contents of @@//foo changed during the evaluation"
+                                    + " of repository @@test, which will cause it to be"
+                                    + " re-evaluated the next time Bazel is run. Report this"
+                                    + " issue to its maintainers.")));
+    // The recorded digest describes the state of the file before the fetch modified it.
+    assertThat(context.getRecordedInputs())
+        .containsExactly(
+            new RepoRecordedInput.WithValue(
+                new RepoRecordedInput.File(
+                    RepoCacheFriendlyPath.createInsideWorkspace(
+                        RepositoryName.MAIN, PathFragment.create("foo"))),
+                originalDigest));
   }
 }
