@@ -1146,6 +1146,128 @@ public class SandboxHelpersTest {
   }
 
   @Test
+  public void sandboxStash_losingRaceForStashKeepsWinnersRunfilesMapping() throws Exception {
+    // Regression test for https://github.com/bazelbuild/bazel/issues/31086: without in-memory
+    // stashes, concurrent test actions compete for stashes by renaming them. The loser must not
+    // drop the bookkeeping that the winner still needs to relocate the stashed runfiles directory.
+    SandboxOptions options =
+        Options.parse(SandboxOptions.class, "--reuse_sandbox_directories").getOptions();
+    Path sandboxBase = scratch.dir("/sandbox_stash_runfiles_race");
+    Path sandbox1 = scratch.dir("/sandbox_stash_runfiles_race/1");
+    String firstRunfiles = "bazel-out/bin/pkg/first_test.runfiles";
+    String secondRunfiles = "bazel-out/bin/pkg/second_test.runfiles";
+    scratch.file(
+        "/sandbox_stash_runfiles_race/1/execroot/ws/" + firstRunfiles + "/ws/pkg/first_test",
+        "content");
+    ImmutableMap<String, String> firstEnv =
+        ImmutableMap.of(
+            "TEST_WORKSPACE", "ws", "TEST_SRCDIR", firstRunfiles, "TEST_TMPDIR", "/tmp");
+    ImmutableMap<String, String> secondEnv =
+        ImmutableMap.of(
+            "TEST_WORKSPACE", "ws", "TEST_SRCDIR", secondRunfiles, "TEST_TMPDIR", "/tmp");
+    // Two outputs so that this is not mistaken for a test XML generation spawn.
+    SandboxOutputs testOutputs =
+        SandboxOutputs.create(
+            ImmutableSet.of(PathFragment.create("test.log"), PathFragment.create("test.xml")),
+            ImmutableSet.of());
+
+    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    try {
+      SandboxStash stash = SandboxStash.getInstanceForTesting();
+      assertThat(stash).isNotNull();
+
+      SandboxStash.stashSandbox(
+          sandbox1, "TestRunner", firstEnv, testOutputs, new SynchronousTreeDeleter(), null);
+
+      Path stashDir = sandboxBase.getChild(SandboxStash.SANDBOX_STASH_BASE).getChild("TestRunner");
+      Path stashedSandbox = Iterables.getOnlyElement(stashDir.getDirectoryEntries());
+      Path stashedExecroot = stashedSandbox.getChild("execroot");
+      assertThat(stash.getStashPathToRunfilesDirForTesting())
+          .containsEntry(stashedExecroot, "ws/" + firstRunfiles);
+
+      // Simulate another thread having just moved the stashed execroot into its own sandbox, but
+      // not yet having looked up where the runfiles directory is located within it.
+      Path movedExecroot = sandboxBase.getChild("moved_execroot");
+      stashedExecroot.renameTo(movedExecroot);
+
+      Path sandbox2 = scratch.dir("/sandbox_stash_runfiles_race/2");
+      assertThat(
+              SandboxStash.takeStashedSandbox(sandbox2, "TestRunner", secondEnv, testOutputs, null))
+          .isNull();
+      assertThat(stash.getStashPathToRunfilesDirForTesting())
+          .containsEntry(stashedExecroot, "ws/" + firstRunfiles);
+
+      // The other thread must still be able to relocate the runfiles directory of its stash.
+      movedExecroot.renameTo(stashedExecroot);
+      Path sandbox3 = scratch.dir("/sandbox_stash_runfiles_race/3");
+      Optional<SandboxContents> taken =
+          SandboxStash.takeStashedSandbox(sandbox3, "TestRunner", secondEnv, testOutputs, null);
+      assertThat(taken).isNotNull();
+      assertThat(taken).isEmpty();
+      assertThat(
+              sandbox3.getRelative("execroot/ws/" + secondRunfiles + "/ws/pkg/first_test").exists())
+          .isTrue();
+      assertThat(sandbox3.getRelative("execroot/ws/" + firstRunfiles).exists()).isFalse();
+      assertThat(stash.getStashPathToRunfilesDirForTesting()).doesNotContainKey(stashedExecroot);
+    } finally {
+      SandboxStash.initialize(
+          "ws",
+          sandboxBase,
+          Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
+          null);
+    }
+  }
+
+  @Test
+  public void sandboxStash_stashWithUnknownRunfilesDirIsReusedWithoutRelocation() throws Exception {
+    SandboxOptions options =
+        Options.parse(SandboxOptions.class, "--reuse_sandbox_directories").getOptions();
+    Path sandboxBase = scratch.dir("/sandbox_stash_unknown_runfiles");
+    String firstRunfiles = "bazel-out/bin/pkg/first_test.runfiles";
+    String secondRunfiles = "bazel-out/bin/pkg/second_test.runfiles";
+    ImmutableMap<String, String> secondEnv =
+        ImmutableMap.of(
+            "TEST_WORKSPACE", "ws", "TEST_SRCDIR", secondRunfiles, "TEST_TMPDIR", "/tmp");
+    SandboxOutputs testOutputs =
+        SandboxOutputs.create(
+            ImmutableSet.of(PathFragment.create("test.log"), PathFragment.create("test.xml")),
+            ImmutableSet.of());
+
+    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    try {
+      // The first access clears out any existing stashes, so trigger it before creating one.
+      Path sandbox1 = scratch.dir("/sandbox_stash_unknown_runfiles/1");
+      assertThat(
+              SandboxStash.takeStashedSandbox(sandbox1, "TestRunner", secondEnv, testOutputs, null))
+          .isNull();
+
+      // A stash whose runfiles directory is not tracked, e.g. because it was created while
+      // --experimental_inmemory_sandbox_stashes was enabled.
+      Path stashDir = sandboxBase.getChild(SandboxStash.SANDBOX_STASH_BASE).getChild("TestRunner");
+      Path stashedRunfile =
+          stashDir.getRelative("1/execroot/ws/" + firstRunfiles + "/ws/pkg/first_test");
+      scratch.file(stashedRunfile.getPathString(), "content");
+
+      Path sandbox2 = scratch.dir("/sandbox_stash_unknown_runfiles/2");
+      Optional<SandboxContents> taken =
+          SandboxStash.takeStashedSandbox(sandbox2, "TestRunner", secondEnv, testOutputs, null);
+      assertThat(taken).isNotNull();
+      assertThat(taken).isEmpty();
+      // The runfiles directory is left in place and will be cleaned up as stale content.
+      assertThat(
+              sandbox2.getRelative("execroot/ws/" + firstRunfiles + "/ws/pkg/first_test").exists())
+          .isTrue();
+      assertThat(sandbox2.getRelative("execroot/ws/" + secondRunfiles).exists()).isFalse();
+    } finally {
+      SandboxStash.initialize(
+          "ws",
+          sandboxBase,
+          Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
+          null);
+    }
+  }
+
+  @Test
   public void sandboxStash_directoryCachingAvoidsRepeatedSyscalls() throws Exception {
     SandboxOptions options =
         Options.parse(
