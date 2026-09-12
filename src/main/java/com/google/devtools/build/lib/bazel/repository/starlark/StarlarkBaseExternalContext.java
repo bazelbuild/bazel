@@ -83,6 +83,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -160,6 +161,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   protected final String identifyingStringForLogging;
   protected final Label.RepoMappingRecorder repoMappingRecorder;
   private final LinkedHashMap<RepoRecordedInput, String> recordedInputs = new LinkedHashMap<>();
+  private final Set<RepoRecordedInput> inputsChangedDuringEvaluation = new HashSet<>(0);
   private final RepositoryRemoteExecutor remoteExecutor;
   private final List<AsyncTask> asyncTasks;
   private final boolean allowWatchingPathsOutsideWorkspace;
@@ -238,13 +240,31 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     repoMappingRecorder.storeInThread(thread);
   }
 
-  protected void recordInputWithValue(RepoRecordedInput input, @Nullable String value) {
-    if (recordedInputs.containsKey(input) && !Objects.equals(recordedInputs.get(input), value)) {
-      throw new IllegalStateException(
-          "Conflicting values recorded for input %s: '%s' vs. '%s'"
-              .formatted(input, recordedInputs.get(input), value));
+  /**
+   * Records the given value for the given input and returns the recorded value, which is the value
+   * observed first if the input has already been recorded.
+   */
+  @CanIgnoreReturnValue
+  @Nullable
+  protected String recordInputWithValue(RepoRecordedInput input, @Nullable String value) {
+    // Don't use putIfAbsent as null is a legitimate value.
+    if (!recordedInputs.containsKey(input)) {
+      recordedInputs.put(input, value);
+      return value;
     }
-    recordedInputs.put(input, value);
+    String recordedValue = recordedInputs.get(input);
+    if (!Objects.equals(recordedValue, value) && inputsChangedDuringEvaluation.add(input)) {
+      env.getListener()
+          .handle(
+              Event.warn(
+                  """
+                  %s during the evaluation of %s, which will cause it to be re-evaluated the next \
+                  time Bazel is run. Report this issue to its maintainers."""
+                      .formatted(
+                          input.describeChange(recordedValue, value),
+                          identifyingStringForLogging)));
+    }
+    return recordedValue;
   }
 
   @CanIgnoreReturnValue
@@ -257,10 +277,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     }
     return switch (maybeValue) {
       case MaybeValue.Invalid(String reason) -> throw new IOException(reason);
-      case MaybeValue.Valid(String value) -> {
-        recordInputWithValue(input, value);
-        yield value;
-      }
+      case MaybeValue.Valid(String value) -> recordInputWithValue(input, value);
     };
   }
 
