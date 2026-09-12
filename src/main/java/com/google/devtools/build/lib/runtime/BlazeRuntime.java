@@ -332,20 +332,15 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   }
 
   /**
-   * Implements automatic profile management.
+   * Returns a unique output path and deletes the oldest matching outputs outside the retention
+   * window.
    *
-   * <ul>
-   *   <li>computes the path to write the profile for the current command to
-   *   <li>does garbage collection for profiles from previous commands based on the <code>
-   * --profiles_to_retain</code> flag
-   * </ul>
-   *
-   * @return the path this command's profile should be written to
+   * <p>The returned path is included in the retention window, even though the file does not exist
+   * yet.
    */
-  @VisibleForTesting
-  static Path manageProfiles(Path dir, String commandId, int retentionWindow) throws IOException {
-    var prefix = "command-";
-    var suffix = ".profile.gz";
+  public static Path manageRetainedOutputs(
+      Path dir, String prefix, String suffix, String commandId, int retentionWindow)
+      throws IOException {
     record PathAndMtime(Path path, long mtime) {}
     var old = new ArrayList<PathAndMtime>();
     for (var dirent : dir.readdir(Symlinks.FOLLOW)) {
@@ -359,8 +354,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     for (var i = 0; i < toRemove; i++) {
       old.get(i).path().delete();
     }
-    var profileName = prefix + commandId + suffix;
-    return dir.getChild(profileName);
+    return dir.getChild(prefix + commandId + suffix);
   }
 
   /** Configure profiling based on the provided options. */
@@ -400,8 +394,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                     /* internal= */ null);
           } else {
             var profilePath =
-                manageProfiles(
+                manageRetainedOutputs(
                     workspace.getOutputBase(),
+                    "command-",
+                    ".profile.gz",
                     env.getCommandId().toString(),
                     commandOptions.getProfilesToRetain());
             profile =
