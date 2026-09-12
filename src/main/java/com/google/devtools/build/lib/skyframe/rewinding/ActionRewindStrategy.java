@@ -711,6 +711,18 @@ public final class ActionRewindStrategy {
         for (Artifact transitiveOwner : transitiveOwners) {
           checkDerived(transitiveOwner);
 
+          // The lost input may be included in a subtree artifact of a tree artifact that is
+          // included by a runfiles tree that the action directly depends on. Note that subtree
+          // artifacts cannot be nested, so one additional level is sufficient.
+          for (Artifact outerOwner : owners.get(transitiveOwner)) {
+            checkDerived(outerOwner);
+
+            if (expandedDeps.contains(Artifact.key(outerOwner))) {
+              lostInputOwningDirectDeps.add((DerivedArtifact) outerOwner);
+              foundLostInputDepOwner = true;
+            }
+          }
+
           if (expandedDeps.contains(Artifact.key(transitiveOwner))) {
             // The lost input is included in an aggregation artifact (e.g. a tree artifact or
             // fileset) that is included by an aggregation artifact (e.g. a runfiles tree) that the
