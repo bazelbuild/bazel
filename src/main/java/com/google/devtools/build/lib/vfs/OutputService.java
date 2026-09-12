@@ -296,6 +296,13 @@ public interface OutputService {
         throws InterruptedException;
 
     /**
+     * Guards an action from the beginning to the end of its {@link Action#discoverInputs input
+     * discovery}, during which it may read any of its inputs and scheduling dependencies.
+     */
+    SilentCloseable enterInputDiscovery(Action action, InputMetadataProvider metadataProvider)
+        throws InterruptedException;
+
+    /**
      * A no-op implementation of {@link RewoundActionSynchronizer}, suitable for action filesystems
      * that support racy access to action outputs.
      */
@@ -309,6 +316,12 @@ public interface OutputService {
           @Override
           public SilentCloseable enterActionExecution(
               Action action, boolean wasRewound, InputMetadataProvider metadataProvider) {
+            return () -> {};
+          }
+
+          @Override
+          public SilentCloseable enterInputDiscovery(
+              Action action, InputMetadataProvider metadataProvider) {
             return () -> {};
           }
         };
