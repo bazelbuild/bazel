@@ -304,8 +304,9 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   private static boolean isValidName(String name) {
     return !name.isEmpty()
         && !PathFragment.containsSeparator(name)
-        && !PathFragment.containsUplevelReferences(name)
-        && PathFragment.isNormalizedRelativePath(name);
+        && name.indexOf('\\') == -1
+        && !PathFragment.isAbsolute(name)
+        && PathFragment.isNormalized(name);
   }
 
   private static void injectRecursively(
