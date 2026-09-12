@@ -19,21 +19,13 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
-import com.google.devtools.build.lib.bazel.repository.RepositoryUtils;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.EvalException;
 
 /**
  * Computes all information required for the {@code bazel mod tidy} command, which in particular
@@ -45,38 +37,14 @@ public class BazelModTidyFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, SkyFunctionException {
-    RootModuleFileValue rootModuleFileValue =
-        (RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
-    if (rootModuleFileValue == null) {
+    BuildozerBinaryValue buildozerBinaryValue =
+        (BuildozerBinaryValue) env.getValue(BuildozerBinaryValue.KEY);
+    if (buildozerBinaryValue == null) {
       return null;
     }
     BazelDepGraphValue depGraphValue = (BazelDepGraphValue) env.getValue(BazelDepGraphValue.KEY);
     if (depGraphValue == null) {
       return null;
-    }
-    RepositoryMappingValue bazelToolsRepoMapping =
-        (RepositoryMappingValue)
-            env.getValue(RepositoryMappingValue.key(RepositoryName.BAZEL_TOOLS));
-    if (bazelToolsRepoMapping == null) {
-      return null;
-    }
-    Label buildozerLabel;
-    try {
-      buildozerLabel =
-          Label.parseWithRepoContext(
-              // This label always has the ".exe" extension, even on Unix, to get a single static
-              // label that works on all platforms.
-              "@buildozer_binary//:buildozer.exe",
-              Label.RepoContext.of(
-                  RepositoryName.BAZEL_TOOLS, bazelToolsRepoMapping.repositoryMapping()));
-    } catch (LabelSyntaxException e) {
-      throw new IllegalStateException(e);
-    }
-    RootedPath buildozer;
-    try {
-      buildozer = RepositoryUtils.getRootedPathFromLabel(buildozerLabel, env);
-    } catch (EvalException e) {
-      throw new IllegalStateException(e);
     }
 
     ImmutableSet<SkyKey> extensionsUsedByRootModule =
@@ -109,6 +77,9 @@ public class BazelModTidyFunction implements SkyFunction {
     }
 
     return BazelModTidyValue.create(
-        fixups.build(), buildozer.asPath(), rootModuleFileValue.moduleFilePaths(), errors.build());
+        fixups.build(),
+        buildozerBinaryValue.buildozer(),
+        buildozerBinaryValue.moduleFilePaths(),
+        errors.build());
   }
 }
