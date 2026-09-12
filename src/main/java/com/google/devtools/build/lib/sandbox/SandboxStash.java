@@ -181,18 +181,23 @@ public class SandboxStash {
           stashExecroot.renameTo(sandboxExecroot);
           stash.deleteTree();
           if (isTestAction(mnemonic)) {
-            String relativeStashedRunfilesDir = stashPathToRunfilesDir.get(stashExecroot);
-            Path stashedRunfilesDir = sandboxExecroot.getRelative(relativeStashedRunfilesDir);
+            String relativeStashedRunfilesDir = stashPathToRunfilesDir.remove(stashExecroot);
             String relativeCurrentRunfilesDir = getCurrentRunfilesDir(environment);
-            Path currentRunfiles = sandboxExecroot.getRelative(relativeCurrentRunfilesDir);
-            currentRunfiles.getParentDirectory().createDirectoryAndParents();
-            stashedRunfilesDir.renameTo(currentRunfiles);
-            stashPathToRunfilesDir.remove(stashExecroot);
-            if (useInMemoryStashes() && pathToContents.containsKey(stash)) {
-              updateStashContentsAfterRunfilesMove(
-                  relativeStashedRunfilesDir,
-                  relativeCurrentRunfilesDir,
-                  pathToContents.get(stash));
+            if (relativeStashedRunfilesDir != null
+                && relativeCurrentRunfilesDir != null
+                && !relativeStashedRunfilesDir.equals(relativeCurrentRunfilesDir)) {
+              Path stashedRunfilesDir = sandboxExecroot.getRelative(relativeStashedRunfilesDir);
+              Path currentRunfiles = sandboxExecroot.getRelative(relativeCurrentRunfilesDir);
+              if (stashedRunfilesDir.exists()) {
+                currentRunfiles.getParentDirectory().createDirectoryAndParents();
+                stashedRunfilesDir.renameTo(currentRunfiles);
+                if (useInMemoryStashes() && pathToContents.containsKey(stash)) {
+                  updateStashContentsAfterRunfilesMove(
+                      relativeStashedRunfilesDir,
+                      relativeCurrentRunfilesDir,
+                      pathToContents.get(stash));
+                }
+              }
             }
           }
           sandboxToTarget.remove(stash);
@@ -287,12 +292,16 @@ public class SandboxStash {
             SandboxHelpers.updateContentMap(stashPathExecroot, lastModified, stashContents);
             if (isTestAction(mnemonic)) {
               if (environment.get("TEST_TMPDIR") != null
-                  && environment.get("TEST_TMPDIR").startsWith("_tmp")) {
+                  && environment.get("TEST_TMPDIR").startsWith("_tmp")
+                  && environment.get("TEST_WORKSPACE") != null) {
                 treeDeleter.deleteTree(
                     stashPathExecroot.getRelative(environment.get("TEST_WORKSPACE") + "/_tmp"));
               }
-              // We do this before adding to readyStashes to avoid a race condition.
-              stashPathToRunfilesDir.put(stashPathExecroot, getCurrentRunfilesDir(environment));
+              String currentRunfilesDir = getCurrentRunfilesDir(environment);
+              if (currentRunfilesDir != null) {
+                // We do this before adding to readyStashes to avoid a race condition.
+                stashPathToRunfilesDir.put(stashPathExecroot, currentRunfilesDir);
+              }
             }
             setPathContents(stashPath, stashContents);
             if (target != null) {
@@ -328,14 +337,16 @@ public class SandboxStash {
       Path stashPathExecroot = stashPath.getChild("execroot");
       if (isTestAction(mnemonic)) {
         if (environment.get("TEST_TMPDIR") != null
-            && environment.get("TEST_TMPDIR").startsWith("_tmp")) {
+            && environment.get("TEST_TMPDIR").startsWith("_tmp")
+            && environment.get("TEST_WORKSPACE") != null) {
           treeDeleter.deleteTree(
               path.getRelative("execroot/" + environment.get("TEST_WORKSPACE") + "/_tmp"));
         }
-      }
-      if (isTestAction(mnemonic)) {
-        // We do this before the rename operation to avoid a race condition.
-        stashPathToRunfilesDir.put(stashPathExecroot, getCurrentRunfilesDir(environment));
+        String currentRunfilesDir = getCurrentRunfilesDir(environment);
+        if (currentRunfilesDir != null) {
+          // We do this before the rename operation to avoid a race condition.
+          stashPathToRunfilesDir.put(stashPathExecroot, currentRunfilesDir);
+        }
       }
       path.getChild("execroot").renameTo(stashPathExecroot);
       if (target != null) {
@@ -564,8 +575,17 @@ public class SandboxStash {
     return isTestAction(mnemonic) && outputs.files().size() == 1;
   }
 
-  private static String getCurrentRunfilesDir(Map<String, String> environment) {
-    return environment.get("TEST_WORKSPACE") + "/" + environment.get(TEST_SRCDIR);
+  @Nullable
+  private static String getCurrentRunfilesDir(@Nullable Map<String, String> environment) {
+    if (environment == null) {
+      return null;
+    }
+    String testWorkspace = environment.get("TEST_WORKSPACE");
+    String testSrcdir = environment.get(TEST_SRCDIR);
+    if (testWorkspace == null || testSrcdir == null) {
+      return null;
+    }
+    return testWorkspace + "/" + testSrcdir;
   }
 
   private ImmutableList<Path> sortStashesByMatchingTargetSegments(
@@ -594,16 +614,29 @@ public class SandboxStash {
 
   private void updateStashContentsAfterRunfilesMove(
       String stashedRunfiles, String currentRunfiles, SandboxContents stashContents) {
+    if (stashContents == null) {
+      return;
+    }
     ImmutableList<String> stashedRunfilesSegments =
         ImmutableList.copyOf(PathFragment.create(stashedRunfiles).segments());
     SandboxContents runfilesStashContents = stashContents;
     for (int i = 0; i < stashedRunfilesSegments.size() - 1; i++) {
-      runfilesStashContents =
-          Preconditions.checkNotNull(
-              runfilesStashContents.dirMap().get(stashedRunfilesSegments.get(i)));
+      if (runfilesStashContents.dirMap() == null) {
+        return;
+      }
+      runfilesStashContents = runfilesStashContents.dirMap().get(stashedRunfilesSegments.get(i));
+      if (runfilesStashContents == null) {
+        return;
+      }
     }
-    runfilesStashContents =
+    if (runfilesStashContents.dirMap() == null) {
+      return;
+    }
+    SandboxContents removedStashContents =
         runfilesStashContents.dirMap().remove(stashedRunfilesSegments.getLast());
+    if (removedStashContents == null) {
+      return;
+    }
 
     ImmutableList<String> currentRunfilesSegments =
         ImmutableList.copyOf(PathFragment.create(currentRunfiles).segments());
@@ -612,8 +645,11 @@ public class SandboxStash {
       String segment = currentRunfilesSegments.get(i);
       currentStashContents.dirMap().putIfAbsent(segment, new SandboxContents());
       currentStashContents = currentStashContents.dirMap().get(segment);
+      if (currentStashContents == null || currentStashContents.dirMap() == null) {
+        return;
+      }
     }
-    currentStashContents.dirMap().put(currentRunfilesSegments.getLast(), runfilesStashContents);
+    currentStashContents.dirMap().put(currentRunfilesSegments.getLast(), removedStashContents);
   }
 }
 

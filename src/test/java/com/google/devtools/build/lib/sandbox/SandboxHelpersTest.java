@@ -1279,5 +1279,97 @@ public class SandboxHelpersTest {
           null);
     }
   }
+
+  @Test
+  public void sandboxStash_testRunnerReusesStashWithoutRunfilesDirRecord() throws Exception {
+    SandboxOptions options =
+        Options.parse(
+                SandboxOptions.class,
+                "--reuse_sandbox_directories")
+            .getOptions();
+    Path sandboxBase = scratch.dir("/sandbox_stash_testrunner");
+    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    try {
+      Path sandbox1 = scratch.dir("/sandbox_stash_testrunner/1");
+      Path execroot1 = sandbox1.getChild("execroot");
+      execroot1.createDirectoryAndParents();
+      scratch.file(execroot1.getChild("file.txt").asFragment().getPathString(), "data");
+
+      // Stash with TestRunner mnemonic but without TEST_WORKSPACE / TEST_SRCDIR
+      SandboxStash.stashSandbox(
+          sandbox1,
+          "TestRunner",
+          ImmutableMap.of(),
+          SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+          new SynchronousTreeDeleter(),
+          null);
+
+      Path sandbox2 = scratch.dir("/sandbox_stash_testrunner/2");
+      // takeStashedSandbox should not throw NullPointerException when runfiles dir was unrecorded
+      Optional<SandboxContents> taken =
+          SandboxStash.takeStashedSandbox(
+              sandbox2,
+              "TestRunner",
+              ImmutableMap.of("TEST_WORKSPACE", "ws", "TEST_SRCDIR", "srcdir"),
+              SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+              null);
+
+      assertThat(taken).isNotNull();
+      assertThat(sandbox2.getChild("execroot").getChild("file.txt").exists()).isTrue();
+    } finally {
+      SandboxStash.initialize(
+          "ws",
+          sandboxBase,
+          Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
+          null);
+    }
+  }
+
+  @Test
+  public void sandboxStash_testRunnerMovesRunfilesDirWhenDifferent() throws Exception {
+    SandboxOptions options =
+        Options.parse(
+                SandboxOptions.class,
+                "--reuse_sandbox_directories")
+            .getOptions();
+    Path sandboxBase = scratch.dir("/sandbox_stash_testrunner_move");
+    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    try {
+      Path sandbox1 = scratch.dir("/sandbox_stash_testrunner_move/1");
+      Path execroot1 = sandbox1.getChild("execroot");
+      execroot1.createDirectoryAndParents();
+      Path oldRunfiles = execroot1.getRelative("ws/old_srcdir");
+      oldRunfiles.createDirectoryAndParents();
+      scratch.file(oldRunfiles.getChild("runfile.txt").asFragment().getPathString(), "test_input");
+
+      SandboxStash.stashSandbox(
+          sandbox1,
+          "TestRunner",
+          ImmutableMap.of("TEST_WORKSPACE", "ws", "TEST_SRCDIR", "old_srcdir"),
+          SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+          new SynchronousTreeDeleter(),
+          null);
+
+      Path sandbox2 = scratch.dir("/sandbox_stash_testrunner_move/2");
+      Optional<SandboxContents> taken =
+          SandboxStash.takeStashedSandbox(
+              sandbox2,
+              "TestRunner",
+              ImmutableMap.of("TEST_WORKSPACE", "ws", "TEST_SRCDIR", "new_srcdir"),
+              SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+              null);
+
+      assertThat(taken).isNotNull();
+      Path newRunfiles = sandbox2.getChild("execroot").getRelative("ws/new_srcdir");
+      assertThat(newRunfiles.getChild("runfile.txt").exists()).isTrue();
+      assertThat(sandbox2.getChild("execroot").getRelative("ws/old_srcdir").exists()).isFalse();
+    } finally {
+      SandboxStash.initialize(
+          "ws",
+          sandboxBase,
+          Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
+          null);
+    }
+  }
 }
 
