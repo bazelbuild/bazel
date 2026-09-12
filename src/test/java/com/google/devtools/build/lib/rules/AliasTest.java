@@ -572,4 +572,20 @@ public class AliasTest extends BuildViewTestCase {
   public void testNoActual() throws Exception {
     checkError("a", "a", "missing value for mandatory attribute 'actual'", "alias(name='a')");
   }
+
+  @Test
+  public void aspectHintsNotAllowedOnAlias() throws Exception {
+    checkError(
+        "a",
+        "b",
+        "no such attribute 'aspect_hints' in 'alias' rule",
+        """
+        alias(
+            name = "b",
+            actual = ":a",
+            aspect_hints = [":hint"],
+        )
+        """);
+  }
 }
+

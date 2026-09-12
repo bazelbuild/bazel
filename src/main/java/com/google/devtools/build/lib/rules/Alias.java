@@ -71,6 +71,7 @@ public class Alias implements RuleConfiguredTargetFactory {
           .removeAttribute("licenses")
           .removeAttribute("distribs")
           .removeAttribute(":action_listener")
+          .removeAttribute(RuleClass.ASPECT_HINTS_ATTR)
           .add(
               attr(ACTUAL_ATTRIBUTE_NAME, LABEL)
                   .allowedFileTypes(FileTypeSet.ANY_FILE)
@@ -141,6 +142,10 @@ public class Alias implements RuleConfiguredTargetFactory {
       When defining environment groups, the aliases to <code>environment</code> rules are not
       supported. They are not supported in the <code>--target_environment</code> command line
       option, either.
+    </li>
+    <li>
+      The <code>aspect_hints</code> attribute is not supported on <code>alias</code> rules.
+      Any aspect hints should be specified on the referenced target instead.
     </li>
   </ul>
 </p>
