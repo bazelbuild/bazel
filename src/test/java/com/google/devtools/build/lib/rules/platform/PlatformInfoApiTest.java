@@ -507,6 +507,47 @@ public class PlatformInfoApiTest extends PlatformTestCase {
   }
 
   @Test
+  public void localResources() throws Exception {
+    platformBuilder("//foo:my_platform")
+        .setLocalResources(ImmutableMap.of("gpu-2", "1", "gpu-memory", "16"))
+        .write();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:my_platform");
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.localResources())
+        .containsExactly("gpu-2", 1.0, "gpu-memory", 16.0);
+  }
+
+  @Test
+  public void localResources_parent_merged() throws Exception {
+    platformBuilder("//foo:parent")
+        .setLocalResources(ImmutableMap.of("gpu", "2", "gpu-memory", "16"))
+        .write();
+    platformBuilder("//foo:child")
+        .setParent("//foo:parent")
+        .setLocalResources(ImmutableMap.of("gpu", "4"))
+        .write();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:child");
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.localResources())
+        .containsExactly("gpu", 4.0, "gpu-memory", 16.0);
+  }
+
+  @Test
+  public void localResources_invalidValue() throws Exception {
+    checkError(
+        "foo",
+        "my_platform",
+        "in local_resources attribute of platform rule //foo:my_platform: Parameter 'many' does"
+            + " not follow correct syntax",
+        platformBuilder("//foo:my_platform")
+            .setLocalResources(ImmutableMap.of("gpu", "many"))
+            .lines()
+            .toArray(new String[] {}));
+  }
+
+  @Test
   public void flags() throws Exception {
     platformBuilder("//foo:basic").addFlags("--cpu=k8", "--//starlark:flag=other").write();
 

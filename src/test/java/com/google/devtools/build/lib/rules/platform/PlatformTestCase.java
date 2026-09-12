@@ -108,6 +108,7 @@ public class PlatformTestCase extends BuildViewTestCase {
     private final List<String> constraintValues = new ArrayList<>();
     private Label parentLabel = null;
     private ImmutableMap<String, String> execProperties;
+    private ImmutableMap<String, String> localResources;
     private List<String> flags = new ArrayList<>();
 
     public PlatformBuilder(String name) {
@@ -129,6 +130,12 @@ public class PlatformTestCase extends BuildViewTestCase {
     @CanIgnoreReturnValue
     public PlatformBuilder setExecProperties(ImmutableMap<String, String> value) {
       this.execProperties = value;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public PlatformBuilder setLocalResources(ImmutableMap<String, String> value) {
+      this.localResources = value;
       return this;
     }
 
@@ -155,7 +162,14 @@ public class PlatformTestCase extends BuildViewTestCase {
         for (Map.Entry<String, String> entry : execProperties.entrySet()) {
           lines.add("    \"" + entry.getKey() + "\": \"" + entry.getValue() + "\",");
         }
-        lines.add("  }");
+        lines.add("  },");
+      }
+      if (localResources != null && !localResources.isEmpty()) {
+        lines.add("  local_resources = { ");
+        for (Map.Entry<String, String> entry : localResources.entrySet()) {
+          lines.add("    \"" + entry.getKey() + "\": \"" + entry.getValue() + "\",");
+        }
+        lines.add("  },");
       }
       if (!flags.isEmpty()) {
         lines.add("  flags = [");
