@@ -5160,6 +5160,31 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   @Test
+  public void valueInjectionOverDirtyEntryWithDeps() throws Exception {
+    SkyKey dep = nonHermeticKey("dep");
+    SkyKey injectable = nonHermeticKey("injectable");
+    SkyKey other = skyKey("other");
+    tester.getOrCreate(injectable).addDependency(dep).setComputedValue(COPY);
+    tester.set(dep, new StringValue("dep1"));
+    tester.set(other, new StringValue("other"));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, injectable))
+        .isEqualTo(new StringValue("dep1"));
+
+    // Dirty `injectable` through its dep without requesting it, so that it stays dirty.
+    tester.set(dep, new StringValue("dep2"));
+    tester.invalidate();
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, other))
+        .isEqualTo(new StringValue("other"));
+    assertThat(tester.getDirtyKeys()).containsExactly(dep, injectable);
+
+    // Like for a done node with deps, the injection is turned into an invalidation and the node is
+    // evaluated freshly instead of taking the injected value.
+    tester.differencer.inject(ImmutableMap.of(injectable, Delta.justNew(new StringValue("inj"))));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, injectable))
+        .isEqualTo(new StringValue("dep2"));
+  }
+
+  @Test
   public void valueInjectionOverExistingDirtyEntry() throws Exception {
     SkyKey key = nonHermeticKey("key");
     Delta delta = Delta.justNew(new StringValue("val"));

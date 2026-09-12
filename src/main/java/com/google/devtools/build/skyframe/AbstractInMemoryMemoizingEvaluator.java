@@ -38,6 +38,7 @@ import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
+import com.google.devtools.build.skyframe.NodeEntry.LifecycleState;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent.EvaluationStats;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.PrintStream;
@@ -496,8 +497,21 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
           // be injected.
           getInMemoryGraph().remove(key);
         }
+      } else if (prevEntry != null && keepEdges && hadDepsLastBuild(prevEntry)) {
+        // The node was dirtied by an earlier invalidation but has not been re-evaluated since, so
+        // it still holds the deps of its last build. Injecting a value would require the same
+        // reverse dep bookkeeping as for a done node with deps, so handle it the same way: just
+        // invalidate it and let it be evaluated freshly.
+        valuesToDirty.add(key);
+        it.remove();
       }
     }
+  }
+
+  /** Returns whether the given not-done entry had at least one dep the last time it was built. */
+  private static boolean hadDepsLastBuild(InMemoryNodeEntry entry) {
+    return entry.getLifecycleState() != LifecycleState.NOT_YET_EVALUATING
+        && !entry.noDepsLastBuild();
   }
 
   /** Injects values in {@code valuesToInject} into the graph. */
