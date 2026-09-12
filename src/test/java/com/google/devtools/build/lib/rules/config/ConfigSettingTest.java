@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider.MatchResult.Match;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider.Matc
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -2037,6 +2039,51 @@ public final class ConfigSettingTest extends BuildViewTestCase {
         "    allowed_values = ['right', 'valid'],",
         "    default_value = 'valid',",
         ")");
+  }
+
+  @Test
+  public void matchingBuildSetting_preservesCoverageEnvironment() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        """
+        def _impl(ctx):
+            return [coverage_common.instrumented_files_info(
+                ctx,
+                coverage_environment = {"MARKER": ctx.attr.coverage_marker},
+                baseline_coverage_files = [],
+            )]
+
+        string_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True),
+            attrs = {"coverage_marker": attr.string()},
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":build_settings.bzl", "string_flag")
+
+        config_setting(name = "one", values = {"define": "variant=one"})
+        string_flag(
+            name = "flag",
+            build_setting_default = "ok",
+            coverage_marker = select({":one": "one", "//conditions:default": "two"}),
+        )
+        config_setting(name = "condition", flag_values = {":flag": "ok"})
+        """);
+
+    useConfiguration("--collect_code_coverage", "--define=variant=one");
+    ConfiguredTarget first = getConfiguredTarget("//test:condition");
+    useConfiguration("--collect_code_coverage", "--define=variant=two");
+    ConfiguredTarget second = getConfiguredTarget("//test:condition");
+
+    assertThat(first.getProvider(ConfigMatchingProvider.class).result()).isInstanceOf(Match.class);
+    assertThat(second.getProvider(ConfigMatchingProvider.class).result()).isInstanceOf(Match.class);
+    assertThat(first.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR).getCoverageEnvironment())
+        .containsExactly("MARKER", "one");
+    assertThat(second.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR).getCoverageEnvironment())
+        .containsExactly("MARKER", "two");
   }
 
   @Test
