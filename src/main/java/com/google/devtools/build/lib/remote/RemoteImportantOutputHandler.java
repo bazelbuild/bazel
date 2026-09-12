@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.remote.util.BulkTransfers.mergeBulkT
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
@@ -77,8 +78,18 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
   public LostArtifacts processOutputsAndGetLostArtifacts(
       Iterable<Artifact> importantOutputs, InputMetadataProvider metadataProvider)
       throws ImportantOutputException, InterruptedException {
+    // ensureToplevelArtifacts also downloads the artifacts of every runfiles tree known to the
+    // metadata provider. Runfiles trees are hidden top-level outputs and thus not among the
+    // important outputs, but the producers of the artifacts they contain must be guarded from
+    // rewinding during the download just like those of the important outputs.
+    Iterable<Artifact> artifactsToGuard =
+        Iterables.concat(
+            importantOutputs,
+            Iterables.concat(
+                Iterables.transform(
+                    metadataProvider.getRunfilesTrees(), tree -> tree.getArtifacts().toList())));
     try (SilentCloseable lock =
-        maybeEnterProcessOutputsAndGetLostArtifacts(importantOutputs, metadataProvider)) {
+        maybeEnterProcessOutputsAndGetLostArtifacts(artifactsToGuard, metadataProvider)) {
       ensureToplevelArtifacts(importantOutputs, metadataProvider);
     } catch (IOException e) {
       if (e instanceof BulkTransferException bulkTransferException) {
