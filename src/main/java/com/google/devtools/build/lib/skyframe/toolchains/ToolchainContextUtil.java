@@ -215,11 +215,15 @@ public final class ToolchainContextUtil {
         if (toolchainTypes.stream()
             .map(ToolchainTypeRequirement::toolchainType)
             .noneMatch(label::equals)) {
-          ImmutableSet<String> suggestedLabels =
-              toolchainTypes.stream()
-                  .map(ToolchainTypeRequirement::toolchainType)
-                  .map(type -> type.getDisplayForm(rule.getPackageMetadata().repositoryMapping()))
-                  .collect(toImmutableSet());
+          ImmutableSet<String> suggestedLabels = ImmutableSet.of();
+          // Fixup suggestions are not actionable for targets in external repositories.
+          if (rule.getLabel().getRepository().isMain()) {
+            suggestedLabels =
+                toolchainTypes.stream()
+                    .map(ToolchainTypeRequirement::toolchainType)
+                    .map(type -> type.getDisplayForm(rule.getPackageMetadata().repositoryMapping()))
+                    .collect(toImmutableSet());
+          }
           throw new ExecGroupCollection.InvalidExecGroupException(
               "execution constraints",
               rule.getDisplayFormLabel(),

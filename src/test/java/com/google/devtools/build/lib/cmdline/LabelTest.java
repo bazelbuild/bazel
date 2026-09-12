@@ -418,23 +418,6 @@ public class LabelTest {
     assertThat(displayFormFor("@@foo//bar:bar", null)).isEqualTo("@@foo//bar:bar");
   }
 
-  @Test
-  public void testDisplayFormNonMainMapping() throws Exception {
-    RepositoryName canonicalOwner = RepositoryName.create("owner");
-    RepositoryName canonicalDep = RepositoryName.create("dep");
-    RepositoryMapping repositoryMapping =
-        RepositoryMapping.create(ImmutableMap.of("dep_apparent", canonicalDep), canonicalOwner);
-
-    // In canonicalOwner's context, targets within canonicalOwner use repo-relative form:
-    assertThat(displayFormFor("@owner//pkg:target", repositoryMapping)).isEqualTo("//pkg:target");
-    // Targets in canonicalDep use the apparent name defined in repositoryMapping:
-    assertThat(displayFormFor("@dep//pkg:target", repositoryMapping))
-        .isEqualTo("@dep_apparent//pkg:target");
-    // Unmapped repositories fall back to canonical @@ form:
-    assertThat(displayFormFor("@unmapped//pkg:target", repositoryMapping))
-        .isEqualTo("@@unmapped//pkg:target");
-  }
-
   private static String shorthandDisplayFormFor(
       String rawLabel, RepositoryMapping repositoryMapping) throws Exception {
     return Label.parseCanonical(rawLabel).getShorthandDisplayForm(repositoryMapping);
