@@ -978,7 +978,12 @@ public final class SkyframeActionExecutor {
     eventHandler.post(new ScanningActionEvent(action));
 
     ActionExecutionException finalException = null;
-    try {
+    // Input discovery reads generated files just like execution does, so the actions generating
+    // them must not be rewound while it is running.
+    try (SilentCloseable lock =
+        outputService
+            .getRewoundActionSynchronizer()
+            .enterInputDiscovery(action, compositeInputMetadataProvider)) {
       NestedSet<Artifact> artifacts = action.discoverInputs(actionExecutionContext);
 
       // Input discovery may have been affected by lost inputs. If an action filesystem is used, it
