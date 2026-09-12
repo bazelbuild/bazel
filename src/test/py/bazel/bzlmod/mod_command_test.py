@@ -1693,6 +1693,36 @@ class ModCommandTest(test_base.TestBase):
           module_file.read().split('\n'),
       )
 
+  def testModCommandWithCycleDoesNotCrash(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name = "cycle_test")',
+            'cycle_ext = use_extension("//:cycle_def.bzl", "cycle_ext")',
+            'use_repo(cycle_ext, "cycle_repo")',
+        ],
+    )
+    self.ScratchFile(
+        'cycle_def.bzl',
+        [
+            'load("@cycle_repo//:defs.bzl", "dummy")',
+            'def _cycle_impl(ctx):',
+            '    pass',
+            'cycle_ext = module_extension(implementation=_cycle_impl)',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    exit_code, stdout, stderr = self.RunBazel(
+        ['mod', 'graph'],
+        rstrip=True,
+        allow_failure=True,
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+    stderr_str = '\n'.join(stderr)
+    self.assertNotIn('FATAL: bazel crashed due to an internal error', stderr_str)
+    self.assertNotIn('UnsupportedOperationException', stderr_str)
+    self.assertIn('Circular definition of repositories', stderr_str)
+
 
 if __name__ == '__main__':
   absltest.main()
