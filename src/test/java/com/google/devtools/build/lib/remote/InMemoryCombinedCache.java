@@ -35,7 +35,7 @@ class InMemoryCombinedCache extends RemoteExecutionCache {
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
         digestUtil,
-        /* chunkingEnabled= */ false);
+        /* chunkingFunction= */ null);
   }
 
   InMemoryCombinedCache(
@@ -45,7 +45,7 @@ class InMemoryCombinedCache extends RemoteExecutionCache {
         /* diskCacheClient= */ null,
         symlinkTemplate,
         digestUtil,
-        /* chunkingEnabled= */ false);
+        /* chunkingFunction= */ null);
   }
 
   InMemoryCombinedCache(DigestUtil digestUtil) {
@@ -54,7 +54,7 @@ class InMemoryCombinedCache extends RemoteExecutionCache {
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
         digestUtil,
-        /* chunkingEnabled= */ false);
+        /* chunkingFunction= */ null);
   }
 
   InMemoryCombinedCache(RemoteCacheClient remoteCacheClient, DigestUtil digestUtil) {
@@ -63,7 +63,7 @@ class InMemoryCombinedCache extends RemoteExecutionCache {
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
         digestUtil,
-        /* chunkingEnabled= */ false);
+        /* chunkingFunction= */ null);
   }
 
   Digest addContents(RemoteActionExecutionContext context, String txt)
