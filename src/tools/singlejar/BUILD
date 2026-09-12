@@ -87,6 +87,7 @@ cc_binary(
     ],
     linkopts = select({
         "//src/conditions:freebsd": ["-lm"],
+        "//src/conditions:netbsd": ["-lm"],
         "//src/conditions:openbsd": ["-lm"],
         "//conditions:default": [],
     }),
@@ -108,6 +109,7 @@ cc_binary(
     ],
     linkopts = select({
         "//src/conditions:freebsd": ["-lm"],
+        "//src/conditions:netbsd": ["-lm"],
         "//src/conditions:openbsd": ["-lm"],
         "//conditions:default": [],
     }),

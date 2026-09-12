@@ -51,6 +51,10 @@ final class ConfigExpander {
         return "freebsd";
       case OPENBSD:
         return "openbsd";
+      case NETBSD:
+        return "netbsd";
+      case DRAGONFLY:
+        return "dragonfly";
       default:
         return OS.getCurrent().getCanonicalName();
     }

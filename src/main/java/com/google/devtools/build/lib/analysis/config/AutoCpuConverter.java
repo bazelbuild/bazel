@@ -40,6 +40,8 @@ public class AutoCpuConverter extends Converter.Contextless<String> {
             };
         case FREEBSD -> "freebsd";
         case OPENBSD -> "openbsd";
+        case NETBSD -> "netbsd";
+        case DRAGONFLY -> "dragonfly";
         case WINDOWS ->
             switch (CPU.getCurrent()) {
               case X86_64 -> "x64_windows";

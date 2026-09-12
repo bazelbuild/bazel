@@ -69,6 +69,8 @@ cc_binary(
         "//src/conditions:darwin": ["dummy-sandbox.c"],
         "//src/conditions:freebsd": ["dummy-sandbox.c"],
         "//src/conditions:openbsd": ["dummy-sandbox.c"],
+        "//src/conditions:netbsd": ["dummy-sandbox.c"],
+        "//src/conditions:dragonfly": ["dummy-sandbox.c"],
         "//src/conditions:windows": ["dummy-sandbox.c"],
         "//conditions:default": [
             "linux-sandbox.cc",

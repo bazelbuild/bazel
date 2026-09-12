@@ -38,7 +38,7 @@ public final class JniLoader {
     Throwable jniLoadError;
     try {
       switch (OS.getCurrent()) {
-        case LINUX, FREEBSD, OPENBSD, UNKNOWN -> {
+        case LINUX, FREEBSD, OPENBSD, NETBSD, DRAGONFLY, UNKNOWN -> {
           loadLibrary("main/native/libunix_jni.so");
         }
         case DARWIN -> {

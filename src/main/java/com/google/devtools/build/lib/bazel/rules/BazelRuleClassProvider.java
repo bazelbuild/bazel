@@ -95,6 +95,8 @@ public class BazelRuleClassProvider {
           .put(OS.WINDOWS, PathFragment.create("c:/msys64/usr/bin/bash.exe"))
           .put(OS.FREEBSD, PathFragment.create("/usr/local/bin/bash"))
           .put(OS.OPENBSD, PathFragment.create("/usr/local/bin/bash"))
+          .put(OS.NETBSD, PathFragment.create("/usr/pkg/bin/bash"))
+          .put(OS.DRAGONFLY, PathFragment.create("/usr/local/bin/bash"))
           .put(OS.LINUX, PathFragment.create("/bin/bash"))
           .put(OS.DARWIN, PathFragment.create("/bin/bash"))
           .put(OS.UNKNOWN, FALLBACK_SHELL)
@@ -347,7 +349,7 @@ public class BazelRuleClassProvider {
     // up in /usr/local/bin, so we need to include that in the default PATH. On
     // other Unix platforms we want to exclude /usr/local/bin which commonly
     // holds user installed tools making things less hermetic.
-    if (os == OS.FREEBSD || os == OS.OPENBSD) {
+    if (os == OS.FREEBSD || os == OS.OPENBSD || os == OS.NETBSD || os == OS.DRAGONFLY) {
       return "/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin";
     } else if (os != OS.WINDOWS) {
       return "/bin:/usr/bin:/sbin:/usr/sbin";

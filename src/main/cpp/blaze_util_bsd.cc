@@ -17,6 +17,10 @@
 #define STANDARD_JAVABASE "/usr/local/openjdk21"
 #elif defined(__OpenBSD__)
 #define STANDARD_JAVABASE "/usr/local/jdk-21"
+#elif defined(__NetBSD__)
+# define STANDARD_JAVABASE "/usr/pkg/java/openjdk21"
+#elif defined(__DragonFly__)
+# define STANDARD_JAVABASE "/usr/local/openjdk21"
 #else
 # error This BSD is not supported
 #endif
@@ -81,8 +85,15 @@ string GetCacheDir() {
 }
 
 void WarnFilesystemType(const blaze_util::Path &output_base) {
+#if defined(__NetBSD__)
+  // NetBSD dropped statfs(2); statvfs(2) carries f_fstypename all
+  // the same.
+  struct statvfs buf = {};
+  if (statvfs(output_base.AsNativePath().c_str(), &buf) < 0) {
+#else
   struct statfs buf = {};
   if (statfs(output_base.AsNativePath().c_str(), &buf) < 0) {
+#endif
     BAZEL_LOG(WARNING) << "couldn't get file system type information for '"
                        << output_base.AsPrintablePath()
                        << "': " << strerror(errno);
@@ -119,7 +130,7 @@ string GetSelfPath(const char* argv0) {
   }
   procstat_close(procstat);
   return string(buffer);
-#elif defined(__OpenBSD__)
+#elif defined(__OpenBSD__) || defined(__NetBSD__) || defined(__DragonFly__)
   // OpenBSD does not provide a way for a running process to find a path to its
   // own executable, so we try to figure out a path by inspecting argv[0]. In
   // theory this is inadequate, since the parent process can set argv[0] to
