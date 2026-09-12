@@ -111,7 +111,6 @@ public class ExecutableSymlinkActionTest {
         ActionsTestUtil.createArtifact(outputRoot, outputRoot.getRoot().getRelative("some-output"));
     SymlinkAction action = SymlinkAction.toExecutable(NULL_ACTION_OWNER, input, output, "progress");
     FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
-    inputMetadataProvider.put(input, FileArtifactValue.createForTesting(input));
     ActionExecutionException e =
         assertThrows(
             ActionExecutionException.class,
@@ -137,6 +136,61 @@ public class ExecutableSymlinkActionTest {
     String want = "'in/some-file' is not executable";
       String got = e.getMessage();
     assertWithMessage("got %s, want %s", got, want).that(got.contains(want)).isTrue();
+  }
+
+  @Test
+  public void testFailIfMaterializedRemoteInputIsNotExecutable() throws Exception {
+    Path file = inputRoot.getRoot().getRelative("some-file");
+    FileSystemUtils.createEmptyFile(file);
+    file.setExecutable(/*executable=*/false);
+    Artifact input = ActionsTestUtil.createArtifact(inputRoot, file);
+    Artifact output =
+        ActionsTestUtil.createArtifact(outputRoot, outputRoot.getRoot().getRelative("some-output"));
+    SymlinkAction action = SymlinkAction.toExecutable(NULL_ACTION_OWNER, input, output, "progress");
+    FileArtifactValue metadata =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            new byte[] {1},
+            /* size= */ 0,
+            /* locationIndex= */ 1,
+            /* expirationTime= */ null,
+            /* inMemoryOutput= */ false);
+    metadata.setContentsProxy(FileContentsProxy.create(file.stat()));
+    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
+    inputMetadataProvider.put(input, metadata);
+
+    ActionExecutionException e =
+        assertThrows(
+            ActionExecutionException.class,
+            () -> action.execute(createContext(inputMetadataProvider)));
+    assertThat(e).hasMessageThat().contains("'in/some-file' is not executable");
+  }
+
+  @Test
+  public void testFailIfRemoteSourceInputIsNotExecutable() throws Exception {
+    Path sourceDir = scratch.dir("/source");
+    ArtifactRoot sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(sourceDir));
+    Path file = sourceDir.getRelative("some-file");
+    FileSystemUtils.createEmptyFile(file);
+    file.setExecutable(/*executable=*/false);
+    Artifact input = ActionsTestUtil.createArtifact(sourceRoot, file);
+    Artifact output =
+        ActionsTestUtil.createArtifact(outputRoot, outputRoot.getRoot().getRelative("some-output"));
+    SymlinkAction action = SymlinkAction.toExecutable(NULL_ACTION_OWNER, input, output, "progress");
+    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
+    inputMetadataProvider.put(
+        input,
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            new byte[] {1},
+            /* size= */ 0,
+            /* locationIndex= */ 1,
+            /* expirationTime= */ null,
+            /* inMemoryOutput= */ false));
+
+    ActionExecutionException e =
+        assertThrows(
+            ActionExecutionException.class,
+            () -> action.execute(createContext(inputMetadataProvider)));
+    assertThat(e).hasMessageThat().contains("'some-file' is not executable");
   }
 
   @Test
