@@ -40,6 +40,21 @@ class WorkerSkyFunctionEnvironment
   private SkyFunction.Environment delegate;
   private final InterruptibleSupplier<SkyFunction.Environment> newDelegateSupplier;
 
+  /**
+   * Accepts every value and exception so that {@link SkyframeLookupResult#queryDep} returns {@code
+   * false} only if the dep is not available in the delegate.
+   */
+  private static final QueryDepCallback AVAILABILITY_PROBE =
+      new QueryDepCallback() {
+        @Override
+        public void acceptValue(SkyKey key, SkyValue value) {}
+
+        @Override
+        public boolean tryHandleException(SkyKey key, Exception exception) {
+          return true;
+        }
+      };
+
   WorkerSkyFunctionEnvironment(
       SkyFunction.Environment initialDelegate,
       InterruptibleSupplier<SkyFunction.Environment> newDelegateSupplier) {
@@ -55,19 +70,45 @@ class WorkerSkyFunctionEnvironment
   @Override
   public SkyframeLookupResult getValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
       throws InterruptedException {
-    delegate.getValuesAndExceptions(depKeys);
-    if (!delegate.valuesMissing()) {
-      // Do NOT just return the return value of `delegate.getValuesAndExceptions` here! That would
-      // cause anyone holding onto the returned result object to potentially use a stale version
-      // of it after a skyfunction restart.
-      return this;
+    // The keys are iterated more than once below.
+    ImmutableList<? extends SkyKey> keys = ImmutableList.copyOf(depKeys);
+    delegate.getValuesAndExceptions(keys);
+    while (anyUnavailable(keys)) {
+      refreshDelegate();
+      delegate.getValuesAndExceptions(keys);
     }
+    // Do NOT just return the return value of `delegate.getValuesAndExceptions` here! That would
+    // cause anyone holding onto the returned result object to potentially use a stale version
+    // of it after a skyfunction restart.
+    return this;
+  }
+
+  /**
+   * Returns whether any of the given keys, which must already have been requested from the current
+   * delegate, is not available in it.
+   *
+   * <p>This deliberately does not consult {@link SkyFunction.Environment#valuesMissing}: that flag
+   * is sticky for the lifetime of the delegate and is also set by earlier lookups of unrelated deps
+   * that were missing or in error and by {@link #dependOnFuture}. Using it would trigger a Skyframe
+   * restart for a lookup whose values are all present and, in the case of a registered future,
+   * block this thread until that future completes.
+   */
+  private boolean anyUnavailable(Iterable<? extends SkyKey> depKeys) {
+    SkyframeLookupResult result = delegate.getLookupHandleForPreviouslyRequestedDeps();
+    for (SkyKey depKey : depKeys) {
+      if (!result.queryDep(depKey, AVAILABILITY_PROBE)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Blocks until the host SkyFunction has restarted and hands over a fresh delegate. */
+  private void refreshDelegate() throws InterruptedException {
     // We null out `delegate` before blocking for the fresh env so that the old one becomes
     // eligible for GC.
     delegate = null;
     delegate = newDelegateSupplier.get();
-    delegate.getValuesAndExceptions(depKeys);
-    return this;
   }
 
   @Nullable
@@ -117,14 +158,11 @@ class WorkerSkyFunctionEnvironment
           SkyKey depKey, Class<E1> e1, Class<E2> e2, Class<E3> e3, Class<E4> e4)
           throws E1, E2, E3, E4, InterruptedException {
     SkyValue value = delegate.getValueOrThrow(depKey, e1, e2, e3, e4);
-    if (value != null) {
-      return value;
+    while (value == null && anyUnavailable(ImmutableList.of(depKey))) {
+      refreshDelegate();
+      value = delegate.getValueOrThrow(depKey, e1, e2, e3, e4);
     }
-    // We null out `delegate` before blocking for the fresh env so that the old one becomes
-    // eligible for GC.
-    delegate = null;
-    delegate = newDelegateSupplier.get();
-    return delegate.getValueOrThrow(depKey, e1, e2, e3, e4);
+    return value;
   }
 
   @Override
