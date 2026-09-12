@@ -305,7 +305,7 @@ public abstract sealed class RepoRecordedInput {
   /**
    * Returns a human-readable description of the change from {@code oldValue} to {@code newValue}.
    */
-  protected abstract String describeChange(String oldValue, String newValue);
+  public abstract String describeChange(String oldValue, String newValue);
 
   /**
    * Returns the post-colon substring that identifies the specific input: for example, the {@code
