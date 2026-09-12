@@ -49,9 +49,24 @@ java_test(
     ],
 )
 
+java_test(
+    name = "ExecutionProgressReceiverTest",
+    srcs = ["ExecutionProgressReceiverTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:execution_progress_receiver",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
 test_suite(
     name = "BuildtoolTests",
     tests = [
+        ":ExecutionProgressReceiverTest",
         ":JobsConverterTest",
         ":SymlinkForestTest",
     ],

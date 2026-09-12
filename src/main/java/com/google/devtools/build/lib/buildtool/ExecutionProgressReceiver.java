@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTarge
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.GroupedDeps;
+import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -146,6 +147,17 @@ public final class ExecutionProgressReceiver
               ConfiguredTargetKey.fromConfiguredTarget(
                   ((ConfiguredTargetValue) buildDriverValue.getWrappedSkyValue())
                       .getConfiguredTarget())));
+    }
+  }
+
+  @Override
+  public void dirtied(SkyKey skyKey, NodeEntry.DirtyType dirtyType) {
+    if (dirtyType == NodeEntry.DirtyType.REWIND
+        && skyKey.functionName().equals(SkyFunctions.ACTION_EXECUTION)) {
+      // A rewound action is going to be executed again, so it is no longer complete. Without this,
+      // its completion would go unnoticed by both the progress message and the inactivity
+      // watchdog, which would then consider a build with only rewound actions running to be idle.
+      completedActions.remove((ActionLookupData) skyKey.argument());
     }
   }
 
