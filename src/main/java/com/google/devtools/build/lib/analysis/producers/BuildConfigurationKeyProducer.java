@@ -278,7 +278,7 @@ public final class BuildConfigurationKeyProducer<C>
 
     boolean shouldApplyScopes =
         buildOptionsScopeValue.getFullyResolvedScopes().values().stream()
-            .anyMatch(scope -> scope.getScopeType().scopeType().equals(Scope.ScopeType.PROJECT));
+            .anyMatch(scope -> scope.scopeType().scopeType().equals(Scope.ScopeType.PROJECT));
 
     if (!shouldApplyScopes) {
       return finishConfigurationKeyProcessing(
@@ -350,10 +350,10 @@ public final class BuildConfigurationKeyProducer<C>
         Scope.ScopeType flagScopeType =
             transitionedOptionsWithScopeType.getScopeTypeMap().get(flagLabel);
         Verify.verify(!flagScopeType.scopeType().equals(Scope.ScopeType.PROJECT));
-      } else if (scope.getScopeType().scopeType().equals(Scope.ScopeType.PROJECT)) {
+      } else if (scope.scopeType().scopeType().equals(Scope.ScopeType.PROJECT)) {
         Object flagValue = flagEntry.getValue();
         Object baselineValue = baselineConfiguration.getStarlarkOptions().get(flagLabel);
-        if (flagValue != baselineValue && !isInScope(label, scope.getScopeDefinition())) {
+        if (flagValue != baselineValue && !isInScope(label, scope.scopeDefinition())) {
           if (baselineValue == null) {
             optionsWithScopeTypesBuilder.removeStarlarkOption(flagLabel);
             flagsRemoved = true;
@@ -387,7 +387,7 @@ public final class BuildConfigurationKeyProducer<C>
     if (scopeDefinition == null || label == null) {
       return false;
     }
-    for (String path : scopeDefinition.getOwnedCodePaths()) {
+    for (String path : scopeDefinition.ownedCodePaths()) {
       if (label.getCanonicalForm().startsWith(path)) {
         return true;
       }
