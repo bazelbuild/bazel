@@ -978,8 +978,6 @@ public final class SkyframeActionExecutor {
     eventHandler.post(new ScanningActionEvent(action));
 
     ActionExecutionException finalException = null;
-    // Input discovery reads generated files just like execution does, so the actions generating
-    // them must not be rewound while it is running.
     try (SilentCloseable lock =
         outputService
             .getRewoundActionSynchronizer()
