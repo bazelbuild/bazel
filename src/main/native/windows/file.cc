@@ -61,13 +61,27 @@ DWORD DetermineSymlinkPrivilegeFlag() {
 }
 
 wstring AddUncPrefixMaybe(const wstring& path) {
-  return path.empty() || IsDevNull(path.c_str()) || HasUncPrefix(path.c_str())
-             ? path
-             : (wstring(L"\\\\?\\") + path);
+  if (path.empty() || IsDevNull(path.c_str()) || HasUncPrefix(path.c_str())) {
+    return path;
+  }
+  if (path.length() >= 2 && path[0] == L'\\' && path[1] == L'\\') {
+    return wstring(L"\\\\?\\UNC\\") + path.substr(2);
+  }
+  return wstring(L"\\\\?\\") + path;
 }
 
 wstring RemoveUncPrefixMaybe(const wstring& path) {
-  return bazel::windows::HasUncPrefix(path.c_str()) ? path.substr(4) : path;
+  if (bazel::windows::HasUncPrefix(path.c_str())) {
+    if (path.length() >= 8 &&
+        (path[4] == L'U' || path[4] == L'u') &&
+        (path[5] == L'N' || path[5] == L'n') &&
+        (path[6] == L'C' || path[6] == L'c') &&
+        path[7] == L'\\') {
+      return wstring(L"\\\\") + path.substr(8);
+    }
+    return path.substr(4);
+  }
+  return path;
 }
 
 bool IsAbsoluteNormalizedWindowsPath(const wstring& p) {
@@ -81,10 +95,11 @@ bool IsAbsoluteNormalizedWindowsPath(const wstring& p) {
     return false;
   }
 
-  return HasDriveSpecifierPrefix(p.c_str()) && p.find(L".\\") != 0 &&
-         p.find(L"\\.\\") == wstring::npos && p.find(L"\\.") != p.size() - 2 &&
-         p.find(L"..\\") != 0 && p.find(L"\\..\\") == wstring::npos &&
-         p.find(L"\\..") != p.size() - 3;
+  return (HasDriveSpecifierPrefix(p.c_str()) ||
+          HasUncNetworkPrefix(p.c_str())) &&
+         p.find(L".\\") != 0 && p.find(L"\\.\\") == wstring::npos &&
+         p.find(L"\\.") != p.size() - 2 && p.find(L"..\\") != 0 &&
+         p.find(L"\\..\\") == wstring::npos && p.find(L"\\..") != p.size() - 3;
 }
 
 static wstring uint32asHexString(uint32_t value) {
