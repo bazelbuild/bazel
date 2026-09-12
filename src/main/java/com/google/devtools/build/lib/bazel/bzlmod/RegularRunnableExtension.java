@@ -43,6 +43,8 @@ import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.RepoEnvironmentFunction;
+import com.google.devtools.build.lib.skyframe.rewinding.LostRemoteRepoFileException;
+import com.google.devtools.build.lib.skyframe.rewinding.RepoRewinding;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -325,6 +327,17 @@ final class RegularRunnableExtension implements RunnableExtension {
       return new RunModuleExtensionResult(
           moduleContext.getRecordedInputs(), threadContext.createRepos(), moduleExtensionMetadata);
     } catch (EvalException e) {
+      // The extension may have read a file of a cached repo that the remote cache has lost. Keep
+      // that as the cause so that the build can recover by rewinding the repo's fetch, which also
+      // makes reporting the error redundant.
+      LostRemoteRepoFileException lostFile = RepoRewinding.findLostRepoFile(e);
+      if (lostFile != null) {
+        throw ExternalDepsException.withCauseAndMessage(
+            ExternalDeps.Code.EXTENSION_EVAL_ERROR,
+            lostFile,
+            "error evaluating module extension %s",
+            extensionId);
+      }
       if (!(e.getCause() instanceof ExternalDepsException)) {
         // ExternalDepsException events should already have been reported.
         env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));

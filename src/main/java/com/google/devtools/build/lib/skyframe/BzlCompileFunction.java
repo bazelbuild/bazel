@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.BzlCompileValue.TypeOptions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -126,11 +127,16 @@ public class BzlCompileFunction implements SkyFunction {
 
         // Read the file.
         Path path = rootedPath.asPath();
+        boolean isSpecialFile = fileValue.isSpecialFile();
+        long size = fileValue.getSize();
         try {
           bytes =
-              fileValue.isSpecialFile()
-                  ? FileSystemUtils.readContent(path)
-                  : FileSystemUtils.readWithKnownFileSize(path, fileValue.getSize());
+              RewindableRepoFileSystem.readUnderRepoLock(
+                  path,
+                  () ->
+                      isSpecialFile
+                          ? FileSystemUtils.readContent(path)
+                          : FileSystemUtils.readWithKnownFileSize(path, size));
         } catch (IOException e) {
           throw new FailedIOException(e, Transience.TRANSIENT);
         }

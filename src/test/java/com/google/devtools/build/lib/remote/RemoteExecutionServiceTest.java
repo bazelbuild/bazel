@@ -139,6 +139,7 @@ import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindingSynchronizer;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -2604,7 +2605,9 @@ public class RemoteExecutionServiceTest {
   public void outputUploadTask_completes_unregistersItself() throws Exception {
     var synchronizer =
         new RemoteRewoundActionSynchronizer(
-            mock(RemoteActionInputFetcher.class), mock(WalkableGraph.class));
+            mock(RemoteActionInputFetcher.class),
+            mock(WalkableGraph.class),
+            new RewindingSynchronizer());
     RemoteOutputService remoteOutputService = mock(RemoteOutputService.class);
     when(remoteOutputService.getRewoundActionSynchronizer()).thenReturn(synchronizer);
     outputService = remoteOutputService;

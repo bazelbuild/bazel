@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindingSynchronizer;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -73,7 +74,8 @@ public final class RemoteRewoundActionSynchronizerTest {
   public void setUp() {
     actionInputFetcher = mock(RemoteActionInputFetcher.class);
     graph = mock(WalkableGraph.class);
-    synchronizer = new RemoteRewoundActionSynchronizer(actionInputFetcher, graph);
+    synchronizer =
+        new RemoteRewoundActionSynchronizer(actionInputFetcher, graph, new RewindingSynchronizer());
   }
 
   @Test
