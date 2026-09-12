@@ -870,7 +870,9 @@ public class CompactPersistentActionCache implements ActionCache {
     int maxDiscoveredInputsSize = 1; // presence marker
     if (entry.discoversInputs()) {
       maxDiscoveredInputsSize +=
-          1 // pruned inputs presence marker
+          1 // mandatory inputs digest presence marker
+              + (entry.getMandatoryInputsDigest() != null ? 1 + DigestUtils.ESTIMATED_SIZE : 0)
+              + 1 // pruned inputs presence marker
               + VarInt.MAX_VARINT_SIZE // length
               + (VarInt.MAX_VARINT_SIZE // execPath
                   * entry.getDiscoveredInputPaths().size());
@@ -924,6 +926,12 @@ public class CompactPersistentActionCache implements ActionCache {
     VarInt.putVarInt(entry.discoversInputs() ? 1 : 0, sink);
     if (entry.discoversInputs()) {
       VarInt.putVarInt(entry.prunedInputs() ? 1 : 0, sink);
+      if (entry.getMandatoryInputsDigest() != null) {
+        VarInt.putVarInt(1, sink);
+        MetadataDigestUtils.write(entry.getMandatoryInputsDigest(), sink);
+      } else {
+        VarInt.putVarInt(0, sink);
+      }
       ImmutableList<String> discoveredInputPaths = entry.getDiscoveredInputPaths();
       VarInt.putVarInt(discoveredInputPaths.size(), sink);
       for (String discoveredInputPath : discoveredInputPaths) {
@@ -1003,6 +1011,7 @@ public class CompactPersistentActionCache implements ActionCache {
 
       ImmutableList<String> discoveredInputPaths = null;
       boolean prunedInputs = false;
+      byte[] mandatoryInputsDigest = null;
       int discoveredInputsPresenceMarker = VarInt.getVarInt(source);
       if (discoveredInputsPresenceMarker != 0) {
         if (discoveredInputsPresenceMarker != 1) {
@@ -1015,6 +1024,18 @@ public class CompactPersistentActionCache implements ActionCache {
             throw new IOException("Invalid marker for pruned inputs: " + prunedInputsMarker);
           }
           prunedInputs = true;
+        }
+        int mandatoryDigestPresenceMarker = VarInt.getVarInt(source);
+        if (mandatoryDigestPresenceMarker != 0) {
+          if (mandatoryDigestPresenceMarker != 1) {
+            throw new IOException(
+                "Invalid presence marker for mandatory inputs digest: "
+                    + mandatoryDigestPresenceMarker);
+          }
+          mandatoryInputsDigest = MetadataDigestUtils.read(source);
+          if (mandatoryInputsDigest.length != digest.length) {
+            throw new IOException("Corrupted mandatory inputs digest");
+          }
         }
         int numDiscoveredInputs = VarInt.getVarInt(source);
         if (numDiscoveredInputs < 0) {
@@ -1037,6 +1058,7 @@ public class CompactPersistentActionCache implements ActionCache {
         }
         return new ActionCache.Entry(
             digest,
+            mandatoryInputsDigest,
             discoveredInputPaths,
             prunedInputs,
             /* outputFileMetadata= */ ImmutableMap.of(),
@@ -1119,6 +1141,7 @@ public class CompactPersistentActionCache implements ActionCache {
       }
       return new ActionCache.Entry(
           digest,
+          mandatoryInputsDigest,
           discoveredInputPaths,
           prunedInputs,
           outputFiles.buildOrThrow(),
