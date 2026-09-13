@@ -323,19 +323,20 @@ public final class RemoteRewoundActionSynchronizerTest {
    * template that consumes both P's file and C's output:
    *
    * <ol>
-   *   <li>D holds the read lock of P and waits for the read lock of C, which C holds for writing.
-   *   <li>P waits for the write lock of its own key, which D holds for reading.
+   *   <li>D acquires the read lock of P and then waits for the read lock of C, which C holds for
+   *       writing.
+   *   <li>P waits for the write lock of its own key for as long as D holds it for reading.
    *   <li>C, which depends on P but not on D, requests the read lock of P.
    * </ol>
    *
-   * <p>C must be admitted even though P is waiting for the same lock as a writer. Any lock that
-   * queues readers behind waiting writers would make C wait for P and close the cycle. {@link
-   * java.util.concurrent.locks.ReentrantReadWriteLock} does so in both fairness modes and {@link
-   * java.util.concurrent.locks.StampedLock} does so in {@code readLock}, but not in {@code
-   * readLockInterruptibly}, which only waits for a writer that holds the lock.
+   * <p>D must not keep the read lock of P while it waits for C, or P would wait for D and any lock
+   * that queues readers behind waiting writers, such as {@link
+   * java.util.concurrent.locks.ReentrantReadWriteLock} in both fairness modes, would make C wait
+   * for P and close the cycle. Instead, D releases its partial set and P restarts while D still
+   * waits.
    */
   @Test
-  public void expandedActionRewound_treeConsumerNotQueuedBehindWaitingProducer() throws Exception {
+  public void expandedActionRewound_waitingConsumerDoesNotBlockUpstreamProducer() throws Exception {
     FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
     var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
@@ -377,8 +378,8 @@ public final class RemoteRewoundActionSynchronizerTest {
     // its output until the end of its execution.
     SilentCloseable treeConsumerPreparation =
         synchronizer.enterActionPreparation(treeConsumer, /* wasRewound= */ true);
-    // D enters execution, acquires the read lock guarding the upstream file and then blocks on the
-    // read lock guarding the output of C.
+    // D enters execution and blocks on the read lock guarding the output of C, releasing the
+    // partial set of read locks it acquired first.
     var downstreamExecution =
         new TestThread(
             () -> {
@@ -388,12 +389,11 @@ public final class RemoteRewoundActionSynchronizerTest {
             });
     downstreamExecution.start();
     waitUntilBlocked(downstreamExecution);
-    // P is rewound and prepares for its re-execution, which blocks on the read lock held by D.
+    // P can restart while D is still waiting for C.
     var upstreamPreparation = new TestThread(() -> rewind(upstreamAction));
     upstreamPreparation.start();
-    waitUntilBlocked(upstreamPreparation);
-    // C enters execution, which requires the read lock guarding the upstream tree artifact. It must
-    // not wait for P, which waits for D, which waits for C.
+    upstreamPreparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+    // C can now read the upstream tree, finish, and let D acquire its complete read-lock set.
     var treeConsumerExecution =
         new TestThread(
             () -> {
@@ -406,7 +406,6 @@ public final class RemoteRewoundActionSynchronizerTest {
 
     treeConsumerExecution.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
     downstreamExecution.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
-    upstreamPreparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
   }
 
   /**
