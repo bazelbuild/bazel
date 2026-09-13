@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.vfs.OutputService.RewoundActionSynchronizer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -42,6 +43,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import javax.annotation.Nullable;
 
 /**
  * Implementation of {@link ImportantOutputHandler} for Build without the Bytes.
@@ -55,16 +57,20 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
   private final RemoteOutputChecker remoteOutputChecker;
   private final ActionInputPrefetcher actionInputPrefetcher;
   private final RewoundActionSynchronizer rewoundActionSynchronizer;
+  // Null if the file system doesn't serve repository contents that can be replaced during a build.
+  @Nullable private final RewindableRepoFileSystem repoFileSystem;
 
   public RemoteImportantOutputHandler(
       WalkableGraph graph,
       RemoteOutputChecker remoteOutputChecker,
       ActionInputPrefetcher actionInputPrefetcher,
-      RewoundActionSynchronizer rewoundActionSynchronizer) {
+      RewoundActionSynchronizer rewoundActionSynchronizer,
+      @Nullable RewindableRepoFileSystem repoFileSystem) {
     this.graph = graph;
     this.remoteOutputChecker = remoteOutputChecker;
     this.actionInputPrefetcher = actionInputPrefetcher;
     this.rewoundActionSynchronizer = rewoundActionSynchronizer;
+    this.repoFileSystem = repoFileSystem;
   }
 
   @Override
@@ -77,8 +83,21 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
   public LostArtifacts processOutputsAndGetLostArtifacts(
       Iterable<Artifact> importantOutputs, InputMetadataProvider metadataProvider)
       throws ImportantOutputException, InterruptedException {
+    // Source files and directories in external repositories are downloaded into the repository,
+    // which must not be replaced by a refetch in the meantime. An interrupt releases the locks
+    // while downloads may still be running, but it also ends the command, which waits for them
+    // before a later command could refetch the repository.
     try (SilentCloseable lock =
-        maybeEnterProcessOutputsAndGetLostArtifacts(importantOutputs, metadataProvider)) {
+            maybeEnterProcessOutputsAndGetLostArtifacts(importantOutputs, metadataProvider);
+        SilentCloseable repoLocks =
+            repoFileSystem == null
+                ? () -> {}
+                : repoFileSystem
+                    .getRewindingSynchronizer()
+                    .acquireReadLocks(
+                        () ->
+                            metadataProvider.getExternalSourceRepositories(
+                                importantOutputs, repoFileSystem))) {
       ensureToplevelArtifacts(importantOutputs, metadataProvider);
     } catch (IOException e) {
       if (e instanceof BulkTransferException bulkTransferException) {

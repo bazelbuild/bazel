@@ -110,6 +110,7 @@ import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -377,8 +378,19 @@ public final class RemoteModule extends BlazeModule {
           buildRequestId,
           invocationId,
           env.getSkyframeExecutor().getEvaluator(),
-          remoteOptions.getRemoteCacheTtl());
+          remoteOptions.getRemoteCacheTtl(),
+          rewindingEnabled(env));
     }
+  }
+
+  /**
+   * Returns whether a file lost from the remote repo contents cache can be recovered by rewinding
+   * the fetch of the repo containing it, mirroring the condition under which Skyframe accepts
+   * resets.
+   */
+  private static boolean rewindingEnabled(CommandEnvironment env) {
+    var buildRequestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
+    return buildRequestOptions != null && buildRequestOptions.getRewindLostInputs();
   }
 
   @Override
@@ -1223,7 +1235,8 @@ public final class RemoteModule extends BlazeModule {
               SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor()),
               remoteOutputChecker,
               actionInputFetcher,
-              Preconditions.checkNotNull(outputService).getRewoundActionSynchronizer()));
+              Preconditions.checkNotNull(outputService).getRewoundActionSynchronizer(),
+              RewindableRepoFileSystem.of(env.getDirectories().getOutputBase().getFileSystem())));
     }
   }
 

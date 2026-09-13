@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -60,7 +61,9 @@ class PathExistenceCache {
               : execRoot.getRelative(execPath);
       boolean isFile;
       try {
-        isFile = path.isFile();
+        // The result is cached for the whole build, so the probe must not observe a repository
+        // while a refetch replaces its contents.
+        isFile = RewindableRepoFileSystem.readUnderRepoLock(path, path::isFile);
       } catch (IOException e) {
         // TODO(tjgq): Propagate the error.
         isFile = false;
@@ -84,7 +87,7 @@ class PathExistenceCache {
       Path path = artifactFactory.getPathFromSourceExecPath(execRoot, execPath);
       boolean isDirectory;
       try {
-        isDirectory = path.isDirectory();
+        isDirectory = RewindableRepoFileSystem.readUnderRepoLock(path, path::isDirectory);
       } catch (IOException e) {
         // TODO(tjgq): Propagate the error.
         isDirectory = false;

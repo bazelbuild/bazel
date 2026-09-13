@@ -28,6 +28,9 @@ OUTPUT_SERVICE_SOURCES = [
     "LocalOutputService.java",
 ]
 
+# Separate from :vfs since it refers to repositories by name, which :cmdline defines on top of :vfs.
+REWINDABLE_REPO_FILE_SYSTEM_SOURCES = ["RewindableRepoFileSystem.java"]
+
 java_library(
     name = "ospathpolicy",
     srcs = OS_PATH_POLICY_SOURCES,
@@ -70,7 +73,8 @@ java_library(
         [
             "*.java",
         ],
-        exclude = PATH_FRAGMENT_SOURCES + OUTPUT_SERVICE_SOURCES + OS_PATH_POLICY_SOURCES,
+        exclude = PATH_FRAGMENT_SOURCES + OUTPUT_SERVICE_SOURCES + OS_PATH_POLICY_SOURCES +
+                  REWINDABLE_REPO_FILE_SYSTEM_SOURCES,
     ),
     # This virtual file system is for Blaze's own use only, since it's not quite
     visibility = [
@@ -106,6 +110,18 @@ java_library(
         "//third_party/java/guava:io",
         "//third_party/java/jsr305_annotations",
         "//third_party/java/protobuf:protobuf_lite",
+    ],
+)
+
+java_library(
+    name = "rewindable_repo_file_system",
+    srcs = REWINDABLE_REPO_FILE_SYSTEM_SOURCES,
+    deps = [
+        ":pathfragment",
+        ":vfs",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 

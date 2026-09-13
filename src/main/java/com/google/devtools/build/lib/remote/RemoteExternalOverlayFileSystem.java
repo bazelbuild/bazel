@@ -53,6 +53,8 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
+import com.google.devtools.build.lib.vfs.RewindingSynchronizer;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -86,7 +88,8 @@ import javax.annotation.Nullable;
  * <p>Each external repository can either be materialized to the native file system or kept in
  * memory in the {@link RemoteExternalFileSystem}.
  */
-public final class RemoteExternalOverlayFileSystem extends FileSystem implements LazyMaterializer {
+public final class RemoteExternalOverlayFileSystem extends FileSystem
+    implements LazyMaterializer, RewindableRepoFileSystem {
   private final PathFragment externalDirectory;
   private final int externalDirectorySegmentCount;
   private final FileSystem nativeFs;
@@ -98,6 +101,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   // externalFs.
   private final ConcurrentHashMap<String, String> markerFileContents = new ConcurrentHashMap<>();
   private final Set<String> reposWithLostFiles = ConcurrentHashMap.newKeySet();
+  private final RewindingSynchronizer rewindingSynchronizer = new RewindingSynchronizer();
 
   // Per-build information that is set in beforeCommand and cleared in afterCommand.
   @Nullable private CombinedCache cache;
@@ -124,7 +128,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
       String buildRequestId,
       String commandId,
       MemoizingEvaluator evaluator,
-      Duration remoteCacheTtl) {
+      Duration remoteCacheTtl,
+      boolean rewindingEnabled) {
     checkState(
         this.cache == null
             && this.inputPrefetcher == null
@@ -141,6 +146,9 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     this.commandId = commandId;
     this.evaluator = evaluator;
     this.remoteCacheTtl = remoteCacheTtl;
+    // Repo contents can only be replaced during a command if lost files are recovered by
+    // rewinding.
+    this.rewindingSynchronizer.reset(rewindingEnabled);
     this.materializationExecutor =
         MoreExecutors.listeningDecorator(
             Executors.newThreadPerTaskExecutor(
@@ -159,6 +167,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     materializationExecutor.shutdownNow();
     materializationExecutor.close();
 
+    rewindingSynchronizer.releaseWriteLocksKeptForRestart();
     this.cache = null;
     this.inputPrefetcher = null;
     this.reporter = null;
@@ -380,6 +389,22 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
     }
   }
 
+  @Override
+  public RewindingSynchronizer getRewindingSynchronizer() {
+    return rewindingSynchronizer;
+  }
+
+  @Override
+  public boolean isRepoPath(PathFragment path) {
+    return path.startsWith(externalDirectory)
+        && path.segmentCount() > externalDirectorySegmentCount;
+  }
+
+  @Override
+  public RepositoryName repoContaining(PathFragment path) {
+    return RepositoryName.createUnvalidated(path.getSegment(externalDirectorySegmentCount));
+  }
+
   /**
    * Materializes the given external repository to the native file system if it hasn't been
    * materialized yet. This method blocks until the materialization is complete.
@@ -392,9 +417,14 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   @Override
   public void ensureMaterialized(RepositoryName repo, ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
-    if (!markerFileContents.containsKey(repo.getName())) {
-      // The repo has not been injected into the in-memory file system.
-      return;
+    // A refetch of the repo drops its in-memory contents and thus their marker while it holds the
+    // write lock, so only under the read lock does a missing marker mean that the contents are
+    // complete on the native file system.
+    try (var readLock = rewindingSynchronizer.acquireReadLock(() -> repo)) {
+      if (!markerFileContents.containsKey(repo.getName())) {
+        // The repo has not been injected into the in-memory file system.
+        return;
+      }
     }
     var unused =
         getFromFuture(
@@ -412,18 +442,29 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
 
   private void doMaterialize(RepositoryName repo, ExtendedEventHandler reporter)
       throws IOException, InterruptedException {
-    reporter.handle(Event.debug("Materializing remote repo %s".formatted(repo)));
-    materializeSubtree(externalDirectory.getChild(repo.getName()));
-    materializedRepos.add(repo.getName());
+    // A refetch of a repo that lost files deletes and recreates its contents while the rest of the
+    // build keeps running. Like an action reading the repo, this copy holds the repo's read lock
+    // until the marker file exists, since only that keeps a later fetch from replacing the copy.
+    try (var readLock = rewindingSynchronizer.acquireReadLock(() -> repo)) {
+      var repoDir = externalDirectory.getChild(repo.getName());
+      if (fsForPath(repoDir) != externalFs) {
+        // The repo has been refetched or materialized while waiting for the lock, so its contents
+        // are already served from the native file system.
+        return;
+      }
+      reporter.handle(Event.debug("Materializing remote repo %s".formatted(repo)));
+      materializeSubtree(repoDir);
+      materializedRepos.add(repo.getName());
 
-    // After the repo has been copied, atomically materialize the marker file. This ensures that the
-    // repo doesn't have to be refetched after the next server restart.
-    var markerFile = nativeFs.getPath(externalDirectory.getChild(repo.getMarkerFileName()));
-    var markerFileSibling =
-        nativeFs.getPath(externalDirectory.getChild(repo.getMarkerFileName() + ".tmp"));
-    FileSystemUtils.writeContentAsLatin1(
-        markerFileSibling, markerFileContents.remove(repo.getName()));
-    markerFileSibling.renameTo(markerFile);
+      // After the repo has been copied, atomically materialize the marker file. This ensures that
+      // the repo doesn't have to be refetched after the next server restart.
+      var markerFile = nativeFs.getPath(externalDirectory.getChild(repo.getMarkerFileName()));
+      var markerFileSibling =
+          nativeFs.getPath(externalDirectory.getChild(repo.getMarkerFileName() + ".tmp"));
+      FileSystemUtils.writeContentAsLatin1(
+          markerFileSibling, markerFileContents.remove(repo.getName()));
+      markerFileSibling.renameTo(markerFile);
+    }
   }
 
   private void prefetch(Iterable<PathFragment> paths) throws IOException, InterruptedException {
@@ -464,6 +505,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem implements
   @Override
   public void ensureSubtreeMaterialized(PathFragment path)
       throws IOException, InterruptedException {
+    // Unlike ensureMaterialized, this doesn't take the repo's read lock: it materializes an input
+    // on behalf of an action or a top-level download, which hold the lock for all their inputs.
     if (fsForPath(path) != externalFs) {
       return;
     }

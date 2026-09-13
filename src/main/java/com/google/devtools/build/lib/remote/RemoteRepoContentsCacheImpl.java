@@ -297,6 +297,7 @@ public final class RemoteRepoContentsCacheImpl implements RemoteRepoContentsCach
       return false;
     }
 
+    // RepositoryFetchFunction holds the repo write lock throughout cache restoration and fetch.
     return remoteFs.injectRemoteRepo(
         repoName, repoDirectoryContentFuture.resultNow(), markerFileContent);
   }

@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -52,6 +53,7 @@ import com.google.devtools.build.lib.skyframe.InvalidGlobPatternException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.UnixGlob;
@@ -852,6 +854,23 @@ class IncludeParser {
   }
 
   /**
+   * Returns the path that reading the given file actually reads: its own, or that of its target if
+   * it is a derived artifact that was materialized as a symlink to another file, e.g. by a symlink
+   * action.
+   */
+  private static PathFragment realPathOf(Artifact file, ActionExecutionContext context)
+      throws IOException {
+    if (file.isSourceArtifact()) {
+      return file.getPath().asFragment();
+    }
+    // A derived input's metadata is known before it is read, so this doesn't do I/O.
+    FileArtifactValue metadata = context.getInputMetadataProvider().getInputMetadata(file);
+    return metadata != null && metadata.getResolvedPath() != null
+        ? metadata.getResolvedPath()
+        : file.getPath().asFragment();
+  }
+
+  /**
    * Extracts all inclusions from a given source file.
    *
    * @param file the file to parse & extract inclusions from
@@ -891,7 +910,10 @@ class IncludeParser {
           Profiler.instance().profile(ProfilerTask.SCANNER, file.getExecPathString())) {
         inclusions =
             extractInclusions(
-                FileSystemUtils.readContent(actionExecutionContext.getInputPath(file)));
+                RewindableRepoFileSystem.readUnderRepoLock(
+                    file.getPath(),
+                    () -> realPathOf(file, actionExecutionContext),
+                    () -> FileSystemUtils.readContent(actionExecutionContext.getInputPath(file))));
       } catch (IOException e) {
         if (remoteIncludeScanner != null && grepIncludes != null) {
           logger.atWarning().atMostEvery(1, TimeUnit.SECONDS).log(
