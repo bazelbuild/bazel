@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -36,6 +36,7 @@ java_test(
         include = ["*.java"],
         exclude = [
             "BazelDocumentationTest.java",
+            "StarlarkInfoNoSchemaBenchmark.java",
         ],
     ),
     shard_count = 20,
@@ -216,5 +217,16 @@ java_library(
         "//third_party/java/junit",
         "//third_party/java/truth",
         "@rules_java//java/runfiles",
+    ],
+)
+
+java_binary(
+    name = "StarlarkInfoNoSchemaBenchmark",
+    srcs = ["StarlarkInfoNoSchemaBenchmark.java"],
+    main_class = "org.openjdk.jmh.Main",
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/jmh",
     ],
 )
