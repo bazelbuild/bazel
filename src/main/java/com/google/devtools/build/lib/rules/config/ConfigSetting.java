@@ -94,7 +94,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
 
   /** Flags we'd like to remove once there are no more repo references. */
   private static final ImmutableSet<String> DEPRECATED_PRE_PLATFORMS_FLAGS =
-      ImmutableSet.of("cpu", "host_cpu", "crosstool_top");
+      ImmutableSet.of("cpu", "host_cpu");
 
   /**
    * The settings this {@code config_setting} expects.
@@ -459,6 +459,14 @@ Either remove one of these settings or ensure they match the same value.
     String canonicalOptionName = options.getCanonicalName(optionName);
     Class<? extends FragmentOptions> optionClass = options.getOptionClass(canonicalOptionName);
     if (optionClass == null) {
+      // Protobuf still defines config_settings for the retired --crosstool_top flag.
+      if (canonicalOptionName.equals("crosstool_top")) {
+        return new NoMatch(
+            NoMatch.Diff.what(toOptionLabel(optionName))
+                .want(expectedRawValue)
+                .got("<option removed>")
+                .build());
+      }
       if (isTestOption(canonicalOptionName)) {
         // If TestOptions isn't present then they were trimmed, so any test options set are
         // considered unset by default.

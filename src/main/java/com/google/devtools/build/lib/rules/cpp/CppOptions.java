@@ -137,21 +137,6 @@ public abstract class CppOptions extends FragmentOptions {
     }
   }
 
-  // @Deprecated
-  // TODO(https://github.com/bazelbuild/bazel/pull/26854): figure out how to deprecate
-  // this without warning spam because of a globally set bazelrc.
-  @Option(
-      name = "crosstool_top",
-      defaultValue = "@bazel_tools//tools/cpp:toolchain",
-      converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.NO_OP,
-      },
-      metadataTags = {OptionMetadataTag.HIDDEN},
-      help = "No-op flag. Will be removed in a future release.")
-  public abstract Label getCrosstoolTop();
-
   @Option(
       name = "compiler",
       defaultValue = "null",
