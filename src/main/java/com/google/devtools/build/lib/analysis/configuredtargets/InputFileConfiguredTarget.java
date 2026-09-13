@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -95,6 +96,9 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget {
   protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
     return null;
   }
+
+  @Override
+  protected void addDeclaredProviders(Consumer<Info> collector) {}
 
   @Override
   public void repr(Printer printer, StarlarkSemantics semantics) {

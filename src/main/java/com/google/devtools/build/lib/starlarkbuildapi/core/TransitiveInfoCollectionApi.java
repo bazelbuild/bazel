@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.starlarkbuildapi.core;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Interface for a build target. */
@@ -42,4 +44,18 @@ import net.starlark.java.eval.StarlarkValue;
             + " the <code>in</code> operator (<code>SomeInfo in target</code>).<br/>\n" //
             + "<br/>\n" //
             + "</ul>")
-public interface TransitiveInfoCollectionApi extends StarlarkValue {}
+public interface TransitiveInfoCollectionApi extends StarlarkValue {
+
+  @StarlarkMethod(
+      name = "providers",
+      doc =
+          "Returns a fresh, mutable <a href='../builtins/ProviderMap.html'>ProviderMap</a>"
+              + " containing this target's <code>DefaultInfo</code> and declared providers that"
+              + " have provider constructors. Native class-keyed providers and legacy"
+              + " string-keyed providers are omitted because Starlark rules cannot return them."
+              + " Mutating the result does not change the original target. Return the result"
+              + " directly from a rule implementation function to re-export the selected"
+              + " providers.",
+      useStarlarkThread = true)
+  ProviderMapApi providersForStarlark(StarlarkThread thread);
+}

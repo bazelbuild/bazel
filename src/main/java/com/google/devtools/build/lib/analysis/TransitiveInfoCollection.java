@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import net.starlark.java.eval.StarlarkIndexable;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Multiple {@link TransitiveInfoProvider}s bundled together.
@@ -60,5 +61,14 @@ public interface TransitiveInfoCollection
     return providers.getMissing(
         aClass -> getProvider(aClass.asSubclass(TransitiveInfoProvider.class)) != null,
         id -> this.get(id) != null);
+  }
+
+  /** Returns all declared providers supplied by this collection. */
+  ProviderMap providers();
+
+  /** Starlark adapter for {@link #providers}; implementations should not override this method. */
+  @Override
+  default ProviderMap providersForStarlark(StarlarkThread thread) {
+    return providers().mutableCopy(thread.mutability());
   }
 }
