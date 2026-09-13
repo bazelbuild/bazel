@@ -96,6 +96,40 @@ class BazelLockfileTest(test_base.TestBase):
         stderr,
     )
 
+  def testInvalidChecksumInLockfile(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.0")',
+        ],
+    )
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    self.RunBazel(['build', '--nobuild', '//:all'])
+
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+    module_file_url = (
+        self.main_registry.getURL() + '/modules/aaa/1.0/MODULE.bazel'
+    )
+    self.assertIn(module_file_url, lockfile['registryFileHashes'])
+    lockfile['registryFileHashes'][module_file_url] = 'not a checksum'
+    with open(self.Path('MODULE.bazel.lock'), 'w') as f:
+      f.write(json.dumps(lockfile))
+
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', '//:all'], allow_failure=True
+    )
+    stderr = '\n'.join(stderr)
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        (
+            'ERROR: Error computing the main repository mapping: Failed to read'
+            ' and parse the MODULE.bazel.lock file with error:'
+            ' Invalid checksum: not a checksum.'
+        ),
+        stderr,
+    )
+
   def testShutdownKeepsExternallyChangedLockfile(self):
     # Regression test for https://github.com/bazelbuild/bazel/issues/30347.
     self.ScratchFile(
