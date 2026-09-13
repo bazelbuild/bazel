@@ -25,7 +25,7 @@ import java.io.IOException;
  * An {@link IOException} that includes {@link DetailedExitCode} and {@link Transience}. Currently
  * only used for {@link Filesystem} exceptions.
  */
-public final class DetailedIOException extends IOException implements DetailedException {
+public class DetailedIOException extends IOException implements DetailedException {
 
   private final DetailedExitCode detailedExitCode;
   private final Transience transience;

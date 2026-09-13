@@ -21,6 +21,8 @@ import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.Digest;
@@ -38,6 +40,7 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -49,6 +52,7 @@ import com.google.devtools.build.lib.vfs.RewindingSynchronizer;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import com.google.devtools.build.skyframe.SkyKey;
 import java.io.OutputStream;
 import java.time.Duration;
 import java.util.HashMap;
@@ -59,9 +63,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
+import java.util.function.Predicate;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
 
 /** Tests for {@link RemoteExternalOverlayFileSystem}. */
 @RunWith(JUnit4.class)
@@ -275,7 +282,71 @@ public final class RemoteExternalOverlayFileSystemTest {
     }
   }
 
+  @Test
+  public void markLostRepoFile_untilRefetched_reportsCacheMiss() throws Exception {
+    setUpWithInjectedRepo("content");
+
+    overlayFs.markLostRepoFile(REPO);
+    assertThat(overlayFs.shouldRefetch(REPO)).isTrue();
+
+    // A refetch deletes the injected contents and runs the repo rule, which writes to disk.
+    overlayFs.getPath(REPO_DIR).deleteTree();
+    overlayFs.getPath(REPO_DIR).createDirectoryAndParents();
+    FileSystemUtils.writeContent(overlayFs.getPath(SRC_FILE), UTF_8, "content");
+    overlayFs.repoRefetched(REPO);
+    assertThat(overlayFs.shouldRefetch(REPO)).isFalse();
+
+    // A loss reported after the contents have been replaced concerns the old contents.
+    overlayFs.markLostRepoFile(REPO);
+    assertThat(overlayFs.shouldRefetch(REPO)).isFalse();
+  }
+
+  @Test
+  public void afterCommand_lostFileNotRefetched_dropsRepoAndInvalidatesFetch() throws Exception {
+    MemoizingEvaluator evaluator = mock(MemoizingEvaluator.class);
+    setUpWithInjectedRepo("content", evaluator);
+    overlayFs.markLostRepoFile(REPO);
+
+    overlayFs.afterCommand();
+
+    // The next command refetches the repo, which the marker makes a cache miss.
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Predicate<SkyKey>> deleted = ArgumentCaptor.forClass(Predicate.class);
+    verify(evaluator).delete(deleted.capture());
+    assertThat(deleted.getValue().test(RepositoryDirectoryValue.key(REPO))).isTrue();
+    assertThat(
+            deleted
+                .getValue()
+                .test(RepositoryDirectoryValue.key(RepositoryName.createUnvalidated("other"))))
+        .isFalse();
+    assertThat(overlayFs.getPath(SRC_FILE).exists()).isFalse();
+    assertThat(overlayFs.shouldRefetch(REPO)).isTrue();
+  }
+
+  @Test
+  public void afterCommand_lostFileRefetched_keepsRepoAndFetch() throws Exception {
+    MemoizingEvaluator evaluator = mock(MemoizingEvaluator.class);
+    setUpWithInjectedRepo("content", evaluator);
+    overlayFs.markLostRepoFile(REPO);
+    // The refetch replaced the injected contents with the repo rule's output on disk.
+    overlayFs.getPath(REPO_DIR).deleteTree();
+    overlayFs.getPath(REPO_DIR).createDirectoryAndParents();
+    FileSystemUtils.writeContent(overlayFs.getPath(SRC_FILE), UTF_8, "content");
+    overlayFs.repoRefetched(REPO);
+
+    overlayFs.afterCommand();
+
+    verifyNoInteractions(evaluator);
+    assertThat(overlayFs.getPath(SRC_FILE).exists()).isTrue();
+    assertThat(overlayFs.shouldRefetch(REPO)).isFalse();
+  }
+
   private void setUpWithInjectedRepo(String srcContent) throws Exception {
+    setUpWithInjectedRepo(srcContent, /* evaluator= */ null);
+  }
+
+  private void setUpWithInjectedRepo(String srcContent, @Nullable MemoizingEvaluator evaluator)
+      throws Exception {
     byte[] srcBytes = srcContent.getBytes(UTF_8);
     Digest srcDigest = digestUtil.compute(srcBytes);
     cas.put(srcDigest, srcBytes);
@@ -305,7 +376,7 @@ public final class RemoteExternalOverlayFileSystemTest {
         reporter,
         "none",
         "none",
-        /* evaluator= */ null,
+        evaluator,
         /* remoteCacheTtl= */ Duration.ofHours(1),
         /* rewindingEnabled= */ true);
 

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.devtools.build.lib.remote.util.BulkTransfers.waitForBulkTransfer;
 import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.rewinding.LostRemoteRepoFileException;
 import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -113,6 +115,8 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
   @Nullable private MemoizingEvaluator evaluator;
   @Nullable private Duration remoteCacheTtl;
   @Nullable private ListeningExecutorService materializationExecutor;
+  // Whether lost repo files can be recovered by rewinding the fetch of the repo containing them.
+  private boolean rewindingEnabled;
 
   public RemoteExternalOverlayFileSystem(PathFragment externalDirectory, FileSystem nativeFs) {
     super(nativeFs.getDigestFunction());
@@ -147,8 +151,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     this.commandId = commandId;
     this.evaluator = evaluator;
     this.remoteCacheTtl = remoteCacheTtl;
-    // Repo contents can only be replaced during a command if lost files are recovered by
-    // rewinding.
+    this.rewindingEnabled = rewindingEnabled;
     this.rewindingSynchronizer.reset(rewindingEnabled);
     this.materializationExecutor =
         MoreExecutors.listeningDecorator(
@@ -176,14 +179,21 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     this.commandId = null;
     this.remoteCacheTtl = null;
     this.materializationExecutor = null;
-    // Clean up the in-memory contents of materialized repos to save memory, or those that need to
-    // be refetched to recover files that the remote cache has lost. This wouldn't be safe to do
-    // eagerly as ongoing repo rule evaluations may still refer to the in-memory content and
-    // refetching is not atomic.
+    // Clean up the in-memory contents of materialized repos to save memory. This wouldn't be safe
+    // to do eagerly as ongoing repo rule evaluations may still refer to the in-memory content.
     materializedRepos.forEach(this::evictInMemoryRepo);
-    reposWithLostFiles.forEach(this::evictInMemoryRepo);
-    invalidateRepoDirectories(evaluator, reposWithLostFiles);
-    reposWithLostFiles.clear();
+    // A repo with lost files that is still served from memory has not been refetched during this
+    // command, e.g. because rewinding was disabled or the command failed first. Drop its contents
+    // and invalidate its fetch so that the next command refetches it, which is where the marker
+    // that reports its cache entry as a miss is cleared. Refetching is not atomic, so this can't
+    // be done eagerly either. A repo that has been refetched is served from disk and keeps its
+    // fetch, which the marker doesn't affect until the repo's marker file becomes stale.
+    var reposToRefetch =
+        reposWithLostFiles.stream()
+            .filter(repoName -> fsForPath(externalDirectory.getChild(repoName)) == externalFs)
+            .collect(toImmutableSet());
+    reposToRefetch.forEach(this::evictInMemoryRepo);
+    invalidateRepoDirectories(evaluator, reposToRefetch);
     this.evaluator = null;
   }
 
@@ -406,6 +416,44 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     return RepositoryName.createUnvalidated(path.getSegment(externalDirectorySegmentCount));
   }
 
+  @Override
+  public void markLostRepoFile(RepositoryName repo) {
+    if (fsForPath(externalDirectory.getChild(repo.getName())) == externalFs) {
+      // The repo contents are served from the remote cache. Make the next cache lookup report a
+      // miss so that rewinding the repo fetch executes the repo rule again locally, which also
+      // uploads the fresh contents to the remote cache and thus repairs the cache entry.
+      reposWithLostFiles.add(repo.getName());
+    }
+    // If the repo has been materialized or refetched in the meantime, rewinding the repo fetch
+    // still recovers the file by re-reading the on-disk state. A loss reported so late that the
+    // refetch completes in between is recorded against the new contents, which merely turns a
+    // later cache lookup for the repo into a miss.
+  }
+
+  /**
+   * Returns whether the remote cache has lost files of the given repo since it was last fetched.
+   *
+   * <p>Called by the remote repo contents cache before a lookup so that repos with lost files are
+   * treated as cache misses, which causes them to be refetched and their contents to be uploaded to
+   * the remote cache again.
+   *
+   * <p>Deliberately does not clear the state: a lookup is not a promise that the repo will actually
+   * be fetched, so a repo that reported a cache miss once must keep doing so until it has actually
+   * been refetched.
+   */
+  public boolean shouldRefetch(RepositoryName repo) {
+    return reposWithLostFiles.contains(repo.getName());
+  }
+
+  @Override
+  public void repoRefetched(RepositoryName repo) {
+    // The refetched contents are served from disk and no longer reference the lost files. Whether
+    // they have also been uploaded doesn't matter here: a cache entry that still references lost
+    // files is only consulted once the repo's marker file has become stale and is recovered from
+    // like the first time.
+    reposWithLostFiles.remove(repo.getName());
+  }
+
   /**
    * Materializes the given external repository to the native file system if it hasn't been
    * materialized yet. This method blocks until the materialization is complete.
@@ -473,6 +521,35 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     }
   }
 
+  /**
+   * Records that the given file in a repo has been lost from the remote cache and returns the
+   * exception to fail the read with.
+   */
+  private IOException lostRemoteFile(
+      PathFragment relativePath, Digest digest, BulkTransferException cause) {
+    String repoName = relativePath.getSegment(0);
+    reposWithLostFiles.add(repoName);
+    String message =
+        "%s/%s with digest %s is no longer available in the remote cache"
+            .formatted(externalDirectory.getBaseName(), relativePath, DigestUtil.toString(digest));
+    if (!rewindingEnabled) {
+      // Without rewinding, the repo can only be refetched by a new command. Readers that preserve
+      // the transient failure detail, such as actions and package loading, have the command retried
+      // automatically.
+      return new DetailedIOException(
+          message,
+          cause,
+          FailureDetails.Filesystem.Code.REMOTE_FILE_EVICTED,
+          SkyFunctionException.Transience.TRANSIENT);
+    }
+    // The failing Skyframe node can recover the file within this command by rewinding the fetch of
+    // the repo containing it, so tell it which repo that is. The refetch replaces the contents of
+    // that repo while other consumers may be reading them, which they have to take locks for.
+    rewindingSynchronizer.markReplacementsPossible();
+    return new LostRemoteRepoFileException(
+        message, cause, RepositoryName.createUnvalidated(repoName), DigestUtil.toString(digest));
+  }
+
   private void prefetch(Iterable<PathFragment> paths) throws IOException, InterruptedException {
     // These paths may have been prefetched and then deleted again earlier in this invocation, e.g.
     // by an injection whose fetch was subsequently restarted due to memory pressure. The
@@ -528,10 +605,22 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
       root = root.resolveSymbolicLinks();
     }
     collectAndCreateDirectories(root, files, symlinks, new HashSet<>());
-    prefetch(files);
-    // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
-    // target.
-    prefetch(symlinks);
+    try {
+      prefetch(files);
+      // Create symlinks last as some platforms don't allow creating a symlink to a non-existent
+      // target.
+      prefetch(symlinks);
+    } catch (BulkTransferException e) {
+      var lostArtifacts = e.getLostArtifacts(ActionInputHelper::fromPath);
+      if (!lostArtifacts.isEmpty()) {
+        // We don't track the particular lost artifacts since the repo needs to be refetched,
+        // which recovers all of them anyway.
+        var anyLostArtifact = lostArtifacts.byDigest().entries().iterator().next();
+        var relativePath = anyLostArtifact.getValue().getExecPath().relativeTo(externalDirectory);
+        throw lostRemoteFile(relativePath, DigestUtil.fromString(anyLostArtifact.getKey()), e);
+      }
+      throw e;
+    }
   }
 
   private void collectAndCreateDirectories(

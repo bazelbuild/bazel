@@ -207,5 +207,11 @@ public final class RemoteImportantOutputHandlerTest {
     public RepositoryName repoContaining(PathFragment path) {
       return RepositoryName.createUnvalidated(path.getSegment(EXTERNAL_DIR.segmentCount()));
     }
+
+    @Override
+    public void markLostRepoFile(RepositoryName repo) {}
+
+    @Override
+    public void repoRefetched(RepositoryName repo) {}
   }
 }
