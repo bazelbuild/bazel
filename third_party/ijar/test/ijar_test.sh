@@ -95,6 +95,7 @@ NESTMATES_JAR=$IJAR_SRCDIR/test/nestmates/nestmates.jar
 NESTMATES_IJAR=$TEST_TMPDIR/nestmates_interface.jar
 RECORDS_JAR=$IJAR_SRCDIR/test/records/records.jar
 RECORDS_IJAR=$TEST_TMPDIR/records_interface.jar
+MALFORMED_RECORD_JAR=$IJAR_SRCDIR/test/malformed_record.jar
 SEALED_JAR=$IJAR_SRCDIR/test/sealed/sealed.jar
 SEALED_IJAR=$TEST_TMPDIR/sealed_interface.jar
 SOURCEDEBUGEXT_JAR=$IJAR_SRCDIR/test/source_debug_extension.jar
@@ -574,6 +575,14 @@ function test_records_attribute() {
   $JAVAP -classpath $RECORDS_IJAR -v RecordTest >& $TEST_log \
     || fail "javap failed"
   expect_log "Record" "Records not preserved!"
+}
+
+function test_malformed_record_attribute() {
+  # Regression test for a heap-buffer-overflow in RecordAttribute::Write.
+  # The input contains a Record attribute whose declared length is smaller
+  # than its component data; ijar must process it without crashing.
+  $IJAR $MALFORMED_RECORD_JAR $TEST_TMPDIR/malformed_record-interface.jar \
+    || fail "ijar failed"
 }
 
 function test_sealed_attribute() {
