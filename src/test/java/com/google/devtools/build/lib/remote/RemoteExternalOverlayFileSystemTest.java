@@ -86,7 +86,17 @@ public final class RemoteExternalOverlayFileSystemTest {
     try {
       int index = 0;
       for (String name :
-          new String[] {"", ".", "..", "../outside", "/outside", "nested/file", "nested\\file"}) {
+          new String[] {
+            "",
+            ".",
+            "..",
+            "../outside",
+            "/outside",
+            "nested/file",
+            "nested\\file",
+            "../../../../../.bashrc.bzl",
+            "/etc/cron.d/evil.bzl"
+          }) {
         for (String kind : new String[] {"file", "directory", "symlink"}) {
           var root = Directory.newBuilder();
           switch (kind) {
