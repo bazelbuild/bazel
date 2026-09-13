@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-import re
 from absl.testing import absltest
 from src.test.py.bazel.bzlmod import remote_repo_contents_cache_test_base
 
@@ -32,8 +31,12 @@ class RemoteRepoContentsCacheRewindingTest(
 
   def BazelrcLines(self):
     # Files lost from the remote repo contents cache are recovered by
-    # rewinding their repo fetch.
-    return super().BazelrcLines() + ['common --rewind_lost_inputs']
+    # rewinding their repo fetch within a single command, so the tests must
+    # not be rescued by a retry of the whole command.
+    return super().BazelrcLines() + [
+        'common --rewind_lost_inputs',
+        'common --experimental_remote_cache_eviction_retries=0',
+    ]
 
   def _setupRepoWithSubpackage(self):
     self.ScratchFile(
@@ -71,7 +74,7 @@ class RemoteRepoContentsCacheRewindingTest(
     # Create a repo with two BUILD files (one in a subpackage), build a target
     # from one to cause it to be cached, then build that target again after
     # expunging to verify it is cached.
-    # Then, restart the worker and build a target in the other build file.
+    # Then, lose all remote files and build a target in the other build file.
     repo_dir = self._setupRepoWithSubpackage()
 
     # First fetch: not cached
@@ -94,23 +97,10 @@ class RemoteRepoContentsCacheRewindingTest(
     # Lose all remote files.
     self.ClearRemoteCache()
 
-    # Build the other target: fails due to the lost input
+    # Build the other target: its BUILD file is no longer available remotely
+    # and is recovered by rewinding the repo fetch.
     _, _, stderr = self.RunBazel(['build', '@my_repo//sub:sub'])
-    # First restart recovers @my_repo, the next one recovers @platforms.
-    self.assertEqual(
-        2,
-        stderr.count(
-            'Found transient remote cache error, retrying the build...'
-        ),
-    )
-    canonical_repo_name = repo_dir[repo_dir.rfind('/') + 1 :]
     stderr = '\n'.join(stderr)
-    self.assertRegex(
-        stderr,
-        'external/%s/sub/BUILD with digest .*/.* no longer available in the'
-        ' remote cache'
-        % re.escape(canonical_repo_name),
-    )
     self.assertIn('JUST FETCHED', stderr)
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'BUILD')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'root.txt')))
@@ -125,6 +115,64 @@ class RemoteRepoContentsCacheRewindingTest(
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'root.txt')))
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
+
+  def testLostRemoteFile_query(self):
+    # Like testLostRemoteFile_build, but the lost BUILD file is read by a
+    # command that doesn't build and thus has no --rewind_lost_inputs to go by.
+    # Such a command never executes actions, so rewinding the repo fetch is
+    # always safe for it.
+    repo_dir = self._setupRepoWithSubpackage()
+
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:root'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # After expunging: cached
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:root'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
+
+    # Lose all remote files.
+    self.ClearRemoteCache()
+
+    # Query the other package: its BUILD file is no longer available remotely
+    # and is recovered by rewinding the repo fetch.
+    _, stdout, stderr = self.RunBazel(['query', '@my_repo//sub:all'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertIn('@my_repo//sub:sub', '\n'.join(stdout))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
+
+  def testLostRemoteFile_bazelignore_prefetched(self):
+    self.ScratchFile('MODULE.bazel', [
+        'repo = use_repo_rule("//:repo.bzl", "repo")',
+        'repo(name = "my_repo")',
+    ])
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile('repo.bzl', [
+        'def _repo_impl(rctx):',
+        '  rctx.file("BUILD", "filegroup(name=\'root\')")',
+        '  rctx.file(".bazelignore", "ignored\\n")',
+        '  rctx.file("ignored/BUILD", "this is not a valid BUILD file")',
+        '  print("JUST FETCHED")',
+        '  return rctx.repo_metadata(reproducible=True)',
+        'repo = repository_rule(_repo_impl)',
+    ])
+    repo_dir = self.RepoDir('my_repo')
+    self.RunBazel(['build', '@my_repo//...'])
+    self.RunBazel(['clean', '--expunge'])
+    # Preserve the cached tree and action result, but lose its .bazelignore.
+    self.DeleteCasEntry(b'ignored\n')
+    _, _, stderr = self.RunBazel(['build', '@my_repo//...'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, '.bazelignore')))
+
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(['build', '@my_repo//...'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    # Even on a cache hit, later package loads need no lazy read of this file.
+    self.assertTrue(os.path.exists(os.path.join(repo_dir, '.bazelignore')))
+
   def testLostRemoteFile_actionInput_rewound(self):
     self._testLostActionInput(symlink=False)
 

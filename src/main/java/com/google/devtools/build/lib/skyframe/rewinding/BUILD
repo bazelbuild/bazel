@@ -30,6 +30,20 @@ java_library(
 )
 
 java_library(
+    name = "repo_rewinding",
+    srcs = ["RepoRewinding.java"],
+    deps = [
+        ":lost_remote_repo_file_exception",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_value",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
     name = "rewinding",
     srcs = [
         "ActionRewindException.java",

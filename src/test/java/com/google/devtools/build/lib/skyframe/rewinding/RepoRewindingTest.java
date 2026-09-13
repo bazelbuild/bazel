@@ -60,6 +60,8 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -840,6 +842,61 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void lostBuildFileDuringLoading_repoRewound() throws Exception {
+    writeRepoRule();
+    write("repo/content_a.txt", "old_a");
+    appendToModuleFile(
+        "my_repo = use_repo_rule('//repo:repo.bzl', 'my_repo')",
+        "my_repo(name = 'repo_a', content_file = 'content_a.txt')");
+    write(
+        "test/BUILD",
+        """
+        genrule(
+            name = "consume",
+            srcs = ["@repo_a//:src.txt"],
+            outs = ["out.txt"],
+            cmd = "cp $< $@",
+        )
+        """);
+
+    buildTarget("//test:consume");
+    assertContents("old_a", "//test:consume");
+
+    // @repo_a's BUILD file is lost, which surfaces while loading the package rather than in a repo
+    // rule or an action.
+    write("repo/content_a.txt", "new_a");
+    RepositoryName repoA = canonicalRepoName("repo_a");
+    rewindableFs.loseOnNextRead(repoA.getName() + "/BUILD");
+    getSkyframeExecutor()
+        .getEvaluator()
+        .delete(
+            k ->
+                k.functionName().equals(SkyFunctions.PACKAGE)
+                    || k.functionName().equals(SkyFunctions.PACKAGE_LOOKUP));
+
+    List<SkyKey> rewoundKeys = helper.collectOrderedRewoundKeys();
+    buildTarget("//test:consume");
+
+    assertThat(rewindableFs.lostRepoFiles).isNotEmpty();
+    assertThat(rewoundKeys).contains(RepositoryDirectoryValue.key(repoA));
+    assertContents("new_a", "//test:consume");
+  }
+
+  /** Returns the canonical name of the repo with the given apparent name in the main repo. */
+  private RepositoryName canonicalRepoName(String apparentName) throws IOException {
+    Path externalDir = getOutputBase().getRelative("external");
+    for (Path child : externalDir.getDirectoryEntries()) {
+      String name = child.getBaseName();
+      if (child.isDirectory() && (name.equals(apparentName) || name.endsWith("+" + apparentName))) {
+        return RepositoryName.createUnvalidated(name);
+      }
+    }
+    throw new IllegalStateException(
+        "no repo directory for %s in %s"
+            .formatted(apparentName, externalDir.getDirectoryEntries()));
+  }
+
+  @Test
   public void memoryPressureRestart_keepsReadersBlocked() throws Exception {
     writeRepoRule();
     write("repo/content_a.txt", "old");
@@ -913,19 +970,6 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
     }
   }
 
-  private RepositoryName canonicalRepoName(String apparentName) throws IOException {
-    Path externalDir = getOutputBase().getRelative("external");
-    for (Path child : externalDir.getDirectoryEntries()) {
-      String name = child.getBaseName();
-      if (child.isDirectory() && (name.equals(apparentName) || name.endsWith("+" + apparentName))) {
-        return RepositoryName.createUnvalidated(name);
-      }
-    }
-    throw new IllegalStateException(
-        "no repo directory for %s in %s"
-            .formatted(apparentName, externalDir.getDirectoryEntries()));
-  }
-
   private Path markerFileForRepoOf(Artifact repoFile) {
     return getOutputBase()
         .getRelative("external")
@@ -942,8 +986,11 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
    */
   private static final class RewindableRepoFileSystemForTesting extends DelegateFileSystem
       implements RewindableRepoFileSystem {
-    final List<RepositoryName> lostRepos = Collections.synchronizedList(new ArrayList<>());
     private final String outputBaseName;
+    final List<RepositoryName> lostRepos = Collections.synchronizedList(new ArrayList<>());
+    private static final String LOST_BLOB_DIGEST = "0".repeat(64) + "/1";
+    final List<PathFragment> lostRepoFiles = Collections.synchronizedList(new ArrayList<>());
+    private final Set<String> pathsToLoseOnce = ConcurrentHashMap.newKeySet();
     private final RewindingSynchronizer rewindingSynchronizer = new RewindingSynchronizer();
     private final AtomicReference<RepoWriteLockRequest> repoWriteLockRequest =
         new AtomicReference<>();
@@ -964,6 +1011,15 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
       this.outputBaseName = outputBaseName;
     }
 
+    /**
+     * Makes the next read of the given repo-relative file fail as if the remote cache had lost its
+     * contents. This is how a lost file surfaces during loading, where only the file's metadata has
+     * been injected and reading its contents is what reaches the cache.
+     */
+    void loseOnNextRead(String repoRelativePath) {
+      pathsToLoseOnce.add(repoRelativePath);
+    }
+
     @Override
     public InputStream getInputStream(PathFragment path) throws IOException {
       ReadBarrier barrier = readBarrier.get();
@@ -976,6 +1032,25 @@ public final class RepoRewindingTest extends BuildIntegrationTestCase {
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
           throw new InterruptedIOException("repository read interrupted");
+        }
+      }
+      PathFragment externalDir = externalDirOf(path);
+      if (externalDir != null && !pathsToLoseOnce.isEmpty()) {
+        String repoName = path.getSegment(externalDir.segmentCount());
+        String repoRelativePath = path.relativeTo(externalDir).getPathString();
+        if (pathsToLoseOnce.remove(repoRelativePath)) {
+          lostRepoFiles.add(path);
+          rewindingSynchronizer.markReplacementsPossible();
+          var unused =
+              getPath(
+                      externalDir.getChild(
+                          RepositoryName.createUnvalidated(repoName).getMarkerFileName()))
+                  .delete();
+          throw new LostRemoteRepoFileException(
+              "%s is no longer available in the remote cache".formatted(path),
+              new IOException("missing blob"),
+              RepositoryName.createUnvalidated(repoName),
+              LOST_BLOB_DIGEST);
         }
       }
       return super.getInputStream(path);
