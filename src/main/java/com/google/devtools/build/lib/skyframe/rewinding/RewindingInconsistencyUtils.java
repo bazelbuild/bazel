@@ -34,7 +34,22 @@ public final class RewindingInconsistencyUtils {
   static boolean mayForceRebuildChildren(SkyKey key) {
     return key instanceof ActionLookupData
         || key instanceof ArtifactNestedSetKey
-        || key instanceof TopLevelActionLookupKeyWrapper;
+        || key instanceof TopLevelActionLookupKeyWrapper
+        || mayRewindRepoFetch(key);
+  }
+
+  /**
+   * Returns whether the key specifies a node which may rewind the fetch of a repo to recover a file
+   * that the remote repo contents cache has lost, and thus reset itself.
+   */
+  static boolean mayRewindRepoFetch(SkyKey key) {
+    SkyFunctionName functionName = key.functionName();
+    return functionName.equals(SkyFunctions.REPOSITORY_DIRECTORY)
+        // Reading a file by label resolves its package first, so the package lookup is rewound
+        // between the reader and the repo fetch.
+        || functionName.equals(SkyFunctions.PACKAGE_LOOKUP)
+        // A BUILD file read during loading rewinds the fetch of its repo.
+        || functionName.equals(SkyFunctions.PACKAGE);
   }
 
   /** Returns whether the key specifies a node which may be rewound by a failed action. */
@@ -54,7 +69,8 @@ public final class RewindingInconsistencyUtils {
     SkyFunctionName functionName = key.functionName();
     return functionName.equals(SkyFunctions.FILE)
         || functionName.equals(FileStateKey.FILE_STATE)
-        || functionName.equals(SkyFunctions.REPOSITORY_DIRECTORY);
+        || functionName.equals(SkyFunctions.REPOSITORY_DIRECTORY)
+        || functionName.equals(SkyFunctions.PACKAGE_LOOKUP);
   }
 
   /**
@@ -70,6 +86,9 @@ public final class RewindingInconsistencyUtils {
         || key instanceof Artifact
         || key instanceof TargetCompletionKey
         || key instanceof TestCompletionKey
-        || key instanceof AspectCompletionKey;
+        || key instanceof AspectCompletionKey
+        // A node that rewinds a repo fetch resets itself, which requires the rewound repo fetch to
+        // have completed and may thus observe it as undone.
+        || mayRewindRepoFetch(key);
   }
 }

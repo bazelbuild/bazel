@@ -672,9 +672,16 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
     // .bzl files are typically small and the loads between them can form complex DAGs that can only
     // be discovered layer by layer, so prefetching is worthwhile to reduce the number of sequential
     // cache requests.
-    // The REPO.bazel file, if present, is a dependency of any package and will thus have to be
-    // fetched anyway.
-    return path.getFileExtension().equals("bzl") || path.getBaseName().equals("REPO.bazel");
+    // The same applies to .scl files, which can be loaded just like .bzl files.
+    // REPO.bazel and .bazelignore are dependencies of package loading. Prefetch .bazelignore also
+    // because its reader reports an inconsistent filesystem on an I/O error instead of rewinding.
+    // Since all of these are read on behalf of Skyframe nodes that can't rewind the repo fetch
+    // when they are lost, prefetching them is what turns their loss into a cache miss instead.
+    String extension = path.getFileExtension();
+    return extension.equals("bzl")
+        || extension.equals("scl")
+        || path.getBaseName().equals("REPO.bazel")
+        || path.getBaseName().equals(".bazelignore");
   }
 
   @Override
@@ -1039,14 +1046,7 @@ public final class RemoteExternalOverlayFileSystem extends FileSystem
         throw new InterruptedIOException("interrupted while waiting for remote file transfer");
       } catch (BulkTransferException e) {
         if (e.allCausedByCacheNotFoundException()) {
-          reposWithLostFiles.add(relativePath.getSegment(0));
-          throw new DetailedIOException(
-              "%s/%s with digest %s is no longer available in the remote cache"
-                  .formatted(
-                      externalDirectory.getBaseName(), relativePath, DigestUtil.toString(digest)),
-              e,
-              FailureDetails.Filesystem.Code.REMOTE_FILE_EVICTED,
-              SkyFunctionException.Transience.TRANSIENT);
+          throw lostRemoteFile(relativePath, digest, e);
         }
         throw e;
       } catch (ExecutionException e) {
