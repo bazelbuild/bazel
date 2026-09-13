@@ -534,6 +534,70 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
+  public void actionRewinding_chainedLostInputsWithStaleActionCacheEntries_recovers(
+      @TestParameter boolean actionCacheIntegrityCheck) throws Exception {
+    // A rewound action that itself observes a lost input must report the lost digest just like an
+    // action that hasn't been rewound. Otherwise, if the worker serves cached action results even
+    // if the blobs they reference are missing from the CAS, the rewound generating action accepts
+    // the stale action result and the two actions keep rewinding each other until the limit on
+    // repeated lost inputs fails the build.
+    var chainWorker =
+        IntegrationTestUtils.createWorker(
+            "--action_cache_integrity_check=" + actionCacheIntegrityCheck);
+    try (var ignored = chainWorker.start()) {
+      addOptions("--remote_executor=grpc://localhost:" + chainWorker.getPort());
+      enableActionRewinding();
+      write(
+          "a/BUILD",
+          """
+          genrule(
+              name = "foo",
+              srcs = [],
+              outs = ["foo.out"],
+              cmd = "echo -n foo > $@",
+          )
+
+          genrule(
+              name = "bar",
+              srcs = [":foo"],
+              outs = ["bar.out"],
+              cmd = "cat $(location :foo) > $@ && echo -n bar >> $@",
+          )
+
+          genrule(
+              name = "baz",
+              srcs = [
+                  ":bar",
+                  "baz.in",
+              ],
+              outs = ["baz.out"],
+              cmd = "cat $(location :bar) $(location baz.in) > $@",
+          )
+          """);
+      write("a/baz.in", "baz");
+
+      buildTarget("//a:baz");
+
+      // Delete the blobs backing foo.out and bar.out from the CAS while keeping all action cache
+      // entries. Rewinding //a:bar to regenerate bar.out then discovers that foo.out is lost too.
+      chainWorker.evictBlob("foo".getBytes(UTF_8));
+      chainWorker.evictBlob("foobar".getBytes(UTF_8));
+      if (useDiskCache) {
+        // Prevent the disk cache from restoring the deleted blobs.
+        addOptions("--disk_cache=" + UUID.randomUUID());
+      }
+
+      // Invalidate only //a:baz so that its execution discovers the lost input and rewinds //a:bar,
+      // which in turn discovers the other lost input and rewinds //a:foo.
+      write("a/baz.in", "baz2");
+      setDownloadToplevel();
+      buildTarget("//a:baz");
+
+      assertValidOutputFile("a/baz.out", "foobarbaz2\n");
+    }
+  }
+
+  @Test
   public void downloadTopLevel_deepSymlinkToFile() throws Exception {
     setDownloadToplevel();
     write(
