@@ -20,6 +20,7 @@ java_library(
         ["*.java"],
         exclude = [
             "CancellableTask.java",
+            "ReaderPreferringReadWriteLock.java",
             "SettableFutureKeyedValue.java",
             "TaskDeduplicator.java",
             "ThreadSafety.java",
@@ -52,6 +53,11 @@ java_library(
     name = "thread_safety",
     srcs = ["ThreadSafety.java"],
     visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
+)
+
+java_library(
+    name = "reader_preferring_read_write_lock",
+    srcs = ["ReaderPreferringReadWriteLock.java"],
 )
 
 java_library(
