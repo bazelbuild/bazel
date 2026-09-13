@@ -242,6 +242,15 @@ public final class CompletionFunction<
     if (!rootCauses.isEmpty()) {
       RewindPlanResult rewindPlanResult = null;
       if (!builtArtifacts.isEmpty()) {
+        // The built artifacts are staged below, which downloads top-level sources and runfiles in
+        // external repositories under their locks. Outside of error bubbling, wait for a repository
+        // whose fetch is being rewound as a dependency instead (see awaitRepoRefetches) and post
+        // the failed event once this evaluation is restarted.
+        if (!env.inErrorBubbling()
+            && !skyframeActionExecutor.awaitRepoRefetches(
+                env, builtArtifacts, new ActionInputMetadataProvider(inputMap))) {
+          return null;
+        }
         // In error bubbling, we may be interrupted by Skyframe. Ensure that the interrupt doesn't
         // prevent us from staging built artifacts and posting the failed event.
         boolean interruptedDuringErrorBubbling = env.inErrorBubbling() && Thread.interrupted();
@@ -297,6 +306,14 @@ public final class CompletionFunction<
     // with --nokeep_going, there may be missing dependencies during error bubbling, we still need
     // to report the error.
     if (env.valuesMissing()) {
+      return null;
+    }
+
+    // The important output handler downloads top-level sources and runfiles in external
+    // repositories under their locks. Wait for a repository whose fetch is being rewound as a
+    // dependency instead, which doesn't occupy this thread while the fetch waits for its own.
+    if (!skyframeActionExecutor.awaitRepoRefetches(
+        env, importantArtifacts, new ActionInputMetadataProvider(inputMap))) {
       return null;
     }
 

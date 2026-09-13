@@ -776,6 +776,14 @@ public class ActionExecutionFunction implements SkyFunction {
 
     outputMetadataStore.prepareForActionExecution();
 
+    // Input discovery and execution read the action's inputs, which may lie in a repository whose
+    // fetch is being rewound to recover a lost file. Wait for such a fetch here rather than on its
+    // lock, which would occupy this thread for as long as the fetch waits for its own dependencies.
+    if (!skyframeActionExecutor.awaitRepoRefetches(
+        env, action.getInputs().toList(), state.actionInputMetadataProvider)) {
+      return null;
+    }
+
     if (action.discoversInputs()) {
       Duration discoveredInputsDuration = Duration.ZERO;
       if (state.discoveredInputs == null) {
@@ -826,6 +834,16 @@ public class ActionExecutionFunction implements SkyFunction {
                       .build(),
                   action,
                   actionStartTime));
+    }
+
+    if (action.discoversInputs()
+        && !skyframeActionExecutor.awaitRepoRefetches(
+            env,
+            Iterables.concat(action.getInputs().toList(), state.discoveredInputs.toList()),
+            state.actionInputMetadataProvider)) {
+      // The discovered inputs may lie in further repositories. They only become part of the
+      // action's inputs during execution.
+      return null;
     }
 
     return skyframeActionExecutor.executeAction(

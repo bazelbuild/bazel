@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
@@ -51,6 +52,22 @@ public class ArtifactRootTest {
   @Test
   public void asSourceRoot_nullRoot_fails() {
     assertThrows(NullPointerException.class, () -> ArtifactRoot.asSourceRoot(null));
+  }
+
+  @Test
+  public void asExternalSourceRoot_createsValidExternalSourceRoot() throws IOException {
+    Path repoDir = scratch.dir("/output_base/external/+my_ext+my_repo");
+    ArtifactRoot root = ArtifactRoot.asExternalSourceRoot(Root.fromPath(repoDir));
+    assertThat(root.isSourceRoot()).isTrue();
+    assertThat(root.isExternal()).isTrue();
+    assertThat(root.getExternalRepositoryName())
+        .isEqualTo(RepositoryName.createUnvalidated("+my_ext+my_repo"));
+  }
+
+  @Test
+  public void getExternalRepositoryName_mainSourceRoot_fails() throws IOException {
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/source")));
+    assertThrows(IllegalStateException.class, root::getExternalRepositoryName);
   }
 
   @Test
@@ -183,7 +200,7 @@ public class ArtifactRootTest {
             .put(FileSystem.class, scratch.getFileSystem())
             .put(
                 Root.RootCodecDependencies.class,
-                new Root.RootCodecDependencies(/*likelyPopularRoot=*/ Root.fromPath(execRoot)))
+                new Root.RootCodecDependencies(/* likelyPopularRoot= */ Root.fromPath(execRoot)))
             .build();
     ObjectCodecRegistry.Builder registryBuilder = registry.getBuilder();
     for (Object val : dependencies.values()) {

@@ -14,10 +14,13 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -107,6 +110,71 @@ public interface InputMetadataProvider {
 
   /** Returns the runfiles trees in this metadata provider. */
   ImmutableList<RunfilesTree> getRunfilesTrees();
+
+  /**
+   * Returns the repositories whose contents are read by reading the given inputs and the runfiles
+   * trees: those containing external source artifacts as well as those that derived artifacts
+   * resolve into, such as the output of a symlink action whose target is an external source file
+   * (see {@link FileArtifactValue#getResolvedPath}).
+   */
+  default ImmutableSet<RepositoryName> getExternalSourceRepositories(
+      Iterable<Artifact> inputs, RewindableRepoFileSystem repoFileSystem) {
+    // Roots are interned, so names are only looked up once per distinct external source root.
+    Set<ArtifactRoot> roots = new HashSet<>();
+    Set<RepositoryName> repos = new HashSet<>();
+    collectExternalSourceRepositories(inputs, repoFileSystem, roots, repos);
+    for (RunfilesTree runfilesTree : getRunfilesTrees()) {
+      collectExternalSourceRepositories(
+          runfilesTree.getArtifacts().toList(), repoFileSystem, roots, repos);
+    }
+    for (ArtifactRoot root : roots) {
+      repos.add(root.getExternalRepositoryName());
+    }
+    return ImmutableSet.copyOf(repos);
+  }
+
+  private void collectExternalSourceRepositories(
+      Iterable<Artifact> artifacts,
+      RewindableRepoFileSystem repoFileSystem,
+      Set<ArtifactRoot> roots,
+      Set<RepositoryName> repos) {
+    for (Artifact artifact : artifacts) {
+      if (artifact.isSourceArtifact()) {
+        if (artifact.getRoot().getRootType() == ArtifactRoot.RootType.EXTERNAL_SOURCE) {
+          roots.add(artifact.getRoot());
+        }
+      } else if (artifact.isTreeArtifact()) {
+        TreeArtifactValue tree = getTreeMetadata(artifact);
+        if (tree != null) {
+          addRepositoryOfResolvedPath(tree.getMetadata(), repoFileSystem, repos);
+          for (FileArtifactValue child : tree.getChildValues().values()) {
+            addRepositoryOfResolvedPath(child, repoFileSystem, repos);
+          }
+        }
+      } else {
+        FileArtifactValue metadata;
+        try {
+          metadata = getInputMetadata(artifact);
+        } catch (IOException e) {
+          // The metadata of inputs is computed before they are read, so this doesn't do I/O.
+          throw new IllegalStateException(e);
+        }
+        if (metadata != null) {
+          addRepositoryOfResolvedPath(metadata, repoFileSystem, repos);
+        }
+      }
+    }
+  }
+
+  private static void addRepositoryOfResolvedPath(
+      FileArtifactValue metadata,
+      RewindableRepoFileSystem repoFileSystem,
+      Set<RepositoryName> repos) {
+    PathFragment resolvedPath = metadata.getResolvedPath();
+    if (resolvedPath != null && repoFileSystem.isRepoPath(resolvedPath)) {
+      repos.add(repoFileSystem.repoContaining(resolvedPath));
+    }
+  }
 
   /** Looks up an input from its exec path. */
   @Nullable

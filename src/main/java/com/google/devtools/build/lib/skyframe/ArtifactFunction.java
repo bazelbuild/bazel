@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -342,7 +343,12 @@ public final class ArtifactFunction implements SkyFunction {
     if (!fileValue.isDirectory() || !TrackSourceDirectoriesFlag.trackSourceDirectories()) {
       FileArtifactValue metadata;
       try {
-        metadata = FileArtifactValue.createForSourceArtifact(artifact, fileValue, xattrProvider);
+        // Without source directory tracking, this reads the mtime of a source directory, which a
+        // refetch of its repository may be replacing.
+        metadata =
+            RewindableRepoFileSystem.readUnderRepoLock(
+                artifact.getPath(),
+                () -> FileArtifactValue.createForSourceArtifact(artifact, fileValue, xattrProvider));
       } catch (IOException e) {
         throw new ArtifactFunctionException(
             SourceArtifactException.create(artifact, e), Transience.TRANSIENT);

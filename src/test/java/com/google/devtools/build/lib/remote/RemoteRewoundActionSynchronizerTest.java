@@ -571,7 +571,7 @@ public final class RemoteRewoundActionSynchronizerTest {
       remoteOutputChecker.addOutputToDownload(output);
     }
     return new RemoteImportantOutputHandler(
-        graph, remoteOutputChecker, actionInputFetcher, synchronizer);
+        graph, remoteOutputChecker, actionInputFetcher, synchronizer, /* repoFileSystem= */ null);
   }
 
   @SuppressWarnings("ThreadPriorityCheck")

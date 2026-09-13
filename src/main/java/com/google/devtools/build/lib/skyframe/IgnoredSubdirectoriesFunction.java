@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue.InvalidIgnorePathException;
 import com.google.devtools.build.lib.skyframe.RepoFileFunction.BadRepoFileException;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -75,18 +76,18 @@ public class IgnoredSubdirectoriesFunction implements SkyFunction {
   public static void getIgnoredPrefixes(
       RootedPath patternFile, ImmutableSet.Builder<PathFragment> ignoredDirectoriesBuilder)
       throws IgnoredSubdirectoriesFunctionException {
-    try (InputStreamReader reader =
-        new InputStreamReader(patternFile.asPath().getInputStream(), StandardCharsets.UTF_8)) {
-      for (PathFragment ignored : CharStreams.readLines(reader, new PathFragmentLineProcessor())) {
-        if (ignored.isAbsolute()) {
-          throw new IgnoredSubdirectoriesFunctionException(
-              new InvalidIgnorePathException(
-                  patternFile.asPath().toString(),
-                  String.format("'%s': cannot be an absolute path", ignored)));
-        }
-
-        ignoredDirectoriesBuilder.add(ignored);
-      }
+    ImmutableSet<PathFragment> ignoredPaths;
+    try {
+      ignoredPaths =
+          RewindableRepoFileSystem.readUnderRepoLock(
+              patternFile.asPath(),
+              () -> {
+                try (InputStreamReader reader =
+                    new InputStreamReader(
+                        patternFile.asPath().getInputStream(), StandardCharsets.UTF_8)) {
+                  return CharStreams.readLines(reader, new PathFragmentLineProcessor());
+                }
+              });
     } catch (IOException e) {
       String errorMessage = e.getMessage() != null ? "error '" + e.getMessage() + "'" : "an error";
       throw new IgnoredSubdirectoriesFunctionException(
@@ -98,6 +99,15 @@ public class IgnoredSubdirectoriesFunction implements SkyFunction {
     } catch (InvalidPathException e) {
       throw new IgnoredSubdirectoriesFunctionException(
           new InvalidIgnorePathException(patternFile.asPath().toString(), e.getMessage()));
+    }
+    for (PathFragment ignored : ignoredPaths) {
+      if (ignored.isAbsolute()) {
+        throw new IgnoredSubdirectoriesFunctionException(
+            new InvalidIgnorePathException(
+                patternFile.asPath().toString(),
+                String.format("'%s': cannot be an absolute path", ignored)));
+      }
+      ignoredDirectoriesBuilder.add(ignored);
     }
   }
 

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.F
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -111,7 +112,9 @@ public class RepoFileFunction implements SkyFunction {
       throws RepoFileFunctionException {
     byte[] contents;
     try {
-      contents = FileSystemUtils.readWithKnownFileSize(path, path.getFileSize());
+      contents =
+          RewindableRepoFileSystem.readUnderRepoLock(
+              path, () -> FileSystemUtils.readWithKnownFileSize(path, path.getFileSize()));
     } catch (IOException e) {
       throw new RepoFileFunctionException(
           new IOException("error reading REPO.bazel file at " + path, e), Transience.TRANSIENT);

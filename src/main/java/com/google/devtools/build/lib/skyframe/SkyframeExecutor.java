@@ -268,6 +268,7 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -780,7 +781,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             this::getPackagePathEntries,
             this.syscallCache,
             skyKeyStateReceiver::makeThreadStateReceiver,
-            this::getExistingActionLookupValue);
+            this::getExistingActionLookupValue,
+            RewindableRepoFileSystem.of(fileSystem));
     this.artifactFactory =
         new ArtifactFactory(
             /* execRootParent= */ directories.getExecRootBase(),

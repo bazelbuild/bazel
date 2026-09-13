@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.util.LatestObjectMetricExporter;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -216,7 +217,11 @@ public final class DefaultSyscallCache implements SyscallCache {
   @Override
   @SuppressWarnings("unchecked") // readdirImpl only returns Collection<Dirent> or IOException
   public Collection<Dirent> readdir(Path path) throws IOException {
-    Object result = readdirCache.get(path);
+    // A refetch of the repository containing the path is waited for here rather than in the cache
+    // loader: the cache holds the lock of the entry's hash bin while the loader runs, so a loader
+    // that waited would also block lookups of unrelated paths in the same bin, including one by
+    // the fetch itself.
+    Object result = RewindableRepoFileSystem.readUnderRepoLock(path, () -> readdirCache.get(path));
     if (result instanceof IOException ioException) {
       throw ioException;
     }
@@ -226,6 +231,13 @@ public final class DefaultSyscallCache implements SyscallCache {
   @Nullable
   @Override
   public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
+    // See readdir for why the repository lock is taken outside of the cache.
+    return RewindableRepoFileSystem.readUnderRepoLock(
+        path, () -> statIfFoundUnderRepoLock(path, symlinks));
+  }
+
+  @Nullable
+  private FileStatus statIfFoundUnderRepoLock(Path path, Symlinks symlinks) throws IOException {
     Object result = statCache.get(path);
     if (result instanceof IOException ioException) {
       throw ioException;
