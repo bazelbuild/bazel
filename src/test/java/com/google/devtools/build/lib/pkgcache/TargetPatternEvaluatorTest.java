@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static java.util.stream.Collectors.joining;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -336,6 +337,43 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     setDeletedPackages(ImmutableSet.<PackageIdentifier>of());
     assertThat(parseList("x/..."))
         .containsExactly(Label.parseCanonical("//x/y"), Label.parseCanonical("//x/z"));
+  }
+
+  private void traversalIgnoreDirectories(String... dirs) throws Exception {
+    scratch.overwriteFile(
+        "REPO.bazel",
+        String.format(
+            "traversal_ignore_directories([%s])",
+            Arrays.stream(dirs).map(d -> "'" + d + "'").collect(joining(", "))));
+    invalidate("REPO.bazel");
+  }
+
+  @Test
+  public void testDotDotDotDoesntMatchTraversalIgnoredDirectoryOrSubpackages() throws Exception {
+    scratch.file("x/y/BUILD", "fake_cc_library(name='y')");
+    scratch.file("x/y/z/BUILD", "fake_cc_library(name='z')");
+    scratch.file("x/w/BUILD", "fake_cc_library(name='w')");
+    traversalIgnoreDirectories("x/y");
+
+    // The ancestor recursive pattern skips the ignored directory and everything beneath it.
+    assertThat(parseList("x/...")).isEqualTo(Sets.newHashSet(Label.parseCanonical("//x/w")));
+    assertThat(parseList("//...")).contains(Label.parseCanonical("//x/w"));
+    assertThat(parseList("//..."))
+        .containsNoneOf(Label.parseCanonical("//x/y"), Label.parseCanonical("//x/y/z"));
+  }
+
+  @Test
+  public void testTraversalIgnoredDirectoryStillDirectlyBuildable() throws Exception {
+    scratch.file("x/y/BUILD", "fake_cc_library(name='y')");
+    scratch.file("x/y/z/BUILD", "fake_cc_library(name='z')");
+    traversalIgnoreDirectories("x/y");
+
+    // Explicit references to packages in the ignored directory, and recursive patterns rooted
+    // at or beneath it, still resolve normally.
+    assertThat(parseList("//x/y:y")).isEqualTo(Sets.newHashSet(Label.parseCanonical("//x/y")));
+    assertThat(parseList("x/y/..."))
+        .isEqualTo(Sets.newHashSet(Label.parseCanonical("//x/y"), Label.parseCanonical("//x/y/z")));
+    assertThat(parseList("x/y/z/...")).isEqualTo(Sets.newHashSet(Label.parseCanonical("//x/y/z")));
   }
 
   @Test

@@ -118,6 +118,126 @@ public class RepoFileFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void cantCallTraversalIgnoreDirectoriesTwice() throws Exception {
+    assertTraversalIgnoreDirectoriesError(
+        "traversal_ignore_directories(['a'])\ntraversal_ignore_directories(['b'])",
+        "'traversal_ignore_directories()' can only be called once");
+  }
+
+  @Test
+  public void traversalIgnoreDirectoriesMustFollowRepo() throws Exception {
+    assertTraversalIgnoreDirectoriesError(
+        "traversal_ignore_directories(['a'])\nrepo(features=['abc'])",
+        "if repo() is called, it must be called before any other functions");
+  }
+
+  @Test
+  public void traversalIgnoreDirectoriesRejectsPackageLabel() throws Exception {
+    assertTraversalIgnoreDirectoriesError(
+        "traversal_ignore_directories(['//experimental'])",
+        "invalid traversal_ignore_directories entry '//experimental': path must be normalized"
+            + " and relative to the workspace");
+  }
+
+  @Test
+  public void traversalIgnoreDirectoriesRejectsAbsolutePath() throws Exception {
+    assertTraversalIgnoreDirectoriesError(
+        "traversal_ignore_directories(['/experimental'])",
+        "invalid traversal_ignore_directories entry '/experimental': path must be normalized"
+            + " and relative to the workspace");
+  }
+
+  @Test
+  public void traversalIgnoreDirectoriesRejectsRootDirectory() throws Exception {
+    assertTraversalIgnoreDirectoriesError(
+        "traversal_ignore_directories([''])",
+        "invalid traversal_ignore_directories entry '': ignores the entire workspace");
+  }
+
+  @Test
+  public void traversalIgnoreDirectoriesRejectsDotDirectory() throws Exception {
+    assertTraversalIgnoreDirectoriesError(
+        "traversal_ignore_directories(['.'])",
+        "invalid traversal_ignore_directories entry '.': ignores the entire workspace");
+  }
+
+  @Test
+  public void traversalIgnoreDirectoriesRejectsUnnormalizedPath() throws Exception {
+    assertTraversalIgnoreDirectoriesError(
+        "traversal_ignore_directories(['experimental/./foo'])",
+        "invalid traversal_ignore_directories entry 'experimental/./foo': path must be"
+            + " normalized and relative to the workspace");
+  }
+
+  @Test
+  public void traversalIgnoreDirectoriesRejectsTrailingSlash() throws Exception {
+    assertTraversalIgnoreDirectoriesError(
+        "traversal_ignore_directories(['experimental/'])",
+        "invalid traversal_ignore_directories entry 'experimental/': path must be normalized"
+            + " and relative to the workspace");
+  }
+
+  @Test
+  public void traversalIgnoreDirectoriesRejectsUplevelReference() throws Exception {
+    assertTraversalIgnoreDirectoriesError(
+        "traversal_ignore_directories(['../experimental'])",
+        "invalid traversal_ignore_directories entry '../experimental': path must be normalized"
+            + " and relative to the workspace");
+  }
+
+  @Test
+  public void traversalIgnoreDirectoriesRejectsTrailingUplevelReference() throws Exception {
+    assertTraversalIgnoreDirectoriesError(
+        "traversal_ignore_directories(['experimental/..'])",
+        "invalid traversal_ignore_directories entry 'experimental/..': path must be normalized"
+            + " and relative to the workspace");
+  }
+
+  @Test
+  public void traversalIgnoreDirectoriesRejectsTargetPattern() throws Exception {
+    assertTraversalIgnoreDirectoriesError(
+        "traversal_ignore_directories(['experimental/...'])",
+        "invalid traversal_ignore_directories entry 'experimental/...': package name component"
+            + " contains only '.' characters");
+  }
+
+  @Test
+  public void traversalIgnoreDirectoriesRejectsTarget() throws Exception {
+    assertTraversalIgnoreDirectoriesError(
+        "traversal_ignore_directories(['experimental:thing'])",
+        "invalid traversal_ignore_directories entry 'experimental:thing': package names may"
+            + " contain A-Z, a-z, 0-9, or any of ' !\"#$%&'()*+,-./;<=>?[]^_`{|}~' (any ASCII"
+            + " character except 0-31, 127, ':', or '\\')");
+  }
+
+  @Test
+  public void traversalIgnoreDirectoriesRejectsInvalidPackageName() throws Exception {
+    // "\n" is a normalized relative path (a control character isn't a path separator or a
+    // '.'/'..' segment), but control characters aren't allowed in a package name, so this is
+    // caught by the LabelValidator check.
+    assertTraversalIgnoreDirectoriesError(
+        "traversal_ignore_directories(['foo\\nbar'])",
+        "invalid traversal_ignore_directories entry 'foo\nbar': package names may contain"
+            + " A-Z, a-z, 0-9, or any of ' !\"#$%&'()*+,-./;<=>?[]^_`{|}~' (any ASCII character"
+            + " except 0-31, 127, ':', or '\\')");
+  }
+
+  private void assertTraversalIgnoreDirectoriesError(String repoFileContents, String expectedError)
+      throws Exception {
+    scratch.overwriteFile("REPO.bazel", repoFileContents);
+    scratch.overwriteFile("abc/def/BUILD", "filegroup(name='what')");
+    reporter.removeHandler(failFastHandler);
+    try {
+      invalidatePackages();
+    } catch (
+        @SuppressWarnings("InterruptedExceptionSwallowed")
+        Exception e) {
+      // Ignore any errors.
+    }
+    assertTargetError("//abc/def:what", expectedError);
+  }
+
+  @Test
   public void restrictedSyntax() throws Exception {
     scratch.overwriteFile(
         "REPO.bazel", "if 3+5>7: repo(default_deprecation='EVERYTHING IS DEPRECATED')");
