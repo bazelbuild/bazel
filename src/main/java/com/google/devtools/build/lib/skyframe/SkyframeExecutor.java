@@ -4101,7 +4101,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyKeys")) {
         batchDirtyResult =
             fsvc.getDirtyKeys(
-                memoizingEvaluator.getValues(),
+                // Only nodes that are done can be out of sync with the filesystem without
+                // Skyframe knowing about it. Nodes that are already dirty are re-evaluated when
+                // they are next requested and their last values may well be stale for reasons
+                // that are known to Skyframe: for example, a command that doesn't load packages
+                // (such as `bazel fetch --force`) can refetch an external repo, which dirties the
+                // file state nodes for its files. The ExternalDirtinessChecker would otherwise
+                // mistake the files rewritten by that fetch for external modifications and force
+                // another fetch of the repo.
+                memoizingEvaluator.getDoneValues(),
                 new UnionDirtinessChecker(ImmutableList.copyOf(dirtinessCheckers)));
       }
       if (externalDirtinessChecker != null) {

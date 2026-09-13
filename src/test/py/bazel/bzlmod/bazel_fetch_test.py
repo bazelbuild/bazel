@@ -328,6 +328,55 @@ class BazelFetchTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['fetch', '--repo=@hello', '--force'])
     self.assertIn('No more Orange Juice!', ''.join(stderr))
 
+  def testForceFetchDoesNotCauseRefetchInNextBuild(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    print("JUST FETCHED")',
+            '    ctx.file("BUILD", "filegroup(name = \'lala\')")',
+            'repo_rule = repository_rule(implementation=impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    repo_rule(name="hello")',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@hello//:lala'])
+    self.assertIn('JUST FETCHED', ''.join(stderr))
+
+    # A forced fetch rewrites the files of the repo without the build loading
+    # them again. This must not be mistaken for an external modification.
+    _, _, stderr = self.RunBazel(['fetch', '--repo=@hello', '--force'])
+    self.assertIn('JUST FETCHED', ''.join(stderr))
+    _, _, stderr = self.RunBazel(['build', '@hello//:lala'])
+    self.assertNotIn('modified externally', ''.join(stderr))
+    self.assertNotIn('JUST FETCHED', ''.join(stderr))
+
+    # An actual external modification is still detected.
+    _, stdout, _ = self.RunBazel(['info', 'output_base'])
+    build_file = os.path.join(
+        stdout[0].strip(), 'external', '+ext+hello', 'BUILD'
+    )
+    with open(build_file, 'a') as f:
+      f.write('# modified externally\n')
+    _, _, stderr = self.RunBazel(['build', '@hello//:lala'])
+    self.assertIn(
+        "Repository '@@+ext+hello' will be fetched again since the file 'BUILD'"
+        ' has been modified externally.',
+        ''.join(stderr),
+    )
+    self.assertIn('JUST FETCHED', ''.join(stderr))
+
   def testForceFetchWithRepoCache(self):
     self.ScratchFile(
         'MODULE.bazel',
