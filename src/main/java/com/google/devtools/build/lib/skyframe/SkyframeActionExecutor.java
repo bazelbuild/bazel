@@ -1325,6 +1325,11 @@ public final class SkyframeActionExecutor {
         }
         eventHandler.post(new ActionSuccessEvent(actionExecutionValue));
         return new ActionPostprocessingStep(actionExecutionValue);
+      } catch (LostInputsActionExecutionException e) {
+        // Completing the action may read an input for the first time, e.g. by downloading a
+        // top-level output that is a symlink to it. Its loss is recovered by rewinding, like one
+        // during execution, rather than reported as a failure.
+        throw e;
       } catch (ActionExecutionException e) {
         return ActionStepOrResult.of(e);
       }
@@ -1390,6 +1395,7 @@ public final class SkyframeActionExecutor {
         }
       } catch (ActionExecutionException actionException) {
         // Success in execution but failure in completion.
+        maybeSignalLostInputs(actionException, primaryOutputPath);
         reportActionExecution(
             eventHandler,
             primaryOutputPath,

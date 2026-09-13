@@ -100,4 +100,9 @@ public interface RewindableRepoFileSystem {
     return getRewindingSynchronizer().acquireWriteLock(repo);
   }
 
+  /**
+   * Records that a file in the given repository is no longer available in the remote cache, so that
+   * rewinding the fetch of that repository recovers it.
+   */
+  void markLostRepoFile(RepositoryName repo);
 }

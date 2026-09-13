@@ -21,12 +21,16 @@ class RemoteRepoContentsCacheTestBase(test_base.TestBase):
 
   def setUp(self):
     test_base.TestBase.setUp(self)
-    self._worker_port = self.StartRemoteWorker()
+    self._worker_port = self.StartRemoteWorker(self.WorkerArgs())
     self.ScratchFile('.bazelrc', self.BazelrcLines())
 
   def tearDown(self):
     test_base.TestBase.tearDown(self)
     self.StopRemoteWorker()
+
+  def WorkerArgs(self):
+    """Returns the flags to start the remote worker with."""
+    return []
 
   def BazelrcLines(self):
     """Returns the lines of the .bazelrc shared by all tests."""

@@ -140,5 +140,8 @@ public final class IncludeParserTest {
     public RepositoryName repoContaining(PathFragment path) {
       return RepositoryName.createUnvalidated(path.getSegment(EXTERNAL_DIR.segmentCount()));
     }
+
+    @Override
+    public void markLostRepoFile(RepositoryName repo) {}
   }
 }

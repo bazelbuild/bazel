@@ -798,7 +798,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions() {
     this.actionRewindStrategy =
         new ActionRewindStrategy(
-            skyframeActionExecutor, bugReporter, this::getRemoteAnalysisCacheReaderDepsProvider);
+            skyframeActionExecutor,
+            bugReporter,
+            this::getRemoteAnalysisCacheReaderDepsProvider,
+            RewindableRepoFileSystem.of(fileSystem));
     BzlLoadFunction bzlLoadFunctionForInliningPackageAndWorkspaceNodes =
         getBzlLoadFunctionForInliningPackageAndWorkspaceNodes();
 
