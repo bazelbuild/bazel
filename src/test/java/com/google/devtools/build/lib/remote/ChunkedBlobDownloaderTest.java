@@ -84,7 +84,7 @@ public class ChunkedBlobDownloaderTest {
   @Test
   public void downloadChunked_serverReturnsNoChunks_throwsBlobNotSplittable() {
     Digest blobDigest = DIGEST_UTIL.compute(new byte[] {1, 2, 3});
-    when(grpcCacheClient.splitBlob(any(), eq(blobDigest)))
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(SplitBlobResponse.getDefaultInstance()));
 
     assertThrows(
@@ -105,7 +105,7 @@ public class ChunkedBlobDownloaderTest {
             .addChunkDigests(chunk1Digest)
             .addChunkDigests(chunk2Digest)
             .build();
-    when(grpcCacheClient.splitBlob(any(), eq(blobDigest)))
+    when(grpcCacheClient.splitBlob(any(), eq(blobDigest), any()))
         .thenReturn(Futures.immediateFuture(splitResponse));
     when(combinedCache.downloadBlob(any(), eq(chunk1Digest)))
         .thenReturn(Futures.immediateFuture(chunk1Data));

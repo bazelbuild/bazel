@@ -32,6 +32,7 @@ import static org.mockito.Mockito.when;
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
 import build.bazel.remote.execution.v2.Digest;
@@ -1713,6 +1714,6 @@ public class GrpcCacheClientTest {
     assertThrows(
         BlobNotSplittableException.class,
         () ->
-            getFromFuture(client.splitBlob(context, digest)));
+            getFromFuture(client.splitBlob(context, digest, ChunkingFunction.Value.FAST_CDC_2020)));
   }
 }
