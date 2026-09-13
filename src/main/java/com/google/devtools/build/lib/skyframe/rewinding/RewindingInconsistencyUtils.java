@@ -45,6 +45,7 @@ public final class RewindingInconsistencyUtils {
   static boolean mayRewindRepoFetch(SkyKey key) {
     SkyFunctionName functionName = key.functionName();
     return functionName.equals(SkyFunctions.REPOSITORY_DIRECTORY)
+        || functionName.equals(SkyFunctions.SINGLE_EXTENSION_EVAL)
         // Reading a file by label resolves its package first, so the package lookup is rewound
         // between the reader and the repo fetch.
         || functionName.equals(SkyFunctions.PACKAGE_LOOKUP)
