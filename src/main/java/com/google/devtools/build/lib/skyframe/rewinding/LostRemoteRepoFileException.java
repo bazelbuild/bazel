@@ -14,26 +14,42 @@
 
 package com.google.devtools.build.lib.skyframe.rewinding;
 
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * Thrown when the contents of a file in an external repository served from the remote repo contents
  * cache are no longer available in the remote cache.
  *
  * <p>The file is recovered by rewinding the fetch of {@link #getRepo}, which runs the repo rule
- * again and uploads the repo's contents anew, so this is only thrown while rewinding is enabled.
+ * again and uploads the repo's contents anew. Nodes that fail because of such a file recover by
+ * returning the {@link com.google.devtools.build.skyframe.SkyFunction.Reset} constructed by {@link
+ * RepoRewinding}, so this is only thrown while rewinding is enabled.
  */
 public final class LostRemoteRepoFileException extends IOException {
 
   private final RepositoryName repo;
   private final String digest;
+  @Nullable private final Label label;
 
   public LostRemoteRepoFileException(
       String message, Throwable cause, RepositoryName repo, String digest) {
+    this(message, cause, repo, digest, /* label= */ null);
+  }
+
+  private LostRemoteRepoFileException(
+      String message, Throwable cause, RepositoryName repo, String digest, @Nullable Label label) {
     super(message, cause);
     this.repo = repo;
     this.digest = digest;
+    this.label = label;
+  }
+
+  /** Returns a copy of this exception that records the label the lost file was read through. */
+  public LostRemoteRepoFileException withLabel(Label label) {
+    return new LostRemoteRepoFileException(getMessage(), this, repo, digest, label);
   }
 
   /** The canonical name of the repository whose refetch recovers the lost file. */
@@ -47,5 +63,17 @@ public final class LostRemoteRepoFileException extends IOException {
    */
   public String getDigest() {
     return digest;
+  }
+
+  /**
+   * The label the lost file was read through, if it was read through one.
+   *
+   * <p>Reading a label resolves the package containing it first, so recovering the file requires
+   * rewinding that package lookup along with the repo fetch: a package lookup that stays valid
+   * would hand out the very repo root whose contents are stale.
+   */
+  @Nullable
+  public Label getLabel() {
+    return label;
   }
 }
