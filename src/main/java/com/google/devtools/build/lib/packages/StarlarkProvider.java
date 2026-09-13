@@ -81,7 +81,7 @@ import net.starlark.java.syntax.Types;
  * {@link #hashCode}.
  */
 public final class StarlarkProvider extends StarlarkType
-    implements StarlarkCallable, StarlarkExportable, Provider, TypeConstructor {
+    implements StarlarkCallable, StarlarkExportable, Provider, TypeConstructor, StarlarkInfoWithSchema.Schema {
 
   private final Location location;
 
@@ -528,6 +528,11 @@ public final class StarlarkProvider extends StarlarkType
                   : keyForBuild(extensionLabel),
               exportedName);
     }
+  }
+
+  @Override
+  public Provider getProvider() {
+    return this;
   }
 
   @Override
