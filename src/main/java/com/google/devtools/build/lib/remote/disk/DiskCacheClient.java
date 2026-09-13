@@ -157,14 +157,33 @@ public class DiskCacheClient {
             outPath = maybePathBacked.maybeGetPath();
           }
 
-          if (outPath != null) {
-            // If the output stream is path-backed, the filesystem may be able to avoid copying the
-            // file.
-            FileSystemUtils.copyFile(path, outPath);
-          } else {
-            try (InputStream in = path.getInputStream()) {
-              in.transferTo(out);
+          try {
+            if (outPath != null) {
+              // If the output stream is path-backed, the filesystem may be able to avoid copying
+              // the file.
+              FileSystemUtils.copyFile(path, outPath);
+            } else {
+              try (InputStream in = path.getInputStream()) {
+                in.transferTo(out);
+              }
             }
+          } catch (FileNotFoundException e) {
+            // The entry may have been deleted between the refresh above and the copy, for example
+            // due to a concurrent garbage collection. Report this case as a cache miss rather than
+            // a real I/O error.
+            //
+            // Note that a FileNotFoundException could also be thrown if a parent directory of the
+            // destination doesn't exist, so we try to preserve the error reporting in that case.
+            // TODO: When migrating to NIO exceptions, use NoSuchFileException#getFile to avoid this
+            // check.
+            if (outPath != null
+                && outPath.getParentDirectory() != null
+                && !outPath.getParentDirectory().exists()) {
+              throw e;
+            }
+            var cacheNotFoundException = new CacheNotFoundException(digest);
+            cacheNotFoundException.addSuppressed(e);
+            throw cacheNotFoundException;
           }
           return null;
         });
@@ -243,6 +262,14 @@ public class DiskCacheClient {
       Tree tree;
       try (var in = toPath(treeDigest, Store.CAS).getInputStream()) {
         tree = Tree.parseFrom(in, ExtensionRegistryLite.getEmptyRegistry());
+      } catch (FileNotFoundException e) {
+        // The tree was deleted between the refresh above and the read, most likely by a concurrent
+        // garbage collection. Treat it as missing rather than as a real I/O error.
+        if (stopAtFirstMissing) {
+          return false;
+        }
+        allPresent = false;
+        continue;
       }
       allPresent &= refreshOutputDirectory(tree.getRoot(), stopAtFirstMissing);
       if (!allPresent && stopAtFirstMissing) {

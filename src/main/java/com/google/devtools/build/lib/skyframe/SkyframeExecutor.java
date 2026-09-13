@@ -119,6 +119,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataProducer;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
@@ -131,6 +132,7 @@ import com.google.devtools.build.lib.cmdline.Label.LabelInterner;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -3255,29 +3257,35 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return detailedExitCode;
   }
 
-  /** Canonical Starlark flag aliases for {@link PythonOptions} flags. */
+  /**
+   * Starlark flag aliases for {@link PythonOptions} flags, as labels relative to the rules_python
+   * repo.
+   */
   // TODO: b/453809359 - Remove when Bazel 9+ can read Python flag alias definitions straight from
   // rules_python's MODULE.bazel.
   private static final ImmutableMap<String, String> PY_FLAG_ALIASES =
       ImmutableMap.of(
           // LINT.IfChange
           "build_python_zip",
-          "@@rules_python+//python/config_settings:build_python_zip",
+          "//python/config_settings:build_python_zip",
           "incompatible_default_to_explicit_init_py",
-          "@@rules_python+//python/config_settings:incompatible_default_to_explicit_init_py");
+          "//python/config_settings:incompatible_default_to_explicit_init_py");
 
   // LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/rules/python/PythonConfiguration.java)
 
-  /** Canonical Starlark flag aliases for {@link BazelPythonConfiguration} flags. */
+  /**
+   * Starlark flag aliases for {@link BazelPythonConfiguration} flags, as labels relative to the
+   * rules_python repo.
+   */
   // TODO: b/453809359 - Remove when Bazel 9+ can read Python flag alias definitions straight from
   // rules_python's MODULE.bazel.
   private static final ImmutableMap<String, String> BAZEL_PY_FLAG_ALIASES =
       ImmutableMap.of(
           // LINT.IfChange
           "python_path",
-          "@@rules_python+//python/config_settings:python_path",
+          "//python/config_settings:python_path",
           "experimental_python_import_all_repositories",
-          "@@rules_python+//python/config_settings:experimental_python_import_all_repositories");
+          "//python/config_settings:experimental_python_import_all_repositories");
 
   // LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/bazel/rules/python/BazelPythonConfiguration.java)
 
@@ -3286,6 +3294,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    *
    * <p>These, along with whatever is set in {@code --flag_alias}, rewrite {@code --foo}-style
    * command line flags to canonical Starlark flags.
+   *
+   * <p>The returned labels are in canonical form (e.g.
+   * {@code @@rules_python+//python/config_settings:python_path}) since they are subsequently parsed
+   * with the main repo mapping, which only knows about the root module's direct dependencies.
    *
    * @param eventHandler handler for Skyframe events
    * @param ensurePyAliases If true, add Python-specific flag aliases even if they're not defined in
@@ -3314,17 +3326,24 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       throw new IllegalStateException("Hard-coded rules_python version should always parse.", e);
     }
 
-    var bzlmodDepGraph = evalResult.get(BazelDepGraphValue.KEY).getDepGraph();
+    BazelDepGraphValue depGraphValue = evalResult.get(BazelDepGraphValue.KEY);
+    var bzlmodDepGraph = depGraphValue.getDepGraph();
     LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
-    var rootModule = bzlmodDepGraph.entrySet().iterator().next().getValue();
     for (var module : bzlmodDepGraph.entrySet()) {
+      ModuleKey moduleKey = module.getKey();
+      RepositoryName canonicalRepoName =
+          depGraphValue.getCanonicalRepoNameLookup().inverse().get(moduleKey);
       ImmutableMap<String, String> flagAliases = module.getValue().getFlagAliases();
-      for (var flagAlias : flagAliases.entrySet()) {
-        aliasesMap.put(
-            flagAlias.getKey(),
-            flagAlias.getValue().startsWith("//")
-                ? module.getKey().getCanonicalRepoNameWithoutVersion() + flagAlias.getValue()
-                : flagAlias.getValue());
+      if (!flagAliases.isEmpty()) {
+        // flag_alias() labels are stored in the apparent form seen from the defining module (e.g.
+        // "@rules_python//python/config_settings:python_path"), so resolve them with that module's
+        // repo mapping rather than the main repo's.
+        RepoContext repoContext =
+            RepoContext.of(canonicalRepoName, depGraphValue.getFullRepoMapping(moduleKey));
+        for (var flagAlias : flagAliases.entrySet()) {
+          aliasesMap.put(
+              flagAlias.getKey(), toCanonicalLabelString(flagAlias.getValue(), repoContext));
+        }
       }
       if (!module.getValue().getName().equals("rules_python")) {
         continue;
@@ -3336,34 +3355,44 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       boolean isAllowedVersion =
           module.getValue().getVersion().compareTo(minBazelVersionForPythonAliases) > 0
               || !module.getValue().getVersion().toString().startsWith("1.");
-      if (!isAllowedVersion || !module.getValue().getFlagAliases().isEmpty()) {
+      if (!isAllowedVersion || !flagAliases.isEmpty()) {
         continue;
       }
       if (ensurePyAliases) {
         // Add Python flags that haven't already been added by rules_python's MODULE.bazel.
         PY_FLAG_ALIASES.entrySet().stream()
             .filter(e -> !flagAliases.containsKey(e.getKey()))
-            .map(
-                e ->
-                    rootModule.getName().equals("rules_python")
-                        ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
-                        : e)
-            .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
+            .forEach(
+                e -> aliasesMap.put(e.getKey(), canonicalRepoName.getNameWithAt() + e.getValue()));
       }
       if (ensureBazelPyAliases) {
         // Add Bazel Python flags that haven't already been added by rules_python's MODULE.bazel.
         BAZEL_PY_FLAG_ALIASES.entrySet().stream()
             .filter(e -> !flagAliases.containsKey(e.getKey()))
-            .map(
-                e ->
-                    rootModule.getName().equals("rules_python")
-                        ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
-                        : e)
-            .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
+            .forEach(
+                e -> aliasesMap.put(e.getKey(), canonicalRepoName.getNameWithAt() + e.getValue()));
       }
     }
 
     return ImmutableMap.copyOf(aliasesMap);
+  }
+
+  /**
+   * Resolves a {@code flag_alias()} label against the defining module's repo mapping and returns
+   * its unambiguous canonical form. Falls back to the original string if it can't be resolved, in
+   * which case parsing it with the main repo mapping reports the error.
+   */
+  private static String toCanonicalLabelString(String starlarkFlag, RepoContext repoContext) {
+    Label label;
+    try {
+      label = Label.parseWithRepoContext(starlarkFlag, repoContext);
+    } catch (LabelSyntaxException e) {
+      return starlarkFlag;
+    }
+    if (!label.getRepository().isVisible()) {
+      return starlarkFlag;
+    }
+    return label.getUnambiguousCanonicalForm();
   }
 
   public RepositoryMapping getMainRepoMapping(ExtendedEventHandler eventHandler)
