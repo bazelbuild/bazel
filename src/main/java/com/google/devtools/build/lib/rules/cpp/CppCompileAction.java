@@ -1750,12 +1750,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           getOutputs(),
           mandatoryOutputs,
-          () ->
+          (os, inputsSize) ->
               estimateResourceConsumptionLocal(
-                  enabledCppCompileResourcesEstimation(),
-                  getMnemonic(),
-                  OS.getCurrent(),
-                  inputs.memoizedFlattenAndGetSize()),
+                  enabledCppCompileResourcesEstimation(), getMnemonic(), os, inputsSize),
           pathMapper);
     } catch (CommandLineExpansionException e) {
       String message =
