@@ -409,11 +409,11 @@ http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_
 
 # TODO: Use rules_graalvm's repository rule once its release map covers GraalVM 25.x.
 http_archive(
-    name = "graalvm_25_2_4_linux_x64",
-    build_file = "//third_party:graalvm_25_2_4_linux_x64.BUILD",
-    sha256 = "7100d99cbfec68b03b669cc60c7e8592bbcda1732e8eaebc460fe0b75849a894",
-    strip_prefix = "graalvm-25.2.4+7.1",
-    urls = ["https://gds.oracle.com/download/graal/25i2/archive/graalvm-jdk-25i2-25.0.4_linux-x64_bin.tar.gz"],
+    name = "graalvm_25_3_4_1_linux_x64",
+    build_file = "//third_party:graalvm_25_3_4_1_linux_x64.BUILD",
+    sha256 = "814deac144a912035c4e824e05fa06a2e0c83821f0fb9d1084bc916e5eeef247",
+    strip_prefix = "graalvm-25.3.4.1+1.1",
+    urls = ["https://gds.oracle.com/download/graal/25i3/archive/graalvm-jdk-25i3-25.0.4.1_linux-x64_bin.tar.gz"],
 )
 
 # DO NOT UPDATE the jq versions, they are used to verify compatibility with old and new versions.

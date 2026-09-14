@@ -23,7 +23,7 @@ diff -ruN a/internal/graalvm_bindist_map.bzl b/internal/graalvm_bindist_map.bzl
  # VM release versions for calculating prefixes.
  # buildifier: disable=name-conventions
  _VmReleaseVersions = {
-+    "25.0.4": "25.0.4+7.1",
++    "25.0.4.1": "25.0.4.1+1.1",
      "23.1.2": "21.0.2+13.1",
      "21.0.2": "21.0.2+13.1",
      "21.0.1": "21.0.1+12.1",
@@ -31,7 +31,7 @@ diff -ruN a/internal/graalvm_bindist_map.bzl b/internal/graalvm_bindist_map.bzl
  # VM release versions (for Oracle GVM) for calculating prefixes.
  # buildifier: disable=name-conventions
  _VmReleaseVersionsOracle = {
-+    "25.0.4": "25.0.4+7.1",
++    "25.0.4.1": "25.0.4.1+1.1",
      "23.1.2": "21.0.2+13.1",
      "21.0.2": "21.0.2+13.1",
      "21.0.1": "21.0.1+12.1",
@@ -42,88 +42,88 @@ diff -ruN a/internal/graalvm_bindist_map.bzl b/internal/graalvm_bindist_map.bzl
 +        ],
 +    },
 +
-+    "ce_25.0.4_linux-aarch64_25.0.4": {
-+        # GraalVM CE 25.2.4 (Java 25), Linux (arm64), Version 25.0.4
-+        "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-25.2.4/graalvm-community-jdk-25i2-25.0.4_linux-aarch64_bin.tar.gz",
-+        "sha256": "22286f7ecd21b9aedb3226b9bf797469e1bd3eefc491e12ef3dd49b452d230b7",
-+        "prefix": "graalvm-community-25.2.4+7.1",
++    "ce_25.0.4.1_linux-aarch64_25.0.4.1": {
++        # GraalVM CE 25.3.4.1 (Java 25), Linux (arm64), Version 25.0.4.1
++        "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-25.3.4.1/graalvm-community-jdk-25i3-25.0.4.1_linux-aarch64_bin.tar.gz",
++        "sha256": "7e8a3fbc2e4c28566107039a298cef690d86a37599a8e50536fc5a65b7f1bd56",
++        "prefix": "graalvm-community-25.3.4.1+1.1",
 +        "compatible_with": [
 +            "@platforms//cpu:aarch64",
 +            "@platforms//os:linux",
 +            "@rules_graalvm//platform/jvm:java25",
 +        ],
 +    },
-+    "ce_25.0.4_linux-x64_25.0.4": {
-+        # GraalVM CE 25.2.4 (Java 25), Linux (amd64), Version 25.0.4
-+        "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-25.2.4/graalvm-community-jdk-25i2-25.0.4_linux-x64_bin.tar.gz",
-+        "sha256": "3f4a89de8eaa96f2ed677f09957c7e872cd8467aad3537f8b5394c1b8c4b942e",
-+        "prefix": "graalvm-community-25.2.4+7.1",
++    "ce_25.0.4.1_linux-x64_25.0.4.1": {
++        # GraalVM CE 25.3.4.1 (Java 25), Linux (amd64), Version 25.0.4.1
++        "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-25.3.4.1/graalvm-community-jdk-25i3-25.0.4.1_linux-x64_bin.tar.gz",
++        "sha256": "b2bc38d0c4141426eb44d0eefa3cc172c96faf92727d703b61541699128b6fc7",
++        "prefix": "graalvm-community-25.3.4.1+1.1",
 +        "compatible_with": [
 +            "@platforms//cpu:x86_64",
 +            "@platforms//os:linux",
 +            "@rules_graalvm//platform/jvm:java25",
 +        ],
 +    },
-+    "ce_25.0.4_macos-aarch64_25.0.4": {
-+        # GraalVM CE 25.2.4 (Java 25), macOS (arm64), Version 25.0.4
-+        "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-25.2.4/graalvm-community-jdk-25i2-25.0.4_macos-aarch64_bin.tar.gz",
-+        "sha256": "507330fff8907de51b8621c95a21a491fa9b0d8c240de184594f40f83add3bfa",
-+        "prefix": "graalvm-community-25.2.4+7.1",
++    "ce_25.0.4.1_macos-aarch64_25.0.4.1": {
++        # GraalVM CE 25.3.4.1 (Java 25), macOS (arm64), Version 25.0.4.1
++        "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-25.3.4.1/graalvm-community-jdk-25i3-25.0.4.1_macos-aarch64_bin.tar.gz",
++        "sha256": "ebfab1d74420f355a459076162012d6835fa6068bd9d2f230f1fcaf7ee0dd923",
++        "prefix": "graalvm-community-25.3.4.1+1.1",
 +        "compatible_with": [
 +            "@platforms//cpu:aarch64",
 +            "@platforms//os:macos",
 +            "@rules_graalvm//platform/jvm:java25",
 +        ],
 +    },
-+    "ce_25.0.4_windows-x64_25.0.4": {
-+        # GraalVM CE 25.2.4 (Java 25), Windows (amd64), Version 25.0.4
-+        "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-25.2.4/graalvm-community-jdk-25i2-25.0.4_windows-x64_bin.zip",
-+        "sha256": "789d2af1c06c3c24f402d2d4a711bdbb19b36f7d8c74afe6a959492fd121ef33",
-+        "prefix": "graalvm-community-25.2.4+7.1",
++    "ce_25.0.4.1_windows-x64_25.0.4.1": {
++        # GraalVM CE 25.3.4.1 (Java 25), Windows (amd64), Version 25.0.4.1
++        "url": "https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-25.3.4.1/graalvm-community-jdk-25i3-25.0.4.1_windows-x64_bin.zip",
++        "sha256": "770a0d78aba4c19bd40ee410ec82afbbee8e33fdd762e509006ac64e1007b4ce",
++        "prefix": "graalvm-community-25.3.4.1+1.1",
 +        "compatible_with": [
 +            "@platforms//cpu:x86_64",
 +            "@platforms//os:windows",
 +            "@rules_graalvm//platform/jvm:java25",
 +        ],
 +    },
-+    "oracle_25.0.4_linux-aarch64_25.0.4": {
-+        # Oracle GraalVM 25.2.4 (Java 25), Linux (arm64), Version 25.0.4
-+        "url": "https://gds.oracle.com/download/graal/25i2/archive/graalvm-jdk-25i2-25.0.4_linux-aarch64_bin.tar.gz",
-+        "sha256": "0bc65f9c36ae77bd83aad46a2b4de4b0ec97da1b4ac83fedb59e19f868873dee",
-+        "prefix": "graalvm-25.2.4+7.1",
++    "oracle_25.0.4.1_linux-aarch64_25.0.4.1": {
++        # Oracle GraalVM 25.3.4.1 (Java 25), Linux (arm64), Version 25.0.4.1
++        "url": "https://gds.oracle.com/download/graal/25i3/archive/graalvm-jdk-25i3-25.0.4.1_linux-aarch64_bin.tar.gz",
++        "sha256": "aa80a8aa63b0e2ca50946c7fddb77a7d1bf8488a8a3f0175275a3c0e8face20b",
++        "prefix": "graalvm-25.3.4.1+1.1",
 +        "compatible_with": [
 +            "@platforms//cpu:aarch64",
 +            "@platforms//os:linux",
 +            "@rules_graalvm//platform/jvm:java25",
 +        ],
 +    },
-+    "oracle_25.0.4_linux-x64_25.0.4": {
-+        # Oracle GraalVM 25.2.4 (Java 25), Linux (amd64), Version 25.0.4
-+        "url": "https://gds.oracle.com/download/graal/25i2/archive/graalvm-jdk-25i2-25.0.4_linux-x64_bin.tar.gz",
-+        "sha256": "7100d99cbfec68b03b669cc60c7e8592bbcda1732e8eaebc460fe0b75849a894",
-+        "prefix": "graalvm-25.2.4+7.1",
++    "oracle_25.0.4.1_linux-x64_25.0.4.1": {
++        # Oracle GraalVM 25.3.4.1 (Java 25), Linux (amd64), Version 25.0.4.1
++        "url": "https://gds.oracle.com/download/graal/25i3/archive/graalvm-jdk-25i3-25.0.4.1_linux-x64_bin.tar.gz",
++        "sha256": "814deac144a912035c4e824e05fa06a2e0c83821f0fb9d1084bc916e5eeef247",
++        "prefix": "graalvm-25.3.4.1+1.1",
 +        "compatible_with": [
 +            "@platforms//cpu:x86_64",
 +            "@platforms//os:linux",
 +            "@rules_graalvm//platform/jvm:java25",
 +        ],
 +    },
-+    "oracle_25.0.4_macos-aarch64_25.0.4": {
-+        # Oracle GraalVM 25.2.4 (Java 25), macOS (arm64), Version 25.0.4
-+        "url": "https://gds.oracle.com/download/graal/25i2/archive/graalvm-jdk-25i2-25.0.4_macos-aarch64_bin.tar.gz",
-+        "sha256": "1b5937aa3076707459cfc815a1699761f943d2d1c9cbe03388e36d5e47eb27c3",
-+        "prefix": "graalvm-25.2.4+7.1",
++    "oracle_25.0.4.1_macos-aarch64_25.0.4.1": {
++        # Oracle GraalVM 25.3.4.1 (Java 25), macOS (arm64), Version 25.0.4.1
++        "url": "https://gds.oracle.com/download/graal/25i3/archive/graalvm-jdk-25i3-25.0.4.1_macos-aarch64_bin.tar.gz",
++        "sha256": "8411c28344f47726c433a2fbf0fa399c199531802d458a917d4a05b106043141",
++        "prefix": "graalvm-25.3.4.1+1.1",
 +        "compatible_with": [
 +            "@platforms//cpu:aarch64",
 +            "@platforms//os:macos",
 +            "@rules_graalvm//platform/jvm:java25",
 +        ],
 +    },
-+    "oracle_25.0.4_windows-x64_25.0.4": {
-+        # Oracle GraalVM 25.2.4 (Java 25), Windows (amd64), Version 25.0.4
-+        "url": "https://gds.oracle.com/download/graal/25i2/archive/graalvm-jdk-25i2-25.0.4_windows-x64_bin.zip",
-+        "sha256": "2b41fffc94c4c7795bce0fdde8847ab1c894903cb20779aedb6ca8628aa9983a",
-+        "prefix": "graalvm-25.2.4+7.1",
++    "oracle_25.0.4.1_windows-x64_25.0.4.1": {
++        # Oracle GraalVM 25.3.4.1 (Java 25), Windows (amd64), Version 25.0.4.1
++        "url": "https://gds.oracle.com/download/graal/25i3/archive/graalvm-jdk-25i3-25.0.4.1_windows-x64_bin.zip",
++        "sha256": "5ad639be17b91a994eab49221698155513c26818df65f65a08139b2997f02c71",
++        "prefix": "graalvm-25.3.4.1+1.1",
 +        "compatible_with": [
 +            "@platforms//cpu:x86_64",
 +            "@platforms//os:windows",
