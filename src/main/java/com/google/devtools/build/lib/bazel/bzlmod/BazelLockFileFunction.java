@@ -34,7 +34,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.gson.JsonSyntaxException;
+import com.google.gson.JsonParseException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.regex.Matcher;
@@ -86,10 +86,7 @@ public class BazelLockFileFunction implements SkyFunction {
                 forHiddenLockfile ? "parse hidden lockfile" : "parse lockfile")) {
       return getLockfileValue(
           lockfilePath, forHiddenLockfile ? LockfileMode.UPDATE : LOCKFILE_MODE.get(env));
-    } catch (IOException
-        | JsonSyntaxException
-        | NullPointerException
-        | IllegalArgumentException e) {
+    } catch (IOException | JsonParseException | NullPointerException | IllegalArgumentException e) {
       if (forHiddenLockfile) {
         return BazelLockFileValue.EMPTY_LOCKFILE;
       }
