@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 @AutoCodec
 public record TopLevelArtifactContext(
     boolean runTestsExclusively,
-    boolean expandFilesets,
     ImmutableSortedSet<String> outputGroups,
     boolean failOnUnknownOutputGroups,
     boolean forRunCommand) {}

@@ -647,6 +647,133 @@ public class CombinedCacheTest {
 
   @Test
   public void
+      ensureInputsPresent_findMissingDigestsFailed_notifiesPendingContinuationsAndDoesNotHangSubsequentCalls()
+          throws Exception {
+    RemoteCacheClient cacheProtocol = spy(new InMemoryCacheClient());
+    RemoteExecutionCache remoteCache = newRemoteExecutionCache(cacheProtocol);
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
+
+    AtomicBoolean failFindMissingDigests = new AtomicBoolean(true);
+    doAnswer(
+            invocationOnMock -> {
+              if (failFindMissingDigests.get()) {
+                return Futures.immediateFailedFuture(new IOException("simulated network failure"));
+              }
+              return invocationOnMock.callRealMethod();
+            })
+        .when(cacheProtocol)
+        .findMissingDigests(any(), any());
+
+    Path path = execRoot.getRelative("foo");
+    FileSystemUtils.writeContentAsLatin1(path, "bar");
+    SortedMap<PathFragment, Path> inputs = new TreeMap<>();
+    inputs.put(PathFragment.create("foo"), path);
+    var merkleTree = merkleTreeComputer.buildForFiles(inputs);
+
+    // First call fails due to findMissingDigests network failure.
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () ->
+                remoteCache.ensureInputsPresent(
+                    remoteActionExecutionContext,
+                    merkleTree,
+                    ImmutableMap.of(),
+                    false,
+                    /* remotePathResolver= */ null));
+    assertThat(e).hasMessageThat().contains("simulated network failure");
+
+    // Allow subsequent findMissingDigests call to succeed.
+    failFindMissingDigests.set(false);
+
+    // Second call for the same digest must not hang waiting on leaked continuations from the
+    // failed first call.
+    remoteCache.ensureInputsPresent(
+        remoteActionExecutionContext,
+        merkleTree,
+        ImmutableMap.of(),
+        false,
+        /* remotePathResolver= */ null);
+
+    assertThat(cacheProtocol.getFinishedUploads()).isNotEmpty();
+  }
+
+  @Test
+  public void ensureInputsPresent_multipleConsumers_findMissingDigestsFailed_allConsumersNotified()
+      throws Exception {
+    RemoteCacheClient cacheProtocol = spy(new InMemoryCacheClient());
+    RemoteExecutionCache remoteCache = newRemoteExecutionCache(cacheProtocol);
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
+
+    SettableFuture<ImmutableSet<Digest>> findMissingDigestsFuture = SettableFuture.create();
+    CountDownLatch findMissingDigestsCalled = new CountDownLatch(1);
+    doAnswer(
+            invocationOnMock -> {
+              findMissingDigestsCalled.countDown();
+              return findMissingDigestsFuture;
+            })
+        .when(cacheProtocol)
+        .findMissingDigests(any(), any());
+
+    Path path = execRoot.getRelative("foo");
+    FileSystemUtils.writeContentAsLatin1(path, "bar");
+    SortedMap<PathFragment, Path> inputs = new TreeMap<>();
+    inputs.put(PathFragment.create("foo"), path);
+    var merkleTree = merkleTreeComputer.buildForFiles(inputs);
+
+    CountDownLatch done = new CountDownLatch(2);
+    AtomicReference<Throwable> error1 = new AtomicReference<>();
+    AtomicReference<Throwable> error2 = new AtomicReference<>();
+
+    Runnable work1 =
+        () -> {
+          try {
+            remoteCache.ensureInputsPresent(
+                remoteActionExecutionContext,
+                merkleTree,
+                ImmutableMap.of(),
+                false,
+                /* remotePathResolver= */ null);
+          } catch (Throwable t) {
+            error1.set(t);
+          } finally {
+            done.countDown();
+          }
+        };
+    Runnable work2 =
+        () -> {
+          try {
+            remoteCache.ensureInputsPresent(
+                remoteActionExecutionContext,
+                merkleTree,
+                ImmutableMap.of(),
+                false,
+                /* remotePathResolver= */ null);
+          } catch (Throwable t) {
+            error2.set(t);
+          } finally {
+            done.countDown();
+          }
+        };
+
+    new Thread(work1).start();
+    new Thread(work2).start();
+
+    findMissingDigestsCalled.await();
+
+    // Fail findMissingDigests
+    findMissingDigestsFuture.setException(new IOException("rpc failed"));
+
+    // Both threads must finish without hanging.
+    assertThat(done.await(5, TimeUnit.SECONDS)).isTrue();
+    assertThat(error1.get()).isInstanceOf(IOException.class);
+    assertThat(error1.get()).hasMessageThat().contains("rpc failed");
+    assertThat(error2.get()).isInstanceOf(IOException.class);
+    assertThat(error2.get()).hasMessageThat().contains("rpc failed");
+  }
+
+  @Test
+  public void
       ensureInputsPresent_multipleConsumers_interruptedOneDuringFindMissingBlobs_keepAndFinishInProgressUploadTasks()
           throws Exception {
     // arrange

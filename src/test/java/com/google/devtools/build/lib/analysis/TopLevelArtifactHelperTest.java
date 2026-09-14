@@ -66,7 +66,6 @@ public class TopLevelArtifactHelperTest {
     ctx =
         new TopLevelArtifactContext(
             false,
-            false,
             ImmutableSortedSet.copyOf(groupProvider),
             /* failOnUnknownOutputGroups= */ false,
             /* forRunCommand= */ false);

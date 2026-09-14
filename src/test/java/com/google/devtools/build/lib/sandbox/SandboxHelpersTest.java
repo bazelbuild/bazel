@@ -48,13 +48,17 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.Options;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CountDownLatch;
@@ -64,7 +68,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 import org.junit.After;
@@ -348,6 +355,39 @@ public class SandboxHelpersTest {
     assertThat(unexpectedFile.exists()).isFalse();
     assertThat(contents.dirMap().get("execroot").dirMap().get("api").fileMap())
         .containsEntry("__init__.py", null);
+  }
+
+  @Test
+  public void updateContentMap_preservesKnownSymlinksAndDeletesUnexpected() throws Exception {
+    ManualClock clock = new ManualClock();
+    Scratch scratch = new Scratch(new InMemoryFileSystem(clock, DigestHashFunction.SHA256));
+    Path workDir = scratch.dir("/execroot");
+    Path sourceFile = scratch.file("/source/input.txt", "content");
+    PathFragment knownInput = PathFragment.create("pkg/input.txt");
+    Path knownSymlink = workDir.getRelative(knownInput);
+    knownSymlink.getParentDirectory().createDirectoryAndParents();
+    knownSymlink.createSymbolicLink(sourceFile.asFragment());
+
+    Map<PathFragment, Path> files = new HashMap<>();
+    files.put(knownInput, sourceFile);
+    SandboxInputs inputs = new SandboxInputs(files, ImmutableMap.of(), ImmutableMap.of());
+    SandboxContents contents =
+        SandboxHelpers.createContentMap(workDir, inputs, SandboxOutputs.getEmptyInstance());
+    long timestamp = clock.currentTimeMillis();
+
+    clock.advanceMillis(1);
+    Path unexpectedSymlink = workDir.getRelative("pkg/unexpected");
+    unexpectedSymlink.createSymbolicLink(sourceFile.asFragment());
+    FileSystemUtils.appendIsoLatin1(sourceFile, "_modified");
+
+    SandboxHelpers.updateContentMap(workDir.getParentDirectory(), timestamp, contents);
+
+    assertThat(knownSymlink.isSymbolicLink()).isTrue();
+    assertThat(unexpectedSymlink.exists()).isFalse();
+    assertThat(contents.dirMap().get("execroot").dirMap().get("pkg").fileMap())
+        .containsEntry("input.txt", sourceFile.asFragment());
+    assertThat(contents.dirMap().get("execroot").dirMap().get("pkg").fileMap())
+        .doesNotContainKey("unexpected");
   }
 
   @Test
@@ -705,6 +745,539 @@ public class SandboxHelpersTest {
     deleter.shutdown();
 
     assertThat(trashBase.getDirectoryEntries()).isEmpty();
+  }
+
+  @Test
+  public void sandboxStash_threadPoolConfiguration() throws Exception {
+    int expectedPoolSize = Math.min(2, Math.max(1, Runtime.getRuntime().availableProcessors() / 8));
+    assertThat(SandboxStash.getPoolSizeForTesting()).isEqualTo(expectedPoolSize);
+
+    SandboxOptions options =
+        Options.parse(
+                SandboxOptions.class,
+                "--reuse_sandbox_directories",
+                "--experimental_inmemory_sandbox_stashes")
+            .getOptions();
+    Path sandboxBase = scratch.dir("/sandbox_stash_test");
+
+    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    try {
+      SandboxStash stash = SandboxStash.getInstanceForTesting();
+      assertThat(stash).isNotNull();
+      ExecutorService executor = stash.getStashFileListingPoolForTesting();
+      assertThat(executor).isInstanceOf(ThreadPoolExecutor.class);
+      ThreadPoolExecutor pool = (ThreadPoolExecutor) executor;
+      assertThat(pool.getMaximumPoolSize()).isEqualTo(expectedPoolSize);
+
+      AtomicReference<Thread> workerThread = new AtomicReference<>();
+      CountDownLatch threadCaptured = new CountDownLatch(1);
+      var _ =
+          pool.submit(
+              () -> {
+                workerThread.set(Thread.currentThread());
+                threadCaptured.countDown();
+              });
+      assertThat(threadCaptured.await(5, TimeUnit.SECONDS)).isTrue();
+      Thread thread = workerThread.get();
+      assertThat(thread.getName()).startsWith("stash-file-listing-thread-");
+      assertThat(thread.isDaemon()).isTrue();
+      assertThat(thread.getPriority()).isEqualTo(Thread.MIN_PRIORITY);
+    } finally {
+      SandboxStash.initialize(
+          "ws",
+          sandboxBase,
+          Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
+          null);
+    }
+  }
+
+  @Test
+  public void sandboxStash_reinitialization_shutsDownPriorPool() throws Exception {
+    SandboxOptions options =
+        Options.parse(
+                SandboxOptions.class,
+                "--reuse_sandbox_directories",
+                "--experimental_inmemory_sandbox_stashes")
+            .getOptions();
+    Path sandboxBase1 = scratch.dir("/sandbox_stash_reinit_1");
+    Path sandboxBase2 = scratch.dir("/sandbox_stash_reinit_2");
+
+    SandboxStash.initialize("ws1", sandboxBase1, options, new SynchronousTreeDeleter());
+    SandboxStash stash1 = SandboxStash.getInstanceForTesting();
+    assertThat(stash1).isNotNull();
+    ExecutorService pool1 = stash1.getStashFileListingPoolForTesting();
+    assertThat(pool1.isShutdown()).isFalse();
+
+    // Re-initialize with a different workspace name
+    SandboxStash.initialize("ws2", sandboxBase2, options, new SynchronousTreeDeleter());
+    SandboxStash stash2 = SandboxStash.getInstanceForTesting();
+    assertThat(stash2).isNotNull();
+    assertThat(stash2).isNotSameInstanceAs(stash1);
+    assertThat(pool1.isShutdown()).isTrue();
+
+    // Disable reuse
+    SandboxOptions optionsDisabled =
+        Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions();
+    SandboxStash.initialize("ws2", sandboxBase2, optionsDisabled, null);
+    assertThat(SandboxStash.getInstanceForTesting()).isNull();
+    assertThat(stash2.getStashFileListingPoolForTesting().isShutdown()).isTrue();
+  }
+
+  @Test
+  public void updateContentMap_detectsAndDeletesModifiedRegularFiles() throws Exception {
+    ManualClock clock = new ManualClock();
+    Scratch scratch = new Scratch(new InMemoryFileSystem(clock, DigestHashFunction.SHA256));
+    Path workDir = scratch.dir("/execroot");
+    Path unmodifiedFile = scratch.file("/execroot/api/unmodified.txt", "");
+    Path modifiedFile = scratch.file("/execroot/api/modified.txt", "");
+    PathFragment unmodifiedInput = PathFragment.create("api/unmodified.txt");
+    PathFragment modifiedInput = PathFragment.create("api/modified.txt");
+    Map<PathFragment, Path> files = new HashMap<>();
+    files.put(unmodifiedInput, null);
+    files.put(modifiedInput, null);
+    SandboxInputs inputs = new SandboxInputs(files, ImmutableMap.of(), ImmutableMap.of());
+    SandboxContents contents =
+        SandboxHelpers.createContentMap(workDir, inputs, SandboxOutputs.getEmptyInstance());
+    long timestamp = clock.currentTimeMillis();
+
+    clock.advanceMillis(1);
+    Path unexpectedFile = scratch.file("/execroot/api/unexpected.txt", "unexpected");
+    FileSystemUtils.appendIsoLatin1(modifiedFile, "modified");
+
+    SandboxHelpers.updateContentMap(workDir.getParentDirectory(), timestamp, contents);
+
+    assertThat(unmodifiedFile.exists()).isTrue();
+    assertThat(modifiedFile.exists()).isFalse();
+    assertThat(unexpectedFile.exists()).isFalse();
+    assertThat(contents.dirMap().get("execroot").dirMap().get("api").fileMap())
+        .containsEntry("unmodified.txt", null);
+    assertThat(contents.dirMap().get("execroot").dirMap().get("api").fileMap())
+        .doesNotContainKey("modified.txt");
+    assertThat(contents.dirMap().get("execroot").dirMap().get("api").fileMap())
+        .doesNotContainKey("unexpected.txt");
+  }
+
+  @Test
+  public void sandboxStash_reusedStashesDoNotTriggerDeleteTreeOnExecroot() throws Exception {
+    AtomicInteger execrootDeleteCount = new AtomicInteger(0);
+    InMemoryFileSystem trackingFs =
+        new InMemoryFileSystem(DigestHashFunction.SHA256) {
+          @Override
+          public void deleteTree(PathFragment path) throws IOException {
+            if (path.getBaseName().equals("execroot")) {
+              execrootDeleteCount.incrementAndGet();
+            }
+            super.deleteTree(path);
+          }
+        };
+    Scratch trackingScratch = new Scratch(trackingFs);
+    Path sandboxBase = trackingScratch.dir("/sandbox_stash_reuse");
+    Path sandbox1 = trackingScratch.dir("/sandbox_stash_reuse/1");
+    Path execroot1 = sandbox1.getChild("execroot");
+    execroot1.createDirectoryAndParents();
+    Path file1 = trackingScratch.file("/sandbox_stash_reuse/1/execroot/file.txt", "content");
+
+    SandboxOptions options =
+        Options.parse(
+                SandboxOptions.class,
+                "--reuse_sandbox_directories",
+                "--experimental_inmemory_sandbox_stashes")
+            .getOptions();
+    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    try {
+      SandboxStash stash = SandboxStash.getInstanceForTesting();
+      assertThat(stash).isNotNull();
+
+      SandboxContents contents = new SandboxContents();
+      contents.fileMap().put("file.txt", null);
+      SandboxStash.setPathContents(sandbox1, contents);
+      SandboxStash.setLastModified(sandbox1, file1.stat().getLastChangeTime());
+
+      SandboxStash.stashSandbox(
+          sandbox1,
+          "Mnemonic",
+          ImmutableMap.of(),
+          SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+          new SynchronousTreeDeleter(),
+          null);
+
+      while (!stash.getReadyStashesForTesting().containsKey("Mnemonic")
+          || stash.getReadyStashesForTesting().get("Mnemonic").isEmpty()) {
+        Thread.sleep(10);
+      }
+
+      // Reset count after stashing setup
+      execrootDeleteCount.set(0);
+
+      // Prepare second sandbox: with deferred creation, sandbox2/execroot does not exist yet.
+      Path sandbox2 = trackingScratch.dir("/sandbox_stash_reuse/2");
+      Path sandboxExecroot2 = sandbox2.getChild("execroot");
+      assertThat(sandboxExecroot2.exists()).isFalse();
+
+      Optional<SandboxContents> taken =
+          SandboxStash.takeStashedSandbox(
+              sandbox2,
+              "Mnemonic",
+              ImmutableMap.of(),
+              SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+              null);
+
+      assertThat(taken).isNotNull();
+      assertThat(taken).isPresent();
+      assertThat(sandboxExecroot2.exists()).isTrue();
+      assertThat(sandboxExecroot2.getChild("file.txt").exists()).isTrue();
+
+      // Verify that deleteTree was never called on execroot during reuse
+      assertThat(execrootDeleteCount.get()).isEqualTo(0);
+    } finally {
+      SandboxStash.initialize(
+          "ws",
+          sandboxBase,
+          Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
+          null);
+    }
+  }
+
+  @Test
+  public void sandboxStash_stashesOnlyAcquiredAfterBackgroundUpdatesComplete() throws Exception {
+    SandboxOptions options =
+        Options.parse(
+                SandboxOptions.class,
+                "--reuse_sandbox_directories",
+                "--experimental_inmemory_sandbox_stashes")
+            .getOptions();
+    Path sandboxBase = scratch.dir("/sandbox_stash_in_progress");
+    Path sandbox1 = scratch.dir("/sandbox_stash_in_progress/1");
+    Path execroot1 = sandbox1.getChild("execroot");
+    execroot1.createDirectoryAndParents();
+    Path file1 = scratch.file("/sandbox_stash_in_progress/1/execroot/file.txt", "content");
+
+    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    try {
+      SandboxStash stash = SandboxStash.getInstanceForTesting();
+      assertThat(stash).isNotNull();
+      ExecutorService pool = stash.getStashFileListingPoolForTesting();
+
+      // Block all worker threads in the pool so the stash background scan cannot start
+      int poolSize = SandboxStash.getPoolSizeForTesting();
+      CountDownLatch workersBlocked = new CountDownLatch(poolSize);
+      CountDownLatch unblockWorkers = new CountDownLatch(1);
+      for (int i = 0; i < poolSize; i++) {
+        var _ =
+            pool.submit(
+                () -> {
+                  workersBlocked.countDown();
+                  try {
+                    unblockWorkers.await();
+                  } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                  }
+                });
+      }
+      assertThat(workersBlocked.await(5, TimeUnit.SECONDS)).isTrue();
+
+      SandboxContents contents = new SandboxContents();
+      contents.fileMap().put("file.txt", null);
+      SandboxStash.setPathContents(sandbox1, contents);
+      SandboxStash.setLastModified(sandbox1, file1.stat().getLastChangeTime());
+
+      SandboxStash.stashSandbox(
+          sandbox1,
+          "Mnemonic",
+          ImmutableMap.of(),
+          SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+          new SynchronousTreeDeleter(),
+          null);
+
+      // Verify that tmp_sandbox_stash was never created (1-step direct rename)
+      Path tmpStashDir = sandboxBase.getChild(SandboxStash.TEMPORARY_SANDBOX_STASH_BASE);
+      assertThat(tmpStashDir.exists()).isFalse();
+
+      // The stash directory exists on disk, but is NOT yet in readyStashes
+      assertThat(
+              stash.getReadyStashesForTesting().get("Mnemonic") == null
+                  || stash.getReadyStashesForTesting().get("Mnemonic").isEmpty())
+          .isTrue();
+
+      Path sandbox2 = scratch.dir("/sandbox_stash_in_progress/2");
+
+      // Attempting to take the stashed sandbox while background update is incomplete returns null
+      Optional<SandboxContents> notTaken =
+          SandboxStash.takeStashedSandbox(
+              sandbox2,
+              "Mnemonic",
+              ImmutableMap.of(),
+              SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+              null);
+      assertThat(notTaken).isNull();
+
+      // Now unblock the workers and allow the background update to complete
+      unblockWorkers.countDown();
+      while (!stash.getReadyStashesForTesting().containsKey("Mnemonic")
+          || stash.getReadyStashesForTesting().get("Mnemonic").isEmpty()) {
+        Thread.sleep(10);
+      }
+
+      // After background scanning completes, the stash can now be taken
+      Optional<SandboxContents> taken =
+          SandboxStash.takeStashedSandbox(
+              sandbox2,
+              "Mnemonic",
+              ImmutableMap.of(),
+              SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+              null);
+      assertThat(taken).isNotNull();
+      assertThat(taken).isPresent();
+      assertThat(taken.get().fileMap()).containsKey("file.txt");
+      assertThat(sandbox2.getChild("execroot").getChild("file.txt").exists()).isTrue();
+    } finally {
+      SandboxStash.initialize(
+          "ws",
+          sandboxBase,
+          Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
+          null);
+    }
+  }
+
+  @Test
+  public void sandboxStash_concurrentWorkerThreadsClaimingStashesDoNotRaceOrDoubleClaim()
+      throws Exception {
+    SandboxOptions options =
+        Options.parse(
+                SandboxOptions.class,
+                "--reuse_sandbox_directories",
+                "--experimental_inmemory_sandbox_stashes")
+            .getOptions();
+    Path sandboxBase = scratch.dir("/sandbox_stash_concurrent");
+    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    try {
+      SandboxStash stash = SandboxStash.getInstanceForTesting();
+      assertThat(stash).isNotNull();
+
+      int numStashes = 3;
+      for (int i = 0; i < numStashes; i++) {
+        Path sandbox = scratch.dir("/sandbox_stash_concurrent/source_" + i);
+        Path execroot = sandbox.getChild("execroot");
+        execroot.createDirectoryAndParents();
+        Path file =
+            scratch.file(
+                execroot.getChild("file_" + i + ".txt").asFragment().getPathString(),
+                "content_" + i);
+        SandboxContents contents = new SandboxContents();
+        contents.fileMap().put("file_" + i + ".txt", null);
+        SandboxStash.setPathContents(sandbox, contents);
+        SandboxStash.setLastModified(sandbox, file.stat().getLastChangeTime());
+
+        SandboxStash.stashSandbox(
+            sandbox,
+            "Mnemonic",
+            ImmutableMap.of(),
+            SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+            new SynchronousTreeDeleter(),
+            null);
+      }
+
+      // Wait for all background updates to complete
+      while (!stash.getReadyStashesForTesting().containsKey("Mnemonic")
+          || stash.getReadyStashesForTesting().get("Mnemonic").size() < numStashes) {
+        Thread.sleep(10);
+      }
+
+      // Launch 10 concurrent threads to claim stashes
+      int numThreads = 10;
+      ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+      CyclicBarrier startBarrier = new CyclicBarrier(numThreads);
+      CountDownLatch doneLatch = new CountDownLatch(numThreads);
+      AtomicInteger successfulClaims = new AtomicInteger(0);
+      AtomicInteger errors = new AtomicInteger(0);
+      List<Optional<SandboxContents>> claimResults = new ArrayList<>();
+
+      for (int i = 0; i < numThreads; i++) {
+        final int threadId = i;
+        var unused =
+            executor.submit(
+                () -> {
+                  try {
+                    Path sandbox = scratch.dir("/sandbox_stash_concurrent/dest_" + threadId);
+                    startBarrier.await();
+                    Optional<SandboxContents> result =
+                        SandboxStash.takeStashedSandbox(
+                            sandbox,
+                            "Mnemonic",
+                            ImmutableMap.of(),
+                            SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+                            null);
+                    if (result != null) {
+                      successfulClaims.incrementAndGet();
+                      synchronized (claimResults) {
+                        claimResults.add(result);
+                      }
+                    }
+                  } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    errors.incrementAndGet();
+                  } catch (Exception e) {
+                    errors.incrementAndGet();
+                  } finally {
+                    doneLatch.countDown();
+                  }
+                });
+      }
+
+      assertThat(doneLatch.await(5, TimeUnit.SECONDS)).isTrue();
+      executor.shutdown();
+      assertThat(errors.get()).isEqualTo(0);
+
+      // Exactly numStashes threads must have successfully claimed stashes without racing or
+      // double-claiming
+      assertThat(successfulClaims.get()).isEqualTo(numStashes);
+      synchronized (claimResults) {
+        assertThat(claimResults).hasSize(numStashes);
+      }
+      // Ready stashes must now be completely empty
+      assertThat(stash.getReadyStashesForTesting().get("Mnemonic")).isEmpty();
+    } finally {
+      SandboxStash.initialize(
+          "ws",
+          sandboxBase,
+          Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
+          null);
+    }
+  }
+
+  @Test
+  public void sandboxStash_directoryCachingAvoidsRepeatedSyscalls() throws Exception {
+    SandboxOptions options =
+        Options.parse(
+                SandboxOptions.class,
+                "--reuse_sandbox_directories",
+                "--experimental_inmemory_sandbox_stashes")
+            .getOptions();
+    Path sandboxBase = scratch.dir("/sandbox_stash_cache");
+    Path sandbox = scratch.dir("/sandbox_stash_cache/1");
+    Path execroot = sandbox.getChild("execroot");
+    execroot.createDirectoryAndParents();
+    Path file = scratch.file("/sandbox_stash_cache/1/execroot/file.txt", "content");
+
+    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    try {
+      SandboxStash stash = SandboxStash.getInstanceForTesting();
+      assertThat(stash).isNotNull();
+
+      SandboxContents contents = new SandboxContents();
+      contents.fileMap().put("file.txt", null);
+      SandboxStash.setPathContents(sandbox, contents);
+      SandboxStash.setLastModified(sandbox, file.stat().getLastChangeTime());
+
+      SandboxStash.stashSandbox(
+          sandbox,
+          "Mnemonic",
+          ImmutableMap.of(),
+          SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+          new SynchronousTreeDeleter(),
+          null);
+
+      // Verify that the mnemonic stash directory was cached in memory
+      assertThat(stash.getMnemonicStashDirsForTesting()).containsKey("Mnemonic");
+      Path cached = stash.getMnemonicStashDirsForTesting().get("Mnemonic");
+      assertThat(cached).isNotNull();
+      assertThat(cached.exists()).isTrue();
+      assertThat(cached.getBaseName()).isEqualTo("Mnemonic");
+    } finally {
+      SandboxStash.initialize(
+          "ws",
+          sandboxBase,
+          Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
+          null);
+    }
+  }
+
+  @Test
+  public void sandboxStash_concurrentAccessWaitsForInitialStashClearing() throws Exception {
+    SandboxOptions options =
+        Options.parse(
+                SandboxOptions.class,
+                "--reuse_sandbox_directories",
+                "--experimental_inmemory_sandbox_stashes")
+            .getOptions();
+    Path sandboxBase = scratch.dir("/sandbox_stash_clear_race");
+    Path stashBase = sandboxBase.getChild(SandboxStash.SANDBOX_STASH_BASE);
+    stashBase.createDirectoryAndParents();
+
+    // Populate old stash entries before initialization
+    for (int i = 0; i < 5; i++) {
+      Path oldEntry = stashBase.getChild("old_mnemonic_" + i);
+      oldEntry.createDirectoryAndParents();
+      scratch.file(oldEntry.getChild("old_file.txt").asFragment().getPathString(), "old");
+    }
+
+    SandboxStash.initialize("ws", sandboxBase, options, new SynchronousTreeDeleter());
+    try {
+      int numThreads = 8;
+      ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+      CyclicBarrier startBarrier = new CyclicBarrier(numThreads);
+      CountDownLatch doneLatch = new CountDownLatch(numThreads);
+      AtomicInteger errors = new AtomicInteger(0);
+
+      for (int i = 0; i < numThreads; i++) {
+        final int threadId = i;
+        var unused =
+            executor.submit(
+                () -> {
+                  try {
+                    startBarrier.await();
+                    Path sandbox = scratch.dir("/sandbox_stash_clear_race/thread_" + threadId);
+                    Path execroot = sandbox.getChild("execroot");
+                    execroot.createDirectoryAndParents();
+                    Path file =
+                        scratch.file(
+                            execroot.getChild("file.txt").asFragment().getPathString(), "data");
+
+                    SandboxContents contents = new SandboxContents();
+                    contents.fileMap().put("file.txt", null);
+                    SandboxStash.setPathContents(sandbox, contents);
+                    SandboxStash.setLastModified(sandbox, file.stat().getLastChangeTime());
+
+                    SandboxStash.stashSandbox(
+                        sandbox,
+                        "Mnemonic_" + threadId,
+                        ImmutableMap.of(),
+                        SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+                        new SynchronousTreeDeleter(),
+                        null);
+                  } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    errors.incrementAndGet();
+                  } catch (Exception e) {
+                    errors.incrementAndGet();
+                  } finally {
+                    doneLatch.countDown();
+                  }
+                });
+      }
+
+      assertThat(doneLatch.await(5, TimeUnit.SECONDS)).isTrue();
+      executor.shutdown();
+      assertThat(errors.get()).isEqualTo(0);
+
+      // Verify all old entries were removed
+      for (int i = 0; i < 5; i++) {
+        assertThat(stashBase.getChild("old_mnemonic_" + i).exists()).isFalse();
+      }
+
+      // Verify all new mnemonic stash directories were created without being deleted by the
+      // clearing loop
+      for (int i = 0; i < numThreads; i++) {
+        Path mnemonicDir = stashBase.getChild("Mnemonic_" + i);
+        assertThat(mnemonicDir.exists()).isTrue();
+      }
+    } finally {
+      SandboxStash.initialize(
+          "ws",
+          sandboxBase,
+          Options.parse(SandboxOptions.class, "--noreuse_sandbox_directories").getOptions(),
+          null);
+    }
   }
 }
 

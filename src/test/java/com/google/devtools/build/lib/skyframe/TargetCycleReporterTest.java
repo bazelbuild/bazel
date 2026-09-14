@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.skyframe.CycleInfo;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -146,5 +147,108 @@ public final class TargetCycleReporterTest extends BuildViewTestCase {
         |   file: goo
         `-- files: foo, bar\
         """);
+  }
+
+  @Test
+  public void intermediateSkyKeysOnPathToCycleSkipped() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        """
+        genrule(
+            name = "foo",
+            srcs = [],
+            outs = ["foo.o"],
+            cmd = "echo foo > $@",
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [],
+            outs = ["bar.o"],
+            cmd = "echo bar > $@",
+        )
+
+        genrule(
+            name = "goo",
+            srcs = [],
+            outs = ["goo.o"],
+            cmd = "echo goo > $@",
+        )
+        """);
+
+    TargetCycleReporter cycleReporter = new TargetCycleReporter(getPackageManager());
+    ConfiguredTargetKey ctKeyFoo =
+        ConfiguredTargetKey.builder()
+            .setLabel(Label.parseCanonicalUnchecked("//foo:foo"))
+            .setConfiguration(targetConfig)
+            .build();
+    ConfiguredTargetKey ctKeyBar =
+        ConfiguredTargetKey.builder()
+            .setLabel(Label.parseCanonicalUnchecked("//foo:bar"))
+            .setConfiguration(targetConfig)
+            .build();
+    ConfiguredTargetKey ctKeyGoo =
+        ConfiguredTargetKey.builder()
+            .setLabel(Label.parseCanonicalUnchecked("//foo:goo"))
+            .setConfiguration(targetConfig)
+            .build();
+
+    SkyKey intermediateKey = () -> SkyFunctionName.createHermetic("INTERMEDIATE_NON_TARGET_KEY");
+    CycleInfo cycle =
+        CycleInfo.createCycleInfo(
+            ImmutableList.of(ctKeyFoo, intermediateKey), ImmutableList.of(ctKeyBar, ctKeyGoo));
+
+    reporter.removeHandler(failFastHandler);
+    assertThat(cycleReporter.maybeReportCycle(ctKeyFoo, cycle, false, reporter)).isTrue();
+    assertContainsEvent("in genrule rule //foo:bar: cycle in dependency graph:");
+    assertContainsEvent("//foo:foo (");
+    assertContainsEvent(".-> //foo:bar (");
+    assertContainsEvent("|   //foo:goo (");
+    assertContainsEvent("`-- //foo:bar (");
+  }
+
+  @Test
+  public void selfEdgeCycleWithIntermediateSkyKeysOnPath() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        """
+        genrule(
+            name = "foo",
+            srcs = [],
+            outs = ["foo.o"],
+            cmd = "echo foo > $@",
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [],
+            outs = ["bar.o"],
+            cmd = "echo bar > $@",
+        )
+        """);
+
+    TargetCycleReporter cycleReporter = new TargetCycleReporter(getPackageManager());
+    ConfiguredTargetKey ctKeyFoo =
+        ConfiguredTargetKey.builder()
+            .setLabel(Label.parseCanonicalUnchecked("//foo:foo"))
+            .setConfiguration(targetConfig)
+            .build();
+    ConfiguredTargetKey ctKeyBar =
+        ConfiguredTargetKey.builder()
+            .setLabel(Label.parseCanonicalUnchecked("//foo:bar"))
+            .setConfiguration(targetConfig)
+            .build();
+
+    SkyKey intermediateKey = () -> SkyFunctionName.createHermetic("TOOLCHAIN_RESOLUTION");
+    CycleInfo cycle =
+        CycleInfo.createCycleInfo(
+            ImmutableList.of(ctKeyFoo, intermediateKey), ImmutableList.of(ctKeyBar));
+
+    reporter.removeHandler(failFastHandler);
+    assertThat(cycleReporter.maybeReportCycle(ctKeyFoo, cycle, false, reporter)).isTrue();
+    assertContainsEvent("in genrule rule //foo:bar: cycle in dependency graph:");
+    assertContainsEvent("//foo:foo (");
+    assertContainsEvent(".-> //foo:bar (");
+    assertContainsEvent("[self-edge]");
   }
 }

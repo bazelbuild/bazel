@@ -83,6 +83,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
 
   private final XattrProvider xattrProvider;
   private final RemoteBuildEventUploadMode remoteBuildEventUploadMode;
+  private final int maximumOpenFiles;
 
   ByteStreamBuildEventArtifactUploader(
       Executor executor,
@@ -94,7 +95,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       String buildRequestId,
       String commandId,
       XattrProvider xattrProvider,
-      RemoteBuildEventUploadMode remoteBuildEventUploadMode) {
+      RemoteBuildEventUploadMode remoteBuildEventUploadMode,
+      int maximumOpenFiles) {
     this.executor = executor;
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
@@ -106,6 +108,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     this.scheduler = Schedulers.from(executor);
     this.xattrProvider = xattrProvider;
     this.remoteBuildEventUploadMode = remoteBuildEventUploadMode;
+    this.maximumOpenFiles = maximumOpenFiles;
   }
 
   /** Returns {@code true} if Bazel knows that the file is stored on a remote system. */
@@ -370,6 +373,9 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
 
   private Single<List<PathMetadata>> uploadLocalFiles(
       CombinedCache combinedCache, RemoteActionExecutionContext context, List<PathMetadata> paths) {
+    // Limits the concurrency of in-flight file uploads per batch to prevent opening too many
+    // files simultaneously (governed by --bep_maximum_open_remote_upload_files).
+    int maxConcurrency = maximumOpenFiles > 0 ? maximumOpenFiles : Integer.MAX_VALUE;
     return Flowable.fromIterable(paths)
         .flatMapSingle(
             path -> {
@@ -398,7 +404,9 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                         reportUploadError(error, path.getPath(), path.getDigest());
                         return Single.just(path);
                       });
-            })
+            },
+            /* delayErrors= */ false,
+            maxConcurrency)
         .collect(Collectors.toList());
   }
 

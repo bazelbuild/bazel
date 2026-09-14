@@ -1632,7 +1632,6 @@ public class BuildViewTest extends BuildViewTestBase {
     TopLevelArtifactContext context =
         new TopLevelArtifactContext(
             false,
-            false,
             OutputGroupInfo.determineOutputGroups(
                 outputGroups, OutputGroupInfo.ValidationMode.OFF, /* shouldRunTests= */ false),
             failOnUnknownOutputGroups,

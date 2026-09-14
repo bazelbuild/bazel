@@ -67,6 +67,34 @@ class ProguardConfigValidatorTest(unittest.TestCase):
 -optimizations !class/merging/*,!code/allocation/variable
 -dontnote""")
 
+  def _TestValidConfig(self, config):
+    tmpdir = os.environ["TEST_TMPDIR"]
+    input_path = os.path.join(tmpdir, "proguard_allowlister_test_input.pgcfg")
+    with open(input_path, "w", encoding="utf-8") as f:
+      f.write(config)
+    output_path = os.path.join(tmpdir, "proguard_allowlister_test_output.pgcfg")
+    validator = self._CreateValidator(input_path, output_path)
+    validator.ValidateAndWriteOutput()
+    with open(output_path, encoding="utf-8") as output:
+      self.assertIn("# Merged from %s" % input_path, output.read())
+
+  def testValidConfigWithLeadingWhitespace(self):
+    self._TestValidConfig("""\
+ # Leading space before comment
+ -if @com.example.Serializable class **
+ -keep, allowshrinking class <1>
+  -keepclassmembers class * {
+    static int x;
+  }
+\t-dontwarn com.example.**""")
+
+  def testInvalidConfigWithLeadingWhitespace(self):
+    self._TestInvalidConfig(
+        ["-dontnote"],
+        """\
+  -dontnote""",
+    )
+
 
 if __name__ == "__main__":
   unittest.main()

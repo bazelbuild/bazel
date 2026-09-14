@@ -255,7 +255,6 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     TopLevelArtifactContext context =
         new TopLevelArtifactContext(
             false,
-            false,
             OutputGroupInfo.DEFAULT_GROUPS,
             /* failOnUnknownOutputGroups= */ false,
             /* forRunCommand= */ false);
@@ -268,7 +267,6 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     ActionInputMap inputMap = new ActionInputMap(0);
     metadata.forEach(inputMap::put);
     treeMetadata.forEach(inputMap::putTreeArtifact);
-    return new CompletionContext(
-        ArtifactPathResolver.IDENTITY, inputMap, /* expandFilesets= */ false);
+    return new CompletionContext(ArtifactPathResolver.IDENTITY, inputMap);
   }
 }

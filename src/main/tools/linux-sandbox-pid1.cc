@@ -41,6 +41,7 @@
 #include <unistd.h>
 
 #include <ctime>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -72,6 +73,37 @@
 static int global_child_pid;
 
 // Helper methods
+
+// Returns the interpreter specified in the file's shebang ('#!') line, if
+// present. Returns std::nullopt if the file does not start with '#!' or has no
+// non-empty interpreter.
+static std::optional<std::string> GetInterpreter(const std::string& path) {
+  int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
+  if (fd < 0) {
+    return std::nullopt;
+  }
+  char buf[1024];
+  ssize_t n = read(fd, buf, sizeof(buf));
+  close(fd);
+
+  if (n <= 2 || buf[0] != '#' || buf[1] != '!') {
+    return std::nullopt;
+  }
+
+  std::string header(buf + 2, n - 2);
+  size_t start = header.find_first_not_of(" \t");
+  if (start == std::string::npos) {
+    return std::nullopt;
+  }
+  size_t end = header.find_first_of(" \t\r\n", start);
+  std::string interpreter = header.substr(
+      start, end == std::string::npos ? std::string::npos : end - start);
+  if (interpreter.empty()) {
+    return std::nullopt;
+  }
+  return interpreter;
+}
+
 static void CreateFile(const char* path) {
   int handle = open(path, O_CREAT | O_WRONLY | O_TRUNC | O_NOFOLLOW, 0666);
   if (handle < 0) {
@@ -651,6 +683,41 @@ static void SpawnChild() {
     opt.args.push_back(nullptr);
 
     if (execvp(opt.args[0], opt.args.data()) < 0) {
+      const int orig_errno = errno;
+      // If opt.args[0] does not contain a '/', execvp searches PATH. Calling
+      // stat/access on opt.args[0] in that case would incorrectly check the
+      // current working directory rather than the PATH entries.
+      if ((orig_errno == ENOENT || orig_errno == ENOTDIR) &&
+          strchr(opt.args[0], '/') != nullptr) {
+        struct stat st;
+        // Only inspect regular files to avoid blocking on FIFOs or reading
+        // directories.
+        if (stat(opt.args[0], &st) == 0 && S_ISREG(st.st_mode)) {
+          std::optional<std::string> interpreter = GetInterpreter(opt.args[0]);
+          if (interpreter.has_value()) {
+            // If the interpreter exists on disk, its dynamic loader or
+            // library is missing.
+            if (!interpreter->empty() && (*interpreter)[0] == '/' &&
+                access(interpreter->c_str(), F_OK) == 0) {
+              errno = orig_errno;
+              DIE("execvp(%s, %p): file exists and interpreter '%s' exists, "
+                  "but its loader or dependencies do not exist in sandbox",
+                  opt.args[0], opt.args.data(), interpreter->c_str());
+            }
+            errno = orig_errno;
+            DIE("execvp(%s, %p): file exists, but interpreter '%s' does not "
+                "exist in sandbox",
+                opt.args[0], opt.args.data(), interpreter->c_str());
+          }
+          // The file is either a dynamic ELF binary or a script with an empty
+          // shebang.
+          errno = orig_errno;
+          DIE("execvp(%s, %p): file exists, but its loader or interpreter does "
+              "not exist in sandbox",
+              opt.args[0], opt.args.data());
+        }
+      }
+      errno = orig_errno;
       DIE("execvp(%s, %p)", opt.args[0], opt.args.data());
     }
   } else {

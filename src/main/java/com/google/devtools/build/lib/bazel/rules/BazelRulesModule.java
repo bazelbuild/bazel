@@ -638,6 +638,16 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
         help = "Deprecated no-op.")
     public abstract boolean getDisableNoCopts();
+
+    @Deprecated
+    @Option(
+        name = "experimental_cc_implementation_deps",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.DEPRECATED},
+        help = "Deprecated no-op.")
+    public abstract boolean getExperimentalCcImplementationDeps();
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */

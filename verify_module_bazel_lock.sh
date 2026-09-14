@@ -31,6 +31,13 @@ function die() {
   exit 1
 }
 
+# In downstream pipelines, Bazel is built at HEAD and MODULE.bazel.lock is updated
+# for Bazel@HEAD, which will not match the Bazel version in .bazelversion.
+if [[ -n "${UPDATE_BAZEL_LOCK_FILE:-}" || "${BUILDKITE_PIPELINE_SLUG:-}" == "bazel-at-head-plus-downstream" ]]; then
+  echo "Skipping MODULE.bazel.lock verification in downstream pipeline."
+  exit 0
+fi
+
 # Verifies that Bazel's own MODULE.bazel.lock is up-to-date, i.e., that running
 # `bazel mod deps --lockfile_mode=update` in the workspace would not modify it.
 #

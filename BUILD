@@ -112,6 +112,10 @@ sh_test(
         "//third_party:patches",
         "//third_party:remoteapis/MODULE.bazel",
     ],
+    env_inherit = [
+        "BUILDKITE_PIPELINE_SLUG",
+        "UPDATE_BAZEL_LOCK_FILE",
+    ],
     tags = ["requires-network"],
     visibility = ["//visibility:private"],
     deps = ["@bazel_tools//tools/bash/runfiles"],

@@ -51,7 +51,6 @@ import io.netty.channel.kqueue.KQueue;
 import io.netty.channel.kqueue.KQueueDomainSocketChannel;
 import io.netty.channel.kqueue.KQueueEventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.pool.ChannelPool;
 import io.netty.channel.pool.ChannelPoolHandler;
 import io.netty.channel.pool.FixedChannelPool;
 import io.netty.channel.pool.SimpleChannelPool;
@@ -133,7 +132,7 @@ public final class HttpCacheClient extends RemoteCacheClient {
       Pattern.compile("\\s*error\\s*=\\s*\"?invalid_token\"?");
 
   private final EventLoopGroup eventLoop;
-  private final ChannelPool channelPool;
+  private final SimpleChannelPool channelPool;
   private final URI uri;
   private final int timeoutSeconds;
   private final ImmutableList<Entry<String, String>> extraHttpHeaders;
@@ -775,20 +774,18 @@ public final class HttpCacheClient extends RemoteCacheClient {
       // Clear interrupted status to prevent failure to close, indicated with #14787
       boolean wasInterrupted = Thread.interrupted();
       try {
-        channelPool.close();
-      } catch (RuntimeException e) {
-        if (e.getCause() instanceof InterruptedException) {
-          Thread.currentThread().interrupt();
-        } else {
-          throw e;
-        }
+        channelPool.closeAsync().await(5, TimeUnit.SECONDS);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
       } finally {
-        if (wasInterrupted) {
-          Thread.currentThread().interrupt();
+        try {
+          eventLoop.shutdownGracefully(0, 5, TimeUnit.SECONDS);
+        } finally {
+          if (wasInterrupted) {
+            Thread.currentThread().interrupt();
+          }
         }
       }
-
-      eventLoop.shutdownGracefully();
     }
   }
 

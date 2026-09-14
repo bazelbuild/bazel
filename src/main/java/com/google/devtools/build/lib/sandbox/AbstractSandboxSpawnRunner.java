@@ -18,7 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourcePriority;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -67,6 +69,15 @@ import java.util.stream.Stream;
 /** Abstract common ancestor for sandbox spawn runners implementing the common parts. */
 abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   private static final int LOCAL_EXEC_ERROR = -1;
+
+  private record SubprocessResult(
+      int exitCode,
+      Status status,
+      Duration wallTime,
+      Instant startTime,
+      String failureMessage,
+      FailureDetail failureDetail,
+      Path statisticsPath) {}
 
   private final SandboxOptions sandboxOptions;
   private final boolean verboseFailures;
@@ -98,11 +109,17 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     context.report(SpawnSchedulingEvent.create(getName()));
 
+    Stopwatch totalTimeStopwatch = Stopwatch.createStarted();
+    SpawnMetrics.Builder spawnMetrics = SpawnMetrics.Builder.forLocalExec();
+
     try {
+      Stopwatch prefetchStopwatch = Stopwatch.createStarted();
       try (SilentCloseable c = Profiler.instance().profile("context.prefetchInputs")) {
         context.prefetchInputsAndWait();
       }
+      spawnMetrics.addSetupTime(prefetchStopwatch.elapsed());
 
+      Stopwatch queueStopwatch = Stopwatch.createStarted();
       try (ResourceHandle ignored =
           resourceManager.acquireResources(
               owner,
@@ -110,9 +127,17 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
               context.speculating()
                   ? ResourcePriority.DYNAMIC_STANDALONE
                   : ResourcePriority.LOCAL)) {
+        spawnMetrics.setQueueTime(queueStopwatch.elapsed());
         context.report(SpawnExecutingEvent.create(getName()));
-        SandboxedSpawn sandbox = prepareSpawn(spawn, context);
-        return runSpawn(spawn, sandbox, context);
+
+        Stopwatch setupTimeStopwatch = Stopwatch.createStarted();
+        SandboxedSpawn sandbox;
+        try (SilentCloseable c =
+            Profiler.instance().profile(ProfilerTask.SANDBOX_SETUP, "sandbox.prepareSpawn")) {
+          sandbox = prepareSpawn(spawn, context);
+        }
+        return runSpawn(
+            spawn, sandbox, context, spawnMetrics, totalTimeStopwatch, setupTimeStopwatch);
       }
     } catch (IOException e) {
       FailureDetail failureDetail =
@@ -136,10 +161,16 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       throws IOException, ExecException, InterruptedException;
 
   private SpawnResult runSpawn(
-      Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)
+      Spawn originalSpawn,
+      SandboxedSpawn sandbox,
+      SpawnExecutionContext context,
+      SpawnMetrics.Builder spawnMetrics,
+      Stopwatch totalTimeStopwatch,
+      Stopwatch setupTimeStopwatch)
       throws ExecException, IOException, InterruptedException {
     try {
-      try (SilentCloseable c = Profiler.instance().profile("sandbox.createFileSystem")) {
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.SANDBOX_SETUP, "sandbox.createFileSystem")) {
         sandbox.createFileSystem();
       } catch (IOException e) {
         FailureDetail failureDetail =
@@ -147,19 +178,31 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
                 "Could not copy inputs into sandbox", Code.COPY_INPUTS_IO_EXCEPTION);
         throw new EnvironmentalExecException(e, failureDetail);
       }
-      SpawnResult result;
-      try (SilentCloseable c = Profiler.instance().profile("subprocess.run")) {
-        result = run(originalSpawn, sandbox, context);
+      spawnMetrics.addSetupTime(setupTimeStopwatch.elapsed());
+
+      SubprocessResult subprocessResult;
+      try (SilentCloseable c =
+          Profiler.instance()
+              .profile(
+                  ProfilerTask.SANDBOX_PROCESS_TIME,
+                  originalSpawn.getResourceOwner().getMnemonic())) {
+        subprocessResult = run(originalSpawn, sandbox, context);
       }
+      spawnMetrics.setExecutionWallTime(subprocessResult.wallTime());
       try (SilentCloseable c = Profiler.instance().profile("sandbox.verifyPostCondition")) {
         verifyPostCondition(originalSpawn, sandbox, context);
       }
 
+      Stopwatch processOutputsStopwatch = Stopwatch.createStarted();
       context.lockOutputFiles(
-          result.exitCode(),
-          result.failureDetail() != null ? result.failureDetail().getMessage() : "",
+          subprocessResult.exitCode(),
+          subprocessResult.failureDetail() != null
+              ? subprocessResult.failureDetail().getMessage()
+              : "",
           context.getFileOutErr());
-      try (SilentCloseable c = Profiler.instance().profile("sandbox.copyOutputs")) {
+
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.SANDBOX_OUTPUTS, "sandbox.copyOutputs")) {
         // We copy the outputs even when the command failed.
         sandbox.copyOutputs(execRoot);
       } catch (IOException e) {
@@ -168,7 +211,25 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
                 "Could not copy outputs from sandbox", Code.COPY_OUTPUTS_IO_EXCEPTION);
         throw new EnvironmentalExecException(e, failureDetail);
       }
-      return result;
+      spawnMetrics.setProcessOutputsTime(processOutputsStopwatch.elapsed());
+
+      spawnMetrics.setTotalTime(totalTimeStopwatch.elapsed());
+
+      SpawnResult.Builder spawnResultBuilder =
+          getSpawnResultBuilder(context)
+              .setStatus(subprocessResult.status())
+              .setExitCode(subprocessResult.exitCode())
+              .setStartTime(subprocessResult.startTime())
+              .setWallTimeInMs((int) subprocessResult.wallTime().toMillis())
+              .setFailureMessage(subprocessResult.failureMessage())
+              .setSpawnMetrics(spawnMetrics.build());
+      if (subprocessResult.failureDetail() != null) {
+        spawnResultBuilder.setFailureDetail(subprocessResult.failureDetail());
+      }
+      if (subprocessResult.statisticsPath() != null) {
+        spawnResultBuilder.setResourceUsageFromProto(subprocessResult.statisticsPath());
+      }
+      return spawnResultBuilder.build();
     } finally {
       if (!sandboxOptions.getSandboxDebug()) {
         try (SilentCloseable c = Profiler.instance().profile("sandbox.delete")) {
@@ -199,12 +260,9 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     }
   }
 
-  private SpawnResult run(
+  private SubprocessResult run(
       Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)
       throws IOException, InterruptedException {
-
-    SpawnResult.Builder spawnResultBuilder = getSpawnResultBuilder(context);
-
     FileOutErr outErr = context.getFileOutErr();
     Duration timeout = context.getTimeout();
 
@@ -213,12 +271,13 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     subprocessBuilder.setStdout(outErr.getOutputPath().getPathFile());
     subprocessBuilder.setStderr(outErr.getErrorPath().getPathFile());
     subprocessBuilder.setEnv(sandbox.getEnvironment());
-    subprocessBuilder.setArgv(ImmutableList.copyOf(sandbox.getArguments()));
+    subprocessBuilder.setArgv(sandbox.getArguments());
     boolean useSubprocessTimeout = sandbox.useSubprocessTimeout();
     if (useSubprocessTimeout) {
       subprocessBuilder.setTimeoutMillis(timeout.toMillis());
     }
     Instant startTime = Instant.now();
+    Stopwatch executionStopwatch = Stopwatch.createStarted();
     TerminationStatus terminationStatus;
     try {
       Subprocess subprocess = subprocessBuilder.start();
@@ -246,20 +305,21 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       outErr.getErrorStream().write(msg.toString().getBytes(UTF_8));
       outErr.getErrorStream().flush();
       String message = makeFailureMessage(originalSpawn, sandbox);
-      return spawnResultBuilder
-          .setStatus(Status.EXECUTION_FAILED)
-          .setExitCode(LOCAL_EXEC_ERROR)
-          .setFailureMessage(message)
-          .setFailureDetail(
-              SandboxHelpers.createFailureDetail(message, Code.SUBPROCESS_START_FAILED))
-          .build();
+      FailureDetail failureDetail =
+          SandboxHelpers.createFailureDetail(message, Code.SUBPROCESS_START_FAILED);
+      return new SubprocessResult(
+          LOCAL_EXEC_ERROR,
+          Status.EXECUTION_FAILED,
+          Duration.ZERO,
+          startTime,
+          message,
+          failureDetail,
+          /* statisticsPath= */ null);
     }
 
-    // TODO(b/62588075): Calculate wall time inside Subprocess instead?
-    Duration wallTime = Duration.between(startTime, Instant.now());
+    Duration wallTime = executionStopwatch.elapsed();
     boolean wasTimeout =
-        (useSubprocessTimeout && terminationStatus.timedOut())
-            || (!useSubprocessTimeout && wasTimeout(timeout, wallTime));
+        useSubprocessTimeout ? terminationStatus.timedOut() : wasTimeout(timeout, wallTime);
 
     int exitCode;
     Status status;
@@ -295,17 +355,6 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       }
     }
 
-    spawnResultBuilder
-        .setStatus(status)
-        .setExitCode(exitCode)
-        .setStartTime(startTime)
-        .setWallTimeInMs((int) wallTime.toMillis())
-        .setFailureMessage(failureMessage);
-
-    if (failureDetail != null) {
-      spawnResultBuilder.setFailureDetail(failureDetail);
-    }
-
     String sandboxDebugOutput = getSandboxDebugOutput(sandbox);
     if (!sandboxDebugOutput.isEmpty()) {
       reporter.handle(
@@ -319,11 +368,9 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     }
 
     Path statisticsPath = sandbox.getStatisticsPath();
-    if (statisticsPath != null) {
-      spawnResultBuilder.setResourceUsageFromProto(statisticsPath);
-    }
 
-    return spawnResultBuilder.build();
+    return new SubprocessResult(
+        exitCode, status, wallTime, startTime, failureMessage, failureDetail, statisticsPath);
   }
 
   private static String getSandboxDebugOutput(SandboxedSpawn sandbox) throws IOException {

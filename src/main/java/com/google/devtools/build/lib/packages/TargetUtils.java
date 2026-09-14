@@ -163,13 +163,11 @@ public final class TargetUtils {
   public static Iterable<String> getAttrAsString(Target target, String attrName) {
     Preconditions.checkArgument(target instanceof Rule);
     List<String> values = new ArrayList<>(); // May hold null values.
-    Attribute attribute = ((Rule) target).getAttributeDefinition(attrName);
+    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of((Rule) target);
+    Attribute attribute = mapper.getAttributeDefinition(attrName);
     if (attribute != null) {
       Type<?> attributeType = attribute.getType();
-      for (Object attrValue :
-          AggregatingAttributeMapper.of((Rule) target)
-              .visitAttribute(attribute.getName(), attributeType)) {
-
+      for (Object attrValue : mapper.visitAttribute(attribute.getName(), attributeType)) {
         values.add(convertAttributeValue(attributeType, attrValue));
       }
     }
