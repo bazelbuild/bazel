@@ -131,6 +131,11 @@ public final class AllocationTracker implements AllocationSampler, Debug.ThreadH
     if (!enabled) {
       return;
     }
+    // Since we use a cache with weak keys, we can't store value objects
+    // TODO(b/561378226): figure out what to do about this long term
+    if (isValueClass(newObj.getClass())) {
+      return;
+    }
 
     @Nullable StarlarkThread thread = starlarkThread.get();
 
@@ -393,5 +398,43 @@ public final class AllocationTracker implements AllocationSampler, Debug.ThreadH
             return index++;
           });
     }
+  }
+
+  // TODO(b/561378226): can use Class.isValue() when available (expected in jdk 28)
+  private static boolean isValueClass(Class<?> aClass) {
+    // This list contains the non-abstract classes from
+    // https://openjdk.org/jeps/401#Value-classes-in-the-Java-Platform
+    return switch (aClass.getName()) {
+      case "java.lang.Integer",
+          "java.lang.Long",
+          "java.lang.Float",
+          "java.lang.Double",
+          "java.lang.Byte",
+          "java.lang.Short",
+          "java.lang.Character",
+          "java.lang.Boolean",
+          "java.util.Optional",
+          "java.util.OptionalInt",
+          "java.util.OptionalLong",
+          "java.util.OptionalDouble",
+          "java.time.LocalDate",
+          "java.time.LocalTime",
+          "java.time.LocalDateTime",
+          "java.time.ZonedDateTime",
+          "java.time.OffsetTime",
+          "java.time.OffsetDateTime",
+          "java.time.Duration",
+          "java.time.Instant",
+          "java.time.Period",
+          "java.time.Year",
+          "java.time.YearMonth",
+          "java.time.MonthDay",
+          "java.time.chrono.MinguoDate",
+          "java.time.chrono.HijrahDate",
+          "java.time.chrono.JapaneseDate",
+          "java.time.chrono.ThaiBuddhistDate" ->
+          true;
+      default -> false;
+    };
   }
 }

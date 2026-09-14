@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import net.starlark.java.eval.Debug;
 import net.starlark.java.eval.Dict;
@@ -189,6 +190,12 @@ public final class AllocationTrackerTest {
     Map<String, RuleBytes> aspects = new HashMap<>();
     tracker.getRuleMemoryConsumption(rules, aspects);
     assertThat(rules).containsExactly("myrule", new RuleBytes("myrule").addBytes(128L));
+  }
+
+  @Test
+  public void testValueTypesDontCrash() {
+    CurrentRuleTracker.beginConfiguredTarget(myRuleClass());
+    tracker.sampleAllocation(0, "doesnotmatter", Optional.empty(), 1);
   }
 
   private void exec(String... lines)
