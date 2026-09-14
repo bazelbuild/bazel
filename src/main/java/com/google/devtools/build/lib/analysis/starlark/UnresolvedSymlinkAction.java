@@ -58,7 +58,7 @@ public final class UnresolvedSymlinkAction extends AbstractAction {
       SymlinkTargetType targetType,
       String progressMessage) {
     super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), ImmutableSet.of(primaryOutput));
-    this.target = target;
+    this.target = target.intern();
     this.targetType = targetType;
     this.progressMessage = progressMessage;
   }
