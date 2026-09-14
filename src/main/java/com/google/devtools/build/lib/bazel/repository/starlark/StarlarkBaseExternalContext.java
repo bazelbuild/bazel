@@ -1188,7 +1188,7 @@ Strip the given number of leading components from file paths on extraction. Only
    * https://github.com/bazelbuild/bazel/issues/20013 for further details.
    */
   private static void deleteTreeWithRetries(Path downloadDirectory)
-      throws RepositoryFunctionException {
+      throws RepositoryFunctionException, InterruptedException {
     Instant start = Instant.now();
     Instant deadline = start.plus(Duration.ofSeconds(5));
 
@@ -1216,6 +1216,12 @@ Strip the given number of leading components from file paths on extraction. Only
                       + e.getMessage(),
                   e),
               Transience.TRANSIENT);
+        }
+        try {
+          Thread.sleep(Math.min(100, attempts * 10L));
+        } catch (InterruptedException ie) {
+          Thread.currentThread().interrupt();
+          throw ie;
         }
       }
     }
