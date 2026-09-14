@@ -70,6 +70,13 @@ public class StarlarkAttributeTransitionProvider
   }
 
   @Override
+  public boolean equals(Object obj) {
+    return obj instanceof StarlarkAttributeTransitionProvider other
+        && getClass() == obj.getClass()
+        && starlarkDefinedConfigTransition.equals(other.starlarkDefinedConfigTransition);
+  }
+
+  @Override
   public SplitTransition create(AttributeTransitionData data) {
     AttributeMap attributeMap = data.attributes();
     Preconditions.checkArgument(
