@@ -132,6 +132,13 @@ public final class InstrumentedFilesCollector {
           }
         }
       }
+      for (var dep : getPrerequisitesForAttributes(ruleContext, spec.unfilteredSourceAttributes)) {
+        for (Artifact artifact : dep.getProvider(FileProvider.class).getFilesToBuild().toList()) {
+          if (shouldIncludeArtifact(ruleContext.getConfiguration(), artifact)) {
+            localSources.add(artifact);
+          }
+        }
+      }
     }
     instrumentedFilesInfoBuilder.setLocalSources(localSources.build());
     if (baselineCoverageFiles != null) {
@@ -187,20 +194,25 @@ public final class InstrumentedFilesCollector {
     /** The list of attributes which should be checked for sources. */
     private final ImmutableList<String> sourceAttributes;
 
+    /** The list of source attributes which should not be filtered by file type. */
+    private final ImmutableList<String> unfilteredSourceAttributes;
+
     /** The list of attributes from which to collect transitive coverage information. */
     private final ImmutableList<String> dependencyAttributes;
 
     private InstrumentationSpec(
         FileTypeSet instrumentedFileTypes,
         ImmutableList<String> instrumentedSourceAttributes,
+        ImmutableList<String> unfilteredInstrumentedSourceAttributes,
         ImmutableList<String> instrumentedDependencyAttributes) {
       this.instrumentedFileTypes = instrumentedFileTypes;
       this.sourceAttributes = instrumentedSourceAttributes;
+      this.unfilteredSourceAttributes = unfilteredInstrumentedSourceAttributes;
       this.dependencyAttributes = instrumentedDependencyAttributes;
     }
 
     public InstrumentationSpec(FileTypeSet instrumentedFileTypes) {
-      this(instrumentedFileTypes, ImmutableList.of(), ImmutableList.of());
+      this(instrumentedFileTypes, ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
     }
 
     /**
@@ -209,7 +221,10 @@ public final class InstrumentedFilesCollector {
      */
     public InstrumentationSpec withSourceAttributes(Collection<String> attributes) {
       return new InstrumentationSpec(
-          instrumentedFileTypes, ImmutableList.copyOf(attributes), dependencyAttributes);
+          instrumentedFileTypes,
+          ImmutableList.copyOf(attributes),
+          unfilteredSourceAttributes,
+          dependencyAttributes);
     }
 
     /**
@@ -221,12 +236,35 @@ public final class InstrumentedFilesCollector {
     }
 
     /**
+     * Returns a new instrumentation spec with source attributes whose artifacts are not filtered
+     * by {@link #instrumentedFileTypes}.
+     */
+    public InstrumentationSpec withUnfilteredSourceAttributes(Collection<String> attributes) {
+      return new InstrumentationSpec(
+          instrumentedFileTypes,
+          sourceAttributes,
+          ImmutableList.copyOf(attributes),
+          dependencyAttributes);
+    }
+
+    /**
+     * Returns a new instrumentation spec with source attributes whose artifacts are not filtered
+     * by {@link #instrumentedFileTypes}.
+     */
+    public InstrumentationSpec withUnfilteredSourceAttributes(String... attributes) {
+      return withUnfilteredSourceAttributes(ImmutableList.copyOf(attributes));
+    }
+
+    /**
      * Returns a new instrumentation spec with the given attribute names replacing the ones stored
      * in this object.
      */
     public InstrumentationSpec withDependencyAttributes(Collection<String> attributes) {
       return new InstrumentationSpec(
-          instrumentedFileTypes, sourceAttributes, ImmutableList.copyOf(attributes));
+          instrumentedFileTypes,
+          sourceAttributes,
+          unfilteredSourceAttributes,
+          ImmutableList.copyOf(attributes));
     }
 
     /**
