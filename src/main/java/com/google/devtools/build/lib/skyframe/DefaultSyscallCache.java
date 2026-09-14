@@ -21,7 +21,6 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Ascii;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.LatestObjectMetricExporter;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
@@ -44,22 +43,67 @@ import javax.annotation.Nullable;
  */
 public final class DefaultSyscallCache implements SyscallCache {
 
-  private final Supplier<LoadingCache<Pair<Path, Symlinks>, Object>> statCacheSupplier;
+  private final Supplier<LoadingCache<Path, Object>> statCacheSupplier;
   private final Supplier<LoadingCache<Path, Object>> readdirCacheSupplier;
 
   @Nullable private final LatestObjectMetricExporter<Cache<?, ?>> statCacheMetricExporter;
 
   @Nullable private final LatestObjectMetricExporter<Cache<?, ?>> readdirCacheMetricExporter;
 
-  private LoadingCache<Pair<Path, Symlinks>, Object> statCache;
+  private LoadingCache<Path, Object> statCache;
 
   /* Caches the result of readdir(<path>, Symlinks.NOFOLLOW) calls. */
   private LoadingCache<Path, Object> readdirCache;
 
   private static final FileStatus NO_STATUS = new FakeFileStatus();
 
+  private static final class SymlinkEntry {
+    private final FileStatus nofollowStatus;
+    @Nullable private volatile Object followStatus;
+
+    SymlinkEntry(FileStatus nofollowStatus) {
+      this.nofollowStatus = nofollowStatus;
+    }
+
+    FileStatus getNofollowStatus() {
+      return nofollowStatus;
+    }
+
+    @Nullable
+    FileStatus getFollowStatus(Path path) throws IOException {
+      Object result = followStatus;
+      if (result == null) {
+        synchronized (this) {
+          result = followStatus;
+          if (result == null) {
+            try {
+              FileStatus stat = path.statIfFound(Symlinks.FOLLOW);
+              result = firstNonNull(stat, NO_STATUS);
+            } catch (IOException e) {
+              result = e;
+            }
+            followStatus = result;
+          }
+        }
+      }
+      if (result instanceof IOException ioException) {
+        throw ioException;
+      }
+      return (result == NO_STATUS) ? null : (FileStatus) result;
+    }
+
+    @Nullable
+    FileStatus getFollowStatusIfPresent() {
+      Object result = followStatus;
+      if (result instanceof FileStatus fileStatus && fileStatus != NO_STATUS) {
+        return fileStatus;
+      }
+      return null;
+    }
+  }
+
   private DefaultSyscallCache(
-      Supplier<LoadingCache<Pair<Path, Symlinks>, Object>> statCacheSupplier,
+      Supplier<LoadingCache<Path, Object>> statCacheSupplier,
       Supplier<LoadingCache<Path, Object>> readdirCacheSupplier,
       @Nullable LatestObjectMetricExporter<Cache<?, ?>> statCacheMetricExporter,
       @Nullable LatestObjectMetricExporter<Cache<?, ?>> readdirCacheMetricExporter) {
@@ -170,7 +214,7 @@ public final class DefaultSyscallCache implements SyscallCache {
   }
 
   @Override
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings("unchecked") // readdirImpl only returns Collection<Dirent> or IOException
   public Collection<Dirent> readdir(Path path) throws IOException {
     Object result = readdirCache.get(path);
     if (result instanceof IOException ioException) {
@@ -182,21 +226,20 @@ public final class DefaultSyscallCache implements SyscallCache {
   @Nullable
   @Override
   public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
-    // Try to load a Symlinks.NOFOLLOW result first. Symlinks are rare and this enables sharing the
-    // cache for all non-symlink paths.
-    Object result = statCache.get(Pair.of(path, Symlinks.NOFOLLOW));
+    Object result = statCache.get(path);
     if (result instanceof IOException ioException) {
       throw ioException;
     }
-    FileStatus status = (FileStatus) result;
-    if (status != NO_STATUS && symlinks == Symlinks.FOLLOW && status.isSymbolicLink()) {
-      result = statCache.get(Pair.of(path, Symlinks.FOLLOW));
-      if (result instanceof IOException ioException) {
-        throw ioException;
-      }
-      status = (FileStatus) result;
+    if (result == NO_STATUS) {
+      return null;
     }
-    return (status == NO_STATUS) ? null : status;
+    if (result instanceof SymlinkEntry symlinkEntry) {
+      if (symlinks == Symlinks.FOLLOW) {
+        return symlinkEntry.getFollowStatus(path);
+      }
+      return symlinkEntry.getNofollowStatus();
+    }
+    return (FileStatus) result;
   }
 
   @Nullable
@@ -206,13 +249,19 @@ public final class DefaultSyscallCache implements SyscallCache {
     // over a list of directory entries as we do for cached readdir() entries. We don't ever expect
     // to get a cache hit if symlinks == Symlinks.NOFOLLOW and so we don't bother to check.
     if (symlinks == Symlinks.FOLLOW) {
-      Pair<Path, Symlinks> key = Pair.of(path, symlinks);
-      Object result = statCache.getIfPresent(key);
+      Object result = statCache.getIfPresent(path);
       if (result != null && !(result instanceof IOException)) {
         if (result == NO_STATUS) {
           return null;
         }
-        return ofStat((FileStatus) result);
+        if (result instanceof SymlinkEntry symlinkEntry) {
+          FileStatus followStatus = symlinkEntry.getFollowStatusIfPresent();
+          if (followStatus != null) {
+            return ofStat(followStatus);
+          }
+        } else {
+          return ofStat((FileStatus) result);
+        }
       }
     }
 
@@ -325,11 +374,17 @@ public final class DefaultSyscallCache implements SyscallCache {
     }
   }
 
-  /** Returns {@link FileStatus} or {@link IOException}. */
-  private static Object statImpl(Pair<Path, Symlinks> p) {
+  /** Returns {@link FileStatus}, {@link SymlinkEntry}, or {@link IOException}. */
+  private static Object statImpl(Path path) {
     try {
-      FileStatus stat = p.first.statIfFound(p.second);
-      return firstNonNull(stat, NO_STATUS);
+      FileStatus stat = path.statIfFound(Symlinks.NOFOLLOW);
+      if (stat == null) {
+        return NO_STATUS;
+      }
+      if (stat.isSymbolicLink()) {
+        return new SymlinkEntry(stat);
+      }
+      return stat;
     } catch (IOException e) {
       return e;
     }

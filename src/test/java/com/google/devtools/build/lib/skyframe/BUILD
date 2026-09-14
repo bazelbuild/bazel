@@ -169,6 +169,19 @@ java_test(
 )
 
 java_test(
+    name = "DefaultSyscallCacheTest",
+    srcs = ["DefaultSyscallCacheTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:default_syscall_cache",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "LocalDiffAwarenessTest",
     timeout = "short",
     srcs = ["LocalDiffAwarenessTest.java"],
