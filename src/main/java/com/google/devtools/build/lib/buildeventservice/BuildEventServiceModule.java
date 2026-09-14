@@ -75,6 +75,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.io.AnsiTerminal;
 import com.google.devtools.build.lib.util.io.AnsiTerminal.Color;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -122,6 +123,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   private AuthAndTLSOptions authTlsOptions;
   private BuildEventStreamOptions besStreamOptions;
   private boolean uiUsesColor;
+  private boolean uiUsesHyperlinks;
   private boolean isRunsPerTestOverTheLimit;
   private BuildEventArtifactUploaderFactory uploaderFactoryToCleanup;
 
@@ -373,8 +375,9 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                     (perLabelOptions) ->
                         Integer.parseInt(Iterables.getOnlyElement(perLabelOptions.getOptions()))
                             > RUNS_PER_TEST_LIMIT);
-    this.uiUsesColor =
-        Preconditions.checkNotNull(parsingResult.getOptions(UiOptions.class)).useColor();
+    UiOptions uiOptions = Preconditions.checkNotNull(parsingResult.getOptions(UiOptions.class));
+    this.uiUsesColor = uiOptions.useColor();
+    this.uiUsesHyperlinks = uiOptions.useHyperlinks();
 
     ConnectivityStatus status = connectivityProvider.getStatus(CONNECTIVITY_CACHE_KEY);
     String buildEventUploadStrategy =
@@ -713,19 +716,23 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
 
   private void constructAndMaybeReportInvocationIdUrl() {
     if (!getInvocationIdPrefix().isEmpty()) {
-      StringBuilder msg = new StringBuilder();
-      msg.append("Streaming build results to: ");
-      if (uiUsesColor) {
-        msg.append(new String(Color.CYAN.getEscapeSeq(), StandardCharsets.US_ASCII));
-      }
-      msg.append(getInvocationIdPrefix());
-      msg.append(invocationId);
-      if (uiUsesColor) {
-        msg.append(new String(Color.DEFAULT.getEscapeSeq(), StandardCharsets.US_ASCII));
-      }
-
-      reporter.handle(Event.info(msg.toString()));
+      String url = getInvocationIdPrefix() + invocationId;
+      reporter.handle(
+          Event.info(
+              "Streaming build results to: "
+                  + formatUrlForTerminal(url, uiUsesColor, uiUsesHyperlinks)));
     }
+  }
+
+  private static String formatUrlForTerminal(String url, boolean useColor, boolean useHyperlinks) {
+    String text = useHyperlinks ? AnsiTerminal.hyperlink(url, url) : url;
+    if (!useColor) {
+      return text;
+    }
+
+    return new String(Color.CYAN.getEscapeSeq(), StandardCharsets.US_ASCII)
+        + text
+        + new String(Color.DEFAULT.getEscapeSeq(), StandardCharsets.US_ASCII);
   }
 
   private void constructAndMaybeReportBuildRequestIdUrl() {

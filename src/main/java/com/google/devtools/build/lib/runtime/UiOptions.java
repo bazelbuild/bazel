@@ -293,8 +293,8 @@ public abstract class UiOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
-          "If true (or auto with color enabled and a tty), format terminal file paths and test"
-              + " logs as clickable OSC 8 hyperlinks.")
+          "If true (or auto with color enabled), format terminal file paths, test logs, and build"
+              + " results URLs as clickable OSC 8 hyperlinks.")
   public abstract TriState getTerminalHyperlinks();
 
   public abstract void setTerminalHyperlinks(TriState value);
