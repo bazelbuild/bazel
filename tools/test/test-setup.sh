@@ -267,9 +267,9 @@ if [ -n "$BUILD_EXECROOT" ]; then
 fi
 set -m
 if [ -z "$COVERAGE_DIR" ]; then
-  ("${TEST_PATH}" "$@" 2>&1) <&0 &
+  "${TEST_PATH}" "$@" 2>&1 <&0 &
 else
-  ("$1" "$TEST_PATH" "${@:3}" 2>&1) <&0 &
+  "$1" "$TEST_PATH" "${@:3}" 2>&1 <&0 &
 fi
 childPid=$!
 
