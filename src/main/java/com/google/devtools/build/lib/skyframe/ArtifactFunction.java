@@ -498,20 +498,7 @@ public final class ArtifactFunction implements SkyFunction {
       if (value == null) {
         return null;
       }
-      ImmutableList.Builder<ActionLookupData> expandedActionExecutionKeys =
-          ImmutableList.builderWithExpectedSize(value.getActions().size());
-      for (ActionAnalysisMetadata action : value.getActions()) {
-        // ActionTemplates expand into actions that can generate multiple output trees (as a whole),
-        // but an expanded action can generate outputs under only a single tree. As such, we only
-        // need to evaluate the action if it generates an output under the requested tree artifact.
-        for (Artifact output : action.getOutputs()) {
-          if (output.hasParent() && output.getParent().equals(artifact)) {
-            expandedActionExecutionKeys.add(((DerivedArtifact) output).getGeneratingActionKey());
-            break;
-          }
-        }
-      }
-      return expandedActionExecutionKeys.build();
+      return value.getGeneratingActionKeys(artifact);
     }
 
     @Override
