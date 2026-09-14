@@ -307,6 +307,19 @@ public final class SymlinkAction extends AbstractAction implements RichDataProdu
             ? actionExecutionContext.getSyscallCache()
             : SyscallCache.NO_CACHE;
     try {
+      // Unmaterialized remote outputs have no permissions and are made executable on download.
+      FileArtifactValue metadata =
+          actionExecutionContext.getInputMetadataProvider().getInputMetadata(primaryInput);
+      if (!primaryInput.isSourceArtifact()
+          && metadata != null
+          && metadata.isRemote()
+          && metadata.getContentsProxy() == null) {
+        // An action filesystem needs the parent to resolve the output symlink during validation.
+        if (actionExecutionContext.getActionFileSystem() != null) {
+          inputPath.getParentDirectory().createDirectoryAndParents();
+        }
+        return;
+      }
       FileStatus stat = syscallCache.statIfFound(inputPath, Symlinks.FOLLOW);
       if (stat == null || !stat.isFile()) {
         String message = String.format("'%s' is not a file", primaryInput.getExecPathString());
