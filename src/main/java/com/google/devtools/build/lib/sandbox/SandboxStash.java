@@ -181,18 +181,22 @@ public class SandboxStash {
           stashExecroot.renameTo(sandboxExecroot);
           stash.deleteTree();
           if (isTestAction(mnemonic)) {
-            String relativeStashedRunfilesDir = stashPathToRunfilesDir.get(stashExecroot);
-            Path stashedRunfilesDir = sandboxExecroot.getRelative(relativeStashedRunfilesDir);
-            String relativeCurrentRunfilesDir = getCurrentRunfilesDir(environment);
-            Path currentRunfiles = sandboxExecroot.getRelative(relativeCurrentRunfilesDir);
-            currentRunfiles.getParentDirectory().createDirectoryAndParents();
-            stashedRunfilesDir.renameTo(currentRunfiles);
-            stashPathToRunfilesDir.remove(stashExecroot);
-            if (useInMemoryStashes() && pathToContents.containsKey(stash)) {
-              updateStashContentsAfterRunfilesMove(
-                  relativeStashedRunfilesDir,
-                  relativeCurrentRunfilesDir,
-                  pathToContents.get(stash));
+            String relativeStashedRunfilesDir = stashPathToRunfilesDir.remove(stashExecroot);
+            // The location of the stashed runfiles directory may be unknown, e.g. if the stash was
+            // created with --experimental_inmemory_sandbox_stashes but is taken without it. Leave
+            // it in place in that case: it is cleaned up like any other stale sandbox content.
+            if (relativeStashedRunfilesDir != null) {
+              Path stashedRunfilesDir = sandboxExecroot.getRelative(relativeStashedRunfilesDir);
+              String relativeCurrentRunfilesDir = getCurrentRunfilesDir(environment);
+              Path currentRunfiles = sandboxExecroot.getRelative(relativeCurrentRunfilesDir);
+              currentRunfiles.getParentDirectory().createDirectoryAndParents();
+              stashedRunfilesDir.renameTo(currentRunfiles);
+              if (useInMemoryStashes() && pathToContents.containsKey(stash)) {
+                updateStashContentsAfterRunfilesMove(
+                    relativeStashedRunfilesDir,
+                    relativeCurrentRunfilesDir,
+                    pathToContents.get(stash));
+              }
             }
           }
           sandboxToTarget.remove(stash);
@@ -202,14 +206,16 @@ public class SandboxStash {
           return useInMemoryStashes() && pathToContents.containsKey(stash)
               ? Optional.of(pathToContents.remove(stash))
               : Optional.empty();
-        } catch (IOException e) {
-          sandboxToTarget.remove(stash);
-          pathToContents.remove(stash);
-          stashPathToRunfilesDir.remove(stash.getChild("execroot"));
-          if (e instanceof FileNotFoundException) {
-            // Try the next one, somebody else took this one.
-            continue;
+        } catch (FileNotFoundException e) {
+          if (useInMemoryStashes()) {
+            // We held the only claim on this stash, so nobody else will ever use its bookkeeping.
+            forgetStash(stash);
           }
+          // Otherwise, somebody else took this stash (or it is still being created) and its
+          // bookkeeping now belongs to them: in particular, they still have to look up the
+          // location of its runfiles directory. Try the next one.
+        } catch (IOException e) {
+          forgetStash(stash);
           turnOffReuse("Error renaming sandbox stash %s to %s: %s\n", stash, sandboxPath, e);
           return null;
         }
@@ -219,6 +225,13 @@ public class SandboxStash {
       turnOffReuse("Failed to prepare for reusing stashed sandbox for %s: %s", sandboxPath, e);
       return null;
     }
+  }
+
+  /** Drops all in-memory bookkeeping for a stash that can no longer be reused. */
+  private void forgetStash(Path stash) {
+    sandboxToTarget.remove(stash);
+    pathToContents.remove(stash);
+    stashPathToRunfilesDir.remove(stash.getChild("execroot"));
   }
 
   /** Atomically moves the sandboxPath directory aside for later reuse. */
@@ -493,6 +506,11 @@ public class SandboxStash {
   @VisibleForTesting
   static SandboxStash getInstanceForTesting() {
     return instance;
+  }
+
+  @VisibleForTesting
+  Map<Path, String> getStashPathToRunfilesDirForTesting() {
+    return stashPathToRunfilesDir;
   }
 
   @VisibleForTesting
