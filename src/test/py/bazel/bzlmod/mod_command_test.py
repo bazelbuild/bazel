@@ -1712,7 +1712,7 @@ class ModCommandTest(test_base.TestBase):
         ],
     )
     self.ScratchFile('BUILD.bazel')
-    exit_code, stdout, stderr = self.RunBazel(
+    exit_code, _, stderr = self.RunBazel(
         ['mod', 'graph'],
         rstrip=True,
         allow_failure=True,
