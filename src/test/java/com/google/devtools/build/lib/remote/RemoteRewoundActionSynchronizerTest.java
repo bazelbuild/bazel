@@ -160,13 +160,13 @@ public final class RemoteRewoundActionSynchronizerTest {
   }
 
   /**
-   * A runfiles tree is guarded by the keys of the actions generating the artifacts it contains,
-   * which are taken from its metadata rather than from all runfiles trees known to the metadata
-   * provider. The action generating the runfiles tree itself isn't excluded, as it doesn't write to
-   * disk.
+   * An action consuming a runfiles tree is guarded by the keys of the actions generating the
+   * artifacts the tree contains, which are taken from its metadata rather than from all runfiles
+   * trees known to the metadata provider. The action generating the runfiles tree itself isn't
+   * excluded, as it doesn't write to disk.
    */
   @Test
-  public void outputProcessing_runfilesTree_locksOnlyItsProducers() throws Exception {
+  public void runfilesTreeConsumer_excludesOnlyProducersOfItsRunfiles() throws Exception {
     FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
     var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
@@ -180,6 +180,10 @@ public final class RemoteRewoundActionSynchronizerTest {
     SpecialArtifact runfiles = ActionsTestUtil.createRunfilesArtifact(root, "out/runfiles");
     runfiles.setGeneratingActionKey(ActionLookupData.create(owner, 2));
     Action runfilesAction = newAction(ImmutableList.of(runfiles), ImmutableList.of(file));
+    DerivedArtifact consumerOutput =
+        (DerivedArtifact) ActionsTestUtil.createArtifact(root, "consumer.out");
+    consumerOutput.setGeneratingActionKey(ActionLookupData.create(owner, 3));
+    Action consumer = newAction(ImmutableList.of(consumerOutput), ImmutableList.of(runfiles));
 
     RunfilesTree runfilesTree = mock(RunfilesTree.class);
     when(runfilesTree.getArtifacts()).thenReturn(NestedSetBuilder.create(Order.STABLE_ORDER, file));
@@ -207,9 +211,8 @@ public final class RemoteRewoundActionSynchronizerTest {
     var preparation = new TestThread(() -> rewind(producer));
     var unrelatedPreparation = new TestThread(() -> rewind(unrelatedProducer));
     var runfilesPreparation = new TestThread(() -> rewind(runfilesAction));
-    try (SilentCloseable processing =
-        synchronizer.enterProcessOutputsAndGetLostArtifacts(
-            ImmutableList.of(runfiles), metadataProvider)) {
+    try (SilentCloseable execution =
+        synchronizer.enterActionExecution(consumer, /* wasRewound= */ false, metadataProvider)) {
       preparation.start();
       waitUntilBlocked(preparation);
       unrelatedPreparation.start();
