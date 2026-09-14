@@ -128,7 +128,7 @@ public record Version(
    * Whether this is just the "empty string" version, which signifies a non-registry override for
    * the module.
    */
-  boolean isEmpty() {
+  public boolean isEmpty() {
     return getNormalized().isEmpty();
   }
 
@@ -137,7 +137,7 @@ public record Version(
    * non-empty). A prerelease version compares lower than the same version without the prerelease
    * part.
    */
-  boolean isPrerelease() {
+  public boolean isPrerelease() {
     return !prerelease.isEmpty();
   }
 
