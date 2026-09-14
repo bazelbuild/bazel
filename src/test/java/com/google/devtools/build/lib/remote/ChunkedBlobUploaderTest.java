@@ -468,6 +468,28 @@ public class ChunkedBlobUploaderTest {
   }
 
   @Test
+  public void uploadChunked_fileTruncatedBeforeChunking_reportsFailure() throws Exception {
+    Digest blobDigest = DIGEST_UTIL.compute(new byte[8192]);
+    Path file = execRoot.getChild("truncated");
+    writeFile(file, new byte[0]);
+
+    IOException e =
+        assertThrows(IOException.class, () -> uploader.uploadChunked(context, blobDigest, file));
+
+    assertThat(e).hasMessageThat().contains("file was concurrently modified during upload");
+    verify(grpcCacheClient, never()).findMissingDigests(any(), any());
+    verify(grpcCacheClient, never()).spliceBlob(any(), any(), any(), any());
+    assertThat(metricsEvents)
+        .containsExactly(
+            new RemoteCacheCdcEvent.Upload(
+                RemoteCacheCdcEvent.Outcome.FAILURE,
+                blobDigest.getSizeBytes(),
+                /* chunkReferences= */ 0,
+                /* remoteMissingChunks= */ 0,
+                /* remoteMissingChunkBytes= */ 0));
+  }
+
+  @Test
   @SuppressWarnings("unchecked")
   public void uploadChunked_fileTruncatedBeforeChunkUpload_reportsConcurrentModification()
       throws Exception {
