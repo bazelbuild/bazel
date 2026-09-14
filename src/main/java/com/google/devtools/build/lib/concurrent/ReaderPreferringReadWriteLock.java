@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.concurrent;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -22,14 +22,15 @@ import java.lang.invoke.VarHandle;
  *
  * <p>A reader only ever waits for a writer that holds the lock, never for other readers or for a
  * waiting writer. A writer waits until the lock is free and may thus be starved by a steady stream
- * of readers. Writers exclude each other.
+ * of readers, unless they yield to it via {@link #tryLockReadUnlessWriterWaiting}. Writers exclude
+ * each other.
  *
  * <p>This class is optimized for a low memory footprint and for not inflating the object's monitor
  * under contention between readers. The monitor is only entered by writers and by the last reader
  * releasing the lock while a writer is waiting for it. It is thus only inflated while a writer
  * holds or waits for the lock.
  */
-final class ReaderPreferringReadWriteLock {
+public final class ReaderPreferringReadWriteLock {
   private static final VarHandle HOLDS;
 
   static {
@@ -51,29 +52,56 @@ final class ReaderPreferringReadWriteLock {
   // zero.
   private volatile int holds;
 
-  void lockReadInterruptibly() throws InterruptedException {
+  public void lockReadInterruptibly() throws InterruptedException {
     while (true) {
       if (Thread.interrupted()) {
         throw new InterruptedException();
       }
-      int currentHolds = holds;
-      if (currentHolds != WRITER) {
-        // Readers are admitted even if a writer is waiting.
-        if (HOLDS.compareAndSet(this, currentHolds, currentHolds + 1)) {
-          return;
-        }
-      } else {
-        synchronized (this) {
-          // Rechecked under the monitor so that the notification in unlockWrite can't be missed.
-          while (holds == WRITER) {
-            wait();
-          }
+      if (tryLockRead()) {
+        return;
+      }
+      synchronized (this) {
+        // Rechecked under the monitor so that the notification in unlockWrite can't be missed.
+        while (holds == WRITER) {
+          wait();
         }
       }
     }
   }
 
-  void unlockRead() {
+  /**
+   * Acquires a read lock unless a writer holds the lock, in which case {@code false} is returned
+   * without waiting. Readers are admitted even if a writer is waiting.
+   */
+  public boolean tryLockRead() {
+    while (true) {
+      int currentHolds = holds;
+      if (currentHolds == WRITER) {
+        return false;
+      }
+      if (HOLDS.compareAndSet(this, currentHolds, currentHolds + 1)) {
+        return true;
+      }
+    }
+  }
+
+  /**
+   * Acquires a read lock unless a writer holds or waits for the lock, in which case {@code false}
+   * is returned without waiting.
+   */
+  public boolean tryLockReadUnlessWriterWaiting() {
+    while (true) {
+      int currentHolds = holds;
+      if (currentHolds == WRITER || (currentHolds & WRITER_WAITING) != 0) {
+        return false;
+      }
+      if (HOLDS.compareAndSet(this, currentHolds, currentHolds + 1)) {
+        return true;
+      }
+    }
+  }
+
+  public void unlockRead() {
     int currentHolds;
     int newHolds;
     do {
@@ -94,7 +122,7 @@ final class ReaderPreferringReadWriteLock {
     }
   }
 
-  void lockWriteInterruptibly() throws InterruptedException {
+  public void lockWriteInterruptibly() throws InterruptedException {
     synchronized (this) {
       while (true) {
         if (Thread.interrupted()) {
@@ -117,7 +145,7 @@ final class ReaderPreferringReadWriteLock {
     }
   }
 
-  void unlockWrite() {
+  public void unlockWrite() {
     if (!HOLDS.compareAndSet(this, WRITER, 0)) {
       throw new IllegalMonitorStateException("holds: " + holds);
     }
