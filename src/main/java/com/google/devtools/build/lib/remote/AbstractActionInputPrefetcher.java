@@ -853,12 +853,20 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   public void shutdown() {
     downloadCache.shutdown();
-    while (true) {
-      try {
-        downloadCache.awaitTermination();
-        break;
-      } catch (InterruptedException ignored) {
-        downloadCache.shutdownNow();
+    boolean interrupted = false;
+    try {
+      while (true) {
+        try {
+          downloadCache.awaitTermination();
+          break;
+        } catch (InterruptedException ignored) {
+          interrupted = true;
+          downloadCache.shutdownNow();
+        }
+      }
+    } finally {
+      if (interrupted) {
+        Thread.currentThread().interrupt();
       }
     }
   }

@@ -1081,7 +1081,9 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       try {
         Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
             actionKeyContext, actions, (ActionLookupKey) skyKey);
-      } catch (ActionConflictException | Actions.ArtifactGeneratedByOtherRuleException e) {
+      } catch (ActionConflictException
+          | Actions.ArtifactGeneratedByOtherRuleException
+          | Actions.SourceArtifactUsedAsOutputException e) {
         throw new IllegalStateException(e);
       }
       return new ActionTemplateExpansionValue(actions);
