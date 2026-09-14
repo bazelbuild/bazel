@@ -22,6 +22,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.SerializableTreeArtifactValue;
+import com.google.devtools.build.lib.actions.cache.MetadataDigestUtils;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -47,6 +49,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -139,11 +142,14 @@ public class ActionCacheChecker {
   }
 
   /**
-   * Checks whether one of existing output paths is already used as a key. If yes, returns it -
+   * Returns the action's cache entry, which may be {@linkplain ActionCache.Entry#isCorrupted
+   * corrupted}, or null if there is none or the action cache is disabled.
+   *
+   * <p>Checks whether one of existing output paths is already used as a key. If yes, returns it -
    * otherwise uses first output file as a key
    */
   @Nullable
-  private ActionCache.Entry getCacheEntry(Action action) {
+  public ActionCache.Entry getCacheEntry(Action action) {
     if (!cacheConfig.enabled()) {
       return null; // ignore existing cache when disabled.
     }
@@ -187,6 +193,10 @@ public class ActionCacheChecker {
    * @param actionKey the action key previously obtained from action.getKey()
    * @param actionInputs the action inputs; usually action.getInputs(), but might be a previously
    *     cached set of discovered inputs for actions that discover them.
+   * @param mandatoryInputsDigest the digest of the action's mandatory inputs as computed by {@link
+   *     #computeMandatoryInputsDigest}, or null if the action doesn't discover inputs or the entry
+   *     pruned its inputs. When set, the entry digest is seeded with it so that the mandatory
+   *     inputs are not hashed a second time.
    * @param outputMetadataStore metadata provider for action outputs.
    * @param cachedOutputMetadata cached metadata that should be used instead of {@code
    *     outputMetadataStore}.
@@ -202,6 +212,7 @@ public class ActionCacheChecker {
       Action action,
       String actionKey,
       NestedSet<Artifact> actionInputs,
+      @Nullable byte[] mandatoryInputsDigest,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       @Nullable CachedOutputMetadata cachedOutputMetadata,
@@ -211,10 +222,16 @@ public class ActionCacheChecker {
       OutputPermissions outputPermissions,
       boolean useArchivedTreeArtifacts)
       throws InterruptedException {
+    // An entry with pruned inputs hashes all used inputs directly (see updateActionCache).
+    checkArgument(
+        mandatoryInputsDigest == null || !entry.prunedInputs(),
+        "mandatoryInputsDigest must not be set for an entry with pruned inputs: %s",
+        action);
     var builder =
         new ActionCache.Entry.Builder(
             actionKey,
             action.discoversInputs(),
+            mandatoryInputsDigest,
             effectiveEnvironment,
             actionExecutionSalt,
             outputPermissions,
@@ -245,9 +262,28 @@ public class ActionCacheChecker {
         }
       }
     }
-    for (Artifact artifact : actionInputs.toList()) {
-      FileArtifactValue inputMetadata = getInputMetadataMaybe(inputMetadataProvider, artifact);
-      builder.addInputFile(artifact, inputMetadata);
+    if (mandatoryInputsDigest != null) {
+      // The mandatory inputs are covered by mandatoryInputsDigest, which the builder folds into the
+      // entry digest as a seed. Fold only the discovered inputs, which the cache entry already
+      // enumerates by exec path, so the mandatory inputs are neither hashed a second time nor
+      // flattened into a set just to be skipped. mandatoryInputsDigest is only set for non-pruning
+      // input-discovering actions, so the entry is one too.
+      if (!entry.discoversInputs()) {
+        return false;
+      }
+      for (String execPath : entry.getDiscoveredInputPaths()) {
+        ActionInput input = inputMetadataProvider.getInput(PathFragment.create(execPath));
+        if (input == null) {
+          // A previously discovered input is no longer among the action's inputs.
+          return false;
+        }
+        builder.addInputFile(
+            (Artifact) input, getInputMetadataMaybe(inputMetadataProvider, (Artifact) input));
+      }
+    } else {
+      for (Artifact artifact : actionInputs.toList()) {
+        builder.addInputFile(artifact, getInputMetadataMaybe(inputMetadataProvider, artifact));
+      }
     }
     return Arrays.equals(entry.getDigest(), builder.build().getDigest());
   }
@@ -462,13 +498,23 @@ public class ActionCacheChecker {
    * <p>If this method returns non-null, indicating that the action will be executed, the {@code
    * outputMetadataStore} must have any cached metadata cleared so that it does not serve stale
    * metadata for the action's outputs after the action is executed.
+   *
+   * @param cacheEntry the action's cache entry as returned by {@link #getCacheEntry}, or null to
+   *     look it up here
+   * @param resolvedCacheArtifacts the inputs discovered by a previous execution of the action, or
+   *     null if the action does not discover inputs or already knows them
+   * @param mandatoryInputsDigest the digest of the action's mandatory inputs as computed by {@link
+   *     #computeMandatoryInputsDigest}, or null if the action doesn't discover inputs or the entry
+   *     pruned its inputs
    */
   // Note: the handler should only be used for DEPCHECKER events; there's no
   // guarantee it will be available for other events.
   @Nullable
   public Token getTokenIfNeedToExecute(
       Action action,
+      @Nullable ActionCache.Entry cacheEntry,
       List<Artifact> resolvedCacheArtifacts,
+      @Nullable byte[] mandatoryInputsDigest,
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       EventHandler handler,
@@ -488,7 +534,7 @@ public class ActionCacheChecker {
       return new Token(action);
     }
 
-    ActionCache.Entry entry = getCacheEntry(action);
+    ActionCache.Entry entry = cacheEntry != null ? cacheEntry : getCacheEntry(action);
     NestedSet<Artifact> actionInputs = action.getInputs();
     // Resolve action inputs from cache, if necessary.
     boolean inputsKnown = action.inputsKnown();
@@ -525,6 +571,7 @@ public class ActionCacheChecker {
         inputMetadataProvider,
         outputMetadataStore,
         actionInputs,
+        mandatoryInputsDigest,
         clientEnv,
         outputPermissions,
         actionExecutionSalt,
@@ -559,6 +606,7 @@ public class ActionCacheChecker {
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       NestedSet<Artifact> actionInputs,
+      @Nullable byte[] mandatoryInputsDigest,
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       String actionExecutionSalt,
@@ -596,6 +644,7 @@ public class ActionCacheChecker {
         action,
         actionKey,
         actionInputs,
+        mandatoryInputsDigest,
         inputMetadataProvider,
         outputMetadataStore,
         cachedOutputMetadata,
@@ -696,10 +745,21 @@ public class ActionCacheChecker {
       actionKey = action.getKey(actionKeyContext, inputMetadataProvider);
     }
 
+    // For an input-discovering action that did not prune its inputs, the entry digest is seeded
+    // with the digest of the mandatory inputs, which are thus neither hashed again nor recorded as
+    // discovered inputs below. The read path (isUpToDate) performs the mirror-image skip.
+    ImmutableSet<Artifact> mandatoryInputs = ImmutableSet.of();
+    byte[] mandatoryInputsDigest = null;
+    if (action.discoversInputs() && !action.prunedInputs()) {
+      mandatoryInputs = action.getMandatoryInputs().toSet();
+      mandatoryInputsDigest = computeMandatoryInputsDigest(mandatoryInputs, inputMetadataProvider);
+    }
+
     var builder =
         new ActionCache.Entry.Builder(
                 actionKey,
                 action.discoversInputs(),
+                mandatoryInputsDigest,
                 effectiveEnvironment,
                 actionExecutionSalt,
                 outputPermissions,
@@ -729,25 +789,48 @@ public class ActionCacheChecker {
       }
     }
 
-    ImmutableSet<Artifact> excludePathsFromActionCache =
-        action.discoversInputs() && !action.prunedInputs()
-            ? action.getMandatoryInputs().toSet()
-            : ImmutableSet.of();
-
     for (Artifact input : action.getInputs().toList()) {
+      if (mandatoryInputs.contains(input)) {
+        // Covered by the seed, see above.
+        continue;
+      }
       builder.addInputFile(
           input,
           getInputMetadataMaybe(inputMetadataProvider, input),
-          /* saveExecPath= */ !excludePathsFromActionCache.contains(input));
+          /* saveExecPath= */ action.discoversInputs());
     }
 
     actionCache.put(key, builder.build());
   }
 
+  /**
+   * Computes the digest of an input-discovering action's mandatory inputs.
+   *
+   * <p>The action cache stores it on the action's entry (see {@link
+   * ActionCache.Entry#getMandatoryInputsDigest}) so that a change to the mandatory inputs can be
+   * detected before the previously discovered inputs are requested, and seeds the entry digest with
+   * it so that the mandatory inputs are not hashed twice.
+   */
+  public static byte[] computeMandatoryInputsDigest(
+      Collection<Artifact> mandatoryInputs, InputMetadataProvider inputMetadataProvider) {
+    Map<String, FileArtifactValue> metadata =
+        Maps.newHashMapWithExpectedSize(mandatoryInputs.size());
+    for (Artifact input : mandatoryInputs) {
+      metadata.put(input.getExecPathString(), getInputMetadataMaybe(inputMetadataProvider, input));
+    }
+    return MetadataDigestUtils.fromMetadata(metadata);
+  }
+
+  /**
+   * Resolves the inputs discovered by a previous execution of the action, as recorded in the given
+   * action cache entry (see {@link #getCacheEntry}), into artifacts.
+   *
+   * <p>Returns null if some dependencies were missing and the caller needs to restart.
+   */
   @Nullable
-  public List<Artifact> getCachedInputs(Action action, PackageRootResolver resolver)
+  public List<Artifact> getCachedInputs(
+      Action action, @Nullable ActionCache.Entry entry, PackageRootResolver resolver)
       throws PackageRootResolver.PackageRootException, InterruptedException {
-    ActionCache.Entry entry = getCacheEntry(action);
     if (entry == null || entry.isCorrupted()) {
       return ImmutableList.of();
     }
@@ -817,6 +900,7 @@ public class ActionCacheChecker {
   public Token getTokenUnconditionallyAfterFailureToRecordActionCacheHit(
       Action action,
       List<Artifact> resolvedCacheArtifacts,
+      @Nullable byte[] mandatoryInputsDigest,
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       EventHandler handler,
@@ -831,7 +915,9 @@ public class ActionCacheChecker {
     }
     return getTokenIfNeedToExecute(
         action,
+        /* cacheEntry= */ null,
         resolvedCacheArtifacts,
+        mandatoryInputsDigest,
         clientEnv,
         outputPermissions,
         handler,

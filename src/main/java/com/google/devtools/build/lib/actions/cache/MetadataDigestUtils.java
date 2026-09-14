@@ -29,6 +29,12 @@ public final class MetadataDigestUtils {
   private MetadataDigestUtils() {}
 
   /**
+   * An empty digest of the same length as a real metadata digest, used as the seed (and additive
+   * identity for {@link DigestUtils#combineUnordered}) of {@link #fromMetadata}.
+   */
+  private static final byte[] EMPTY_DIGEST = new Fingerprint().digestAndReset();
+
+  /**
    * @param source the byte buffer source.
    * @return the digest from the given buffer.
    */
@@ -54,7 +60,27 @@ public final class MetadataDigestUtils {
    * @param mdMap A collection of (execPath, FileArtifactValue) pairs. Values may be null.
    */
   public static byte[] fromMetadata(Map<String, FileArtifactValue> mdMap) {
-    byte[] result = new byte[1]; // reserve the empty string
+    return fromMetadata(mdMap, EMPTY_DIGEST);
+  }
+
+  /**
+   * Computes an order-independent digest from the given (path, metadata) pairs, combined into the
+   * given seed digest.
+   *
+   * <p>Because {@link DigestUtils#combineUnordered} is commutative and associative, folding one
+   * disjoint subset of entries into {@link #EMPTY_DIGEST} and then folding the remaining entries
+   * into that result yields the same digest as folding all entries at once. The action cache
+   * exploits this to avoid re-hashing an action's mandatory inputs: it seeds with the precomputed
+   * mandatory-inputs digest (itself a {@code fromMetadata} over just those inputs) and folds in only
+   * the discovered inputs and outputs.
+   *
+   * @param mdMap A collection of (execPath, FileArtifactValue) pairs. Values may be null.
+   * @param seed the digest to combine the entries into; not mutated.
+   */
+  public static byte[] fromMetadata(Map<String, FileArtifactValue> mdMap, byte[] seed) {
+    // combineUnordered may clobber its longer argument, so start from a copy of the seed to avoid
+    // mutating a digest that the caller may retain (e.g., a stored mandatory-inputs digest).
+    byte[] result = seed.clone();
     // Profiling showed that MessageDigest engine instantiation was a hotspot, so create one
     // instance for this computation to amortize its cost.
     Fingerprint fp = new Fingerprint();

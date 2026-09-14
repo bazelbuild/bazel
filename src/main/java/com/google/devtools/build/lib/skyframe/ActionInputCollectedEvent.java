@@ -22,8 +22,12 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 
 /**
- * An event that is fired when all inputs of an action are collected but before the these inputs are
- * requested to skyframe.
+ * An event that is fired when all inputs of an action are collected but before these inputs are
+ * requested from Skyframe.
+ *
+ * <p>For an input-discovering action whose action cache entry may still be valid, the mandatory
+ * inputs have already been requested at this point and only the previously discovered inputs are
+ * still to be requested (see {@code ActionExecutionFunction#collectPreviouslyDiscoveredInputs}).
  */
 public record ActionInputCollectedEvent(
     Action action, NestedSet<Artifact> inputs, ActionContextRegistry actionContextRegistry)

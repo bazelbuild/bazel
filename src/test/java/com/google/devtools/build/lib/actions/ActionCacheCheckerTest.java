@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue.ProxyFileArtifact
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.SerializableTreeArtifactValue;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
+import com.google.devtools.build.lib.actions.cache.MetadataDigestUtils;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissDetail;
@@ -49,6 +50,9 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil.MissDetailsBui
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -73,6 +77,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -109,7 +114,7 @@ public final class ActionCacheCheckerTest {
 
     execRoot = scratch.resolve("/output");
     cache = new CorruptibleActionCache(cacheRoot, corruptedCacheRoot, tmpDir, clock);
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ false);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ false);
     digestHashFunction = DigestHashFunction.SHA256;
     fileSystem = new InMemoryFileSystem(digestHashFunction);
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "bin");
@@ -239,7 +244,9 @@ public final class ActionCacheCheckerTest {
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
+            /* cacheEntry= */ null,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             clientEnv,
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -347,9 +354,7 @@ public final class ActionCacheCheckerTest {
     cache.corruptAllEntries();
     runAction(action);
 
-    assertStatistics(
-        0,
-        new MissDetailsBuilder().set(MissReason.CORRUPTED_CACHE_ENTRY, 1).build());
+    assertStatistics(0, new MissDetailsBuilder().set(MissReason.CORRUPTED_CACHE_ENTRY, 1).build());
   }
 
   @Test
@@ -533,7 +538,9 @@ public final class ActionCacheCheckerTest {
     assertThat(
             cacheChecker.getTokenIfNeedToExecute(
                 action,
+                /* cacheEntry= */ null,
                 /* resolvedCacheArtifacts= */ null,
+                /* mandatoryInputsDigest= */ null,
                 /* clientEnv= */ ImmutableMap.of(),
                 OutputPermissions.READONLY,
                 /* handler= */ null,
@@ -551,6 +558,214 @@ public final class ActionCacheCheckerTest {
     FileSystemUtils.writeContentAsLatin1(artifact.getPath(), content);
     return new ProxyFileArtifactValue(
         FileArtifactValue.createForTesting(artifact), artifact.getPath());
+  }
+
+  @Test
+  public void discoveringAction_entryStoresMandatoryInputsDigestAndDiscoveredInputPaths()
+      throws Exception {
+    Artifact mandatory = createArtifact(artifactRoot, "source.cc");
+    Artifact discovered = createArtifact(artifactRoot, "header.h");
+    Action action =
+        new DiscoveringAction(
+            ImmutableList.of(mandatory),
+            ImmutableList.of(discovered),
+            /* prunedInputs= */ false,
+            createArtifact(artifactRoot, "source.o"));
+    ActionInputMap inputMetadata = inputMetadata(mandatory, "source", discovered, "header");
+    FakeInputMetadataHandler outputMetadataStore = new FakeInputMetadataHandler();
+
+    runAction(action, inputMetadata, outputMetadataStore);
+
+    ActionCache.Entry entry = cacheChecker.getCacheEntry(action);
+    assertThat(entry.getMandatoryInputsDigest())
+        .isEqualTo(
+            ActionCacheChecker.computeMandatoryInputsDigest(
+                ImmutableList.of(mandatory), inputMetadata));
+    // The mandatory inputs are covered by the digest and thus not recorded as discovered inputs.
+    assertThat(entry.getDiscoveredInputPaths()).containsExactly("bin/header.h");
+    // Seeding the entry digest with the mandatory inputs digest folds only the discovered inputs
+    // and outputs, but must yield a cache hit both with and without the seed.
+    assertThat(
+            getTokenIfNeedToExecute(
+                action,
+                entry,
+                entry.getMandatoryInputsDigest(),
+                inputMetadata,
+                outputMetadataStore))
+        .isNull();
+    assertThat(
+            getTokenIfNeedToExecute(
+                action,
+                entry,
+                /* mandatoryInputsDigest= */ null,
+                inputMetadata,
+                outputMetadataStore))
+        .isNull();
+    assertStatistics(2, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+  }
+
+  @Test
+  public void discoveringAction_changedMandatoryInputIsDetectedByDigest() throws Exception {
+    Artifact mandatory = createArtifact(artifactRoot, "source.cc");
+    Artifact discovered = createArtifact(artifactRoot, "header.h");
+    Action action =
+        new DiscoveringAction(
+            ImmutableList.of(mandatory),
+            ImmutableList.of(discovered),
+            /* prunedInputs= */ false,
+            createArtifact(artifactRoot, "source.o"));
+    FakeInputMetadataHandler outputMetadataStore = new FakeInputMetadataHandler();
+
+    runAction(
+        action, inputMetadata(mandatory, "source", discovered, "header"), outputMetadataStore);
+
+    ActionCache.Entry entry = cacheChecker.getCacheEntry(action);
+    ActionInputMap changedInputMetadata =
+        inputMetadata(mandatory, "changed source", discovered, "header");
+    byte[] changedMandatoryInputsDigest =
+        ActionCacheChecker.computeMandatoryInputsDigest(
+            ImmutableList.of(mandatory), changedInputMetadata);
+    // The digest comparison alone detects the change, without requesting the discovered inputs.
+    assertThat(changedMandatoryInputsDigest).isNotEqualTo(entry.getMandatoryInputsDigest());
+    assertThat(
+            getTokenIfNeedToExecute(
+                action,
+                entry,
+                changedMandatoryInputsDigest,
+                changedInputMetadata,
+                outputMetadataStore))
+        .isNotNull();
+    assertStatistics(
+        0,
+        new MissDetailsBuilder()
+            .set(MissReason.NOT_CACHED, 1)
+            .set(MissReason.DIGEST_MISMATCH, 1)
+            .build());
+  }
+
+  @Test
+  public void discoveringAction_changedDiscoveredInputIsDigestMismatch() throws Exception {
+    Artifact mandatory = createArtifact(artifactRoot, "source.cc");
+    Artifact discovered = createArtifact(artifactRoot, "header.h");
+    Action action =
+        new DiscoveringAction(
+            ImmutableList.of(mandatory),
+            ImmutableList.of(discovered),
+            /* prunedInputs= */ false,
+            createArtifact(artifactRoot, "source.o"));
+    FakeInputMetadataHandler outputMetadataStore = new FakeInputMetadataHandler();
+
+    runAction(
+        action, inputMetadata(mandatory, "source", discovered, "header"), outputMetadataStore);
+
+    ActionCache.Entry entry = cacheChecker.getCacheEntry(action);
+    ActionInputMap changedInputMetadata =
+        inputMetadata(mandatory, "source", discovered, "changed header");
+    byte[] mandatoryInputsDigest =
+        ActionCacheChecker.computeMandatoryInputsDigest(
+            ImmutableList.of(mandatory), changedInputMetadata);
+    assertThat(mandatoryInputsDigest).isEqualTo(entry.getMandatoryInputsDigest());
+    assertThat(
+            getTokenIfNeedToExecute(
+                action, entry, mandatoryInputsDigest, changedInputMetadata, outputMetadataStore))
+        .isNotNull();
+    assertStatistics(
+        0,
+        new MissDetailsBuilder()
+            .set(MissReason.NOT_CACHED, 1)
+            .set(MissReason.DIGEST_MISMATCH, 1)
+            .build());
+  }
+
+  @Test
+  public void pruningAction_entryHasNoMandatoryInputsDigest() throws Exception {
+    Artifact mandatory = createArtifact(artifactRoot, "source.cc");
+    Artifact discovered = createArtifact(artifactRoot, "header.h");
+    Action action =
+        new DiscoveringAction(
+            ImmutableList.of(mandatory),
+            ImmutableList.of(discovered),
+            /* prunedInputs= */ true,
+            createArtifact(artifactRoot, "source.o"));
+    ActionInputMap inputMetadata = inputMetadata(mandatory, "source", discovered, "header");
+    FakeInputMetadataHandler outputMetadataStore = new FakeInputMetadataHandler();
+
+    runAction(action, inputMetadata, outputMetadataStore);
+
+    ActionCache.Entry entry = cacheChecker.getCacheEntry(action);
+    assertThat(entry.prunedInputs()).isTrue();
+    // All used inputs are recorded and hashed directly.
+    assertThat(entry.getMandatoryInputsDigest()).isNull();
+    assertThat(entry.getDiscoveredInputPaths()).containsExactly("bin/source.cc", "bin/header.h");
+    assertThat(
+            getTokenIfNeedToExecute(
+                action,
+                entry,
+                /* mandatoryInputsDigest= */ null,
+                inputMetadata,
+                outputMetadataStore))
+        .isNull();
+    assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+  }
+
+  private ActionInputMap inputMetadata(
+      Artifact mandatory, String mandatoryContent, Artifact discovered, String discoveredContent) {
+    ActionInputMap inputMetadata = new ActionInputMap(2);
+    inputMetadata.put(mandatory, createRemoteMetadata(mandatoryContent));
+    inputMetadata.put(discovered, createRemoteMetadata(discoveredContent));
+    return inputMetadata;
+  }
+
+  @Nullable
+  private Token getTokenIfNeedToExecute(
+      Action action,
+      ActionCache.Entry entry,
+      @Nullable byte[] mandatoryInputsDigest,
+      InputMetadataProvider inputMetadataProvider,
+      OutputMetadataStore outputMetadataStore)
+      throws Exception {
+    return cacheChecker.getTokenIfNeedToExecute(
+        action,
+        entry,
+        /* resolvedCacheArtifacts= */ null,
+        mandatoryInputsDigest,
+        /* clientEnv= */ ImmutableMap.of(),
+        OutputPermissions.READONLY,
+        /* handler= */ null,
+        inputMetadataProvider,
+        outputMetadataStore,
+        /* actionExecutionSalt= */ "",
+        OutputChecker.TRUST_ALL,
+        /* useArchivedTreeArtifacts= */ false);
+  }
+
+  @Test
+  public void mandatoryInputsDigest_seedingEqualsHashingAllInputsAtOnce() {
+    // The action cache avoids re-hashing an input-discovering action's mandatory inputs by storing
+    // their digest and using it as the seed of the full input/output digest, folding in only the
+    // discovered inputs and outputs. Because the underlying combination is commutative and
+    // associative, this must be byte-identical to hashing all inputs and outputs in a single pass.
+    Map<String, FileArtifactValue> mandatory =
+        ImmutableMap.of(
+            "bin/source.cc", createRemoteMetadata("source"),
+            "bin/module.modmap", createRemoteMetadata("modmap"));
+    Map<String, FileArtifactValue> discoveredAndOutputs =
+        ImmutableMap.of(
+            "bin/discovered.pcm", createRemoteMetadata("discovered"),
+            "bin/out.o", createRemoteMetadata("output"));
+    Map<String, FileArtifactValue> all =
+        ImmutableMap.<String, FileArtifactValue>builder()
+            .putAll(mandatory)
+            .putAll(discoveredAndOutputs)
+            .buildOrThrow();
+
+    byte[] mandatoryInputsDigest = MetadataDigestUtils.fromMetadata(mandatory);
+    byte[] proxySeeded =
+        MetadataDigestUtils.fromMetadata(discoveredAndOutputs, mandatoryInputsDigest);
+
+    assertThat(proxySeeded).isEqualTo(MetadataDigestUtils.fromMetadata(all));
+    // Seeding must not mutate the (retained) mandatory inputs digest.
+    assertThat(mandatoryInputsDigest).isEqualTo(MetadataDigestUtils.fromMetadata(mandatory));
   }
 
   private FileArtifactValue createRemoteMetadata(String content) {
@@ -607,7 +822,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_remoteFileMetadataSaved() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     String content = "content";
     Action action = new InjectOutputFileMetadataAction(output, createRemoteMetadata(content));
@@ -624,7 +839,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_localFileMetadataNotSaved() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     Action action = new WriteEmptyOutputAction(output);
     output.getPath().delete();
@@ -640,7 +855,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_remoteMetadataInjectedAndLocalFilesStored() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     Action action =
         new WriteEmptyOutputAction(output) {
@@ -680,7 +895,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_remoteFileMetadataLoaded() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     String content = "content";
     Action action = new InjectOutputFileMetadataAction(output, createRemoteMetadata(content));
@@ -690,7 +905,9 @@ public final class ActionCacheCheckerTest {
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
+            /* cacheEntry= */ null,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -724,7 +941,9 @@ public final class ActionCacheCheckerTest {
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
+            /* cacheEntry= */ null,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -753,7 +972,9 @@ public final class ActionCacheCheckerTest {
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
+            /* cacheEntry= */ null,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -772,7 +993,7 @@ public final class ActionCacheCheckerTest {
   @Test
   public void saveOutputMetadata_localMetadataIsSameAsRemoteMetadata_cached(
       @TestParameter boolean hasResolvedPath) throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     String content = "content";
     PathFragment resolvedPath =
@@ -795,7 +1016,7 @@ public final class ActionCacheCheckerTest {
   @Test
   public void saveOutputMetadata_localMetadataIsDifferentFromRemoteMetadata_notCached()
       throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     String content1 = "content1";
     String content2 = "content2";
@@ -814,7 +1035,9 @@ public final class ActionCacheCheckerTest {
     var token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
+            /* cacheEntry= */ null,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -907,7 +1130,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_treeMetadata_remoteFileMetadataSaved() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     ImmutableMap<String, FileArtifactValue> children =
@@ -939,7 +1162,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_treeMetadata_remoteArchivedArtifactSaved() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     Action action =
@@ -967,7 +1190,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_treeMetadata_resolvedPathSaved() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     Action action =
@@ -1011,7 +1234,9 @@ public final class ActionCacheCheckerTest {
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
+            /* cacheEntry= */ null,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1036,7 +1261,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_treeMetadata_localFileMetadataNotSaved() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     writeIsoLatin1(fileSystem.getPath("/file2"), "");
@@ -1070,7 +1295,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_treeMetadata_localArchivedArtifactNotSaved() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     writeIsoLatin1(fileSystem.getPath("/archive"), "");
@@ -1095,7 +1320,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_treeMetadata_remoteFileMetadataLoaded() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     ImmutableMap<String, FileArtifactValue> children =
@@ -1116,7 +1341,9 @@ public final class ActionCacheCheckerTest {
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
+            /* cacheEntry= */ null,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1143,7 +1370,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_treeMetadata_localFileMetadataLoaded() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     ImmutableMap<String, FileArtifactValue> children1 =
@@ -1176,7 +1403,9 @@ public final class ActionCacheCheckerTest {
     var token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
+            /* cacheEntry= */ null,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1224,7 +1453,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_treeMetadata_localArchivedArtifactLoaded() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     Action action =
@@ -1251,7 +1480,9 @@ public final class ActionCacheCheckerTest {
     var token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
+            /* cacheEntry= */ null,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1316,7 +1547,9 @@ public final class ActionCacheCheckerTest {
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
+            /* cacheEntry= */ null,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1360,7 +1593,9 @@ public final class ActionCacheCheckerTest {
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
+            /* cacheEntry= */ null,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1412,7 +1647,9 @@ public final class ActionCacheCheckerTest {
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
+            /* cacheEntry= */ null,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1436,7 +1673,7 @@ public final class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_treeMetadataWithSameLocalFileMetadata_cached() throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     ImmutableMap<String, FileArtifactValue> children =
@@ -1456,7 +1693,9 @@ public final class ActionCacheCheckerTest {
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
+            /* cacheEntry= */ null,
             /* resolvedCacheArtifacts= */ null,
+            /* mandatoryInputsDigest= */ null,
             /* clientEnv= */ ImmutableMap.of(),
             OutputPermissions.READONLY,
             /* handler= */ null,
@@ -1492,7 +1731,7 @@ public final class ActionCacheCheckerTest {
   @Test
   public void saveOutputMetadata_treeMetadataWithSameLocalArchivedArtifact_cached()
       throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     Action action =
@@ -1963,6 +2202,10 @@ public final class ActionCacheCheckerTest {
       super(outputs);
     }
 
+    WriteEmptyOutputAction(List<Artifact> inputs, Artifact... outputs) {
+      super(inputs, outputs);
+    }
+
     WriteEmptyOutputAction(ActionOwner owner, Artifact... outputs) {
       super(owner, outputs);
     }
@@ -1979,6 +2222,58 @@ public final class ActionCacheCheckerTest {
       }
 
       return super.execute(actionExecutionContext);
+    }
+  }
+
+  /**
+   * An input-discovering action that already knows its inputs: the given mandatory inputs plus the
+   * given discovered ones.
+   */
+  private static final class DiscoveringAction extends WriteEmptyOutputAction {
+    private final NestedSet<Artifact> mandatoryInputs;
+    private final boolean prunedInputs;
+
+    DiscoveringAction(
+        List<Artifact> mandatoryInputs,
+        List<Artifact> discoveredInputs,
+        boolean prunedInputs,
+        Artifact output) {
+      super(
+          ImmutableList.<Artifact>builder()
+              .addAll(mandatoryInputs)
+              .addAll(discoveredInputs)
+              .build(),
+          output);
+      this.mandatoryInputs = NestedSetBuilder.wrap(Order.STABLE_ORDER, mandatoryInputs);
+      this.prunedInputs = prunedInputs;
+    }
+
+    @Override
+    public boolean discoversInputs() {
+      return true;
+    }
+
+    @Override
+    protected boolean inputsDiscovered() {
+      return true;
+    }
+
+    @Override
+    protected void setInputsDiscovered(boolean inputsDiscovered) {}
+
+    @Override
+    public boolean prunedInputs() {
+      return prunedInputs;
+    }
+
+    @Override
+    public NestedSet<Artifact> getMandatoryInputs() {
+      return mandatoryInputs;
+    }
+
+    @Override
+    public NestedSet<Artifact> getOriginalInputs() {
+      return mandatoryInputs;
     }
   }
 
