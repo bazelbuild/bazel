@@ -542,6 +542,45 @@ public final class StarlarkMapActionTemplateTest extends BuildIntegrationTestCas
   }
 
   @Test
+  public void invalidAdditionalParams(
+      @TestParameter({
+            "ctx.file.data",
+            "ctx.attr.cat_tool.files_to_run",
+            "depset([ctx.file.data])",
+            "[ctx.file.data]",
+            "{\"file\": ctx.file.data}",
+            "None"
+          })
+          String value)
+      throws Exception {
+    write(
+        "test/rule_def.bzl",
+        """
+        load(":helpers.bzl", "create_seed_dir", "unused_impl")
+
+        def rule_impl(ctx):
+            input_dir = create_seed_dir(ctx, "input_dir", 1, 3)
+            output_dir = ctx.actions.declare_directory(ctx.attr.name + "_output_dir")
+            ctx.actions.map_directory(
+                implementation = unused_impl,
+                input_directories = {"input_dir": input_dir},
+                output_directories = {"output_dir": output_dir},
+                tools = {},
+                additional_params = {"param": %s},
+            )
+            return [DefaultInfo(files = depset([output_dir]))]
+        """
+            .formatted(value));
+
+    RecordingOutErr recordingOutErr = new RecordingOutErr();
+    this.outErr = recordingOutErr;
+    assertThrows(ViewCreationFailedException.class, () -> buildTarget("//test:target"));
+    assertThat(recordingOutErr.errAsLatin1())
+        .contains("Expected one of [string, bool, int]; but got");
+    assertThat(recordingOutErr.errAsLatin1()).contains("in additional_params['param']");
+  }
+
+  @Test
   @TestParameters("{inputs: '{\"input_dir\": input_dir}', outputs: '{}', errorType: 'output'}")
   @TestParameters("{inputs: '{}', outputs: '{\"output_dir\": output_dir}', errorType: 'input'}")
   public void emptyInputOrOutputDirectoriesNotAllowed(
