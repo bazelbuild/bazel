@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.authandtls.credentialhelper;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeTrue;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -25,6 +26,8 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.shell.WindowsSubprocessFactory;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.runfiles.Runfiles;
@@ -205,6 +208,70 @@ public class CredentialHelperTest {
             OS.getCurrent().equals(OS.WINDOWS)
                 ? "cannot find the file specified"
                 : "Cannot run program");
+  }
+
+  @Test
+  public void argvForRegularHelper() {
+    // A helper that is a plain executable is invoked directly on every platform, including one
+    // whose name merely contains `.bat`.
+    assertThat(CredentialHelper.getArgv(OS.LINUX, "/usr/bin/helper", "get"))
+        .containsExactly("/usr/bin/helper", "get")
+        .inOrder();
+    assertThat(CredentialHelper.getArgv(OS.WINDOWS, "C:/tools/helper.exe", "get"))
+        .containsExactly("C:/tools/helper.exe", "get")
+        .inOrder();
+    assertThat(CredentialHelper.getArgv(OS.WINDOWS, "C:/tools/helper.bat.exe", "get"))
+        .containsExactly("C:/tools/helper.bat.exe", "get")
+        .inOrder();
+
+    // Batch scripts are only special on Windows.
+    assertThat(CredentialHelper.getArgv(OS.LINUX, "/usr/bin/helper.bat", "get"))
+        .containsExactly("/usr/bin/helper.bat", "get")
+        .inOrder();
+  }
+
+  @Test
+  public void argvForBatchScriptHelperOnWindows() {
+    assertThat(CredentialHelper.getArgv(OS.WINDOWS, "C:/tools/helper.bat", "get"))
+        .containsExactly("cmd.exe", "/S", "/D", "/C", "\"C:\\tools\\helper.bat get\"")
+        .inOrder();
+
+    // `.cmd` and upper-case extensions are recognized too.
+    assertThat(CredentialHelper.getArgv(OS.WINDOWS, "C:/tools/helper.CMD", "get"))
+        .containsExactly("cmd.exe", "/S", "/D", "/C", "\"C:\\tools\\helper.CMD get\"")
+        .inOrder();
+
+    // A path containing spaces stays in one piece: `/S` strips only the outer quotes, leaving the
+    // inner ones for cmd.exe to parse.
+    assertThat(CredentialHelper.getArgv(OS.WINDOWS, "C:/Program Files/h.bat", "get"))
+        .containsExactly("cmd.exe", "/S", "/D", "/C", "\"\"C:\\Program Files\\h.bat\" get\"")
+        .inOrder();
+  }
+
+  @Test
+  public void batchScriptHelper() throws Exception {
+    assumeTrue(OS.getCurrent() == OS.WINDOWS);
+
+    FileSystem fs = FileSystems.getNativeFileSystem();
+    // Deliberately place the script in a directory whose name contains a space.
+    Path helper = fs.getPath(TEST_WORKSPACE_PATH).getRelative("cred helper/helper.bat");
+    helper.getParentDirectory().createDirectoryAndParents();
+    // Batch scripts want CRLF line endings.
+    FileSystemUtils.writeContentAsLatin1(
+        helper,
+        String.join(
+            "\r\n",
+            "@echo off",
+            // Verifies that the argument survives the trip through cmd.exe unquoted.
+            "if not \"%1\"==\"get\" exit /b 1",
+            "echo {\"headers\":{\"header1\":[\"value1\"]}}",
+            ""));
+    helper.setExecutable(true);
+
+    GetCredentialsResponse response =
+        getCredentialsFromHelper(
+            helper.getPathString(), "https://example.com", /* env= */ ImmutableMap.of());
+    assertThat(response.headers()).containsExactly("header1", ImmutableList.of("value1"));
   }
 
   @Test
