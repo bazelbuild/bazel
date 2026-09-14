@@ -121,6 +121,7 @@ java_library(
 java_library(
     name = "frontier_serializer",
     srcs = [
+        "AnalysisValueWithMtsv.java",
         "FrontierSerializer.java",
         "SelectedEntrySerializer.java",
         "SkyValueUploadedEvent.java",
@@ -165,6 +166,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:error_message_helper",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_status",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_execution_platforms_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_toolchains_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:toolchain_context_key",
@@ -173,6 +175,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/versioning:long_version_getter",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/com/google/devtools/build/skyframe:version",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:file_invalidation_data_java_proto",
         "//third_party/java/error_prone:annotations",

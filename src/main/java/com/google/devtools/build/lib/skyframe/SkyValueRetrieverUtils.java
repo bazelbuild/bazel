@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Re
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievedValue;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.AnalysisValueWithMtsv;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheReaderDepsProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.SkycacheUploadClient;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.MissR
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.Version;
 import java.util.function.Supplier;
 
 /**
@@ -88,6 +90,8 @@ public final class SkyValueRetrieverUtils {
     try {
       retrievalResult =
           retriever.tryRetrieve(env, new DefaultDependOnFutureShim(env), client, key, state);
+      retrievalResult =
+          maybeUnwrapVersionedSkyValue(key, retrievalResult, env, analysisCachingDeps);
       if (retrievalResult instanceof RetrievedValue || retrievalResult instanceof NoCachedData) {
         analysisCachingDeps.recordRetrievalResult(
             retrievalResult, key, state.getPhaseDurationMicros());
@@ -96,8 +100,6 @@ public final class SkyValueRetrieverUtils {
       // Don't crash the build if deserialization failed. Gracefully fallback to local evaluation.
       analysisCachingDeps.recordSerializationException(e, key, state.getPhaseDurationMicros());
       retrievalResult = new NoCachedData(e.getReason());
-    } catch (RuntimeException | InterruptedException e) {
-      throw e;
     } finally {
       if (retrievalResult == Restart.RESTART) {
         state.addRestart();
@@ -113,6 +115,28 @@ public final class SkyValueRetrieverUtils {
               + " @AutoCodec(deserializedInterface = DeserializedSkyValue.class)");
     }
 
+    return retrievalResult;
+  }
+
+  private static RetrievalResult maybeUnwrapVersionedSkyValue(
+      SkyKey key,
+      RetrievalResult retrievalResult,
+      Environment env,
+      RemoteAnalysisCacheReaderDepsProvider analysisCachingDeps) {
+    if (!(key instanceof ActionLookupKey)
+        || !(retrievalResult instanceof RetrievedValue(SkyValue value))) {
+      return retrievalResult;
+    }
+
+    if (value instanceof AnalysisValueWithMtsv(SkyValue innerValue, Version mtsv)) {
+      if (analysisCachingDeps.getSkycacheAnalysisOnly()) {
+        env.injectVersion(mtsv);
+      }
+      return new RetrievedValue(innerValue);
+    }
+    if (analysisCachingDeps.getSkycacheAnalysisOnly()) {
+      return new NoCachedData(MissReason.MISS_REASON_MISSING_MTSV);
+    }
     return retrievalResult;
   }
 
