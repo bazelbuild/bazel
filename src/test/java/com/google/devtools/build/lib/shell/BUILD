@@ -203,6 +203,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/shell:windows_subprocess_factory",
+        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party:guava",
         "//third_party:junit4",

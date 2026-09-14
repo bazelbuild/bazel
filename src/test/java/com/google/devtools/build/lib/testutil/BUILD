@@ -158,7 +158,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/shell:windows_subprocess_factory",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party/java/guava:collect",
         "@rules_java//java/runfiles",
