@@ -34,6 +34,10 @@ sh_test(
         # This is a precompiled .jar file because it needs to be compiled with JDK 11.
         # TODO(cushon): build from source once we have a JDK 11
         "nestmates/nestmates.jar",
+        # A crafted class file with a Record attribute whose declared length is
+        # smaller than its component data; used to test that ijar does not crash
+        # (see RecordAttribute::Write).
+        "malformed_record.jar",
         "records/records.jar",
         "sealed/sealed.jar",
         ":source_debug_extension.jar",
