@@ -16,8 +16,13 @@ package com.google.devtools.build.lib.buildtool;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog.InactivityMonitor;
+import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.testutil.ManualSleeper;
+import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,6 +33,10 @@ import org.junit.runners.JUnit4;
 public final class ExecutionProgressReceiverTest {
   private final ExecutionProgressReceiver receiver =
       new ExecutionProgressReceiver(/* exclusiveTestsCount= */ 0, new EventBus());
+  private final ManualClock clock = new ManualClock();
+  private final ManualSleeper sleeper = new ManualSleeper(clock);
+  private final InactivityMonitor inactivityMonitor =
+      receiver.createInactivityMonitor(ActionExecutionStatusReporter.create(event -> {}), sleeper);
 
   @Test
   public void completedAction_notInFlight() {
@@ -68,5 +77,98 @@ public final class ExecutionProgressReceiverTest {
 
     assertThat(receiver.hasActionsInFlight()).isFalse();
     assertThat(receiver.getProgressString()).isEqualTo("[1 / 1]");
+  }
+
+  @Test
+  public void inactivityMonitor_completionNotHiddenByRewinding() throws Exception {
+    ActionLookupData rewoundAction = ActionsTestUtil.NULL_ACTION_LOOKUP_DATA;
+    ActionLookupData otherAction = ActionsTestUtil.YET_ANOTHER_NULL_ACTION_LOOKUP_DATA;
+    receiver.actionCompleted(rewoundAction);
+    receiver.enqueueing(otherAction);
+    sleeper.scheduleRunnable(
+        () -> {
+          receiver.dirtied(rewoundAction, DirtyType.REWIND);
+          receiver.actionCompleted(otherAction);
+        },
+        1000);
+
+    assertThat(inactivityMonitor.waitForNextCompletion(5)).isEqualTo(1);
+    assertThat(clock.currentTimeMillis()).isEqualTo(1000);
+    assertThat(receiver.getProgressString()).isEqualTo("[1 / 2]");
+    assertThat(receiver.hasActionsInFlight()).isTrue();
+  }
+
+  @Test
+  public void inactivityMonitor_repeatedReexecutionsBetweenPollsCounted() throws Exception {
+    ActionLookupData action = ActionsTestUtil.NULL_ACTION_LOOKUP_DATA;
+    receiver.actionCompleted(action);
+    sleeper.scheduleRunnable(
+        () -> {
+          receiver.dirtied(action, DirtyType.REWIND);
+          receiver.actionCompleted(action);
+          receiver.dirtied(action, DirtyType.REWIND);
+          receiver.actionCompleted(action);
+        },
+        1000);
+
+    assertThat(inactivityMonitor.waitForNextCompletion(5)).isEqualTo(2);
+    assertThat(clock.currentTimeMillis()).isEqualTo(1000);
+    assertThat(receiver.getProgressString()).isEqualTo("[1 / 1]");
+    assertThat(receiver.hasActionsInFlight()).isFalse();
+  }
+
+  @Test
+  public void inactivityMonitor_rewindingWithoutCompletionTimesOut() throws Exception {
+    ActionLookupData action = ActionsTestUtil.NULL_ACTION_LOOKUP_DATA;
+    receiver.actionCompleted(action);
+    sleeper.scheduleRunnable(() -> receiver.dirtied(action, DirtyType.REWIND), 1000);
+
+    assertThat(inactivityMonitor.waitForNextCompletion(3)).isEqualTo(0);
+    assertThat(clock.currentTimeMillis()).isEqualTo(3000);
+    assertThat(receiver.getProgressString()).isEqualTo("[0 / 1]");
+    assertThat(receiver.hasActionsInFlight()).isTrue();
+  }
+
+  @Test
+  public void inactivityMonitor_executionAndEvaluationCountedOnce() throws Exception {
+    ActionLookupData action = ActionsTestUtil.NULL_ACTION_LOOKUP_DATA;
+    receiver.enqueueing(action);
+    sleeper.scheduleRunnable(() -> receiver.actionCompleted(action), 1000);
+
+    assertThat(inactivityMonitor.waitForNextCompletion(5)).isEqualTo(1);
+    sleeper.scheduleRunnable(
+        () ->
+            receiver.evaluated(
+                action,
+                EvaluationState.SUCCESS_VERSION_CHANGED,
+                /* newValue= */ null,
+                /* newError= */ null,
+                /* directDeps= */ null),
+        1000);
+
+    assertThat(inactivityMonitor.waitForNextCompletion(3)).isEqualTo(0);
+    assertThat(clock.currentTimeMillis()).isEqualTo(4000);
+    assertThat(receiver.getProgressString()).isEqualTo("[1 / 1]");
+    assertThat(receiver.hasActionsInFlight()).isFalse();
+  }
+
+  @Test
+  public void inactivityMonitor_cachedActionEvaluationCounted() throws Exception {
+    ActionLookupData action = ActionsTestUtil.NULL_ACTION_LOOKUP_DATA;
+    receiver.enqueueing(action);
+    sleeper.scheduleRunnable(
+        () ->
+            receiver.evaluated(
+                action,
+                EvaluationState.SUCCESS_VERSION_UNCHANGED,
+                /* newValue= */ null,
+                /* newError= */ null,
+                /* directDeps= */ null),
+        1000);
+
+    assertThat(inactivityMonitor.waitForNextCompletion(5)).isEqualTo(1);
+    assertThat(clock.currentTimeMillis()).isEqualTo(1000);
+    assertThat(receiver.getProgressString()).isEqualTo("[1 / 1]");
+    assertThat(receiver.hasActionsInFlight()).isFalse();
   }
 }
