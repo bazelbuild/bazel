@@ -31,7 +31,8 @@ import java.time.Duration;
 final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   public static boolean isSupported(CommandEnvironment cmdEnv) {
-    return OS.isPosixCompatible() && ProcessWrapper.fromCommandEnvironment(cmdEnv) != null;
+    return OS.getCurrent().isPosixCompatible()
+        && ProcessWrapper.fromCommandEnvironment(cmdEnv) != null;
   }
 
   private final ProcessWrapper processWrapper;

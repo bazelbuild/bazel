@@ -21,7 +21,8 @@ import javax.annotation.Nullable;
 /** UNIX process utilities. */
 public final class ProcessUtils {
   @Nullable
-  private static final UnixSystem UNIX_SYSTEM = OS.isPosixCompatible() ? new UnixSystem() : null;
+  private static final UnixSystem UNIX_SYSTEM =
+      OS.getCurrent().isPosixCompatible() ? new UnixSystem() : null;
 
   /**
    * Returns the real user ID of the current process.
