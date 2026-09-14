@@ -1053,7 +1053,7 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
               maxTransitiveSourceVersion,
               version,
               skyKey);
-      case SEMI_HERMETIC -> {
+      case HERMETIC, SEMI_HERMETIC -> {
         if (inErrorBubbling()) {
           // Do nothing -- version is null during error bubbling, since SkyFunctionEnvironments will
           // set a null MTSV anyway.
@@ -1061,15 +1061,15 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
           // See also Javadoc for SkyFunction.Environment#getMaxTransitiveSourceVersionSoFar.
           return;
         }
-        // It's possible, but rare, for the sketch function to get a Skycache hit after partially
+        // It's possible, but rare, for a function to get a top-down cache hit after partially
         // resolving its deps (and collecting a temporary MTSV), specifically under
         // SkyKeyComputeState eviction conditions. This temporary MTSV must be less than or equal to
-        // the version that would be provided by a Skycache hit injected here.
+        // the version that would be provided by a cache hit injected here.
         //
         // A higher MTSV would imply that the Skycache version is stale.
         //
         // It's also possible for the MTSV to be the Minimal Version during the initial evaluation
-        // and getting a Skycache hit without resolving any dep.
+        // and getting a top-down cache hit without resolving any dep.
         checkState(
             maxTransitiveSourceVersion.atMost(version),
             "Multiple versions (%s, %s) for %s",
@@ -1077,9 +1077,6 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
             version,
             skyKey);
       }
-      case HERMETIC ->
-          throw new IllegalStateException(
-              "Version injection unsupported for hermetic function: " + skyKey);
     }
     checkNotNull(version, skyKey);
     checkState(
