@@ -117,8 +117,8 @@ public class ChunkedBlobUploader {
         chunkDigests = chunker.chunkToDigests(input);
       }
       if (chunkDigests.isEmpty()) {
-        success = true;
-        return;
+        // The caller only chunks blobs above the threshold, so the file must have changed.
+        throw new IOException("file was concurrently modified during upload: no chunks found");
       }
 
       ImmutableSet<Digest> missingDigests =

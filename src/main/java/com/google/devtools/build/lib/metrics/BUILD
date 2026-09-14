@@ -26,6 +26,7 @@ java_library(
 java_library(
     name = "remote_cache_cdc_event",
     srcs = ["RemoteCacheCdcEvent.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/events"],
 )
 
 java_library(
@@ -35,6 +36,7 @@ java_library(
         exclude = [
             "BuildMetricsEvent.java",
             "PostGCMemoryUseRecorder.java",
+            "RemoteCacheCdcEvent.java",
         ],
     ),
     deps = [

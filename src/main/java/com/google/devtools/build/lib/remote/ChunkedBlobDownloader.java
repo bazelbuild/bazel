@@ -22,7 +22,6 @@ import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.SplitBlobResponse;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.metrics.RemoteCacheCdcEvent;
 import com.google.devtools.build.lib.metrics.RemoteCacheCdcEvent.Download;
@@ -59,7 +58,7 @@ public class ChunkedBlobDownloader {
   private final ChunkLocationMap chunkLocationMap;
   private final ChunkingFunction.Value chunkingFunction;
   private final long maxChunkSize;
-  @Nullable private final Consumer<RemoteCacheCdcEvent> metricsSink;
+  private final Consumer<RemoteCacheCdcEvent> metricsSink;
 
   ChunkedBlobDownloader(
       GrpcCacheClient grpcCacheClient,
@@ -68,12 +67,7 @@ public class ChunkedBlobDownloader {
       DigestUtil digestUtil,
       ChunkLocationMap chunkLocationMap) {
     this(
-        grpcCacheClient,
-        combinedCache,
-        chunkingConfig,
-        digestUtil,
-        chunkLocationMap,
-        /* metricsSink= */ null);
+        grpcCacheClient, combinedCache, chunkingConfig, digestUtil, chunkLocationMap, unused -> {});
   }
 
   public ChunkedBlobDownloader(
@@ -82,7 +76,7 @@ public class ChunkedBlobDownloader {
       ChunkingConfig chunkingConfig,
       DigestUtil digestUtil,
       ChunkLocationMap chunkLocationMap,
-      @Nullable Consumer<RemoteCacheCdcEvent> metricsSink) {
+      Consumer<RemoteCacheCdcEvent> metricsSink) {
     this.grpcCacheClient = grpcCacheClient;
     this.combinedCache = combinedCache;
     this.digestUtil = digestUtil;
@@ -134,19 +128,17 @@ public class ChunkedBlobDownloader {
       outcome = Outcome.FALLBACK;
       throw e;
     } finally {
-      if (metricsSink != null) {
-        metricsSink.accept(
-            new Download(
-                outcome,
-                blobDigest.getSizeBytes(),
-                chunkDigests.size(),
-                downloadStats.diskCacheHitChunks,
-                downloadStats.diskCacheHitBytes,
-                downloadStats.diskCacheMissChunks,
-                downloadStats.diskCacheMissBytes,
-                downloadStats.remoteChunks,
-                downloadStats.remoteBytes));
-      }
+      metricsSink.accept(
+          new Download(
+              outcome,
+              blobDigest.getSizeBytes(),
+              chunkDigests.size(),
+              downloadStats.diskCacheHitChunks,
+              downloadStats.diskCacheHitBytes,
+              downloadStats.diskCacheMissChunks,
+              downloadStats.diskCacheMissBytes,
+              downloadStats.remoteChunks,
+              downloadStats.remoteBytes));
     }
   }
 
@@ -331,14 +323,6 @@ public class ChunkedBlobDownloader {
             immediateFuture(
                 new CdcChunk(
                     local, /* diskCacheHit= */ false, /* diskCacheLookupAttempted= */ false));
-      } else if (metricsSink == null) {
-        future =
-            Futures.transform(
-                combinedCache.downloadBlob(context, chunkDigest),
-                data ->
-                    new CdcChunk(
-                        data, /* diskCacheHit= */ false, /* diskCacheLookupAttempted= */ false),
-                directExecutor());
       } else {
         future = combinedCache.downloadCdcChunk(context, chunkDigest);
       }

@@ -197,6 +197,8 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
     buildTarget("//foo:foo");
 
+    assertThat(buildMetricsEventListener.event.getBuildMetrics().hasRemoteCacheCdcMetrics())
+        .isTrue();
     var metrics = buildMetricsEventListener.event.getBuildMetrics().getRemoteCacheCdcMetrics();
     assertThat(metrics.getUploadAttempts()).isEqualTo(2);
     assertThat(metrics.getUploadSuccesses()).isEqualTo(1);
@@ -219,6 +221,80 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     assertThat(metrics.getDownloadDiskCacheMissBytes()).isEqualTo(50);
     assertThat(metrics.getDownloadRemoteChunks()).isEqualTo(1);
     assertThat(metrics.getDownloadRemoteBytes()).isEqualTo(50);
+  }
+
+  @Test
+  public void testRemoteCacheCdcMetricsAbsentWithoutOperations() throws Exception {
+    buildTarget("//foo:foo");
+
+    assertThat(buildMetricsEventListener.event.getBuildMetrics().hasRemoteCacheCdcMetrics())
+        .isFalse();
+  }
+
+  @Test
+  public void testRemoteCacheCdcMetricsPresentForFailedOperation() throws Exception {
+    buildMetricsEventListener.remoteCacheCdcEvents.add(
+        new RemoteCacheCdcEvent.Upload(
+            RemoteCacheCdcEvent.Outcome.FAILURE,
+            /* blobBytes= */ 100,
+            /* chunkReferences= */ 0,
+            /* remoteMissingChunks= */ 0,
+            /* remoteMissingChunkBytes= */ 0));
+
+    buildTarget("//foo:foo");
+
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    assertThat(buildMetrics.hasRemoteCacheCdcMetrics()).isTrue();
+    assertThat(buildMetrics.getRemoteCacheCdcMetrics().getUploadAttempts()).isEqualTo(1);
+    assertThat(buildMetrics.getRemoteCacheCdcMetrics().getUploadFailures()).isEqualTo(1);
+    assertThat(buildMetrics.getRemoteCacheCdcMetrics().getUploadSuccesses()).isEqualTo(0);
+  }
+
+  @Test
+  public void testRemoteCacheCdcMetricsPresentForDownloadFallback() throws Exception {
+    buildMetricsEventListener.remoteCacheCdcEvents.add(
+        new RemoteCacheCdcEvent.Download(
+            RemoteCacheCdcEvent.Outcome.FALLBACK,
+            /* blobBytes= */ 100,
+            /* chunkReferences= */ 0,
+            /* diskCacheHitChunks= */ 0,
+            /* diskCacheHitBytes= */ 0,
+            /* diskCacheMissChunks= */ 0,
+            /* diskCacheMissBytes= */ 0,
+            /* remoteChunks= */ 0,
+            /* remoteBytes= */ 0));
+
+    buildTarget("//foo:foo");
+
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    assertThat(buildMetrics.hasRemoteCacheCdcMetrics()).isTrue();
+    assertThat(buildMetrics.getRemoteCacheCdcMetrics().getDownloadAttempts()).isEqualTo(1);
+    assertThat(buildMetrics.getRemoteCacheCdcMetrics().getDownloadFallbacks()).isEqualTo(1);
+    assertThat(buildMetrics.getRemoteCacheCdcMetrics().getDownloadSuccesses()).isEqualTo(0);
+  }
+
+  @Test
+  public void testRemoteCacheCdcMetricsAbsentOnNextCommandWithoutOperations() throws Exception {
+    var upload =
+        new RemoteCacheCdcEvent.Upload(
+            RemoteCacheCdcEvent.Outcome.SUCCESS,
+            /* blobBytes= */ 100,
+            /* chunkReferences= */ 4,
+            /* remoteMissingChunks= */ 2,
+            /* remoteMissingChunkBytes= */ 40);
+    buildMetricsEventListener.remoteCacheCdcEvents.add(upload);
+    buildTarget("//foo:foo");
+    assertThat(buildMetricsEventListener.event.getBuildMetrics().hasRemoteCacheCdcMetrics())
+        .isTrue();
+    var oldEventBus = buildMetricsEventListener.env.getEventBus();
+    buildMetricsEventListener.remoteCacheCdcEvents.clear();
+    // A late completion belongs to the old command, even though the server is reused.
+    oldEventBus.post(upload);
+
+    buildTarget("//foo:foo");
+
+    assertThat(buildMetricsEventListener.event.getBuildMetrics().hasRemoteCacheCdcMetrics())
+        .isFalse();
   }
 
   @Test

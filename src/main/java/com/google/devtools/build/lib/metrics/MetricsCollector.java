@@ -390,8 +390,13 @@ class MetricsCollector {
             .addAllWorkerMetrics(workerMetrics)
             .setWorkerPoolMetrics(createWorkerPoolMetrics(workerProcessMetrics))
             .setDynamicExecutionMetrics(dynamicExecutionStats.toMetrics())
-            .setRemoteCacheCdcMetrics(remoteCacheCdcStats.toMetrics())
             .setRemoteAnalysisCacheStatistics(remoteAnalysisCacheStatistics);
+
+    RemoteCacheCdcMetrics remoteCacheCdcMetrics = remoteCacheCdcStats.toMetrics();
+    if (remoteCacheCdcMetrics.getUploadAttempts() > 0
+        || remoteCacheCdcMetrics.getDownloadAttempts() > 0) {
+      buildMetrics.setRemoteCacheCdcMetrics(remoteCacheCdcMetrics);
+    }
 
     NetworkMetrics networkMetrics = NetworkMetricsCollector.instance().collectMetrics();
     if (networkMetrics != null) {

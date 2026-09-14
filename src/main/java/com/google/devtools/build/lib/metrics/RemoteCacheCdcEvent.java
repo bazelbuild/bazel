@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.metrics;
 
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+
 /** Per-blob metrics for a remote cache content-defined chunking operation. */
-public sealed interface RemoteCacheCdcEvent {
+public sealed interface RemoteCacheCdcEvent extends Postable {
   enum Outcome {
     SUCCESS,
     FALLBACK,
