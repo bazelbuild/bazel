@@ -62,6 +62,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -1518,6 +1519,19 @@ public class BzlLoadFunction implements SkyFunction {
                 packageLoadingListener);
         if (value != null) {
           bzlCompileCache.put(key, value);
+        }
+      } else {
+        // The cache hit may have been populated on behalf of a different BzlLoadValue node with
+        // the same compile key; make sure this node depends on the .bzl file too.
+        var bzlFileKey = key.getBzlFileKey();
+        if (bzlFileKey != null) {
+          try {
+            if (env.getValueOrThrow(bzlFileKey, IOException.class) == null) {
+              return null;
+            }
+          } catch (IOException e) {
+            throw new BzlCompileFunction.FailedIOException(e, Transience.PERSISTENT);
+          }
         }
       }
       return value;
