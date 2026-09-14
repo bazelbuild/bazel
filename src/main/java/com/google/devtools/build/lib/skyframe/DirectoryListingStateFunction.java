@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -60,8 +61,11 @@ public class DirectoryListingStateFunction implements SkyFunction {
       if (fileType == FileType.EXTERNAL_REPO) {
         // Do not use syscallCache as files under repositories get generated during the build,
         // while syscallCache is used independently from Skyframe and generally assumes
-        // the file system is frozen at the beginning of the build command.
-        return DirectoryListingStateValue.create(dirRootedPath.asPath().readdir(Symlinks.NOFOLLOW));
+        // the file system is frozen at the beginning of the build command. A refetch of the
+        // repository may also replace them while they are being listed.
+        return DirectoryListingStateValue.create(
+            RewindableRepoFileSystem.readUnderRepoLock(
+                dirRootedPath.asPath(), () -> dirRootedPath.asPath().readdir(Symlinks.NOFOLLOW)));
       }
       return DirectoryListingStateValue.create(syscallCache.readdir(dirRootedPath.asPath()));
     } catch (ExternalFilesHelper.NonexistentImmutableExternalFileException e) {

@@ -59,14 +59,18 @@ import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepoEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
+import com.google.devtools.build.lib.skyframe.rewinding.RepoRewinding;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
+import com.google.devtools.build.lib.vfs.RewindingSynchronizer.TransferableWriteLock;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -187,6 +191,12 @@ public final class RepositoryFetchFunction implements SkyFunction {
                     workerEnv, repositoryName, starlarkSemantics, repoRoot, repoDefinition);
               });
         } catch (ExecutionException e) {
+          // The repo rule may have read a file of another cached repo that the remote cache has
+          // lost. Rather than failing the build, refetch that repo and run this repo rule again.
+          Reset reset = RepoRewinding.resetForLostRepoFile(skyKey, e);
+          if (reset != null) {
+            return reset;
+          }
           Throwables.throwIfInstanceOf(e.getCause(), RepositoryFunctionException.class);
           Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
           Throwables.throwIfUnchecked(e.getCause());
@@ -213,6 +223,36 @@ public final class RepositoryFetchFunction implements SkyFunction {
    */
   @Nullable
   private RepositoryDirectoryValue computeInternal(
+      Environment env,
+      RepositoryName repositoryName,
+      StarlarkSemantics starlarkSemantics,
+      Path repoRoot,
+      RepoDefinition repoDefinition)
+      throws InterruptedException, RepositoryFunctionException {
+    // Claim a retained lock before requesting dependencies, including those that can fail and
+    // prevent the repo rule from running again. The whole worker owns the replacement, including
+    // cache restoration and the cleanup performed when its Starlark context is closed.
+    try (TransferableWriteLock repoWriteLock = acquireRepoWriteLock(repoRoot, repositoryName)) {
+      try {
+        return computeUnderWriteLock(
+            env, repositoryName, starlarkSemantics, repoRoot, repoDefinition);
+      } catch (RepositoryFunctionException e) {
+        if (RepoRewinding.isLostRepoFile(e) || Thread.currentThread().isInterrupted()) {
+          repoWriteLock.keepLockedForRestart();
+        }
+        throw e;
+      } catch (InterruptedException e) {
+        // Memory pressure cancels this worker and starts a replacement in the same command.
+        // Readers must not see the incomplete directory between attempts. Command cancellation
+        // releases any unclaimed locks after evaluation has stopped.
+        repoWriteLock.keepLockedForRestart();
+        throw e;
+      }
+    }
+  }
+
+  @Nullable
+  private RepositoryDirectoryValue computeUnderWriteLock(
       Environment env,
       RepositoryName repositoryName,
       StarlarkSemantics starlarkSemantics,
@@ -266,7 +306,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
           if (digestWriter
               .areRepositoryAndMarkerFileConsistent(env, candidate.recordedInputsFile())
               .isEmpty()) {
-            if (setupOverride(candidate.contentsDir().asFragment(), env, repoRoot, repositoryName)
+            if (setupOverrideUnderWriteLock(
+                    candidate.contentsDir().asFragment(), env, repoRoot, repositoryName)
                 == null) {
               return null;
             }
@@ -463,7 +504,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
         } catch (IOException e) {
           throw new RepositoryFunctionException(e, Transience.TRANSIENT);
         }
-        return setupOverride(vendorRepoPath.asFragment(), env, repoRoot, repositoryName);
+        return setupOverrideUnderWriteLock(
+            vendorRepoPath.asFragment(), env, repoRoot, repositoryName);
       }
 
       Optional<String> vendoredRepoOutOfDateReason =
@@ -486,7 +528,8 @@ public final class RepositoryFetchFunction implements SkyFunction {
                               + " the bazel vendor command to update it",
                           repositoryName.getName(), vendoredRepoOutOfDateReason.get())));
         }
-        return setupOverride(vendorRepoPath.asFragment(), env, repoRoot, repositoryName);
+        return setupOverrideUnderWriteLock(
+            vendorRepoPath.asFragment(), env, repoRoot, repositoryName);
       } else if (!RepositoryDirectoryValue.IS_VENDOR_COMMAND
           .get(env)
           .booleanValue()) { // build command & fetch enabled
@@ -564,6 +607,11 @@ public final class RepositoryFetchFunction implements SkyFunction {
     } catch (RepositoryFunctionException e) {
       // Upon an exceptional exit, the fetching of that repository is over as well.
       env.getListener().post(RepositoryFetchProgress.finished(repoName));
+      if (RepoRewinding.isLostRepoFile(e)) {
+        // The repo rule read a file of another cached repo that the remote cache has lost. The
+        // build recovers by rewinding that repo's fetch, so this is not a failure to report.
+        throw e;
+      }
       env.getListener().post(new RepositoryFailedEvent(repoName, e.getMessage()));
 
       if (e.getCause() instanceof AlreadyReportedException) {
@@ -831,6 +879,15 @@ public final class RepositoryFetchFunction implements SkyFunction {
   private RepositoryDirectoryValue setupOverride(
       PathFragment sourcePath, Environment env, Path repoRoot, RepositoryName repoName)
       throws RepositoryFunctionException, InterruptedException {
+    try (TransferableWriteLock repoWriteLock = acquireRepoWriteLock(repoRoot, repoName)) {
+      return setupOverrideUnderWriteLock(sourcePath, env, repoRoot, repoName);
+    }
+  }
+
+  @Nullable
+  private RepositoryDirectoryValue setupOverrideUnderWriteLock(
+      PathFragment sourcePath, Environment env, Path repoRoot, RepositoryName repoName)
+      throws RepositoryFunctionException, InterruptedException {
     DigestWriter.clearMarkerFile(directories, repoName);
     return symlinkRepoRoot(
         directories,
@@ -838,6 +895,18 @@ public final class RepositoryFetchFunction implements SkyFunction {
         directories.getWorkspace().getRelative(sourcePath),
         repoName.getName(),
         env);
+  }
+
+  /**
+   * Acquires the lock that has to be held while the repo root is replaced, which keeps actions from
+   * observing it in an intermediate state.
+   */
+  private static TransferableWriteLock acquireRepoWriteLock(Path repoRoot, RepositoryName repoName)
+      throws InterruptedException {
+    if (repoRoot.getFileSystem() instanceof RewindableRepoFileSystem repoFileSystem) {
+      return repoFileSystem.acquireRepoWriteLock(repoName);
+    }
+    return TransferableWriteLock.noop();
   }
 
   @Nullable

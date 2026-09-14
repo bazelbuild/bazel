@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.concurrent;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
@@ -174,6 +174,38 @@ public class ReaderPreferringReadWriteLockTest {
     lock.unlockRead();
     lock.lockWriteInterruptibly();
     lock.unlockWrite();
+  }
+
+  @Test
+  public void tryLockRead_writerWaiting_onlyAdmittedIfBarging() throws Exception {
+    var lock = new ReaderPreferringReadWriteLock();
+    lock.lockReadInterruptibly();
+    var writer =
+        new TestThread(
+            () -> {
+              lock.lockWriteInterruptibly();
+              lock.unlockWrite();
+            });
+    writer.start();
+    waitUntilState(writer, Thread.State.WAITING);
+    assertThat(lock.tryLockReadUnlessWriterWaiting()).isFalse();
+    assertThat(lock.tryLockRead()).isTrue();
+    lock.unlockRead();
+    lock.unlockRead();
+    writer.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+    assertThat(lock.tryLockReadUnlessWriterWaiting()).isTrue();
+    lock.unlockRead();
+  }
+
+  @Test
+  public void tryLockRead_lockHeldByWriter_fails() throws Exception {
+    var lock = new ReaderPreferringReadWriteLock();
+    lock.lockWriteInterruptibly();
+    assertThat(lock.tryLockRead()).isFalse();
+    assertThat(lock.tryLockReadUnlessWriterWaiting()).isFalse();
+    lock.unlockWrite();
+    assertThat(lock.tryLockRead()).isTrue();
+    lock.unlockRead();
   }
 
   @Test

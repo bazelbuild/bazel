@@ -768,6 +768,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:full_access",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/vfs:rewindable_repo_file_system",
         ":action_input",
         ":action_lookup_data",
         ":artifacts",

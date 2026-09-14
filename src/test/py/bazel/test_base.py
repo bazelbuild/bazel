@@ -440,8 +440,12 @@ class TestBase(absltest.TestCase):
         rstrip,
     )
 
-  def StartRemoteWorker(self):
+  def StartRemoteWorker(self, extra_args=None):
     """Runs a "local remote worker" to run remote builds and tests on.
+
+    Args:
+      extra_args: list of str; additional flags to pass to the worker, e.g.
+        '--noaction_cache_integrity_check'.
 
     Returns:
       int: port that the local remote worker runs on.
@@ -478,7 +482,8 @@ class TestBase(absltest.TestCase):
             # length restrictions.
             '--work_path=' + worker_path,
             '--cas_path=' + self._cas_path,
-        ],
+        ]
+        + list(extra_args or []),
         stdout=self._worker_stdout,
         stderr=self._worker_stderr,
         cwd=self._test_cwd,

@@ -59,6 +59,8 @@ import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCach
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
+import com.google.devtools.build.lib.skyframe.rewinding.LostRemoteRepoFileException;
+import com.google.devtools.build.lib.skyframe.rewinding.RepoRewinding;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -2389,8 +2391,14 @@ func(
       try {
         lazyMaterializer.ensureMaterialized(label.getRepository(), env.getListener());
       } catch (IOException e) {
-        throw Starlark.errorf(
-            "Failed to materialize remote repo %s: %s", label.getRepository(), e.getMessage());
+        // Keep a lost repo file as the cause so that the failing node can recover it by rewinding,
+        // and record the label it was read through, which determines the package lookup that has
+        // to be rewound along with the repo fetch.
+        LostRemoteRepoFileException lostFile = RepoRewinding.findLostRepoFile(e);
+        throw new EvalException(
+            "Failed to materialize remote repo %s: %s"
+                .formatted(label.getRepository(), e.getMessage()),
+            lostFile == null ? e : lostFile.withLabel(label));
       }
     }
     StarlarkPath starlarkPath = new StarlarkPath(this, rootedPath.asPath());

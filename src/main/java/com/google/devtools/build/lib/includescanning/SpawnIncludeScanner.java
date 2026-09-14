@@ -43,11 +43,13 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.includescanning.IncludeParser.GrepIncludesFileType;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.protobuf.ByteString;
@@ -431,7 +433,18 @@ public class SpawnIncludeScanner {
         actionExecutionContext.getContext(SpawnStrategyResolver.class);
     ActionExecutionContext spawnContext = actionExecutionContext.withFileOutErr(grepOutErr);
     List<SpawnResult> results;
-    try {
+    var repoFileSystem = RewindableRepoFileSystem.of(input.getPath().getFileSystem());
+    try (SilentCloseable repoLocks =
+        repoFileSystem == null
+            ? () -> {}
+            : repoFileSystem
+                .getRewindingSynchronizer()
+                .acquireReadLocks(
+                    () ->
+                        actionExecutionContext
+                            .getInputMetadataProvider()
+                            .getExternalSourceRepositories(
+                                ImmutableList.of(grepIncludes, input), repoFileSystem))) {
       results = spawnStrategyResolver.exec(spawn, spawnContext);
       dump(spawnContext, actionExecutionContext);
     } catch (ExecException e) {

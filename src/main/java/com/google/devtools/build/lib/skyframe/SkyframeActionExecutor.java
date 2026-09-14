@@ -114,6 +114,7 @@ import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.RewindableRepoFileSystem;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.XattrProvider;
@@ -241,6 +242,8 @@ public final class SkyframeActionExecutor {
   @Nullable private ActionCompletedReceiver completionReceiver;
 
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef;
+  // Null if the file system doesn't serve repository contents that can be replaced during a build.
+  @Nullable private final RewindableRepoFileSystem repoFileSystem;
   private OutputService outputService;
   private boolean finalizeActions;
   private boolean rewindingEnabled;
@@ -274,7 +277,8 @@ public final class SkyframeActionExecutor {
       Supplier<ImmutableList<Root>> sourceRootSupplier,
       SyscallCache syscallCache,
       Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory,
-      ExistingActionLookupValuePeeker actionLookupValuePeeker) {
+      ExistingActionLookupValuePeeker actionLookupValuePeeker,
+      @Nullable RewindableRepoFileSystem repoFileSystem) {
     this.actionKeyContext = actionKeyContext;
     this.outputArtifactsSeen = outputArtifactsSeen;
     this.outputArtifactsFromActionCache = outputArtifactsFromActionCache;
@@ -283,6 +287,7 @@ public final class SkyframeActionExecutor {
     this.syscallCache = syscallCache;
     this.threadStateReceiverFactory = threadStateReceiverFactory;
     this.actionLookupValuePeeker = actionLookupValuePeeker;
+    this.repoFileSystem = repoFileSystem;
   }
 
   /**
@@ -1183,9 +1188,15 @@ public final class SkyframeActionExecutor {
               createOutputDirectories(action);
             }
 
+            // Acquired after the action output locks: a rewound action holds the lock on its
+            // outputs while waiting for its repo read locks, so a consumer of those outputs must
+            // not hold a repo read lock while waiting for that lock.
             try (SilentCloseable innerLock =
-                rewoundActionSynchronizer.enterActionExecution(
-                    action, wasRewound, actionExecutionContext.getInputMetadataProvider())) {
+                    rewoundActionSynchronizer.enterActionExecution(
+                        action, wasRewound, actionExecutionContext.getInputMetadataProvider());
+                SilentCloseable repoReadLocks =
+                    acquireRepoReadLocks(
+                        action, actionExecutionContext.getInputMetadataProvider())) {
               return executeAction(env.getListener(), action);
             }
           }
@@ -1314,6 +1325,11 @@ public final class SkyframeActionExecutor {
         }
         eventHandler.post(new ActionSuccessEvent(actionExecutionValue));
         return new ActionPostprocessingStep(actionExecutionValue);
+      } catch (LostInputsActionExecutionException e) {
+        // Completing the action may read an input for the first time, e.g. by downloading a
+        // top-level output that is a symlink to it. Its loss is recovered by rewinding, like one
+        // during execution, rather than reported as a failure.
+        throw e;
       } catch (ActionExecutionException e) {
         return ActionStepOrResult.of(e);
       }
@@ -1379,6 +1395,7 @@ public final class SkyframeActionExecutor {
         }
       } catch (ActionExecutionException actionException) {
         // Success in execution but failure in completion.
+        maybeSignalLostInputs(actionException, primaryOutputPath);
         reportActionExecution(
             eventHandler,
             primaryOutputPath,
@@ -1473,6 +1490,23 @@ public final class SkyframeActionExecutor {
         return ActionStepOrResult.of(value);
       }
     }
+  }
+
+  /**
+   * Acquires read locks for the external repositories containing source inputs of the given action,
+   * so that a concurrent refetch can't replace their contents while the action reads them.
+   */
+  private SilentCloseable acquireRepoReadLocks(
+      Action action, InputMetadataProvider metadataProvider) throws InterruptedException {
+    if (repoFileSystem == null) {
+      return () -> {};
+    }
+    return repoFileSystem
+        .getRewindingSynchronizer()
+        .acquireReadLocks(
+            () ->
+                metadataProvider.getExternalSourceRepositories(
+                    action.getInputs().toList(), repoFileSystem));
   }
 
   /**
