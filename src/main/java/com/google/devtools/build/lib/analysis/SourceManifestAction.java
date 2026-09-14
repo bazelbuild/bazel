@@ -52,10 +52,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
+import java.util.SortedMap;
 import javax.annotation.Nullable;
 
 /**
@@ -72,8 +70,6 @@ public final class SourceManifestAction extends AbstractFileWriteAction
 
   private static final String GUID = "07459553-a3d0-4d37-9d78-18ed942470f4";
 
-  private static final Comparator<Map.Entry<PathFragment, Artifact>> ENTRY_COMPARATOR =
-      Comparator.comparing(path -> path.getKey().getPathString());
   private static final Escaper ROOT_RELATIVE_PATH_ESCAPER =
       new CharEscaperBuilder()
           .addEscape(' ', "\\s")
@@ -280,7 +276,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction
           }
         };
 
-    Map<PathFragment, Artifact> runfilesInputs =
+    SortedMap<PathFragment, Artifact> runfilesInputs =
         runfiles.getRunfilesInputs(
             receiver,
             repoMappingManifest,
@@ -314,13 +310,11 @@ public final class SourceManifestAction extends AbstractFileWriteAction
    */
   private void writeFile(
       OutputStream out,
-      Map<PathFragment, Artifact> output,
+      SortedMap<PathFragment, Artifact> output,
       @Nullable InputMetadataProvider inputMetadataProvider)
       throws IOException {
     Writer manifestFile = new BufferedWriter(new OutputStreamWriter(out, ISO_8859_1));
-    List<Map.Entry<PathFragment, Artifact>> sortedManifest = new ArrayList<>(output.entrySet());
-    sortedManifest.sort(ENTRY_COMPARATOR);
-    for (Map.Entry<PathFragment, Artifact> line : sortedManifest) {
+    for (Map.Entry<PathFragment, Artifact> line : output.entrySet()) {
       Artifact artifact = line.getValue();
       PathFragment symlinkTarget;
       if (artifact == null) {
