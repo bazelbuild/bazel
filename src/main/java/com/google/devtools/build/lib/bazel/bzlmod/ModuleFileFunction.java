@@ -493,12 +493,19 @@ public class ModuleFileFunction implements SkyFunction {
     result =
         env.getValuesAndExceptions(
             rootedPaths.stream().map(FileValue::key).collect(toImmutableSet()));
-    var newHorizon = ImmutableList.<IncludeStatement>builder();
-    for (int i = 0; i < pending.size(); i++) {
-      FileValue fileValue = (FileValue) result.get(FileValue.key(rootedPaths.get(i)));
+    // Resolve all file dependencies before compiling so a restart cannot retain a compiled file
+    // while discarding its nested includes from the next horizon.
+    var fileValues = new ArrayList<FileValue>(pending.size());
+    for (var rootedPath : rootedPaths) {
+      FileValue fileValue = (FileValue) result.get(FileValue.key(rootedPath));
       if (fileValue == null) {
         return null;
       }
+      fileValues.add(fileValue);
+    }
+    var newHorizon = ImmutableList.<IncludeStatement>builder();
+    for (int i = 0; i < pending.size(); i++) {
+      FileValue fileValue = fileValues.get(i);
       if (!fileValue.isFile()) {
         throw errorf(
             Code.BAD_MODULE,
