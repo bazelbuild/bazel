@@ -536,6 +536,7 @@ java_library(
         ":TestType",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
     ],
 )
