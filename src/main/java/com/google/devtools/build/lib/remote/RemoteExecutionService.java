@@ -1702,12 +1702,12 @@ public class RemoteExecutionService {
       moveOutputsToFinalLocation(realToTmpPath.keySet(), realToTmpPath);
     } catch (InterruptedException | IOException e) {
       // Delete any copied output files.
-      try {
-        for (Path tmpPath : realToTmpPath.values()) {
+      for (Path tmpPath : realToTmpPath.values()) {
+        try {
           tmpPath.delete();
+        } catch (IOException ignored) {
+          // Best effort, will be cleaned up at server restart.
         }
-      } catch (IOException ignored) {
-        // Best effort, will be cleaned up at server restart.
       }
       throw e;
     }
