@@ -243,10 +243,10 @@ public abstract class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Determines whether C++ binaries will be linked dynamically.  'default' means "
-              + "Bazel will choose whether to link dynamically.  'fully' means all libraries "
-              + "will be linked dynamically. 'off' means that all libraries will be linked "
-              + "in mostly static mode, the exception being dynamically linked system libraries.")
+          "Determines whether C++ binaries will be linked dynamically.  'default' means Bazel will"
+              + " decided based on the rule's linkstatic attribute.  'fully' means all libraries will"
+              + " be linked dynamically. 'off' means that all libraries will be linked in mostly"
+              + " static mode, the exception being dynamically linked system libraries.")
   public abstract DynamicMode getDynamicMode();
 
   @Option(
