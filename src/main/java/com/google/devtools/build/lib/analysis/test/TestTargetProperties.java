@@ -65,6 +65,7 @@ public class TestTargetProperties {
   private final boolean isExternal;
   private final String language;
   private final ImmutableMap<String, String> executionInfo;
+  private final ImmutableMap<String, String> coveragePostProcessingExecutionInfo;
   private final TestConfiguration testConfiguration;
 
   /**
@@ -118,13 +119,23 @@ public class TestTargetProperties {
       // This will overwrite whatever TargetUtils put there, which might be confusing.
       executionInfo.putAll(executionRequirements.getExecutionInfo());
     }
-    ruleContext.getConfiguration().modifyExecutionInfo(executionInfo, TestRunnerAction.MNEMONIC);
-    this.executionInfo = ImmutableMap.copyOf(executionInfo);
+    // Both spawns inherit the target's requirements, but mnemonic-specific modifiers must not leak
+    // from one spawn to the other.
+    ImmutableMap<String, String> baseExecutionInfo = ImmutableMap.copyOf(executionInfo);
+    this.executionInfo =
+        ruleContext
+            .getConfiguration()
+            .modifiedExecutionInfo(baseExecutionInfo, TestRunnerAction.MNEMONIC);
+    coveragePostProcessingExecutionInfo =
+        ruleContext
+            .getConfiguration()
+            .modifiedExecutionInfo(
+                baseExecutionInfo, TestRunnerAction.COVERAGE_POST_PROCESSING_MNEMONIC);
 
     isRemotable =
-        !executionInfo.containsKey(ExecutionRequirements.LOCAL)
-            && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE)
-            && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_EXEC);
+        !this.executionInfo.containsKey(ExecutionRequirements.LOCAL)
+            && !this.executionInfo.containsKey(ExecutionRequirements.NO_REMOTE)
+            && !this.executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_EXEC);
 
     language = TargetUtils.getRuleLanguage(rule);
   }
@@ -171,6 +182,11 @@ public class TestTargetProperties {
    */
   public ImmutableMap<String, String> getExecutionInfo() {
     return executionInfo;
+  }
+
+  /** Returns execution info with modifiers applied for split coverage postprocessing only. */
+  public ImmutableMap<String, String> getCoveragePostProcessingExecutionInfo() {
+    return coveragePostProcessingExecutionInfo;
   }
 
   public String getLanguage() {

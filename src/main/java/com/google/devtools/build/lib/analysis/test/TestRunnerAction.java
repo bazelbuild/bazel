@@ -108,6 +108,7 @@ public class TestRunnerAction extends AbstractAction
 
   private static final String GUID = "cc41f9d0-47a6-11e7-8726-eb6ce83a8cc8";
   public static final String MNEMONIC = "TestRunner";
+  public static final String COVERAGE_POST_PROCESSING_MNEMONIC = "CoveragePostProcessing";
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -543,6 +544,9 @@ public class TestRunnerAction extends AbstractAction
     fp.addBoolean(configuration.isCodeCoverageEnabled());
     fp.addBoolean(testConfiguration.getZipUndeclaredTestOutputs());
     fp.addStringMap(getExecutionInfo());
+    if (isCoverageMode() && splitCoveragePostProcessing) {
+      fp.addStringMap(getCoveragePostProcessingExecutionInfo());
+    }
     fp.addNullableString(unrunnableReason);
   }
 
@@ -984,6 +988,10 @@ public class TestRunnerAction extends AbstractAction
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
     return testProperties.getExecutionInfo();
+  }
+
+  public ImmutableMap<String, String> getCoveragePostProcessingExecutionInfo() {
+    return testProperties.getCoveragePostProcessingExecutionInfo();
   }
 
   public TestTargetExecutionSettings getExecutionSettings() {
