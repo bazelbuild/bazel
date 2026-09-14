@@ -2117,6 +2117,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/bazel/bzlmod:util",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
         "//third_party:guava",
         "//third_party:jsr305",
