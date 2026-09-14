@@ -355,7 +355,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:command_complete_event",
         "//src/main/java/com/google/devtools/build/lib/runtime:process_wrapper",
         "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/java/com/google/devtools/build/lib/unix:process_utils_service",
+        "//src/main/java/com/google/devtools/build/lib/unix:process_utils",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",

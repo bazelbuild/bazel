@@ -24,7 +24,6 @@ OUT="$3"
 # Omit blake3, which would require an external dependency.
 SOURCES=(
   src/main/native/latin1_jni_path.cc
-  src/main/native/process.cc
   src/main/native/unix_jni.cc
   src/main/cpp/util/logging.cc
 )
