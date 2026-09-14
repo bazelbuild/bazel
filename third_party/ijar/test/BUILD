@@ -35,6 +35,7 @@ sh_test(
         # TODO(cushon): build from source once we have a JDK 11
         "nestmates/nestmates.jar",
         "records/records.jar",
+        "records/record_length_mismatch.jar",
         "sealed/sealed.jar",
         ":source_debug_extension.jar",
         ":duplicated_unsupported_attribute.jar",
