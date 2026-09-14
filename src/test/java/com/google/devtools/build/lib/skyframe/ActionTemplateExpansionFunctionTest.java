@@ -406,7 +406,8 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
   private static ActionLookupValue createActionLookupValue(ActionTemplate<?> actionTemplate)
       throws ActionConflictException,
           InterruptedException,
-          Actions.ArtifactGeneratedByOtherRuleException {
+          Actions.ArtifactGeneratedByOtherRuleException,
+          Actions.SourceArtifactUsedAsOutputException {
     ImmutableList<ActionAnalysisMetadata> actions = ImmutableList.of(actionTemplate);
     Actions.assignOwnersAndThrowIfConflict(new ActionKeyContext(), actions, CTKEY);
     return new BasicActionLookupValue(actions);
