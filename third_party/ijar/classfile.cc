@@ -1302,15 +1302,25 @@ struct RecordAttribute : Attribute {
     auto attr = new RecordAttribute;
     attr->attribute_name_ = attribute_name;
     attr->attribute_length_ = attribute_length;
+    // Size the output by the bytes actually consumed while parsing the
+    // components, not by the attacker-controlled attribute_length. The number of
+    // components (components_length) is independent of attribute_length, so a
+    // crafted class can declare a tiny attribute_length while supplying many
+    // components; using attribute_length to size the scratch buffer in Write()
+    // caused a heap buffer overflow.
+    const u1 *components_start = p;
     u2 components_length = get_u2be(p);
     for (int i = 0; i < components_length; ++i) {
       attr->components_.push_back(RecordComponentInfo::Read(p));
     }
+    attr->components_data_length_ = static_cast<u4>(p - components_start);
     return attr;
   }
 
   void Write(u1 *&p) {
-    u1 *tmp = new u1[attribute_length_];
+    // components_data_length_ is a safe upper bound on the re-serialized size
+    // (Write never emits more than Read consumed); attribute_length_ is not.
+    u1 *tmp = new u1[components_data_length_];
     u1 *start = tmp;
     put_u2be(tmp, components_.size());
     for (size_t i = 0; i < components_.size(); ++i) {
@@ -1341,6 +1351,7 @@ struct RecordAttribute : Attribute {
   };
 
   u4 attribute_length_;
+  u4 components_data_length_ = 0;
   std::vector<RecordComponentInfo *> components_;
 };
 

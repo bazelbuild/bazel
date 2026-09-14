@@ -95,6 +95,8 @@ NESTMATES_JAR=$IJAR_SRCDIR/test/nestmates/nestmates.jar
 NESTMATES_IJAR=$TEST_TMPDIR/nestmates_interface.jar
 RECORDS_JAR=$IJAR_SRCDIR/test/records/records.jar
 RECORDS_IJAR=$TEST_TMPDIR/records_interface.jar
+RECORDS_LENGTH_MISMATCH_JAR=$IJAR_SRCDIR/test/records/record_length_mismatch.jar
+RECORDS_LENGTH_MISMATCH_IJAR=$TEST_TMPDIR/record_length_mismatch_interface.jar
 SEALED_JAR=$IJAR_SRCDIR/test/sealed/sealed.jar
 SEALED_IJAR=$TEST_TMPDIR/sealed_interface.jar
 SOURCEDEBUGEXT_JAR=$IJAR_SRCDIR/test/source_debug_extension.jar
@@ -574,6 +576,20 @@ function test_records_attribute() {
   $JAVAP -classpath $RECORDS_IJAR -v RecordTest >& $TEST_log \
     || fail "javap failed"
   expect_log "Record" "Records not preserved!"
+}
+
+function test_record_attribute_length_mismatch() {
+  # Regression test for a heap buffer overflow in RecordAttribute::Write. This
+  # jar holds a class whose Record attribute declares a tiny attribute_length
+  # while physically carrying the maximum number of components. The component
+  # count is parsed independently of attribute_length, so sizing the write
+  # buffer with attribute_length used to overflow it. ijar must instead size
+  # the buffer by the parsed component data and process the class without
+  # crashing.
+  $IJAR $RECORDS_LENGTH_MISMATCH_JAR $RECORDS_LENGTH_MISMATCH_IJAR \
+    || fail "ijar crashed or failed on a Record attribute with a mismatched length"
+  [[ -s "$RECORDS_LENGTH_MISMATCH_IJAR" ]] \
+    || fail "ijar produced no interface jar"
 }
 
 function test_sealed_attribute() {
