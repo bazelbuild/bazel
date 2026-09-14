@@ -228,7 +228,9 @@ public abstract class AuthAndTLSOptions extends OptionsBase {
           fetching, remote caching and execution, and the build event service.
 
           The path to the credential helper may be absolute, relative to the PATH environment variable,
-          or %workspace%-relative. The path may be optionally prefixed by a scope followed by an '='.
+          or %workspace%-relative. When looking up a bare name on the PATH on Windows, the extensions
+          listed in the PATHEXT environment variable are appended to it, so `my-helper` also finds
+          `my-helper.exe`. The path may be optionally prefixed by a scope followed by an '='.
           The scope is a domain name, optionally with a single leading '*' wildcard component. A helper
           applies to URIs matching its scope, with more specific scopes preferred. If a helper has no
           scope, it applies to every URI.
