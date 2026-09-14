@@ -63,7 +63,7 @@ public abstract class BuiltinProvider<T extends Info> implements Provider {
 
   @Override
   public final int hashCode() {
-    return getClass().hashCode();
+    return getClass().getName().hashCode();
   }
 
   @Override
@@ -142,7 +142,7 @@ public abstract class BuiltinProvider<T extends Info> implements Provider {
 
     @Override
     public int hashCode() {
-      return providerClass.hashCode();
+      return providerClass.getName().hashCode();
     }
 
     @Override
