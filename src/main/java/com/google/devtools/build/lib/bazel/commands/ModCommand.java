@@ -291,7 +291,7 @@ public final class ModCommand implements BlazeCommand {
       }
       EvaluationResult<SkyValue> evaluationResult =
           skyframeExecutor.evaluate(
-              keys.build(), /* keepGoing= */ true, threadsOption.getThreads(), env.getReporter());
+              keys.build(), /* keepGoing= */ true, threadsOption.threads, env.getReporter());
 
       if (evaluationResult.hasError()) {
         var cycleInfo = evaluationResult.getError().getCycleInfo();
