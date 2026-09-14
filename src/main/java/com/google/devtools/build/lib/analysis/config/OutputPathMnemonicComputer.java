@@ -263,8 +263,7 @@ public final class OutputPathMnemonicComputer {
       if (!PlatformOptions.platformIsDefault(platform)) {
         return platform.getName();
       }
-      // Fall back to using the CPU. Since its value appears verbatim in the output path, it must
-      // not also contribute to the ST hash.
+      // Fall back to using the CPU.
       ctx.markAsExplicitInOutputPathFor("cpu");
       return options.getCpu();
     }
