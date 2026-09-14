@@ -35,6 +35,7 @@
 #include <sys/sysctl.h>
 #include <sys/types.h>
 
+#include <cstdint>
 #include <string>
 
 #include "src/main/native/unix_jni.h"

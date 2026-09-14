@@ -21,6 +21,7 @@
 
 #include <windows.h>
 
+#include <cstddef>
 #include <memory>
 #include <string>
 

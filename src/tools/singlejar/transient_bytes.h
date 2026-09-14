@@ -21,6 +21,8 @@
 #include <inttypes.h>
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <ostream>
 
 #include "src/tools/singlejar/diag.h"

@@ -15,6 +15,7 @@
 #include "src/tools/singlejar/input_jar.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 
 #include "src/tools/singlejar/diag.h"
