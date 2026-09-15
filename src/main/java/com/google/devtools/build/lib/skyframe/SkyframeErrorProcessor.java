@@ -79,7 +79,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -301,7 +300,7 @@ public final class SkyframeErrorProcessor {
       cyclesReporter.reportCycles(
           errorInfo.getCycleInfo(), /*topLevelKey=*/ errorEntry.getKey(), eventHandler);
 
-      SkyKey errorKey = getEffectiveErrorKey(errorEntry);
+      SkyKey errorKey = getEffectiveErrorKey(errorEntry.getKey());
       if (includeExecutionPhase) {
         assertValidAnalysisOrExecutionException(
             errorInfo, errorKey, result.getWalkableGraph(), keepEdges);
@@ -313,7 +312,7 @@ public final class SkyframeErrorProcessor {
           nullableCause != null || !errorInfo.getCycleInfo().isEmpty(), errorInfo);
 
       // TODO(b/249690006): Can we remove this divergence?
-      if (inBuildViewTest && !isValidErrorKeyType(errorKey.argument())) {
+      if (inBuildViewTest && !isValidErrorKeyType(errorKey)) {
         // This means that we are in a BuildViewTestCase.
         //
         // Tests don't call target pattern parsing before requesting the analysis of a target.
@@ -404,11 +403,10 @@ public final class SkyframeErrorProcessor {
       }
       return;
     }
-    if (!(errorKey instanceof ConfiguredTargetKey)) {
+    if (!(errorKey instanceof ConfiguredTargetKey ctKey)) {
       return;
     }
 
-    ConfiguredTargetKey ctKey = (ConfiguredTargetKey) errorKey.argument();
     // For loading errors, we expect both LoadingFailureEvent and AnalysisFailureEvent.
     if (individualErrorProcessingResult.isLoadingError()) {
       for (Label loadingRootCause : individualErrorProcessingResult.loadingRootCauses()) {
@@ -461,8 +459,7 @@ public final class SkyframeErrorProcessor {
       throw new BuildFailedException(null, CYCLE_CODE);
     }
 
-    if (errorKey instanceof TopLevelAspectsKey) {
-      TopLevelAspectsKey aspectKey = (TopLevelAspectsKey) errorKey.argument();
+    if (errorKey instanceof TopLevelAspectsKey aspectKey) {
       String errorMsg =
           String.format(
               "Analysis of aspects '%s' failed; build aborted", aspectKey.getDescription());
@@ -496,7 +493,7 @@ public final class SkyframeErrorProcessor {
     // to do any work related to constructing the analysis failure events here, only for the other
     // cases like action conflict or execution-related errors.
     // TODO(b/249690006): Can we simplify things by moving aspects events here?
-    if (errorKey.argument() instanceof AspectBaseKey) {
+    if (errorKey instanceof AspectBaseKey) {
       if (exception instanceof TopLevelConflictException tlce) {
         actionConflicts = tlce.getTransitiveActionConflicts();
       } else if (exception instanceof ActionConflictException ace) {
@@ -518,7 +515,7 @@ public final class SkyframeErrorProcessor {
     }
 
     // Only possible with actions generating build-info.txt and build-changelist.txt.
-    if (errorKey.argument() instanceof ActionLookupData) {
+    if (errorKey instanceof ActionLookupData) {
       return new IndividualErrorProcessingResult(
           /* actionConflicts= */ ImmutableMap.of(),
           getExecutionDetailedExitCodeFromCause(result, exception, bugReporter),
@@ -528,10 +525,10 @@ public final class SkyframeErrorProcessor {
     }
 
     Preconditions.checkState(
-        errorKey.argument() instanceof ConfiguredTargetKey,
+        errorKey instanceof ConfiguredTargetKey,
         "expected '%s' to be a ConfiguredTargetKey",
-        errorKey.argument());
-    ConfiguredTargetKey ctKey = (ConfiguredTargetKey) errorKey.argument();
+        errorKey);
+    ConfiguredTargetKey ctKey = (ConfiguredTargetKey) errorKey;
     Label topLevelLabel = ctKey.getLabel();
     NestedSet<Cause> analysisRootCauses;
 
@@ -660,27 +657,21 @@ public final class SkyframeErrorProcessor {
         && !(cause instanceof TopLevelOutputException);
   }
 
-  private static boolean isValidErrorKeyType(Object errorKey) {
+  private static boolean isValidErrorKeyType(SkyKey errorKey) {
     return errorKey instanceof ConfiguredTargetKey || errorKey instanceof AspectBaseKey;
   }
 
   /** Peel away the wrapper layers to get to the ActionLookupKey of the top level target. */
-  private static SkyKey getEffectiveErrorKey(Entry<SkyKey, ErrorInfo> errorEntry) {
-    if (errorEntry.getKey().argument() instanceof BuildDriverKey) {
-      return ((BuildDriverKey) errorEntry.getKey().argument()).getActionLookupKey();
-    }
-    // For exclusive tests.
-    if (errorEntry.getKey().argument() instanceof TestCompletionKey) {
-      return ((TestCompletionKey) errorEntry.getKey().argument()).configuredTargetKey();
-    }
-    // For non-skymeld action executions.
-    if (errorEntry.getKey().argument() instanceof TargetCompletionKey) {
-      return ((TargetCompletionKey) errorEntry.getKey().argument()).actionLookupKey();
-    }
-    if (errorEntry.getKey().argument() instanceof AspectCompletionKey) {
-      return ((AspectCompletionKey) errorEntry.getKey().argument()).actionLookupKey();
-    }
-    return errorEntry.getKey();
+  private static SkyKey getEffectiveErrorKey(SkyKey key) {
+    return switch (key) {
+      case BuildDriverKey buildDriverKey -> buildDriverKey.getActionLookupKey();
+      // For exclusive tests.
+      case TestCompletionKey testCompletionKey -> testCompletionKey.configuredTargetKey();
+      // For non-skymeld action executions.
+      case TargetCompletionKey targetCompletionKey -> targetCompletionKey.actionLookupKey();
+      case AspectCompletionKey aspectCompletionKey -> aspectCompletionKey.actionLookupKey();
+      default -> key;
+    };
   }
 
   @Nullable
