@@ -376,8 +376,8 @@ public class RemoteOutputChecker implements OutputChecker {
 
   @Override
   public boolean shouldTrustCachedMetadata(ActionInput file, FileArtifactValue metadata) {
-    // Local metadata is always trusted.
-    if (!metadata.isRemote()) {
+    // Eager (non-lazy) metadata is always trusted.
+    if (!metadata.isLazy()) {
       return true;
     }
 

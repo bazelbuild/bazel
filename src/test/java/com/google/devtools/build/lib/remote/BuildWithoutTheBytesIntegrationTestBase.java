@@ -37,10 +37,10 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.exec.ExecutionOptions.FileWriteStrategy;
 import com.google.devtools.build.lib.exec.TestPolicy;
 import com.google.devtools.build.lib.runtime.commands.InfoCommand;
 import com.google.devtools.build.lib.runtime.commands.RunCommand;
-import com.google.devtools.build.lib.exec.ExecutionOptions.FileWriteStrategy;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
@@ -1340,8 +1340,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
                 OS.getCurrent() == OS.WINDOWS
                     ? ""
                     : """
-                      [ -x $(location :foo) ] || { echo "unexpectedly not executable"; exit 1; }
-                      """));
+                    [ -x $(location :foo) ] || { echo "unexpectedly not executable"; exit 1; }
+                    """));
 
     addOptions("--file_write_strategy=" + fileWriteStrategy);
 
@@ -1383,7 +1383,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertThat(getOutputPath("foo").isExecutable()).isTrue();
 
     // Delete file, re-create it
-    getOutputPath("foo-link").delete();
+    assertThat(getOutputPath("foo").delete()).isTrue();
     buildTarget("//:foo");
 
     assertOnlyOutputContent("//:foo", "foo", "hello");

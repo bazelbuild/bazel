@@ -241,7 +241,10 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
 
   @Override
   public ListenableFuture<Void> uploadDeterministicWriter(
-      RemoteActionExecutionContext context, Digest digest, DeterministicWriter deterministicWriter, boolean force) {
+      RemoteActionExecutionContext context,
+      Digest digest,
+      DeterministicWriter deterministicWriter,
+      boolean force) {
     return remoteCacheClient.uploadBlob(
         context, digest, new DeterministicWriterBlob(deterministicWriter), force);
   }
@@ -249,7 +252,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
   private record DeterministicWriterBlob(DeterministicWriter deterministicWriter) implements Blob {
     @Override
     public InputStream get() {
-      return deterministicWriter.get(Chunker.getDefaultChunkSize());
+      return deterministicWriter.getInputStream(Chunker.getDefaultChunkSize());
     }
   }
 

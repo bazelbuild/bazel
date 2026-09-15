@@ -649,7 +649,6 @@ public class RemoteActionFileSystem extends FileSystem implements PathCanonicali
         path, followSymlinks ? FollowMode.FOLLOW_ALL : FollowMode.FOLLOW_PARENT, StatSources.ALL);
   }
 
-
   /**
    * Internal stat implementation.
    *

@@ -41,9 +41,7 @@ import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.TestSummaryOptions;
 import com.google.devtools.build.lib.vfs.Path;
 
-/**
- * StandaloneModule provides pluggable functionality for blaze.
- */
+/** StandaloneModule provides pluggable functionality for blaze. */
 public class StandaloneModule extends BlazeModule {
 
   @Override

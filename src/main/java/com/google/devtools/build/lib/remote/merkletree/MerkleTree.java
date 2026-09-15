@@ -177,7 +177,8 @@ public sealed interface MerkleTree {
       return switch (blobs.get(digest)) {
         case byte[] data -> Optional.of(uploader.uploadBlob(context, digest, data, force));
         case DeterministicWriter deterministicWriter ->
-            Optional.of(uploader.uploadDeterministicWriter(context, digest, deterministicWriter, force));
+            Optional.of(
+                uploader.uploadDeterministicWriter(context, digest, deterministicWriter, force));
         case ActionInput actionInput -> {
           var spawnExecutionContext = context.getSpawnExecutionContext();
           var pathResolver =

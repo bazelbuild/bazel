@@ -623,7 +623,9 @@ public abstract class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "If set to 'eager', Bazel will write the output of file write actions to disk. If set to 'lazy', their output will be kept in-memory if possible and is only written out if needed or requested, depending on the value of --remote_download_outputs.")
+          "If set to 'eager', Bazel will write the output of file write actions to disk. If set to"
+              + " 'lazy', their output will be kept in-memory if possible and is only written out"
+              + " if needed or requested, depending on the value of --remote_download_outputs.")
   public abstract FileWriteStrategy getFileWriteStrategy();
 
   /** An enum for specifying different formats of test output. */

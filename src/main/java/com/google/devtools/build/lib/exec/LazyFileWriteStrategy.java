@@ -23,12 +23,10 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.profiler.AutoProfiler;
-import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.util.DeterministicWriter;
 import java.io.IOException;
-import java.time.Duration;
 
 /**
  * A strategy for executing an {@link
@@ -36,8 +34,6 @@ import java.time.Duration;
  * file to disk if possible.
  */
 public final class LazyFileWriteStrategy extends EagerFileWriteStrategy {
-  private static final Duration MIN_LOGGING = Duration.ofMillis(100);
-
   @Override
   public ImmutableList<SpawnResult> writeOutputToFile(
       AbstractAction action,
@@ -52,8 +48,7 @@ public final class LazyFileWriteStrategy extends EagerFileWriteStrategy {
           action, actionExecutionContext, deterministicWriter, makeExecutable, isRemotable, output);
     }
     actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, "local"));
-    try (AutoProfiler p =
-        GoogleAutoProfilerUtils.logged("hashing output of " + action.prettyPrint(), MIN_LOGGING)) {
+    try (var _ = Profiler.instance().profile("LazyFileWriteStrategy.writeOutputToFile")) {
       // TODO: Bazel currently marks all output files as executable after local execution and stages
       // all files as executable for remote execution, so we don't keep track of the executable
       // bit yet.

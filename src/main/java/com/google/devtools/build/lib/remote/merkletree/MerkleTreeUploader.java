@@ -37,7 +37,10 @@ public interface MerkleTreeUploader {
 
   /** Uploads in-memory content provided by a {@link DeterministicWriter} to the remote cache. */
   ListenableFuture<Void> uploadDeterministicWriter(
-      RemoteActionExecutionContext context, Digest digest, DeterministicWriter deterministicWriter, boolean force);
+      RemoteActionExecutionContext context,
+      Digest digest,
+      DeterministicWriter deterministicWriter,
+      boolean force);
 
   /**
    * Ensures that all inputs as well as metadata protos in the given Merkle tree are present in the

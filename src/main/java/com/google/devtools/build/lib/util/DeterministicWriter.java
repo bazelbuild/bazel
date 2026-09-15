@@ -14,13 +14,13 @@
 package com.google.devtools.build.lib.util;
 
 import com.google.protobuf.ByteString;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A {@link DeterministicWriter} writes a stream of bytes to an {@link OutputStream}.
@@ -28,11 +28,6 @@ import java.util.concurrent.Executors;
  * <p>The same stream of bytes is written on every invocation of {@link #writeTo}.
  */
 public interface DeterministicWriter {
-  // For internal use only.
-  /* private */ ExecutorService DETERMINISTIC_WRITER_PIPE_EXECUTOR =
-      Executors.newThreadPerTaskExecutor(
-          Thread.ofVirtual().name("deterministic-writer-pipe-", 0).factory());
-
   /**
    * Writes the stream of bytes to the given {@link OutputStream}.
    *
@@ -69,12 +64,14 @@ public interface DeterministicWriter {
 
   /**
    * Provides an {@link InputStream} that reads the contents without materializing them entirely in
-   * memory. Instead, memory usage is limited to a fixed-size buffer of the given size is used.
+   * memory. The pipe buffers at most {@code bufferSize} bytes, in addition to any memory used by
+   * the writer itself.
    *
-   * <p>Note that the default implementation uses virtual threads and should thus only be used if
-   * the returned {@link InputStream} is expected to be read in a way that blocks on I/O.
+   * <p>The writer runs on a virtual thread and blocks when the buffer is full. The caller must
+   * close the stream to stop the writer if it does not read to the end. Writer failures are
+   * propagated to the reader as {@link IOException}s.
    */
-  default InputStream get(int bufferSize) {
+  default InputStream getInputStream(int bufferSize) {
     var pipedIn = new PipedInputStream(bufferSize);
     PipedOutputStream pipedOut;
     try {
@@ -82,17 +79,50 @@ public interface DeterministicWriter {
     } catch (IOException e) {
       throw new IllegalStateException("PipedOutputStream constructor is not expected to throw", e);
     }
-    var unused =
-        DETERMINISTIC_WRITER_PIPE_EXECUTOR.submit(
-            () -> {
-              try (pipedOut) {
-                writeTo(pipedOut);
-              } catch (IOException e) {
-                // Since writeTo only throws when pipedOut does, this means that the reader has
-                // closed pipedIn early, perhaps due to interruption. Since the reader is gone,
-                // there is no way to propagate this exception back.
-              }
-            });
-    return pipedIn;
+    var failure = new AtomicReference<Throwable>();
+    Thread writerThread =
+        Thread.ofVirtual()
+            .name("deterministic-writer-pipe")
+            .start(
+                () -> {
+                  try (pipedOut) {
+                    // Publish failures before closing the pipe, so EOF cannot race with the
+                    // failure.
+                    try {
+                      writeTo(pipedOut);
+                    } catch (Throwable t) {
+                      failure.set(t);
+                    }
+                  } catch (IOException e) {
+                    failure.compareAndSet(null, e);
+                  }
+                });
+    return new FilterInputStream(pipedIn) {
+      @Override
+      public int read() throws IOException {
+        return checkResult(in.read());
+      }
+
+      @Override
+      public int read(byte[] bytes, int offset, int length) throws IOException {
+        return checkResult(in.read(bytes, offset, length));
+      }
+
+      private int checkResult(int result) throws IOException {
+        if (result == -1 && failure.get() != null) {
+          throw new IOException("Failed to write stream contents", failure.get());
+        }
+        return result;
+      }
+
+      @Override
+      public void close() throws IOException {
+        try {
+          super.close();
+        } finally {
+          writerThread.interrupt();
+        }
+      }
+    };
   }
 }

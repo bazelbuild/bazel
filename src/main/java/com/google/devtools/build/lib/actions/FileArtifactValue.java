@@ -53,7 +53,6 @@ import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -86,7 +85,8 @@ import javax.annotation.Nullable;
  */
 @Immutable
 @ThreadSafe
-public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadata, DeterministicWriter {
+public abstract class FileArtifactValue
+    implements SkyValue, FileArtifactMetadata, DeterministicWriter {
   /**
    * The type of the underlying file system object. If it is a regular file, then it is guaranteed
    * to have a digest. Otherwise it does not have a digest.
@@ -195,6 +195,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
    *
    * @throws UnsupportedOperationException if the file contents are not inline.
    */
+  @Override
   public void writeTo(OutputStream out) throws IOException {
     try (var in = getInputStream()) {
       in.transferTo(out);
@@ -1075,6 +1076,11 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     }
 
     @Override
+    public void writeTo(OutputStream out) throws IOException {
+      delegate.writeTo(out);
+    }
+
+    @Override
     public boolean isRemote() {
       return delegate.isRemote();
     }
@@ -1280,6 +1286,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     private final long size;
     private final byte[] digest;
     @Nullable private FileContentsProxy proxy;
+    private volatile boolean materializedAsToplevelOutput;
 
     private FileWriteOutputArtifactValue(DeterministicWriter writer, long size, byte[] digest) {
       this.writer = writer;
@@ -1309,16 +1316,7 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
 
     @Override
     public InputStream getInputStream() {
-      // TODO: Avoid materializing the full content in memory by using a variant of
-      //  Piped{Input,Output}Stream that works well with virtual threads.
-      var out = new ByteArrayOutputStream(Math.clamp(getSize(), 0, Integer.MAX_VALUE));
-      try {
-        writeTo(out);
-      } catch (IOException e) {
-        // writer is not expected to throw if out doesn't.
-        throw new IllegalStateException(e);
-      }
-      return new ByteArrayInputStream(out.toByteArray());
+      return writer.getInputStream(64 * 1024);
     }
 
     @Override
@@ -1348,6 +1346,16 @@ public abstract class FileArtifactValue implements SkyValue, FileArtifactMetadat
     @Nullable
     public FileContentsProxy getContentsProxy() {
       return proxy;
+    }
+
+    @Override
+    public boolean wasMaterializedAsToplevelOutput() {
+      return materializedAsToplevelOutput;
+    }
+
+    @Override
+    public void setMaterializedAsToplevelOutput(boolean materializedAsToplevelOutput) {
+      this.materializedAsToplevelOutput = materializedAsToplevelOutput;
     }
 
     @Override

@@ -1587,15 +1587,16 @@ public final class FilesystemValueCheckerTest {
   }
 
   @Test
-  public void testRemoteArtifactMaterializedAsToplevelOutputThenDeleted() throws Exception {
-    // Test that a remote artifact recorded as materialized in the local filesystem as a top-level
-    // output invalidates the generating action when the local file is deleted, even if remote
+  public void testLazyArtifactMaterializedAsToplevelOutputThenDeleted(
+      @TestParameter LazyMetadataType metadataType) throws Exception {
+    // Test that a lazy artifact recorded as materialized in the local filesystem as a top-level
+    // output invalidates the generating action when the local file is deleted, even if lazy
     // metadata is otherwise trusted - but only once: the record is cleared so that a reevaluation
     // that doesn't rematerialize the file isn't invalidated again.
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
 
     Artifact out = createDerivedArtifact("foo");
-    var outMetadata = createRemoteMetadata("foo-content");
+    var outMetadata = createMetadata(metadataType, "foo-content");
     differencer.inject(ImmutableMap.of(actionKey, actionValueWithMetadata(out, outMetadata)));
 
     EvaluationContext evaluationContext =

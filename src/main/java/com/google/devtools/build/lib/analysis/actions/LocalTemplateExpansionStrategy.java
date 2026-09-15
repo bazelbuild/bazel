@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
-
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -45,37 +44,36 @@ public class LocalTemplateExpansionStrategy implements TemplateExpansionContext 
       TemplateExpansionContext.TemplateMetadata templateMetadata)
       throws InterruptedException, ExecException {
     try {
-      // If writeOutputToFile may retain the writer, make sure that it doesn't capture the
-      // expanded template string. Since expansion may throw and the writer must not, expand the
-      // template once before calling writeOutputToFile. It is assumed to be deterministic, so if
-      // it doesn't throw once, it won't throw again.
-      final String expandedTemplate =
-          getExpandedTemplateUnsafe(
-              templateMetadata.template(), templateMetadata.substitutions(), ctx.getPathResolver());
       FileWriteActionContext fileWriteActionContext = ctx.getContext(FileWriteActionContext.class);
       DeterministicWriter deterministicWriter;
       if (fileWriteActionContext.mayRetainWriter()) {
-        ArtifactPathResolver pathResolver = ctx.getPathResolver();
+        // Snapshot the input before retaining the writer. The input file and the action's path
+        // resolver may no longer be valid when the output is materialized in a later build.
+        String template = templateMetadata.template().getContent(ctx.getPathResolver());
+        List<Substitution> substitutions = templateMetadata.substitutions();
+        // Report substitution errors during execution, without retaining the expanded values.
+        for (Substitution substitution : substitutions) {
+          var unused = substitution.getValue();
+        }
         deterministicWriter =
             out -> {
               try {
                 out.write(
-                    StringUnsafe.getInternalStringBytes(
-                        getExpandedTemplateUnsafe(
-                            templateMetadata.template(),
-                            templateMetadata.substitutions(),
-                            pathResolver)));
+                    StringUnsafe.getInternalStringBytes(expandTemplate(template, substitutions)));
               } catch (EvalException e) {
                 throw new IllegalStateException(
-                    "Template expansion is not deterministic, first succeeded and then failed with: "
-                        + e.getMessage(),
-                    e);
+                    "Previously validated template substitution failed", e);
               } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new IOException("Interrupted while expanding template", e);
               }
             };
       } else {
+        String expandedTemplate =
+            getExpandedTemplateUnsafe(
+                templateMetadata.template(),
+                templateMetadata.substitutions(),
+                ctx.getPathResolver());
         deterministicWriter =
             out -> out.write(StringUnsafe.getInternalStringBytes(expandedTemplate));
       }
@@ -103,8 +101,11 @@ public class LocalTemplateExpansionStrategy implements TemplateExpansionContext 
   public String getExpandedTemplateUnsafe(
       Template template, List<Substitution> substitutions, ArtifactPathResolver resolver)
       throws EvalException, IOException, InterruptedException {
-    String templateString;
-    templateString = template.getContent(resolver);
+    return expandTemplate(template.getContent(resolver), substitutions);
+  }
+
+  private static String expandTemplate(String templateString, List<Substitution> substitutions)
+      throws EvalException, InterruptedException {
     for (Substitution entry : substitutions) {
       templateString =
           StringUtilities.replaceAllLiteral(templateString, entry.getKey(), entry.getValue());

@@ -95,6 +95,26 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     }
   }
 
+  @Test
+  public void lazyFileWrite_switchToLocalBuild_materializesOutput(
+      @TestParameter({"expand_template", "write_file"}) String fileWriteRule) throws Exception {
+    writeFileWriteRules();
+    write(
+        "BUILD",
+        """
+        load('//rules:%1$s.bzl', '%1$s')
+        %1$s(name = 'foo', content = 'hello')
+        """
+            .formatted(fileWriteRule));
+    addOptions("--file_write_strategy=lazy");
+    buildTarget("//:foo");
+    assertOutputsDoNotExist("//:foo");
+
+    addOptions("--remote_executor=", "--remote_cache=", "--disk_cache=");
+    buildTarget("//:foo");
+    assertOnlyOutputContent("//:foo", "foo", "hello");
+  }
+
   @Override
   protected void setDownloadToplevel() {
     addOptions("--remote_download_outputs=toplevel");

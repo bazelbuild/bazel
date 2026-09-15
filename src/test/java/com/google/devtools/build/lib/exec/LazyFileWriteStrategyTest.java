@@ -19,7 +19,6 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -40,7 +39,6 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.FakeInputMetadataHandlerBase;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
-import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.remote.RemoteActionFileSystem;
 import com.google.devtools.build.lib.remote.RemoteActionInputFetcher;

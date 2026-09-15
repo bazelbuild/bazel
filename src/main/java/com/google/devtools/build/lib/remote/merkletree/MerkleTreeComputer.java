@@ -551,7 +551,7 @@ public final class MerkleTreeComputer {
     var blobs =
         new TreeMap<
             /* Digest | FileArtifactValue */ Object,
-            /* byte[] | Path | VirtualActionInput | StreamWriter */ Object>(
+            /* byte[] | ActionInput | DeterministicWriter */ Object>(
             MerkleTree.Uploadable.DIGEST_AND_METADATA_COMPARATOR);
     Deque<Directory.Builder> directoryStack = new ArrayDeque<>();
     directoryStack.push(Directory.newBuilder());
@@ -696,7 +696,7 @@ public final class MerkleTreeComputer {
               // If there is both a Digest and a FileArtifactValue key for the same content, prefer
               // the FileArtifactValue as it is retained anyway.
               // Inline content (e.g. for lazily written files) isn't materialized on disk, so the
-              // metadata itself (a StreamWriter) is the source of the blob's bytes.
+              // metadata itself (a DeterministicWriter) is the source of the blob's bytes.
               blobs.put(metadata, metadata.isInline() ? metadata : fileOrSourceDirectory);
             }
             inputFiles++;
