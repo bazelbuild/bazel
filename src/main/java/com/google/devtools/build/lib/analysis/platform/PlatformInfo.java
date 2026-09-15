@@ -67,6 +67,8 @@ public class PlatformInfo extends NativeInfo
 
   private final PlatformProperties execProperties;
 
+  private final ImmutableMap<String, Double> localResources;
+
   private final ImmutableList<String> flags;
 
   private final ImmutableList<ConfigMatchingProvider> requiredSettings;
@@ -80,6 +82,7 @@ public class PlatformInfo extends NativeInfo
       Label label,
       ConstraintCollection constraints,
       PlatformProperties execProperties,
+      ImmutableMap<String, Double> localResources,
       ImmutableList<String> flags,
       ImmutableList<ConfigMatchingProvider> requiredSettings,
       boolean checkToolchainTypes,
@@ -88,6 +91,7 @@ public class PlatformInfo extends NativeInfo
     this.label = label;
     this.constraints = constraints;
     this.execProperties = execProperties;
+    this.localResources = localResources;
     this.flags = flags;
     this.requiredSettings = requiredSettings;
     this.checkToolchainTypes = checkToolchainTypes;
@@ -112,6 +116,11 @@ public class PlatformInfo extends NativeInfo
 
   public ImmutableMap<String, String> execProperties() {
     return execProperties.properties();
+  }
+
+  /** Returns the local resource capacity declared by this platform. */
+  public ImmutableMap<String, Double> localResources() {
+    return localResources;
   }
 
   public ImmutableList<String> flags() {
@@ -145,6 +154,7 @@ public class PlatformInfo extends NativeInfo
     fp.addString(label.toString());
     constraints.addToFingerprint(fp);
     fp.addStringMap(execProperties.properties());
+    // localResources is intentionally omitted: capacity only affects scheduling, not outputs.
     fp.addStrings(flags);
     fp.addStrings(
         requiredSettings.stream()
@@ -164,6 +174,7 @@ public class PlatformInfo extends NativeInfo
     return Objects.equals(label, that.label)
         && Objects.equals(constraints, that.constraints)
         && Objects.equals(execProperties, that.execProperties)
+        && Objects.equals(localResources, that.localResources)
         && Objects.equals(flags, that.flags)
         && Objects.equals(requiredSettings, that.requiredSettings)
         && (checkToolchainTypes == that.checkToolchainTypes)
@@ -177,6 +188,7 @@ public class PlatformInfo extends NativeInfo
         label,
         constraints,
         execProperties,
+        localResources,
         flags,
         requiredSettings,
         checkToolchainTypes,
@@ -196,6 +208,7 @@ public class PlatformInfo extends NativeInfo
     private Label label;
     private final ConstraintCollection.Builder constraints = ConstraintCollection.builder();
     private final PlatformProperties.Builder execPropertiesBuilder = PlatformProperties.builder();
+    private ImmutableMap<String, Double> localResources = ImmutableMap.of();
     private final ImmutableList.Builder<String> flags = new ImmutableList.Builder<>();
     private final ImmutableList.Builder<ConfigMatchingProvider> requiredSettings =
         new ImmutableList.Builder<>();
@@ -274,6 +287,13 @@ public class PlatformInfo extends NativeInfo
       return this;
     }
 
+    /** Sets the local resources declared directly on this platform. */
+    @CanIgnoreReturnValue
+    public Builder setLocalResources(ImmutableMap<String, Double> localResources) {
+      this.localResources = localResources;
+      return this;
+    }
+
     /** Add the given flags to this {@link PlatformInfo}. */
     @CanIgnoreReturnValue
     public Builder addFlags(Iterable<String> flags) {
@@ -332,10 +352,17 @@ public class PlatformInfo extends NativeInfo
       // Required settings are explicitly **not** inherited from the parent, so do not merge.
       ImmutableList<ConfigMatchingProvider> settings = requiredSettings.build();
 
+      ImmutableMap.Builder<String, Double> localResourcesBuilder = ImmutableMap.builder();
+      if (this.parent != null) {
+        localResourcesBuilder.putAll(this.parent.localResources);
+      }
+      localResourcesBuilder.putAll(this.localResources);
+
       return new PlatformInfo(
           label,
           constraints.build(),
           execPropertiesBuilder.build(),
+          localResourcesBuilder.buildKeepingLast(),
           flagBuilder.build(),
           settings,
           checkToolchainTypes,

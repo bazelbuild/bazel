@@ -220,6 +220,30 @@ public class PlatformInfoTest extends BuildViewTestCase {
   }
 
   @Test
+  public void localResources_empty() throws Exception {
+    PlatformInfo platformInfo = PlatformInfo.builder().build();
+
+    assertThat(platformInfo.localResources()).isEmpty();
+  }
+
+  @Test
+  public void localResources_parentPlatform_inheritance() throws Exception {
+    PlatformInfo parent =
+        PlatformInfo.builder()
+            .setLocalResources(ImmutableMap.of("gpu", 2.0, "gpu-memory", 16.0))
+            .build();
+
+    PlatformInfo platformInfo =
+        PlatformInfo.builder()
+            .setParent(parent)
+            .setLocalResources(ImmutableMap.of("gpu", 4.0))
+            .build();
+
+    assertThat(platformInfo.localResources())
+        .containsExactly("gpu", 4.0, "gpu-memory", 16.0);
+  }
+
+  @Test
   public void flags_empty() throws Exception {
     PlatformInfo.Builder builder = PlatformInfo.builder();
     // Don't add any flags
@@ -366,6 +390,14 @@ public class PlatformInfoTest extends BuildViewTestCase {
                 .addConstraint(value1)
                 .addConstraint(value2)
                 .setExecProperties(ImmutableMap.of("key", "value"))
+                .build())
+        .addEqualityGroup(
+            // Different local resources.
+            PlatformInfo.builder()
+                .setLabel(Label.parseCanonicalUnchecked("//platform/plat1"))
+                .addConstraint(value1)
+                .addConstraint(value2)
+                .setLocalResources(ImmutableMap.of("gpu", 1.0))
                 .build())
         .addEqualityGroup(
             // Different no toolchain error message.

@@ -36,6 +36,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
+import com.google.devtools.build.lib.util.ResourceConverter;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 import java.util.Map;
 
@@ -70,6 +72,23 @@ public class Platform implements RuleConfiguredTargetFactory {
         ruleContext.attributes().get(PlatformRule.EXEC_PROPS_ATTR, Types.STRING_DICT);
     if (execProperties != null && !execProperties.isEmpty()) {
       platformBuilder.setExecProperties(ImmutableMap.copyOf(execProperties));
+    }
+
+    Map<String, String> localResources =
+        ruleContext.attributes().get(PlatformRule.LOCAL_RESOURCES_ATTR, Types.STRING_DICT);
+    if (localResources != null && !localResources.isEmpty()) {
+      ImmutableMap.Builder<String, Double> parsedLocalResources = ImmutableMap.builder();
+      ResourceConverter.AssignmentConverter converter = new ResourceConverter.AssignmentConverter();
+      try {
+        for (Map.Entry<String, String> resource : localResources.entrySet()) {
+          parsedLocalResources.put(
+              converter.convert(resource.getKey() + "=" + resource.getValue()));
+        }
+      } catch (OptionsParsingException e) {
+        throw ruleContext.throwWithAttributeError(
+            PlatformRule.LOCAL_RESOURCES_ATTR, e.getMessage());
+      }
+      platformBuilder.setLocalResources(parsedLocalResources.buildOrThrow());
     }
 
     List<String> flags = ruleContext.attributes().get(PlatformRule.FLAGS_ATTR, Types.STRING_LIST);
