@@ -200,6 +200,7 @@ public class ActionCacheChecker {
   private static boolean isUpToDate(
       ActionCache.Entry entry,
       Action action,
+      Token token,
       String actionKey,
       NestedSet<Artifact> actionInputs,
       InputMetadataProvider inputMetadataProvider,
@@ -248,6 +249,12 @@ public class ActionCacheChecker {
     for (Artifact artifact : actionInputs.toList()) {
       FileArtifactValue inputMetadata = getInputMetadataMaybe(inputMetadataProvider, artifact);
       builder.addInputFile(artifact, inputMetadata);
+    }
+    // Stash the input digest for reuse when the entry is written after execution. Actions that
+    // discover inputs are excluded: their input set may still grow during execution, and their
+    // discovered exec paths must be recorded individually.
+    if (!action.discoversInputs()) {
+      token.setInputDigest(builder.getInputDigest());
     }
     return Arrays.equals(entry.getDigest(), builder.build().getDigest());
   }
@@ -594,6 +601,7 @@ public class ActionCacheChecker {
     if (!isUpToDate(
         entry,
         action,
+        token,
         actionKey,
         actionInputs,
         inputMetadataProvider,
@@ -729,16 +737,21 @@ public class ActionCacheChecker {
       }
     }
 
-    ImmutableSet<Artifact> excludePathsFromActionCache =
-        action.discoversInputs() && !action.prunedInputs()
-            ? action.getMandatoryInputs().toSet()
-            : ImmutableSet.of();
+    byte[] tokenInputDigest = token.getInputDigest();
+    if (!action.discoversInputs() && tokenInputDigest != null) {
+      builder.setInputDigest(tokenInputDigest);
+    } else {
+      ImmutableSet<Artifact> excludePathsFromActionCache =
+          action.discoversInputs() && !action.prunedInputs()
+              ? action.getMandatoryInputs().toSet()
+              : ImmutableSet.of();
 
-    for (Artifact input : action.getInputs().toList()) {
-      builder.addInputFile(
-          input,
-          getInputMetadataMaybe(inputMetadataProvider, input),
-          /* saveExecPath= */ !excludePathsFromActionCache.contains(input));
+      for (Artifact input : action.getInputs().toList()) {
+        builder.addInputFile(
+            input,
+            getInputMetadataMaybe(inputMetadataProvider, input),
+            /* saveExecPath= */ !excludePathsFromActionCache.contains(input));
+      }
     }
 
     actionCache.put(key, builder.build());
@@ -890,8 +903,31 @@ public class ActionCacheChecker {
     /** The result of calling {@link Action#getKey}, or {@code null} if it was not called. */
     @Nullable private String actionKey;
 
+    /**
+     * The digest of the action's input metadata, computed during the {@code isUpToDate} check, or
+     * {@code null} if it was not computed.
+     *
+     * <p>Only populated for actions that do not discover inputs, whose input set cannot change
+     * between the cache check and {@link ActionCacheChecker#updateActionCache}. It is {@code null}
+     * whenever the check short-circuited before hashing inputs (an absent, corrupted or untrusted
+     * entry, or unconditional execution), in which case the inputs are traversed again.
+     *
+     * <p>Declared {@code volatile} because a Skyframe restart may run the check and the subsequent
+     * cache update on different threads.
+     */
+    @Nullable private volatile byte[] inputDigest;
+
     private Token(Action action) {
       this.cacheKey = action.getPrimaryOutput().getExecPathString();
+    }
+
+    @Nullable
+    byte[] getInputDigest() {
+      return inputDigest;
+    }
+
+    void setInputDigest(byte[] inputDigest) {
+      this.inputDigest = inputDigest;
     }
   }
 
