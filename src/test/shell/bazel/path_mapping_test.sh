@@ -457,7 +457,7 @@ common --repo_env=APPLE_SUPPORT_LAYERING_CHECK_BETA=0
 EOF
 
   cat > MODULE.bazel <<EOF
-bazel_dep(name = "apple_support", version = "2.5.2")
+bazel_dep(name = "apple_support", version = "2.5.4")
 EOF
   add_rules_cc "MODULE.bazel"
 
