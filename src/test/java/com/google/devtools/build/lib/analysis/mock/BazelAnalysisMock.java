@@ -195,7 +195,7 @@ java_binary(
 
 alias(
     name = "proguard_whitelister",
-    actual = ":proguard_allowlister.par",
+    actual = ":proguard_allowlister",
 )
 
 java_import(
@@ -255,7 +255,7 @@ exports_files([
     "GenClass_deploy.jar",
     "turbine_deploy.jar",
     "TurbineDirect_deploy.jar",
-    "proguard_allowlister.par",
+    "proguard_allowlister",
 ])
 
 toolchain_type(name = "toolchain_type")
