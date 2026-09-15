@@ -80,18 +80,11 @@ py_binary(
     deps = [":create_embedded_tools_lib"],
 )
 
-# The tools Bazel uses to compile Java.
-# TODO(#6316): Gradually remove the targets here.
-JAVA_TOOLS = [
-    "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
-    "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:embedded_tools",
-]
-
 # TODO(philwo): Clean this up, once a Bazel that can run py_binary and sh_binary
 # in Starlark rules on Windows has been released.
 [filegroup(
     name = "embedded_tools" + suffix + "_srcs",
-    srcs = JAVA_TOOLS + [
+    srcs = [
                "BUILD.tools",
                "MODULE.tools",
                "//src/conditions:embedded_tools",
@@ -133,7 +126,7 @@ rule_size_test(
     # WARNING: Only adjust the number in `expect` if you are intentionally
     # adding or removing embedded tools. Know that the more embedded tools there
     # are in Bazel, the bigger the binary becomes and the slower Bazel starts.
-    expect = 292,
+    expect = 259,
     margin = 5,  # percentage
 )
 
@@ -337,7 +330,6 @@ genrule(
         "//scripts/packages:__pkg__",  # For installer generation
         "//src/java:__subpackages__",  # For command line reference generation
         "//src/test:__subpackages__",  # For integration tests
-        "//tools/compliance:__pkg__",  # For license gathering
     ],
 ) for suffix, jdk in [
     ("-dev", "_jdk_allmodules"),

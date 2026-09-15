@@ -23,7 +23,7 @@ from unittest import mock
 from google.protobuf import proto
 
 from src.main.protobuf import analysis_v2_pb2
-from tools.aquery_differ import aquery_differ
+from scripts.aquery_differ import aquery_differ
 
 
 def make_aquery_output(action_objs, artifact_objs, path_fragment_objs):
