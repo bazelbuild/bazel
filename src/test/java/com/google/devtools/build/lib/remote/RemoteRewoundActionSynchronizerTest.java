@@ -160,6 +160,41 @@ public final class RemoteRewoundActionSynchronizerTest {
   }
 
   /**
+   * Input discovery may read scheduling dependencies (e.g. headers reachable via {@code #include})
+   * that are not declared inputs, so their producers must not be rewound while it is running.
+   */
+  @Test
+  public void inputDiscovery_locksProducersOfSchedulingDependencies() throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out");
+    var owner = ActionsTestUtil.NULL_ARTIFACT_OWNER;
+    DerivedArtifact header = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "header.h");
+    header.setGeneratingActionKey(ActionLookupData.create(owner, 0));
+    Action headerProducer = newAction(ImmutableList.of(header), ImmutableList.of());
+    DerivedArtifact source = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "source.cc");
+    source.setGeneratingActionKey(ActionLookupData.create(owner, 1));
+    DerivedArtifact object = (DerivedArtifact) ActionsTestUtil.createArtifact(root, "object.o");
+    object.setGeneratingActionKey(ActionLookupData.create(owner, 2));
+    Action compile =
+        newAction(
+            ImmutableList.of(object),
+            /* inputs= */ ImmutableList.of(source),
+            /* schedulingDependencies= */ ImmutableList.of(header));
+    InputMetadataProvider metadataProvider = mock(InputMetadataProvider.class);
+
+    // Switch to the fine locks with an unrelated rewound action first: the coarse lock would
+    // exclude every rewound action regardless of which keys guard the discovery.
+    rewind(newAction());
+
+    var headerProducerPreparation = new TestThread(() -> rewind(headerProducer));
+    try (SilentCloseable discovery = synchronizer.enterInputDiscovery(compile, metadataProvider)) {
+      headerProducerPreparation.start();
+      waitUntilBlocked(headerProducerPreparation);
+    }
+    headerProducerPreparation.joinAndAssertState(DEADLOCK_TIMEOUT_MILLIS);
+  }
+
+  /**
    * A runfiles tree is guarded by the keys of the actions generating the artifacts it contains,
    * which are taken from its metadata rather than from all runfiles trees known to the metadata
    * provider. The action generating the runfiles tree itself isn't excluded, as it doesn't write to
@@ -448,10 +483,19 @@ public final class RemoteRewoundActionSynchronizerTest {
 
   private static Action newAction(
       ImmutableList<? extends Artifact> outputs, ImmutableList<? extends Artifact> inputs) {
+    return newAction(outputs, inputs, /* schedulingDependencies= */ ImmutableList.of());
+  }
+
+  private static Action newAction(
+      ImmutableList<? extends Artifact> outputs,
+      ImmutableList<? extends Artifact> inputs,
+      ImmutableList<? extends Artifact> schedulingDependencies) {
     Action action = mock(Action.class);
     when(action.getPrimaryOutput()).thenReturn(outputs.get(0));
     when(action.getOutputs()).thenReturn(ImmutableList.copyOf(outputs));
     when(action.getInputs()).thenReturn(NestedSetBuilder.wrap(Order.STABLE_ORDER, inputs));
+    when(action.getSchedulingDependencies())
+        .thenReturn(NestedSetBuilder.wrap(Order.STABLE_ORDER, schedulingDependencies));
     return action;
   }
 
