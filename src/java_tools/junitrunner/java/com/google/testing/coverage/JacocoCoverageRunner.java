@@ -366,8 +366,16 @@ public class JacocoCoverageRunner {
         long ucpFieldOffset = unsafe.objectFieldOffset(ucpField);
         Object ucpObject = unsafe.getObject(classLoader, ucpFieldOffset);
 
-        // jdk.internal.loader.URLClassPath.path
-        Field pathField = ucpField.getType().getDeclaredField("path");
+        Field pathField;
+        try {
+          // Java 9-26:
+          // jdk.internal.loader.URLClassPath.path
+          pathField = ucpField.getType().getDeclaredField("path");
+        } catch (NoSuchFieldException e) {
+          // Java 27+:
+          // jdk.internal.loader.URLClassPath.searchPath
+          pathField = ucpField.getType().getDeclaredField("searchPath");
+        }
         long pathFieldOffset = unsafe.objectFieldOffset(pathField);
         ArrayList<URL> path = (ArrayList<URL>) unsafe.getObject(ucpObject, pathFieldOffset);
 
