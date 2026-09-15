@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkInfoWithMessage;
+import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
@@ -34,28 +35,54 @@ import org.junit.runners.JUnit4;
 public final class StarlarkInfoCodecTest {
   @Test
   public void objectCodecTests() throws Exception {
-    ImmutableMap<String, Object> map =
-        ImmutableMap.of("a", StarlarkInt.of(1), "b", StarlarkInt.of(2), "c", StarlarkInt.of(3));
     StarlarkProvider provider = makeProvider();
-    new SerializationTester(
-            StarlarkInfo.create(provider, map),
-            // empty
-            StarlarkInfo.create(provider, ImmutableMap.of()),
-            // with an error message
-            StarlarkInfoWithMessage.createWithCustomMessage(provider, map, "Dummy error: %s"),
-            StarlarkInfoWithMessage.createWithCustomMessage(
-                StructProvider.STRUCT, map, "Dummy error: %s"))
-        .addDependency(StructProvider.class, StructProvider.STRUCT)
-        .makeMemoizing()
-        .setVerificationFunction(StarlarkInfoCodecTest::verificationFunction)
-        .runTests();
+    for (int fieldCount : new int[] {0, 1, 2, 3, 4, 5, 6, 17}) {
+      ImmutableMap.Builder<String, Object> fields = ImmutableMap.builder();
+      for (int i = 0; i < fieldCount; i++) {
+        fields.put("field" + i, StarlarkInt.of(i));
+      }
+      ImmutableMap<String, Object> map = fields.buildOrThrow();
+      for (boolean compact : new boolean[] {false, true}) {
+        StarlarkInfo[] infos =
+            new StarlarkInfo[] {
+              StarlarkInfo.create(provider, map),
+              // with an error message
+              StarlarkInfoWithMessage.createWithCustomMessage(provider, map, "Dummy error: %s"),
+              StarlarkInfoWithMessage.createWithCustomMessage(
+                  StructProvider.STRUCT, map, "Dummy error: %s")
+            };
+        if (compact) {
+          for (int i = 0; i < infos.length; i++) {
+            infos[i] = infos[i].unsafeOptimizeMemoryLayout();
+          }
+        }
+        new SerializationTester((Object[]) infos)
+            .addDependency(StructProvider.class, StructProvider.STRUCT)
+            .makeMemoizing()
+            .setVerificationFunction(StarlarkInfoCodecTest::verificationFunction)
+            .runTests();
+      }
+    }
   }
 
-  private static void verificationFunction(StarlarkInfo original, StarlarkInfo deserialized) {
+  private static void verificationFunction(StarlarkInfo original, StarlarkInfo deserialized)
+      throws Exception {
     assertThat(deserialized).isEqualTo(original);
     assertThat(deserialized.getFieldNames())
         .containsExactlyElementsIn(original.getFieldNames())
         .inOrder();
+    if (original instanceof StarlarkInfoWithSchema) {
+      var field = StarlarkInfoWithSchema.class.getDeclaredField("schema");
+      field.setAccessible(true);
+      assertThat(field.get(deserialized)).isNotNull();
+      // StructProvider is supplied as a constant dependency.
+      if (original.getProvider() == StructProvider.STRUCT) {
+        assertThat(field.get(deserialized)).isSameInstanceAs(field.get(original));
+      }
+    }
+    assertThat(deserialized.getErrorMessageForUnknownField("absent"))
+        .isEqualTo(original.getErrorMessageForUnknownField("absent"));
+    assertThat(deserialized.hashCode()).isEqualTo(original.hashCode());
   }
 
   /** Returns an exported, schemaless provider. */

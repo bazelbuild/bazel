@@ -42,6 +42,11 @@ public final class StarlarkInfoWithMessage extends StarlarkInfoNoSchema {
     this.unknownFieldError = unknownFieldError;
   }
 
+  @Override
+  String getUnknownFieldError() {
+    return unknownFieldError;
+  }
+
   /** Returns the per-instance error message, if specified, or the provider's message otherwise. */
   @Override
   public String getErrorMessageForUnknownField(String name) {

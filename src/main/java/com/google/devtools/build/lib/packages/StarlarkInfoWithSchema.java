@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.errorprone.annotations.ForOverride;
 import java.util.ArrayList;
@@ -39,7 +40,7 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.TokenKind;
 
 /**
- * A struct-like Info (provider instance) for providers defined in Starlark that have a schema.
+ * A struct-like Info with a declared or inferred schema.
  *
  * <p>Maintainer's note: This class is memory-optimized in a way that can cause profiling
  * instability in some pathological cases. See {@link StarlarkProvider#maybeUnwrapDepset} for more
@@ -64,15 +65,136 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
    */
   private static final Interner<StarlarkInfoWithSchema> interner = BlazeInterners.newWeakInterner();
 
-  private final StarlarkProvider provider;
+  /** Field indices and the original provider, shared by instances with the same schema. */
+  interface Schema {
+    Provider getProvider();
 
-  private StarlarkInfoWithSchema(StarlarkProvider provider) {
-    this.provider = provider;
+    ImmutableMap<String, Integer> getFields();
+  }
+
+  /** Field indices inferred when a schemaless struct is retained. */
+  @AutoCodec
+  static final class InferredSchema implements Schema {
+    private static final Interner<InferredSchema> interner = BlazeInterners.newWeakInterner();
+    private final Provider provider;
+    private final String[] names;
+    @Nullable private final String unknownFieldError;
+    @Nullable private transient volatile ImmutableMap<String, Integer> fields;
+    private transient int fieldNamesHashCode;
+
+    private InferredSchema(Provider provider, String[] names, @Nullable String unknownFieldError) {
+      this.provider = provider;
+      this.names = names;
+      this.unknownFieldError = unknownFieldError;
+    }
+
+    @AutoCodec.Interner
+    static InferredSchema intern(InferredSchema schema) {
+      return interner.intern(schema);
+    }
+
+    @Override
+    public Provider getProvider() {
+      return provider;
+    }
+
+    @Override
+    public ImmutableMap<String, Integer> getFields() {
+      ImmutableMap<String, Integer> result = fields;
+      if (result == null) {
+        // Build field indices on the shared schema, not on each interner candidate.
+        ImmutableMap.Builder<String, Integer> builder =
+            ImmutableMap.builderWithExpectedSize(names.length);
+        for (int i = 0; i < names.length; i++) {
+          builder.put(names[i], i);
+        }
+        fields = result = builder.buildOrThrow();
+      }
+      return result;
+    }
+
+    int fieldNamesHashCode() {
+      int hash = fieldNamesHashCode;
+      if (hash == 0) {
+        fieldNamesHashCode = hash = Arrays.hashCode(names);
+      }
+      return hash;
+    }
+
+    @Override
+    public int hashCode() {
+      // Provider.hashCode() can change when a StarlarkProvider is exported.
+      return 31 * (31 * System.identityHashCode(provider) + fieldNamesHashCode())
+          + Objects.hashCode(unknownFieldError);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      // Preserve the exact provider even when two exported providers compare equal.
+      return this == obj
+          || obj instanceof InferredSchema other
+              && provider == other.provider
+              && Arrays.equals(names, other.names)
+              && Objects.equals(unknownFieldError, other.unknownFieldError);
+    }
+  }
+
+  private final Schema schema;
+
+  private StarlarkInfoWithSchema(Schema schema) {
+    this.schema = schema;
   }
 
   @Override
   public final Provider getProvider() {
-    return provider;
+    return schema.getProvider();
+  }
+
+  @Override
+  public String getErrorMessageForUnknownField(String name) {
+    if (schema instanceof InferredSchema inferred && inferred.unknownFieldError != null) {
+      return String.format(inferred.unknownFieldError, name) + allAttributesSuffix();
+    }
+    return super.getErrorMessageForUnknownField(name);
+  }
+
+  @Override
+  public final int hashCode() {
+    if (!(schema instanceof InferredSchema inferred)) {
+      return hashCodeWithDeclaredSchema();
+    }
+    int hash = inferred.fieldNamesHashCode();
+    for (int i = 0; i < inferred.names.length; i++) {
+      hash = 31 * hash + Objects.hashCode(getValueAt(i));
+    }
+    return 31 * getProvider().hashCode() + hash;
+  }
+
+  @ForOverride
+  abstract int hashCodeWithDeclaredSchema();
+
+  @ForOverride
+  abstract boolean equalsValues(StarlarkInfoWithSchema other);
+
+  @Override
+  public final boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof StarlarkInfo other) || !getProvider().equals(other.getProvider())) {
+      return false;
+    }
+    if (other instanceof StarlarkInfoWithSchema compact) {
+      if (schema instanceof InferredSchema inferred) {
+        return compact.schema instanceof InferredSchema otherInferred
+            && Arrays.equals(inferred.names, otherInferred.names)
+            && equalsValues(compact);
+      }
+      return compact.schema instanceof StarlarkProvider && equalsValues(compact);
+    }
+    return schema instanceof InferredSchema
+        && other instanceof StarlarkInfoNoSchema
+        && super.equals(other);
   }
 
   @ForOverride
@@ -83,7 +205,7 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
 
   @VisibleForSerialization
   Object[] getValuesForSerialization() {
-    int n = provider.getFields().size();
+    int n = schema.getFields().size();
     Object[] table = new Object[n];
     for (int i = 0; i < n; i++) {
       table[i] = getValueAt(i);
@@ -91,16 +213,27 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
     return table;
   }
 
+  // table has StarlarkInfoNoSchema's sorted field names followed by values.
+  static StarlarkInfoWithSchema createFromSchemaless(
+      Provider provider, Object[] table, @Nullable String unknownFieldError) {
+    int n = table.length / 2;
+    return create(
+        InferredSchema.intern(
+            new InferredSchema(
+                provider, Arrays.copyOf(table, n, String[].class), unknownFieldError)),
+        Arrays.copyOfRange(table, n, table.length));
+  }
+
   @VisibleForSerialization
-  static StarlarkInfoWithSchema create(StarlarkProvider provider, Object[] vs) {
+  static StarlarkInfoWithSchema create(Schema schema, Object[] vs) {
     return switch (vs.length) {
-      case 0 -> new Schema0(provider);
-      case 1 -> new Schema1(provider, vs[0]);
-      case 2 -> new Schema2(provider, vs[0], vs[1]);
-      case 3 -> new Schema3(provider, vs[0], vs[1], vs[2]);
-      case 4 -> new Schema4(provider, vs[0], vs[1], vs[2], vs[3]);
-      case 5 -> new Schema5(provider, vs[0], vs[1], vs[2], vs[3], vs[4]);
-      default -> new SchemaN(provider, vs);
+      case 0 -> new Schema0(schema);
+      case 1 -> new Schema1(schema, vs[0]);
+      case 2 -> new Schema2(schema, vs[0], vs[1]);
+      case 3 -> new Schema3(schema, vs[0], vs[1], vs[2]);
+      case 4 -> new Schema4(schema, vs[0], vs[1], vs[2], vs[3]);
+      case 5 -> new Schema5(schema, vs[0], vs[1], vs[2], vs[3], vs[4]);
+      default -> new SchemaN(schema, vs);
     };
   }
 
@@ -170,7 +303,7 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
   public final ImmutableList<String> getFieldNames() {
     ImmutableList.Builder<String> fieldNames = new ImmutableList.Builder<>();
     int i = 0;
-    for (String field : provider.getFields().keySet()) {
+    for (String field : schema.getFields().keySet()) {
       if (getValueAt(i) != null) {
         fieldNames.add(field);
       }
@@ -182,10 +315,10 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
   @Override
   public final boolean isImmutable() {
     // If the provider is not yet exported, the hash code of the object is subject to change.
-    if (!provider.isExported()) {
+    if (!getProvider().isExported()) {
       return false;
     }
-    int n = provider.getFields().size();
+    int n = schema.getFields().size();
     for (int i = 0; i < n; i++) {
       Object val = getValueAt(i);
       // Unwrapped depsets (NestedSets) are not Starlark values, but are immutable.
@@ -204,7 +337,7 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
     // inconsistent and arguably wrong, but fixing it would be a breaking change.
     // Thus, instead of checking whether the values are Starlark-hashable, below we only check
     // whether they have a usable hashCode() implementation.
-    int n = provider.getFields().size();
+    int n = schema.getFields().size();
     for (int i = 0; i < n; i++) {
       @Nullable Object val = getValueAt(i);
       if (!(val == null || val instanceof NestedSet<?> || Starlark.isAcyclic(val))) {
@@ -219,25 +352,32 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
   @Nullable
   @Override
   public final Object getValue(String name) {
-    ImmutableMap<String, Integer> fields = provider.getFields();
+    ImmutableMap<String, Integer> fields = schema.getFields();
     int i = indexOfField(name, fields);
     if (i < 0) {
       return null;
     }
     Object val = getValueAt(i);
-    return val instanceof NestedSet<?> nestedSet ? provider.rewrapDepset(i, nestedSet) : val;
+    return val instanceof NestedSet<?> nestedSet
+        ? ((StarlarkProvider) getProvider()).rewrapDepset(i, nestedSet)
+        : val;
   }
 
   @Nullable
   @Override
-  public final StarlarkInfoWithSchema binaryOp(TokenKind op, Object that, boolean thisLeft)
+  public final StarlarkInfo binaryOp(TokenKind op, Object that, boolean thisLeft)
       throws EvalException {
     if (op == TokenKind.PLUS && that instanceof StarlarkInfo thatInfo) {
       Provider thatProvider = thatInfo.getProvider();
-      if (!provider.equals(thatProvider)) {
+      if (!getProvider().equals(thatProvider)) {
         throw Starlark.errorf(
             "Cannot use '+' operator on instances of different providers (%s and %s)",
-            provider.getPrintableName(), thatProvider.getPrintableName());
+            getProvider().getPrintableName(), thatProvider.getPrintableName());
+      }
+      if (schema instanceof InferredSchema) {
+        return thisLeft
+            ? StarlarkInfoNoSchema.plusSchemaless(this, thatInfo)
+            : StarlarkInfoNoSchema.plusSchemaless(thatInfo, this);
       }
       Preconditions.checkArgument(thatInfo instanceof StarlarkInfoWithSchema, thatInfo);
       return thisLeft
@@ -249,26 +389,26 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
 
   private static StarlarkInfoWithSchema plus(StarlarkInfoWithSchema x, StarlarkInfoWithSchema y)
       throws EvalException {
-    int n = x.provider.getFields().size();
+    int n = x.schema.getFields().size();
 
     Object[] ztable = new Object[n];
     for (int i = 0; i < n; i++) {
       Object xVal = x.getValueAt(i);
       Object yVal = y.getValueAt(i);
       if (xVal != null && yVal != null) {
-        ImmutableMap<String, Integer> schema = x.provider.getFields();
+        ImmutableMap<String, Integer> schema = x.schema.getFields();
         throw Starlark.errorf(
             "cannot add struct instances with common field '%s'", schema.keySet().asList().get(i));
       }
       ztable[i] = xVal != null ? xVal : yVal;
     }
-    return create(x.provider, ztable);
+    return create(x.schema, ztable);
   }
 
   @Override
   public final StarlarkInfoWithSchema unsafeOptimizeMemoryLayout() {
-    boolean internable = true;
-    int n = provider.getFields().size();
+    boolean internable = schema instanceof StarlarkProvider;
+    int n = schema.getFields().size();
     for (int i = 0; i < n; i++) {
       Object val = getValueAt(i);
       internable = internable && valueIsInternable(val);
@@ -287,7 +427,10 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
    * interned by value equality.
    */
   final boolean isInternable() {
-    int n = provider.getFields().size();
+    if (schema instanceof InferredSchema) {
+      return false;
+    }
+    int n = schema.getFields().size();
     for (int i = 0; i < n; i++) {
       if (!valueIsInternable(getValueAt(i))) {
         return false;
@@ -319,8 +462,8 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
 
   /** For providers with no fields. */
   private static final class Schema0 extends StarlarkInfoWithSchema {
-    Schema0(StarlarkProvider provider) {
-      super(provider);
+    Schema0(Schema schema) {
+      super(schema);
     }
 
     @Override
@@ -334,19 +477,13 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
     }
 
     @Override
-    public int hashCode() {
+    int hashCodeWithDeclaredSchema() {
       return 31 * getProvider().hashCode() + 1;
     }
 
     @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof Schema0 other)) {
-        return false;
-      }
-      return getProvider().equals(other.getProvider());
+    boolean equalsValues(StarlarkInfoWithSchema o) {
+      return o instanceof Schema0;
     }
   }
 
@@ -354,8 +491,8 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
   private static final class Schema1 extends StarlarkInfoWithSchema {
     private Object v0;
 
-    Schema1(StarlarkProvider provider, Object v0) {
-      super(provider);
+    Schema1(Schema schema, Object v0) {
+      super(schema);
       this.v0 = v0;
     }
 
@@ -377,19 +514,13 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
     }
 
     @Override
-    public int hashCode() {
+    int hashCodeWithDeclaredSchema() {
       return HashCodes.hashObjects(getProvider(), v0);
     }
 
     @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof Schema1 other)) {
-        return false;
-      }
-      return getProvider().equals(other.getProvider()) && Objects.equals(v0, other.v0);
+    boolean equalsValues(StarlarkInfoWithSchema o) {
+      return o instanceof Schema1 other && Objects.equals(v0, other.v0);
     }
   }
 
@@ -398,8 +529,8 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
     private Object v0;
     private Object v1;
 
-    Schema2(StarlarkProvider provider, Object v0, Object v1) {
-      super(provider);
+    Schema2(Schema schema, Object v0, Object v1) {
+      super(schema);
       this.v0 = v0;
       this.v1 = v1;
     }
@@ -423,19 +554,13 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
     }
 
     @Override
-    public int hashCode() {
+    int hashCodeWithDeclaredSchema() {
       return HashCodes.hashObjects(getProvider(), v0, v1);
     }
 
     @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof Schema2 other)) {
-        return false;
-      }
-      return getProvider().equals(other.getProvider())
+    boolean equalsValues(StarlarkInfoWithSchema o) {
+      return o instanceof Schema2 other
           && Objects.equals(v0, other.v0)
           && Objects.equals(v1, other.v1);
     }
@@ -447,8 +572,8 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
     private Object v1;
     private Object v2;
 
-    Schema3(StarlarkProvider provider, Object v0, Object v1, Object v2) {
-      super(provider);
+    Schema3(Schema schema, Object v0, Object v1, Object v2) {
+      super(schema);
       this.v0 = v0;
       this.v1 = v1;
       this.v2 = v2;
@@ -475,19 +600,13 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
     }
 
     @Override
-    public int hashCode() {
+    int hashCodeWithDeclaredSchema() {
       return HashCodes.hashObjects(getProvider(), v0, v1, v2);
     }
 
     @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof Schema3 other)) {
-        return false;
-      }
-      return getProvider().equals(other.getProvider())
+    boolean equalsValues(StarlarkInfoWithSchema o) {
+      return o instanceof Schema3 other
           && Objects.equals(v0, other.v0)
           && Objects.equals(v1, other.v1)
           && Objects.equals(v2, other.v2);
@@ -501,8 +620,8 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
     private Object v2;
     private Object v3;
 
-    Schema4(StarlarkProvider provider, Object v0, Object v1, Object v2, Object v3) {
-      super(provider);
+    Schema4(Schema schema, Object v0, Object v1, Object v2, Object v3) {
+      super(schema);
       this.v0 = v0;
       this.v1 = v1;
       this.v2 = v2;
@@ -532,19 +651,13 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
     }
 
     @Override
-    public int hashCode() {
+    int hashCodeWithDeclaredSchema() {
       return HashCodes.hashObjects(getProvider(), v0, v1, v2, v3);
     }
 
     @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof Schema4 other)) {
-        return false;
-      }
-      return getProvider().equals(other.getProvider())
+    boolean equalsValues(StarlarkInfoWithSchema o) {
+      return o instanceof Schema4 other
           && Objects.equals(v0, other.v0)
           && Objects.equals(v1, other.v1)
           && Objects.equals(v2, other.v2)
@@ -560,8 +673,8 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
     private Object v3;
     private Object v4;
 
-    Schema5(StarlarkProvider provider, Object v0, Object v1, Object v2, Object v3, Object v4) {
-      super(provider);
+    Schema5(Schema schema, Object v0, Object v1, Object v2, Object v3, Object v4) {
+      super(schema);
       this.v0 = v0;
       this.v1 = v1;
       this.v2 = v2;
@@ -594,19 +707,13 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
     }
 
     @Override
-    public int hashCode() {
+    int hashCodeWithDeclaredSchema() {
       return HashCodes.hashObjects(getProvider(), v0, v1, v2, v3, v4);
     }
 
     @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof Schema5 other)) {
-        return false;
-      }
-      return getProvider().equals(other.getProvider())
+    boolean equalsValues(StarlarkInfoWithSchema o) {
+      return o instanceof Schema5 other
           && Objects.equals(v0, other.v0)
           && Objects.equals(v1, other.v1)
           && Objects.equals(v2, other.v2)
@@ -619,8 +726,8 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
   private static final class SchemaN extends StarlarkInfoWithSchema {
     private final Object[] vs;
 
-    SchemaN(StarlarkProvider provider, Object[] vs) {
-      super(provider);
+    SchemaN(Schema schema, Object[] vs) {
+      super(schema);
       this.vs = vs;
     }
 
@@ -640,19 +747,13 @@ public abstract sealed class StarlarkInfoWithSchema extends StarlarkInfo {
     }
 
     @Override
-    public int hashCode() {
+    int hashCodeWithDeclaredSchema() {
       return 31 * getProvider().hashCode() + Arrays.hashCode(vs);
     }
 
     @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof SchemaN other)) {
-        return false;
-      }
-      return getProvider().equals(other.getProvider()) && Arrays.equals(vs, other.vs);
+    boolean equalsValues(StarlarkInfoWithSchema o) {
+      return o instanceof SchemaN other && Arrays.equals(vs, other.vs);
     }
   }
 }
