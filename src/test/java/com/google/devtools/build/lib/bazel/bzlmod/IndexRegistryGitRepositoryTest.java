@@ -39,36 +39,65 @@ import org.junit.runners.JUnit4;
 /** Tests for git_repository remote and commit validation in IndexRegistry. */
 @RunWith(JUnit4.class)
 public final class IndexRegistryGitRepositoryTest extends FoundationTestCase {
+  /**
+   * Constructs a {@link DownloadManager} that returns the source.json unconditionally.
+   * @param sourceJson The source.json the {@link DownloadManager} should return.
+   */
+  private DownloadManager mockDownloadManager(String sourceJson) throws Exception {
+    return new DownloadManager(new DownloadCache(), null, null, reporter) {
+      @Override
+      public byte[] downloadAndReadOneUrlForBzlmod(
+              URI url, Map<String, String> clientEnv, Optional<Checksum> checksum) {
+        return sourceJson.getBytes(UTF_8);
+      }
+    };
+  }
+
+  /** Constructs a mock {@link Registry} with dummy information. */
+  private Registry mockRegistry() throws Exception {
+    return new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()))
+            .createRegistry(
+                    "https://fake.registry",
+                    LockfileMode.UPDATE,
+                    ImmutableMap.of(),
+                    ImmutableMap.of(),
+                    Optional.empty(),
+                    ImmutableSet.of());
+  }
+
+  /** Constructs a {@link ModuleKey} for test_module with dummy information. */
+  private ModuleKey mockModuleKey() throws Exception {
+    return createModuleKey("test_module", "1.0");
+  }
+
+  /** Computes the known hashes for test_module with a dummy MODULE.bazel. */
+  private ImmutableMap<String, Optional<Checksum>> createKnownHashes() throws Exception {
+    return ImmutableMap.of(
+            "https://fake.registry/modules/test_module/1.0/MODULE.bazel",
+            Optional.of(
+                    Checksum.fromString(
+                            DownloadCache.KeyType.SHA256,
+                            Hashing.sha256()
+                                    .hashString("module(name = \"test_module\", version = \"1.0\")", UTF_8)
+                                    .toString())));
+  }
+
+  private void assertValidSourceJson(String sourceJson) throws Exception {
+    DownloadManager downloadManager = mockDownloadManager(sourceJson);
+    Registry registry = mockRegistry();
+    ModuleKey key = mockModuleKey();
+    ImmutableMap<String, Optional<Checksum>> knownHashes = createKnownHashes();
+
+    // Fetch the spec, and discard it.
+    registry.getRepoSpec(key, knownHashes, reporter, downloadManager);
+  }
 
   private void assertInvalidSourceJson(String sourceJson, String expectedMessageSubstring)
       throws Exception {
-    DownloadManager downloadManager =
-        new DownloadManager(new DownloadCache(), null, null, reporter) {
-          @Override
-          public byte[] downloadAndReadOneUrlForBzlmod(
-              URI url, Map<String, String> clientEnv, Optional<Checksum> checksum) {
-            return sourceJson.getBytes(UTF_8);
-          }
-        };
-    Registry registry =
-        new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()))
-            .createRegistry(
-                "https://fake.registry",
-                LockfileMode.UPDATE,
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                Optional.empty(),
-                ImmutableSet.of());
-    ModuleKey key = createModuleKey("test_module", "1.0");
-    ImmutableMap<String, Optional<Checksum>> knownHashes =
-        ImmutableMap.of(
-            "https://fake.registry/modules/test_module/1.0/MODULE.bazel",
-            Optional.of(
-                Checksum.fromString(
-                    DownloadCache.KeyType.SHA256,
-                    Hashing.sha256()
-                        .hashString("module(name = \"test_module\", version = \"1.0\")", UTF_8)
-                        .toString())));
+    DownloadManager downloadManager = mockDownloadManager(sourceJson);
+    Registry registry = mockRegistry();
+    ModuleKey key = mockModuleKey();
+    ImmutableMap<String, Optional<Checksum>> knownHashes = createKnownHashes();
 
     IOException e =
         assertThrows(
@@ -93,6 +122,26 @@ public final class IndexRegistryGitRepositoryTest extends FoundationTestCase {
         """
         {
           "type": "git_repository",
+          "remote": "ftp://example.com:repo.git",
+          "commit": "0123456789abcdef0123456789abcdef01234567"
+        }
+        """,
+        "Invalid remote URL scheme");
+
+    assertInvalidSourceJson(
+        """
+        {
+          "type": "git_repository",
+          "remote": "git@github.com/foo/bar.git",
+          "commit": "0123456789abcdef0123456789abcdef01234567"
+        }
+        """,
+        "Invalid remote URL scheme");
+
+    assertInvalidSourceJson(
+        """
+        {
+          "type": "git_repository",
           "remote": "https://example.com/repo.git",
           "commit": "invalid commit hash with spaces"
         }
@@ -108,5 +157,53 @@ public final class IndexRegistryGitRepositoryTest extends FoundationTestCase {
         }
         """,
         "Invalid tag");
+  }
+
+  @Test
+  public void getRepoSpec_validGitRepositoryAttributes_doesNotThrow() throws Exception {
+    assertValidSourceJson(
+        """
+        {
+          "type": "git_repository",
+          "remote": "https://example.com/repo.git",
+          "commit": "0123456789abcdef0123456789abcdef01234567"
+        }
+        """);
+
+    assertValidSourceJson(
+        """
+        {
+          "type": "git_repository",
+          "remote": "ssh://git@example.com/repo.git",
+          "commit": "0123456789abcdef0123456789abcdef01234567"
+        }
+        """);
+
+    assertValidSourceJson(
+        """
+        {
+          "type": "git_repository",
+          "remote": "git@example.com:repo.git",
+          "commit": "0123456789abcdef0123456789abcdef01234567"
+        }
+        """);
+
+    assertValidSourceJson(
+        """
+        {
+          "type": "git_repository",
+          "remote": "ssh://git@example.com:repo.git",
+          "commit": "0123456789abcdef0123456789abcdef01234567"
+        }
+        """);
+
+    assertValidSourceJson(
+        """
+        {
+          "type": "git_repository",
+          "remote": "https://example.com/repo.git",
+          "commit": "0123456789abcdef0123456789abcdef01234567"
+        }
+        """);
   }
 }
