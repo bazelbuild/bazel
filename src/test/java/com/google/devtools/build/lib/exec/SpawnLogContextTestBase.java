@@ -2139,10 +2139,29 @@ public abstract class SpawnLogContextTestBase {
     return createRunfilesTree(root, ImmutableMap.of(), ImmutableMap.of(), artifacts);
   }
 
+  protected static RunfilesTree createCachedRunfilesTree(PathFragment root, Artifact... artifacts) {
+    return createRunfilesTree(
+        root, ImmutableMap.of(), ImmutableMap.of(), /* cacheMapping= */ true, artifacts);
+  }
+
+  protected static RunfilesTree createRunfilesTree(
+      PathFragment root, boolean cacheMapping, Artifact... artifacts) {
+    return createRunfilesTree(root, ImmutableMap.of(), ImmutableMap.of(), cacheMapping, artifacts);
+  }
+
   protected static RunfilesTree createRunfilesTree(
       PathFragment root,
       Map<String, Artifact> symlinks,
       Map<String, Artifact> rootSymlinks,
+      NestedSet<Artifact> artifacts) {
+    return createRunfilesTree(root, symlinks, rootSymlinks, /* cacheMapping= */ false, artifacts);
+  }
+
+  protected static RunfilesTree createRunfilesTree(
+      PathFragment root,
+      Map<String, Artifact> symlinks,
+      Map<String, Artifact> rootSymlinks,
+      boolean cacheMapping,
       NestedSet<Artifact> artifacts) {
     Runfiles.Builder runfiles = new Runfiles.Builder(WORKSPACE_NAME);
     runfiles.addTransitiveArtifacts(artifacts);
@@ -2153,7 +2172,7 @@ public abstract class SpawnLogContextTestBase {
       runfiles.addRootSymlink(PathFragment.create(entry.getKey()), entry.getValue());
     }
     runfiles.setEmptyFilesSupplier(BazelPyBuiltins.GET_INIT_PY_FILES);
-    return new RunfilesSupport.RunfilesTreeImpl(root, runfiles.build());
+    return new RunfilesSupport.RunfilesTreeImpl(root, runfiles.build(), cacheMapping);
   }
 
   protected static RunfilesTree createRunfilesTree(
@@ -2165,6 +2184,21 @@ public abstract class SpawnLogContextTestBase {
         root,
         symlinks,
         rootSymlinks,
+        /* cacheMapping= */ false,
+        NestedSetBuilder.wrap(Order.COMPILE_ORDER, Arrays.asList(artifacts)));
+  }
+
+  protected static RunfilesTree createRunfilesTree(
+      PathFragment root,
+      Map<String, Artifact> symlinks,
+      Map<String, Artifact> rootSymlinks,
+      boolean cacheMapping,
+      Artifact... artifacts) {
+    return createRunfilesTree(
+        root,
+        symlinks,
+        rootSymlinks,
+        cacheMapping,
         NestedSetBuilder.wrap(Order.COMPILE_ORDER, Arrays.asList(artifacts)));
   }
 
