@@ -102,9 +102,13 @@ public class ChunkedBlobUploader {
       return;
     }
 
+    // Mark only the individual chunk uploads with the chunking function. FindMissingDigests and
+    // SpliceBlob continue to use the original context because the header applies only to
+    // ByteStream Write calls.
+    RemoteActionExecutionContext chunkContext = context.chunked(chunkingFunction);
     ImmutableSet<Digest> missingDigests =
         getFromFuture(grpcCacheClient.findMissingDigests(context, chunkDigests));
-    uploadMissingChunks(context, missingDigests, chunkDigests, file);
+    uploadMissingChunks(chunkContext, missingDigests, chunkDigests, file);
     getFromFuture(grpcCacheClient.spliceBlob(context, blobDigest, chunkDigests, chunkingFunction));
   }
 
