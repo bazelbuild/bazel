@@ -61,7 +61,7 @@ platform(
     constraint_values = [
         "@platforms//cpu:x86_64",
         "@platforms//os:windows",
-        "@bazel_tools//tools/cpp:mingw",
+        "@rules_cc//cc/private/toolchain:mingw",
     ],
 )
 platform(
@@ -69,7 +69,7 @@ platform(
     constraint_values = [
         "@platforms//cpu:x86_64",
         "@platforms//os:windows",
-        "@bazel_tools//tools/cpp:msys",
+        "@rules_cc//cc/private/toolchain:msys",
     ],
 )
 EOF

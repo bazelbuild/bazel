@@ -26,6 +26,20 @@ toolchain_type(name = "cc_runtimes_toolchain_type")
 # The toolchain_type used for cc test runners.
 toolchain_type(name = "test_runner_toolchain_type")
 
+# TODO: Remove these aliases once rules_cc no longer uses them as default
+# cc_toolchain attributes.
+alias(
+    name = "interface_library_builder",
+    actual = "@rules_cc//cc/private/toolchain:interface_library_builder",
+    deprecation = "Please use @rules_cc//cc/private/toolchain:interface_library_builder instead.",
+)
+
+alias(
+    name = "link_dynamic_library",
+    actual = "@rules_cc//cc/private/toolchain:link_dynamic_library",
+    deprecation = "Please use @rules_cc//cc/private/toolchain:link_dynamic_library instead.",
+)
+
 cc_library(
     name = "empty_lib",
     tags = ["__DONT_DEPEND_ON_DEF_PARSER__"],

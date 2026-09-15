@@ -1000,7 +1000,7 @@ class LauncherTest(test_base.TestBase):
             '    constraint_values = [',
             '        "@platforms//cpu:x86_64",',
             '        "@platforms//os:windows",',
-            '        "@bazel_tools//tools/cpp:clang-cl",',
+            '        "@rules_cc//cc/private/toolchain:clang-cl",',
             '    ],',
             ')',
         ],
