@@ -144,11 +144,11 @@ public final class QueryUtil {
   }
 
   /**
-   * Returns a fresh {@link AggregateAllCallback} instance that aggregates all of the values into an
-   * {@link ThreadSafeMutableSet}.
+   * Returns a fresh {@link AggregateAllOutputFormatterCallback} instance that aggregates all of the
+   * values into a {@link ThreadSafeMutableSet} without preserving their order.
    */
-  public static <T> AggregateAllCallback<T, ThreadSafeMutableSet<T>> newAggregateAllCallback(
-      QueryEnvironment<T> env) {
+  public static <T> AggregateAllOutputFormatterCallback<T, ThreadSafeMutableSet<T>>
+      newAggregateAllCallback(QueryEnvironment<T> env) {
     return new AggregateAllOutputFormatterCallbackImpl<>(env);
   }
 
