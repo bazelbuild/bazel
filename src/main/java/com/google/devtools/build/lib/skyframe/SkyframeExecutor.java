@@ -3586,6 +3586,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         return;
       }
       skyframeBuildView.getProgressReceiver().dirtied(skyKey, dirtyType);
+      if (executionProgressReceiver != null) {
+        executionProgressReceiver.dirtied(skyKey, dirtyType);
+      }
     }
 
     @Override
