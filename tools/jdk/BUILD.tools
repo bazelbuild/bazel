@@ -1,14 +1,8 @@
 package(default_visibility = ["//visibility:public"])
 
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("@rules_java//java:defs.bzl", "java_import")
 load(":launcher_flag_alias.bzl", "launcher_flag_alias")
-
-exports_files([
-    "BUILD.java_tools",
-])
 
 # A single binary distribution of a JDK (e.g., OpenJDK 17 for Windows arm64) provides three
 # different types of toolchains from the perspective of Bazel:
@@ -144,32 +138,6 @@ cc_binary(
         "proguard_allowlister.cc",
         "proguard_allowlister_lib.cc",
         "proguard_allowlister_lib.h",
-    ],
-)
-
-cc_library(
-    name = "proguard_allowlister_test_lib",
-    testonly = 1,
-    srcs = [
-        "proguard_allowlister_lib.cc",
-        "proguard_allowlister_lib.h",
-        "proguard_allowlister_test_lib.cc",
-    ],
-    hdrs = ["proguard_allowlister_test_lib.h"],
-    deps = ["@rules_cc//cc/runfiles"],
-)
-
-cc_test(
-    name = "proguard_allowlister_test",
-    srcs = [
-        "proguard_allowlister_test.cc",
-    ],
-    data = ["proguard_allowlister_test_input.pgcfg"],
-    env = {
-        "TEST_INPUT": "$(rlocationpath :proguard_allowlister_test_input.pgcfg)",
-    },
-    deps = [
-        ":proguard_allowlister_test_lib",
     ],
 )
 

@@ -14,7 +14,7 @@
 
 import unittest
 from frozendict import frozendict
-from tools.ctexplain.ctexplain_types import Configuration
+from scripts.ctexplain.ctexplain_types import Configuration
 
 
 class TypesTest(unittest.TestCase):
