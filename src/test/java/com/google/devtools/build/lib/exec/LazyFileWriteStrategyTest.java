@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -125,6 +126,29 @@ public final class LazyFileWriteStrategyTest {
     FileArtifactValue metadata = metadataHandler.getOutputMetadata(action.getPrimaryOutput());
     assertThat(metadata.isInline()).isTrue();
     assertThat(metadata.getInputStream().readAllBytes()).isEqualTo(content.getBytes(UTF_8));
+  }
+
+  @Test
+  public void writeOutputToFile_volatileAction_writesEagerly() throws Exception {
+    action =
+        new NullAction(action.getPrimaryOutput()) {
+          @Override
+          public boolean isVolatile() {
+            return true;
+          }
+        };
+
+    var unused =
+        lazyFileWriteStrategy.writeOutputToFile(
+            action,
+            createActionExecutionContext(actionFileSystem, metadataHandler),
+            out -> out.write("content".getBytes(UTF_8)),
+            /* makeExecutable= */ false,
+            /* isRemotable= */ true);
+
+    assertThat(metadataHandler.getOutputMetadata(action.getPrimaryOutput())).isNull();
+    assertThat(FileSystemUtils.readContent(action.getPrimaryOutput().getPath(), UTF_8))
+        .isEqualTo("content");
   }
 
   @Test

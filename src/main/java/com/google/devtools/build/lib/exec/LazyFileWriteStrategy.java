@@ -43,7 +43,11 @@ public final class LazyFileWriteStrategy extends EagerFileWriteStrategy {
       boolean isRemotable,
       Artifact output)
       throws ExecException {
-    if (!isRemotable || actionExecutionContext.getActionFileSystem() == null) {
+    // Volatile file writes may read changing inputs, so their writers cannot be retained for
+    // later materialization (for example, Python's CopyWithoutCachingAction).
+    if (!isRemotable
+        || action.isVolatile()
+        || actionExecutionContext.getActionFileSystem() == null) {
       return super.writeOutputToFile(
           action, actionExecutionContext, deterministicWriter, makeExecutable, isRemotable, output);
     }
