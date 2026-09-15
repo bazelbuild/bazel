@@ -65,6 +65,9 @@ public final class Types {
   public static final StarlarkType INT = new IntType();
   public static final StarlarkType FLOAT = new FloatType();
   public static final StarlarkType STR = new StrType();
+  // The type of a reified type value; for example, the type of the symbol introduced by a type
+  // alias statement.
+  public static final StarlarkType TYPE = new TypeType();
 
   // A frequently-used union `int | float`.
   public static final UnionType NUMERIC = (UnionType) union(INT, FLOAT);
@@ -103,6 +106,7 @@ public final class Types {
       wrapTypeConstructor("Mapping", Types::mapping);
   public static final TypeConstructor STRUCT_CONSTRUCTOR = wrapStructConstructor();
   public static final TypeConstructor CALLABLE_CONSTRUCTOR = wrapCallableConstructor();
+  public static final TypeConstructor TYPE_CONSTRUCTOR = wrapType("Type", TYPE);
 
   private Types() {} // uninstantiable
 
@@ -127,7 +131,8 @@ public final class Types {
         .put("Collection", COLLECTION_CONSTRUCTOR)
         .put("Sequence", SEQUENCE_CONSTRUCTOR)
         .put("Mapping", MAPPING_CONSTRUCTOR)
-        .put("Callable", CALLABLE_CONSTRUCTOR);
+        .put("Callable", CALLABLE_CONSTRUCTOR)
+        .put("Type", TYPE_CONSTRUCTOR);
     return env.buildOrThrow();
   }
 
@@ -256,10 +261,15 @@ public final class Types {
   private static final class NoneType extends StarlarkType {
     // Singleton.
     private NoneType() {}
-
+    
     @Override
     public String toString() {
       return "None";
+    }
+
+    @Override
+    public ImmutableList<StarlarkType> getSupertypes(TypeContext context) {
+      return ImmutableList.of(TYPE);
     }
 
     @Override
@@ -471,6 +481,28 @@ public final class Types {
           parameterTypes.isEmpty(), "If hasVarargsAndKwargs is true, parameterTypes must be empty");
     }
     return new AutoValue_Types_SimpleCallableType(parameterTypes, returns, hasVarargsAndKwargs);
+  }
+
+  /**
+   * Finds the first {@link CallableType} in the type's hierarchy in DFS order. Returns {@code null}
+   * if none is found.
+   *
+   * <p>Intended for use with {@link net.starlark.java.eval.BuiltinFunction.BuiltinTypeFunction} and
+   * similar callable values whose {@code getStarlarkType} method doesn't directly return a {@link
+   * CallableType}.
+   */
+  @Nullable
+  public static CallableType toCallableType(StarlarkType type, TypeContext context) {
+    if (type instanceof CallableType callable) {
+      return callable;
+    }
+    for (StarlarkType supertype : type.getSupertypes(context)) {
+      CallableType callable = toCallableType(supertype, context);
+      if (callable != null) {
+        return callable;
+      }
+    }
+    return null;
   }
 
   /**
@@ -1797,6 +1829,31 @@ public final class Types {
         builder.put(entry.getKey(), entry.getValue().toLvalue());
       }
       return isPartial() ? partialStruct(builder.buildOrThrow()) : struct(builder.buildOrThrow());
+    }
+  }
+
+  /**
+   * The type of a reified type value. For example, {@code Type} is the type of the symbol
+   * introduced by a type alias statement, and a supertype of builtin type constructor symbols like
+   * {@code list} and {@code dict}.
+   */
+  private static final class TypeType extends StarlarkType {
+    // Singleton.
+    private TypeType() {}
+
+    @Override
+    public String toString() {
+      return "Type";
+    }
+
+    @Override
+    public int hashCode() {
+      return TypeType.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof TypeType;
     }
   }
 

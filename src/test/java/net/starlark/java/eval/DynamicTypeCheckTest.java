@@ -18,9 +18,12 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.StringSubject;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeContext;
+import net.starlark.java.syntax.Types;
 import net.starlark.java.syntax.Types.CallableType;
 import org.junit.Before;
 import org.junit.Test;
@@ -247,31 +250,39 @@ public class DynamicTypeCheckTest {
 
   @Test
   public void testStarlarkUniverseTypes() {
+    TypeContext typeContext =
+        Module.withPredeclared(ev.getStarlarkThread().getSemantics(), ImmutableMap.of());
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     for (var entry : Starlark.UNIVERSE.entrySet()) {
+      String description;
       StarlarkType type =
           Starlark.getStarlarkType(entry.getValue(), ev.getStarlarkThread().getSemantics());
-      if (type instanceof CallableType callable) {
-        builder.add(entry.getKey() + ": " + callable.toSignatureString());
+      CallableType callable = Types.toCallableType(type, typeContext);
+      if (callable != null) {
+        description = entry.getKey() + ": " + callable.toSignatureString();
       } else {
-        builder.add(entry.getKey() + ": " + type);
+        description = entry.getKey() + ": " + type;
       }
+      if (StarlarkType.assignableFrom(Types.TYPE, type, typeContext)) {
+        description += "; is a reified type";
+      }
+      builder.add(description);
     }
 
     assertThat(builder.build())
         .containsAtLeast(
             "False: bool",
             "True: bool",
-            "None: None",
+            "None: None; is a reified type",
             "hash: (str, /) -> int",
-            "bool: ([object], /) -> bool",
+            "bool: ([object], /) -> bool; is a reified type",
             "getattr: (object, str, [object], /) -> Any",
             "hasattr: (object, str, /) -> bool",
             "repr: (object, /) -> str",
-            "str: (object, /) -> str",
+            "str: (object, /) -> str; is a reified type",
             "type: (object, /) -> str",
-            "float: ([str | bool | int | float], /) -> float",
-            "int: (str | bool | int | float, /, base: [int]) -> int",
+            "float: ([str | bool | int | float], /) -> float; is a reified type",
+            "int: (str | bool | int | float, /, base: [int]) -> int; is a reified type",
             "dir: (object, /) -> list[str]",
             "all: (Collection[object], /) -> bool",
             "any: (Collection[object], /) -> bool",

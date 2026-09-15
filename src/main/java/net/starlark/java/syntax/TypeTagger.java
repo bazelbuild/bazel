@@ -482,6 +482,7 @@ public final class TypeTagger extends NodeVisitor {
 
     fileDefinedTypeConstructorNames.add(id.getName());
     typeTable.setTypeConstructor(binding, typeConstructor);
+    typeTable.setDeclaredType(binding, Types.TYPE);
   }
 
   /**

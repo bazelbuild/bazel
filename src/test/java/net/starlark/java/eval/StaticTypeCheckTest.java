@@ -695,4 +695,30 @@ public final class StaticTypeCheckTest {
         x: not_a_type = 123
         """);
   }
+
+  @Test
+  public void typeType() throws Exception {
+    assertValid(
+        """
+        def type_acceptor(x: Type) -> bool:
+            return True
+
+        type my_type = list[int]
+
+        type_acceptor(list)
+        type_acceptor(dict)
+        type_acceptor(my_type)
+        type_acceptor(None)  # None is its own type
+        type_acceptor(Type)  # the type of Type is Type!
+        """);
+
+    assertInvalid(
+        "in call to 'type_acceptor()', parameter 'x' got value of type 'int', want 'Type'",
+        """
+        def type_acceptor(x: Type) -> bool:
+            return True
+
+        type_acceptor(123)
+        """);
+  }
 }
