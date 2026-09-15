@@ -305,16 +305,21 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     if (getShouldScanIncludes()) {
       // With include scanning enabled, only compiler_files_without_includes is staged as a
       // mandatory input; the rest of the toolchain files (compiler_files) are expected to be
-      // discovered on demand by the include scanner. Generated toolchain headers -- e.g. a
-      // sysroot whose headers are symlinked into the output tree -- are only discoverable if they
-      // are known inputs, so fold compiler_files into the prunable set here. They must also be
+      // discovered on demand by the include scanner. Generated toolchain headers -- e.g. a sysroot
+      // whose headers are symlinked into the output tree -- are only discoverable if they are known
+      // inputs, so fold generated compiler files into the prunable set here. They must also be
       // registered as declared headers (the scanner never stats output-directory paths); see the
-      // addDeclaredHeaders calls in discoverInputs below.
-      prunableHeaders =
-          NestedSetBuilder.<Artifact>stableOrder()
-              .addTransitive(additionalPrunableHeaders)
-              .addTransitive(ccToolchain.getCompilerFiles())
-              .build();
+      // addDeclaredHeaders calls in discoverInputs below. Source headers from compiler_files are
+      // skipped as they already resolve via source-artifact lookup and need not be prunable or
+      // declared, avoiding unnecessary heap retention and array allocations in toList().
+      ImmutableList<Artifact> generatedCompilerFiles = ccToolchain.getGeneratedCompilerFiles();
+      if (!generatedCompilerFiles.isEmpty()) {
+        prunableHeaders =
+            NestedSetBuilder.<Artifact>stableOrder()
+                .addTransitive(additionalPrunableHeaders)
+                .addAll(generatedCompilerFiles)
+                .build();
+      }
     }
 
     configuration.modifyExecutionInfo(

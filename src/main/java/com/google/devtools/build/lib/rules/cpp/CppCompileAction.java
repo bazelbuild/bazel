@@ -532,6 +532,11 @@ public class CppCompileAction extends AbstractAction
         .build();
   }
 
+  @VisibleForTesting
+  public NestedSet<Artifact> getAdditionalPrunableHeadersForTesting() {
+    return additionalPrunableHeaders;
+  }
+
   private synchronized void setTopLevelModules(NestedSet<Artifact> value) {
     this.topLevelModules = value;
   }
