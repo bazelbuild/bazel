@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.actions.SpawnActionExecutionException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
+import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -768,6 +769,9 @@ public final class SkyframeActionExecutor {
    * Returns a token with the semantics of {@link ActionCacheChecker#getTokenIfNeedToExecute}: null
    * if the action is up to date, and non-null if it needs to be executed, in which case that token
    * should be provided to the ActionCacheChecker after execution.
+   *
+   * <p>{@code cacheEntry}, {@code resolvedCacheArtifacts} and {@code mandatoryInputsDigest} are
+   * passed through to {@link ActionCacheChecker#getTokenIfNeedToExecute}.
    */
   Token checkActionCache(
       ExtendedEventHandler eventHandler,
@@ -776,7 +780,9 @@ public final class SkyframeActionExecutor {
       OutputMetadataStore outputMetadataStore,
       ArtifactPathResolver artifactPathResolver,
       long actionStartTime,
+      @Nullable ActionCache.Entry cacheEntry,
       List<Artifact> resolvedCacheArtifacts,
+      @Nullable byte[] mandatoryInputsDigest,
       Map<String, String> clientEnv)
       throws ActionExecutionException, InterruptedException {
     Token token;
@@ -802,7 +808,9 @@ public final class SkyframeActionExecutor {
       token =
           actionCacheChecker.getTokenIfNeedToExecute(
               action,
+              cacheEntry,
               resolvedCacheArtifacts,
+              mandatoryInputsDigest,
               clientEnv,
               getOutputPermissions(),
               handler,
@@ -845,6 +853,7 @@ public final class SkyframeActionExecutor {
                 actionCacheChecker.getTokenUnconditionallyAfterFailureToRecordActionCacheHit(
                     action,
                     resolvedCacheArtifacts,
+                    mandatoryInputsDigest,
                     clientEnv,
                     getOutputPermissions(),
                     handler,
@@ -910,11 +919,19 @@ public final class SkyframeActionExecutor {
     }
   }
 
+  /** See {@link ActionCacheChecker#getCacheEntry}. */
   @Nullable
-  List<Artifact> getActionCachedInputs(Action action, PackageRootResolver resolver)
+  ActionCache.Entry getActionCacheEntry(Action action) {
+    return actionCacheChecker.getCacheEntry(action);
+  }
+
+  /** See {@link ActionCacheChecker#getCachedInputs}. */
+  @Nullable
+  List<Artifact> getActionCachedInputs(
+      Action action, @Nullable ActionCache.Entry cacheEntry, PackageRootResolver resolver)
       throws AlreadyReportedActionExecutionException, InterruptedException {
     try {
-      return actionCacheChecker.getCachedInputs(action, resolver);
+      return actionCacheChecker.getCachedInputs(action, cacheEntry, resolver);
     } catch (PackageRootResolver.PackageRootException e) {
       printError(e.getMessage(), action);
       throw new AlreadyReportedActionExecutionException(

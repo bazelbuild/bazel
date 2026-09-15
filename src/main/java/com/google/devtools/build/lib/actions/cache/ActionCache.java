@@ -82,7 +82,8 @@ public interface ActionCache {
   final class Entry {
     /** Unique instance standing for a corrupted cache entry. */
     public static final ActionCache.Entry CORRUPTED =
-        new Entry(null, null, false, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
+        new Entry(
+            null, null, null, false, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
 
     // Digest of all relevant properties of the action for cache invalidation purposes.
     // Null if the entry is corrupted.
@@ -91,6 +92,12 @@ public interface ActionCache {
     // List of input paths discovered by the action.
     // Null if the action does not discover inputs.
     @Nullable private final ImmutableList<String> discoveredInputPaths;
+
+    // Digest of the action's mandatory inputs, used to cheaply detect whether they changed before
+    // requesting the previously discovered inputs (which can introduce phantom cycles) and as the
+    // seed of the full input/output digest so that mandatory inputs are not hashed twice.
+    // Null if the action does not discover inputs or pruned them.
+    @Nullable private final byte[] mandatoryInputsDigest;
 
     private final boolean prunedInputs;
 
@@ -103,6 +110,7 @@ public interface ActionCache {
     Entry(
         @Nullable byte[] digest,
         @Nullable ImmutableList<String> discoveredInputPaths,
+        @Nullable byte[] mandatoryInputsDigest,
         boolean prunedInputs,
         ImmutableMap<String, FileArtifactValue> outputFileMetadata,
         ImmutableMap<String, SerializableTreeArtifactValue> outputTreeMetadata,
@@ -110,8 +118,14 @@ public interface ActionCache {
       checkArgument(
           !prunedInputs || discoveredInputPaths != null,
           "Action had unused inputs but no discovered inputs");
+      // The mandatory inputs digest is only used (as a seed that avoids re-hashing) for
+      // input-discovering actions that did not prune their inputs; it is left null otherwise.
+      checkArgument(
+          mandatoryInputsDigest == null || (discoveredInputPaths != null && !prunedInputs),
+          "mandatoryInputsDigest may only be set for non-pruning input-discovering actions");
       this.digest = digest;
       this.discoveredInputPaths = discoveredInputPaths;
+      this.mandatoryInputsDigest = mandatoryInputsDigest;
       this.prunedInputs = prunedInputs;
       this.outputFileMetadata = outputFileMetadata;
       this.outputTreeMetadata = outputTreeMetadata;
@@ -156,6 +170,20 @@ public interface ActionCache {
     public ImmutableList<String> getDiscoveredInputPaths() {
       checkState(!isCorrupted());
       return discoveredInputPaths;
+    }
+
+    /**
+     * Returns the digest of the action's mandatory inputs, or null if the action does not discover
+     * inputs or pruned them.
+     *
+     * <p>Comparing it against the current digest of the mandatory inputs tells whether the entry
+     * may still be valid before its {@linkplain #getDiscoveredInputPaths discovered inputs} are
+     * requested. It also seeds the entry digest so that the mandatory inputs are not hashed twice.
+     */
+    @Nullable
+    public byte[] getMandatoryInputsDigest() {
+      checkState(!isCorrupted());
+      return mandatoryInputsDigest;
     }
 
     /** Gets the metadata of an output file. */
@@ -205,6 +233,7 @@ public interface ActionCache {
       return MoreObjects.toStringHelper(this)
           .add("digest", digest)
           .add("discoveredInputPaths", discoveredInputPaths)
+          .add("mandatoryInputsDigest", mandatoryInputsDigest)
           .add("outputFileMetadata", outputFileMetadata)
           .add("outputTreeMetadata", outputTreeMetadata)
           .add("proxyOutputs", proxyOutputs)
@@ -222,6 +251,9 @@ public interface ActionCache {
         for (String path : ImmutableList.sortedCopyOf(discoveredInputPaths)) {
           out.format("    %s\n", path);
         }
+      }
+      if (mandatoryInputsDigest != null) {
+        out.format("  mandatoryInputsDigest = %s\n", formatDigest(mandatoryInputsDigest));
       }
 
       if (!outputFileMetadata.isEmpty()) {
@@ -294,6 +326,10 @@ public interface ActionCache {
       // Discovered inputs.
       // Null if the action does not discover inputs.
       @Nullable private final ImmutableList.Builder<String> discoveredInputPaths;
+      // Digest of the action's mandatory inputs, or null if the action does not discover inputs or
+      // pruned them. Seeds the input/output digest so that the mandatory inputs are not hashed
+      // again.
+      @Nullable private final byte[] mandatoryInputsDigest;
       private boolean prunedInputs = false;
 
       private final ImmutableMap.Builder<String, FileArtifactValue> outputFileMetadata =
@@ -311,20 +347,28 @@ public interface ActionCache {
        * Creates a new builder.
        *
        * @param discoversInputs whether the action discovers inputs.
+       * @param mandatoryInputsDigest the digest of the action's mandatory inputs, or null if the
+       *     action does not discover inputs or pruned them (see {@link
+       *     Entry#getMandatoryInputsDigest}).
        * @param outputPermissions the requested output permissions.
        * @param useArchivedTreeArtifacts whether archived tree artifacts are enabled.
        */
       public Builder(
           String actionKey,
           boolean discoversInputs,
+          @Nullable byte[] mandatoryInputsDigest,
           ImmutableMap<String, String> clientEnv,
           String actionExecutionSalt,
           OutputPermissions outputPermissions,
           boolean useArchivedTreeArtifacts) {
+        checkArgument(
+            mandatoryInputsDigest == null || discoversInputs,
+            "mandatoryInputsDigest may only be set for input-discovering actions");
         this.actionKey = actionKey;
         this.clientEnv = clientEnv;
         this.actionExecutionSalt = actionExecutionSalt;
         this.discoveredInputPaths = discoversInputs ? ImmutableList.builder() : null;
+        this.mandatoryInputsDigest = mandatoryInputsDigest;
         this.outputPermissions = outputPermissions;
         this.useArchivedTreeArtifacts = useArchivedTreeArtifacts;
       }
@@ -412,11 +456,13 @@ public interface ActionCache {
                 actionKey,
                 discoveredInputPaths != null,
                 metadataMap,
+                /* inputDigestSeed= */ mandatoryInputsDigest,
                 clientEnv,
                 actionExecutionSalt,
                 outputPermissions,
                 useArchivedTreeArtifacts),
             discoveredInputPaths != null ? discoveredInputPaths.build() : null,
+            mandatoryInputsDigest,
             prunedInputs,
             outputFileMetadata.buildOrThrow(),
             outputTreeMetadata.buildOrThrow(),
@@ -427,6 +473,7 @@ public interface ActionCache {
           String actionKey,
           boolean discoversInputs,
           Map<String, FileArtifactValue> metadataMap,
+          @Nullable byte[] inputDigestSeed,
           Map<String, String> clientEnv,
           String actionExecutionSalt,
           OutputPermissions outputPermissions,
@@ -434,7 +481,10 @@ public interface ActionCache {
         Fingerprint fp = new Fingerprint();
         fp.addString(actionKey);
         fp.addBoolean(discoversInputs);
-        fp.addBytes(MetadataDigestUtils.fromMetadata(metadataMap));
+        fp.addBytes(
+            inputDigestSeed != null
+                ? MetadataDigestUtils.fromMetadata(metadataMap, inputDigestSeed)
+                : MetadataDigestUtils.fromMetadata(metadataMap));
         fp.addBytes(computeMapDigest(clientEnv));
         fp.addString(actionExecutionSalt);
         fp.addInt(outputPermissions.getPermissionsMode());
