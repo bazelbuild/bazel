@@ -8,6 +8,7 @@ bazel_dep(name = "bazel_skylib", version = "1.8.2")
 bazel_dep(name = "buildozer", version = "8.5.1")
 bazel_dep(name = "platforms", version = "1.0.0")
 
+# Minimum versions required for compatibility.
 bazel_dep(name = "bazel_features", version = "1.43.0", repo_name = None)  # version bump (https://github.com/bazel-contrib/bazel_features/issues/82)
 bazel_dep(name = "rules_apple", version = "4.1.0", repo_name = None)  # version bump, older versions contribute lockfile entries
 bazel_dep(name = "rules_swift", version = "3.1.2", repo_name = None)  # version bump, older versions don't load CcInfo
@@ -30,14 +31,29 @@ use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
 buildozer_binary = use_extension("@buildozer//:buildozer_binary.bzl", "buildozer_binary")
 use_repo(buildozer_binary, "buildozer_binary")
 
-# Only needed so that labels in BUILD and .bzl files in bazel_tools resolve.
+# Needed by module extensions and labels in BUILD and .bzl files in bazel_tools.
 # Don't bump these dependencies, they should be removed over time.
-bazel_dep(name = "protobuf", version = "33.4", repo_name = "com_google_protobuf")  # //tools/proto (defaults of --proto_compiler etc.)
-bazel_dep(name = "rules_java", version = "9.7.2")  # //tools/jdk, //tools/build_rules
-bazel_dep(name = "rules_cc", version = "0.2.18")  # //tools/cpp, //tools/build_defs/cc, //tools/res
-bazel_dep(name = "rules_python", version = "1.7.0")  # //tools/python, //tools/jdk, //tools/build_defs/{hash,pkg}
-bazel_dep(name = "rules_shell", version = "0.6.1")  # //tools/sh, //tools/test, //tools/bash/runfiles
-bazel_dep(name = "apple_support", version = "2.5.2")  # //tools/osx:xcode_configure.bzl
+# The locations below include subpackages and sources bundled in bazel_tools.
+
+# //tools/proto (defaults of --proto_compiler etc.), //src/main/protobuf.
+bazel_dep(name = "protobuf", version = "33.4", repo_name = "com_google_protobuf")
+
+# //tools/{jdk,java,build_rules}, //tools/build_defs/repo, //src/main/native,
+# //src/java_tools/{buildjar,import_deps_checker}, and java_toolchains above.
+bazel_dep(name = "rules_java", version = "9.7.2")
+
+# //tools/{cpp,jdk,objc,osx,res}, //tools/build_defs/cc, //src/main/{cpp/util,native},
+# //src/tools/launcher, //third_party/{def_parser,ijar}.
+bazel_dep(name = "rules_cc", version = "0.2.18")
+
+# //tools/{python,jdk}, //tools/build_defs/{hash,pkg}, //third_party/def_parser.
+bazel_dep(name = "rules_python", version = "1.7.0")
+
+# //tools/sh, //tools/test, //tools/bash/runfiles.
+bazel_dep(name = "rules_shell", version = "0.6.1")
+
+# //tools/objc, //tools/osx (including xcode_configure.bzl and its generated repo).
+bazel_dep(name = "apple_support", version = "2.5.2")
 
 winsdk_configure = use_repo_rule("//tools/res:winsdk_configure.bzl", "winsdk_configure")
 
