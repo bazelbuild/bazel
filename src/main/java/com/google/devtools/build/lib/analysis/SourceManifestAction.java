@@ -292,7 +292,10 @@ public final class SourceManifestAction extends AbstractFileWriteAction
               .build();
       throw new UserExecException(failureDetail);
     }
-    return out -> writeFile(out, runfilesInputs, ctx.getInputMetadataProvider());
+    // A lazy file write may retain this writer after execution. Keep only the input metadata,
+    // rather than the entire execution context.
+    InputMetadataProvider inputMetadataProvider = ctx.getInputMetadataProvider();
+    return out -> writeFile(out, runfilesInputs, inputMetadataProvider);
   }
 
   @Override
