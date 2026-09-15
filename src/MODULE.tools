@@ -52,7 +52,7 @@ bazel_dep(name = "rules_python", version = "1.7.0")
 # //tools/sh, //tools/test, //tools/bash/runfiles.
 bazel_dep(name = "rules_shell", version = "0.6.1")
 
-# //tools/objc, //tools/osx (including xcode_configure.bzl and its generated repo).
+# //tools/objc, //tools/osx
 bazel_dep(name = "apple_support", version = "2.6.1")
 
 # //third_party/ijar (zipper built from source when the execution platform differs
