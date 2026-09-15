@@ -34,6 +34,14 @@ public class SpawnLogReconstructorTest {
         .isEqualTo(new Result("some_repo", "pkg/file.txt"));
     assertThat(matchDefault("external/some-repo+/pkg/file.txt"))
         .isEqualTo(new Result("some-repo+", "pkg/file.txt"));
+    assertThat(matchDefault("bazel-external/some_repo/pkg/file.txt"))
+        .isEqualTo(new Result("some_repo", "pkg/file.txt"));
+    assertThat(matchDefault("bazel-external/some-repo+/pkg/file.txt"))
+        .isEqualTo(new Result("some-repo+", "pkg/file.txt"));
+    assertThat(matchDefault("blaze-external/some_repo/pkg/file.txt"))
+        .isEqualTo(new Result("some_repo", "pkg/file.txt"));
+    assertThat(matchDefault("blaze-external/some-repo+/pkg/file.txt"))
+        .isEqualTo(new Result("some-repo+", "pkg/file.txt"));
     assertThat(matchDefault(PRODUCT_NAME + "-out/k8-fastbuild/bin/pkg/file.txt"))
         .isEqualTo(new Result(null, "pkg/file.txt"));
     assertThat(matchDefault(PRODUCT_NAME + "-out/k8-fastbuild/bin/pkg/external/file.txt"))
@@ -42,6 +50,14 @@ public class SpawnLogReconstructorTest {
         .isEqualTo(new Result("some_repo", "pkg/file.txt"));
     assertThat(
             matchDefault(PRODUCT_NAME + "-out/k8-fastbuild/bin/external/some-repo+/pkg/file.txt"))
+        .isEqualTo(new Result("some-repo+", "pkg/file.txt"));
+    assertThat(
+            matchDefault(
+                PRODUCT_NAME + "-out/k8-fastbuild/bin/bazel-external/some_repo/pkg/file.txt"))
+        .isEqualTo(new Result("some_repo", "pkg/file.txt"));
+    assertThat(
+            matchDefault(
+                PRODUCT_NAME + "-out/k8-fastbuild/bin/blaze-external/some-repo+/pkg/file.txt"))
         .isEqualTo(new Result("some-repo+", "pkg/file.txt"));
   }
 
