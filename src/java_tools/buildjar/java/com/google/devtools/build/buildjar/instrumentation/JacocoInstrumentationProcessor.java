@@ -38,7 +38,7 @@ import org.jacoco.core.runtime.OfflineInstrumentationAccessGenerator;
 /** Instruments compiled java classes using Jacoco instrumentation library. */
 public final class JacocoInstrumentationProcessor {
 
-  public static JacocoInstrumentationProcessor create(List<String> args)
+  public static JacocoInstrumentationProcessor create(List<String> args, Path workDir)
       throws InvalidCommandLineException {
     // Ignore extra arguments for backwards compatibility (they used to contain filters).
     if (args.size() < 1) {
@@ -48,14 +48,18 @@ public final class JacocoInstrumentationProcessor {
               + ": pathsForCoverageFile");
     }
 
-    return new JacocoInstrumentationProcessor(args.getFirst());
+    return new JacocoInstrumentationProcessor(args.getFirst(), workDir);
   }
 
   private Path instrumentedClassesDirectory;
   private final String coverageInformation;
+  private final Path coverageInformationFile;
 
-  private JacocoInstrumentationProcessor(String coverageInfo) {
+  private JacocoInstrumentationProcessor(String coverageInfo, Path workDir) {
     this.coverageInformation = coverageInfo;
+    // Sandboxed workers get a per-request working directory that is not the process's, so the
+    // execroot-relative path can't be resolved against the latter.
+    this.coverageInformationFile = workDir.resolve(coverageInfo);
   }
 
   /**
@@ -71,7 +75,7 @@ public final class JacocoInstrumentationProcessor {
     Instrumenter instr = new Instrumenter(new OfflineInstrumentationAccessGenerator());
     instrumentRecursively(instr, build.getClassDir());
     jar.addDirectory(instrumentedClassesDirectory);
-    jar.addEntry(coverageInformation, Path.of(coverageInformation));
+    jar.addEntry(coverageInformation, coverageInformationFile);
   }
 
   public void cleanup() throws IOException {
