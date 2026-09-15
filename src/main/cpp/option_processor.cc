@@ -504,6 +504,8 @@ blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(
   platform_config = "windows";
 #elif defined(__FreeBSD__)
   platform_config = "freebsd";
+#elif defined(__NetBSD__)
+  platform_config = "netbsd";
 #elif defined(__OpenBSD__)
   platform_config = "openbsd";
 #endif
