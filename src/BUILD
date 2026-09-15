@@ -24,6 +24,7 @@ sh_binary(
         "//src/conditions:darwin": ["md5_darwin_freebsd.sh"],
         "//src/conditions:freebsd": ["md5_darwin_freebsd.sh"],
         "//src/conditions:openbsd": ["md5_openbsd.sh"],
+        "//src/conditions:netbsd": ["md5_netbsd.sh"],
         "//conditions:default": ["md5_default.sh"],
     }),
 )
@@ -322,6 +323,7 @@ genrule(
     cmd = select({
         "//src/conditions:freebsd": "cat $(SRCS) | sed -e 's@#!/bin/bash@#!/usr/local/bin/bash@' > $@",
         "//src/conditions:openbsd": "cat $(SRCS) | sed -e 's@#!/bin/bash@#!/usr/local/bin/bash@' > $@",
+        "//src/conditions:netbsd": "cat $(SRCS) | sed -e 's@#!/bin/bash@#!/usr/pkg/bin/bash@' > $@",
         "//conditions:default": "cp $(SRCS) $@",
     }),
 )
