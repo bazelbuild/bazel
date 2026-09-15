@@ -20,16 +20,16 @@ import static org.junit.Assume.assumeTrue;
 
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -48,16 +48,20 @@ public final class PathCanonicalizerTest {
 
   private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
 
-  private final PathCanonicalizer canonicalizer = new PathCanonicalizer(this::resolve);
+  private final PathCanonicalizer.Resolver resolver =
+      new PathCanonicalizer.Resolver() {
+        @Override
+        public FileStatus statNoFollow(PathFragment path) throws IOException {
+          return fs.getPath(path).stat(Symlinks.NOFOLLOW);
+        }
 
-  private @Nullable PathFragment resolve(PathFragment pathFragment) throws IOException {
-    Path path = fs.getPath(pathFragment);
-    try {
-      return path.readSymbolicLink();
-    } catch (NotASymlinkException e) {
-      return null;
-    }
-  }
+        @Override
+        public PathFragment readSymlink(PathFragment path) throws IOException {
+          return fs.getPath(path).readSymbolicLink();
+        }
+      };
+
+  private final PathCanonicalizer canonicalizer = new PathCanonicalizer(resolver);
 
   @Test
   public void testRoot() throws Exception {
@@ -158,6 +162,16 @@ public final class PathCanonicalizerTest {
     createNonSymlink("/a/e");
     assertSuccess("/a/b/c", "/d/c");
     assertSuccess("/a/e", "/a/e");
+  }
+
+  @Test
+  public void testDirectoryNodesDoNotShareChildren() throws Exception {
+    createSymlink("/a/link", "/target");
+    createNonSymlink("/target");
+    createNonSymlink("/b/link");
+
+    assertSuccess("/a/link", "/target");
+    assertSuccess("/b/link", "/b/link");
   }
 
   @Test
@@ -263,6 +277,50 @@ public final class PathCanonicalizerTest {
     assertFailure(FileNotFoundException.class, "/a/b");
     createNonSymlink("/a/b");
     assertSuccess("/a/b", "/a/b");
+  }
+
+  @Test
+  public void testSymlinksAfterMissingParent() throws Exception {
+    createNonSymlink("/target/file");
+    createSymlink("/missing/link", "../target");
+    createSymlink("/missing/loop", "loop");
+    PathCanonicalizer sparseCanonicalizer =
+        new PathCanonicalizer(
+            new PathCanonicalizer.Resolver() {
+              @Override
+              public FileStatus statNoFollow(PathFragment path) throws IOException {
+                // Model a union filesystem that knows the children but has no parent metadata.
+                if (path.equals(pathFragment("/missing"))) {
+                  throw new FileNotFoundException(path.getPathString());
+                }
+                return resolver.statNoFollow(path);
+              }
+
+              @Override
+              public PathFragment readSymlink(PathFragment path) throws IOException {
+                return resolver.readSymlink(path);
+              }
+            });
+
+    assertThat(sparseCanonicalizer.resolveSymbolicLinks(pathFragment("/missing/link/file")))
+        .isEqualTo(pathFragment("/target/file"));
+    assertThrows(
+        FileSymlinkLoopException.class,
+        () -> sparseCanonicalizer.resolveSymbolicLinks(pathFragment("/missing/loop")));
+  }
+
+  @Test
+  public void testNonDirectoryCannotContainChildren() throws Exception {
+    createNonSymlink("/a/file");
+    assertSuccess("/a/file", "/a/file");
+    assertFailure(FileNotFoundException.class, "/a/file/child");
+    assertThrows(
+        FileNotFoundException.class,
+        () -> canonicalizer.resolveSymbolicLinksForParent(pathFragment("/a/file/child")));
+
+    deleteTree("/a/file");
+    createNonSymlink("/a/file/child");
+    assertSuccess("/a/file/child", "/a/file/child");
   }
 
   @Test
