@@ -4,14 +4,14 @@
 
 module(name = "bazel_tools")
 
-bazel_dep(name = "bazel_skylib", version = "1.8.2")
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
 bazel_dep(name = "buildozer", version = "8.5.1")
 bazel_dep(name = "platforms", version = "1.0.0")
 
 # Minimum versions required for compatibility.
 bazel_dep(name = "bazel_features", version = "1.43.0", repo_name = None)  # version bump (https://github.com/bazel-contrib/bazel_features/issues/82)
-bazel_dep(name = "rules_apple", version = "4.1.0", repo_name = None)  # version bump, older versions contribute lockfile entries
-bazel_dep(name = "rules_swift", version = "3.1.2", repo_name = None)  # version bump, older versions don't load CcInfo
+bazel_dep(name = "rules_apple", version = "4.5.3", repo_name = None)  # version bump, older versions contribute lockfile entries
+bazel_dep(name = "rules_swift", version = "3.6.1", repo_name = None)  # version bump, older versions don't load CcInfo
 bazel_dep(name = "abseil-cpp", version = "20250814.1", repo_name = None)  # version bump, fixes errors with older compilers
 
 xcode_configure = use_extension("//tools/osx:xcode_configure.bzl", "xcode_configure_extension")
@@ -36,7 +36,7 @@ use_repo(buildozer_binary, "buildozer_binary")
 # The locations below include subpackages and sources bundled in bazel_tools.
 
 # //tools/proto (defaults of --proto_compiler etc.), //src/main/protobuf.
-bazel_dep(name = "protobuf", version = "33.4", repo_name = "com_google_protobuf")
+bazel_dep(name = "protobuf", version = "36.0.bcr.1", repo_name = "com_google_protobuf")
 
 # //tools/{jdk,java,build_rules}, //tools/build_defs/repo, //src/main/native,
 # //src/java_tools/{buildjar,import_deps_checker}, and java_toolchains above.
