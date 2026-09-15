@@ -350,7 +350,7 @@ genrule(
 
 # Build an executable named `bazel.exe` (and suffixes).
 # Works on all platforms but only makes sense on Windows.
-[copy_file(
+[genrule(
     name = "bazel-bin" + suffix + ".exe",
     srcs = [":bazel-bin" + suffix],
     outs = ["bazel" + suffix + ".exe"],
