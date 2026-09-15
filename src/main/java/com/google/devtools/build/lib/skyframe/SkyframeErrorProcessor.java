@@ -74,7 +74,6 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -150,13 +149,6 @@ public final class SkyframeErrorProcessor {
         }
       }
 
-      // TODO(b/249690006) Only used for the rollout of the refactor. Remove afterwards.
-      @CanIgnoreReturnValue
-      AggregatingBuilder setExecutionDetailedExitCode(DetailedExitCode executionDetailedExitCode) {
-        this.executionDetailedExitCode = executionDetailedExitCode;
-        return this;
-      }
-
       ErrorProcessingResult build() {
         return new ErrorProcessingResult(
             hasLoadingError,
@@ -195,20 +187,6 @@ public final class SkyframeErrorProcessor {
     /** This is true for all non-execution errors: including loading & action conflict errors. */
     boolean isAnalysisError() {
       return executionDetailedExitCode() == null;
-    }
-
-    static IndividualErrorProcessingResult create(
-        ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts,
-        @Nullable DetailedExitCode executionDetailedExitCode,
-        NestedSet<Cause> analysisRootCauses,
-        ImmutableSet<Label> loadingRootCauses,
-        @Nullable ActionLookupKey aspectKeyForConflictReporting) {
-      return new IndividualErrorProcessingResult(
-          actionConflicts,
-          executionDetailedExitCode,
-          analysisRootCauses,
-          loadingRootCauses,
-          aspectKeyForConflictReporting);
     }
   }
 
@@ -531,7 +509,7 @@ public final class SkyframeErrorProcessor {
           && isExecutionCycle(errorInfo.getCycleInfo())) {
         executionDetailedExitCode = CYCLE_CODE;
       }
-      return IndividualErrorProcessingResult.create(
+      return new IndividualErrorProcessingResult(
           actionConflicts,
           executionDetailedExitCode,
           /* analysisRootCauses= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
@@ -541,7 +519,7 @@ public final class SkyframeErrorProcessor {
 
     // Only possible with actions generating build-info.txt and build-changelist.txt.
     if (errorKey.argument() instanceof ActionLookupData) {
-      return IndividualErrorProcessingResult.create(
+      return new IndividualErrorProcessingResult(
           /* actionConflicts= */ ImmutableMap.of(),
           getExecutionDetailedExitCodeFromCause(result, exception, bugReporter),
           /* analysisRootCauses= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
@@ -624,7 +602,7 @@ public final class SkyframeErrorProcessor {
       analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
 
-    return IndividualErrorProcessingResult.create(
+    return new IndividualErrorProcessingResult(
         actionConflicts,
         executionDetailedExitCode,
         analysisRootCauses,
@@ -872,8 +850,6 @@ public final class SkyframeErrorProcessor {
         || cause instanceof TopLevelOutputException;
   }
 
-
-
   /**
    * Figure out why an action's analysis/execution failed and rethrow the right kind of exception.
    */
@@ -929,8 +905,6 @@ public final class SkyframeErrorProcessor {
         Preconditions.checkNotNull(unknownExitCode.getFailureDetail()).getMessage(),
         unknownExitCode);
   }
-
-
 
   private static final DetailedExitCode CYCLE_CODE =
       createDetailedExecutionExitCode("cycle found during execution", Execution.Code.CYCLE);
