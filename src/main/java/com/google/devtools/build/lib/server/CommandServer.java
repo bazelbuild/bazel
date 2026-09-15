@@ -81,7 +81,8 @@ import javax.annotation.Nullable;
  *
  * <p>Each running RPC has a UUID associated with it that is used to identify it when a client wants
  * to cancel it. Cancellation is done by the client sending the server a Cancel RPC, which results
- * in the main thread of the command being interrupted.
+ * in the main thread of the command being interrupted. A client going away without sending one has
+ * the same effect, see {@link GrpcCommandServerImpl.BlockingStreamObserver}.
  */
 public class CommandServer implements GrpcCommandServer.Callback {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -479,7 +480,8 @@ public class CommandServer implements GrpcCommandServer.Callback {
       commandId = command.getId();
 
       try {
-        // Send the client the command id as soon as we know it.
+        // Send the client the command id as soon as we know it, letting the responder capture the
+        // current thread as the one to interrupt if the client goes away.
         responder.onNext(
             RunResponse.newBuilder()
                 .setCookie(responseCookie)
