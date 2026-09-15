@@ -885,6 +885,9 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
           }
           return new Sequence(expandedIterable.build());
         }
+        if (fieldValue == null) {
+          return null;
+        }
         return asVariableValue(fieldValue);
       } catch (EvalException e) {
         if (throwOnMissingVariable) {
