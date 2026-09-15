@@ -42,7 +42,7 @@ class BazelWindowsTest(test_base.TestBase):
             '    constraint_values = [',
             '        "@platforms//cpu:x86_64",',
             '        "@platforms//os:windows",',
-            '        "@bazel_tools//tools/cpp:msys",',
+            '        "@rules_cc//cc/private/toolchain:msys",',
             '    ],',
             ')',
             'cc_binary(name="x", srcs=["x.cc"])',

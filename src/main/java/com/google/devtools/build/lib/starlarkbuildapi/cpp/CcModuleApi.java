@@ -67,7 +67,7 @@ public interface CcModuleApi<
       doc =
           "Do not use this field, its only purpose is to help with migration from "
               + "config_setting.values{'compiler') to "
-              + "config_settings.flag_values{'@bazel_tools//tools/cpp:compiler'}",
+              + "config_settings.flag_values{'@rules_cc//cc/private/toolchain:compiler'}",
       structField = true)
   default void compilerFlagExists() {}
 
@@ -1859,7 +1859,8 @@ public interface CcModuleApi<
             named = true,
             doc =
                 "The compiler string (e.g. \"gcc\"). The current toolchain's compiler"
-                    + " is exposed to `@bazel_tools//tools/cpp:compiler (compiler_flag)` as a flag"
+                    + " is exposed to `@rules_cc//cc/private/toolchain:compiler (compiler_flag)` as"
+                    + " a flag"
                     + " value. Targets that require compiler-specific flags can use the"
                     + " config_settings in"
                     + " https://github.com/bazelbuild/rules_cc/blob/main/cc/compiler/BUILD in"

@@ -5862,7 +5862,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    implementation = _cc_aspect_impl,",
         "    attrs = {",
         "        '_cc_toolchain': attr.label(default ="
-            + " '@bazel_tools//tools/cpp:current_cc_toolchain'),",
+            + " '@rules_cc//cc:current_cc_toolchain'),",
         "    },",
         fragments,
         "    toolchains = ['" + TestConstants.CPP_TOOLCHAIN_TYPE + "']",
