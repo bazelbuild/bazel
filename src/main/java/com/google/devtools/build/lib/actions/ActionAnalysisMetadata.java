@@ -242,8 +242,8 @@ public interface ActionAnalysisMetadata {
   PlatformInfo getExecutionPlatform();
 
   /**
-   * Returns the execution requirements for this action, or an empty map if the action type does not
-   * have access to execution requirements.
+   * Returns the execution properties for this action, or an empty map if the action type does not
+   * have access to execution properties.
    */
   default ImmutableMap<String, String> getExecutionInfo() {
     return getExecProperties();
