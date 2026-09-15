@@ -194,6 +194,17 @@ public interface Action extends ActionExecutionMetadata {
   void resetDiscoveredInputs();
 
   /**
+   * Whether to split mandatory and discovered inputs during action cache checking.
+   *
+   * <p>When true, the action cache checker validates mandatory inputs before loading previously
+   * discovered inputs from the cache. This avoids dependency cycles when discovered input
+   * relationships change between builds.
+   */
+  default boolean usesSplitMandatoryInputsActionCacheCheck() {
+    return false;
+  }
+
+  /**
    * Returns the set of artifacts that can possibly be inputs. It will be called iff {@link
    * #inputsKnown} is false for the given action instance and there is a related cache entry in the
    * action cache.
