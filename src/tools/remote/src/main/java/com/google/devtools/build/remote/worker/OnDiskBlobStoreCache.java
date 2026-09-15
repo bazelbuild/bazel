@@ -60,7 +60,7 @@ class OnDiskBlobStoreCache extends CombinedCache {
         new DiskCacheClient(cacheDir, digestUtil, /* checkActionResultIntegrity= */ true),
         /* symlinkTemplate= */ null,
         digestUtil,
-        /* chunkingEnabled= */ false);
+        /* chunkingFunction= */ null);
     this.remoteWorkerOptions = remoteWorkerOptions;
   }
 

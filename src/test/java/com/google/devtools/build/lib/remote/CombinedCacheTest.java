@@ -917,7 +917,7 @@ public class CombinedCacheTest {
               return spliceFuture;
             })
         .when(grpcCacheClient)
-        .spliceBlob(any(), any(), any());
+        .spliceBlob(any(), any(), any(), any());
 
     CombinedCache combinedCache =
         new CombinedCache(
@@ -925,7 +925,7 @@ public class CombinedCacheTest {
             /* diskCacheClient= */ null,
             /* symlinkTemplate= */ null,
             digestUtil,
-            /* chunkingEnabled= */ true);
+            /* chunkingFunction= */ RemoteOptions.ChunkingFunctionValue.FAST_CDC_2020);
     byte[] data = new byte[8192];
     Path file = execRoot.getRelative("chunked-output");
     try (var out = file.getOutputStream()) {
@@ -943,7 +943,7 @@ public class CombinedCacheTest {
 
       assertThat(grpcCacheClient.getUploadSubscriberCount(digest)).isEqualTo(2);
       verify(grpcCacheClient).findMissingDigests(any(), any());
-      verify(grpcCacheClient).spliceBlob(any(), any(), any());
+      verify(grpcCacheClient).spliceBlob(any(), any(), any(), any());
 
       spliceFuture.set(null);
       getFromFuture(firstUpload);
@@ -978,7 +978,7 @@ public class CombinedCacheTest {
                         .addChunkDigests(chunk2Digest)
                         .build()))
         .when(grpcCacheClient)
-        .splitBlob(any(), eq(blobDigest));
+        .splitBlob(any(), eq(blobDigest), any());
     doAnswer(
             invocation -> {
               OutputStream chunkOut = invocation.getArgument(2);
@@ -1042,7 +1042,7 @@ public class CombinedCacheTest {
                         .addChunkDigests(chunk2Digest)
                         .build()))
         .when(grpcCacheClient)
-        .splitBlob(any(), eq(blobDigest));
+        .splitBlob(any(), eq(blobDigest), any());
     doAnswer(unused -> Futures.immediateFailedFuture(new CacheNotFoundException(chunk1Digest)))
         .when(grpcCacheClient)
         .downloadBlob(any(), eq(chunk1Digest), any());
@@ -1084,7 +1084,7 @@ public class CombinedCacheTest {
     // What GrpcCacheClient#splitBlob reports when the server answers NOT_FOUND or UNIMPLEMENTED.
     doAnswer(unused -> Futures.immediateFailedFuture(new BlobNotSplittableException(blobDigest)))
         .when(grpcCacheClient)
-        .splitBlob(any(), eq(blobDigest));
+        .splitBlob(any(), eq(blobDigest), any());
     doAnswer(
             invocation -> {
               OutputStream blobOut = invocation.getArgument(2);
@@ -1124,7 +1124,7 @@ public class CombinedCacheTest {
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
         digestUtil,
-        /* chunkingEnabled= */ true);
+        /* chunkingFunction= */ RemoteOptions.ChunkingFunctionValue.FAST_CDC_2020);
   }
 
   private InMemoryCombinedCache newCombinedCache() {
@@ -1142,7 +1142,7 @@ public class CombinedCacheTest {
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
         digestUtil,
-        /* chunkingEnabled= */ false);
+        /* chunkingFunction= */ null);
   }
 
   private RemoteExecutionCache newRemoteExecutionCache(RemoteCacheClient remoteCacheClient) {
@@ -1151,7 +1151,7 @@ public class CombinedCacheTest {
         /* diskCacheClient= */ null,
         /* symlinkTemplate= */ null,
         digestUtil,
-        /* chunkingEnabled= */ false);
+        /* chunkingFunction= */ null);
   }
 
   private static ServerCapabilities chunkingCapabilities() {
