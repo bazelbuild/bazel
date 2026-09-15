@@ -129,7 +129,7 @@ EOF
   chmod u+x test/main.py
 
   bazel build //test:main || fail "bazel build failed"
-  MAIN_BIN=$(bazel info bazel-bin)/test/main
+  MAIN_BIN=$(bazel cquery //test:main --output=files | grep "/main${EXE_EXT}$")
   RUNFILES_MANIFEST_FILE= RUNFILES_DIR= $MAIN_BIN &> $TEST_log
   expect_log "File contents: abcdefg"
 }
