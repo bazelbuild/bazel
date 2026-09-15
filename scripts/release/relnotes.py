@@ -98,12 +98,15 @@ def get_label(issue_id):
   """Get team-X label added to issue."""
   auth = (
       subprocess.check_output(
-          "gcloud storage cat"
-          " gs://bazel-trusted-encrypted-secrets/github-trusted-token.enc |"
-          " gcloud kms decrypt --project bazel-public --location global"
-          " --keyring buildkite --key github-trusted-token --ciphertext-file"
-          " - --plaintext-file -",
-          shell=True,
+          [
+              "gcloud",
+              "secrets",
+              "versions",
+              "access",
+              "latest",
+              "--secret=github-trusted-token",
+              "--project=bazel-public",
+          ]
       )
       .decode("utf-8")
       .strip()
