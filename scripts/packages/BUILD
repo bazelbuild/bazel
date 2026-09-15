@@ -25,6 +25,7 @@ filegroup(
         ],
         "//src/conditions:freebsd": [],
         "//src/conditions:openbsd": [],
+        "//src/conditions:netbsd": [],
         "//src/conditions:darwin": [
             ":generate-package-info",
             ":with-jdk/install.sh",
@@ -92,6 +93,7 @@ genrule(
         "//src/conditions:darwin": "\"darwin\"",
         "//src/conditions:freebsd": "\"freebsd\"",
         "//src/conditions:openbsd": "\"openbsd\"",
+        "//src/conditions:netbsd": "\"netbsd\"",
         "//conditions:default": "\"linux\"",
     }) + """
         target_arch=""" + select({
