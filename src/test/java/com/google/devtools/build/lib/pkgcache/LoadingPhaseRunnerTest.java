@@ -899,6 +899,27 @@ public final class LoadingPhaseRunnerTest {
     assertThat(result.getTestsToRunLabels()).containsExactlyElementsIn(getLabels("//foo:foo"));
   }
 
+  @Test
+  public void explicitTargetLabels_includeTestReaddedAfterBuildTagFiltering() throws Exception {
+    tester.addFile(
+        "foo/BUILD",
+        """
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "foo",
+            srcs = ["foo.sh"],
+            tags = ["excluded"],
+        )
+        """);
+    tester.useLoadingOptions("--build_tag_filters=-excluded");
+
+    TargetPatternPhaseValue result = assertNoErrors(tester.loadTests("//foo:foo"));
+
+    assertThat(result.getTargetLabels()).containsExactlyElementsIn(getLabels("//foo:foo"));
+    assertThat(result.getTestsToRunLabels()).containsExactlyElementsIn(getLabels("//foo:foo"));
+    assertThat(result.getExplicitTargetLabels()).containsExactlyElementsIn(getLabels("//foo:foo"));
+  }
+
   /**
    * Regression test for bug: "blaze is lying to me about what tests exist (have been specified)"
    */
@@ -1569,6 +1590,27 @@ public final class LoadingPhaseRunnerTest {
     tester.addFile("base/BUILD", "filegroup(name = 'hello', srcs = ['foo.txt'])");
     TargetPatternPhaseValue value = assertNoErrors(tester.load("base:hello"));
     assertThat(value.getTargetLabels()).containsExactlyElementsIn(getLabels("//base:hello"));
+  }
+
+  @Test
+  public void explicitTargetLabels_includePathAsTargetPatterns() throws Exception {
+    tester.addFile("BUILD", "filegroup(name = 'root_target')");
+    tester.addFile(
+        "pkg/BUILD",
+        "filegroup(name = 'pkg')",
+        "filegroup(name = 'nested_target')",
+        "filegroup(name = 'wildcard_only')");
+
+    TargetPatternPhaseValue value =
+        assertNoErrors(
+            tester.load(
+                "root_target", "pkg", "pkg/nested_target", "//pkg:nested_target", "//..."));
+
+    assertThat(value.getTargetLabels())
+        .contains(Label.parseCanonicalUnchecked("//pkg:wildcard_only"));
+    assertThat(value.getExplicitTargetLabels())
+        .containsExactlyElementsIn(
+            getLabels("//:root_target", "//pkg:pkg", "//pkg:nested_target"));
   }
 
   @Test
