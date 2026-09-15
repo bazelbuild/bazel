@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.pkgcache;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -124,8 +123,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
         QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(clock));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
-    skyframeExecutor.setDeletedPackages(
-        ImmutableSet.copyOf(packageOptions.getDeletedPackagesOrEmptySet()));
+    skyframeExecutor.setDeletedPackages(packageOptions.getDeletedPackages());
   }
 
   @Override

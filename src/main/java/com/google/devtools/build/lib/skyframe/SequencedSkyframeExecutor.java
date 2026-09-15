@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassId;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.pkgcache.DeletedPackages;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -413,18 +414,16 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   /** Sets the packages that should be treated as deleted and ignored. */
   @Override
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE
-  public void setDeletedPackages(Iterable<PackageIdentifier> pkgs) {
-    ImmutableSet<PackageIdentifier> newDeletedPackagesSet = ImmutableSet.copyOf(pkgs);
-
-    Set<PackageIdentifier> newlyDeletedOrNotDeletedPackages =
-        Sets.symmetricDifference(deletedPackages.get(), newDeletedPackagesSet);
-    if (!newlyDeletedOrNotDeletedPackages.isEmpty()) {
+  public void setDeletedPackages(DeletedPackages pkgs) {
+    DeletedPackages previous = deletedPackages.get();
+    if (!previous.equals(pkgs)) {
       // PackageLookupValue is a HERMETIC node type, so we can't invalidate it.
       memoizingEvaluator.delete(
-          k -> PackageLookupValue.appliesToKey(k, newlyDeletedOrNotDeletedPackages::contains));
+          k ->
+              PackageLookupValue.appliesToKey(k, id -> previous.matches(id) != pkgs.matches(id)));
     }
 
-    deletedPackages.set(newDeletedPackagesSet);
+    deletedPackages.set(pkgs);
   }
 
   /**
