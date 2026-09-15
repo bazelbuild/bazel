@@ -1,0 +1,275 @@
+diff --git a/third_party/def_parser/def_parser.cc b/third_party/def_parser/def_parser.cc
+index 8f78744312..890f33a1ba 100644
+--- a/third_party/def_parser/def_parser.cc
++++ b/third_party/def_parser/def_parser.cc
+@@ -62,21 +62,14 @@
+  * Author:   Valery Fine 16/09/96  (E-mail: fine@vxcern.cern.ch)
+  *----------------------------------------------------------------------
+  */
+-#include "bindexplib.h"
++#include "third_party/def_parser/def_parser.h"
+ 
+-#include <cstddef> // IWYU pragma: keep
++#include <algorithm>
++#include <iostream>
++#include <fstream>
++#include <memory>    // unique_ptr
+ #include <sstream>
+-#include <vector>
+-
+-#ifdef _WIN32
+-#  include <windows.h>
+-
+-#  include "cmsys/Encoding.hxx"
+-#endif
+-
+-#include "cmsys/FStream.hxx"
+-
+-#include "cmSystemTools.h"
++#include <windows.h>
+ 
+ #ifdef _WIN32
+ #  ifndef IMAGE_FILE_MACHINE_ARM
+@@ -99,6 +92,11 @@
+ #    define IMAGE_FILE_MACHINE_ARM64EC 0xa641 // ARM64EC Little-Endian
+ #  endif
+ 
++using std::string;
++using std::wstring;
++using std::stringstream;
++using std::unique_ptr;
++
+ typedef struct cmANON_OBJECT_HEADER_BIGOBJ
+ {
+   /* same as ANON_OBJECT_HEADER_V2 */
+@@ -341,77 +339,69 @@ private:
+ };
+ #endif
+ 
+-static bool DumpFileWithLlvmNm(std::string const& nmPath, const char* filename,
+-                               std::set<std::string>& symbols,
+-                               std::set<std::string>& dataSymbols)
+-{
+-  std::string output;
+-  // break up command line into a vector
+-  std::vector<std::string> command;
+-  command.push_back(nmPath);
+-  command.emplace_back("--no-weak");
+-  command.emplace_back("--defined-only");
+-  command.emplace_back("--format=posix");
+-  command.emplace_back(filename);
+-
+-  // run the command
+-  int exit_code = 0;
+-  cmSystemTools::RunSingleCommand(command, &output, &output, &exit_code,
+-                                  nullptr, cmSystemTools::OUTPUT_NONE);
+-
+-  if (exit_code != 0) {
+-    fprintf(stderr, "llvm-nm returned an error: %s\n", output.c_str());
+-    return false;
++void PrintLastError() {
++  DWORD last_error = GetLastError();
++  if (last_error == 0) {
++    return;
+   }
+ 
+-  std::istringstream ss(output);
+-  std::string line;
+-  while (std::getline(ss, line)) {
+-    if (line.empty()) { // last line
+-      continue;
+-    }
+-    size_t sym_end = line.find(' ');
+-    if (sym_end == std::string::npos) {
+-      fprintf(stderr, "Couldn't parse llvm-nm output line: %s\n",
+-              line.c_str());
+-      return false;
+-    }
+-    if (line.size() < sym_end + 1) {
+-      fprintf(stderr, "Couldn't parse llvm-nm output line: %s\n",
+-              line.c_str());
+-      return false;
+-    }
+-    const char sym_type = line[sym_end + 1];
+-    line.resize(sym_end);
+-    switch (sym_type) {
+-      case 'D':
+-        dataSymbols.insert(line);
+-        break;
+-      case 'T':
+-        symbols.insert(line);
+-        break;
+-    }
++  char* message_buffer;
++  size_t size = FormatMessageA(
++      FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
++          FORMAT_MESSAGE_IGNORE_INSERTS,
++      NULL, last_error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
++      (LPSTR)&message_buffer, 0, NULL);
++
++  std::cerr << "(error: " << last_error << "): " << message_buffer;
++  LocalFree(message_buffer);
++}
++
++wstring StringToWString(const string& s) {
++  SetLastError(ERROR_SUCCESS);
++  DWORD len = MultiByteToWideChar(CP_ACP, 0, s.c_str(), -1, NULL, 0);
++  if (len == 0 && GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
++    PrintLastError();
++    return L"";
+   }
++  unique_ptr<WCHAR[]> wstr(new WCHAR[len]);
++  MultiByteToWideChar(CP_ACP, 0, s.c_str(), -1, wstr.get(), len);
++  return wstring(wstr.get());
++}
+ 
+-  return true;
++wstring AsAbsoluteWindowsPath(const string& path) {
++  wstring wpath = StringToWString(path);
++  // Get the buffer length we need for the full path.
++  SetLastError(ERROR_SUCCESS);
++  DWORD len = GetFullPathNameW(wpath.c_str(), 0, NULL, NULL);
++  if (len == 0 && GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
++    PrintLastError();
++    return L"";
++  }
++  SetLastError(ERROR_SUCCESS);
++  unique_ptr<WCHAR[]> buffer(new WCHAR[len]);
++  GetFullPathNameW(wpath.c_str(), len, buffer.get(), NULL);
++  if (GetLastError() != ERROR_SUCCESS) {
++    PrintLastError();
++    return L"";
++  }
++  return wstring(L"\\\\?\\") + wstring(buffer.get());
+ }
+ 
+-static bool DumpFile(std::string const& nmPath, const char* filename,
++static bool DumpFile(const char* filename,
+                      std::set<std::string>& symbols,
+                      std::set<std::string>& dataSymbols)
+ {
+-#ifndef _WIN32
+-  return DumpFileWithLlvmNm(nmPath, filename, symbols, dataSymbols);
+-#else
+   HANDLE hFile;
+   HANDLE hFileMapping;
+   LPVOID lpFileBase;
+ 
+-  hFile = CreateFileW(cmsys::Encoding::ToWide(filename).c_str(), GENERIC_READ,
++  wstring filenameW = AsAbsoluteWindowsPath(filename);
++  hFile = CreateFileW(filenameW.c_str(), GENERIC_READ,
+                       FILE_SHARE_READ, nullptr, OPEN_EXISTING,
+                       FILE_ATTRIBUTE_NORMAL, 0);
+ 
+   if (hFile == INVALID_HANDLE_VALUE) {
++    PrintLastError();
+     fprintf(stderr, "Couldn't open file '%s' with CreateFile()\n", filename);
+     return false;
+   }
+@@ -419,16 +409,18 @@ static bool DumpFile(std::string const& nmPath, const char* filename,
+   hFileMapping =
+     CreateFileMapping(hFile, nullptr, PAGE_READONLY, 0, 0, nullptr);
+   if (hFileMapping == 0) {
+-    CloseHandle(hFile);
++    PrintLastError();
+     fprintf(stderr, "Couldn't open file mapping with CreateFileMapping()\n");
++    CloseHandle(hFile);
+     return false;
+   }
+ 
+   lpFileBase = MapViewOfFile(hFileMapping, FILE_MAP_READ, 0, 0, 0);
+   if (lpFileBase == 0) {
++    PrintLastError();
++    fprintf(stderr, "Couldn't map view of file with MapViewOfFile()\n");
+     CloseHandle(hFileMapping);
+     CloseHandle(hFile);
+-    fprintf(stderr, "Couldn't map view of file with MapViewOfFile()\n");
+     return false;
+   }
+ 
+@@ -474,14 +466,6 @@ static bool DumpFile(std::string const& nmPath, const char* filename,
+                : (h->Machine == IMAGE_FILE_MACHINE_ARM64EC ? Arch::ARM64EC
+                                                            : Arch::Generic)));
+         symbolDumper.DumpObjFile();
+-      } else if (
+-        // BCexCODE - llvm bitcode
+-        (h->Sig1 == 0x4342 && h->Sig2 == 0xDEC0) ||
+-        // 0x0B17C0DE - llvm bitcode BC wrapper
+-        (h->Sig1 == 0x0B17 && h->Sig2 == 0xC0DE)) {
+-
+-        return DumpFileWithLlvmNm(nmPath, filename, symbols, dataSymbols);
+-
+       } else {
+         printf("unrecognized file format in '%s, %u'\n", filename,
+                imageHeader->Machine);
+@@ -493,18 +477,22 @@ static bool DumpFile(std::string const& nmPath, const char* filename,
+   CloseHandle(hFileMapping);
+   CloseHandle(hFile);
+   return true;
+-#endif
+ }
+ 
+-bool bindexplib::AddObjectFile(const char* filename)
++void DefParser::SetDLLName(const string& dllname) {
++  this->DLLName = dllname;
++}
++
++bool DefParser::AddObjectFile(const char* filename)
+ {
+-  return DumpFile(this->NmPath, filename, this->Symbols, this->DataSymbols);
++  return DumpFile(filename, this->Symbols, this->DataSymbols);
+ }
+ 
+-bool bindexplib::AddDefinitionFile(const char* filename)
++bool DefParser::AddDefinitionFile(const char* filename)
+ {
+-  cmsys::ifstream infile(filename);
++  std::ifstream infile(filename);
+   if (!infile) {
++    PrintLastError();
+     fprintf(stderr, "Couldn't open definition file '%s'\n", filename);
+     return false;
+   }
+@@ -529,8 +517,31 @@ bool bindexplib::AddDefinitionFile(const char* filename)
+   return true;
+ }
+ 
+-void bindexplib::WriteFile(FILE* file)
++bool DefParser::IsDefFile(const string& file) {
++  // Get file extension and convert it to lower case.
++  string ext = file.substr(file.find_last_of(".") + 1);
++  std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
++  return ext == "def";
++}
++
++bool DefParser::AddFile(const string& file) {
++  if (IsDefFile(file)) {
++    if (!this->AddDefinitionFile(file.c_str())) {
++      return false;
++    }
++  } else {
++    if (!this->AddObjectFile(file.c_str())) {
++      return false;
++    }
++  }
++  return true;
++}
++
++void DefParser::WriteFile(FILE* file)
+ {
++  if (!this->DLLName.empty()) {
++    fprintf(file, "LIBRARY %s\n", this->DLLName.c_str());
++  }
+   fprintf(file, "EXPORTS \n");
+   for (std::string const& ds : this->DataSymbols) {
+     fprintf(file, "\t%s \t DATA\n", ds.c_str());
+@@ -539,8 +550,3 @@ void bindexplib::WriteFile(FILE* file)
+     fprintf(file, "\t%s\n", s.c_str());
+   }
+ }
+-
+-void bindexplib::SetNmPath(std::string const& nm)
+-{
+-  this->NmPath = nm;
+-}
+\ No newline at end of file

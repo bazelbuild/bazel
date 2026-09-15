@@ -1,0 +1,106 @@
+// Copyright 2014 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.docgen;
+
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsClass;
+import java.util.List;
+
+/** Command line options for the Build Encyclopedia docgen. */
+@OptionsClass
+public abstract class BuildEncyclopediaOptions extends CommonOptions {
+  @Option(
+      name = "input_dir",
+      abbrev = 'i',
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "An input directory to read Java source files")
+  public abstract List<String> getInputJavaDirs();
+
+  // The source tree root must be passed on the command line, instead of in link_map_path json
+  // content, because its schema varies wildly depending on execution platform (e.g. RBE vs. local).
+  @Option(
+      name = "input_root",
+      abbrev = 'r',
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Directory of the source tree root")
+  public abstract String getInputRoot();
+
+  @Option(
+      name = "be_stardoc_proto",
+      oldName = "input_stardoc_proto",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "A stardoc_output.ModuleInfo binary proto file generated from a Build Encyclopedia entry"
+              + " point .bzl file; documentation from rule_stardoc_proto takes precedence over"
+              + " documentation from input_dir")
+  public abstract List<String> getBuildEncyclopediaStardocProtos();
+
+  @Option(
+      name = "provider",
+      abbrev = 'p',
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The name of the rule class provider")
+  public abstract String getProvider();
+
+  @Option(
+      name = "output_file",
+      abbrev = 'f',
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "An output file.")
+  public abstract String getOutputFile();
+
+  @Option(
+      name = "output_dir",
+      abbrev = 'o',
+      defaultValue = ".",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "An output directory.")
+  public abstract String getOutputDir();
+
+  @Option(
+      name = "denylist",
+      oldName = "blacklist",
+      abbrev = 'b',
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A path to a file listing rules not to document.")
+  public abstract String getDenylist();
+
+  @Option(
+      name = "single_page",
+      abbrev = '1',
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether to generate the BE as a single HTML page or one page per rule family. Mutually"
+              + " exclusive with --create_toc.")
+  public abstract boolean getSinglePage();
+}

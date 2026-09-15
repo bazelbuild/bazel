@@ -1,0 +1,343 @@
+// Copyright 2020 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.remote.downloader;
+
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
+
+import build.bazel.remote.asset.v1.FetchBlobRequest;
+import build.bazel.remote.asset.v1.FetchBlobResponse;
+import build.bazel.remote.asset.v1.FetchGrpc;
+import build.bazel.remote.asset.v1.FetchGrpc.FetchBlockingStub;
+import build.bazel.remote.asset.v1.Qualifier;
+import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
+import build.bazel.remote.execution.v2.RequestMetadata;
+import com.google.auth.Credentials;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
+import com.google.common.base.Strings;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
+import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
+import com.google.devtools.build.lib.bazel.repository.downloader.HashOutputStream;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.FetchId;
+import com.google.devtools.build.lib.buildeventstream.FetchEvent;
+import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
+import com.google.devtools.build.lib.remote.RemoteRetrier;
+import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.remote.util.Utils;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.protobuf.util.Timestamps;
+import com.google.rpc.Code;
+import io.grpc.CallCredentials;
+import io.grpc.Channel;
+import io.grpc.StatusRuntimeException;
+import io.grpc.protobuf.StatusProto;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.URI;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+/**
+ * A Downloader implementation that uses Bazel's Remote Execution APIs to delegate downloads of
+ * external files to a remote service.
+ *
+ * <p>See https://github.com/bazelbuild/remote-apis for more details on the exact capabilities and
+ * semantics of the Remote Execution API.
+ */
+public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
+
+  private final String buildRequestId;
+  private final String commandId;
+  private final ReferenceCountedChannel channel;
+  private final Optional<CallCredentials> credentials;
+  private final RemoteRetrier retrier;
+  private final RemoteCacheClient cacheClient;
+  private final DigestFunction.Value digestFunction;
+  private final RemoteOptions options;
+  private final boolean verboseFailures;
+  private final Downloader httpDownloader;
+  private final boolean remoteDownloaderLocalFallback;
+
+  private final AtomicBoolean closed = new AtomicBoolean();
+
+  // The `Qualifier::name` field uses well-known string keys to attach arbitrary
+  // key-value metadata to download requests. These are the qualifier names
+  // supported by Bazel.
+  private static final String QUALIFIER_CHECKSUM_SRI = "checksum.sri";
+  private static final String QUALIFIER_CANONICAL_ID = "bazel.canonical_id";
+
+  // The `:` character is not permitted in an HTTP header name. So, we use it to
+  // delimit the qualifier prefix which denotes an HTTP header qualifer from the
+  // header name itself.
+  private static final String QUALIFIER_HTTP_HEADER_PREFIX = "http_header:";
+  // Same as HTTP_HEADER_PREFIX, but only apply for a specific URL.
+  // The index starts from 0 and corresponds to the URL index in the request.
+  // Server should prefer using the URL-specific header value over the generic header
+  // value when both are present.
+  private static final String QUALIFIER_HTTP_HEADER_URL_PREFIX = "http_header_url:";
+
+  public GrpcRemoteDownloader(
+      String buildRequestId,
+      String commandId,
+      ReferenceCountedChannel channel,
+      Optional<CallCredentials> credentials,
+      RemoteRetrier retrier,
+      RemoteCacheClient cacheClient,
+      DigestFunction.Value digestFunction,
+      RemoteOptions options,
+      boolean verboseFailures,
+      Downloader httpDownloader,
+      boolean remoteDownloaderLocalFallback) {
+    this.buildRequestId = buildRequestId;
+    this.commandId = commandId;
+    this.channel = channel;
+    this.credentials = credentials;
+    this.retrier = retrier;
+    this.cacheClient = cacheClient;
+    this.digestFunction = digestFunction;
+    this.options = options;
+    this.verboseFailures = verboseFailures;
+    this.httpDownloader = httpDownloader;
+    this.remoteDownloaderLocalFallback = remoteDownloaderLocalFallback;
+  }
+
+  /**
+   * Releases the reference to the channel held by this downloader.
+   *
+   * <p>The {@link RemoteCacheClient} is owned by the caller and thus not closed here.
+   */
+  @Override
+  public void close() {
+    if (closed.getAndSet(true)) {
+      return;
+    }
+    channel.release();
+  }
+
+  @Override
+  public void download(
+      List<URI> urls,
+      Map<String, List<String>> headers,
+      Credentials credentials,
+      Optional<Checksum> checksum,
+      String canonicalId,
+      Path destination,
+      ExtendedEventHandler eventHandler,
+      Map<String, String> clientEnv,
+      Optional<String> type,
+      String context)
+      throws IOException, InterruptedException {
+    // file: URLs can't use the gRPC downloader.
+    if (urls.stream().anyMatch(url -> Objects.equals(url.getScheme(), "file"))) {
+      httpDownloader.download(
+          urls,
+          headers,
+          credentials,
+          checksum,
+          canonicalId,
+          destination,
+          eventHandler,
+          clientEnv,
+          type,
+          context);
+      return;
+    }
+    RequestMetadata metadata =
+        TracingMetadataUtils.buildMetadata(
+            buildRequestId,
+            commandId,
+            "remote_downloader",
+            /* mnemonic= */ null,
+            /* label= */ context,
+            /* configurationId= */ null);
+    RemoteActionExecutionContext remoteActionExecutionContext =
+        RemoteActionExecutionContext.create(metadata);
+
+    final FetchBlobRequest request =
+        newFetchBlobRequest(
+            options.getRemoteInstanceName(),
+            options.getRemoteDownloaderPropagateCredentials(),
+            urls,
+            checksum,
+            canonicalId,
+            digestFunction,
+            headers,
+            credentials);
+    String eventUri = urls.getFirst().toString();
+    try {
+      FetchBlobResponse response =
+          retrier.execute(
+              () ->
+                  channel.withChannelBlocking(
+                      channel ->
+                          fetchBlockingStub(remoteActionExecutionContext, channel)
+                              .fetchBlob(request)));
+      if (!response.getUri().isEmpty()) {
+        eventUri = response.getUri();
+      }
+      if (response.getStatus().getCode() == Code.OK_VALUE) {
+        eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ true));
+      } else {
+        throw StatusProto.toStatusRuntimeException(response.getStatus());
+      }
+      final Digest blobDigest = response.getBlobDigest();
+
+      var unused =
+          retrier.execute(
+              () -> {
+                try (OutputStream out = newOutputStream(destination, checksum)) {
+                  getFromFuture(
+                      cacheClient.downloadBlob(remoteActionExecutionContext, blobDigest, out));
+                } catch (OutputDigestMismatchException e) {
+                  e.setOutputPath(destination.getPathString());
+                  throw e;
+                }
+                return null;
+              });
+
+    } catch (StatusRuntimeException | IOException e) {
+      eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ false));
+      if (!remoteDownloaderLocalFallback) {
+        if (e instanceof StatusRuntimeException) {
+          throw new IOException(e);
+        }
+        throw e;
+      }
+      eventHandler.handle(
+          Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
+      httpDownloader.download(
+          urls,
+          headers,
+          credentials,
+          checksum,
+          canonicalId,
+          destination,
+          eventHandler,
+          clientEnv,
+          type,
+          context);
+    }
+  }
+
+  @VisibleForTesting
+  static FetchBlobRequest newFetchBlobRequest(
+      String instanceName,
+      boolean remoteDownloaderPropagateCredentials,
+      List<URI> urls,
+      Optional<Checksum> checksum,
+      String canonicalId,
+      DigestFunction.Value digestFunction,
+      Map<String, List<String>> headers,
+      Credentials credentials)
+      throws IOException {
+    FetchBlobRequest.Builder requestBuilder =
+        FetchBlobRequest.newBuilder()
+            .setInstanceName(instanceName)
+            .setDigestFunction(digestFunction);
+    for (int i = 0; i < urls.size(); i++) {
+      var url = urls.get(i);
+      requestBuilder.addUris(url.toString());
+
+      if (!remoteDownloaderPropagateCredentials) {
+        continue;
+      }
+
+      var metadata = credentials.getRequestMetadata(url);
+      for (var entry : metadata.entrySet()) {
+        for (var value : entry.getValue()) {
+          requestBuilder.addQualifiers(
+              Qualifier.newBuilder()
+                  .setName(QUALIFIER_HTTP_HEADER_URL_PREFIX + i + ":" + entry.getKey())
+                  .setValue(value)
+                  .build());
+        }
+      }
+    }
+
+    if (checksum.isPresent()) {
+      requestBuilder.addQualifiers(
+          Qualifier.newBuilder()
+              .setName(QUALIFIER_CHECKSUM_SRI)
+              .setValue(checksum.get().toSubresourceIntegrity())
+              .build());
+    } else {
+      // If no checksum is provided, never accept cached content.
+      // Timestamp is offset by an hour to account for clock skew.
+      requestBuilder.setOldestContentAccepted(
+          Timestamps.fromMillis(
+              BlazeClock.instance().now().plus(Duration.ofHours(1)).toEpochMilli()));
+    }
+
+    if (!Strings.isNullOrEmpty(canonicalId)) {
+      requestBuilder.addQualifiers(
+          Qualifier.newBuilder().setName(QUALIFIER_CANONICAL_ID).setValue(canonicalId).build());
+    }
+
+    for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
+      if (!remoteDownloaderPropagateCredentials
+          && (Ascii.equalsIgnoreCase(entry.getKey(), "Authorization")
+              || Ascii.equalsIgnoreCase(entry.getKey(), "Proxy-Authorization")
+              || Ascii.equalsIgnoreCase(entry.getKey(), "Cookie"))) {
+        continue;
+      }
+      // https://www.rfc-editor.org/rfc/rfc9110.html#name-field-order permits
+      // merging the field-values with a comma.
+      requestBuilder.addQualifiers(
+          Qualifier.newBuilder()
+              .setName(QUALIFIER_HTTP_HEADER_PREFIX + entry.getKey())
+              .setValue(String.join(",", entry.getValue()))
+              .build());
+    }
+
+    return requestBuilder.build();
+  }
+
+  private FetchBlockingStub fetchBlockingStub(
+      RemoteActionExecutionContext context, Channel channel) {
+    return FetchGrpc.newBlockingStub(channel)
+        .withInterceptors(
+            TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
+        .withInterceptors(
+            TracingMetadataUtils.newDownloaderHeadersInterceptor(
+                options.getRemoteHeaders(), options.getRemoteDownloaderHeaders()))
+        .withCallCredentials(credentials.orElse(null));
+  }
+
+  private OutputStream newOutputStream(Path destination, Optional<Checksum> checksum)
+      throws IOException {
+    OutputStream out = destination.getOutputStream();
+    if (checksum.isPresent()) {
+      out = new HashOutputStream(out, checksum.get());
+    }
+    return out;
+  }
+
+  @VisibleForTesting
+  public ReferenceCountedChannel getChannel() {
+    return channel;
+  }
+}

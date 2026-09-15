@@ -1,0 +1,33 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_testonly = True,
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
+)
+
+filegroup(
+    name = "srcs",
+    testonly = False,
+    srcs = glob(["**"]),
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+)
+
+java_library(
+    name = "fake-options",
+    srcs = ["FakeOptions.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "directory_listing_helper",
+    srcs = ["DirectoryListingHelper.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party/java/guava:collect",
+    ],
+)

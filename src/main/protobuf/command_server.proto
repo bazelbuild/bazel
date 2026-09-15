@@ -1,0 +1,286 @@
+// Copyright 2016 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// This file contains the protocol used to communicate between the Bazel client
+// and the server. At a high level clients may call the CommandServer.run rpc
+// to initiates a Bazel command and CommandServer.cancel to cancel an in-flight
+// command. CommandServer.ping may be used to check for server liveness without
+// executing any commands. See documentation of individual messages for more
+// details.
+syntax = "proto3";
+
+package command_server;
+
+import "google/protobuf/any.proto";
+import "src/main/protobuf/failure_details.proto";
+
+option java_package = "com.google.devtools.build.lib.server";
+option java_outer_classname = "CommandProtos";
+
+// Passed to CommandServer.run to initiate execution of a Bazel command.
+message RunRequest {
+  // Request cookie from the output base of the server. This serves as a
+  // rudimentary form of mutual authentication.
+  string cookie = 1;
+
+  // Command and command arguments. Does not include startup arguments.
+  repeated bytes arg = 2;
+
+  // Tells the server whether or not the client is willing to wait for any
+  // concurrent in-flight request to complete (there are many commands which
+  // may not run concurrently). If false and there are in-flight requests then
+  // the server will return an error immediately.
+  bool block_for_lock = 3;
+
+  // Whether the server should restrict itself to emitting only errors on the
+  // console.
+  bool quiet = 9;
+
+  // A simple description of the client for reporting purposes. This value is
+  // required.
+  string client_description = 4;
+
+  // Invocation policy affects how command arguments are interpreted and should
+  // be passed separately. This is a proto message, either a human readable
+  // String or base64-encoded binary-serialized version of the message. It is
+  // not typed directly as an InvocationPolicy message due to distinctions
+  // between batch and server mode, so the parsing logic is only in the Java
+  // code.
+  string invocation_policy = 5;
+
+  // Startup arguments, in the order they were applied, tagged with where they
+  // came from. These options have already been parsed and already have had
+  // their effect. This information should only be used for logging.
+  repeated StartupOption startup_options = 6;
+
+  // Whether the resulting command can be preempted if additional commands
+  // are received.
+  bool preemptible = 7;
+
+  // Additional per-command information passed to the server in the form of
+  // arbitrary messages which the server may be programmed to recognize and
+  // consume. Unrecognized message types are ignored.
+  repeated google.protobuf.Any command_extensions = 8;
+
+  // Maximum duration in milliseconds to wait for concurrent commands to
+  // complete before aborting with an error. If not set, wait indefinitely if
+  // block_for_lock is true, or abort immediately if block_for_lock is false.
+  // If set to 0 (or <= 0), abort immediately when the lock is held.
+  optional int64 block_for_lock_timeout_ms = 10;
+}
+
+// Contains the a startup option with its source file. Uses bytes to preserve
+// the way the user inputted the arguments, like the args in RunRequest.
+message StartupOption {
+  // Startup option in --nullaryflag or --unaryflag=value form.
+  bytes option = 1;
+  // Where the option came from, such as an rc file or an empty string for the
+  // command line.
+  bytes source = 2;
+}
+
+// Description of an environment variable
+message EnvironmentVariable {
+  bytes name = 1;
+  bytes value = 2;
+}
+
+// Description of a request by the server to the client to execute a binary
+// after the command invocation finishes.
+message ExecRequest {
+  bytes working_directory = 1;
+  repeated bytes argv = 2;
+  repeated EnvironmentVariable environment_variable = 3;
+  repeated bytes environment_variable_to_clear = 4;
+  bool should_exec = 5;
+  optional ScriptPath script_path = 6;
+  repeated PathToReplace path_to_replace = 7;
+}
+
+// Represents the --script_path value and the run script contents for
+// relevant run builds.
+message ScriptPath {
+  bytes script_path = 1;
+  bytes script_contents = 2;
+}
+
+// Represents paths to replace to allow localization of an ExecRequest and an
+// InfoResponse when the build takes place on a different filesystem from where
+// executing the ExecRequest or running the info command would occur.
+//
+// In addition, the PathToReplace#Type enumeration is also reused to specify the
+// possible base directory for a redirect output. The redirect output will be
+// downloaded under one of the specified base directory in the downstream
+// filesystem.
+// TODO: b/331203854 - Rename this message to reflect both redirect output and
+// ExecRequest use cases.
+message PathToReplace {
+  enum Type {
+    reserved 6;
+    UNSPECIFIED = 0;
+    OUTPUT_BASE = 1;
+    BUILD_WORKING_DIRECTORY = 2;
+    BUILD_WORKSPACE_DIRECTORY = 3;
+    TEST_LOG_SUBDIR = 4;
+    HOME = 5;
+    TEMP_LOGGING_DIRECTORY = 7;
+  }
+  Type type = 1;
+  bytes value = 2;
+}
+
+// Contains metadata and result data for a command execution.
+message RunResponse {
+  // Request cookie from the output base of the server. This serves as a
+  // rudimentary form of mutual authentication. Set on every response.
+  string cookie = 1;
+
+  // Standard out of the command, chunked. May be empty.
+  bytes standard_output = 2;
+
+  // Standard error of the command, chunked. May be empty.
+  bytes standard_error = 3;
+
+  // Whether this is the last message of the stream, signals that exit_code is
+  // valid.
+  bool finished = 4;
+
+  // The exit code of the command, only valid when finished is set.
+  int32 exit_code = 5;
+
+  // Randomly generated command identifier, this may be used to cancel execution
+  // of the command by issuing a cancel call. This should be sent to the client
+  // as soon as possible. This is not required to be set (non-empty) on every
+  // response.
+  string command_id = 6;
+
+  // Whether the command has shut down the server; if set, the client should
+  // wait until the server process dies before finishing.
+  bool termination_expected = 7;
+
+  // A command to exec() after the command invocation finishes. Should only be
+  // present if finished is set.
+  ExecRequest exec_request = 8;
+
+  // Fine-grained failure details. Should only be present if finished is set.
+  // WARNING: This functionality is experimental and should not be relied on at
+  // this time.
+  // TODO(mschaller): remove experimental warning
+  failure_details.FailureDetail failure_detail = 9;
+
+  // Additional per-command information passed by the server in the form of
+  // arbitrary messages.
+  repeated google.protobuf.Any command_extensions = 10;
+}
+
+// Passed to CommandServer.cancel to initiate graceful cancellation of an
+// in-flight command.
+message CancelRequest {
+  // The client request cookie (see RunRequest.cookie).
+  string cookie = 1;
+
+  // The id of the command to cancel.
+  string command_id = 2;
+}
+
+message CancelResponse {
+  // The server response cookie (see RunResponse.cookie).
+  string cookie = 1;
+}
+
+// Passed to CommandServer.update_terminal_size to update terminal dimensions
+// for an in-flight command.
+message TerminalSizeRequest {
+  // The client request cookie (see RunRequest.cookie).
+  string cookie = 1;
+
+  // The id of the command whose UI should use the updated terminal size.
+  string command_id = 2;
+
+  // Terminal width in columns.
+  int32 columns = 3;
+
+  // Terminal height in rows. This is not currently used by Bazel's progress UI
+  // but is included so the RPC can carry the complete terminal size.
+  int32 rows = 4;
+}
+
+message TerminalSizeResponse {
+  // The server response cookie (see RunResponse.cookie).
+  string cookie = 1;
+}
+
+// Passed to CommandServer.ping to initiate a ping request.
+message PingRequest {
+  // The client request cookie (see RunRequest.cookie).
+  string cookie = 1;
+}
+
+message PingResponse {
+  // The server response cookie (see RunResponse.cookie).
+  string cookie = 1;
+}
+
+// Describes metadata necessary for connecting to and managing the server.
+message ServerInfo {
+  // The server process's pid.
+  int32 pid = 1;
+
+  // Address the CommandServer is listening on. Can be passed directly to grpc
+  // to create a connection.
+  string address = 2;
+
+  // Client request cookie.
+  string request_cookie = 3;
+
+  // Server response cookie.
+  string response_cookie = 4;
+}
+
+// Describes a single blaze info command item.
+message InfoItem {
+  string key = 1;
+  bytes value = 2;
+}
+
+// Describes the results of a blaze info command.
+message InfoResponse {
+  // Paths to replace to allow localization of paths in info items when the
+  // build takes place on a different filesystem. This field is always present.
+  repeated PathToReplace path_to_replace = 1;
+
+  // Results of info items requested by the client. This field can be empty if
+  // all requested info keys are invalid.
+  repeated InfoItem info_item = 2;
+
+  // Whether the remote bazel client should print the keys of the info items to
+  // the console.
+  bool print_keys = 3;
+}
+
+service CommandServer {
+  // Run a Bazel command. See documentation of argument/return messages for
+  // details.
+  rpc Run(RunRequest) returns (stream RunResponse) {}
+
+  // Cancel a currently running Bazel command. May return before the run command
+  // actually terminates.
+  rpc Cancel(CancelRequest) returns (CancelResponse) {}
+
+  // Updates the terminal dimensions for a currently running Bazel command.
+  rpc UpdateTerminalSize(TerminalSizeRequest) returns (TerminalSizeResponse) {}
+
+  // Does not do anything. Used for liveness check.
+  rpc Ping(PingRequest) returns (PingResponse) {}
+}

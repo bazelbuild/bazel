@@ -1,0 +1,33 @@
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_testonly = 1,
+    default_visibility = ["//visibility:private"],
+)
+
+filegroup(
+    name = "srcs",
+    testonly = 0,
+    srcs = glob(["**"]),
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+)
+
+java_library(
+    name = "supplier_tests",
+    srcs = glob(["*.java"]),
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/supplier",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
+        "//third_party/java/guava:testing",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "SupplierTests",
+    size = "small",
+    test_class = "com.google.devtools.build.lib.supplier.AllTests",
+    runtime_deps = [":supplier_tests"],
+)

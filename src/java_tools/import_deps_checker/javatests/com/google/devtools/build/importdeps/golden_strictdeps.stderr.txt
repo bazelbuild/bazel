@@ -1,0 +1,23 @@
+ERROR: The dependencies for the following 1 jar(s) are not complete.
+      1.third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/libtestdata_client.jar
+The details are listed below:
+Indirect reference to classes from //third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryAnnotations in:
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$AnnotationAnnotation
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$AnnotationFlag
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ClassAnnotation
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ConstructorAnnotation
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$FieldAnnotation
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$MethodAnnotation
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ParameterAnnotation
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$TypeAnnotation
+Indirect reference to classes from //third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryException in:
+    com.google.devtools.build.importdeps.testdata.LibraryException
+Indirect reference to classes from //third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryInterface in:
+    com.google.devtools.build.importdeps.testdata.LibraryInterface
+    com.google.devtools.build.importdeps.testdata.LibraryInterface$Func
+    com.google.devtools.build.importdeps.testdata.LibraryInterface$One
+    com.google.devtools.build.importdeps.testdata.LibraryInterface$Two
+*** Command to add missing strict dependencies: ***
+
+    add_dep //third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryAnnotations //third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryException //third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata:testdata_lib_LibraryInterface :strictdeps_golden_test

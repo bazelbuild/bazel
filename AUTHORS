@@ -1,0 +1,36 @@
+# This the official list of Bazel authors for copyright purposes.
+# This file is distinct from the CONTRIBUTORS files.
+# See the latter for an explanation.
+
+# Names should be added to this file as:
+# Name or Organization <email address>
+# The email address is not required for organizations.
+
+Google Inc.
+Anthony Bellissimo <twon33@gmail.com>
+Volker Braun <vbraun.name@gmail.com>
+Thomas Broyer <t.broyer@ltgt.net>
+Steven Dee <steven@choosemuse.com>
+Alan Donovan <adonovan@google.com>
+Thiago Farina <tfarina@chromium.org>
+Peter Foley <pefoley2@pefoley.com>
+Roland Huß <roland@jolokia.org>
+Erik Kuefler <ekuefler@gmail.com>
+liuhuahang <liuhuahang@zerus.co>
+David Mankin <dmankin@atlassian.com>
+Kamal Marhubi <kamal@marhubi.com>
+Carl Mastrangelo <carl-mastrangelo@users.noreply.github.com>
+Kyle Moffett <kyle@moffetthome.net>
+NicholasGorski <nicholasgorski@outlook.com>
+Allen Porter <allen.porter@gmail.com>
+Doug Rabson <dfr@rabson.org>
+David Santiago <david.santiago@gmail.com>
+John Shimek <varikin@gmail.com>
+Brian Silverman <bsilver16384@gmail.com>
+John Sullivan <john.t.sullivan@gmail.com>
+Topher <topher.the.geek@gmail.com>
+Zhong Wang <linuxerwang@gmail.com>
+Kevin Watts <kevinwwatts@gmail.com>
+Jie Yu <yujie.jay@gmail.com>
+Andrew Z Allen <me@andrewzallen.com>
+Ming Zhao <mzhao@luminatewireless.com>

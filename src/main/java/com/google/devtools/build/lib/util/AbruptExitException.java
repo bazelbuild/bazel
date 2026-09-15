@@ -1,0 +1,77 @@
+// Copyright 2014 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.util;
+
+import com.google.devtools.build.lib.server.FailureDetails.Command;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.protobuf.ExtensionRegistryLite;
+import com.google.protobuf.InvalidProtocolBufferException;
+import javax.annotation.Nullable;
+
+/**
+ * An exception thrown by various error conditions that are severe enough to halt the command (e.g.
+ * even a --keep_going build). These typically need to signal to the handling code what happened.
+ * Therefore, these exceptions contain a {@link DetailedExitCode} specifying a numeric exit code and
+ * a detailed failure for the command to return.
+ *
+ * <p>When an instance of this exception is thrown, Bazel will try to halt the command as soon as
+ * reasonably possible.
+ */
+public class AbruptExitException extends Exception {
+
+  private final DetailedExitCode detailedExitCode;
+
+  public AbruptExitException(DetailedExitCode detailedExitCode) {
+    super(detailedExitCode.getFailureDetail().getMessage());
+    this.detailedExitCode = detailedExitCode;
+  }
+
+  public AbruptExitException(DetailedExitCode detailedExitCode, @Nullable Throwable cause) {
+    super(detailedExitCode.getFailureDetail().getMessage(), cause);
+    this.detailedExitCode = detailedExitCode;
+  }
+
+  public ExitCode getExitCode() {
+    return detailedExitCode.getExitCode();
+  }
+
+  public DetailedExitCode getDetailedExitCode() {
+    return detailedExitCode;
+  }
+
+  public SerializedAbruptExitException toSerialized() {
+    byte[] serializedFailureDetail = detailedExitCode.getFailureDetail().toByteArray();
+    return new SerializedAbruptExitException(serializedFailureDetail, this);
+  }
+
+  public static AbruptExitException fromSerialized(SerializedAbruptExitException e) {
+    try {
+      FailureDetail failureDetail =
+          FailureDetail.parseFrom(
+              e.getSerializedFailureDetail(), ExtensionRegistryLite.getEmptyRegistry());
+      return new AbruptExitException(DetailedExitCode.of(failureDetail), e);
+    } catch (InvalidProtocolBufferException ipbe) {
+      return new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(
+                      "Failed to parse FailureDetail from SerializedAbruptExitException: "
+                          + ipbe.getMessage())
+                  .setCommand(Command.newBuilder().setCode(Command.Code.COMMAND_FAILURE_UNKNOWN))
+                  .build()),
+          ipbe);
+    }
+  }
+}

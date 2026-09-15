@@ -1,0 +1,143 @@
+// Copyright 2016 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.skyframe;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.BasicActionLookupValue;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
+
+/** Value that stores expanded actions from ActionTemplate. */
+public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
+
+  @VisibleForTesting
+  public ActionTemplateExpansionValue(ImmutableList<ActionAnalysisMetadata> generatingActions) {
+    super(generatingActions);
+  }
+
+  /**
+   * Returns the keys of actions that populate this tree, including empty subdirectories. Expanded
+   * actions that only populate another output tree of the same template are excluded.
+   */
+  public ImmutableList<ActionLookupData> getGeneratingActionKeys(Artifact tree) {
+    var actions = getActions();
+    var keys = ImmutableList.<ActionLookupData>builderWithExpectedSize(actions.size());
+    for (var action : actions) {
+      for (Artifact output : action.getOutputs()) {
+        if (tree.equals(output.getParent())) {
+          keys.add(((DerivedArtifact) output).getGeneratingActionKey());
+          break;
+        }
+      }
+    }
+    return keys.build();
+  }
+
+  public static ActionTemplateExpansionKey key(ActionLookupKey actionLookupKey, int actionIndex) {
+    return ActionTemplateExpansionKey.of(actionLookupKey, actionIndex);
+  }
+
+  /** Key for {@link ActionTemplateExpansionValue} nodes. */
+  @AutoCodec
+  public static final class ActionTemplateExpansionKey implements ActionLookupKey {
+    private static final SkyKeyInterner<ActionTemplateExpansionKey> interner = SkyKey.newInterner();
+
+    private final ActionLookupKey actionLookupKey;
+    private final int actionIndex;
+
+    private ActionTemplateExpansionKey(ActionLookupKey actionLookupKey, int actionIndex) {
+      this.actionLookupKey = actionLookupKey;
+      this.actionIndex = actionIndex;
+    }
+
+    @VisibleForTesting
+    public static ActionTemplateExpansionKey of(ActionLookupKey actionLookupKey, int actionIndex) {
+      return interner.intern(new ActionTemplateExpansionKey(actionLookupKey, actionIndex));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static ActionTemplateExpansionKey intern(ActionTemplateExpansionKey key) {
+      return interner.intern(key);
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.ACTION_TEMPLATE_EXPANSION;
+    }
+
+    @Override
+    public Label getLabel() {
+      return actionLookupKey.getLabel();
+    }
+
+    @Override
+    public BuildConfigurationKey getConfigurationKey() {
+      return actionLookupKey.getConfigurationKey();
+    }
+
+    public ActionLookupKey getActionLookupKey() {
+      return actionLookupKey;
+    }
+
+    /**
+     * Index of the action in question in the node keyed by {@link #getActionLookupKey}. Should be
+     * passed to {@link com.google.devtools.build.lib.actions.ActionLookupValue#getAction}.
+     */
+    public int getActionIndex() {
+      return actionIndex;
+    }
+
+    @Override
+    public SkyKeyInterner<ActionTemplateExpansionKey> getSkyKeyInterner() {
+      return interner;
+    }
+
+    @Override
+    public int hashCode() {
+      return 37 * actionLookupKey.hashCode() + actionIndex;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (!(obj instanceof ActionTemplateExpansionKey that)) {
+        return false;
+      }
+      return this.actionIndex == that.actionIndex
+          && this.actionLookupKey.equals(that.actionLookupKey);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("actionLookupKey", actionLookupKey)
+          .add("actionIndex", actionIndex)
+          .toString();
+    }
+  }
+}

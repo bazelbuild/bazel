@@ -1,0 +1,126 @@
+<p>
+  List of strings; <a href="#configurable-attributes">nonconfigurable</a>;
+  default is <code>[]</code>
+</p>
+
+<p>
+  <i>Tags</i> can be used on any rule. <i>Tags</i> on test and
+  <code>test_suite</code> rules are useful for categorizing the tests.
+  <i>Tags</i> on non-test targets are used to control sandboxed execution of
+  <code>genrule</code>s and
+
+<a href="/rules/concepts">Starlark</a>
+  actions, and for parsing by humans and/or external tools.
+</p>
+
+<p>
+  Bazel modifies the behavior of its sandboxing code if it finds the following
+  keywords in the <code>tags</code> attribute of any test or <code>genrule</code>
+  target, or the keys of <code>execution_requirements</code> for any Starlark
+  action.
+</p>
+
+<ul>
+    <li><code>no-sandbox</code> keyword results in the action or test never being
+    sandboxed; it can still be cached or run remotely - use <code>no-cache</code>
+    or <code>no-remote</code> to prevent either or both of those.
+  </li>
+  <li><code>no-cache</code> keyword results in the action or test never being
+    cached (locally or remotely). Note: for the purposes of this tag, the disk cache
+    is considered a local cache, whereas the HTTP and gRPC caches are considered
+    remote. Other caches, such as Skyframe or the persistent action cache, are not
+    affected.
+  </li>
+    <li><code>no-remote-cache</code> keyword results in the action or test never being
+    cached remotely (but it may be cached locally; it may also be executed remotely).
+    Note: for the purposes of this tag, the disk cache is considered a local cache,
+    whereas the HTTP and gRPC caches are considered remote. Other caches, such as
+    Skyframe or the persistent action cache, are not affected.
+    If a combination of local disk cache and remote cache are used (combined cache),
+    it's treated as a remote cache and disabled entirely unless <code>--incompatible_remote_results_ignore_disk</code>
+    is set in which case the local components will be used.
+  </li>
+    <li><code>no-remote-exec</code> keyword results in the action or test never being
+    executed remotely (but it may be cached remotely).
+  </li>
+
+  <li><code>no-remote</code> keyword prevents the action or test from being executed remotely or
+    cached remotely. This is equivalent to using both
+    <code>no-remote-cache</code> and <code>no-remote-exec</code>.
+      </li>
+   <li><code>no-remote-cache-upload</code> keyword disables upload part of remote caching of a spawn.
+     it does not disable remote execution.
+  </li>
+    <li><code>local</code> keyword precludes the action or test from being remotely cached,
+    remotely executed, or run inside the sandbox.
+    For genrules and tests, marking the rule with the <code>local = True</code>
+    attribute has the same effect.
+  </li>
+
+    <li><code>requires-network</code> keyword allows access to the external
+    network from inside the sandbox.  This tag only has an effect if sandboxing
+    is enabled.
+  </li>
+
+  <li><code>block-network</code> keyword blocks access to the external
+    network from inside the sandbox. In this case, only communication
+    with localhost is allowed. This tag only has an effect if sandboxing is
+    enabled.
+  </li>
+
+  <li><code>requires-fakeroot</code> runs the test or action as uid and gid 0 (i.e., the root
+    user). This is only supported on Linux. This tag takes precedence over the
+    <code class='flag'>--sandbox_fake_username</code> command-line option.
+  </li>
+</ul>
+
+<p>
+  <i>Tags</i> on tests are generally used to annotate a test's role in your
+  debug and release process.  Typically, tags are most useful for C++ and Python
+  tests, which lack any runtime annotation ability.  The use of tags and size
+  elements gives flexibility in assembling suites of tests based around codebase
+  check-in policy.
+</p>
+
+<p>
+  Bazel modifies test running behavior if it finds the following keywords in the
+  <code>tags</code> attribute of the test rule:
+</p>
+
+<ul>
+  <li><code>exclusive</code> will force the test to be run in the
+    &quot;exclusive&quot; mode, ensuring that no other tests are running at the
+    same time. Such tests will be executed in serial fashion after all build
+    activity and non-exclusive tests have been completed. Remote execution is
+    disabled for such tests because Bazel doesn't have control over what's
+    running on a remote machine.
+  </li>
+
+  <li><code>exclusive-if-local</code> will force the test to be run in the
+    &quot;exclusive&quot; mode if it is executed locally, but will run the test in parallel if it's
+    executed remotely.
+  </li>
+
+  <li><code>manual</code> keyword will exclude the target from expansion of target pattern wildcards
+    (<code>...</code>, <code>:*</code>, <code>:all</code>, etc.) and <code>test_suite</code> rules
+    which do not list the test explicitly when computing the set of top-level targets to build/run
+    for the <code>build</code>, <code>test</code>, and <code>coverage</code> commands. It does not
+    affect target wildcard or test suite expansion in other contexts, including the
+    <code>query</code> command. Note that <code>manual</code> does not imply that a target should
+    not be built/run automatically by continuous build/test systems. For example, it may be
+    desirable to exclude a target from <code>bazel test ...</code> because it requires specific
+    Bazel flags, but still have it included in properly-configured presubmit or continuous test
+    runs.
+
+      </li>
+
+  <li><code>external</code> keyword will force test to be unconditionally
+    executed (regardless of <code class='flag'>--cache_test_results</code>
+    value).
+  </li>
+
+  </ul>
+
+See
+<a href="${link test-encyclopedia#tag-conventions}">Tag Conventions</a>
+ in the Test Encyclopedia for more conventions on tags attached to test targets.

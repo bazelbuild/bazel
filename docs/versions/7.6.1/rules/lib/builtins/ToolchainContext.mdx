@@ -1,0 +1,5 @@
+---
+title: 'ToolchainContext'
+---
+
+Holds toolchains available for a particular exec group. Toolchain targets are accessed by indexing with the toolchain type, as in `ctx.toolchains["//pkg:my_toolchain_type"]`. If the toolchain was optional and no toolchain was resolved, this will return `None`.

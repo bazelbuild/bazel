@@ -1,0 +1,58 @@
+// Copyright 2018 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.analysis;
+
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import javax.annotation.Nullable;
+
+/** Class to work with the shell toolchain, e.g. get the shell interpreter's path. */
+public final class ShToolchain {
+
+  /** Returns the default shell executable's path for the host OS. */
+  public static PathFragment getPathForHost(BuildConfigurationValue config) {
+    return getPathForPlatform(config, /* platformInfo= */ null);
+  }
+
+  /**
+   * Returns the shell executable's path. Prefers, in order
+   *
+   * <p>1) the default path set by {@code --shell_executable}
+   *
+   * <p>2) the path for the provided platform if not null
+   *
+   * <p>3) the path for the host platform
+   *
+   * <p>4) a hard-coded default path.
+   */
+  public static PathFragment getPathForPlatform(
+      BuildConfigurationValue config, @Nullable PlatformInfo platformInfo) {
+    ShellConfiguration shellConfiguration = config.getFragment(ShellConfiguration.class);
+
+    if (shellConfiguration != null && shellConfiguration.getOptionsBasedDefault() != null) {
+      return shellConfiguration.getOptionsBasedDefault();
+    }
+
+    return ShellConfiguration.getShellExecutable(
+            ConstraintConstants.getOsFromConstraintsOrHost(platformInfo))
+        .or(() -> ShellConfiguration.getShellExecutable(OS.UNKNOWN))
+        .orElseThrow();
+  }
+
+  private ShToolchain() {}
+}

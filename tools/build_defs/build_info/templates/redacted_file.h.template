@@ -1,0 +1,6 @@
+#define BUILD_EMBED_LABEL "redacted"
+#define BUILD_HOST "redacted"
+#define BUILD_SCM_REVISION "0"
+#define BUILD_SCM_STATUS "redacted"
+#define BUILD_TIMESTAMP 0
+#define BUILD_USER "redacted"

@@ -1,0 +1,27 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["*"]),
+    visibility = ["//src/main/java/com/google/devtools/build/lib/remote:__pkg__"],
+)
+
+java_library(
+    name = "options",
+    srcs = glob(["*.java"]),
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/remote:scrubber",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)

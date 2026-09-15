@@ -1,0 +1,693 @@
+// Copyright 2015 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.rules.android;
+
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelOrderedSetConverter;
+import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
+import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidConfigurationApi;
+import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.EnumConverter;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
+import java.util.List;
+import javax.annotation.Nullable;
+
+/** Configuration fragment for Android rules. */
+@Immutable
+@RequiresOptions(options = {AndroidConfiguration.Options.class})
+public class AndroidConfiguration extends Fragment implements AndroidConfigurationApi {
+
+  /**
+   * Converter for {@link
+   * com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher}
+   */
+  public static final class ConfigurationDistinguisherConverter
+      extends EnumConverter<ConfigurationDistinguisher> {
+    public ConfigurationDistinguisherConverter() {
+      super(ConfigurationDistinguisher.class, "Android configuration distinguisher");
+    }
+  }
+
+  /** Converter for {@link ApkSigningMethod}. */
+  public static final class ApkSigningMethodConverter extends EnumConverter<ApkSigningMethod> {
+    public ApkSigningMethodConverter() {
+      super(ApkSigningMethod.class, "apk signing method");
+    }
+  }
+
+  /** Converter for {@link ManifestMergerOrder} */
+  public static final class ManifestMergerOrderConverter
+      extends EnumConverter<ManifestMergerOrder> {
+    public ManifestMergerOrderConverter() {
+      super(ManifestMergerOrder.class, "android manifest merger order");
+    }
+  }
+
+  /**
+   * Value used to avoid multiple configurations from conflicting.
+   *
+   * <p>This is set to {@code ANDROID} in Android configurations and to {@code MAIN} otherwise. This
+   * influences the output directory name: if it didn't, an Android and a non-Android configuration
+   * would conflict if they had the same toolchain identifier.
+   *
+   * <p>Note that this is not just a theoretical concern: even if the CC toolchains point to
+   * different labels, they may end up being redirected to the same thing, and this is exactly what
+   * happens on OSX X.
+   */
+  public enum ConfigurationDistinguisher {
+    MAIN(null),
+    ANDROID("android");
+
+    private final String suffix;
+
+    ConfigurationDistinguisher(String suffix) {
+      this.suffix = suffix;
+    }
+  }
+
+  /**
+   * Which APK signing method to use with the debug key for rules that build APKs.
+   *
+   * <ul>
+   *   <li>V1 uses the apksigner attribute from the android_sdk and signs the APK as a JAR.
+   *   <li>V2 uses the apksigner attribute from the android_sdk and signs the APK according to the
+   *       APK Signing Schema V2 that is only supported on Android N and later.
+   *   <li>V4 uses the apksigner attribute from the android_sdk and signs the APK according to the
+   *       APK Signing Schema V4 that is only supported on Android R/build tools 30 and later. It
+   *       generates a V4 signature file alongside the APK file.
+   * </ul>
+   */
+  public enum ApkSigningMethod {
+    V1(true, false),
+    V2(false, true),
+    V1_V2(true, true),
+    V4(false, false, true);
+
+    private final boolean signV1;
+    private final boolean signV2;
+    private final Boolean signV4;
+
+    ApkSigningMethod(boolean signV1, boolean signV2) {
+      this(signV1, signV2, null);
+    }
+
+    ApkSigningMethod(boolean signV1, boolean signV2, @Nullable Boolean signV4) {
+      this.signV1 = signV1;
+      this.signV2 = signV2;
+      this.signV4 = signV4;
+    }
+
+    /** Whether to JAR sign the APK with the apksigner tool. */
+    public boolean signV1() {
+      return signV1;
+    }
+
+    /** Whether to sign the APK with the apksigner tool with APK Signature Schema V2. */
+    public boolean signV2() {
+      return signV2;
+    }
+
+    /**
+     * Whether to sign the APK with the apksigner tool with APK Signature Schema V4.
+     *
+     * <p>If null/unset, the V4 signing flag should not be passed to apksigner. This extra level of
+     * control is needed to support environments where older build tools may be used.
+     */
+    @Nullable
+    public Boolean signV4() {
+      return signV4;
+    }
+  }
+
+  /** Orders for merging android manifests. */
+  public enum ManifestMergerOrder {
+    /** Manifests are sorted alphabetically by exec path. */
+    ALPHABETICAL,
+    /** Manifests are sorted alphabetically by configuration-relative path. */
+    ALPHABETICAL_BY_CONFIGURATION,
+    /** Library manifests come before the manifests of their dependencies. */
+    DEPENDENCY;
+  }
+
+  /** Android configuration options. */
+  @OptionsClass
+  public abstract static class Options extends FragmentOptions {
+    // TODO(blaze-configurability-team): Deprecate this when legacy output directory scheme is gone.
+    @Option(
+        name = "Android configuration distinguisher",
+        defaultValue = "MAIN",
+        converter = ConfigurationDistinguisherConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        metadataTags = {OptionMetadataTag.INTERNAL})
+    public abstract ConfigurationDistinguisher getConfigurationDistinguisher();
+
+    @Option(
+        name = "android_platforms",
+        converter = LabelOrderedSetConverter.class,
+        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        defaultValue = "",
+        effectTags = {
+          OptionEffectTag.CHANGES_INPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        },
+        help =
+            "Sets the platforms that android_binary targets use. If multiple platforms are"
+                + " specified, then the binary is a fat APKs, which contains native binaries for"
+                + " each specified target platform.")
+    public abstract List<Label> getAndroidPlatforms();
+
+    // For desugaring lambdas when compiling Java 8 sources. Do not use on the command line.
+    // The idea is that once this option works, we'll flip the default value in a config file, then
+    // once it is proven that it works, remove it from Bazel and said config file.
+    @Option(
+        name = "desugar_for_android",
+        oldName = "experimental_desugar_for_android",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        },
+        help = "Whether to desugar Java 8 bytecode before dexing.")
+    public abstract boolean getDesugarJava8();
+
+    @Option(
+        name = "desugar_java8_libs",
+        oldName = "experimental_desugar_java8_libs",
+        oldNameWarning = false,
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        },
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        help = "Whether to include supported Java 8 libraries in apps for legacy devices.")
+    public abstract boolean getDesugarJava8Libs();
+
+
+    @Option(
+        name = "experimental_incremental_dexing_after_proguard",
+        defaultValue = "50",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.LOSES_INCREMENTAL_STATE
+        },
+        help =
+            "Whether to use incremental dexing tools when building proguarded Android binaries.  "
+                + "Values > 0 turn the feature on, values > 1 run that many dexbuilder shards.")
+    public abstract int getIncrementalDexingShardsAfterProguard();
+
+
+
+
+    // Do not use on the command line.
+    // This flag is intended to be updated as we add supported flags to the incremental dexing tools
+    @Option(
+        name = "dexopts_supported_in_dexsharder",
+        converter = Converters.CommaSeparatedOptionListConverter.class,
+        defaultValue = "--minimal-main-dex",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.ACTION_COMMAND_LINES,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+        },
+        help = "dx flags supported in tool that groups classes for inclusion in final .dex files.")
+    public abstract List<String> getDexoptsSupportedInDexSharder();
+
+    @Option(
+        name = "experimental_android_resource_shrinking",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+        },
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        help = "Enables resource shrinking for android_binary APKs that use ProGuard.")
+    public abstract boolean getUseExperimentalAndroidResourceShrinking();
+
+    @Option(
+        name = "android_resource_shrinking",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+        },
+        help = "Enables resource shrinking for android_binary APKs that use ProGuard.")
+    public abstract boolean getUseAndroidResourceShrinking();
+
+    @Option(
+        name = "experimental_android_resource_cycle_shrinking",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+        },
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        help =
+            "Enables more shrinking of code and resources by instructing AAPT2 "
+                + "to emit conditional Proguard keep rules.")
+    public abstract boolean getUseAndroidResourceCycleShrinking();
+
+    @Option(
+        name = "experimental_android_resource_path_shortening",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+        },
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        help = "Enables shortening of resource file paths within android_binary APKs.")
+    public abstract boolean getUseAndroidResourcePathShortening();
+
+    @Option(
+        name = "experimental_android_resource_name_obfuscation",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+        },
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        help = "Enables obfuscation of resource names within android_binary APKs.")
+    public abstract boolean getUseAndroidResourceNameObfuscation();
+
+    @Option(
+        name = "android_manifest_merger_order",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {
+          OptionEffectTag.ACTION_COMMAND_LINES,
+          OptionEffectTag.EXECUTION,
+        },
+        defaultValue = "alphabetical",
+        converter = ManifestMergerOrderConverter.class,
+        help =
+            "Sets the order of manifests passed to the manifest merger for Android binaries. "
+                + "ALPHABETICAL means manifests are sorted by path relative to the execroot. "
+                + "ALPHABETICAL_BY_CONFIGURATION means manifests are sorted by paths relative "
+                + "to the configuration directory within the output directory. "
+                + "DEPENDENCY means manifests are ordered with each library's manifest coming "
+                + "before the manifests of its dependencies.")
+    public abstract ManifestMergerOrder getManifestMergerOrder();
+
+    @Option(
+        name = "apk_signing_method",
+        converter = ApkSigningMethodConverter.class,
+        defaultValue = "v1_v2",
+        documentationCategory = OptionDocumentationCategory.SIGNING,
+        effectTags = {
+          OptionEffectTag.ACTION_COMMAND_LINES,
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+        },
+        help = "Implementation to use to sign APKs")
+    public abstract ApkSigningMethod getApkSigningMethod();
+
+    @Option(
+        name = "experimental_android_compress_java_resources",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+        },
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        help = "Compress Java resources in APKs")
+    public abstract boolean getCompressJavaResources();
+
+    @Option(
+        name = "experimental_android_library_exports_manifest_default",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        },
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
+        help = "The default value of the exports_manifest attribute on android_library.")
+    public abstract boolean getExportsManifestDefault();
+
+    @Option(
+        name = "android_fixed_resource_neverlinking",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        help =
+            "If true, resources will properly not get propagated through neverlinked libraries."
+                + " Otherwise, the old behavior of propagating those resources if no"
+                + " resource-related attributes are specified in the neverlink library"
+                + " will be preserved.")
+    public abstract boolean getFixedResourceNeverlinking();
+
+    /**
+     * We use this option to decide when to enable workers for busybox tools. This flag is also a
+     * guard against enabling workers using nothing but --persistent_android_resource_processor.
+     *
+     * <p>Consequently, we use this option to decide between param files or regular command line
+     * parameters. If we're not using workers or on Windows, there's no need to always use param
+     * files for I/O performance reasons.
+     */
+    @Option(
+        name = "internal_persistent_busybox_tools",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+          OptionEffectTag.EXECUTION,
+        },
+        defaultValue = "false",
+        help = "Tracking flag for when busybox workers are enabled.")
+    public abstract boolean getPersistentBusyboxTools();
+
+    @Option(
+        name = "internal_persistent_multiplex_busybox_tools",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+          OptionEffectTag.EXECUTION,
+        },
+        defaultValue = "false",
+        help = "Tracking flag for when multiplexed busybox workers are enabled.")
+    public abstract boolean getPersistentMultiplexBusyboxTools();
+
+    /**
+     * We use this option to decide when to enable workers for busybox tools. This flag is also a
+     * guard against enabling workers using nothing but --persistent_android_resource_processor.
+     *
+     * <p>Consequently, we use this option to decide between param files or regular command line
+     * parameters. If we're not using workers or on Windows, there's no need to always use param
+     * files for I/O performance reasons.
+     */
+    @Option(
+        name = "internal_persistent_android_dex_desugar",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+          OptionEffectTag.EXECUTION,
+        },
+        defaultValue = "false",
+        help = "Tracking flag for when dexing and desugaring workers are enabled.")
+    public abstract boolean getPersistentDexDesugar();
+
+    @Option(
+        name = "internal_persistent_multiplex_android_dex_desugar",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+          OptionEffectTag.EXECUTION,
+        },
+        defaultValue = "false",
+        help = "Tracking flag for when multiplexed dexing and desugaring workers are enabled.")
+    public abstract boolean getPersistentMultiplexDexDesugar();
+
+
+    @Option(
+        name = "legacy_main_dex_list_generator",
+        // TODO(b/147692286): Update this default value to R8's GenerateMainDexList binary after
+        // migrating usage.
+        defaultValue = "null",
+        converter = LabelConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Specifies a binary to use to generate the list of classes that must be in the main"
+                + " dex when compiling legacy multidex.")
+    public abstract Label getLegacyMainDexListGenerator();
+
+    @Option(
+        name = "optimizing_dexer",
+        defaultValue = "null",
+        converter = EmptyToNullLabelConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Specifies a binary to use to do dexing without sharding.")
+    public abstract Label getOptimizingDexer();
+
+    @Option(
+        name = "experimental_get_android_java_resources_from_optimized_jar",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.CHANGES_INPUTS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help =
+            "Get Java resources from _proguard.jar instead of _deploy.jar in android_binary when "
+                + "bundling the final APK.")
+    public abstract boolean getJavaResourcesFromOptimizedJar();
+
+    @Option(
+        name = "incompatible_remove_ctx_android_fragment",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help =
+            "When true, Android build flags are defined with Android rules (in BUIILD files) and"
+                + " ctx.fragments.android is undefined. This is a migration flag to move all"
+                + " Android flags  from core Bazel to Python rules.")
+    public abstract boolean getDisableAndroidFragment();
+  }
+
+  private final ConfigurationDistinguisher configurationDistinguisher;
+  private final int incrementalDexingShardsAfterProguard;
+
+  private final ImmutableList<String> dexoptsSupportedInDexSharder;
+  private final boolean desugarJava8;
+  private final boolean desugarJava8Libs;
+  private final boolean useAndroidResourceShrinking;
+  private final boolean useAndroidResourceCycleShrinking;
+  private final boolean useAndroidResourcePathShortening;
+  private final boolean useAndroidResourceNameObfuscation;
+  private final ManifestMergerOrder manifestMergerOrder;
+  private final ApkSigningMethod apkSigningMethod;
+  private final boolean compressJavaResources;
+  private final boolean exportsManifestDefault;
+  private final boolean fixedResourceNeverlinking;
+  private final boolean persistentBusyboxTools;
+  private final boolean persistentMultiplexBusyboxTools;
+  private final boolean persistentDexDesugar;
+  private final boolean persistentMultiplexDexDesugar;
+  private final Label legacyMainDexListGenerator;
+  private final Label optimizingDexer;
+  private final boolean getJavaResourcesFromOptimizedJar;
+  private final boolean disableAndroidFragment;
+
+  public AndroidConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
+    Options options = buildOptions.get(Options.class);
+    this.configurationDistinguisher = options.getConfigurationDistinguisher();
+    this.incrementalDexingShardsAfterProguard = options.getIncrementalDexingShardsAfterProguard();
+    this.dexoptsSupportedInDexSharder =
+        ImmutableList.copyOf(options.getDexoptsSupportedInDexSharder());
+    this.desugarJava8 = options.getDesugarJava8();
+    this.desugarJava8Libs = options.getDesugarJava8Libs();
+    this.useAndroidResourceShrinking =
+        options.getUseAndroidResourceShrinking()
+            || options.getUseExperimentalAndroidResourceShrinking();
+    this.useAndroidResourceCycleShrinking = options.getUseAndroidResourceCycleShrinking();
+    this.useAndroidResourcePathShortening = options.getUseAndroidResourcePathShortening();
+    this.useAndroidResourceNameObfuscation = options.getUseAndroidResourceNameObfuscation();
+    this.manifestMergerOrder = options.getManifestMergerOrder();
+
+    this.apkSigningMethod = options.getApkSigningMethod();
+    this.compressJavaResources = options.getCompressJavaResources();
+    this.exportsManifestDefault = options.getExportsManifestDefault();
+    this.fixedResourceNeverlinking = options.getFixedResourceNeverlinking();
+    this.persistentBusyboxTools = options.getPersistentBusyboxTools();
+    this.persistentMultiplexBusyboxTools = options.getPersistentMultiplexBusyboxTools();
+    this.persistentDexDesugar = options.getPersistentDexDesugar();
+    this.persistentMultiplexDexDesugar = options.getPersistentMultiplexDexDesugar();
+    this.legacyMainDexListGenerator = options.getLegacyMainDexListGenerator();
+    this.optimizingDexer = options.getOptimizingDexer();
+    this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar();
+    this.disableAndroidFragment = options.getDisableAndroidFragment();
+
+    if (incrementalDexingShardsAfterProguard < 0) {
+      throw new InvalidConfigurationException(
+          "--experimental_incremental_dexing_after_proguard must be a positive number");
+    }
+
+    if (desugarJava8Libs && !desugarJava8) {
+      throw new InvalidConfigurationException(
+          "Java 8 library support requires --desugar_java8 to be enabled.");
+    }
+  }
+
+  @Override
+  public boolean shouldInclude() {
+    return !disableAndroidFragment;
+  }
+
+  /** Returns whether to process proguarded Android binaries with incremental dexing tools. */
+  @Override
+  public int incrementalDexingShardsAfterProguard() {
+    return incrementalDexingShardsAfterProguard;
+  }
+
+
+
+  /** dx flags supported in dexsharder actions. */
+  @Override
+  public ImmutableList<String> getDexoptsSupportedInDexSharder() {
+    return dexoptsSupportedInDexSharder;
+  }
+
+  @Override
+  public boolean desugarJava8() {
+    return desugarJava8;
+  }
+
+  @Override
+  public boolean desugarJava8Libs() {
+    return desugarJava8Libs;
+  }
+
+  @Override
+  public boolean useAndroidResourceShrinking() {
+    return useAndroidResourceShrinking;
+  }
+
+  @Override
+  public boolean useAndroidResourceCycleShrinking() {
+    return useAndroidResourceCycleShrinking;
+  }
+
+  @Override
+  public boolean useAndroidResourcePathShortening() {
+    return useAndroidResourcePathShortening;
+  }
+
+  @Override
+  public boolean useAndroidResourceNameObfuscation() {
+    return useAndroidResourceNameObfuscation;
+  }
+
+  public ManifestMergerOrder getManifestMergerOrder() {
+    return manifestMergerOrder;
+  }
+
+  public ApkSigningMethod getApkSigningMethod() {
+    return apkSigningMethod;
+  }
+
+  @Override
+  public boolean apkSigningMethodV1() {
+    return apkSigningMethod.signV1();
+  }
+
+  @Override
+  public boolean apkSigningMethodV2() {
+    return apkSigningMethod.signV2();
+  }
+
+  @Override
+  @Nullable
+  public Boolean apkSigningMethodV4() {
+    return apkSigningMethod.signV4();
+  }
+
+  @Override
+  public boolean compressJavaResources() {
+    return compressJavaResources;
+  }
+
+  @Override
+  public boolean getExportsManifestDefault() {
+    return exportsManifestDefault;
+  }
+
+  @Override
+  public boolean fixedResourceNeverlinking() {
+    return this.fixedResourceNeverlinking;
+  }
+
+  @Override
+  public boolean persistentBusyboxTools() {
+    return persistentBusyboxTools;
+  }
+
+  @Override
+  public boolean persistentMultiplexBusyboxTools() {
+    return persistentMultiplexBusyboxTools;
+  }
+
+  @Override
+  public boolean persistentDexDesugar() {
+    return persistentDexDesugar;
+  }
+
+  @Override
+  public boolean persistentMultiplexDexDesugar() {
+    return persistentMultiplexDexDesugar;
+  }
+
+  @Override
+  public String getOutputDirectoryName() {
+    return configurationDistinguisher.suffix;
+  }
+
+  // TODO(blaze-configurability-team): Deprecate this.
+  @Override
+  public void processForOutputPathMnemonic(Fragment.OutputDirectoriesContext ctx)
+      throws Fragment.OutputDirectoriesContext.AddToMnemonicException {
+    ctx.markAsExplicitInOutputPathFor("Android configuration distinguisher");
+    if (configurationDistinguisher.suffix != null) {
+      ctx.addToMnemonic(configurationDistinguisher.suffix);
+    }
+  }
+
+  @Override
+  public boolean getJavaResourcesFromOptimizedJar() {
+    return getJavaResourcesFromOptimizedJar;
+  }
+
+  /** Returns the label provided with --legacy_main_dex_list_generator, if any. */
+  // TODO(b/147692286): Move R8's main dex list tool into tool repository.
+  @StarlarkConfigurationField(
+      name = "legacy_main_dex_list_generator",
+      doc = "Returns the label provided with --legacy_main_dex_list_generator, if any.")
+  @Nullable
+  public Label getLegacyMainDexListGenerator() {
+    return legacyMainDexListGenerator;
+  }
+
+  /** Returns the label provided with --optimizing_dexer, if any. */
+  @StarlarkConfigurationField(
+      name = "optimizing_dexer",
+      doc = "Returns the label provided with --optimizing_dexer, if any.")
+  @Nullable
+  public Label getOptimizingDexer() {
+    return optimizingDexer;
+  }
+}

@@ -1,0 +1,308 @@
+// Copyright 2015 The Bazel Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package net.starlark.java.eval;
+
+import static com.google.common.truth.Truth.assertThat;
+import static net.starlark.java.eval.StarlarkSemantics.DEFAULT;
+import static org.junit.Assert.assertThrows;
+
+import com.google.common.collect.ImmutableMap;
+import java.util.IllegalFormatException;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+/**
+ * Test properties of the evaluator's datatypes and utility functions without actually creating any
+ * parse trees.
+ */
+@RunWith(JUnit4.class)
+public class PrinterTest {
+
+  private static String str(Object o) {
+    return Starlark.str(o, DEFAULT);
+  }
+
+  @Test
+  public void testPrinter() throws Exception {
+    // Note that str and repr only differ on behaviour of strings at toplevel.
+    assertThat(str(createObjWithStr())).isEqualTo("<str marker>");
+    assertThat(Starlark.repr(createObjWithStr(), DEFAULT)).isEqualTo("<repr marker>");
+
+    assertThat(str("foo\nbar")).isEqualTo("foo\nbar");
+    assertThat(Starlark.repr("foo\nbar", DEFAULT)).isEqualTo("\"foo\\nbar\"");
+    assertThat(str("'")).isEqualTo("'");
+    assertThat(Starlark.repr("'", DEFAULT)).isEqualTo("\"'\"");
+    assertThat(str("\"")).isEqualTo("\"");
+    assertThat(Starlark.repr("\"", DEFAULT)).isEqualTo("\"\\\"\"");
+    assertThat(str(StarlarkInt.of(3))).isEqualTo("3");
+    assertThat(Starlark.repr(StarlarkInt.of(3), DEFAULT)).isEqualTo("3");
+    assertThat(Starlark.repr(Starlark.NONE, DEFAULT)).isEqualTo("None");
+
+    List<?> list = StarlarkList.of(null, "foo", "bar");
+    List<?> tuple = Tuple.of("foo", "bar");
+
+    assertThat(str(Tuple.of(StarlarkInt.of(1), list, StarlarkInt.of(3))))
+        .isEqualTo("(1, [\"foo\", \"bar\"], 3)");
+    assertThat(Starlark.repr(Tuple.of(StarlarkInt.of(1), list, StarlarkInt.of(3)), DEFAULT))
+        .isEqualTo("(1, [\"foo\", \"bar\"], 3)");
+    assertThat(str(StarlarkList.of(null, StarlarkInt.of(1), tuple, StarlarkInt.of(3))))
+        .isEqualTo("[1, (\"foo\", \"bar\"), 3]");
+    assertThat(
+            Starlark.repr(
+                StarlarkList.of(null, StarlarkInt.of(1), tuple, StarlarkInt.of(3)), DEFAULT))
+        .isEqualTo("[1, (\"foo\", \"bar\"), 3]");
+
+    Map<Object, Object> dict =
+        ImmutableMap.<Object, Object>of(
+            StarlarkInt.of(1), tuple, StarlarkInt.of(2), list, "foo", StarlarkList.of(null));
+    assertThat(str(dict)).isEqualTo("{1: (\"foo\", \"bar\"), 2: [\"foo\", \"bar\"], \"foo\": []}");
+    assertThat(Starlark.repr(dict, DEFAULT))
+        .isEqualTo("{1: (\"foo\", \"bar\"), 2: [\"foo\", \"bar\"], \"foo\": []}");
+
+    Mutability mu = Mutability.create();
+    StarlarkList<Object> selfRefList = StarlarkList.newList(mu);
+    selfRefList.append(selfRefList);
+    assertThat(str(selfRefList)).isEqualTo("[[...]]");
+    assertThat(Starlark.repr(selfRefList, DEFAULT)).isEqualTo("[...]");
+
+    Dict<String, Object> selfRefDict = Dict.of(mu);
+    selfRefDict.putEntry("self", selfRefDict);
+    assertThat(str(selfRefDict)).isEqualTo("{\"self\": {\"self\": ...}}");
+    assertThat(Starlark.repr(selfRefDict, DEFAULT)).isEqualTo("{\"self\": ...}");
+
+    StarlarkList<Object> overlyNestedList = makeOverlyNestedList(mu, 10_000); // chosen empirically
+    assertThat(Starlark.reprForErrors(overlyNestedList)).isEqualTo("<overly nested list>");
+
+    // TODO(bazel-team): can we reproducibly detect a nesting depth over some fixed limit?
+    assertThrows(StackOverflowError.class, () -> str(overlyNestedList));
+    assertThrows(StackOverflowError.class, () -> Starlark.repr(overlyNestedList, DEFAULT));
+  }
+
+  private static StarlarkList<Object> makeOverlyNestedList(Mutability mu, int depth)
+      throws EvalException {
+    StarlarkList<Object> overlyNestedList = StarlarkList.newList(mu);
+    StarlarkList<Object> current = overlyNestedList;
+    for (int i = 0; i < depth; i++) {
+      StarlarkList<Object> next = StarlarkList.newList(mu);
+      current.addElement(next);
+      current = next;
+    }
+    return overlyNestedList;
+  }
+
+  private static String format(String fmt, Object... args) {
+    return Starlark.format(DEFAULT, fmt, args);
+  }
+
+  private static String formatWithList(String fmt, List<?> args) {
+    return Starlark.formatWithList(DEFAULT, fmt, args);
+  }
+
+  private void checkFormatPositionalFails(String errorMessage, String format, Object... arguments) {
+    IllegalFormatException e =
+        assertThrows(IllegalFormatException.class, () -> format(format, arguments));
+    assertThat(e).hasMessageThat().isEqualTo(errorMessage);
+  }
+
+  @Test
+  public void testOutputOrderOfMap() throws Exception {
+    Map<Object, Object> map = new LinkedHashMap<>();
+    map.put(StarlarkInt.of(5), StarlarkInt.of(5));
+    map.put(StarlarkInt.of(3), StarlarkInt.of(3));
+    map.put("foo", StarlarkInt.of(42));
+    map.put(StarlarkInt.of(7), "bar");
+    assertThat(str(Starlark.fromJava(map, null)))
+        .isEqualTo("{5: 5, 3: 3, \"foo\": 42, 7: \"bar\"}");
+  }
+
+  @Test
+  public void testFormatPositional() throws Exception {
+    assertThat(formatWithList("%s %d", Tuple.of("foo", StarlarkInt.of(3)))).isEqualTo("foo 3");
+    assertThat(format("%s %d", "foo", StarlarkInt.of(3))).isEqualTo("foo 3");
+
+    // %d allows Integer or StarlarkInt
+    assertThat(format("%d %d", StarlarkInt.of(123), 456)).isEqualTo("123 456");
+
+    assertThat(format("%s %s %s", StarlarkInt.of(1), null, StarlarkInt.of(3)))
+        .isEqualTo("1 null 3");
+
+    // Note: formatToString doesn't perform scalar x -> (x) conversion;
+    // The %-operator is responsible for that.
+    assertThat(formatWithList("", Tuple.of())).isEmpty();
+    assertThat(format("%s", "foo")).isEqualTo("foo");
+    assertThat(format("%s", 3.14159)).isEqualTo("3.14159");
+    checkFormatPositionalFails(
+        "not all arguments converted during string formatting", "%s", 1, 2, 3);
+    assertThat(format("%%%s", "foo")).isEqualTo("%foo");
+    checkFormatPositionalFails(
+        "not all arguments converted during string formatting", "%%s", "foo");
+    checkFormatPositionalFails(
+        "unsupported format character \" \" at index 1 in \"% %s\"", "% %s", "foo");
+    assertThat(
+            format(
+                "%s",
+                StarlarkList.of(null, StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3))))
+        .isEqualTo("[1, 2, 3]");
+    assertThat(format("%s", Tuple.of(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3))))
+        .isEqualTo("(1, 2, 3)");
+    assertThat(format("%s", StarlarkList.of(null))).isEqualTo("[]");
+    assertThat(format("%s", Tuple.of())).isEqualTo("()");
+    assertThat(format("%% %d %r %s", StarlarkInt.of(1), "2", "3")).isEqualTo("% 1 \"2\" 3");
+
+    checkFormatPositionalFails("got string for '%d' format, want int or float", "%d", "1");
+    checkFormatPositionalFails(
+        "unsupported format character \".\" at index 1 in \"%.3g\"", "%.3g", 1);
+    checkFormatPositionalFails(
+        "unsupported format character \".\" at index 1 in \"%.3g\"", "%.3g", 1, 2);
+    checkFormatPositionalFails(
+        "unsupported format character \".\" at index 1 in \"%.s\"", "%.s", 1);
+    checkFormatPositionalFails("not enough arguments for format pattern \"%.s\": ()", "%.s");
+  }
+
+  private static String prettyQuoted(String s) {
+    StringBuilder sb = new StringBuilder();
+    new Printer(sb).appendPrettyQuoted(s);
+    return sb.toString();
+  }
+
+  @Test
+  public void testPrettyQuoted() throws Exception {
+    // Single-line strings should use ordinary double quotes.
+    assertThat(prettyQuoted("foo")).isEqualTo("\"foo\"");
+    assertThat(prettyQuoted("foo\"bar")).isEqualTo("\"foo\\\"bar\"");
+    assertThat(prettyQuoted("foo\\bar")).isEqualTo("\"foo\\\\bar\"");
+
+    // Multiline default is triple double quotes
+    assertThat(prettyQuoted("one\ntwo"))
+        .isEqualTo(
+            """
+            \"\"\"one
+            two\"\"\"\
+            """);
+
+    // Escaping inside triple double quotes
+    // Double quotes should be escaped (force """ by having more single quotes)
+    assertThat(prettyQuoted("one\"two 'three' 'four'\nfive"))
+        .isEqualTo(
+            """
+            \"\"\"one"two 'three' 'four'
+            five\"\"\"\
+            """);
+    // Backslashes should be escaped
+    // Escaping inside triple double quotes (backslashes, control characters, hex escapes)
+    assertThat(prettyQuoted("one\\two\none\rtwo\ntabs\tthree\none\u0001two\nthree"))
+        .isEqualTo(
+            """
+            \"\"\"one\\\\two
+            one\\rtwo
+            tabs\\tthree
+            one\\x01two
+            three\"\"\"\
+            """);
+
+    // Heuristic: switch to triple single quotes (''') if double quotes are dominant
+    assertThat(prettyQuoted("one\"two\"three\nfour"))
+        .isEqualTo(
+            """
+            '''one"two"three
+            four'''\
+            """);
+
+    // Escaping inside triple single quotes (''')
+    // Single quotes should be escaped
+    assertThat(prettyQuoted("one\"two\" 'three\nfour"))
+        .isEqualTo(
+            """
+            '''one"two" 'three
+            four'''\
+            """);
+
+    // Heuristic: switch to ''' if starting/ending with double quote (boundary issue)
+    assertThat(prettyQuoted("\"one\ntwo"))
+        .isEqualTo(
+            """
+            '''"one
+            two'''\
+            """);
+    assertThat(prettyQuoted("one\ntwo\""))
+        .isEqualTo(
+            """
+            '''one
+            two"'''\
+            """);
+
+    // Boundary with single quote: keep triple double quotes
+    assertThat(prettyQuoted("'one\ntwo"))
+        .isEqualTo(
+            """
+            \"\"\"'one
+            two\"\"\"\
+            """);
+  }
+
+  private StarlarkValue createObjWithStr() {
+    return new StarlarkValue() {
+      @Override
+      public void repr(Printer printer, StarlarkSemantics semantics) {
+        printer.append("<repr marker>");
+      }
+
+      @Override
+      public void str(Printer printer, StarlarkSemantics semantics) {
+        printer.append("<str marker>");
+      }
+    };
+  }
+
+  @Test
+  public void testBudgetedPrinter() throws Exception {
+    // Character limit test
+    Printer charLimited =
+        new Printer(new StringBuilder(), 10, Integer.MAX_VALUE, Integer.MAX_VALUE);
+    charLimited.repr("hello world this is long", DEFAULT);
+    assertThat(charLimited.toString()).isEqualTo("\"hello wor...");
+
+    // Element limit test
+    Printer elementLimited =
+        new Printer(new StringBuilder(), Integer.MAX_VALUE, Integer.MAX_VALUE, 3);
+    elementLimited.repr(StarlarkList.of(null, "a", "b", "c", "d", "e"), DEFAULT);
+    assertThat(elementLimited.toString()).isEqualTo("[\"a\", \"b\", \"c\", ...]");
+
+    // Depth limit test
+    Mutability mu = Mutability.create();
+    StarlarkList<Object> nested = StarlarkList.newList(mu);
+    StarlarkList<Object> current = nested;
+    for (int i = 0; i < 5; i++) {
+      StarlarkList<Object> next = StarlarkList.newList(mu);
+      current.append(next);
+      current = next;
+    }
+    Printer depthLimited =
+        new Printer(new StringBuilder(), Integer.MAX_VALUE, 3, Integer.MAX_VALUE);
+    depthLimited.repr(nested, DEFAULT);
+    assertThat(depthLimited.toString()).isEqualTo("[[[...]]]");
+
+    // Truncated printList short-circuit test
+    Printer truncatedPrinter =
+        new Printer(new StringBuilder(), 5, Integer.MAX_VALUE, Integer.MAX_VALUE);
+    truncatedPrinter.append("123456"); // exceeds maxChars
+    truncatedPrinter.printList(StarlarkList.of(null, "a", "b"), "[", ", ", "]", DEFAULT);
+    assertThat(truncatedPrinter.toString()).isEqualTo("12345...");
+  }
+}

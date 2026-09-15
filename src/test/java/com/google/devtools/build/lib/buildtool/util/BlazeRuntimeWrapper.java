@@ -1,0 +1,694 @@
+// Copyright 2019 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.buildtool.util;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
+import static com.google.devtools.build.lib.util.io.CommandExtensionReporter.NO_OP_COMMAND_EXTENSION_REPORTER;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.analysis.AnalysisOptions;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.Scope.ScopeType;
+import com.google.devtools.build.lib.bugreport.Crash;
+import com.google.devtools.build.lib.bugreport.CrashContext;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildtool.AqueryProcessor;
+import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.buildtool.BuildResult;
+import com.google.devtools.build.lib.buildtool.BuildTool;
+import com.google.devtools.build.lib.buildtool.BuildTool.AnalysisPostProcessor;
+import com.google.devtools.build.lib.buildtool.CqueryProcessor;
+import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
+import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.pkgcache.LoadingOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
+import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryParser;
+import com.google.devtools.build.lib.runtime.BlazeCommand;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
+import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
+import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.ClientOptions;
+import com.google.devtools.build.lib.runtime.Command;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.CommonCommandOptions;
+import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
+import com.google.devtools.build.lib.runtime.OptionsSupplier;
+import com.google.devtools.build.lib.runtime.UiOptions;
+import com.google.devtools.build.lib.runtime.commands.AqueryCommand;
+import com.google.devtools.build.lib.runtime.commands.BuildCommand;
+import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
+import com.google.devtools.build.lib.runtime.commands.QueryCommandUtils;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.sandbox.SandboxOptions;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.InvocationPolicyEnforcer;
+import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.protobuf.Any;
+import com.google.protobuf.Message;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.logging.Level;
+import javax.annotation.Nullable;
+
+/**
+ * A wrapper for {@link BlazeRuntime} for testing purposes that makes it possible to exercise (most)
+ * of the build machinery in integration tests. Note that {@code BlazeCommandDispatcher} is not
+ * exercised here.
+ */
+public class BlazeRuntimeWrapper {
+
+  private final BlazeRuntime runtime;
+  private CommandEnvironment env;
+  private final EventCollectionApparatus events;
+  private BlazeCommand command;
+
+  private BuildRequest lastRequest;
+  private BuildResult lastResult;
+  private BlazeCommandResult lastCommandResult;
+  private BuildConfigurationValue configuration;
+
+  private OptionsParser optionsParser;
+  private final List<String> optionsToParse = new ArrayList<>();
+  private final Map<String, Object> starlarkOptions = new HashMap<>();
+  private final Set<String> starlarkOptionAllowingMultiple = new HashSet<>();
+  private final List<Class<? extends OptionsBase>> additionalOptionsClasses = new ArrayList<>();
+  private final List<String> crashMessages = new ArrayList<>();
+
+  private final List<Object> eventBusSubscribers = new ArrayList<>();
+
+  private final List<String> workspaceSetupWarnings = new ArrayList<>();
+
+  BlazeRuntimeWrapper(
+      EventCollectionApparatus events,
+      ServerDirectories serverDirectories,
+      BlazeDirectories directories,
+      BinTools binTools,
+      BlazeRuntime.Builder builder)
+      throws Exception {
+    this.events = events;
+    runtime =
+        builder
+            .setServerDirectories(serverDirectories)
+            .addBlazeModule(
+                new BlazeModule() {
+                  @Override
+                  public void beforeCommand(CommandEnvironment env) {
+                    // This only does something interesting for tests that create their own
+                    // BlazeCommandDispatcher. :-(
+                    if (BlazeRuntimeWrapper.this.env != env) {
+                      BlazeRuntimeWrapper.this.env = env;
+                      BlazeRuntimeWrapper.this.lastRequest = null;
+                      BlazeRuntimeWrapper.this.lastResult = null;
+                      resetOptions();
+                      env.getEventBus().register(this);
+                    }
+                  }
+                })
+            .addBlazeModule(
+                new BlazeModule() {
+                  @Override
+                  public void beforeCommand(CommandEnvironment env) {
+                    BlazeRuntimeWrapper.this.events.initExternal(env.getReporter());
+                  }
+                })
+            .build();
+    runtime.initWorkspace(directories, binTools);
+  }
+
+  public final BlazeRuntime getRuntime() {
+    return runtime;
+  }
+
+  /**
+   * Registers the given {@code subscriber} with the {@link EventBus} before each command and during
+   * the current command if one is in progress.
+   */
+  public void registerSubscriber(Object subscriber) {
+    eventBusSubscribers.add(subscriber);
+    if (env != null) {
+      env.getEventBus().register(subscriber);
+    }
+  }
+
+  public final CommandEnvironment newCommand() throws Exception {
+    return newCommand(BuildCommand.class);
+  }
+
+  public final CommandEnvironment newCommand(boolean ignoreUserOptions) throws Exception {
+    return newCommandWithExtensions(
+        BuildCommand.class, /* extensions= */ ImmutableList.of(), ignoreUserOptions);
+  }
+
+  /** Creates a new command environment; executeBuild does this automatically if you do not. */
+  public final CommandEnvironment newCommand(Class<? extends BlazeCommand> command)
+      throws Exception {
+    return newCommandWithExtensions(command, /* extensions= */ ImmutableList.of());
+  }
+
+  /**
+   * Creates a new command environment with additional proto extensions as if they were passed to
+   * the Blaze server.
+   *
+   * @param command the command instance for which to create a new environment.
+   * @param extensions additional proto extensions to pass to the command.
+   * @return the new command environment.
+   */
+  @CanIgnoreReturnValue
+  public final CommandEnvironment newCustomCommandWithExtensions(
+      BlazeCommand command, List<Message> extensions, boolean ignoreUserOptions) throws Exception {
+    Command commandAnnotation =
+        checkNotNull(
+            command.getClass().getAnnotation(Command.class),
+            "BlazeCommand %s missing command annotation",
+            command.getClass());
+    this.command = command;
+
+    additionalOptionsClasses.addAll(
+        BlazeCommandUtils.getOptions(
+            command.getClass(), runtime.getOptionsSuppliers(), runtime.getRuleClassProvider()));
+    initializeOptionsParser(commandAnnotation, ignoreUserOptions);
+
+    checkNotNull(
+        optionsParser,
+        "The options parser must be initialized before creating a new command environment");
+    optionsParser.setStarlarkOptions(starlarkOptions, starlarkOptionAllowingMultiple);
+
+    env =
+        runtime
+            .getWorkspace()
+            .initCommand(
+                commandAnnotation,
+                optionsParser,
+                InvocationPolicy.getDefaultInstance(),
+                workspaceSetupWarnings,
+                /* waitTimeInMs= */ 0L,
+                /* commandStartTime= */ runtime.getClock().currentTimeMillis(),
+                /* idleTaskResultsFromPreviousIdlePeriod= */ ImmutableList.of(),
+                this.crashMessages::add,
+                extensions.stream().map(Any::pack).collect(toImmutableList()),
+                NO_OP_COMMAND_EXTENSION_REPORTER,
+                /* attemptNumber= */ 1,
+                /* buildRequestIdOverride= */ null,
+                ConfigFlagDefinitions.NONE);
+    return env;
+  }
+
+  /**
+   * Creates a new command environment with additional proto extensions as if they were passed to
+   * the Blaze server. This method creates a new instance of the provided command class via its
+   * default constructor. For command classes with constructor parameters, use {@link
+   * #newCustomCommandWithExtensions} and pass in a pre-existing {@link BlazeCommand} instance.
+   *
+   * @param command the command class for which to create a new environment. This class must have a
+   *     default constructor or this method will throw an exception.
+   * @param extensions additional proto extensions to pass to the command.
+   */
+  public final CommandEnvironment newCommandWithExtensions(
+      Class<? extends BlazeCommand> command, List<Message> extensions) throws Exception {
+    return newCommandWithExtensions(command, extensions, /* ignoreUserOptions= */ true);
+  }
+
+  private CommandEnvironment newCommandWithExtensions(
+      Class<? extends BlazeCommand> command, List<Message> extensions, boolean ignoreUserOptions)
+      throws Exception {
+    return newCustomCommandWithExtensions(
+        command.getDeclaredConstructor().newInstance(), extensions, ignoreUserOptions);
+  }
+
+  /**
+   * Returns the command environment. You must call {@link #newCommand()} before calling this
+   * method.
+   */
+  public CommandEnvironment getCommandEnvironment() {
+    return env;
+  }
+
+  public SkyframeExecutor getSkyframeExecutor() {
+    return runtime.getWorkspace().getSkyframeExecutor();
+  }
+
+  public void resetOptions() {
+    optionsToParse.clear();
+    starlarkOptions.clear();
+  }
+
+  public void addOptions(String... args) {
+    addOptions(ImmutableList.copyOf(args));
+  }
+
+  public void addOptions(List<String> args) {
+    optionsToParse.addAll(args);
+  }
+
+  public void setOptionsParserResidue(List<String> residue, List<String> postDoubleDashResidue) {
+    optionsParser.setResidue(residue, postDoubleDashResidue);
+  }
+
+  public void setConfiguration(BuildConfigurationValue configuration) {
+    this.configuration = configuration;
+  }
+
+  public void addStarlarkOption(String label, Object optionValue) {
+    starlarkOptions.put(Label.parseCanonicalUnchecked(label).getCanonicalForm(), optionValue);
+  }
+
+  public void addStarlarkOptions(Map<String, Object> starlarkOptions) {
+    starlarkOptions.forEach(this::addStarlarkOption);
+  }
+
+  public ImmutableList<String> getOptions() {
+    return ImmutableList.copyOf(optionsToParse);
+  }
+
+  public <O extends OptionsBase> O getOptions(Class<O> optionsClass) {
+    return optionsParser.getOptions(optionsClass);
+  }
+
+  public ImmutableMap<String, Object> getStarlarkOptions() {
+    return ImmutableMap.copyOf(starlarkOptions);
+  }
+
+  public ImmutableSet<String> getStarlarkOptionAllowingMultiple() {
+    return ImmutableSet.copyOf(starlarkOptionAllowingMultiple);
+  }
+
+  public void addOptionsClass(Class<? extends OptionsBase> optionsClass) {
+    additionalOptionsClasses.add(optionsClass);
+  }
+
+  void finalizeBuildResult(@SuppressWarnings("unused") BuildResult request) {}
+
+  /**
+   * Initializes a new options parser, parsing all the options set by {@link
+   * #addOptions(String...)}.
+   */
+  private void initializeOptionsParser(Command commandAnnotation, boolean ignoreUserOptions)
+      throws OptionsParsingException {
+    // Create the options parser and parse all the options collected so far
+    optionsParser = createOptionsParser(commandAnnotation, ignoreUserOptions);
+    optionsParser.parse(optionsToParse);
+
+    // The exec transition has to know Starlark flags' scope types to figure out which flags should
+    // pass to the exec configuration vs. not. In production builds OptionsParser and
+    // StarlarkOptionsParser handle this. But BlazeRuntimeWrapper injects Starlark flags directly
+    // without going through normal parsing. So we have this extra step to provide default scope
+    // values. Ideally we could more closely match production parsing and avoid extra logic.
+    optionsParser.setScopesAttributes(
+        getStarlarkOptions().entrySet().stream()
+            .collect(toImmutableMap(Map.Entry::getKey, entry -> ScopeType.DEFAULT.toString())));
+
+    // Allow the command to edit the options.
+    command.editOptions(optionsParser);
+
+    // Enforce the test invocation policy once the options have been added
+    InvocationPolicyEnforcer optionsPolicyEnforcer =
+        new InvocationPolicyEnforcer(
+            runtime.getModuleInvocationPolicy(), Level.FINE, /* conversionContext= */ null);
+    try {
+      optionsPolicyEnforcer.enforce(
+          optionsParser,
+          commandAnnotation.name(),
+          /* invocationPolicyFlagListBuilder= */ ImmutableList.builder());
+    } catch (OptionsParsingException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  private OptionsParser createOptionsParser(Command commandAnnotation, boolean ignoreUserOptions) {
+    Set<Class<? extends OptionsBase>> options =
+        new HashSet<>(
+            ImmutableList.of(
+                BuildRequestOptions.class,
+                BuildEventProtocolOptions.class,
+                ExecutionOptions.class,
+                LocalExecutionOptions.class,
+                CommonCommandOptions.class,
+                ClientOptions.class,
+                LoadingOptions.class,
+                AnalysisOptions.class,
+                KeepGoingOption.class,
+                LoadingPhaseThreadsOption.class,
+                PackageOptions.class,
+                BuildLanguageOptions.class,
+                UiOptions.class,
+                SandboxOptions.class));
+    options.addAll(additionalOptionsClasses);
+
+    for (OptionsSupplier supplier : runtime.getOptionsSuppliers()) {
+      Iterables.addAll(options, supplier.getCommonCommandOptions());
+      Iterables.addAll(options, supplier.getCommandOptions(commandAnnotation.name()));
+    }
+    options.addAll(runtime.getRuleClassProvider().getFragmentRegistry().getOptionsClasses());
+    // Because the tests that use this class don't set sources for their options, the normal logic
+    // for determining user options assumes that all options are user options. This causes tests
+    // that enable PROJECT.scl files to fail, so ignore user options instead.
+    var optionserParserBuilder = OptionsParser.builder().optionsClasses(options);
+    if (ignoreUserOptions) {
+      optionserParserBuilder.ignoreUserOptions();
+    }
+    optionserParserBuilder.skipStarlarkOptionPrefixes();
+    return optionserParserBuilder.build();
+  }
+
+  public void executeCustomCommand() throws Exception {
+    checkNotNull(command, "No command created, try calling newCommand()");
+    checkState(
+        env.getCommand().buildPhase() == NONE
+            || env.getCommandName().equals("run")
+            || env.getCommandName().equals("javahotswap"),
+        "%s is a build command, did you mean to call executeBuild()?",
+        env.getCommandName());
+
+    BlazeCommandResult result = BlazeCommandResult.success();
+
+    try {
+      beforeCommand();
+
+      lastRequest = null;
+      lastResult = null;
+
+      try {
+        Crash crash = null;
+        try {
+          if (env.getCommandName().equals("run") || env.getCommandName().equals("javahotswap")) {
+            try (SilentCloseable c = Profiler.instance().profile("syncPackageLoading")) {
+              env.syncPackageLoading(optionsParser);
+            }
+          }
+          result = command.exec(env, optionsParser);
+        } catch (RuntimeException | Error e) {
+          crash = Crash.from(e);
+          result = BlazeCommandResult.detailedExitCode(crash.getDetailedExitCode());
+          throw e;
+        } finally {
+          commandComplete(crash);
+        }
+        checkState(
+            result.getDetailedExitCode().equals(DetailedExitCode.success()),
+            "%s command resulted in %s",
+            env.getCommandName(),
+            result);
+      } finally {
+        afterCommand(result);
+      }
+    } finally {
+      Profiler.instance().stop();
+    }
+  }
+
+  /**
+   * Runs a aquery command with the given target.
+   *
+   * @param target the target to run the aquery against.
+   */
+  public void runAqueryExprCommand(String target) throws Exception {
+    runAqueryExprCommand(target, target);
+  }
+
+  /**
+   * Runs an aquery command with the given expression and target.
+   *
+   * @param aqueryExpr the aquery expression to evaluate.
+   * @param target the target to run the aquery against.
+   */
+  public void runAqueryExprCommand(String aqueryExpr, String target) throws Exception {
+    newCommand(AqueryCommand.class);
+    // Resetting the deserialized keys is necessary to avoid aquery using the pruned graph and
+    // missing entries in its output. Since BlazeRuntimeWrapper is written using the method
+    // buildTargets from BuildTool directly and skips going through the entry class
+    QueryCommandUtils.resetDeserializedKeysFromRemoteAnalysisCache(getCommandEnvironment());
+
+    AqueryProcessor aqueryProcessor =
+        new AqueryProcessor(getQueryExpression(aqueryExpr), TargetPattern.defaultParser());
+    executeBuild(Arrays.asList(target), aqueryProcessor);
+  }
+
+  /**
+   * Runs a cquery command with the given expression and target.
+   *
+   * @param cqueryExpr the cquery expression to evaluate.
+   * @param target the target to run the cquery against.
+   */
+  public void runCqueryExprCommand(String cqueryExpr, String target) throws Exception {
+    newCommand(CqueryCommand.class);
+    // Resetting the deserialized keys is necessary to avoid cquery using the pruned graph and
+    // missing targets in its output. Since BlazeRuntimeWrapper is written using the method
+    // buildTargets from BuildTool directly and skips going through the entry class
+    // CqueryCommand, we have to reimplement some of the logic here for cquery expressions like
+    // "deps(//foo)" to work in the integration tests. The alternative is a bigger refactoring
+    // rewriting BlazeRuntimeWrapper to use the *Command.java classes with the possibility of
+    // increasing overall complexity.
+    QueryCommandUtils.resetDeserializedKeysFromRemoteAnalysisCache(getCommandEnvironment());
+
+    TargetPattern.Parser parser =
+        new TargetPattern.Parser(
+            PathFragment.EMPTY_FRAGMENT,
+            RepositoryName.MAIN,
+            RepositoryMapping.create(
+                ImmutableMap.of("repo", RepositoryName.createUnvalidated("canonical_repo")),
+                RepositoryName.MAIN));
+    CqueryProcessor cqueryProcessor = new CqueryProcessor(getQueryExpression(cqueryExpr), parser);
+
+    executeBuild(Arrays.asList(target), cqueryProcessor);
+  }
+
+  private QueryExpression getQueryExpression(String cqueryExpr) throws Exception {
+    HashMap<String, QueryFunction> functions = new HashMap<>();
+    for (QueryFunction queryFunction : ConfiguredTargetQueryEnvironment.FUNCTIONS) {
+      functions.put(queryFunction.getName(), queryFunction);
+    }
+    for (QueryFunction queryFunction : getRuntime().getQueryFunctions()) {
+      functions.put(queryFunction.getName(), queryFunction);
+    }
+    return QueryParser.parse(cqueryExpr, functions);
+  }
+
+  void executeBuild(List<String> targets) throws Exception {
+    // The analysisPostProcessor is only needed for printing to stdout the results from cquery, for
+    // regular builds BuildTool uses a NOOP processor.
+    executeBuild(targets, /* analysisPostProcessor= */ null);
+  }
+
+  void executeBuild(List<String> targets, AnalysisPostProcessor analysisPostProcessor)
+      throws Exception {
+    if (command == null) {
+      newCommand(BuildCommand.class); // If you didn't create a command we do it for you.
+    }
+    checkState(
+        env.getCommand().buildPhase().loads(),
+        "%s is not a build command, did you mean to call executeNonBuildCommand()?",
+        env.getCommandName());
+
+    try {
+      beforeCommand();
+
+      try {
+        lastRequest = createRequest(env.getCommandName(), targets);
+        lastResult = new BuildResult(lastRequest.getStartTime());
+
+        Crash crash = null;
+        DetailedExitCode detailedExitCode = DetailedExitCode.of(createGenericDetailedFailure());
+        BuildTool buildTool;
+        if (analysisPostProcessor == null) {
+          buildTool = new BuildTool(env);
+        } else {
+          buildTool = new BuildTool(env, analysisPostProcessor);
+        }
+        try {
+          try (SilentCloseable c = Profiler.instance().profile("syncPackageLoading")) {
+            env.syncPackageLoading(lastRequest);
+          }
+          buildTool.buildTargets(
+              lastRequest,
+              lastResult,
+              null,
+              optionsParser,
+              /* targetsForProjectResolution= */ null);
+          detailedExitCode = DetailedExitCode.success();
+        } catch (BuildFailedException e) {
+          // This corresponds to the logic in BuildTool#processRequest that calls
+          // BuildTool#buildTargets. There are many other cases omitted. This only seems relevant
+          // for tests verifying the contents of the BuildFinished BEP event.
+          detailedExitCode = e.getDetailedExitCode();
+          throw e;
+        } catch (RuntimeException | Error e) {
+          crash = Crash.from(e);
+          detailedExitCode = crash.getDetailedExitCode();
+          throw e;
+        } finally {
+          env.getTimestampGranularityMonitor().waitForTimestampGranularity(lastRequest.getOutErr());
+          configuration = lastResult.getBuildConfiguration();
+          finalizeBuildResult(lastResult);
+          buildTool.stopRequest(
+              lastResult, crash != null ? crash.getThrowable() : null, detailedExitCode);
+          commandComplete(crash);
+        }
+      } finally {
+        afterCommand(BlazeCommandResult.detailedExitCode(lastResult.getDetailedExitCode()));
+      }
+    } finally {
+      Profiler.instance().stop();
+    }
+  }
+
+  private void beforeCommand() throws Exception {
+    events.clear();
+    Reporter reporter = env.getReporter();
+    Profiler.instance()
+        .start(
+            /* profiledTasks= */ ImmutableSet.of(),
+            /* stream= */ null,
+            /* format= */ null,
+            /* outputBase= */ null,
+            /* buildID= */ null,
+            /* recordAllDurations= */ false,
+            new JavaClock(),
+            /* execStartTimeNanos= */ 42,
+            /* slimProfile= */ false,
+            /* slimProfileSizeLimit= */ -1,
+            /* includePrimaryOutput= */ false,
+            /* includeTargetLabel= */ false,
+            /* includeConfiguration= */ false,
+            /* collectTaskHistograms= */ true);
+
+    StoredEventHandler storedEventHandler = new StoredEventHandler();
+    reporter.addHandler(storedEventHandler);
+
+    env.decideKeepIncrementalState();
+
+    EventBus eventBus = env.getEventBus();
+    for (Object subscriber : eventBusSubscribers) {
+      eventBus.register(subscriber);
+    }
+
+    // This cannot go into newCommand, because we hook up the EventCollectionApparatus as a module,
+    // and after that ran, further changes to the apparatus aren't reflected on the reporter.
+    for (BlazeModule module : runtime.getBlazeModules()) {
+      module.beforeCommand(env);
+    }
+    reporter.removeHandler(storedEventHandler);
+
+    // Replay events from decideKeepIncrementalState and beforeCommand, just as
+    // BlazeCommandDispatcher does.
+    storedEventHandler.replayOn(reporter);
+
+    env.beforeCommand(InvocationPolicy.getDefaultInstance());
+
+    for (BlazeModule module : runtime.getBlazeModules()) {
+      env.getSkyframeExecutor().injectExtraPrecomputedValues(module.getPrecomputedValues());
+    }
+  }
+
+  private void commandComplete(@Nullable Crash crash) throws Exception {
+    Reporter reporter = env.getReporter();
+    if (crash != null) {
+      runtime.getBugReporter().handleCrash(crash, CrashContext.keepAlive().reportingTo(reporter));
+    }
+  }
+
+  private void afterCommand(BlazeCommandResult result) {
+    command = null;
+    lastCommandResult = runtime.afterCommand(/* forceKeepStateForTesting= */ true, env, result);
+  }
+
+  private static FailureDetail createGenericDetailedFailure() {
+    return FailureDetail.newBuilder()
+        .setSpawn(Spawn.newBuilder().setCode(Code.NON_ZERO_EXIT))
+        .build();
+  }
+
+  private BuildRequest createRequest(String commandName, List<String> targets) {
+    BuildRequest.Builder builder =
+        BuildRequest.builder()
+            .setCommandName(commandName)
+            .setId(env.getCommandId())
+            .setOptions(optionsParser)
+            .setStartupOptions(null)
+            .setOutErr(env.getReporter().getOutErr())
+            .setTargets(targets)
+            .setStartTimeMillis(runtime.getClock().currentTimeMillis());
+    if (commandName.equals("test") || commandName.equals("coverage")) {
+      builder.setRunTests(true);
+    }
+    return builder.build();
+  }
+
+  @Nullable // Null if no build has been run.
+  public BuildRequest getLastRequest() {
+    return lastRequest;
+  }
+
+  @Nullable // Null if no build has been run.
+  public BuildResult getLastResult() {
+    return lastResult;
+  }
+
+  @Nullable // Null if no build has been run.
+  public BlazeCommandResult getLastCommandResult() {
+    return lastCommandResult;
+  }
+
+  @Nullable // Null if no build has been run.
+  public BuildConfigurationValue getConfiguration() {
+    return configuration;
+  }
+
+  public List<String> getCrashMessages() {
+    return crashMessages;
+  }
+}

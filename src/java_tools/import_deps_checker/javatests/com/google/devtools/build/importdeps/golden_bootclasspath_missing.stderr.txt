@@ -1,0 +1,72 @@
+ERROR: The dependencies for the following 1 jar(s) are not complete.
+      1.third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/libtestdata_client.jar
+The details are listed below:
+Missing java.io.PrintStream
+Missing java.lang.Class
+Missing java.lang.Enum
+Missing java.lang.Exception
+Missing java.lang.Integer
+Missing java.lang.Object
+Missing java.lang.String
+Missing java.lang.SuppressWarnings
+Missing java.lang.System
+Missing java.lang.annotation.Annotation
+Missing java.lang.annotation.ElementType
+Missing java.lang.annotation.Retention
+Missing java.lang.annotation.RetentionPolicy
+Missing java.lang.annotation.Target
+Missing java.lang.invoke.CallSite
+Missing java.lang.invoke.LambdaMetafactory
+Missing java.lang.invoke.MethodHandle
+Missing java.lang.invoke.MethodHandles$Lookup
+Missing java.lang.invoke.MethodType
+Missing java.util.Objects
+Indirectly missing class java.lang.Enum. Referenced by:
+    com.google.devtools.build.importdeps.testdata.Client$EnumTest (in testdata:testdata_client)
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$AnnotationFlag (in testdata:testdata_lib_LibraryAnnotations)
+Indirectly missing class java.lang.Exception. Referenced by:
+    com.google.devtools.build.importdeps.testdata.LibraryException (in testdata:testdata_lib_LibraryException)
+Indirectly missing class java.lang.Object. Referenced by:
+    com.google.devtools.build.importdeps.testdata.Client$InnerClassWithSyntheticConstructorParam (in testdata:testdata_client)
+    com.google.devtools.build.importdeps.testdata.Library (in testdata:testdata_lib_Library)
+    com.google.devtools.build.importdeps.testdata.Library$Class1 (in testdata:testdata_lib_Library)
+    com.google.devtools.build.importdeps.testdata.Library$Class11 (in testdata:testdata_lib_Library)
+    com.google.devtools.build.importdeps.testdata.Library$Class12 (in testdata:testdata_lib_Library)
+    com.google.devtools.build.importdeps.testdata.Library$Class2 (in testdata:testdata_lib_Library)
+    com.google.devtools.build.importdeps.testdata.Library$Class3 (in testdata:testdata_lib_Library)
+    com.google.devtools.build.importdeps.testdata.Library$Class4 (in testdata:testdata_lib_Library)
+    com.google.devtools.build.importdeps.testdata.Library$Class5 (in testdata:testdata_lib_Library)
+    com.google.devtools.build.importdeps.testdata.Library$Class6 (in testdata:testdata_lib_Library)
+    com.google.devtools.build.importdeps.testdata.Library$Class7 (in testdata:testdata_lib_Library)
+    com.google.devtools.build.importdeps.testdata.Library$Class8 (in testdata:testdata_lib_Library)
+    com.google.devtools.build.importdeps.testdata.Library$Class9 (in testdata:testdata_lib_Library)
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations (in testdata:testdata_lib_LibraryAnnotations)
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$AnnotationAnnotation (in testdata:testdata_lib_LibraryAnnotations)
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ClassAnnotation (in testdata:testdata_lib_LibraryAnnotations)
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ConstructorAnnotation (in testdata:testdata_lib_LibraryAnnotations)
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$FieldAnnotation (in testdata:testdata_lib_LibraryAnnotations)
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$MethodAnnotation (in testdata:testdata_lib_LibraryAnnotations)
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ParameterAnnotation (in testdata:testdata_lib_LibraryAnnotations)
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$TypeAnnotation (in testdata:testdata_lib_LibraryAnnotations)
+    com.google.devtools.build.importdeps.testdata.LibraryInterface (in testdata:testdata_lib_LibraryInterface)
+    com.google.devtools.build.importdeps.testdata.LibraryInterface$Func (in testdata:testdata_lib_LibraryInterface)
+    com.google.devtools.build.importdeps.testdata.LibraryInterface$InterfaceBar (in testdata:testdata_lib_LibraryInterface)
+    com.google.devtools.build.importdeps.testdata.LibraryInterface$InterfaceFoo (in testdata:testdata_lib_LibraryInterface)
+    com.google.devtools.build.importdeps.testdata.LibraryInterface$One (in testdata:testdata_lib_LibraryInterface)
+    com.google.devtools.build.importdeps.testdata.LibraryInterface$Two (in testdata:testdata_lib_LibraryInterface)
+Indirectly missing class java.lang.annotation.Annotation. Referenced by:
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$AnnotationAnnotation (in testdata:testdata_lib_LibraryAnnotations)
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ClassAnnotation (in testdata:testdata_lib_LibraryAnnotations)
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ConstructorAnnotation (in testdata:testdata_lib_LibraryAnnotations)
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$FieldAnnotation (in testdata:testdata_lib_LibraryAnnotations)
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$MethodAnnotation (in testdata:testdata_lib_LibraryAnnotations)
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$ParameterAnnotation (in testdata:testdata_lib_LibraryAnnotations)
+    com.google.devtools.build.importdeps.testdata.LibraryAnnotations$TypeAnnotation (in testdata:testdata_lib_LibraryAnnotations)
+Missing member 'name' in class com.google.devtools.build.importdeps.testdata.Client$EnumTest : name=name, descriptor=()Ljava/lang/String;
+Missing member 'ordinal' in class com.google.devtools.build.importdeps.testdata.Client$EnumTest : name=ordinal, descriptor=()I
+The class hierarchies of the classes with missing members:
+    com.google.devtools.build.importdeps.testdata.Client$EnumTest (in testdata:testdata_client)
+===Total===
+missing=20
+incomplete=30
+missing_members=2

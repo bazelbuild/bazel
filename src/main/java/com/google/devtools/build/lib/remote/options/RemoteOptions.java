@@ -1,0 +1,1141 @@
+// Copyright 2016 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.remote.options;
+
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.devtools.build.lib.remote.Scrubber;
+import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.BoolOrEnumConverter;
+import com.google.devtools.common.options.BooleanStyleOption;
+import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converters.AssignmentConverter;
+import com.google.devtools.common.options.Converters.BooleanConverter;
+import com.google.devtools.common.options.Converters.ByteSizeConverter;
+import com.google.devtools.common.options.Converters.DurationConverter;
+import com.google.devtools.common.options.Converters.EmptyToNullStringConverter;
+import com.google.devtools.common.options.EnumConverter;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
+import com.google.devtools.common.options.OptionsParsingException;
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import javax.annotation.Nullable;
+
+/** Options for remote execution and distributed caching for Bazel only. */
+@OptionsClass
+public abstract class RemoteOptions extends CommonRemoteOptions {
+
+  @Option(
+      name = "remote_proxy",
+      oldName = "remote_cache_proxy",
+      defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Connect to the remote cache through a proxy. Currently this flag can only be used to "
+              + "configure a Unix domain socket (unix:/path/to/socket). An empty value resets the"
+              + " flag to its default.")
+  public abstract String getRemoteProxy();
+
+  public abstract void setRemoteProxy(String value);
+
+  @Option(
+      name = "remote_max_connections",
+      defaultValue = "100",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          """
+          Limit the max number of concurrent connections to remote cache/executor. By default the \
+          value is 100. Setting this to 0 means no limitation.
+          For HTTP remote cache, one TCP connection could handle one request at one time, so \
+          Bazel could make up to --remote_max_connections concurrent requests.
+          For gRPC remote cache/executor, one gRPC channel could usually handle 100+ \
+          concurrent requests (controlled by --remote_max_concurrency_per_connection), so \
+          Bazel could make around `--remote_max_connections * 100` concurrent requests.\
+          """)
+  public abstract int getRemoteMaxConnections();
+
+  @Option(
+      name = "remote_max_concurrency_per_connection",
+      // The number of concurrent requests for one connection to a gRPC server is limited by
+      // MAX_CONCURRENT_STREAMS which is normally being 100+. We assume 50 concurrent requests for
+      // each connection should be fairly well. The number of connections opened by one channel is
+      // based on the resolved IPs of that server. We assume servers normally have 2 IPs. So the
+      // max concurrency per connection is 100.
+      defaultValue = "100",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          """
+          Limit the max number of concurrent requests per gRPC connection. By default the value \
+          is 100.\
+          """)
+  public abstract int getRemoteMaxConcurrencyPerConnection();
+
+  @Option(
+      name = "remote_executor",
+      defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "HOST or HOST:PORT of a remote execution endpoint. The supported schemes are grpc, "
+              + "grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If no scheme is "
+              + "provided Bazel will default to grpcs. Specify grpc:// or unix: scheme to "
+              + "disable TLS. An empty value resets the flag to its default.")
+  public abstract String getRemoteExecutor();
+
+  public abstract void setRemoteExecutor(String value);
+
+  @Deprecated
+  @Option(
+      name = "experimental_remote_execution_keepalive",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
+      help = "No-op. Kept here for backwards compatibility.")
+  public abstract boolean getRemoteExecutionKeepalive();
+
+  @Option(
+      name = "experimental_remote_capture_corrupted_outputs",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
+      help =
+          "A path to a directory where the corrupted outputs will be captured to. An empty value"
+              + " resets the flag to its default.")
+  public abstract PathFragment getRemoteCaptureCorruptedOutputs();
+
+  @Option(
+      name = "remote_cache_async",
+      oldName = "experimental_remote_cache_async",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If true, uploading of action results to a disk or remote cache will happen in the"
+              + " background instead of blocking the completion of an action. Some actions are"
+              + " incompatible with background uploads, and may still block even when this flag is"
+              + " set.")
+  public abstract boolean getRemoteCacheAsync();
+
+  @Option(
+      name = "remote_cache",
+      oldName = "remote_http_cache",
+      defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "A URI of a caching endpoint. The supported schemes are http, https, grpc, grpcs (grpc"
+              + " with TLS enabled) and unix (local UNIX sockets). If no scheme is provided Bazel"
+              + " will default to grpcs. Specify grpc://, http:// or unix: scheme to disable TLS."
+              + " An empty value resets the flag to its default. See"
+              + " https://bazel.build/remote/caching")
+  public abstract String getRemoteCache();
+
+  public abstract void setRemoteCache(String value);
+
+  @Option(
+      name = "remote_downloader",
+      oldName = "experimental_remote_downloader",
+      defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "A Remote Asset API endpoint URI, to be used as a remote download proxy. The supported"
+              + " schemes are grpc, grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If"
+              + " no scheme is provided Bazel will default to grpcs. An empty value resets the flag"
+              + " to its default. See: "
+              + "https://github.com/bazelbuild/remote-apis/blob/master/build/bazel/remote/asset/v1/remote_asset.proto")
+  public abstract String getRemoteDownloader();
+
+  public abstract void setRemoteDownloader(String value);
+
+  @Option(
+      name = "remote_downloader_local_fallback",
+      oldName = "experimental_remote_downloader_local_fallback",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Whether to fall back to the local downloader if remote downloader fails.")
+  public abstract boolean getRemoteDownloaderLocalFallback();
+
+  public abstract void setRemoteDownloaderLocalFallback(boolean value);
+
+  @Option(
+      name = "remote_downloader_propagate_credentials",
+      oldName = "experimental_remote_downloader_propagate_credentials",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether to propagate credentials from netrc and credential helper to the remote"
+              + " downloader server. The server implementation needs to support the new"
+              + " `http_header_url:<url-index>:<header-key>` qualifier where the `<url-index>` is a"
+              + " 0-based position of the URL inside the FetchBlobRequest's `uris` field. The"
+              + " URL-specific headers should take precedence over the global headers.")
+  public abstract boolean getRemoteDownloaderPropagateCredentials();
+
+  @Option(
+      name = "remote_header",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.FULLY_REDACTED_IN_LOGS},
+      help =
+          "Specify a header that will be included in requests: --remote_header=Name=Value. "
+              + "Multiple headers can be passed by specifying the flag multiple times. Multiple "
+              + "values for the same name will be converted to a comma-separated list.",
+      allowMultiple = true)
+  public abstract List<Entry<String, String>> getRemoteHeaders();
+
+  public abstract void setRemoteHeaders(List<Entry<String, String>> value);
+
+  @Option(
+      name = "remote_cache_header",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.FULLY_REDACTED_IN_LOGS},
+      help =
+          "Specify a header that will be included in cache requests: "
+              + "--remote_cache_header=Name=Value. "
+              + "Multiple headers can be passed by specifying the flag multiple times. Multiple "
+              + "values for the same name will be converted to a comma-separated list.",
+      allowMultiple = true)
+  public abstract List<Entry<String, String>> getRemoteCacheHeaders();
+
+  public abstract void setRemoteCacheHeaders(List<Entry<String, String>> value);
+
+  @Option(
+      name = "remote_exec_header",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.FULLY_REDACTED_IN_LOGS},
+      help =
+          "Specify a header that will be included in execution requests: "
+              + "--remote_exec_header=Name=Value. "
+              + "Multiple headers can be passed by specifying the flag multiple times. Multiple "
+              + "values for the same name will be converted to a comma-separated list.",
+      allowMultiple = true)
+  public abstract List<Entry<String, String>> getRemoteExecHeaders();
+
+  public abstract void setRemoteExecHeaders(List<Entry<String, String>> value);
+
+  @Option(
+      name = "remote_downloader_header",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.FULLY_REDACTED_IN_LOGS},
+      help =
+          "Specify a header that will be included in remote downloader requests: "
+              + "--remote_downloader_header=Name=Value. "
+              + "Multiple headers can be passed by specifying the flag multiple times. Multiple "
+              + "values for the same name will be converted to a comma-separated list.",
+      allowMultiple = true)
+  public abstract List<Entry<String, String>> getRemoteDownloaderHeaders();
+
+  @Option(
+      name = "remote_timeout",
+      defaultValue = "60s",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = RemoteDurationConverter.class,
+      help =
+          "The maximum amount of time to wait for remote execution and cache calls. For the REST"
+              + " cache, this is both the connect and the read timeout. Following units can be"
+              + " used: Days (d), hours (h), minutes (m), seconds (s), and milliseconds (ms). If"
+              + " the unit is omitted, the value is interpreted as seconds.")
+  public abstract Duration getRemoteTimeout();
+
+  @Option(
+      name = "remote_grpc_service_config",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
+      help =
+          "Path to a gRPC service config JSON file for remote gRPC channels. This replaces the"
+              + " service config Bazel generates from --remote_timeout. Only a subset of the gRPC"
+              + " service config JSON schema is supported: top-level methodConfig entries with"
+              + " name objects containing service and optional method, plus timeout. Other service"
+              + " config fields are rejected and may be supported in the future.")
+  @Nullable
+  public abstract PathFragment getRemoteGrpcServiceConfig();
+
+  @Option(
+      name = "remote_grpc_download_idle_timeout",
+      defaultValue = "60s",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = RemoteDurationConverter.class,
+      help =
+          "The maximum amount of time a remote gRPC download may go without receiving response"
+              + " data before Bazel cancels and retries the download. This applies to ByteStream"
+              + " Read. The value 0 disables the timeout. If the unit is omitted, the value is"
+              + " interpreted as seconds.")
+  public abstract Duration getRemoteGrpcDownloadIdleTimeout();
+
+  @Option(
+      name = "remote_bytestream_uri_prefix",
+      defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The hostname and instance name to be used in bytestream:// URIs that are written into "
+              + "build event streams. This option can be set when builds are performed using a "
+              + "proxy, which causes the values of --remote_executor and --remote_instance_name "
+              + "to no longer correspond to the canonical name of the remote execution service. "
+              + "When not set, it will default to \"${hostname}/${instance_name}\". An empty"
+              + " value resets the flag to its default.")
+  public abstract String getRemoteBytestreamUriPrefix();
+
+  @Option(
+      name = "remote_accept_cached",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Whether to accept remotely cached action results.")
+  public abstract boolean getRemoteAcceptCached();
+
+  public abstract void setRemoteAcceptCached(boolean value);
+
+  @Option(
+      name = "experimental_remote_require_cached",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to true, enforce that all actions that can run remotely are cached, or else "
+              + "fail the build. This is useful to troubleshoot non-determinism issues as it "
+              + "allows checking whether actions that should be cached are actually cached "
+              + "without spuriously injecting new results into the cache.")
+  public abstract boolean getRemoteRequireCached();
+
+  @Option(
+      name = "remote_local_fallback",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether to fall back to standalone local execution strategy if remote execution fails.")
+  public abstract boolean getRemoteLocalFallback();
+
+  public abstract void setRemoteLocalFallback(boolean value);
+
+  @Option(
+      name = "incompatible_remote_local_fallback_for_remote_cache",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Whether --remote_local_fallback applies to --remote_cache.")
+  public abstract boolean getRemoteLocalFallbackForRemoteCache();
+
+  public abstract void setRemoteLocalFallbackForRemoteCache(boolean value);
+
+  @Deprecated
+  @Option(
+      name = "remote_local_fallback_strategy",
+      defaultValue = "local",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
+      help = "Deprecated. See https://github.com/bazelbuild/bazel/issues/7480 for details.")
+  public abstract String getRemoteLocalFallbackStrategy();
+
+  @Option(
+      name = "remote_upload_local_results",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether to upload locally executed action results to the remote cache if the remote "
+              + "cache supports it and the user is authorized to do so.")
+  public abstract boolean getRemoteUploadLocalResults();
+
+  public abstract void setRemoteUploadLocalResults(boolean value);
+
+  @Option(
+      name = "remote_build_event_upload",
+      oldName = "experimental_remote_build_event_upload",
+      defaultValue = "minimal",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = RemoteBuildEventUploadModeConverter.class,
+      help =
+          "If set to 'all', all local outputs referenced by BEP are uploaded to remote cache.\n"
+              + "If set to 'minimal', local outputs referenced by BEP are not uploaded to the"
+              + " remote cache, except for files that are important to the consumers of BEP (e.g."
+              + " test logs and timing profile). bytestream:// scheme is always used for the uri of"
+              + " files even if they are missing from remote cache.\n"
+              + "Default to 'minimal'.")
+  public abstract RemoteBuildEventUploadMode getRemoteBuildEventUploadMode();
+
+  /** Build event upload mode flag parser */
+  public static class RemoteBuildEventUploadModeConverter
+      extends EnumConverter<RemoteBuildEventUploadMode> {
+    public RemoteBuildEventUploadModeConverter() {
+      super(RemoteBuildEventUploadMode.class, "remote build event upload");
+    }
+  }
+
+  @Option(
+      name = "remote_instance_name",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Value to pass as instance_name in the remote execution API.")
+  public abstract String getRemoteInstanceName();
+
+  public abstract void setRemoteInstanceName(String value);
+
+  @Option(
+      name = "remote_retries",
+      oldName = "experimental_remote_retry_max_attempts",
+      defaultValue = "5",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The maximum number of attempts to retry a transient error. "
+              + "If set to 0, retries are disabled.")
+  public abstract int getRemoteMaxRetryAttempts();
+
+  public abstract void setRemoteMaxRetryAttempts(int value);
+
+  @Option(
+      name = "remote_retry_max_delay",
+      defaultValue = "5s",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = RemoteDurationConverter.class,
+      help =
+          "The maximum backoff delay between remote retry attempts. Following units can be used:"
+              + " Days (d), hours (h), minutes (m), seconds (s), and milliseconds (ms). If"
+              + " the unit is omitted, the value is interpreted as seconds.")
+  public abstract Duration getRemoteRetryMaxDelay();
+
+  /** Default disk cache subdirectory under outputUserRoot/cache. */
+  private static final String DEFAULT_DISK_CACHE_LOCATION = "cache/disk";
+
+  /**
+   * Accepts a filesystem path, or boolean-like values selecting the default location ({@code
+   * --disk_cache}, {@code --disk_cache=true}, etc.) or disabling the cache ({@code --nodisk_cache},
+   * {@code --disk_cache=false}, etc.).
+   *
+   * <p>{@link PathFragment#EMPTY_FRAGMENT} means use the default directory under the output user
+   * root; callers should use {@link #getDiskCachePath} to resolve this to a concrete path. {@code
+   * null} means the disk cache is disabled.
+   */
+  public static final class DiskCacheConverter extends Converter.Contextless<PathFragment>
+      implements BooleanStyleOption {
+
+    private static final BooleanConverter BOOLEAN_CONVERTER = new BooleanConverter();
+
+    @Override
+    @Nullable
+    public PathFragment convert(String input) {
+      if (input.isEmpty()) {
+        return null;
+      }
+      try {
+        return BOOLEAN_CONVERTER.convert(input) ? PathFragment.EMPTY_FRAGMENT : null;
+      } catch (OptionsParsingException e) {
+        return new OptionsUtils.PathFragmentConverter().convert(input);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a path, or a boolean to use the default disk cache location";
+    }
+  }
+
+  @Option(
+      name = "disk_cache",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = DiskCacheConverter.class,
+      help =
+          "A path to a directory where Bazel can read and write actions and action outputs. "
+              + "If the directory does not exist, it will be created. "
+              + "Use --disk_cache with no value (or --disk_cache=true) to use a default location "
+              + "under the output user root (<outputUserRoot>/cache/disk). Use --nodisk_cache or "
+              + "--disk_cache=false to disable.")
+  public abstract PathFragment getDiskCache();
+
+  public abstract void setDiskCache(PathFragment value);
+
+  @Option(
+      name = "disk_cache_gc_idle_delay",
+      oldName = "experimental_disk_cache_gc_idle_delay",
+      defaultValue = "5m",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = DurationConverter.class,
+      help =
+          "How long the server must remain idle before a garbage collection of the disk cache"
+              + " occurs. To specify the garbage collection policy, set --disk_cache_gc_max_size"
+              + " and/or --disk_cache_gc_max_age.")
+  public abstract Duration getDiskCacheGcIdleDelay();
+
+  public abstract void setDiskCacheGcIdleDelay(Duration value);
+
+  @Option(
+      name = "disk_cache_gc_max_size",
+      oldName = "experimental_disk_cache_gc_max_size",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = ByteSizeConverter.class,
+      help =
+          "If set to a positive value, the disk cache will be periodically garbage collected to"
+              + " stay under this size. If set in conjunction with --disk_cache_gc_max_age, both"
+              + " criteria are applied. Garbage collection occurrs in the background once the"
+              + " server has become idle, as determined by the --disk_cache_gc_idle_delay flag.")
+  public abstract long getDiskCacheGcMaxSize();
+
+  public abstract void setDiskCacheGcMaxSize(long value);
+
+  @Option(
+      name = "disk_cache_gc_max_age",
+      oldName = "experimental_disk_cache_gc_max_age",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = DurationConverter.class,
+      help =
+          "If set to a positive value, the disk cache will be periodically garbage collected to"
+              + " remove entries older than this age. If set in conjunction with"
+              + " --disk_cache_gc_max_size, both criteria are applied. Garbage collection occurrs"
+              + " in the background once the server has become idle, as determined by the"
+              + " --disk_cache_gc_idle_delay flag.")
+  public abstract Duration getDiskCacheGcMaxAge();
+
+  public abstract void setDiskCacheGcMaxAge(Duration value);
+
+  /** An enum for different levels of checks for concurrent changes. */
+  public enum ConcurrentChangesCheckLevel {
+    OFF,
+    LITE,
+    FULL;
+
+    /** Converts to {@link ConcurrentChangesCheckLevel}. */
+    static class Converter extends BoolOrEnumConverter<ConcurrentChangesCheckLevel> {
+      public Converter() {
+        super(ConcurrentChangesCheckLevel.class, "concurrent changes check level", FULL, OFF);
+      }
+    }
+  }
+
+  @Option(
+      name = "guard_against_concurrent_changes",
+      oldName = "experimental_guard_against_concurrent_changes",
+      defaultValue = "lite",
+      converter = ConcurrentChangesCheckLevel.Converter.class,
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Set this to 'full' to enable checking the ctime of all input files of an action before"
+              + " uploading it to a remote cache. There may be cases where the Linux kernel delays"
+              + " writing of files, which could cause false positives. The default is 'lite', which"
+              + " only checks source files in the main repository. Setting this to 'off' disables"
+              + " all checks. This is not recommended, as the cache may be polluted when a source"
+              + " file is changed while an action that takes it as an input is executing.")
+  public abstract ConcurrentChangesCheckLevel getGuardAgainstConcurrentChanges();
+
+  @Option(
+      name = "remote_grpc_log",
+      oldName = "experimental_remote_grpc_log",
+      defaultValue = "null",
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If specified, a path to a file to log gRPC call related details. This log consists of a"
+              + " sequence of serialized "
+              + "com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry "
+              + "protobufs with each message prefixed by a varint denoting the size of the"
+              + " following serialized protobuf message, as performed by the method "
+              + "LogEntry.writeDelimitedTo(OutputStream).")
+  public abstract PathFragment getRemoteGrpcLog();
+
+  @Option(
+      name = "remote_cache_compression",
+      oldName = "experimental_remote_cache_compression",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If enabled, compress/decompress cache blobs with zstd when their size is at least"
+              + " --experimental_remote_cache_compression_threshold.")
+  public abstract boolean getCacheCompression();
+
+  public abstract void setCacheCompression(boolean value);
+
+  @Option(
+      name = "experimental_remote_cache_compression_threshold",
+      // Based on discussions in #18997, `~100` is the break even point where the compression
+      // actually helps the builds.
+      defaultValue = "100",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The minimum blob size required to compress/decompress with zstd. Ineffectual unless"
+              + " --remote_cache_compression is set.")
+  public abstract int getCacheCompressionThreshold();
+
+  public abstract void setCacheCompressionThreshold(int value);
+
+  @Option(
+      name = "remote_download_outputs",
+      oldName = "experimental_remote_download_outputs",
+      defaultValue = "toplevel",
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      converter = RemoteOutputsStrategyConverter.class,
+      help =
+          "If set to 'minimal' doesn't download any remote build outputs to the local machine, "
+              + "except the ones required by local actions. If set to 'toplevel' behaves like "
+              + "'minimal' except that it also downloads outputs of top level targets to the local "
+              + "machine. Both options can significantly reduce build times if network bandwidth "
+              + "is a bottleneck.")
+  public abstract RemoteOutputsMode getRemoteOutputsMode();
+
+  public abstract void setRemoteOutputsMode(RemoteOutputsMode value);
+
+  /** Outputs strategy flag parser */
+  public static class RemoteOutputsStrategyConverter extends EnumConverter<RemoteOutputsMode> {
+    public RemoteOutputsStrategyConverter() {
+      super(RemoteOutputsMode.class, "download remote outputs");
+    }
+  }
+
+  @Option(
+      name = "remote_download_minimal",
+      oldName = "experimental_remote_download_minimal",
+      defaultValue = "null",
+      expansion = {"--remote_download_outputs=minimal"},
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Does not download any remote build outputs to the local machine. This flag is an alias"
+              + " for --remote_download_outputs=minimal.")
+  public abstract Void getRemoteOutputsMinimal();
+
+  @Option(
+      name = "remote_download_toplevel",
+      oldName = "experimental_remote_download_toplevel",
+      defaultValue = "null",
+      expansion = {"--remote_download_outputs=toplevel"},
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Only downloads remote outputs of top level targets to the local machine. This flag is an"
+              + " alias for --remote_download_outputs=toplevel.")
+  public abstract Void getRemoteOutputsToplevel();
+
+  @Option(
+      name = "remote_download_all",
+      defaultValue = "null",
+      expansion = {"--remote_download_outputs=all"},
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Downloads all remote outputs to the local machine. This flag is an alias for"
+              + " --remote_download_outputs=all.")
+  public abstract Void getRemoteOutputsAll();
+
+  @Option(
+      name = "remote_result_cache_priority",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The relative priority of remote actions to be stored in remote cache. "
+              + "The semantics of the particular priority values are server-dependent.")
+  public abstract int getRemoteResultCachePriority();
+
+  public abstract void setRemoteResultCachePriority(int value);
+
+  @Option(
+      name = "remote_execution_priority",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The relative priority of actions to be executed remotely. "
+              + "The semantics of the particular priority values are server-dependent.")
+  public abstract int getRemoteExecutionPriority();
+
+  public abstract void setRemoteExecutionPriority(int value);
+
+  @Option(
+      name = "remote_default_exec_properties",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      converter = AssignmentConverter.class,
+      allowMultiple = true,
+      help =
+          "Set the default exec properties to be used as the remote execution platform "
+              + "if an execution platform does not already set exec_properties.")
+  public abstract List<Map.Entry<String, String>> getRemoteDefaultExecPropertiesField();
+
+  public abstract void setRemoteDefaultExecPropertiesField(List<Map.Entry<String, String>> value);
+
+  @Option(
+      name = "remote_verify_downloads",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to true, Bazel will compute the hash sum of all remote downloads and "
+              + " discard the remotely cached values if they don't match the expected value.")
+  public abstract boolean getRemoteVerifyDownloads();
+
+  public abstract void setRemoteVerifyDownloads(boolean value);
+
+  @Option(
+      name = "remote_download_symlink_template",
+      defaultValue = "",
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Instead of downloading remote build outputs to the local machine, create symbolic "
+              + "links. The target of the symbolic links can be specified in the form of a "
+              + "template string. This template string may contain {hash} and {size_bytes} that "
+              + "expand to the hash of the object and the size in bytes, respectively. "
+              + "These symbolic links may, for example, point to a FUSE file system "
+              + "that loads objects from the CAS on demand.")
+  public abstract String getRemoteDownloadSymlinkTemplate();
+
+  @Option(
+      name = "bep_maximum_open_remote_upload_files",
+      defaultValue = "-1",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Maximum number of open files allowed during BEP artifact upload.")
+  public abstract int getMaximumOpenFiles();
+
+  @Option(
+      name = "remote_print_execution_messages",
+      defaultValue = "failure",
+      converter = ExecutionMessagePrintMode.Converter.class,
+      category = "remote",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Choose when to print remote execution messages. Valid values are `failure`, "
+              + "to print only on failures, `success` to print only on successes and "
+              + "`all` to print always.")
+  public abstract ExecutionMessagePrintMode getRemotePrintExecutionMessages();
+
+  @Option(
+      name = "experimental_remote_mark_tool_inputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to true, Bazel will mark inputs as tool inputs for the remote executor. This "
+              + "can be used to implement remote persistent workers.")
+  public abstract boolean getMarkToolInputs();
+
+  public abstract void setMarkToolInputs(boolean value);
+
+  @Option(
+      name = "experimental_remote_discard_merkle_trees",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to true, discard in-memory copies of the input root's Merkle tree and associated "
+              + "input mappings during calls to GetActionResult() and Execute(). This reduces "
+              + "memory usage significantly, but does require Bazel to recompute them upon remote "
+              + "cache misses and retries.")
+  public abstract boolean getRemoteDiscardMerkleTrees();
+
+  public abstract void setRemoteDiscardMerkleTrees(boolean value);
+
+  @Option(
+      name = "experimental_circuit_breaker_strategy",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      defaultValue = "null",
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = CircuitBreakerStrategy.Converter.class,
+      help =
+          "Specifies the strategy for the circuit breaker to use. Available strategies are"
+              + " \"failure\". On invalid value for the option the behavior same as the option is"
+              + " not set.")
+  public abstract CircuitBreakerStrategy getCircuitBreakerStrategy();
+
+  public abstract void setCircuitBreakerStrategy(CircuitBreakerStrategy value);
+
+  @Option(
+      name = "experimental_remote_failure_rate_threshold",
+      defaultValue = "10",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = Converters.PercentageConverter.class,
+      help =
+          "Sets the allowed number of failure rate in percentage for a specific time window after"
+              + " which it stops calling to the remote cache/executor. By default the value is 10."
+              + " Setting this to 0 means no limitation.")
+  public abstract int getRemoteFailureRateThreshold();
+
+  @Option(
+      name = "experimental_remote_failure_window_interval",
+      defaultValue = "60s",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = RemoteDurationConverter.class,
+      help =
+          "The interval in which the failure rate of the remote requests are computed. On zero or"
+              + " negative value the failure duration is computed the whole duration of the"
+              + " execution.Following units can be used: Days (d), hours (h), minutes (m), seconds"
+              + " (s), and milliseconds (ms). If the unit is omitted, the value is interpreted as"
+              + " seconds.")
+  public abstract Duration getRemoteFailureWindowInterval();
+
+  @Option(
+      name = "experimental_remote_min_call_count_to_compute_failure_rate",
+      defaultValue = "100",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "The minimum number of remote calls that must be observed within the failure window"
+              + " before the circuit breaker computes the failure rate. The rate is computed (and"
+              + " the breaker may trip) once either this many total calls or"
+              + " --experimental_remote_min_fail_count_to_compute_failure_rate failures are"
+              + " observed. Only takes effect with"
+              + " --experimental_circuit_breaker_strategy=failure.")
+  public abstract int getRemoteMinCallCountToComputeFailureRate();
+
+  @Option(
+      name = "experimental_remote_min_fail_count_to_compute_failure_rate",
+      defaultValue = "12",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "The minimum number of failed remote calls that must be observed within the failure"
+              + " window before the circuit breaker computes the failure rate. The rate is computed"
+              + " (and the breaker may trip) once either this many failures or"
+              + " --experimental_remote_min_call_count_to_compute_failure_rate total calls are"
+              + " observed. Only takes effect with"
+              + " --experimental_circuit_breaker_strategy=failure.")
+  public abstract int getRemoteMinFailCountToComputeFailureRate();
+
+  @Option(
+      name = "experimental_remote_circuit_breaker_recovery_delay",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = RemoteDurationConverter.class,
+      help =
+          "The delay after the failure circuit breaker trips before it allows a single trial remote"
+              + " call to probe whether the remote cache/executor has recovered. If the trial"
+              + " succeeds the breaker closes and normal calls resume; otherwise it re-opens and"
+              + " waits again before the next trial. A zero or negative value (the default)"
+              + " disables recovery, so a tripped breaker stays open for the remainder of the"
+              + " build. Following units can be used: Days (d), hours (h), minutes (m), seconds"
+              + " (s), and milliseconds (ms). If the unit is omitted, the value is interpreted as"
+              + " seconds. Only takes effect with --experimental_circuit_breaker_strategy=failure.")
+  public abstract Duration getRemoteCircuitBreakerRecoveryDelay();
+
+  @Option(
+      name = "experimental_remote_cache_lease_extension",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to true, Bazel will extend the lease for outputs of remote actions during the"
+              + " build by sending `FindMissingBlobs` calls periodically to remote cache. The"
+              + " frequency is based on the value of `--experimental_remote_cache_ttl`.")
+  public abstract boolean getRemoteCacheLeaseExtension();
+
+  @Option(
+      name = "experimental_remote_scrubbing_config",
+      converter = ScrubberConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Enables remote cache key scrubbing with the supplied configuration file, which must be a"
+              + " protocol buffer in text format (see"
+              + " src/main/protobuf/remote_scrubbing.proto).\n\n"
+              + "This feature is intended to facilitate sharing a remote/disk cache between actions"
+              + " executing on different platforms but targeting the same platform. It should be"
+              + " used with extreme care, as improper settings may cause accidental sharing of"
+              + " cache entries and result in incorrect builds.\n\n"
+              + "Scrubbing does not affect how an action is executed, only how its remote/disk"
+              + " cache key is computed for the purpose of retrieving or storing an action result."
+              + " Scrubbed actions are incompatible with remote execution, and will always be"
+              + " executed locally instead.\n\n"
+              + "Modifying the scrubbing configuration does not invalidate outputs present in the"
+              + " local filesystem or internal caches; a clean build is required to reexecute"
+              + " affected actions.\n\n"
+              + "In order to successfully use this feature, you likely want to set a custom"
+              + " --host_platform (to normalize output prefixes). An empty value disables"
+              + " scrubbing.")
+  public abstract Scrubber getScrubber();
+
+  public abstract void setScrubber(Scrubber value);
+
+  @Option(
+      name = "experimental_remote_cache_chunking",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If enabled, large blobs are split into content-defined chunks and "
+              + "uploaded/downloaded in chunks, enabling deduplication across blobs. The server "
+              + "must advertise SplitBlob/SpliceBlob RPCs and the parameters of the chunking "
+              + "function selected by --experimental_remote_cache_chunking_function in its "
+              + "capabilities.")
+  public abstract boolean getExperimentalRemoteCacheChunking();
+
+  @Option(
+      name = "experimental_remote_cache_chunking_function",
+      defaultValue = "auto",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = ChunkingFunctionConverter.class,
+      help =
+          "The content-defined chunking function used to split large blobs when "
+              + "--experimental_remote_cache_chunking is enabled. If set to 'auto' (the "
+              + "default), the function is negotiated with the server: FastCDC 2020 is used if "
+              + "the server advertises it, otherwise RepMaxCDC. Set to 'fast_cdc_2020' or "
+              + "'rep_max_cdc' to require a specific function, in which case the server must "
+              + "advertise the parameters of that function in its capabilities. All clients "
+              + "sharing a cache should use the same function to maximize chunk reuse.")
+  public abstract ChunkingFunctionValue getExperimentalRemoteCacheChunkingFunction();
+
+  /**
+   * Returns the chunking function to use for chunked cache transfers, or {@code null} if chunking
+   * is disabled.
+   */
+  @Nullable
+  public ChunkingFunctionValue getEffectiveChunkingFunction() {
+    return getExperimentalRemoteCacheChunking()
+        ? getExperimentalRemoteCacheChunkingFunction()
+        : null;
+  }
+
+  /** Values for --experimental_remote_cache_chunking_function. */
+  public enum ChunkingFunctionValue {
+    /** Negotiate with the server: FastCDC 2020 if advertised, otherwise RepMaxCDC. */
+    AUTO,
+    FAST_CDC_2020,
+    REP_MAX_CDC
+  }
+
+  /** Chunking function flag parser. */
+  public static class ChunkingFunctionConverter extends EnumConverter<ChunkingFunctionValue> {
+    public ChunkingFunctionConverter() {
+      super(ChunkingFunctionValue.class, "chunking function");
+    }
+  }
+
+  @Option(
+      name = "experimental_throttle_remote_action_building",
+      defaultValue = "true",
+      converter = BooleanConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Whether to throttle the building of remote action to avoid OOM. Defaults to true.\n\n"
+              + "This is a temporary flag to allow users switch off the behaviour. Once Bazel is"
+              + " smart enough about the RAM/CPU usages, this flag will be removed.")
+  public abstract boolean getThrottleRemoteActionBuilding();
+
+  @Option(
+      name = "experimental_remote_output_service",
+      defaultValue = "null",
+      converter = EmptyToNullStringConverter.class,
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "HOST or HOST:PORT of a remote output service endpoint. The supported schemes are grpc, "
+              + "grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If no scheme is "
+              + "provided Bazel will default to grpcs. Specify grpc:// or unix: scheme to "
+              + "disable TLS. An empty value resets the flag to its default.")
+  public abstract String getRemoteOutputService();
+
+  public abstract void setRemoteOutputService(String value);
+
+  @Option(
+      name = "experimental_remote_output_service_output_path_prefix",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The path under which the contents of output directories managed by the"
+              + " --experimental_remote_output_service are placed. The actual output directory used"
+              + " by a build will be a descendant of this path and determined by the output"
+              + " service.")
+  public abstract String getRemoteOutputServiceOutputPathPrefix();
+
+  private static final class ScrubberConverter extends Converter.Contextless<Scrubber> {
+
+    @Override
+    @Nullable
+    public Scrubber convert(String path) throws OptionsParsingException {
+      if (path.isEmpty()) {
+        return null;
+      }
+      try {
+        return Scrubber.parse(path);
+      } catch (Scrubber.ConfigParseException e) {
+        throw new OptionsParsingException("Failed to parse ScrubbingConfig: " + e.getMessage(), e);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "Converts to a Scrubber";
+    }
+  }
+
+  // The below options are not configurable by users, only tests.
+  // This is part of the effort to reduce the overall number of flags.
+
+  /**
+   * Only used for tests. Spaces in the option name make this flag impossible to pass on the command
+   * line.
+   */
+  @Option(
+      name = "max outbound message size",
+      defaultValue = "1048576",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INTERNAL},
+      help = "The maximum size of an outbound message sent via a gRPC channel.")
+  public abstract int getMaxOutboundMessageSize();
+
+  public abstract void setMaxOutboundMessageSize(int value);
+
+  /** Returns {@code true} if remote cache or disk cache is enabled. */
+  public boolean isRemoteCacheEnabled() {
+    return !Strings.isNullOrEmpty(getRemoteCache())
+        || isDiskCacheEnabled()
+        || isRemoteExecutionEnabled();
+  }
+
+  /** Returns {@code true} if disk cache is enabled. */
+  public boolean isDiskCacheEnabled() {
+    return getDiskCache() != null;
+  }
+
+  /**
+   * Returns the resolved disk cache path, or {@code null} if the disk cache is disabled.
+   *
+   * <p>When the user passes {@code --disk_cache} without an explicit path, the default location
+   * under the given {@code outputUserRoot} is used.
+   */
+  @Nullable
+  public PathFragment getDiskCachePath(Path outputUserRoot) {
+    if (getDiskCache() == null) {
+      return null;
+    }
+    return getDiskCache().isEmpty()
+        ? outputUserRoot.getRelative(DEFAULT_DISK_CACHE_LOCATION).asFragment()
+        : getDiskCache();
+  }
+
+  /** Returns {@code true} if remote execution is enabled. */
+  public boolean isRemoteExecutionEnabled() {
+    return !Strings.isNullOrEmpty(getRemoteExecutor());
+  }
+
+  /**
+   * Returns the default exec properties specified by the user or an empty map if nothing was
+   * specified. Use this method instead of directly accessing the field.
+   */
+  public ImmutableSortedMap<String, String> getRemoteDefaultExecProperties() {
+    if (getRemoteDefaultExecPropertiesField() == null) {
+      return ImmutableSortedMap.of();
+    }
+    // Don't use `ImmutableSortedMap.copyOf` directly because it crashes on duplicate keys.
+    var map = new HashMap<String, String>();
+    for (Map.Entry<String, String> entry : getRemoteDefaultExecPropertiesField()) {
+      map.put(entry.getKey(), entry.getValue());
+    }
+    return ImmutableSortedMap.copyOf(map);
+  }
+
+  /** An enum for specifying different modes for printing remote execution messages. */
+  public enum ExecutionMessagePrintMode {
+    FAILURE, // Print execution messages only on failure
+    SUCCESS, // Print execution messages only on success
+    ALL; // Print execution messages always
+
+    /** Converts to {@link ExecutionMessagePrintMode}. */
+    public static class Converter extends EnumConverter<ExecutionMessagePrintMode> {
+      public Converter() {
+        super(ExecutionMessagePrintMode.class, "execution message print mode");
+      }
+    }
+
+    public boolean shouldPrintMessages(boolean success) {
+      return ((!success && this == ExecutionMessagePrintMode.FAILURE)
+          || (success && this == ExecutionMessagePrintMode.SUCCESS)
+          || this == ExecutionMessagePrintMode.ALL);
+    }
+  }
+
+  /** An enum for specifying different strategy for circuit breaker. */
+  public enum CircuitBreakerStrategy {
+    FAILURE;
+
+    /** Converts to {@link CircuitBreakerStrategy}. */
+    public static class Converter extends EnumConverter<CircuitBreakerStrategy> {
+      public Converter() {
+        super(CircuitBreakerStrategy.class, "CircuitBreaker strategy");
+      }
+    }
+  }
+}

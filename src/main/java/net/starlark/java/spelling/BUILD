@@ -1,0 +1,24 @@
+# The spelling checker used by the Starlark interpreter.
+
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(default_applicable_licenses = ["//:license"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/main/java/net/starlark/java:__pkg__"],
+)
+
+java_library(
+    name = "spelling",
+    srcs = ["SpellChecker.java"],
+    # The SpellChecker is available to Starlark and Bazel, but not the world.
+    visibility = [
+        "//src/main/java/net/starlark/java:bazel",
+        "//src/main/java/net/starlark/java:starlark",
+    ],
+    deps = [
+        "//third_party/java/jsr305_annotations",
+    ],
+)

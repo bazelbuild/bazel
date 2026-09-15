@@ -1,0 +1,164 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+)
+
+java_library(
+    name = "sleep_prevention_module",
+    srcs = ["SleepPreventionModule.java"],
+    deps = [
+        ":platform_native_deps_service",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//third_party/java/guava:base",
+    ],
+)
+
+java_library(
+    name = "system_suspension_module",
+    srcs = [
+        "SystemSuspensionEvent.java",
+        "SystemSuspensionModule.java",
+    ],
+    deps = [
+        ":platform_native_deps_service",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "system_thermal_module",
+    srcs = [
+        "SystemThermalEvent.java",
+        "SystemThermalModule.java",
+    ],
+    deps = [
+        ":platform_native_deps_service",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "system_disk_space_module",
+    srcs = [
+        "SystemDiskSpaceEvent.java",
+        "SystemDiskSpaceModule.java",
+    ],
+    deps = [
+        ":platform_native_deps_service",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "system_load_advisory_module",
+    srcs = [
+        "SystemLoadAdvisoryEvent.java",
+        "SystemLoadAdvisoryModule.java",
+    ],
+    deps = [
+        ":platform_native_deps_service",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "system_memory_pressure_module",
+    srcs = [
+        "SystemMemoryPressureModule.java",
+    ],
+    deps = [
+        ":platform_native_deps_service",
+        ":system_memory_pressure_monitor",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//third_party/java/guava:base",
+    ],
+)
+
+java_library(
+    name = "system_memory_pressure_monitor",
+    srcs = [
+        "SystemMemoryPressureEvent.java",
+        "SystemMemoryPressureMonitor.java",
+    ],
+    deps = [
+        ":platform_native_deps_service",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party/java/flogger",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "system_cpu_speed_module",
+    srcs = [
+        "SystemCPUSpeedEvent.java",
+        "SystemCPUSpeedModule.java",
+    ],
+    deps = [
+        ":platform_native_deps_service",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+# IJ
+java_library(
+    name = "platform_native_deps_service",
+    srcs = [
+        "PlatformNativeDepsService.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+        "//third_party/java/error_prone:annotations",
+    ],
+)
+
+# SC-only
+java_library(
+    name = "platform_native_deps_service_impl",
+    srcs = [
+        "PlatformNativeDepsServiceImpl.java",
+    ],
+    deps = [
+        ":platform_native_deps_service",
+        "//src/main/java/com/google/devtools/build/lib/jni",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
+    ],
+)

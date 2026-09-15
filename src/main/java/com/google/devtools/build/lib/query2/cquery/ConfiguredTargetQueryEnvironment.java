@@ -1,0 +1,475 @@
+// Copyright 2017 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.query2.cquery;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.AsyncFunction;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.analysis.AspectValue;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.LabelPrinter;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.PackageManager;
+import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.query2.ConfigFunction;
+import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
+import com.google.devtools.build.lib.query2.SkyQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
+import com.google.devtools.build.lib.query2.cquery.ProtoOutputFormatterCallback.OutputType;
+import com.google.devtools.build.lib.query2.engine.Callback;
+import com.google.devtools.build.lib.query2.engine.KeyExtractor;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKeyExtractorBackedSetImpl;
+import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
+import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.WalkableGraph;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Supplier;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
+
+/**
+ * {@link QueryEnvironment} that runs queries over the configured target (analysis) graph.
+ *
+ * <p>Aspects are partially supported. Their dependencies appear as implicit dependencies on the
+ * targets they're connected to. When using the --experimental_explicit_aspects flag, the aspects
+ * themselves are visible as query nodes. See https://github.com/bazelbuild/bazel/issues/16310 for
+ * details.
+ */
+public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironment<CqueryNode> {
+  /** Common query functions and cquery specific functions. */
+  public static final ImmutableList<QueryFunction> FUNCTIONS = populateFunctions();
+
+  /** Cquery specific functions. */
+  public static final ImmutableList<QueryFunction> CQUERY_FUNCTIONS = getCqueryFunctions();
+
+  private CqueryOptions cqueryOptions;
+
+  private final TopLevelArtifactContext topLevelArtifactContext;
+
+  private final KeyExtractor<CqueryNode, ActionLookupKey> configuredTargetKeyExtractor;
+
+  private final ConfiguredTargetAccessor accessor;
+
+  @Override
+  protected KeyExtractor<CqueryNode, ActionLookupKey> getConfiguredTargetKeyExtractor() {
+    return configuredTargetKeyExtractor;
+  }
+
+  public ConfiguredTargetQueryEnvironment(
+      boolean keepGoing,
+      ExtendedEventHandler eventHandler,
+      Iterable<QueryFunction> extraFunctions,
+      TopLevelConfigurations topLevelConfigurations,
+      ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
+      ImmutableMap<AspectKey, ConfiguredAspect> topLevelAspects,
+      TargetPattern.Parser mainRepoTargetParser,
+      PathPackageLocator pkgPath,
+      Supplier<WalkableGraph> walkableGraphSupplier,
+      Set<Setting> settings,
+      TopLevelArtifactContext topLevelArtifactContext,
+      LabelPrinter labelPrinter) {
+    super(
+        keepGoing,
+        eventHandler,
+        extraFunctions,
+        topLevelConfigurations,
+        transitiveConfigurations,
+        mainRepoTargetParser,
+        pkgPath,
+        walkableGraphSupplier,
+        settings,
+        labelPrinter);
+    this.accessor =
+        new ConfiguredTargetAccessor(walkableGraphSupplier.get(), this, topLevelAspects);
+    this.configuredTargetKeyExtractor = CqueryNode::getLookupKey;
+    this.topLevelArtifactContext = topLevelArtifactContext;
+  }
+
+  public ConfiguredTargetQueryEnvironment(
+      boolean keepGoing,
+      ExtendedEventHandler eventHandler,
+      Iterable<QueryFunction> extraFunctions,
+      TopLevelConfigurations topLevelConfigurations,
+      ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
+      ImmutableMap<AspectKey, ConfiguredAspect> topLevelAspects,
+      TargetPattern.Parser mainRepoTargetParser,
+      PathPackageLocator pkgPath,
+      Supplier<WalkableGraph> walkableGraphSupplier,
+      CqueryOptions cqueryOptions,
+      TopLevelArtifactContext topLevelArtifactContext,
+      LabelPrinter labelPrinter) {
+    this(
+        keepGoing,
+        eventHandler,
+        extraFunctions,
+        topLevelConfigurations,
+        transitiveConfigurations,
+        topLevelAspects,
+        mainRepoTargetParser,
+        pkgPath,
+        walkableGraphSupplier,
+        cqueryOptions.toSettings(),
+        topLevelArtifactContext,
+        labelPrinter);
+    this.cqueryOptions = cqueryOptions;
+  }
+
+  private static ImmutableList<QueryFunction> populateFunctions() {
+    return new ImmutableList.Builder<QueryFunction>()
+        .addAll(QueryEnvironment.DEFAULT_QUERY_FUNCTIONS)
+        .addAll(getCqueryFunctions())
+        .build();
+  }
+
+  private static ImmutableList<QueryFunction> getCqueryFunctions() {
+    return ImmutableList.of(new ConfigFunction());
+  }
+
+  @Override
+  public ImmutableList<NamedThreadSafeOutputFormatterCallback<CqueryNode>>
+      getDefaultOutputFormatters(
+          TargetAccessor<CqueryNode> accessor,
+          ExtendedEventHandler eventHandler,
+          OutputStream out,
+          SkyframeExecutor skyframeExecutor,
+          RuleClassProvider ruleClassProvider,
+          PackageManager packageManager,
+          StarlarkSemantics starlarkSemantics)
+          throws QueryException, InterruptedException {
+    AspectResolver aspectResolver =
+        cqueryOptions.getAspectDeps().createResolver(packageManager, eventHandler);
+    return ImmutableList.of(
+        new LabelAndConfigurationOutputFormatterCallback(
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, true, getLabelPrinter()),
+        new LabelAndConfigurationOutputFormatterCallback(
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, false, getLabelPrinter()),
+        new TransitionsOutputFormatterCallback(
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            ruleClassProvider,
+            getLabelPrinter()),
+        new ProtoOutputFormatterCallback(
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            aspectResolver,
+            OutputType.BINARY,
+            getLabelPrinter()),
+        new ProtoOutputFormatterCallback(
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            aspectResolver,
+            OutputType.DELIMITED_BINARY,
+            labelPrinter),
+        new ProtoOutputFormatterCallback(
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            aspectResolver,
+            OutputType.TEXT,
+            getLabelPrinter()),
+        new ProtoOutputFormatterCallback(
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            aspectResolver,
+            OutputType.JSON,
+            getLabelPrinter()),
+        new BuildOutputFormatterCallback(
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, getLabelPrinter()),
+        new GraphOutputFormatterCallback(
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            kct -> getFwdDeps(ImmutableList.of(kct)),
+            getLabelPrinter()),
+        new StarlarkOutputFormatterCallback(
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, starlarkSemantics),
+        new FilesOutputFormatterCallback(
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, topLevelArtifactContext));
+  }
+
+  @Override
+  public String getOutputFormat() {
+    return cqueryOptions.getOutputFormat();
+  }
+
+  @Override
+  public ConfiguredTargetAccessor getAccessor() {
+    return accessor;
+  }
+
+  @Override
+  public QueryTaskFuture<Void> getTargetsMatchingPattern(
+      QueryExpression owner, String pattern, Callback<CqueryNode> callback) {
+    TargetPattern patternToEval;
+    try {
+      patternToEval = getPattern(pattern);
+    } catch (TargetParsingException tpe) {
+      try {
+        handleError(owner, tpe.getMessage(), tpe.getDetailedExitCode());
+      } catch (QueryException qe) {
+        return immediateFailedFuture(qe);
+      }
+      return immediateSuccessfulFuture(null);
+    }
+    AsyncFunction<TargetParsingException, Void> reportBuildFileErrorAsyncFunction =
+        exn -> {
+          handleError(owner, exn.getMessage(), exn.getDetailedExitCode());
+          return Futures.immediateFuture(null);
+        };
+
+    return QueryTaskFutureImpl.ofDelegate(
+        Futures.catchingAsync(
+            patternToEval.evalAdaptedForAsync(
+                resolver,
+                getIgnoredSubdirectories(patternToEval.getRepository()),
+                /* excludedSubdirectories= */ ImmutableSet.of(),
+                (Callback<Target>)
+                    partialResult -> {
+                      List<CqueryNode> transformedResult = new ArrayList<>();
+                      for (Target target : partialResult) {
+                        transformedResult.addAll(getConfiguredTargetsForLabel(target.getLabel()));
+                      }
+                      callback.process(transformedResult);
+                    },
+                QueryException.class),
+            TargetParsingException.class,
+            reportBuildFileErrorAsyncFunction,
+            MoreExecutors.directExecutor()));
+  }
+
+  /**
+   * Returns the {@link CqueryNode} for the given label and configuration if it exists, else null.
+   */
+  @Nullable
+  @Override
+  protected CqueryNode getConfiguredTarget(
+      Label label, @Nullable BuildConfigurationValue configuration) throws InterruptedException {
+    BuildConfigurationKey configurationKey = configuration == null ? null : configuration.getKey();
+    CqueryNode target =
+        getValueFromKey(
+            ConfiguredTargetKey.builder()
+                .setLabel(label)
+                .setConfigurationKey(configurationKey)
+                .build());
+    // The configurations might not match if the target's configuration changed due to a transition
+    // or trimming. Filters such targets.
+    if (target == null || !Objects.equals(configurationKey, target.getConfigurationKey())) {
+      return null;
+    }
+    return target;
+  }
+
+  /**
+   * Returns the {@link CqueryNode} for the given key if its value is a supported instance of
+   * CqueryNode. This function can only receive keys of node types that the calling logic can
+   * support. For example, if the caller does not support handling of AspectKey types of
+   * CqueryNodes, then this function should not be called with an AspectKey key.
+   */
+  @Override
+  @Nullable
+  protected CqueryNode getValueFromKey(SkyKey key) throws InterruptedException {
+    SkyValue value = getConfiguredTargetValue(key);
+    return switch (value) {
+      case ConfiguredTargetValue configuredTargetValue ->
+          configuredTargetValue.getConfiguredTarget();
+      // The value is intentionally ignored as the key implements CqueryNode.
+      case AspectValue ignored when key instanceof AspectKey aspectKey -> aspectKey;
+      case null -> null;
+      default -> throw new IllegalStateException("unknown value type for CqueryNode");
+    };
+  }
+
+  /**
+   * Returns all configured targets in Skyframe with the given label.
+   *
+   * <p>If there are no matches, returns an empty list.
+   */
+  private ImmutableList<CqueryNode> getConfiguredTargetsForLabel(Label label)
+      throws InterruptedException {
+    var ans = ImmutableList.<CqueryNode>builder();
+    HashSet<ConfiguredTargetKey> extraConfiguredTargetKeys = null;
+    for (var configurationValue : transitiveConfigurations.values()) {
+      var configurationKey = configurationValue.getKey();
+      var target =
+          getValueFromKey(
+              ConfiguredTargetKey.builder()
+                  .setLabel(label)
+                  .setConfigurationKey(configurationKey)
+                  .build());
+      if (target == null) {
+        continue;
+      }
+      // The configurations might not match if the target's configuration changed due to a
+      // transition or trimming. Filter such targets, with one exception: if the target is subject
+      // to a non-idempotent rule transition, we have to keep it once if the keys requested above,
+      // which never have shouldApplyRuleTransition set to false, don't cover it. This case is rare,
+      // so we optimize for it not being hit.
+      if (!Objects.equals(configurationKey, target.getConfigurationKey())) {
+        var targetKey = ConfiguredTargetKey.fromConfiguredTarget(target);
+        if (targetKey.shouldApplyRuleTransition()
+            || getValueFromKey(
+                    ConfiguredTargetKey.builder()
+                        .setLabel(label)
+                        .setConfigurationKey(targetKey.getConfigurationKey())
+                        .build())
+                != null) {
+          continue;
+        }
+        if (extraConfiguredTargetKeys == null) {
+          extraConfiguredTargetKeys = new HashSet<>();
+        }
+        if (!extraConfiguredTargetKeys.add(targetKey)) {
+          continue;
+        }
+      }
+      ans.add(target);
+    }
+    var nullConfiguredTarget = getNullConfiguredTarget(label);
+    if (nullConfiguredTarget != null) {
+      ans.add(nullConfiguredTarget);
+    }
+    return ans.build();
+  }
+
+  @Override
+  protected String getQueryName() {
+    return "cquery";
+  }
+
+  /**
+   * This method has to exist because {@link AliasConfiguredTarget#getLabel()} returns the label of
+   * the "actual" target instead of the alias target. Grr.
+   */
+  @Override
+  public Label getCorrectLabel(CqueryNode target) {
+    // Dereference any aliases that might be present.
+    return target.getOriginalLabel();
+  }
+
+  @Nullable
+  @Override
+  protected CqueryNode getTargetConfiguredTarget(Label label) throws InterruptedException {
+    if (topLevelConfigurations.isTopLevelTarget(label)) {
+      return getConfiguredTarget(
+          label, topLevelConfigurations.getConfigurationForTopLevelTarget(label));
+    } else {
+      CqueryNode toReturn;
+      for (BuildConfigurationValue configuration : topLevelConfigurations.getConfigurations()) {
+        toReturn = getConfiguredTarget(label, configuration);
+        if (toReturn != null) {
+          return toReturn;
+        }
+      }
+      return null;
+    }
+  }
+
+  @Nullable
+  @Override
+  protected CqueryNode getNullConfiguredTarget(Label label) throws InterruptedException {
+    return getConfiguredTarget(label, null);
+  }
+
+  @Nullable
+  @Override
+  protected RuleConfiguredTarget getRuleConfiguredTarget(CqueryNode configuredTarget) {
+    if (configuredTarget instanceof RuleConfiguredTarget ruleConfiguredTarget) {
+      return ruleConfiguredTarget;
+    }
+    return null;
+  }
+
+  @Nullable
+  @Override
+  protected RuleConfiguredTarget getOwningRuleforOutputConfiguredTarget(
+      CqueryNode configuredTarget) {
+    if (configuredTarget instanceof OutputFileConfiguredTarget outputFileTarget) {
+      return outputFileTarget.getGeneratingRule();
+    }
+    return null;
+  }
+
+  @Override
+  protected boolean isAliasConfiguredTarget(CqueryNode configuredTarget) {
+    return configuredTarget instanceof AliasConfiguredTarget;
+  }
+
+  @Nullable
+  @Override
+  protected BuildConfigurationValue getConfiguration(CqueryNode target) {
+    try {
+      return target.getConfigurationKey() == null
+          ? null
+          : (BuildConfigurationValue) graph.getValue(target.getConfigurationKey());
+    } catch (InterruptedException e) {
+      throw new IllegalStateException("Unexpected interruption during configured target query", e);
+    }
+  }
+
+  @Override
+  protected ActionLookupKey getConfiguredTargetKey(CqueryNode target) {
+    return target.getLookupKey();
+  }
+
+  @Override
+  public ThreadSafeMutableSet<CqueryNode> createThreadSafeMutableSet() {
+    return new ThreadSafeMutableKeyExtractorBackedSetImpl<>(
+        configuredTargetKeyExtractor, CqueryNode.class, SkyQueryEnvironment.DEFAULT_THREAD_COUNT);
+  }
+}

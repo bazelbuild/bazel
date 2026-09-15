@@ -1,0 +1,23 @@
+
+Usage: %{product} info <options> [keys]
+
+Displays information about the state of the %{product} process in the
+form of several "key: value" pairs.  This includes the locations of
+several output directories.  Because some of the
+values are affected by the options passed to '%{product} build', the
+info command accepts the same set of options.
+
+If arguments are specified, each should be one of the keys (e.g. "%{product}-bin").
+In this case only the value(s) for those keys will be printed.
+
+If --show_make_env is specified, the output includes the set of key/value
+pairs in the "Make" environment, accessible within BUILD files.
+
+The full list of keys and the meaning of their values is documented in
+the %{product} User Manual, and can be programmatically obtained with
+'%{product} help info-keys'.
+
+See also '%{product} version' for more detailed %{product} version
+information.
+
+%{options}

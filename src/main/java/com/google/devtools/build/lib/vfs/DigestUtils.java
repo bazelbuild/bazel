@@ -1,0 +1,194 @@
+// Copyright 2014 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.vfs;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.stats.CacheStats;
+import com.google.common.base.Preconditions;
+import java.io.IOException;
+import javax.annotation.Nullable;
+
+/**
+ * Utility class for getting digests of files.
+ *
+ * <p>This class implements an optional cache of file digests when the computation of the digests is
+ * costly (i.e. when {@link Path#getFastDigest()} is not available). The cache can be enabled via
+ * the {@link #configureCache(long)} function, but note that enabling this cache might have an
+ * impact on correctness because not all changes to files can be purely detected from their
+ * metadata.
+ */
+public class DigestUtils {
+  // Typical size for a digest byte array.
+  public static final int ESTIMATED_SIZE = 32;
+
+  /**
+   * Keys used to cache the values of the digests for files where we don't have fast digests.
+   *
+   * <p>The cache keys are derived from many properties of the file metadata in an attempt to be
+   * able to detect most file changes.
+   */
+  private static record CacheKey(
+      PathFragment path, long nodeId, long changeTime, long lastModifiedTime, long size) {
+    /**
+     * Constructs a new cache key.
+     *
+     * @param path path to the file
+     * @param status file status data from which to obtain the cache key properties
+     * @throws IOException if reading the file status data fails
+     */
+    private CacheKey(Path path, FileStatus status) throws IOException {
+      this(
+          path.asFragment(),
+          status.getNodeId(),
+          status.getLastChangeTime(),
+          status.getLastModifiedTime(),
+          status.getSize());
+    }
+  }
+
+  /**
+   * Global cache of files to their digests.
+   *
+   * <p>This is null when the cache is disabled.
+   *
+   * <p>Note that we do not use a {@link com.github.benmanes.caffeine.cache.LoadingCache} because
+   * our keys represent the paths as strings, not as {@link Path} instances. As a result, the
+   * loading function cannot actually compute the digests of the files so we have to handle this
+   * externally.
+   */
+  private static Cache<CacheKey, byte[]> globalCache = null;
+
+  /** Private constructor to prevent instantiation of utility class. */
+  private DigestUtils() {}
+
+  /**
+   * Enables the caching of file digests based on file status data.
+   *
+   * <p>If the cache was already enabled, this causes the cache to be reinitialized thus losing all
+   * contents. If the given size is zero, the cache is disabled altogether.
+   *
+   * @param maximumSize maximumSize of the cache in number of entries
+   */
+  public static void configureCache(long maximumSize) {
+    if (maximumSize == 0) {
+      globalCache = null;
+    } else {
+      globalCache = Caffeine.newBuilder().maximumSize(maximumSize).recordStats().build();
+    }
+  }
+
+  /**
+   * Clears the cache contents without changing its size. No-op if the cache hasn't yet been
+   * initialized.
+   */
+  public static void clearCache() {
+    if (globalCache != null) {
+      globalCache.invalidateAll();
+    }
+  }
+
+  /**
+   * Obtains cache statistics.
+   *
+   * <p>The cache must have previously been enabled by a call to {@link #configureCache(long)}.
+   *
+   * @return an immutable snapshot of the cache statistics
+   */
+  public static CacheStats getCacheStats() {
+    Cache<CacheKey, byte[]> cache = globalCache;
+    Preconditions.checkNotNull(cache, "configureCache() must have been called with a size >= 0");
+    return cache.stats();
+  }
+
+  /**
+   * Gets the digest of {@code path}, using a constant-time xattr call if the filesystem supports
+   * it, and calculating the digest manually otherwise.
+   *
+   * <p>If {@link Path#getFastDigest} has already been attempted and was not available, call {@link
+   * #manuallyComputeDigest} to skip an additional attempt to obtain the fast digest.
+   *
+   * @param path the file path
+   * @param status a recently obtained file status, if available. Used to skip a stat.
+   */
+  public static byte[] getDigestWithManualFallback(
+      Path path, XattrProvider xattrProvider, @Nullable FileStatus status) throws IOException {
+    byte[] digest = xattrProvider.getFastDigest(path);
+    return digest != null ? digest : manuallyComputeDigest(path, status);
+  }
+
+  /**
+   * Calculates a digest manually (i.e., assuming that a fast digest can't obtained).
+   *
+   * <p>Prefer calling {@link #manuallyComputeDigest(Path, FileStatus)} when a recently obtained
+   * {@link FileStatus} is available.
+   *
+   * @param path the file path
+   */
+  public static byte[] manuallyComputeDigest(Path path) throws IOException {
+    return manuallyComputeDigest(path, null);
+  }
+
+  /**
+   * Same as {@link #manuallyComputeDigest(Path)}, but providing the ability to reuse a recently
+   * obtained {@link FileStatus}.
+   *
+   * @param path the file path
+   * @param status a recently obtained file status, if available
+   */
+  public static byte[] manuallyComputeDigest(Path path, @Nullable FileStatus status)
+      throws IOException {
+    byte[] digest;
+
+    // Attempt a cache lookup if the cache is enabled.
+    Cache<CacheKey, byte[]> cache = globalCache;
+    CacheKey key = null;
+    if (cache != null) {
+      key = new CacheKey(path, status != null ? status : path.stat());
+      digest = cache.getIfPresent(key);
+      if (digest != null) {
+        return digest;
+      }
+    }
+
+    digest = path.getDigest();
+
+    Preconditions.checkNotNull(digest, "Missing digest for %s", path);
+    if (cache != null) {
+      cache.put(key, digest);
+    }
+    return digest;
+  }
+
+  /**
+   * Combines two digests into one such that swapping the arguments results in the same result. May
+   * clobber either argument.
+   */
+  public static byte[] combineUnordered(byte[] lhs, byte[] rhs) {
+    int n = rhs.length;
+    if (lhs.length >= n) {
+      for (int i = 0; i < n; i++) {
+        // Use + as in Guava's Hashing.combineUnordered.
+        // This has a number of advantages over XOR, which was used in the past:
+        // * Identical inputs will not cancel each other out.
+        // * Due to the carry, addition isn't a linear operation on the level of bit vectors.
+        //   This prevents adversaries from producing linear combinations (i.e., subsets of input
+        //   sets) that collide with other inputs.
+        lhs[i] += rhs[i];
+      }
+      return lhs;
+    }
+    return combineUnordered(rhs, lhs);
+  }
+}

@@ -1,0 +1,33 @@
+# Setup IntelliJ for Bazel development using the IntelliJ Bazel Plugin.
+# See https://github.com/bazelbuild/intellij for installation instructions.
+directories:
+  .
+
+test_sources:
+  src/java_tools/buildjar/javatests/*
+  src/java_tools/junitrunner/javatests/*
+  src/java_tools/singlejar/javatests/*
+  src/test/*
+
+targets:
+  //src:bazel
+  //src/java_tools/buildjar/...
+  //src/java_tools/buildjar/javatests/...
+  //src/java_tools/junitrunner/java/...
+  //src/java_tools/junitrunner/javatests/...
+  //src/test/...
+  //src/tools/remote/...
+  //src/tools/starlark/...
+  //tools/test/CoverageOutputGenerator/...
+  # These tests cause the build to fail on macOS:
+  # https://github.com/bazelbuild/bazel/issues/13636
+  -//src/test/shell/bazel:all_tests
+
+java_language_level: 21
+
+workspace_type: java
+
+# Import targets at arbitrary depths beneath //src:bazel.
+# Workaround for https://youtrack.jetbrains.com/issue/BAZEL-2737.
+# TODO: Remove after the next IntelliJ plugin release.
+import_depth: -1

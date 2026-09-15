@@ -1,0 +1,1090 @@
+// Copyright 2015 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.runtime.commands;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.io.BaseEncoding;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.buildtool.SkyframeMemoryDumper;
+import com.google.devtools.build.lib.buildtool.SkyframeMemoryDumper.DisplayMode;
+import com.google.devtools.build.lib.buildtool.SkyframeMemoryDumper.DumpFailedException;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.pkgcache.PackagePathCodecDependencies;
+import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
+import com.google.devtools.build.lib.profiler.memory.AllocationTracker.RuleBytes;
+import com.google.devtools.build.lib.runtime.BlazeCommand;
+import com.google.devtools.build.lib.runtime.BlazeCommandResult;
+import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.BlazeWorkspace;
+import com.google.devtools.build.lib.runtime.Command;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.InstrumentationOutput;
+import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.DumpCommand.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.PrerequisitePackageFunction;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.SkyKeyStats;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyframeStats;
+import com.google.devtools.build.lib.skyframe.config.BaselineOptionsFunction;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
+import com.google.devtools.build.lib.skyframe.serialization.PlatformConfigurationProvider;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.LongVersionClientId;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.DefaultPlatformConfigurationProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.GraphDumper;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.GraphDumper.Edge;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.GraphDumper.InvalidationGraph;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.GraphDumper.Node;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.GraphDumper.SkyValueEntry;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
+import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.MemoryAccountant.Stats;
+import com.google.devtools.build.lib.util.RegexFilter;
+import com.google.devtools.build.lib.util.RegexFilter.RegexFilterConverter;
+import com.google.devtools.build.lib.util.SerializedAbruptExitException;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.Root.RootCodecDependencies;
+import com.google.devtools.build.skyframe.InMemoryGraph;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import com.google.devtools.build.skyframe.NodeEntry;
+import com.google.devtools.build.skyframe.QueryableGraph.Reason;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.EnumConverter;
+import com.google.devtools.common.options.HelpVerbosity;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
+import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.gson.stream.JsonWriter;
+import com.google.protobuf.ByteString;
+import java.io.BufferedOutputStream;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import javax.annotation.Nullable;
+
+/** Implementation of the dump command. */
+@Command(
+    name = "dump",
+    mustRunInWorkspace = false,
+    buildPhase = NONE,
+    options = {DumpCommand.DumpOptions.class},
+    help =
+        "Usage: %{product} dump <options>\n"
+            + "Dumps the internal state of the %{product} server process.  This command is provided"
+            + " as an aid to debugging, not as a stable interface, so users should not try to parse"
+            + " the output; instead, use 'query' or 'info' for this purpose.\n"
+            + "%{options}",
+    shortDescription = "Dumps the internal state of the %{product} server process.",
+    binaryStdOut = true)
+public class DumpCommand implements BlazeCommand {
+
+  /** How to dump Skyframe memory. */
+  private enum MemoryCollectionMode {
+    /** Dump the objects owned by a single SkyValue */
+    SHALLOW,
+    /** Dump objects reachable from a single SkyValue */
+    DEEP,
+    /** Dump objects in the Skyframe transitive closure of a SkyValue */
+    TRANSITIVE,
+    /** Dump every object in Skyframe in "shallow" mode. */
+    FULL,
+  }
+
+  /** Whose memory use we should measure. */
+  private enum MemorySubjectType {
+    /** Starlark module */
+    STARLARK_MODULE,
+    /* Build package */
+    PACKAGE,
+    /* Configured target */
+    CONFIGURED_TARGET,
+  }
+
+  /** What exactly to dump about the memory use of Bazel. */
+  public record MemoryMode(
+      MemoryCollectionMode collectionMode,
+      DisplayMode displayMode,
+      MemorySubjectType type,
+      String needle,
+      boolean reportTransient,
+      boolean reportConfiguration,
+      boolean reportPrecomputed,
+      boolean reportWorkspaceStatus,
+      String subject) {}
+
+  /** Converter for {@link MemoryCollectionMode}. */
+  public static final class MemoryModeConverter extends Converter.Contextless<MemoryMode> {
+    @Override
+    public String getTypeDescription() {
+      return "memory mode";
+    }
+
+    @Override
+    public MemoryMode convert(String input) throws OptionsParsingException {
+      // The SkyKey designator is frequently a Label, which usually contains a colon so we must not
+      // split the argument into an unlimited number of elements
+      String[] items = input.split(":", 3);
+      if (items.length > 3) {
+        throw new OptionsParsingException("Should contain at most three segments separated by ':'");
+      }
+
+      MemoryCollectionMode collectionMode = null;
+      DisplayMode displayMode = null;
+      String needle = null;
+      boolean reportTransient = true;
+      boolean reportConfiguration = true;
+      boolean reportPrecomputed = true;
+      boolean reportWorkspaceStatus = true;
+
+      for (String word : Splitter.on(",").split(items[0])) {
+        if (word.startsWith("needle=")) {
+          needle = word.split("=", 2)[1];
+          continue;
+        }
+
+        switch (word) {
+          case "shallow" -> collectionMode = MemoryCollectionMode.SHALLOW;
+          case "deep" -> collectionMode = MemoryCollectionMode.DEEP;
+          case "transitive" -> collectionMode = MemoryCollectionMode.TRANSITIVE;
+          case "full" -> collectionMode = MemoryCollectionMode.FULL;
+          case "summary" -> displayMode = DisplayMode.SUMMARY;
+          case "count" -> displayMode = DisplayMode.COUNT;
+          case "bytes" -> displayMode = DisplayMode.BYTES;
+          case "notransient" -> reportTransient = false;
+          case "noconfig" -> reportConfiguration = false;
+          case "noprecomputed" -> reportPrecomputed = false;
+          case "noworkspacestatus" -> reportWorkspaceStatus = false;
+          default -> throw new OptionsParsingException("Unrecognized word '" + word + "'");
+        }
+      }
+
+      if (collectionMode == null) {
+        throw new OptionsParsingException("No collection type specified");
+      }
+
+      if (displayMode == null) {
+        throw new OptionsParsingException("No display mode specified");
+      }
+
+      if (collectionMode == MemoryCollectionMode.FULL) {
+        return new MemoryMode(
+            collectionMode,
+            displayMode,
+            null,
+            needle,
+            reportTransient,
+            reportConfiguration,
+            reportPrecomputed,
+            reportWorkspaceStatus,
+            null);
+      }
+
+      if (items.length != 3) {
+        throw new OptionsParsingException("Should be in the form: <flags>:<node type>:<node>");
+      }
+
+      MemorySubjectType subjectType;
+
+      try {
+        subjectType = MemorySubjectType.valueOf(items[1].toUpperCase(Locale.ROOT));
+      } catch (IllegalArgumentException e) {
+        throw new OptionsParsingException("Invalid subject type", e);
+      }
+
+      return new MemoryMode(
+          collectionMode,
+          displayMode,
+          subjectType,
+          needle,
+          reportTransient,
+          reportConfiguration,
+          reportPrecomputed,
+          reportWorkspaceStatus,
+          items[2]);
+    }
+  }
+
+  /**
+   * NB! Any changes to this class must be kept in sync with anyOutput variable value in the {@link
+   * DumpCommand#exec} method below.
+   */
+  @OptionsClass
+  public abstract static class DumpOptions extends OptionsBase {
+
+    @Option(
+        name = "packages",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help = "Dump package cache content.")
+    public abstract boolean getDumpPackages();
+
+    @Option(
+        name = "action_cache",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help = "Dump action cache content.")
+    public abstract boolean getDumpActionCache();
+
+    @Option(
+        name = "rule_classes",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help = "Dump rule classes.")
+    public abstract boolean getDumpRuleClasses();
+
+    @Option(
+        name = "rules",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help = "Dump rules, including counts and memory usage (if memory is tracked).")
+    public abstract boolean getDumpRules();
+
+    @Option(
+        name = "skylark_memory",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help =
+            "Dumps a pprof-compatible memory profile to the specified path. To learn more please"
+                + " see https://github.com/google/pprof.")
+    public abstract String getStarlarkMemory();
+
+    @Option(
+        name = "skyframe",
+        defaultValue = "off",
+        converter = SkyframeDumpEnumConverter.class,
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help = "Dump the Skyframe graph.")
+    public abstract SkyframeDumpOption getDumpSkyframe();
+
+    @Option(
+        name = "skykey_filter",
+        defaultValue = ".*",
+        converter = RegexFilterConverter.class,
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help =
+            "Regex filter of SkyKey names to output. Only used with --skyframe=keys, value, deps,"
+                + " rdeps, function_graph.")
+    public abstract RegexFilter getSkyKeyFilter();
+
+    @Option(
+        name = "memory",
+        defaultValue = "null",
+        converter = MemoryModeConverter.class,
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help = "Dump the memory use of the given Skyframe node.")
+    public abstract MemoryMode getMemory();
+
+    @Option(
+        name = "skycache_cache",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help = "Key-value store for dumping remote analysis cache entries from.")
+    public abstract String getSkycacheCache();
+
+    @Option(
+        name = "skycache_fingerprint",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help = "Hex fingerprint of the Skycache entry to dump.")
+    public abstract String getSkycacheFingerprint();
+  }
+
+  /** Different ways to dump information about Skyframe. */
+  public enum SkyframeDumpOption {
+    OFF,
+    SUMMARY,
+    COUNT,
+    KEYS,
+    VALUE,
+    DEPS,
+    RDEPS,
+    FUNCTION_GRAPH,
+    ACTIVE_DIRECTORIES,
+    ACTIVE_DIRECTORIES_FRONTIER_DEPS,
+  }
+
+  /** Enum converter for SkyframeDumpOption. */
+  public static class SkyframeDumpEnumConverter extends EnumConverter<SkyframeDumpOption> {
+    public SkyframeDumpEnumConverter() {
+      super(SkyframeDumpOption.class, "Skyframe Dump option");
+    }
+  }
+
+  public static final String WARNING_MESSAGE =
+      "This information is intended for consumption by developers "
+          + "only, and may change at any time. Script against it at your own risk!";
+
+  @Override
+  public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
+    BlazeRuntime runtime = env.getRuntime();
+    DumpOptions dumpOptions = options.getOptions(DumpOptions.class);
+
+    String skycacheCache = dumpOptions.getSkycacheCache();
+    boolean hasCache = skycacheCache != null && !skycacheCache.isEmpty();
+    boolean hasFingerprint = dumpOptions.getSkycacheFingerprint() != null;
+
+    if (hasCache != hasFingerprint) {
+      return createFailureResult(
+          "Both --skycache_cache and --skycache_fingerprint " + "must be specified together.",
+          Code.DUMP_COMMAND_UNKNOWN);
+    }
+
+    boolean anyOutput =
+        dumpOptions.getDumpPackages()
+            || dumpOptions.getDumpActionCache()
+            || dumpOptions.getDumpRuleClasses()
+            || dumpOptions.getDumpRules()
+            || dumpOptions.getStarlarkMemory() != null
+            || dumpOptions.getDumpSkyframe() != SkyframeDumpOption.OFF
+            || dumpOptions.getMemory() != null
+            || (hasCache && hasFingerprint);
+    if (!anyOutput) {
+      Collection<Class<? extends OptionsBase>> optionList = new ArrayList<>();
+      optionList.add(DumpOptions.class);
+
+      env.getReporter()
+          .getOutErr()
+          .printErrLn(
+              BlazeCommandUtils.expandHelpTopic(
+                  getClass().getAnnotation(Command.class).name(),
+                  getClass().getAnnotation(Command.class).help(),
+                  getClass(),
+                  optionList,
+                  HelpVerbosity.LONG,
+                  runtime.getProductName()));
+      return createFailureResult("no output specified", Code.NO_OUTPUT_SPECIFIED);
+    }
+    PrintStream out =
+        new PrintStream(
+            new BufferedOutputStream(env.getReporter().getOutErr().getOutputStream(), 1024 * 1024));
+    try {
+      env.getReporter().handle(Event.warn(WARNING_MESSAGE));
+      Optional<BlazeCommandResult> failure = Optional.empty();
+
+      if (dumpOptions.getDumpPackages()) {
+        env.getPackageManager().dump(out);
+        out.println();
+      }
+
+      if (dumpOptions.getDumpActionCache()) {
+        if (!dumpActionCache(env, out)) {
+          failure =
+              Optional.of(
+                  createFailureResult("action cache dump failed", Code.ACTION_CACHE_DUMP_FAILED));
+        }
+        out.println();
+      }
+
+      if (dumpOptions.getDumpRuleClasses()) {
+        dumpRuleClasses(runtime, out);
+        out.println();
+      }
+
+      if (dumpOptions.getDumpRules()) {
+        dumpRuleStats(env.getBlazeWorkspace(), env.getSkyframeExecutor(), out);
+        out.println();
+      }
+
+      if (dumpOptions.getStarlarkMemory() != null) {
+        try {
+          InstrumentationOutput starlarkHeapOutput =
+              runtime
+                  .getInstrumentationOutputFactory()
+                  .createInstrumentationOutput(
+                      /* name= */ "starlark_heap",
+                      PathFragment.create(dumpOptions.getStarlarkMemory()),
+                      DestinationRelativeTo.WORKSPACE_OR_HOME,
+                      env,
+                      env.getReporter(),
+                      /* append= */ null,
+                      /* internal= */ null);
+          dumpStarlarkHeap(
+              env.getBlazeWorkspace(), starlarkHeapOutput, dumpOptions.getStarlarkMemory(), out);
+        } catch (IOException e) {
+          String message = "Could not dump Starlark memory";
+          env.getReporter().error(null, message, e);
+          failure = Optional.of(createFailureResult(message, Code.STARLARK_HEAP_DUMP_FAILED));
+        }
+      }
+
+      if (dumpOptions.getMemory() != null) {
+        failure = dumpSkyframeMemory(env, dumpOptions, out);
+      }
+
+      if (hasCache && hasFingerprint) {
+        RemoteAnalysisCachingOptions cachingOptions =
+            OptionsParser.builder()
+                .optionsClasses(RemoteAnalysisCachingOptions.class)
+                .build()
+                .getOptions(RemoteAnalysisCachingOptions.class);
+
+        RemoteAnalysisCachingServicesSupplier supplier =
+            env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
+
+        ClientId dummyClientId = new LongVersionClientId(0L);
+        String dummyBuildId = env.getCommandId().toString();
+
+        try {
+          supplier.configureForDebugging(
+              /* remoteAnalysisDebugEntries= */ skycacheCache,
+              /* mode= */ cachingOptions.getMode(),
+              /* clientId= */ dummyClientId,
+              /* buildId= */ dummyBuildId);
+          failure = dumpSkycacheEntry(env, supplier, dumpOptions.getSkycacheFingerprint(), out);
+        } catch (SerializedAbruptExitException e) {
+          AbruptExitException abruptExit = AbruptExitException.fromSerialized(e);
+          failure =
+              Optional.of(
+                  createFailureResult(
+                      "Error connecting to remote analysis cache: " + abruptExit.getMessage(),
+                      Code.DUMP_COMMAND_UNKNOWN));
+        }
+      }
+
+      MemoizingEvaluator evaluator = env.getSkyframeExecutor().getEvaluator();
+      switch (dumpOptions.getDumpSkyframe()) {
+        case SUMMARY -> evaluator.dumpSummary(out);
+        case COUNT -> evaluator.dumpCount(out);
+        case KEYS -> evaluator.dumpKeys(out, dumpOptions.getSkyKeyFilter());
+        case VALUE -> evaluator.dumpValues(out, dumpOptions.getSkyKeyFilter());
+        case DEPS -> evaluator.dumpDeps(out, dumpOptions.getSkyKeyFilter());
+        case RDEPS -> evaluator.dumpRdeps(out, dumpOptions.getSkyKeyFilter());
+        case FUNCTION_GRAPH -> evaluator.dumpFunctionGraph(out, dumpOptions.getSkyKeyFilter());
+        case ACTIVE_DIRECTORIES ->
+            env.getSkyframeExecutor().getSkyfocusState().dumpActiveDirectories(out);
+        case ACTIVE_DIRECTORIES_FRONTIER_DEPS ->
+            env.getSkyframeExecutor().getSkyfocusState().dumpFrontierSet(out);
+        case OFF -> {}
+      }
+
+      return failure.orElse(BlazeCommandResult.success());
+    } catch (InterruptedException e) {
+      env.getReporter().error(null, "Interrupted", e);
+      return BlazeCommandResult.failureDetail(
+          FailureDetail.newBuilder()
+              .setInterrupted(
+                  FailureDetails.Interrupted.newBuilder()
+                      .setCode(FailureDetails.Interrupted.Code.INTERRUPTED))
+              .build());
+    } finally {
+      out.flush();
+    }
+  }
+
+  private static boolean dumpActionCache(CommandEnvironment env, PrintStream out) {
+    Reporter reporter = env.getReporter();
+    try {
+      env.getBlazeWorkspace().getOrLoadPersistentActionCache(reporter).dump(out);
+    } catch (IOException e) {
+      reporter.handle(Event.error("Cannot dump action cache: " + e.getMessage()));
+      return false;
+    }
+    return true;
+  }
+
+  private static void dumpRuleClasses(BlazeRuntime runtime, PrintStream out) {
+    ImmutableMap<String, RuleClass> ruleClassMap = runtime.getRuleClassProvider().getRuleClassMap();
+    List<String> ruleClassNames = new ArrayList<>(ruleClassMap.keySet());
+    Collections.sort(ruleClassNames);
+    for (String name : ruleClassNames) {
+      if (name.startsWith("$")) {
+        continue;
+      }
+      RuleClass ruleClass = ruleClassMap.get(name);
+      out.print(ruleClass + "(");
+      boolean first = true;
+      for (Attribute attribute : ruleClass.getAttributeProvider().getAttributes()) {
+        if (attribute.isImplicit()) {
+          continue;
+        }
+        if (first) {
+          first = false;
+        } else {
+          out.print(", ");
+        }
+        out.print(attribute.getName());
+      }
+      out.println(")");
+    }
+  }
+
+  private static void dumpRuleStats(
+      BlazeWorkspace workspace, SkyframeExecutor executor, PrintStream out)
+      throws InterruptedException {
+    SkyframeStats skyframeStats = executor.getSkyframeStats();
+    if (skyframeStats.ruleStats().isEmpty()) {
+      out.print("No rules in Bazel server, please run a build command first.");
+      return;
+    }
+    ImmutableList<SkyKeyStats> rules = skyframeStats.ruleStats();
+    ImmutableList<SkyKeyStats> aspects = skyframeStats.aspectStats();
+    Map<String, RuleBytes> ruleBytes = new HashMap<>();
+    Map<String, RuleBytes> aspectBytes = new HashMap<>();
+    AllocationTracker allocationTracker = workspace.getAllocationTracker();
+    if (allocationTracker != null) {
+      allocationTracker.getRuleMemoryConsumption(ruleBytes, aspectBytes);
+    }
+    printRuleStatsOfType(rules, "RULE", out, ruleBytes, allocationTracker != null, false);
+    printRuleStatsOfType(aspects, "ASPECT", out, aspectBytes, allocationTracker != null, true);
+  }
+
+  private static void printRuleStatsOfType(
+      ImmutableList<SkyKeyStats> ruleStats,
+      String type,
+      PrintStream out,
+      Map<String, RuleBytes> ruleToBytes,
+      boolean bytesEnabled,
+      boolean trimKey) {
+    if (ruleStats.isEmpty()) {
+      return;
+    }
+    // ruleStats are already sorted.
+    int longestName =
+        ruleStats.stream().map(r -> r.getName().length()).max(Integer::compareTo).get();
+    int maxNameWidth = 30;
+    int nameColumnWidth = Math.min(longestName, maxNameWidth);
+    int numberColumnWidth = 10;
+    int bytesColumnWidth = 13;
+    int eachColumnWidth = 11;
+    printWithPadding(out, type, nameColumnWidth);
+    printWithPaddingBefore(out, "COUNT", numberColumnWidth);
+    printWithPaddingBefore(out, "ACTIONS", numberColumnWidth);
+    if (bytesEnabled) {
+      printWithPaddingBefore(out, "BYTES", bytesColumnWidth);
+      printWithPaddingBefore(out, "EACH", eachColumnWidth);
+    }
+    out.println();
+    for (SkyKeyStats ruleStat : ruleStats) {
+      printWithPadding(
+          out, truncateName(ruleStat.getName(), trimKey, maxNameWidth), nameColumnWidth);
+      printWithPaddingBefore(out, formatLong(ruleStat.getCount()), numberColumnWidth);
+      printWithPaddingBefore(out, formatLong(ruleStat.getActionCount()), numberColumnWidth);
+      if (bytesEnabled) {
+        RuleBytes ruleBytes = ruleToBytes.get(ruleStat.getKey());
+        long bytes = ruleBytes != null ? ruleBytes.getBytes() : 0L;
+        printWithPaddingBefore(out, formatLong(bytes), bytesColumnWidth);
+        printWithPaddingBefore(out, formatLong(bytes / ruleStat.getCount()), eachColumnWidth);
+      }
+      out.println();
+    }
+    out.println();
+  }
+
+  private static String truncateName(String name, boolean trimKey, int maxNameWidth) {
+    // If this is an aspect, we'll chop off everything except the aspect name
+    if (trimKey) {
+      int dividerIndex = name.lastIndexOf('%');
+      if (dividerIndex >= 0) {
+        name = name.substring(dividerIndex + 1);
+      }
+    }
+    if (name.length() <= maxNameWidth) {
+      return name;
+    }
+    int starti = name.length() - maxNameWidth + "...".length();
+    return "..." + name.substring(starti);
+  }
+
+  private static void printWithPadding(PrintStream out, String str, int columnWidth) {
+    out.print(str);
+    pad(out, columnWidth + 2, str.length());
+  }
+
+  private static void printWithPaddingBefore(PrintStream out, String str, int columnWidth) {
+    pad(out, columnWidth, str.length());
+    out.print(str);
+    pad(out, 2, 0);
+  }
+
+  private static void pad(PrintStream out, int columnWidth, int consumed) {
+    for (int i = 0; i < columnWidth - consumed; ++i) {
+      out.print(' ');
+    }
+  }
+
+  private static String formatLong(long number) {
+    return String.format("%,d", number);
+  }
+
+  @Nullable
+  private static BuildConfigurationKey getConfigurationKey(CommandEnvironment env, String hash) {
+    if (hash == null) {
+      // Use the target configuration
+      return env.getSkyframeBuildView().getBuildConfiguration().getKey();
+    }
+
+    ImmutableList<BuildConfigurationKey> candidates =
+        env.getSkyframeExecutor().getEvaluator().getDoneValues().entrySet().stream()
+            .filter(e -> e.getKey().functionName().equals(SkyFunctions.BUILD_CONFIGURATION))
+            .map(e -> (BuildConfigurationKey) e.getKey())
+            .filter(k -> k.getOptions().checksum().startsWith(hash))
+            .collect(ImmutableList.toImmutableList());
+
+    if (candidates.size() != 1) {
+      env.getReporter().error(null, "ambiguous configuration, use 'blaze config' to list them");
+      return null;
+    }
+
+    return candidates.get(0);
+  }
+
+  @Nullable
+  private static SkyKey getMemoryDumpSkyKey(CommandEnvironment env, MemoryMode memoryMode) {
+    try {
+      return switch (memoryMode.type()) {
+        case PACKAGE -> PackageIdentifier.parse(memoryMode.subject);
+        case STARLARK_MODULE -> BzlLoadValue.keyForBuild(Label.parseCanonical(memoryMode.subject));
+        case CONFIGURED_TARGET -> {
+          String[] labelAndConfig = memoryMode.subject.split("@", 2);
+          BuildConfigurationKey configurationKey =
+              getConfigurationKey(env, labelAndConfig.length == 2 ? labelAndConfig[1] : null);
+          yield ConfiguredTargetKey.builder()
+              .setConfigurationKey(configurationKey)
+              .setLabel(Label.parseCanonical(labelAndConfig[0]))
+              .build();
+        }
+      };
+    } catch (LabelSyntaxException e) {
+      env.getReporter().error(null, "Cannot parse label: " + e.getMessage());
+      return null;
+    }
+  }
+
+  private static Optional<BlazeCommandResult> dumpSkyframeMemory(
+      CommandEnvironment env, DumpOptions dumpOptions, PrintStream out)
+      throws InterruptedException {
+
+    InMemoryGraph graph = env.getSkyframeExecutor().getEvaluator().getInMemoryGraph();
+    SkyframeMemoryDumper dumper =
+        new SkyframeMemoryDumper(
+            dumpOptions.getMemory().displayMode,
+            dumpOptions.getMemory().needle,
+            env.getRuntime().getRuleClassProvider(),
+            graph,
+            dumpOptions.getMemory().reportTransient,
+            dumpOptions.getMemory().reportConfiguration,
+            dumpOptions.getMemory().reportPrecomputed,
+            dumpOptions.getMemory().reportWorkspaceStatus);
+
+    if (dumpOptions.getMemory().collectionMode == MemoryCollectionMode.FULL) {
+      try {
+        // FULL mode doesn't have SkyKey as an argument, nor does it need a NodeEntry.
+        dumper.dumpFull(out);
+        return Optional.empty();
+      } catch (DumpFailedException e) {
+        return Optional.of(
+            DumpCommand.createFailureResult(e.getMessage(), Code.SKYFRAME_MEMORY_DUMP_FAILED));
+      }
+    }
+
+    SkyKey skyKey = getMemoryDumpSkyKey(env, dumpOptions.getMemory());
+    if (skyKey == null) {
+      return Optional.of(
+          createFailureResult("Cannot dump Skyframe memory", Code.SKYFRAME_MEMORY_DUMP_FAILED));
+    }
+
+    NodeEntry nodeEntry = graph.get(null, Reason.OTHER, skyKey);
+    if (nodeEntry == null) {
+      env.getReporter().error(null, "The requested node is not present.");
+      return Optional.of(
+          createFailureResult(
+              "The requested node is not present", Code.SKYFRAME_MEMORY_DUMP_FAILED));
+    }
+
+    Stats stats =
+        switch (dumpOptions.getMemory().collectionMode) {
+          case DEEP -> dumper.dumpReachable(nodeEntry);
+          case SHALLOW -> dumper.dumpShallow(nodeEntry);
+          case TRANSITIVE -> dumper.dumpTransitive(skyKey);
+          case FULL -> throw new IllegalStateException();
+        };
+
+    switch (dumpOptions.getMemory().displayMode) {
+      case SUMMARY ->
+          out.printf("%d objects, %d bytes retained", stats.getObjectCount(), stats.getMemoryUse());
+      case COUNT -> SkyframeMemoryDumper.printByClass("", stats.getObjectCountByClass(), out);
+      case BYTES -> SkyframeMemoryDumper.printByClass("", stats.getMemoryByClass(), out);
+    }
+
+    out.println();
+    return Optional.empty();
+  }
+
+  private static void dumpStarlarkHeap(
+      BlazeWorkspace workspace,
+      InstrumentationOutput starlarkHeapOutput,
+      String path,
+      PrintStream out)
+      throws IOException {
+    AllocationTracker allocationTracker = workspace.getAllocationTracker();
+    if (allocationTracker == null) {
+      out.println(
+          "Cannot dump Starlark heap without running in memory tracking mode. "
+              + "Please refer to the user manual for the dump commnd "
+              + "for information how to turn on memory tracking.");
+      return;
+    }
+    out.println("Dumping Starlark heap to: " + path);
+
+    // OutputStream is expected to be closed when allocationTracker.dumpStarlarkAllocations()
+    // returns.
+    allocationTracker.dumpStarlarkAllocations(starlarkHeapOutput.createOutputStream());
+  }
+
+  static BlazeCommandResult createFailureResult(String message, Code detailedCode) {
+    return BlazeCommandResult.failureDetail(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setDumpCommand(FailureDetails.DumpCommand.newBuilder().setCode(detailedCode))
+            .build());
+  }
+
+  @FormatMethod
+  private static Optional<BlazeCommandResult> dumpSkycacheError(
+      CommandEnvironment env, String fmt, String... args) {
+    String msg = String.format(fmt, (Object[]) args);
+    env.getReporter().error(null, msg);
+    return Optional.of(createFailureResult(msg, Code.DUMP_COMMAND_UNKNOWN));
+  }
+
+  private static Optional<BlazeCommandResult> dumpSkycacheEntry(
+      CommandEnvironment env,
+      RemoteAnalysisCachingServicesSupplier servicesSupplier,
+      String fingerprintHex,
+      PrintStream out)
+      throws InterruptedException {
+    byte[] targetFingerprintBytes;
+    try {
+      targetFingerprintBytes = BaseEncoding.base16().ignoreCase().decode(fingerprintHex);
+    } catch (IllegalArgumentException e) {
+      return dumpSkycacheError(env, "Invalid fingerprint hex string: %s", e.getMessage());
+    }
+    PackedFingerprint targetFingerprint = PackedFingerprint.fromBytes(targetFingerprintBytes);
+
+    FingerprintValueStore store;
+    byte[] entryBytes;
+    try {
+      ListenableFuture<? extends FingerprintValueStore> storeFuture =
+          servicesSupplier.getFingerprintValueStore();
+      if (storeFuture == null) {
+        return dumpSkycacheError(env, "Remote analysis caching store is not enabled");
+      }
+      store = storeFuture.get();
+      if (store == null) {
+        return dumpSkycacheError(env, "Remote analysis caching store is not initialized");
+      }
+      entryBytes = store.get(targetFingerprint).get();
+    } catch (ExecutionException | IOException e) {
+      return dumpSkycacheError(
+          env, "Cannot read fingerprint %s from backend: %s", fingerprintHex, e.getMessage());
+    }
+
+    if (entryBytes == null) {
+      return dumpSkycacheError(env, "Fingerprint %s not found in backend", fingerprintHex);
+    }
+
+    SkyValueEntry entry;
+    try {
+      entry = GraphDumper.parseSkyValueEntry(ByteString.copyFrom(entryBytes));
+    } catch (IOException e) {
+      return dumpSkycacheError(env, "Cannot parse invalidation metadata: %s", e.getMessage());
+    }
+
+    ObjectCodecs codecs = getObjectCodecs(env);
+
+    CompressionService compressionService =
+        checkNotNull(
+            env.getRuntime().getBlazeService(CompressionService.class),
+            "expected CompressionService to be available");
+
+    try {
+      ImmutableList<Edge> edges =
+          GraphDumper.collectEdgesForSkyValue(
+              env.getSkyframeExecutor().getEvaluator().getInMemoryGraph(),
+              codecs,
+              compressionService,
+              store,
+              entry,
+              targetFingerprint);
+
+      InvalidationGraph graphResult;
+      if (entry.dependencyFingerprint() != null) {
+        graphResult =
+            GraphDumper.collectInvalidationGraph(
+                entry.dependencyFingerprint(),
+                compressionService,
+                store,
+                env.getBlazeWorkspace().getFingerprinterForAnalysisCaching());
+      } else {
+        graphResult = new InvalidationGraph(ImmutableList.of(), ImmutableMap.of());
+      }
+
+      dumpSkycacheEntry(out, fingerprintHex, entry, edges, graphResult);
+    } catch (SerializationException | ExecutionException | IOException e) {
+      return dumpSkycacheError(env, "Failed to deserialize SkyValue: %s", e.getMessage());
+    }
+
+    return Optional.empty();
+  }
+
+  private static void dumpSkycacheEntry(
+      PrintStream out,
+      String targetFingerprintHex,
+      SkyValueEntry targetInvalidation,
+      ImmutableList<Edge> deserializationEdges,
+      InvalidationGraph invalidationGraph)
+      throws IOException {
+    StringWriter stringWriter = new StringWriter();
+    try (JsonWriter writer = new JsonWriter(stringWriter)) {
+      writer.setIndent("  ");
+      writer.beginObject();
+
+      writer.name("target");
+      writer.beginObject();
+      writer.name("fingerprint").value(targetFingerprintHex);
+      writer.name("invalidation_data");
+      writeInvalidationData(writer, targetInvalidation);
+      writer.endObject();
+
+      writer.name("shared_value_dependency_graph");
+      writeSharedValueGraph(writer, deserializationEdges);
+
+      writer.name("invalidation_dependency_graph");
+      writeInvalidationGraph(writer, invalidationGraph);
+
+      writer.endObject();
+    }
+    out.print(stringWriter.toString());
+  }
+
+  private static void writeInvalidationData(JsonWriter writer, SkyValueEntry targetInvalidation)
+      throws IOException {
+    writer.beginObject();
+    writer.name("type").value(targetInvalidation.dataType().name());
+    switch (targetInvalidation.dataType()) {
+      case DATA_TYPE_UNSPECIFIED, DATA_TYPE_EMPTY, UNRECOGNIZED -> {}
+      case DATA_TYPE_FILE, DATA_TYPE_LISTING ->
+          writer.name("path_key").value(targetInvalidation.pathKey());
+      case DATA_TYPE_ANALYSIS_NODE, DATA_TYPE_EXECUTION_NODE ->
+          writer
+              .name("dependency_fingerprint")
+              .value(targetInvalidation.dependencyFingerprint().toHex());
+    }
+    writer.endObject();
+  }
+
+  private static void writeSharedValueGraph(
+      JsonWriter writer, ImmutableList<Edge> deserializationEdges) throws IOException {
+    writer.beginObject();
+
+    Map<PackedFingerprint, List<PackedFingerprint>> parentToChildren = new LinkedHashMap<>();
+    for (Edge edge : deserializationEdges) {
+      parentToChildren.computeIfAbsent(edge.parent(), k -> new ArrayList<>()).add(edge.child());
+    }
+
+    for (Map.Entry<PackedFingerprint, List<PackedFingerprint>> entry :
+        parentToChildren.entrySet()) {
+      writer.name(entry.getKey().toHex());
+      writer.beginArray();
+      for (PackedFingerprint child : entry.getValue()) {
+        writer.value(child.toHex());
+      }
+      writer.endArray();
+    }
+
+    writer.endObject();
+  }
+
+  private static void writeInvalidationGraph(JsonWriter writer, InvalidationGraph invalidationGraph)
+      throws IOException {
+    writer.beginObject();
+
+    writer.name("edges");
+    writer.beginArray();
+    for (Edge edge : invalidationGraph.edges()) {
+      writer.beginObject();
+      writer.name("parent").value(edge.parent().toHex());
+      writer.name("child").value(edge.child().toHex());
+      writer.endObject();
+    }
+    writer.endArray();
+
+    writer.name("metadata");
+    writer.beginObject();
+    for (Map.Entry<PackedFingerprint, Node> entry : invalidationGraph.metadata().entrySet()) {
+      writer.name(entry.getKey().toHex());
+
+      Node node = entry.getValue();
+      writer.beginObject();
+      writer.name("node_type").value(node.nodeType().name());
+
+      if (node.nodeType() == GraphDumper.NodeType.ERROR) {
+        if (node.exception() != null) {
+          writer.name("error_message").value(node.exception().toString());
+        }
+      } else if (node.nodeType() == GraphDumper.NodeType.PRESENT) {
+        writer.name("sources");
+        writeStringList(writer, node.sources());
+
+        writer.name("file_dependencies");
+        writeStringList(writer, node.fileDependencies());
+
+        writer.name("listing_dependencies");
+        writeStringList(writer, node.listingDependencies());
+
+        writer.name("nested_node_dependencies");
+        writer.beginArray();
+        for (PackedFingerprint child : node.nestedNodeDependencies()) {
+          writer.value(child.toHex());
+        }
+        writer.endArray();
+      }
+
+      writer.endObject();
+    }
+    writer.endObject();
+
+    writer.endObject();
+  }
+
+  private static void writeStringList(JsonWriter writer, List<String> list) throws IOException {
+    writer.beginArray();
+    for (String s : list) {
+      writer.value(s);
+    }
+    writer.endArray();
+  }
+
+  @VisibleForTesting
+  static ObjectCodecs getObjectCodecs(CommandEnvironment env) {
+    ObjectCodecRegistry registry =
+        env.getBlazeWorkspace().getAnalysisObjectCodecRegistrySupplier().get();
+
+    ImmutableClassToInstanceMap.Builder<Object> serializationDeps =
+        ImmutableClassToInstanceMap.builder();
+
+    RuleClassProvider ruleClassProvider = env.getRuntime().getRuleClassProvider();
+    if (ruleClassProvider != null) {
+      serializationDeps.put(RuleClassProvider.class, ruleClassProvider);
+    }
+
+    BlazeDirectories directories = env.getDirectories();
+    var roots =
+        ImmutableList.<Root>builder()
+            .add(Root.fromPath(directories.getWorkspace()))
+            .add(Root.fromPath(directories.getBlazeExecRoot()));
+    serializationDeps.put(RootCodecDependencies.class, new RootCodecDependencies(roots.build()));
+
+    SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
+    serializationDeps
+        .put(PackagePathCodecDependencies.class, () -> skyframeExecutor.getPackagePathEntries())
+        .put(PrerequisitePackageFunction.class, skyframeExecutor::getExistingPackage)
+        .put(
+            ArtifactSerializationContext.class,
+            skyframeExecutor.getSkyframeBuildView().getArtifactFactory()::getSourceArtifact);
+
+    BuildConfigurationValue buildConfiguration = env.getSkyframeBuildView().getBuildConfiguration();
+    if (buildConfiguration != null) {
+      serializationDeps.put(BuildOptions.class, buildConfiguration.getOptions());
+      try {
+        PrecomputedValue targetPrecomputed =
+            (PrecomputedValue)
+                skyframeExecutor
+                    .getEvaluator()
+                    .getExistingValue(BaselineOptionsFunction.BASELINE_CONFIGURATION.getKey());
+        PrecomputedValue execPrecomputed =
+            (PrecomputedValue)
+                skyframeExecutor
+                    .getEvaluator()
+                    .getExistingValue(BaselineOptionsFunction.BASELINE_EXEC_CONFIGURATION.getKey());
+        if (targetPrecomputed != null && execPrecomputed != null) {
+          BuildOptions targetBaseline = (BuildOptions) targetPrecomputed.get();
+          BuildOptions execBaseline = (BuildOptions) execPrecomputed.get();
+          Label topLevelPlatform =
+              buildConfiguration.getOptions().get(PlatformOptions.class).computeTargetPlatform();
+          serializationDeps.put(
+              PlatformConfigurationProvider.class,
+              new DefaultPlatformConfigurationProvider(
+                  topLevelPlatform, targetBaseline, execBaseline));
+        }
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    }
+
+    return new ObjectCodecs(registry, serializationDeps.build());
+  }
+}

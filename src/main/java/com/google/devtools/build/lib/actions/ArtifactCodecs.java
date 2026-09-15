@@ -1,0 +1,465 @@
+// Copyright 2024 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.actions;
+
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext.FieldSetter;
+import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec.DeferredValue;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.ValueSharingAdapter;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.Keep;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
+import javax.annotation.Nullable;
+
+/**
+ * Codec implementations for {@link Artifact} subclasses.
+ *
+ * <p>Each Artifact's codec implementation is split into two codecs: the main codec that handles the
+ * individual fields, and a value-sharing codec.
+ */
+public final class ArtifactCodecs {
+
+  public static final ImmutableList<ObjectCodec<? extends Artifact>> VALUE_SHARING_CODECS =
+      ImmutableList.of(
+          new ValueSharingAdapter<>(DerivedArtifactCodec.INSTANCE),
+          new ValueSharingAdapter<>(SourceArtifactCodec.INSTANCE),
+          new ValueSharingAdapter<>(SpecialArtifactCodec.INSTANCE));
+
+  /**
+   * {@link ObjectCodec} for {@link DerivedArtifact}.
+   *
+   * <p>To be kept in sync with {@link SpecialArtifactCodec}.
+   */
+  @Keep // Used by reflection.
+  private static final class DerivedArtifactCodec extends DeferredObjectCodec<DerivedArtifact> {
+
+    private static final DerivedArtifactCodec INSTANCE = new DerivedArtifactCodec();
+
+    @Override
+    public Class<DerivedArtifact> getEncodedClass() {
+      return DerivedArtifact.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, DerivedArtifact obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serialize(obj.getRoot(), codedOut);
+      context.serialize(obj.getRootRelativePath(), codedOut);
+      serializeOrOmitGeneratingActionKey(context, obj, codedOut);
+    }
+
+    @Override
+    public DeferredValue<DerivedArtifact> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      DeserializedDerivedArtifactBuilder builder = new DeserializedDerivedArtifactBuilder(context);
+      context.deserialize(codedIn, builder, DeserializedDerivedArtifactBuilder::setRoot);
+      context.deserialize(
+          codedIn, builder, DeserializedDerivedArtifactBuilder::setRootRelativePath);
+      deserializeOrGetGeneratingActionKey(
+          context, codedIn, builder, DeserializedDerivedArtifactBuilder::setGeneratingActionKey);
+      return builder;
+    }
+  }
+
+  private static class DeserializedDerivedArtifactBuilder
+      implements DeferredValue<DerivedArtifact> {
+    private final AsyncDeserializationContext context;
+    private ArtifactRoot root;
+    private PathFragment rootRelativePath;
+    private ActionLookupData generatingActionKey;
+
+    private DeserializedDerivedArtifactBuilder(AsyncDeserializationContext context) {
+      this.context = context;
+    }
+
+    @Override
+    public DerivedArtifact call() {
+      return context
+          .getDependency(ArtifactSerializationContext.class)
+          .intern(
+              new DerivedArtifact(
+                  root,
+                  getExecPathForDeserialization(root, rootRelativePath, generatingActionKey),
+                  generatingActionKey),
+              context);
+    }
+
+    private static void setRoot(DeserializedDerivedArtifactBuilder builder, Object value) {
+      builder.root = (ArtifactRoot) value;
+    }
+
+    private static void setRootRelativePath(
+        DeserializedDerivedArtifactBuilder builder, Object value) {
+      builder.rootRelativePath = (PathFragment) value;
+    }
+
+    private static void setGeneratingActionKey(
+        DeserializedDerivedArtifactBuilder builder, Object value) {
+      builder.generatingActionKey = (ActionLookupData) value;
+    }
+  }
+
+  private static void serializeOrOmitGeneratingActionKey(
+      SerializationContext context, DerivedArtifact obj, CodedOutputStream codedOut)
+      throws IOException, SerializationException {
+    boolean include =
+        context
+            .getDependency(ArtifactSerializationContext.class)
+            .includeGeneratingActionKey(obj, context);
+    codedOut.writeBoolNoTag(include);
+    if (include) {
+      context.serialize(obj.getGeneratingActionKey(), codedOut);
+    }
+  }
+
+  private static <T> void deserializeOrGetGeneratingActionKey(
+      AsyncDeserializationContext context,
+      CodedInputStream codedIn,
+      T builder,
+      FieldSetter<T> setter)
+      throws IOException, SerializationException {
+    boolean included = codedIn.readBool();
+    if (included) {
+      context.deserialize(codedIn, builder, setter);
+    } else {
+      ActionLookupData generatingActionKey =
+          context
+              .getDependency(ArtifactSerializationContext.class)
+              .getOmittedGeneratingActionKey(context);
+      setter.set(builder, generatingActionKey);
+    }
+  }
+
+  private static PathFragment getExecPathForDeserialization(
+      ArtifactRoot root, PathFragment rootRelativePath, Object generatingActionKey) {
+    Preconditions.checkArgument(
+        !root.isSourceRoot(),
+        "Root not derived: %s (rootRelativePath=%s, generatingActionKey=%s)",
+        root,
+        rootRelativePath,
+        generatingActionKey);
+    Preconditions.checkArgument(
+        root.getRoot().isAbsolute() == rootRelativePath.isAbsolute(),
+        "Illegal root relative path: %s (root=%s, generatingActionKey=%s)",
+        rootRelativePath,
+        root,
+        generatingActionKey);
+    return root.getExecPath().getRelative(rootRelativePath);
+  }
+
+  /** {@link ObjectCodec} for {@link SourceArtifact} */
+  @Keep // Used by reflection.
+  private static final class SourceArtifactCodec extends DeferredObjectCodec<SourceArtifact> {
+
+    private static final SourceArtifactCodec INSTANCE = new SourceArtifactCodec();
+
+    @Override
+    public Class<SourceArtifact> getEncodedClass() {
+      return SourceArtifact.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, SourceArtifact obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serialize(obj.getExecPath(), codedOut);
+      context.serialize(obj.getRoot(), codedOut);
+      context.serialize(obj.getArtifactOwner(), codedOut);
+    }
+
+    @Override
+    public DeferredValue<SourceArtifact> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      DeserializedSourceArtifactBuilder builder =
+          new DeserializedSourceArtifactBuilder(
+              context.getDependency(ArtifactSerializationContext.class));
+      context.deserialize(codedIn, builder, DeserializedSourceArtifactBuilder::setExecPath);
+      context.deserialize(codedIn, builder, DeserializedSourceArtifactBuilder::setRoot);
+      context.deserialize(codedIn, builder, DeserializedSourceArtifactBuilder::setOwner);
+      return builder;
+    }
+  }
+
+  private static class DeserializedSourceArtifactBuilder implements DeferredValue<SourceArtifact> {
+    private final ArtifactSerializationContext context;
+    private PathFragment execPath;
+    private ArtifactRoot root;
+    private ArtifactOwner owner;
+
+    private DeserializedSourceArtifactBuilder(ArtifactSerializationContext context) {
+      this.context = context;
+    }
+
+    @Override
+    public SourceArtifact call() {
+      return context.getSourceArtifact(execPath, root, owner);
+    }
+
+    private static void setExecPath(DeserializedSourceArtifactBuilder builder, Object value) {
+      builder.execPath = (PathFragment) value;
+    }
+
+    private static void setRoot(DeserializedSourceArtifactBuilder builder, Object value) {
+      builder.root = (ArtifactRoot) value;
+    }
+
+    private static void setOwner(DeserializedSourceArtifactBuilder builder, Object value) {
+      builder.owner = (ArtifactOwner) value;
+    }
+  }
+
+  /**
+   * {@link ObjectCodec} for {@link SpecialArtifact}.
+   *
+   * <p>To be kept in sync with {@link DerivedArtifactCodec}.
+   */
+  @Keep // Used by reflection.
+  private static final class SpecialArtifactCodec extends DeferredObjectCodec<SpecialArtifact> {
+
+    private static final SpecialArtifactCodec INSTANCE = new SpecialArtifactCodec();
+
+    @Override
+    public Class<SpecialArtifact> getEncodedClass() {
+      return SpecialArtifact.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, SpecialArtifact obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serialize(obj.getRoot(), codedOut);
+      context.serialize(obj.getRootRelativePath(), codedOut);
+      serializeOrOmitGeneratingActionKey(context, obj, codedOut);
+      context.serialize(obj.getSpecialArtifactType(), codedOut);
+      context.serialize(obj.getParent(), codedOut);
+      context.serialize(obj.getParentRelativePath(), codedOut);
+    }
+
+    @Override
+    public DeferredValue<SpecialArtifact> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      DeserializedSpecialArtifactBuilder builder = new DeserializedSpecialArtifactBuilder(context);
+      context.deserialize(codedIn, builder, DeserializedSpecialArtifactBuilder::setRoot);
+      context.deserialize(
+          codedIn, builder, DeserializedSpecialArtifactBuilder::setRootRelativePath);
+      deserializeOrGetGeneratingActionKey(
+          context, codedIn, builder, DeserializedSpecialArtifactBuilder::setGeneratingActionKey);
+      context.deserialize(codedIn, builder, DeserializedSpecialArtifactBuilder::setType);
+      context.deserialize(codedIn, builder, DeserializedSpecialArtifactBuilder::setParent);
+      context.deserialize(
+          codedIn, builder, DeserializedSpecialArtifactBuilder::setParentRelativePath);
+      return builder;
+    }
+  }
+
+  private static final class DeserializedSpecialArtifactBuilder
+      implements DeferredValue<SpecialArtifact> {
+    private final AsyncDeserializationContext context;
+    private ArtifactRoot root;
+    private PathFragment rootRelativePath;
+    private ActionLookupData generatingActionKey;
+    private SpecialArtifactType type;
+    @Nullable private SpecialArtifact parent;
+    @Nullable private PathFragment parentRelativePath;
+
+    private DeserializedSpecialArtifactBuilder(AsyncDeserializationContext context) {
+      this.context = context;
+    }
+
+    @Override
+    public SpecialArtifact call() {
+      return (SpecialArtifact)
+          context
+              .getDependency(ArtifactSerializationContext.class)
+              .intern(
+                  new SpecialArtifact(
+                      root,
+                      getExecPathForDeserialization(root, rootRelativePath, generatingActionKey),
+                      generatingActionKey,
+                      type,
+                      parent,
+                      parentRelativePath),
+                  context);
+    }
+
+    private static void setRoot(DeserializedSpecialArtifactBuilder builder, Object value) {
+      builder.root = (ArtifactRoot) value;
+    }
+
+    private static void setRootRelativePath(
+        DeserializedSpecialArtifactBuilder builder, Object value) {
+      builder.rootRelativePath = (PathFragment) value;
+    }
+
+    private static void setGeneratingActionKey(
+        DeserializedSpecialArtifactBuilder builder, Object value) {
+      builder.generatingActionKey = (ActionLookupData) value;
+    }
+
+    private static void setType(DeserializedSpecialArtifactBuilder builder, Object value) {
+      builder.type = (SpecialArtifactType) value;
+    }
+
+    private static void setParent(DeserializedSpecialArtifactBuilder builder, Object value) {
+      builder.parent = (SpecialArtifact) value;
+    }
+
+    private static void setParentRelativePath(
+        DeserializedSpecialArtifactBuilder builder, Object value) {
+      builder.parentRelativePath = (PathFragment) value;
+    }
+  }
+
+  @SuppressWarnings("unused") // Codec used by reflection.
+  private static final class ArchivedTreeArtifactCodec
+      extends DeferredObjectCodec<ArchivedTreeArtifact> {
+
+    @Override
+    public Class<ArchivedTreeArtifact> getEncodedClass() {
+      return ArchivedTreeArtifact.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, ArchivedTreeArtifact obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      PathFragment derivedTreeRoot = obj.getRoot().getExecPath().subFragment(1, 2);
+
+      context.serialize(obj.getParent(), codedOut);
+      context.serialize(derivedTreeRoot, codedOut);
+      context.serialize(obj.getRootRelativePath(), codedOut);
+    }
+
+    @Override
+    public DeferredValue<ArchivedTreeArtifact> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      DeserializedArchivedTreeArtifactBuilder builder =
+          new DeserializedArchivedTreeArtifactBuilder();
+      context.deserialize(
+          codedIn, builder, DeserializedArchivedTreeArtifactBuilder::setTreeArtifact);
+      context.deserialize(
+          codedIn, builder, DeserializedArchivedTreeArtifactBuilder::setDerivedTreeRoot);
+      context.deserialize(
+          codedIn, builder, DeserializedArchivedTreeArtifactBuilder::setRootRelativePath);
+      return builder;
+    }
+  }
+
+  private static class DeserializedArchivedTreeArtifactBuilder
+      implements DeferredValue<ArchivedTreeArtifact> {
+    private SpecialArtifact treeArtifact;
+    private PathFragment derivedTreeRoot;
+    private PathFragment rootRelativePath;
+
+    @Override
+    public ArchivedTreeArtifact call() {
+      return ArchivedTreeArtifact.createWithCustomDerivedTreeRoot(
+          treeArtifact, derivedTreeRoot, rootRelativePath);
+    }
+
+    private static void setTreeArtifact(
+        DeserializedArchivedTreeArtifactBuilder builder, Object value) {
+      builder.treeArtifact = (SpecialArtifact) value;
+    }
+
+    private static void setDerivedTreeRoot(
+        DeserializedArchivedTreeArtifactBuilder builder, Object value) {
+      builder.derivedTreeRoot = (PathFragment) value;
+    }
+
+    private static void setRootRelativePath(
+        DeserializedArchivedTreeArtifactBuilder builder, Object value) {
+      builder.rootRelativePath = (PathFragment) value;
+    }
+  }
+
+  @SuppressWarnings("unused") // Used by reflection.
+  private static final class TreeFileArtifactCodec extends DeferredObjectCodec<TreeFileArtifact> {
+
+    @Override
+    public Class<TreeFileArtifact> getEncodedClass() {
+      return TreeFileArtifact.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, TreeFileArtifact obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serialize(obj.getParent(), codedOut);
+      context.serialize(obj.getParentRelativePath(), codedOut);
+      serializeOrOmitGeneratingActionKey(context, obj, codedOut);
+    }
+
+    @Override
+    public DeferredValue<TreeFileArtifact> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      DeserializedTreeFileArtifactBuilder builder = new DeserializedTreeFileArtifactBuilder();
+      context.deserialize(codedIn, builder, DeserializedTreeFileArtifactBuilder::setParent);
+      context.deserialize(
+          codedIn, builder, DeserializedTreeFileArtifactBuilder::setParentRelativePath);
+      deserializeOrGetGeneratingActionKey(
+          context, codedIn, builder, DeserializedTreeFileArtifactBuilder::setGeneratingActionKey);
+      return builder;
+    }
+  }
+
+  private static class DeserializedTreeFileArtifactBuilder
+      implements DeferredValue<TreeFileArtifact> {
+    private SpecialArtifact parent;
+    private PathFragment parentRelativePath;
+    private ActionLookupData generatingActionKey;
+
+    @Override
+    public TreeFileArtifact call() {
+      return new TreeFileArtifact(parent, parentRelativePath, generatingActionKey);
+    }
+
+    private static void setParent(DeserializedTreeFileArtifactBuilder builder, Object value) {
+      builder.parent = (SpecialArtifact) value;
+    }
+
+    private static void setParentRelativePath(
+        DeserializedTreeFileArtifactBuilder builder, Object value) {
+      builder.parentRelativePath = (PathFragment) value;
+    }
+
+    private static void setGeneratingActionKey(
+        DeserializedTreeFileArtifactBuilder builder, Object value) {
+      builder.generatingActionKey = (ActionLookupData) value;
+    }
+  }
+
+  private ArtifactCodecs() {}
+}

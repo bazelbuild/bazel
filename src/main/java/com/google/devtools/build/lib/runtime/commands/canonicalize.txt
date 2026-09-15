@@ -1,0 +1,8 @@
+
+Usage: %{product} canonicalize-flags <options> -- <options-to-canonicalize>
+
+Canonicalizes %{product} flags for the test and build commands. This command is
+intended to be used for tools that wish to check if two lists of options have
+the same effect at runtime.
+
+%{options}

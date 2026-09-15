@@ -1,0 +1,11 @@
+
+Usage: %{product} %{command} [<option> ...]
+
+  - --all: Fetches all external dependencies, only works with bzlmod.
+  - --configure: Only fetches repositories marked as 'configure', only works with bzlmod.
+  - --repo={repo}: Only fetches the specified repository, which can be either {@apparent_repo_name} or {@@canonical_repo_name}
+, only works with bzlmod.
+  - --force: Ignore existing repository if any and force fetch the repository again, only works with bzlmod.
+  - <targets>: Fetches dependencies only for given targets.
+
+%{options}

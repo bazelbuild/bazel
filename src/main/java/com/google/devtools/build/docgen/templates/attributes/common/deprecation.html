@@ -1,0 +1,34 @@
+<p>String; <a href="#configurable-attributes">nonconfigurable</a>; default is <code>None</code></p>
+
+<p>
+An explanatory warning message associated with this target.
+Typically this is used to notify users that a target has become obsolete,
+or has become superseded by another rule, is private to a package, or is
+perhaps considered harmful for some reason. It is a good idea to include
+some reference (like a webpage, a bug number or example migration CLs) so
+that one can easily find out what changes are required to avoid the message.
+If there is a new target that can be used as a drop in replacement, it is a
+good idea to just migrate all users of the old target.
+</p>
+
+<p>
+This attribute has no effect on the way things are built, but it
+may affect a build tool's diagnostic output.  The build tool issues a
+warning when a rule with a <code>deprecation</code> attribute is
+depended upon by a target in another package.
+</p>
+
+<p>
+Intra-package dependencies are exempt from this warning, so that,
+for example, building the tests of a deprecated rule does not
+encounter a warning.
+</p>
+
+<p>
+If a deprecated target depends on another deprecated target, no warning
+message is issued.
+</p>
+
+<p>
+Once people have stopped using it, the target can be removed.
+</p>

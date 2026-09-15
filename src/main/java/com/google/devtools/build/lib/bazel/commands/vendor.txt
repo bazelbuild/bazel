@@ -1,0 +1,7 @@
+
+Usage: %{product} %{command} [<option> ...]
+
+Downloads external repositories into a folder specified by the flag
+--vendor_dir. Only works with bzlmod.
+
+%{options}

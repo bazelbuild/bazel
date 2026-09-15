@@ -1,0 +1,181 @@
+// Copyright 2014 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// INTERNAL header file for use by C++ code in this package.
+
+#ifndef BAZEL_SRC_MAIN_NATIVE_UNIX_JNI_H__
+#define BAZEL_SRC_MAIN_NATIVE_UNIX_JNI_H__
+
+#include <errno.h>
+#include <jni.h>
+#include <stdint.h>
+#include <sys/stat.h>
+
+#include <cstddef>
+#include <string>
+
+namespace blaze_jni {
+
+#if defined(__GLIBC__)
+// glibc keeps the 64-bit form of struct stat under its own name.  The other
+// libcs this is built against -- macOS, the BSDs, musl -- have had a 64-bit
+// off_t in struct stat all along, and musl 1.2.4 dropped the stat64 aliases
+// altogether.
+typedef struct stat64 portable_stat_struct;
+#define portable_stat ::stat64
+#define portable_lstat ::lstat64
+#else
+typedef struct stat portable_stat_struct;
+#define portable_stat ::stat
+#define portable_lstat ::lstat
+#endif
+
+#if !defined(ENODATA)
+# if defined(ENOATTR)
+#  define ENODATA ENOATTR
+# else
+#  error We do not know how to handle missing ENODATA
+# endif
+#endif
+
+// Posts a NativePosixFilesException to the current thread with the given
+// POSIX error number and associated standard error message.
+void PostNativePosixFilesException(JNIEnv* env, int saved_errno,
+                                   const std::string& message);
+
+// Returns the standard error message for a given UNIX error number.
+std::string ErrorMessage(int error_number);
+
+// Encoding for different timestamps in a struct stat.
+enum StatTimes {
+  STAT_ATIME,  // access
+  STAT_MTIME,  // modification
+  STAT_CTIME,  // status change
+};
+
+// Returns milliseconds since Unix epoch from the given struct stat field.
+uint64_t StatEpochMilliseconds(const portable_stat_struct &statbuf,
+                               StatTimes t);
+
+// Runs getxattr(2). If the attribute is not found or extended attributes are
+// not supported by the filesystem, returns -1 and sets attr_not_found to true.
+// For all other errors, returns -1, sets attr_not_found to false and leaves
+// errno set to the error code returned by the system call.
+ssize_t portable_getxattr(const char *path, const char *name, void *value,
+                          size_t size, bool *attr_not_found);
+
+// Runs lgetxattr(2). If the attribute is not found or extended attributes are
+// not supported by the filesystem, returns -1 and sets attr_not_found to true.
+// For all other errors, returns -1, sets attr_not_found to false and leaves
+// errno set to the error code returned by the system call.
+ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
+                           size_t size, bool *attr_not_found);
+
+// Used to surround an region that we want sleep disabled for.
+// push_disable_sleep to start the area.
+// pop_disable_sleep to end the area.
+// Note that this is a stack so sleep will not be reenabled until the stack
+// is empty.
+// Returns 0 on success.
+// Returns -1 if sleep is not supported.
+int portable_push_disable_sleep();
+int portable_pop_disable_sleep();
+
+// Starts up any infrastructure needed to do suspend monitoring.
+// May be called more than once.
+void portable_start_suspend_monitoring();
+
+// These need to be kept in sync with constants in
+// j/c/g/devtools/build/lib/buildtool/buildevent/SystemSuspensionEvent.java
+typedef enum  {
+  SuspensionReasonSIGTSTP = 0,
+  SuspensionReasonSIGCONT = 1,
+  SuspensionReasonSleep = 2,
+  SuspensionReasonWake = 3
+} SuspensionReason;
+
+// Declaration for callback function that is called by suspend monitoring
+// when a suspension is detected.
+extern void suspend_callback(SuspensionReason value);
+
+// Starts up any infrastructure needed to do thermal monitoring.
+// May be called more than once.
+void portable_start_thermal_monitoring();
+
+// Declaration for callback function that is called by thermal monitoring
+// when a thermal event is detected.
+extern void thermal_callback(int value);
+
+// Returns the current thermal load.
+int portable_thermal_load();
+
+// Starts up any infrastructure needed to do system load advisory monitoring.
+// May be called more than once.
+void portable_start_system_load_advisory_monitoring();
+
+// Declaration for callback function that is called by system load advisory
+// monitoring when a system load advisory event is detected.
+extern void system_load_advisory_callback(int value);
+
+// Returns the system load advisory.
+int portable_system_load_advisory();
+
+// Starts up any infrastructure needed to do memory pressure monitoring.
+// May be called more than once.
+void portable_start_memory_pressure_monitoring();
+
+// These need to be kept in sync with constants in
+// j/c/g/devtools/build/lib/buildtool/buildevent/SystemMemoryPressureEvent.java
+typedef enum  {
+  MemoryPressureLevelNormal = 0,
+  MemoryPressureLevelWarning = 1,
+  MemoryPressureLevelCritical = 2,
+} MemoryPressureLevel;
+
+// Declaration for callback function that is called by memory pressure
+// monitoring when memory pressure is detected.
+extern void memory_pressure_callback(MemoryPressureLevel level);
+
+// Returns the current memory pressure.
+MemoryPressureLevel portable_memory_pressure();
+
+// Starts up any infrastructure needed to do disk space monitoring.
+// May be called more than once.
+void portable_start_disk_space_monitoring();
+
+// These need to be kept in sync with constants in
+// j/c/g/devtools/build/lib/buildtool/buildevent/SystemDiskSpaceEvent.java
+typedef enum  {
+  DiskSpaceLevelLow = 0,
+  DiskSpaceLevelVeryLow = 1,
+} DiskSpaceLevel;
+
+// Declaration for callback function that is called by disk space
+// monitoring when a disk space alert happens.
+extern void disk_space_callback(DiskSpaceLevel level);
+
+// Starts up any infrastructure needed to do cpu speed monitoring.
+// May be called more than once.
+void portable_start_cpu_speed_monitoring();
+
+// Returns the current CPU speed. Return -1 in case of error.
+int portable_cpu_speed();
+
+// Declaration for callback function that is called by cpu speed
+// monitoring when a cpu speed alert happens.
+extern void cpu_speed_callback(int speed);
+
+}  // namespace blaze_jni
+
+#endif  // BAZEL_SRC_MAIN_NATIVE_UNIX_JNI_H__

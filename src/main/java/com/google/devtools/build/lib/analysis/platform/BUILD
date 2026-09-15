@@ -1,0 +1,110 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["*"]),
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__subpackages__"],
+)
+
+java_library(
+    name = "constants",
+    srcs = ["PlatformConstants.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+    ],
+)
+
+# Description:
+#   Providers defined for platforms, constraints, and toolchains.
+java_library(
+    name = "platform",
+    srcs = [
+        "ConstraintCollection.java",
+        "ConstraintSettingInfo.java",
+        "ConstraintValueInfo.java",
+        "DeclaredToolchainInfo.java",
+        "PlatformInfo.java",
+        "PlatformProperties.java",
+        "PlatformValue.java",
+        "ToolchainInfo.java",
+        "ToolchainTypeInfo.java",
+    ],
+    deps = [
+        ":constants",
+        "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_data",
+        "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:config_matching_provider",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/config",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "platform_function",
+    srcs = ["PlatformFunction.java"],
+    deps = [
+        ":platform",
+        ":utils",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:common_options",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/config",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:platform_lookup_util",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "platform_utils",
+    srcs = ["PlatformUtils.java"],
+    deps = [
+        ":platform",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/remote/options",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
+
+java_library(
+    name = "utils",
+    srcs = ["PlatformProviderUtils.java"],
+    deps = [
+        ":platform",
+        "//src/main/java/com/google/devtools/build/lib/analysis:provider_collection",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)

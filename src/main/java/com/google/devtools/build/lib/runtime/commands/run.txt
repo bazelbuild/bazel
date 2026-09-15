@@ -1,0 +1,9 @@
+
+Usage: %{product} %{command} <options> -- <binary target> <flags to binary>
+
+Build the specified target and run it with the given arguments.
+
+'run' accepts any 'build' options, and will inherit any defaults
+provided by .%{product}rc.
+
+%{options}

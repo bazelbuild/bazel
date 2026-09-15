@@ -1,0 +1,339 @@
+// Copyright 2014 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.skyframe;
+
+import com.google.common.collect.ImmutableMap;
+import com.google.common.hash.HashFunction;
+import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.cmdline.BazelCompileContext;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
+import com.google.devtools.build.lib.packages.PackageLoadingListener;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.skyframe.BzlCompileValue.TypeOptions;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
+import java.io.IOException;
+import java.util.List;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.FileOptions;
+import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.ParserInput;
+import net.starlark.java.syntax.Program;
+import net.starlark.java.syntax.StarlarkFile;
+import net.starlark.java.syntax.SyntaxError;
+
+/**
+ * A Skyframe function that compiles the .bzl file denoted by a Label.
+ *
+ * <p>Given a {@link Label} referencing a Starlark file, BzlCompileFunction loads, parses, resolves,
+ * and compiles it. The Label must be absolute, and must not reference the special {@code external}
+ * package. If the file (or the package containing it) doesn't exist, the function doesn't fail, but
+ * instead returns a specific {@code NO_FILE} {@link BzlCompileValue}.
+ */
+// TODO(adonovan): actually compile. The name is a step ahead of the implementation.
+public class BzlCompileFunction implements SkyFunction {
+
+  private final BazelStarlarkEnvironment bazelStarlarkEnvironment;
+  private final HashFunction hashFunction;
+  private final PackageLoadingListener packageLoadingListener;
+
+  public BzlCompileFunction(
+      BazelStarlarkEnvironment bazelStarlarkEnvironment,
+      HashFunction hashFunction,
+      PackageLoadingListener packageLoadingListener) {
+    this.bazelStarlarkEnvironment = bazelStarlarkEnvironment;
+    this.hashFunction = hashFunction;
+    this.packageLoadingListener = packageLoadingListener;
+  }
+
+  @Override
+  public SkyValue compute(SkyKey skyKey, Environment env)
+      throws SkyFunctionException, InterruptedException {
+    try {
+      return computeInline(
+          (BzlCompileValue.Key) skyKey.argument(),
+          env,
+          bazelStarlarkEnvironment,
+          hashFunction,
+          packageLoadingListener);
+    } catch (FailedIOException e) {
+      throw new FunctionException(e);
+    }
+  }
+
+  @Nullable
+  static BzlCompileValue computeInline(
+      BzlCompileValue.Key key,
+      Environment env,
+      BazelStarlarkEnvironment bazelStarlarkEnvironment,
+      HashFunction hashFunction,
+      PackageLoadingListener packageLoadingListener)
+      throws FailedIOException, InterruptedException {
+    byte[] bytes;
+    byte[] digest;
+    String inputName;
+    RootedPath rootedPath = null;
+
+    if (key.kind == BzlCompileValue.Kind.EMPTY_PRELUDE) {
+      // Default prelude is empty.
+      bytes = new byte[] {};
+      digest = null;
+      inputName = "<default prelude>";
+    } else {
+      // Obtain the file.
+      rootedPath = RootedPath.toRootedPath(key.root, key.label.toPathFragment());
+      SkyKey fileSkyKey = FileValue.key(rootedPath);
+      FileValue fileValue = null;
+      try {
+        fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class);
+      } catch (IOException e) {
+        throw new FailedIOException(e, Transience.PERSISTENT);
+      }
+      if (fileValue == null) {
+        return null;
+      }
+
+      if (fileValue.exists()) {
+        if (!fileValue.isFile()) {
+          return fileValue.isDirectory()
+              ? BzlCompileValue.noFile("cannot load '%s': is a directory", key.label)
+              : BzlCompileValue.noFile(
+                  "cannot load '%s': not a regular file (dangling link?)", key.label);
+        }
+
+        // Read the file.
+        Path path = rootedPath.asPath();
+        try {
+          bytes =
+              fileValue.isSpecialFile()
+                  ? FileSystemUtils.readContent(path)
+                  : FileSystemUtils.readWithKnownFileSize(path, fileValue.getSize());
+        } catch (IOException e) {
+          throw new FailedIOException(e, Transience.TRANSIENT);
+        }
+        digest = fileValue.getDigest(); // may be null
+        inputName = path.toString();
+      } else {
+        if (key.kind == BzlCompileValue.Kind.PRELUDE) {
+          // A non-existent prelude is fine.
+          bytes = new byte[] {};
+          digest = null;
+          inputName = "<default prelude>";
+        } else {
+          return BzlCompileValue.noFile("cannot load '%s': no such file", key.label);
+        }
+      }
+    }
+
+    // Compute digest if we didn't already get it from a fileValue.
+    if (digest == null) {
+      digest = hashFunction.hashBytes(bytes).asBytes();
+    }
+
+    StarlarkSemantics semantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (semantics == null) {
+      return null;
+    }
+
+    TypeOptions typeOptions = getTypeOptions(semantics, key);
+    boolean resolveTypeSyntax =
+        typeOptions.wantStaticTypeChecking() || typeOptions.wantDynamicTypeChecking();
+
+    ImmutableMap<String, Object> predeclared;
+    if (key.isSclDialect()) {
+      predeclared = bazelStarlarkEnvironment.getStarlarkGlobals().getSclToplevels();
+    } else if (key.kind == BzlCompileValue.Kind.BUILTINS) {
+      predeclared =
+          resolveTypeSyntax
+              ? bazelStarlarkEnvironment.getBuiltinsBzlEnvWithExtraTypeConstructors()
+              : bazelStarlarkEnvironment.getBuiltinsBzlEnv();
+    } else {
+      // Use the predeclared environment for BUILD-loaded bzl files, ignoring injection. It is not
+      // the right env for the actual evaluation of BUILD-loaded bzl files because it doesn't
+      // map to the injected symbols. But the names of the symbols are the same, and the names are
+      // all we need to do symbol resolution.
+      //
+      // For WORKSPACE-loaded bzl files, the env isn't quite right not because of injection but
+      // because the "native" object is different. But A) that will be fixed with #11954, and B) we
+      // don't care for the same reason as above.
+
+      predeclared =
+          resolveTypeSyntax
+              ? bazelStarlarkEnvironment.getUninjectedBuildBzlEnvWithExtraTypeConstructors()
+              : bazelStarlarkEnvironment.getUninjectedBuildBzlEnv();
+    }
+
+    // We have all deps. Parse, resolve, and return.
+    ParserInput input;
+    try {
+      input =
+          StarlarkUtil.createParserInput(
+              bytes,
+              inputName,
+              semantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
+              env.getListener());
+    } catch (
+        @SuppressWarnings("UnusedException") // createParserInput() reports its own error message
+        StarlarkUtil.InvalidUtf8Exception e) {
+      return BzlCompileValue.noFile("compilation of '%s' failed", inputName);
+    }
+
+    FileOptions.Builder optionsBuilder =
+        FileOptions.builder()
+            // By default, Starlark load statements create file-local bindings.
+            // However, the BUILD prelude typically contains nothing but load
+            // statements whose bindings are intended to be visible in all BUILD
+            // files. The loadBindsGlobally flag allows us to retrieve them.
+            .loadBindsGlobally(key.isBuildPrelude())
+            // .scl files should be ASCII-only in string literals.
+            // TODO(bazel-team): It'd be nice if we could intercept non-ASCII errors from the lexer,
+            // and modify the displayed message to clarify to the user that the string would be
+            // permitted in a .bzl file. But there's no easy way to do that short of either string
+            // matching the error message or reworking the interpreter API to put more structured
+            // detail in errors (i.e. new fields or error subclasses).
+            .stringLiteralsAreAsciiOnly(key.isSclDialect());
+    updateFileOptions(optionsBuilder, typeOptions);
+    StarlarkFile file = StarlarkFile.parse(input, optionsBuilder.build());
+
+    // compile
+    final Module module;
+
+    if (key.kind == BzlCompileValue.Kind.EMPTY_PRELUDE) {
+      // The empty prelude has no label, so we can't use it to filter the predeclareds.
+      // This doesn't matter since the empty prelude doesn't attempt to access any predeclareds
+      // anyway.
+      module = Module.withPredeclared(semantics, predeclared);
+    } else {
+      // The BazelCompileContext holds additional contextual info to be associated with the Module
+      // The information is used to filter predeclareds
+      BazelCompileContext bazelCompileContext =
+          BazelCompileContext.create(key.label, file.getName());
+      module = Module.withPredeclaredAndData(semantics, predeclared, bazelCompileContext);
+    }
+    try {
+      Program prog = Program.compileFile(file, module);
+      if (key.kind == BzlCompileValue.Kind.NORMAL) {
+        packageLoadingListener.onBzlCompileCompleteAndSuccessful(rootedPath, bytes.length);
+      }
+      return BzlCompileValue.withProgram(prog, digest, typeOptions);
+    } catch (SyntaxError.Exception ex) {
+      addSyntaxErrorsToListener(env.getListener(), ex.errors(), key);
+      return BzlCompileValue.noFile(
+          "compilation of module '%s'%s failed",
+          key.label.toPathFragment(),
+          StarlarkBuiltinsValue.isBuiltinsRepo(key.label.getRepository()) ? " (internal)" : "");
+    }
+  }
+
+  /**
+   * Whether the file should permit type syntax (annotations, etc.) based on flags and the type of
+   * file.
+   */
+  private static TypeOptions getTypeOptions(StarlarkSemantics semantics, BzlCompileValue.Key key) {
+    boolean typeSyntaxFlag =
+        semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPE_SYNTAX);
+    List<String> allowlist =
+        semantics.get(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS);
+
+    boolean okFiletype =
+        // annotations in prelude not allowed (it has null key.label)
+        !key.isBuildPrelude()
+            // annotations in SCL not allowed (not yet compatible with Go-Starlark interpreter)
+            && !key.isSclDialect()
+            // TODO: #27370 - At the moment we haven't implemented the distinction between typed and
+            // untyped code, so we need this special casing to prevent type checking from applying
+            // to arbitrary @_builtins code. Same for @bazel_tools.
+            && !key.isBuiltins()
+            && !key.label.getRepository().equals(RepositoryName.BAZEL_TOOLS);
+
+    boolean useTypeSyntax = false;
+    if (typeSyntaxFlag && okFiletype) {
+      if (allowlist.isEmpty()
+          || allowlist.stream().anyMatch(s -> key.label.getCanonicalForm().startsWith(s))) {
+        useTypeSyntax = true;
+      }
+    }
+    boolean doStaticTypeChecking =
+        useTypeSyntax
+            && semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_STATIC_TYPE_CHECKING);
+    boolean doDynamicTypeChecking =
+        useTypeSyntax
+            && semantics.getBool(StarlarkSemantics.EXPERIMENTAL_STARLARK_DYNAMIC_TYPE_CHECKING);
+
+    return new TypeOptions(useTypeSyntax, doStaticTypeChecking, doDynamicTypeChecking);
+  }
+
+  private static void updateFileOptions(FileOptions.Builder builder, TypeOptions typeOptions) {
+    boolean needsTypeInfo =
+        typeOptions.wantStaticTypeChecking() || typeOptions.wantDynamicTypeChecking();
+    builder
+        .allowTypeSyntax(typeOptions.useTypeSyntax())
+        .resolveTypeSyntax(needsTypeInfo)
+        .tolerateInvalidTypeExpressions(!needsTypeInfo);
+  }
+
+  /**
+   * Replays the syntax errors from a file onto an event handler, adding more context if necessary.
+   */
+  private static void addSyntaxErrorsToListener(
+      EventHandler handler, List<SyntaxError> errors, BzlCompileValue.Key key) {
+    Event.replayEventsOn(handler, errors);
+    // If type annotations are disallowed, it could either be because the required flags aren't
+    // enabled or because the filetype disallows it.
+    for (var err : errors) {
+      if (err.message().contains(": type annotations are disallowed")) {
+        Location fileLoc = Location.fromFile(err.location().file());
+        String explanation =
+            key.isSclDialect()
+                ? "Type annotations are not permitted in .scl files."
+                : """
+                Type annotations syntax can be enabled with --experimental_starlark_type_syntax \
+                and/or --experimental_starlark_types_allowed_paths.\
+                """;
+        handler.handle(Event.error(fileLoc, explanation));
+      }
+    }
+  }
+
+  static final class FailedIOException extends Exception {
+    private final Transience transience;
+
+    FailedIOException(IOException cause, Transience transience) {
+      super(cause.getMessage(), cause);
+      this.transience = transience;
+    }
+
+    Transience getTransience() {
+      return transience;
+    }
+  }
+
+  private static final class FunctionException extends SkyFunctionException {
+    private FunctionException(FailedIOException cause) {
+      super(cause, cause.transience);
+    }
+  }
+}

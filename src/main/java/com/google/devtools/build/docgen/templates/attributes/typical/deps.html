@@ -1,0 +1,31 @@
+<a name="common.deps"></a>
+<p>List of <a href="${link build-ref#labels}">labels</a>; default is <code>[]</code></p>
+
+<p>
+Dependencies for this target. Generally should only list rule targets. (Though
+some rules permit files to be listed directly in <code>deps</code>, this
+should be avoided when possible.)
+</p>
+
+<p>
+Language-specific rules generally limit the listed targets to those with
+specific <a href="https://bazel.build/extending/rules#providers">providers</a>.</p>
+
+<p>
+The precise semantics of what it means for a target to depend on another using
+<code>deps</code> are specific to the kind of rule, and the rule-specific
+documentation goes into more detail. For rules which process source code,
+<code>deps</code> generally specifies code dependencies used by the code in
+<a href="#typical.srcs"><code>srcs</code></a>.
+</p>
+
+<p>
+Most often, a <code>deps</code> dependency is used to allow one module to use
+symbols defined in another module written in the same programming language and
+separately compiled.  Cross-language dependencies are also permitted in many
+cases: For example, a <code>java_library</code> target may depend on C++ code
+in a <code>cc_library</code> target, by listing the latter in the
+<code>deps</code> attribute.  See the definition of
+<a href="${link build-ref#deps}">dependencies</a>
+for more information.
+</p>

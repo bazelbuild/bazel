@@ -1,0 +1,495 @@
+// Copyright 2020 The Bazel Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package build.bazel.remote.asset.v1;
+
+import "build/bazel/remote/execution/v2/remote_execution.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "google/rpc/status.proto";
+
+option csharp_namespace = "Build.Bazel.Remote.Asset.v1";
+option go_package = "github.com/bazelbuild/remote-apis/build/bazel/remote/asset/v1;remoteasset";
+option java_multiple_files = true;
+option java_outer_classname = "RemoteAssetProto";
+option java_package = "build.bazel.remote.asset.v1";
+option objc_class_prefix = "RA";
+
+// The Remote Asset API provides a mapping from a URI and Qualifiers to
+// Digests.  
+//
+// Multiple URIs may be used to refer to the same content.  For example, the
+// same tarball may exist at multiple mirrors and thus be retrievable from
+// multiple URLs.  When URLs are used, these should refer to actual content as
+// Fetch service implementations may choose to fetch the content directly
+// from the origin.  For example, the HEAD of a git repository's active branch
+// can be referred to as:
+//
+//     uri: https://github.com/bazelbuild/remote-apis.git
+//
+// URNs may be used to strongly identify content, for instance by using the
+// uuid namespace identifier: urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6.
+// This is most applicable to named content that is Push'd, where the URN
+// serves as an agreed-upon key, but carries no other inherent meaning.
+//
+// Service implementations may choose to support only URLs, only URNs for
+// Push'd content, only other URIs for which the server and client agree upon
+// semantics of, or any mixture of the above.
+
+// Qualifiers are used to disambiguate or sub-select content that shares a URI.
+// This may include specifying a particular commit or branch, in the case of
+// URIs referencing a repository; they could also be used to specify a
+// particular subdirectory of a repository or tarball. Qualifiers may also be
+// used to ensure content matches what the client expects, even when there is
+// no ambiguity to be had - for example, a qualifier specifying a checksum
+// value.
+//
+// In cases where the semantics of the request are not immediately clear from
+// the URL and/or qualifiers - e.g. dictated by URL scheme - it is recommended
+// to use an additional qualifier to remove the ambiguity. The `resource_type`
+// qualifier is recommended for this purpose.
+//
+// Qualifiers may be supplied in any order.
+message Qualifier {
+  // The "name" of the qualifier, for example "resource_type".
+  // No separation is made between 'standard' and 'nonstandard'
+  // qualifiers, in accordance with https://tools.ietf.org/html/rfc6648,
+  // however implementers *SHOULD* take care to avoid ambiguity.
+  string name = 1;
+
+  // The "value" of the qualifier. Semantics will be dictated by the name.
+  string value = 2;
+}
+
+// The Fetch service resolves or fetches assets referenced by URI and
+// Qualifiers, returning a Digest for the content in 
+// [ContentAddressableStorage][build.bazel.remote.execution.v2.ContentAddressableStorage].
+//
+// As with other services in the Remote Execution API, any call may return an
+// error with a [RetryInfo][google.rpc.RetryInfo] error detail providing
+// information about when the client should retry the request; clients SHOULD
+// respect the information provided.
+service Fetch {
+  // Resolve or fetch referenced assets, making them available to the caller and
+  // other consumers in the [ContentAddressableStorage][build.bazel.remote.execution.v2.ContentAddressableStorage].
+  //
+  // Servers *MAY* fetch content that they do not already have cached, for any
+  // URLs they support.
+  //
+  // Servers *SHOULD* ensure that referenced files are present in the CAS at the
+  // time of the response, and (if supported) that they will remain available
+  // for a reasonable period of time. The lifetimes of the referenced blobs *SHOULD*
+  // be increased if necessary and applicable.
+  // In the event that a client receives a reference to content that is no
+  // longer present, it *MAY* re-issue the request with
+  // `oldest_content_accepted` set to a more recent timestamp than the original
+  // attempt, to induce a re-fetch from origin.
+  //
+  // Servers *MAY* cache fetched content and reuse it for subsequent requests,
+  // subject to `oldest_content_accepted`.
+  //
+  // Servers *MAY* support the complementary [Push][build.bazel.remote.asset.v1.Push]
+  // API and allow content to be directly inserted for use in future fetch
+  // responses.
+  //
+  // Servers *MUST* ensure Fetch'd content matches all the specified
+  // qualifiers except in the case of previously Push'd resources, for which
+  // the server *MAY* trust the pushing client to have set the qualifiers
+  // correctly, without validation.
+  //
+  // Servers not implementing the complementary [Push][build.bazel.remote.asset.v1.Push]
+  // API *MUST* reject requests containing qualifiers it does not support.
+  //
+  // Servers *MAY* transform assets as part of the fetch. For example a
+  // tarball fetched by [FetchDirectory][build.bazel.remote.asset.v1.Fetch.FetchDirectory]
+  // might be unpacked, or a Git repository
+  // fetched by [FetchBlob][build.bazel.remote.asset.v1.Fetch.FetchBlob]
+  // might be passed through `git-archive`.
+  //
+  // Errors handling the requested assets will be returned as gRPC Status errors
+  // here; errors outside the server's control will be returned inline in the
+  // `status` field of the response (see comment there for details).
+  // The possible RPC errors include:
+  // * `INVALID_ARGUMENT`: One or more arguments were invalid, such as a
+  //   qualifier that is not supported by the server.
+  // * `RESOURCE_EXHAUSTED`: There is insufficient quota of some resource to
+  //   perform the requested operation. The client may retry after a delay.
+  // * `UNAVAILABLE`: Due to a transient condition the operation could not be
+  //   completed. The client should retry.
+  // * `INTERNAL`: An internal error occurred while performing the operation.
+  //   The client should retry.
+  // * `DEADLINE_EXCEEDED`: The fetch could not be completed within the given
+  //   RPC deadline. The client should retry for at least as long as the value
+  //   provided in `timeout` field of the request.
+  //
+  // In the case of unsupported qualifiers, the server *SHOULD* additionally
+  // send a [BadRequest][google.rpc.BadRequest] error detail where, for each
+  // unsupported qualifier, there is a `FieldViolation` with a `field` of
+  // `qualifiers.name` and a `description` of `"{qualifier}" not supported`
+  // indicating the name of the unsupported qualifier.
+  rpc FetchBlob(FetchBlobRequest) returns (FetchBlobResponse) {
+    option (google.api.http) = { post: "/v1/{instance_name=**}/assets:fetchBlob" body: "*" };
+  }
+  rpc FetchDirectory(FetchDirectoryRequest) returns (FetchDirectoryResponse) {
+    option (google.api.http) = { post: "/v1/{instance_name=**}/assets:fetchDirectory" body: "*" };
+  }
+}
+
+// A request message for
+// [Fetch.FetchBlob][build.bazel.remote.asset.v1.Fetch.FetchBlob].
+message FetchBlobRequest {
+  // The instance of the execution system to operate against. A server may
+  // support multiple instances of the execution system (with their own workers,
+  // storage, caches, etc.). The server MAY require use of this field to select
+  // between them in an implementation-defined fashion, otherwise it can be
+  // omitted.
+  string instance_name = 1;
+
+  // The timeout for the underlying fetch, if content needs to be retrieved from
+  // origin.
+  //
+  // If unset, the server *MAY* apply an implementation-defined timeout.
+  //
+  // If set, and the user-provided timeout exceeds the RPC deadline, the server
+  // *SHOULD* keep the fetch going after the RPC completes, to be made
+  // available for future Fetch calls. The server may also enforce (via clamping
+  // and/or an INVALID_ARGUMENT error) implementation-defined minimum and
+  // maximum timeout values.
+  //
+  // If this timeout is exceeded on an attempt to retrieve content from origin
+  // the client will receive DEADLINE_EXCEEDED in [FetchBlobResponse.status].
+  google.protobuf.Duration timeout = 2;
+
+  // The oldest content the client is willing to accept, as measured from the
+  // time it was Push'd or when the underlying retrieval from origin was 
+  // started.
+  // Upon retries of Fetch requests that cannot be completed within a single
+  // RPC, clients *SHOULD* provide the same value for subsequent requests as the
+  // original, to simplify combining the request with the previous attempt.
+  //
+  // If unset, the client *SHOULD* accept content of any age.
+  google.protobuf.Timestamp oldest_content_accepted = 3;
+
+  // The URI(s) of the content to fetch. These may be resources that the server
+  // can directly fetch from origin, in which case multiple URIs *SHOULD*
+  // represent the same content available at different locations (such as an
+  // origin and secondary mirrors). These may also be URIs for content known to
+  // the server through other mechanisms, e.g. pushed via the [Push][build.bazel.remote.asset.v1.Push]
+  // service.
+  //
+  // Clients *MUST* supply at least one URI. Servers *MAY* match any one of the
+  // supplied URIs.
+  repeated string uris = 4;
+
+  // Qualifiers sub-specifying the content to fetch - see comments on
+  // [Qualifier][build.bazel.remote.asset.v1.Qualifier].
+  // The same qualifiers apply to all URIs.
+  //
+  // Specified qualifier names *MUST* be unique.
+  repeated Qualifier qualifiers = 5;
+
+  // The digest function the server must use to compute the digest.
+  //
+  // If unset, the server SHOULD default to SHA256.
+  build.bazel.remote.execution.v2.DigestFunction.Value digest_function = 6;
+}
+
+// A response message for
+// [Fetch.FetchBlob][build.bazel.remote.asset.v1.Fetch.FetchBlob].
+message FetchBlobResponse {
+  // If the status has a code other than `OK`, it indicates that the operation
+  // was unable to be completed for reasons outside the servers' control.
+  // The possible fetch errors include:
+  // * `DEADLINE_EXCEEDED`: The operation could not be completed within the
+  //   specified timeout.
+  // * `NOT_FOUND`: The requested asset was not found at the specified location.
+  // * `PERMISSION_DENIED`: The request was rejected by a remote server, or
+  //   requested an asset from a disallowed origin.
+  // * `ABORTED`: The operation could not be completed, typically due to a
+  //   failed consistency check.
+  // * `RESOURCE_EXHAUSTED`: There is insufficient quota of some resource to
+  //   perform the requested operation. The client may retry after a delay.
+  google.rpc.Status status = 1;
+
+  // The uri from the request that resulted in a successful retrieval, or from
+  // which the error indicated in `status` was obtained.
+  string uri = 2;
+
+  // Any qualifiers known to the server and of interest to clients.
+  repeated Qualifier qualifiers = 3;
+
+  // A minimum timestamp the content is expected to be available through.
+  // Servers *MAY* omit this field, if not known with confidence.
+  google.protobuf.Timestamp expires_at = 4;
+
+  // The result of the fetch, if the status had code `OK`.
+  // The digest of the file's contents, available for download through the CAS.
+  build.bazel.remote.execution.v2.Digest blob_digest = 5;
+
+  // This field SHOULD be set to the digest function that was used by the server
+  // to compute [FetchBlobResponse.blob_digest].
+  // Clients could use this to determine whether the server honors
+  // [FetchBlobRequest.digest_function] that was set in the request.
+  //
+  // If unset, clients SHOULD default to use SHA256 regardless of the requested
+  // [FetchBlobRequest.digest_function].
+  build.bazel.remote.execution.v2.DigestFunction.Value digest_function = 6;
+}
+
+// A request message for
+// [Fetch.FetchDirectory][build.bazel.remote.asset.v1.Fetch.FetchDirectory].
+message FetchDirectoryRequest {
+  // The instance of the execution system to operate against. A server may
+  // support multiple instances of the execution system (with their own workers,
+  // storage, caches, etc.). The server MAY require use of this field to select
+  // between them in an implementation-defined fashion, otherwise it can be
+  // omitted.
+  string instance_name = 1;
+
+  // The timeout for the underlying fetch, if content needs to be retrieved from
+  // origin. This value is allowed to exceed the RPC deadline, in which case the
+  // server *SHOULD* keep the fetch going after the RPC completes, to be made
+  // available for future Fetch calls.
+  //
+  // If this timeout is exceeded on an attempt to retrieve content from origin
+  // the client will receive DEADLINE_EXCEEDED in [FetchDirectoryResponse.status].
+  google.protobuf.Duration timeout = 2;
+
+  // The oldest content the client is willing to accept, as measured from the
+  // time it was Push'd or when the underlying retrieval from origin was
+  // started.
+  // Upon retries of Fetch requests that cannot be completed within a single
+  // RPC, clients *SHOULD* provide the same value for subsequent requests as the
+  // original, to simplify combining the request with the previous attempt.
+  //
+  // If unset, the client *SHOULD* accept content of any age.
+  google.protobuf.Timestamp oldest_content_accepted = 3;
+
+  // The URI(s) of the content to fetch. These may be resources that the server
+  // can directly fetch from origin, in which case multiple URIs *SHOULD*
+  // represent the same content available at different locations (such as an
+  // origin and secondary mirrors). These may also be URIs for content known to
+  // the server through other mechanisms, e.g. pushed via the [Push][build.bazel.remote.asset.v1.Push]
+  // service.
+  //
+  // Clients *MUST* supply at least one URI. Servers *MAY* match any one of the
+  // supplied URIs.
+  repeated string uris = 4;
+
+  // Qualifiers sub-specifying the content to fetch - see comments on
+  // [Qualifier][build.bazel.remote.asset.v1.Qualifier].
+  // The same qualifiers apply to all URIs.
+  //
+  // Specified qualifier names *MUST* be unique.
+  repeated Qualifier qualifiers = 5;
+
+  // The digest function the server must use to compute the digest.
+  //
+  // If unset, the server SHOULD default to SHA256.
+  build.bazel.remote.execution.v2.DigestFunction.Value digest_function = 6;
+}
+
+// A response message for
+// [Fetch.FetchDirectory][build.bazel.remote.asset.v1.Fetch.FetchDirectory].
+message FetchDirectoryResponse {
+  // If the status has a code other than `OK`, it indicates that the operation
+  // was unable to be completed for reasons outside the servers' control.
+  // The possible fetch errors include:
+  // * `DEADLINE_EXCEEDED`: The operation could not be completed within the
+  //   specified timeout.
+  // * `NOT_FOUND`: The requested asset was not found at the specified location.
+  // * `PERMISSION_DENIED`: The request was rejected by a remote server, or
+  //   requested an asset from a disallowed origin.
+  // * `ABORTED`: The operation could not be completed, typically due to a
+  //   failed consistency check.
+  // * `RESOURCE_EXHAUSTED`: There is insufficient quota of some resource to
+  //   perform the requested operation. The client may retry after a delay.
+  google.rpc.Status status = 1;
+
+  // The uri from the request that resulted in a successful retrieval, or from
+  // which the error indicated in `status` was obtained.
+  string uri = 2;
+
+  // Any qualifiers known to the server and of interest to clients.
+  repeated Qualifier qualifiers = 3;
+
+  // A minimum timestamp the content is expected to be available through.
+  // Servers *MAY* omit this field, if not known with confidence.
+  google.protobuf.Timestamp expires_at = 4;
+
+  // The result of the fetch, if the status had code `OK`.
+  // the root digest of a directory tree, suitable for fetching via
+  // [ContentAddressableStorage.GetTree].
+  build.bazel.remote.execution.v2.Digest root_directory_digest = 5;
+
+  // This field SHOULD be set to the digest function that was used by the server
+  // to compute [FetchBlobResponse.root_directory_digest].
+  // Clients could use this to determine whether the server honors
+  // [FetchDirectoryRequest.digest_function] that was set in the request.
+  //
+  // If unset, clients SHOULD default to use SHA256 regardless of the requested
+  // [FetchDirectoryRequest.digest_function].
+  build.bazel.remote.execution.v2.DigestFunction.Value digest_function = 6;
+}
+
+// The Push service is complementary to the Fetch, and allows for
+// associating contents of URLs to be returned in future Fetch API calls.
+//
+// As with other services in the Remote Execution API, any call may return an
+// error with a [RetryInfo][google.rpc.RetryInfo] error detail providing
+// information about when the client should retry the request; clients SHOULD
+// respect the information provided.
+service Push {
+  // These APIs associate the identifying information of a resource, as
+  // indicated by URI and optionally Qualifiers, with content available in the
+  // CAS. For example, associating a repository url and a commit id with a
+  // Directory Digest.
+  //
+  // Servers *SHOULD* only allow trusted clients to associate content, and *MAY*
+  // only allow certain URIs to be pushed.
+  //
+  // Clients *MUST* ensure associated content is available in CAS prior to
+  // pushing.
+  //
+  // Clients *MUST* ensure the Qualifiers listed correctly match the contents,
+  // and Servers *MAY* trust these values without validation.
+  // Fetch servers *MAY* require exact match of all qualifiers when returning
+  // content previously pushed, or allow fetching content with only a subset of
+  // the qualifiers specified on Push.
+  //
+  // Clients can specify expiration information that the server *SHOULD*
+  // respect. Subsequent requests can be used to alter the expiration time.
+  //
+  // A minimal compliant Fetch implementation may support only Push'd content
+  // and return `NOT_FOUND` for any resource that was not pushed first.
+  // Alternatively, a compliant implementation may choose to not support Push
+  // and only return resources that can be Fetch'd from origin.
+  //
+  // Errors will be returned as gRPC Status errors.
+  // The possible RPC errors include:
+  // * `INVALID_ARGUMENT`: One or more arguments to the RPC were invalid.
+  // * `RESOURCE_EXHAUSTED`: There is insufficient quota of some resource to
+  //   perform the requested operation. The client may retry after a delay.
+  // * `UNAVAILABLE`: Due to a transient condition the operation could not be
+  //   completed. The client should retry.
+  // * `INTERNAL`: An internal error occurred while performing the operation.
+  //   The client should retry.
+  rpc PushBlob(PushBlobRequest) returns (PushBlobResponse) {
+    option (google.api.http) = { post: "/v1/{instance_name=**}/assets:pushBlob" body: "*" };
+  }
+
+  rpc PushDirectory(PushDirectoryRequest) returns (PushDirectoryResponse) {
+    option (google.api.http) = { post: "/v1/{instance_name=**}/assets:pushDirectory" body: "*" };
+  }
+}
+
+// A request message for
+// [Push.PushBlob][build.bazel.remote.asset.v1.Push.PushBlob].
+message PushBlobRequest {
+  // The instance of the execution system to operate against. A server may
+  // support multiple instances of the execution system (with their own workers,
+  // storage, caches, etc.). The server MAY require use of this field to select
+  // between them in an implementation-defined fashion, otherwise it can be
+  // omitted.
+  string instance_name = 1;
+
+  // The URI(s) of the content to associate. If multiple URIs are specified, the
+  // pushed content will be available to fetch by specifying any of them.
+  repeated string uris = 2;
+
+  // Qualifiers sub-specifying the content that is being pushed - see comments
+  // on [Qualifier][build.bazel.remote.asset.v1.Qualifier].
+  // The same qualifiers apply to all URIs.
+  repeated Qualifier qualifiers = 3;
+
+  // A time after which this content should stop being returned via [FetchBlob][build.bazel.remote.asset.v1.Fetch.FetchBlob].
+  // Servers *MAY* expire content early, e.g. due to storage pressure.
+  google.protobuf.Timestamp expire_at = 4;
+
+  // The blob to associate.
+  build.bazel.remote.execution.v2.Digest blob_digest = 5;
+
+  // Referenced blobs or directories that need to not expire before expiration
+  // of this association, in addition to `blob_digest` itself.
+  // These fields are hints - clients *MAY* omit them, and servers *SHOULD*
+  // respect them, at the risk of increased incidents of Fetch responses
+  // indirectly referencing unavailable blobs.
+  repeated build.bazel.remote.execution.v2.Digest references_blobs = 6;
+  repeated build.bazel.remote.execution.v2.Digest references_directories = 7;
+
+  // The digest function that was used to compute the blob digest.
+  //
+  // If the digest function used is one of MD5, MURMUR3, SHA1, SHA256,
+  // SHA384, SHA512, or VSO, the client MAY leave this field unset. In
+  // that case the server SHOULD infer the digest function using the
+  // length of the action digest hash and the digest functions announced
+  // in the server's capabilities.
+  build.bazel.remote.execution.v2.DigestFunction.Value digest_function = 8;
+}
+
+// A response message for
+// [Push.PushBlob][build.bazel.remote.asset.v1.Push.PushBlob].
+message PushBlobResponse { /* empty */ }
+
+// A request message for
+// [Push.PushDirectory][build.bazel.remote.asset.v1.Push.PushDirectory].
+message PushDirectoryRequest {
+  // The instance of the execution system to operate against. A server may
+  // support multiple instances of the execution system (with their own workers,
+  // storage, caches, etc.). The server MAY require use of this field to select
+  // between them in an implementation-defined fashion, otherwise it can be
+  // omitted.
+  string instance_name = 1;
+
+  // The URI(s) of the content to associate. If multiple URIs are specified, the
+  // pushed content will be available to fetch by specifying any of them.
+  repeated string uris = 2;
+
+  // Qualifiers sub-specifying the content that is being pushed - see comments
+  // on [Qualifier][build.bazel.remote.asset.v1.Qualifier].
+  // The same qualifiers apply to all URIs.
+  repeated Qualifier qualifiers = 3;
+
+  // A time after which this content should stop being returned via
+  // [FetchDirectory][build.bazel.remote.asset.v1.Fetch.FetchDirectory].
+  // Servers *MAY* expire content early, e.g. due to storage pressure.
+  google.protobuf.Timestamp expire_at = 4;
+
+  // Directory to associate
+  build.bazel.remote.execution.v2.Digest root_directory_digest = 5;
+
+  // Referenced blobs or directories that need to not expire before expiration
+  // of this association, in addition to `root_directory_digest` itself.
+  // These fields are hints - clients *MAY* omit them, and servers *SHOULD*
+  // respect them, at the risk of increased incidents of Fetch responses
+  // indirectly referencing unavailable blobs.
+  repeated build.bazel.remote.execution.v2.Digest references_blobs = 6;
+  repeated build.bazel.remote.execution.v2.Digest references_directories = 7;
+
+  // The digest function that was used to compute blob digests.
+  //
+  // If the digest function used is one of MD5, MURMUR3, SHA1, SHA256,
+  // SHA384, SHA512, or VSO, the client MAY leave this field unset. In
+  // that case the server SHOULD infer the digest function using the
+  // length of the action digest hash and the digest functions announced
+  // in the server's capabilities.
+  build.bazel.remote.execution.v2.DigestFunction.Value digest_function = 8;
+}
+
+// A response message for
+// [Push.PushDirectory][build.bazel.remote.asset.v1.Push.PushDirectory].
+message PushDirectoryResponse { /* empty */ }

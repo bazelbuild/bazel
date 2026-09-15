@@ -1,0 +1,100 @@
+// Copyright 2015 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package blaze.worker;
+
+option java_package = "com.google.devtools.build.lib.worker";
+
+// An input file.
+message Input {
+  // The path in the file system where to read this input artifact from. This is
+  // either a path relative to the execution root (the worker process is
+  // launched with the working directory set to the execution root), or an
+  // absolute path.
+  string path = 1;
+
+  // A hash-value of the contents. The format of the contents is unspecified and
+  // the digest should be treated as an opaque token. This can be empty in some
+  // cases.
+  bytes digest = 2;
+}
+
+// This represents a single work unit that Blaze sends to the worker.
+message WorkRequest {
+  repeated string arguments = 1;
+
+  // The inputs that the worker is allowed to read during execution of this
+  // request.
+  repeated Input inputs = 2;
+
+  // Each WorkRequest must have either a unique
+  // request_id or request_id = 0. If request_id is 0, this WorkRequest must be
+  // processed alone (singleplex), otherwise the worker may process multiple
+  // WorkRequests in parallel (multiplexing). As an exception to the above, if
+  // the cancel field is true, the request_id must be the same as a previously
+  // sent WorkRequest. The request_id must be attached unchanged to the
+  // corresponding WorkResponse. Only one singleplex request may be sent to a
+  // worker at a time.
+  int32 request_id = 3;
+
+  // EXPERIMENTAL: When true, this is a cancel request, indicating that a
+  // previously sent WorkRequest with the same request_id should be cancelled.
+  // The arguments and inputs fields must be empty and should be ignored.
+  bool cancel = 4;
+
+  // Values greater than 0 indicate that the worker may output extra debug
+  // information to stderr (which will go into the worker log). Setting the
+  // --worker_verbose flag for Bazel makes this flag default to 10.
+  int32 verbosity = 5;
+
+  // The relative directory inside the workers working directory where the
+  // inputs and outputs are placed, for sandboxing purposes. For singleplex
+  // workers, this is unset, as they can use their working directory as sandbox.
+  // For multiplex workers, this will be set when the
+  // --experimental_worker_multiplex_sandbox flag is set _and_ the execution
+  // requirements for the worker includes 'supports-multiplex-sandbox'.
+  // The paths in `inputs` will not contain this prefix, but the actual files
+  // will be placed/must be written relative to this directory. The worker
+  // implementation is responsible for resolving the file paths.
+  string sandbox_dir = 6;
+}
+
+// The worker sends this message to Blaze when it finished its work on the
+// WorkRequest message.
+message WorkResponse {
+  int32 exit_code = 1;
+
+  // Output message for this work unit.
+  // This is akin to the combined stdout/stderr if the work unit were executed
+  // as a standalone process. Output pertaining to a work unit should be
+  // reported here instead of through the stdout/stderr of the worker process.
+  // Assumed to be UTF-8 encoded.
+  string output = 2;
+
+  // This field must be set to the same request_id as the WorkRequest it is a
+  // response to. Since worker processes which support multiplex worker will
+  // handle multiple WorkRequests in parallel, this ID will be used to
+  // determined which WorkerProxy does this WorkResponse belong to.
+  int32 request_id = 3;
+
+  // EXPERIMENTAL When true, indicates that this response was sent due to
+  // receiving a cancel request. The exit_code and output fields should be empty
+  // and will be ignored. Exactly one WorkResponse must be sent for each
+  // non-cancelling WorkRequest received by the worker, but if the worker
+  // received a cancel request, it doesn't matter if it replies with a regular
+  // WorkResponse or with one where was_cancelled = true.
+  bool was_cancelled = 4;
+}

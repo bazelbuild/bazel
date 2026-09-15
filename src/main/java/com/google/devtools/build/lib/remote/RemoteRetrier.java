@@ -1,0 +1,312 @@
+// Copyright 2017 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.remote;
+
+import static java.lang.Math.max;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
+import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
+import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.RetrySummary;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.util.io.MessageOutputStream;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
+import java.io.IOException;
+import java.time.Duration;
+import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Supplier;
+import javax.annotation.Nullable;
+
+/** Specific retry logic for remote execution/caching. */
+public class RemoteRetrier extends Retrier {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  /**
+   * Supplies the gRPC log sink to which a terminal marker is written on retry exhaustion, or {@code
+   * null} for retriers that don't participate in gRPC logging (e.g. the HTTP cache retrier). It is
+   * resolved lazily because the log file is created after some retriers are constructed, and
+   * returns {@code null} while --remote_grpc_log is unset.
+   */
+  @Nullable private final Supplier<MessageOutputStream<LogEntry>> grpcLogSinkSupplier;
+
+  @Nullable
+  private static Status fromException(Exception e) {
+    for (Throwable cause = e; cause != null; cause = cause.getCause()) {
+      if (cause instanceof StatusRuntimeException statusRuntimeException) {
+        return statusRuntimeException.getStatus();
+      }
+    }
+    return null;
+  }
+
+  /** A ResultClassifier suitable to be used by ExperimentalGrpcRemoteExecutor. */
+  public static final ResultClassifier EXPERIMENTAL_GRPC_RESULT_CLASSIFIER =
+      e -> {
+        Status s = fromException(e);
+        if (s == null) {
+          // It's not a gRPC error.
+          return Result.PERMANENT_FAILURE;
+        }
+        return switch (s.getCode()) {
+          case CANCELLED ->
+              !Thread.currentThread().isInterrupted()
+                  ? Result.TRANSIENT_FAILURE
+                  : Result.PERMANENT_FAILURE;
+          case NOT_FOUND, ALREADY_EXISTS -> Result.SUCCESS;
+          case UNKNOWN, DEADLINE_EXCEEDED, ABORTED, INTERNAL, UNAVAILABLE, RESOURCE_EXHAUSTED ->
+              Result.TRANSIENT_FAILURE;
+          default -> Result.PERMANENT_FAILURE;
+        };
+      };
+
+  /** A ResultClassifier suitable to be used by GrpcRemoteExecutor. */
+  public static final ResultClassifier GRPC_RESULT_CLASSIFIER =
+      e -> {
+        // A WaitExecution call in GrpcRemoteExecutor may fail with a NOT_FOUND error.
+        // That means the Operation was lost on the server, and we will retry to Execute.
+        return RemoteRetrierUtils.causedByStatus(e, Status.Code.NOT_FOUND)
+            ? Result.TRANSIENT_FAILURE
+            : EXPERIMENTAL_GRPC_RESULT_CLASSIFIER.test(e);
+      };
+
+  public RemoteRetrier(
+      RemoteOptions options,
+      ResultClassifier resultClassifier,
+      ListeningScheduledExecutorService retryScheduler,
+      CircuitBreaker circuitBreaker) {
+    this(
+        options, resultClassifier, retryScheduler, circuitBreaker, /* grpcLogSinkSupplier= */ null);
+  }
+
+  /**
+   * Options constructor that wires in a gRPC log sink, so this retrier emits a terminal marker on
+   * retry exhaustion. Used for the gRPC cache/exec retriers; the HTTP retrier uses the 4-arg form.
+   */
+  public RemoteRetrier(
+      RemoteOptions options,
+      ResultClassifier resultClassifier,
+      ListeningScheduledExecutorService retryScheduler,
+      CircuitBreaker circuitBreaker,
+      @Nullable Supplier<MessageOutputStream<LogEntry>> grpcLogSinkSupplier) {
+    this(
+        options.getRemoteMaxRetryAttempts() > 0
+            ? () -> new ExponentialBackoff(options)
+            : () -> RETRIES_DISABLED,
+        resultClassifier,
+        retryScheduler,
+        circuitBreaker,
+        grpcLogSinkSupplier);
+  }
+
+  public RemoteRetrier(
+      Supplier<Backoff> backoff,
+      ResultClassifier resultClassifier,
+      ListeningScheduledExecutorService retryScheduler,
+      CircuitBreaker circuitBreaker) {
+    this(
+        backoff,
+        resultClassifier,
+        retryScheduler,
+        circuitBreaker,
+        /* grpcLogSinkSupplier= */ (Supplier<MessageOutputStream<LogEntry>>) null);
+  }
+
+  /**
+   * Full constructor carrying the gRPC log sink. Reached via the {@link RemoteOptions} constructor
+   * in production and used directly by same-package tests. Package-private so the sink seam is not
+   * part of the public API.
+   */
+  RemoteRetrier(
+      Supplier<Backoff> backoff,
+      ResultClassifier resultClassifier,
+      ListeningScheduledExecutorService retryScheduler,
+      CircuitBreaker circuitBreaker,
+      @Nullable Supplier<MessageOutputStream<LogEntry>> grpcLogSinkSupplier) {
+    super(backoff, resultClassifier, retryScheduler, circuitBreaker);
+    this.grpcLogSinkSupplier = grpcLogSinkSupplier;
+  }
+
+  @VisibleForTesting
+  public RemoteRetrier(
+      Supplier<Backoff> backoff,
+      ResultClassifier resultClassifier,
+      ListeningScheduledExecutorService retryScheduler,
+      CircuitBreaker circuitBreaker,
+      Sleeper sleeper) {
+    super(backoff, resultClassifier, retryScheduler, circuitBreaker, sleeper);
+    this.grpcLogSinkSupplier = null;
+  }
+
+  /** Execute a callable with retries. */
+  @Override
+  public <T, E extends Exception> T execute(RetryableCallable<T, E> call)
+      throws E, IOException, InterruptedException {
+    return execute(call, newBackoff());
+  }
+
+  @Override
+  @Nullable
+  protected String newRpcId() {
+    // Participate in gRPC logging (propagate rpc_id/attempt_number and emit a terminal marker) only
+    // when a log sink is wired in and --remote_grpc_log is actually set.
+    return (grpcLogSinkSupplier != null && grpcLogSinkSupplier.get() != null)
+        ? UUID.randomUUID().toString()
+        : null;
+  }
+
+  @Override
+  protected void onRetriesExhausted(Exception e, Backoff backoff, @Nullable String rpcId) {
+    if (rpcId == null || grpcLogSinkSupplier == null) {
+      return;
+    }
+    MessageOutputStream<LogEntry> sink = grpcLogSinkSupplier.get();
+    if (sink == null) {
+      return;
+    }
+    // Emit an explicit terminal marker, correlated to its attempt entries via rpc_id, so post-retry
+    // failures are identifiable without inferring them from the attempt chain. It carries no status
+    // (the attempt entries already do), so it doesn't inflate error counts.
+    LogEntry marker =
+        LogEntry.newBuilder()
+            .setRpcId(rpcId)
+            .setRetrySummary(
+                RetrySummary.newBuilder()
+                    .setRetryAttempts(backoff.getRetryAttempts())
+                    .setRetriesExhausted(true))
+            .build();
+    try {
+      sink.write(marker);
+    } catch (IOException | RuntimeException ex) {
+      // e.g. the log file is already closed; mirror LoggingInterceptor's defensive handling.
+      logger.atWarning().withCause(ex).log(
+          "Unable to write terminal RPC log entry for rpc_id %s", rpcId);
+    }
+  }
+
+  /** Backoff strategy that backs off exponentially. */
+  public static class ExponentialBackoff implements Backoff {
+
+    private final long maxMillis;
+    private long nextDelayMillis;
+    private int attempts = 0;
+    private final double multiplier;
+    private final double jitter;
+    private final int maxAttempts;
+
+    /**
+     * Creates a Backoff supplier for an optionally jittered exponential backoff. The supplier is
+     * ThreadSafe (non-synchronized calls to get() are fine), but the returned Backoff is not.
+     *
+     * @param initial The initial backoff duration.
+     * @param max The maximum backoff duration.
+     * @param multiplier The amount the backoff should increase in each iteration. Must be >1.
+     * @param jitter The amount the backoff should be randomly varied (0-1), with 0 providing no
+     *     jitter, and 1 providing a duration that is 0-200% of the non-jittered duration.
+     * @param maxAttempts Maximal times to attempt a retry 0 means no retries.
+     */
+    ExponentialBackoff(
+        Duration initial, Duration max, double multiplier, double jitter, int maxAttempts) {
+      Preconditions.checkArgument(multiplier > 1, "multipler must be > 1");
+      Preconditions.checkArgument(jitter >= 0 && jitter <= 1, "jitter must be in the range (0, 1)");
+      Preconditions.checkArgument(maxAttempts >= 0, "maxAttempts must be >= 0");
+      nextDelayMillis = initial.toMillis();
+      maxMillis = max(max.toMillis(), nextDelayMillis);
+      this.multiplier = multiplier;
+      this.jitter = jitter;
+      this.maxAttempts = maxAttempts;
+    }
+
+    public ExponentialBackoff(RemoteOptions options) {
+      this(
+          /* initial= */ Duration.ofMillis(100),
+          /* max= */ options.getRemoteRetryMaxDelay(),
+          /* multiplier= */ 2,
+          /* jitter= */ 0.1,
+          options.getRemoteMaxRetryAttempts());
+    }
+
+    @Override
+    public long nextDelayMillis(Exception e) {
+      if (attempts == maxAttempts) {
+        return -1;
+      }
+      attempts++;
+      double jitterRatio = jitter * (ThreadLocalRandom.current().nextDouble(2.0) - 1);
+      long result = (long) (nextDelayMillis * (1 + jitterRatio));
+      // Advance current by the non-jittered result.
+      nextDelayMillis = (long) (nextDelayMillis * multiplier);
+      if (nextDelayMillis > maxMillis) {
+        nextDelayMillis = maxMillis;
+      }
+      return result;
+    }
+
+    @Override
+    public int getRetryAttempts() {
+      return attempts;
+    }
+  }
+
+  static class ProgressiveBackoff implements Backoff {
+
+    private final Supplier<Backoff> backoffSupplier;
+    private Backoff currentBackoff = null;
+    private int retries = 0;
+
+    /**
+     * Creates a resettable Backoff for progressive reads. After a reset, the nextDelay returned
+     * indicates an immediate retry. Initially and after indicating an immediate retry, a delegate
+     * is generated to provide nextDelay until reset.
+     *
+     * @param backoffSupplier Delegate Backoff generator
+     */
+    ProgressiveBackoff(Supplier<Backoff> backoffSupplier) {
+      this.backoffSupplier = backoffSupplier;
+      currentBackoff = backoffSupplier.get();
+    }
+
+    public void reset() {
+      if (currentBackoff != null) {
+        retries += currentBackoff.getRetryAttempts();
+      }
+      currentBackoff = null;
+    }
+
+    @Override
+    public long nextDelayMillis(Exception e) {
+      if (currentBackoff == null) {
+        currentBackoff = backoffSupplier.get();
+        retries++;
+        return 0;
+      }
+      return currentBackoff.nextDelayMillis(e);
+    }
+
+    @Override
+    public int getRetryAttempts() {
+      int retryAttempts = retries;
+      if (currentBackoff != null) {
+        retryAttempts += currentBackoff.getRetryAttempts();
+      }
+      return retryAttempts;
+    }
+  }
+}

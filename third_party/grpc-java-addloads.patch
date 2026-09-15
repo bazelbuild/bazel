@@ -1,0 +1,272 @@
+diff --git a/BUILD.bazel b/BUILD.bazel
+index b6d0838bf..2b87ac38f 100644
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -12,6 +12,9 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
++load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
++load("@rules_java//java:java_library.bzl", "java_library")
++load("@rules_java//java:java_plugin.bzl", "java_plugin")
+ load("@rules_jvm_external//:defs.bzl", "artifact")
+ load(":java_grpc_library.bzl", "java_grpc_library")
+ 
+diff --git a/alts/BUILD.bazel b/alts/BUILD.bazel
+index 3595064ff..4e5f765ea 100644
+--- a/alts/BUILD.bazel
++++ b/alts/BUILD.bazel
+@@ -1,3 +1,5 @@
++load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
++load("@rules_java//java:java_library.bzl", "java_library")
+ load("@rules_jvm_external//:defs.bzl", "artifact")
+ load("@rules_proto//proto:defs.bzl", "proto_library")
+ load("//:java_grpc_library.bzl", "java_grpc_library")
+diff --git a/api/BUILD.bazel b/api/BUILD.bazel
+index 965d14a9e..baa90c6a6 100644
+--- a/api/BUILD.bazel
++++ b/api/BUILD.bazel
+@@ -1,3 +1,4 @@
++load("@rules_java//java:java_library.bzl", "java_library")
+ load("@rules_jvm_external//:defs.bzl", "artifact")
+ 
+ java_library(
+diff --git a/auth/BUILD.bazel b/auth/BUILD.bazel
+index a19562fa7..bb185edc1 100644
+--- a/auth/BUILD.bazel
++++ b/auth/BUILD.bazel
+@@ -1,3 +1,4 @@
++load("@rules_java//java:java_library.bzl", "java_library")
+ load("@rules_jvm_external//:defs.bzl", "artifact")
+ 
+ java_library(
+diff --git a/census/BUILD.bazel b/census/BUILD.bazel
+index 36be88fc3..1a42dba59 100644
+--- a/census/BUILD.bazel
++++ b/census/BUILD.bazel
+@@ -1,3 +1,4 @@
++load("@rules_java//java:java_library.bzl", "java_library")
+ load("@rules_jvm_external//:defs.bzl", "artifact")
+ 
+ java_library(
+diff --git a/compiler/BUILD.bazel b/compiler/BUILD.bazel
+index 753f48507..629713598 100644
+--- a/compiler/BUILD.bazel
++++ b/compiler/BUILD.bazel
+@@ -1,4 +1,5 @@
+ load("@rules_cc//cc:defs.bzl", "cc_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
+ load("@rules_jvm_external//:defs.bzl", "artifact")
+ load("//:java_grpc_library.bzl", "java_rpc_toolchain")
+ 
+diff --git a/context/BUILD.bazel b/context/BUILD.bazel
+index d0c4b04ce..43fcd6997 100644
+--- a/context/BUILD.bazel
++++ b/context/BUILD.bazel
+@@ -1,3 +1,5 @@
++load("@rules_java//java:java_library.bzl", "java_library")
++
+ java_library(
+     name = "context",
+     visibility = ["//visibility:public"],
+diff --git a/core/BUILD.bazel b/core/BUILD.bazel
+index 6dd5199b5..878610e0c 100644
+--- a/core/BUILD.bazel
++++ b/core/BUILD.bazel
+@@ -1,3 +1,4 @@
++load("@rules_java//java:java_library.bzl", "java_library")
+ load("@rules_jvm_external//:defs.bzl", "artifact")
+ 
+ java_library(
+diff --git a/examples/BUILD.bazel b/examples/BUILD.bazel
+index 3a0936780..e3ef8c5ac 100644
+--- a/examples/BUILD.bazel
++++ b/examples/BUILD.bazel
+@@ -1,5 +1,8 @@
+-load("@rules_proto//proto:defs.bzl", "proto_library")
++load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
++load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+ load("@io_grpc_grpc_java//:java_grpc_library.bzl", "java_grpc_library")
++load("@rules_java//java:java_binary.bzl", "java_binary")
++load("@rules_java//java:java_library.bzl", "java_library")
+ 
+ proto_library(
+     name = "helloworld_proto",
+diff --git a/googleapis/BUILD.bazel b/googleapis/BUILD.bazel
+index 9ce4179f7..43c2866f5 100644
+--- a/googleapis/BUILD.bazel
++++ b/googleapis/BUILD.bazel
+@@ -1,3 +1,4 @@
++load("@rules_java//java:java_library.bzl", "java_library")
+ load("@rules_jvm_external//:defs.bzl", "artifact")
+ 
+ java_library(
+diff --git a/grpclb/BUILD.bazel b/grpclb/BUILD.bazel
+index 902ae7f47..c8f0e0b8d 100644
+--- a/grpclb/BUILD.bazel
++++ b/grpclb/BUILD.bazel
+@@ -1,3 +1,4 @@
++load("@rules_java//java:java_library.bzl", "java_library")
+ load("@rules_jvm_external//:defs.bzl", "artifact")
+ load("//:java_grpc_library.bzl", "java_grpc_library")
+ 
+diff --git a/inprocess/BUILD.bazel b/inprocess/BUILD.bazel
+index bef386127..da9d3cbc1 100644
+--- a/inprocess/BUILD.bazel
++++ b/inprocess/BUILD.bazel
+@@ -1,3 +1,4 @@
++load("@rules_java//java:java_library.bzl", "java_library")
+ load("@rules_jvm_external//:defs.bzl", "artifact")
+ 
+ java_library(
+diff --git a/java_grpc_library.bzl b/java_grpc_library.bzl
+index 630ced383..cb8c76413 100644
+--- a/java_grpc_library.bzl
++++ b/java_grpc_library.bzl
+@@ -1,5 +1,6 @@
+ """Build rule for java_grpc_library."""
+ 
++load("@com_google_protobuf//bazel/common:proto_info.bzl", "ProtoInfo")
+ load("@rules_java//java:defs.bzl", "JavaInfo", "JavaPluginInfo", "java_common")
+ 
+ _JavaRpcToolchainInfo = provider(
+diff --git a/netty/BUILD.bazel b/netty/BUILD.bazel
+index 52fdcb19f..3a868b778 100644
+--- a/netty/BUILD.bazel
++++ b/netty/BUILD.bazel
+@@ -1,3 +1,4 @@
++load("@rules_java//java:java_library.bzl", "java_library")
+ load("@rules_jvm_external//:defs.bzl", "artifact")
+ 
+ java_library(
+diff --git a/netty/shaded/BUILD.bazel b/netty/shaded/BUILD.bazel
+index 6248f406d..1ddadfe6e 100644
+--- a/netty/shaded/BUILD.bazel
++++ b/netty/shaded/BUILD.bazel
+@@ -1,3 +1,4 @@
++load("@rules_java//java:java_library.bzl", "java_library")
+ load("@rules_jvm_external//:defs.bzl", "artifact")
+ 
+ # Publicly exposed in //netty package. Purposefully does not export any symbols.
+diff --git a/okhttp/BUILD.bazel b/okhttp/BUILD.bazel
+index 80068c9bb..d10ee4d72 100644
+--- a/okhttp/BUILD.bazel
++++ b/okhttp/BUILD.bazel
+@@ -1,3 +1,4 @@
++load("@rules_java//java:java_library.bzl", "java_library")
+ load("@rules_jvm_external//:defs.bzl", "artifact")
+ 
+ java_library(
+diff --git a/protobuf-lite/BUILD.bazel b/protobuf-lite/BUILD.bazel
+index dad794e8b..28dd20db2 100644
+--- a/protobuf-lite/BUILD.bazel
++++ b/protobuf-lite/BUILD.bazel
+@@ -1,3 +1,4 @@
++load("@rules_java//java:java_library.bzl", "java_library")
+ load("@rules_jvm_external//:defs.bzl", "artifact")
+ 
+ java_library(
+diff --git a/protobuf/BUILD.bazel b/protobuf/BUILD.bazel
+index 02a136554..17dd2a346 100644
+--- a/protobuf/BUILD.bazel
++++ b/protobuf/BUILD.bazel
+@@ -1,3 +1,4 @@
++load("@rules_java//java:java_library.bzl", "java_library")
+ load("@rules_jvm_external//:defs.bzl", "artifact")
+ 
+ java_library(
+diff --git a/rls/BUILD.bazel b/rls/BUILD.bazel
+index bfa0c7eee..f05060a7b 100644
+--- a/rls/BUILD.bazel
++++ b/rls/BUILD.bazel
+@@ -1,3 +1,4 @@
++load("@rules_java//java:java_library.bzl", "java_library")
+ load("@rules_jvm_external//:defs.bzl", "artifact")
+ load("//:java_grpc_library.bzl", "java_grpc_library")
+ 
+diff --git a/s2a/BUILD.bazel b/s2a/BUILD.bazel
+index f8fb7f1df..2e827800a 100644
+--- a/s2a/BUILD.bazel
++++ b/s2a/BUILD.bazel
+@@ -1,6 +1,8 @@
++load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
++load("@rules_java//java:java_library.bzl", "java_library")
++load("@rules_jvm_external//:defs.bzl", "artifact")
+ load("@rules_proto//proto:defs.bzl", "proto_library")
+ load("//:java_grpc_library.bzl", "java_grpc_library")
+-load("@rules_jvm_external//:defs.bzl", "artifact")
+ 
+ java_library(
+     name = "s2a_channel_pool",
+@@ -57,12 +59,12 @@ java_library(
+         "src/main/java/io/grpc/s2a/internal/handshaker/SslContextFactory.java",
+     ],
+     deps = [
+-        ":token_manager",
+         ":common_java_proto",
+         ":s2a_channel_pool",
+         ":s2a_identity",
+-        ":s2a_java_proto",
+         ":s2a_java_grpc_proto",
++        ":s2a_java_proto",
++        ":token_manager",
+         "//api",
+         "//core:internal",
+         "//netty",
+@@ -91,8 +93,8 @@ java_library(
+         "//netty",
+         artifact("com.google.code.findbugs:jsr305"),
+         artifact("com.google.errorprone:error_prone_annotations"),
+-        artifact("com.google.guava:guava"), 
+-        artifact("org.checkerframework:checker-qual"), 
++        artifact("com.google.guava:guava"),
++        artifact("org.checkerframework:checker-qual"),
+     ],
+ )
+ 
+diff --git a/services/BUILD.bazel b/services/BUILD.bazel
+index 9ac894ffa..92f57e35d 100644
+--- a/services/BUILD.bazel
++++ b/services/BUILD.bazel
+@@ -1,3 +1,4 @@
++load("@rules_java//java:java_library.bzl", "java_library")
+ load("@rules_jvm_external//:defs.bzl", "artifact")
+ load("//:java_grpc_library.bzl", "java_grpc_library")
+ 
+diff --git a/stub/BUILD.bazel b/stub/BUILD.bazel
+index 572ea681e..5f117f5bd 100644
+--- a/stub/BUILD.bazel
++++ b/stub/BUILD.bazel
+@@ -1,3 +1,4 @@
++load("@rules_java//java:java_library.bzl", "java_library")
+ load("@rules_jvm_external//:defs.bzl", "artifact")
+ 
+ java_library(
+diff --git a/testing/BUILD.bazel b/testing/BUILD.bazel
+index 78f9b8407..47872ce41 100644
+--- a/testing/BUILD.bazel
++++ b/testing/BUILD.bazel
+@@ -1,3 +1,4 @@
++load("@rules_java//java:java_library.bzl", "java_library")
+ load("@rules_jvm_external//:defs.bzl", "artifact")
+ 
+ java_library(
+diff --git a/util/BUILD.bazel b/util/BUILD.bazel
+index 8fb00e21d..088e1f5d1 100644
+--- a/util/BUILD.bazel
++++ b/util/BUILD.bazel
+@@ -1,3 +1,4 @@
++load("@rules_java//java:java_library.bzl", "java_library")
+ load("@rules_jvm_external//:defs.bzl", "artifact")
+ 
+ java_library(
+diff --git a/xds/BUILD.bazel b/xds/BUILD.bazel
+index b235a79c5..e2e1502ac 100644
+--- a/xds/BUILD.bazel
++++ b/xds/BUILD.bazel
+@@ -1,3 +1,5 @@
++load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
++load("@rules_java//java:java_library.bzl", "java_library")
+ load("@rules_jvm_external//:defs.bzl", "artifact")
+ load("//:java_grpc_library.bzl", "java_grpc_library")
+ 

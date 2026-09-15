@@ -1,0 +1,130 @@
+// Copyright 2014 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.skyframe;
+
+import static java.util.stream.Collectors.joining;
+
+import com.google.common.base.Predicates;
+import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
+import com.google.devtools.build.lib.pkgcache.PackageProvider;
+import com.google.devtools.build.lib.skyframe.TestCompletionValue.TestCompletionKey;
+import com.google.devtools.build.skyframe.CycleInfo;
+import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
+import java.util.function.Predicate;
+
+/** Reports cycles between Actions and Artifacts. These indicates cycles within a rule. */
+public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
+  public static final Predicate<SkyKey> ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP =
+      Predicates.or(
+          SkyFunctions.isSkyFunction(Artifact.ARTIFACT),
+          SkyFunctions.isSkyFunction(SkyFunctions.ARTIFACT_NESTED_SET),
+          SkyFunctions.isSkyFunction(SkyFunctions.ACTION_EXECUTION),
+          SkyFunctions.isSkyFunction(SkyFunctions.TARGET_COMPLETION),
+          SkyFunctions.isSkyFunction(SkyFunctions.ASPECT_COMPLETION),
+          SkyFunctions.isSkyFunction(SkyFunctions.TEST_COMPLETION),
+          SkyFunctions.isSkyFunction(SkyFunctions.BUILD_DRIVER));
+
+  ActionArtifactCycleReporter(PackageProvider packageProvider) {
+    super(packageProvider);
+  }
+
+  @Override
+  protected String prettyPrint(Object untypedKey) {
+    SkyKey key = (SkyKey) untypedKey;
+    return prettyPrint(key.functionName(), key.argument());
+  }
+
+  /**
+   * Should be kept consistent with {@link #ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP} and {@link
+   * #shouldSkipOnPathToCycle}
+   */
+  private static String prettyPrint(SkyFunctionName skyFunctionName, Object arg) {
+    return switch (arg) {
+      case Artifact artifact -> prettyPrintArtifact(artifact);
+      case ActionLookupData actionLookupData -> "action from: " + actionLookupData;
+      case TopLevelActionLookupKeyWrapper key -> {
+        if (skyFunctionName.equals(SkyFunctions.TARGET_COMPLETION)) {
+          yield "configured target: " + key.actionLookupKey().getLabel();
+        }
+        yield "top-level aspect: "
+            + ((AspectCompletionValue.AspectCompletionKey) key).actionLookupKey().prettyPrint();
+      }
+      case TestCompletionKey testCompletionKey
+          when skyFunctionName.equals(SkyFunctions.TEST_COMPLETION) ->
+          "test target: " + testCompletionKey.configuredTargetKey().getLabel();
+      case ArtifactNestedSetKey artifactNestedSetKey ->
+          "files: "
+              + artifactNestedSetKey.expandToArtifacts().stream()
+                  .limit(5)
+                  .map(Artifact::getRootRelativePathString)
+                  .collect(joining(", "))
+              + (artifactNestedSetKey.expandToArtifacts().size() > 5 ? ", ..." : "");
+      default ->
+          throw new IllegalStateException(
+              "Argument is not Action, TargetCompletion, AspectCompletion, or TestCompletion: "
+                  + arg);
+    };
+  }
+
+  private static String prettyPrintArtifact(Artifact artifact) {
+    return "file: " + artifact.getRootRelativePathString();
+  }
+
+  @Override
+  protected boolean shouldSkipOnPathToCycle(SkyKey key) {
+    // BuildDriverKeys don't provide any relevant info for the end user.
+    return SkyFunctions.BUILD_DRIVER.equals(key.functionName())
+        // ArtifactNestedSetKeys are just an implementation detail.
+        || SkyFunctions.ARTIFACT_NESTED_SET.equals(key.functionName());
+  }
+
+  @Override
+  protected Label getLabel(SkyKey key) {
+    Object arg = key.argument();
+    return switch (arg) {
+      case Artifact artifact -> artifact.getOwner();
+      case ActionLookupData actionLookupData -> actionLookupData.getLabel();
+      case TopLevelActionLookupKeyWrapper topLevelActionLookupKeyWrapper ->
+          topLevelActionLookupKeyWrapper.actionLookupKey().getLabel();
+      case TestCompletionKey testCompletionKey
+          when key.functionName().equals(SkyFunctions.TEST_COMPLETION) ->
+          testCompletionKey.configuredTargetKey().getLabel();
+      case ArtifactNestedSetKey artifactNestedSetKey ->
+          artifactNestedSetKey.expandToArtifacts().get(0).getOwner();
+      default ->
+          throw new IllegalStateException(
+              "Argument is not Action, TargetCompletion, AspectCompletion, or TestCompletion: "
+                  + arg);
+    };
+  }
+
+  @Override
+  protected boolean canReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo) {
+    return ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP.test(topLevelKey)
+        && cycleInfo.getCycle().stream().allMatch(ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP);
+  }
+
+  @Override
+  protected boolean shouldSkipIntermediateKeyOnCycle(SkyKey key) {
+    // ArtifactNestedSetKey isn't worth reporting to the user - it is just an optimization, and will
+    // always be an intermediate member of a cycle. It may contain artifacts irrelevant to the
+    // cycle, and may be nested several layers deep.
+    return SkyFunctions.ARTIFACT_NESTED_SET.equals(key.functionName());
+  }
+}

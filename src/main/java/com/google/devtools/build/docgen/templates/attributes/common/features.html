@@ -1,0 +1,14 @@
+<p>List of <i>feature</i> strings; default is <code>[]</code></p>
+
+<p>A feature is string tag that can be enabled or disabled on a target. The
+  meaning of a feature depends on the rule itself.</p>
+
+<p>This <code>features</code> attribute is combined with the <a href="${link package}">
+package</a> level <code>features</code> attribute. For example, if
+the features ["a", "b"] are enabled on the package level, and a target's
+<code>features</code> attribute contains ["-a", "c"], the features enabled for the
+rule will be "b" and "c".
+  <a href="https://github.com/bazelbuild/examples/blob/main/rules/features/BUILD">
+    See example</a>.
+</p>
+

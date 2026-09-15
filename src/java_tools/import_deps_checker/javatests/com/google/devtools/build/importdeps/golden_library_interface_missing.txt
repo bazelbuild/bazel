@@ -1,0 +1,14 @@
+dependency {
+  path: "third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/libtestdata_lib_Library.jar"
+  kind: EXPLICIT
+}
+dependency {
+  path: "third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/libtestdata_lib_LibraryAnnotations.jar"
+  kind: EXPLICIT
+}
+dependency {
+  path: "third_party/bazel/src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps/testdata/libtestdata_lib_LibraryException.jar"
+  kind: EXPLICIT
+}
+rule_label: ":library_interface_missing_golden_test"
+success: true

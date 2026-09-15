@@ -1,0 +1,287 @@
+// Copyright 2018 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package net.starlark.java.eval;
+
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
+import net.starlark.java.syntax.FileOptions;
+import net.starlark.java.syntax.ParserInput;
+import net.starlark.java.syntax.SyntaxError;
+
+/** A value class for storing {@link Param} metadata to avoid using Java proxies. */
+final class ParamDescriptor {
+
+  private final String name;
+  @Nullable private final Object defaultValue;
+  private final boolean named;
+  private final boolean positional;
+  // Null means any class is allowed.
+  // Should be not empty otherwise.
+  @Nullable private final List<Class<?>> allowedClasses;
+  // Non-null when the parameter might be enabled or disabled with a semantics flag.
+  // It is an error for Starlark code to supply a value to a disabled parameter.
+  // Making it nullable is cpu performance optimization (don't need to call String::isEmpty)
+  // Making it a class is a memory optimization, conditional parameters don't take more space
+  // Current serialization code can't handle records.
+  @Nullable final ConditionalCheck conditionalCheck;
+
+  static class ConditionalCheck {
+    private final String enableOnlyWithFlag;
+    private final String disableWithFlag;
+
+    public ConditionalCheck(String enableOnlyWithFlag, String disableWithFlag) {
+      this.enableOnlyWithFlag = enableOnlyWithFlag;
+      this.disableWithFlag = disableWithFlag;
+    }
+
+    public String disableWithFlag() {
+      return disableWithFlag;
+    }
+
+    public String enableOnlyWithFlag() {
+      return enableOnlyWithFlag;
+    }
+  }
+
+  private ParamDescriptor(
+      String name,
+      String defaultExpr,
+      boolean named,
+      boolean positional,
+      List<Class<?>> allowedClasses,
+      String enableOnlyWithFlag,
+      String disableWithFlag) {
+    this.name = name;
+    // TODO(adonovan): apply the same validation logic to the default value
+    // as we do to caller-supplied values (see BuiltinFunction.checkParamValue).
+    this.defaultValue = defaultExpr.isEmpty() ? null : evalDefault(name, defaultExpr);
+    this.named = named;
+    this.positional = positional;
+    if (allowedClasses.contains(Object.class)) {
+      this.allowedClasses = null;
+    } else {
+      this.allowedClasses = allowedClasses;
+    }
+    if (!enableOnlyWithFlag.isEmpty() || !disableWithFlag.isEmpty()) {
+      this.conditionalCheck = new ConditionalCheck(enableOnlyWithFlag, disableWithFlag);
+    } else {
+      this.conditionalCheck = null;
+    }
+  }
+
+  /** Returns a {@link ParamDescriptor} representing the given raw {@link Param} annotation. */
+  static ParamDescriptor of(Param param, Class<?> paramClass) {
+    String defaultExpr = param.defaultValue();
+
+    // Compute set of allowed classes.
+    ParamType[] allowedTypes = param.allowedTypes();
+    List<Class<?>> allowedClasses = new ArrayList<>();
+    if (allowedTypes.length > 0) {
+      for (ParamType pt : allowedTypes) {
+        allowedClasses.add(pt.type());
+      }
+    } else {
+      // Use the class of the parameter itself.
+      // Interpret primitive boolean parameter as j.l.Boolean.
+      allowedClasses.add(paramClass == Boolean.TYPE ? Boolean.class : paramClass);
+    }
+
+    return new ParamDescriptor(
+        param.name(),
+        defaultExpr,
+        param.named(),
+        param.positional(),
+        allowedClasses,
+        param.enableOnlyWithFlag(),
+        param.disableWithFlag());
+  }
+
+  /** @see Param#name() */
+  String getName() {
+    return name;
+  }
+
+  /** Returns a description of allowed argument types suitable for an error message. */
+  String getTypeErrorMessage() {
+    // Result has one of these forms:
+    // "a"
+    // "a or b"
+    // "a, b, or c"
+    if (allowedClasses == null) {
+      return Starlark.classType(Object.class);
+    }
+    StringBuilder buf = new StringBuilder();
+    // TODO(b/200065655#comment3): Remove when we have an official way for package defaults.
+    ImmutableList<Class<?>> allowedClassesFiltered =
+        allowedClasses.stream()
+            .filter(x -> !Starlark.classType(x).equals("NativeComputedDefault"))
+            .collect(ImmutableList.toImmutableList());
+    for (int i = 0, n = allowedClassesFiltered.size(); i < n; i++) {
+      if (i > 0) {
+        buf.append(n == 2 ? " or " : i < n - 1 ? ", " : ", or ");
+      }
+      buf.append(Starlark.classType(allowedClassesFiltered.get(i)));
+    }
+    return buf.toString();
+  }
+
+  @Nullable
+  List<Class<?>> getAllowedClasses() {
+    return allowedClasses;
+  }
+
+  /** @see Param#positional() */
+  boolean isPositional() {
+    return positional;
+  }
+
+  /** See {@link Param#named()}. */
+  boolean isNamed() {
+    return named;
+  }
+
+  /** Returns the effective default value of this parameter, or null if mandatory. */
+  @Nullable
+  Object getDefaultValue() {
+    return defaultValue;
+  }
+
+  /** Returns true if parameter is enabled. */
+  boolean isEnabled(StarlarkThread thread) {
+    return conditionalCheck == null
+        || thread
+            .getSemantics()
+            .isFeatureEnabledBasedOnTogglingFlags(
+                conditionalCheck.enableOnlyWithFlag, conditionalCheck.disableWithFlag);
+  }
+
+  /** Returns a phrase meaning "disabled" appropriate to the specified flag. */
+  public String getDisabledErrorMessage() {
+    Preconditions.checkNotNull(conditionalCheck);
+    // TODO(b/407506132): A parameter enabled by a non-experimental flag should not be marked as
+    //  experimental
+    if (!conditionalCheck.enableOnlyWithFlag().isEmpty()) {
+      return String.format(
+          "experimental and thus unavailable with the current flags. It may be enabled by setting"
+              + " --%s",
+          conditionalCheck.enableOnlyWithFlag().substring(1)); // remove [+-] prefix
+    }
+    return String.format(
+        "deprecated and will be removed soon. It may be temporarily re-enabled by setting"
+            + " --%s=false",
+        conditionalCheck.disableWithFlag().substring(1)); // remove [+-] prefix
+  }
+
+  // A memoization of evalDefault, keyed by expression.
+  // This cache is manually maintained (instead of using LoadingCache),
+  // as default values may sometimes be recursively requested.
+  private static final ConcurrentHashMap<String, Object> defaultValueCache =
+      new ConcurrentHashMap<>();
+
+  // Evaluates the default value expression for a parameter.
+  private static Object evalDefault(String name, String expr) {
+    // Values required by defaults of functions in UNIVERSE must
+    // be handled without depending on the evaluator, or even
+    // on defaultValueCache, because JVM global variable initialization
+    // is such a mess. (Specifically, it's completely dynamic,
+    // so if two or more variables are mutually dependent, like
+    // defaultValueCache and UNIVERSE would be, you have to write
+    // code that works in all possible dynamic initialization orders.)
+    // Better not to go there.
+    if (expr.equals("None")) {
+      return Starlark.NONE;
+    } else if (expr.equals("True")) {
+      return true;
+    } else if (expr.equals("False")) {
+      return false;
+    } else if (expr.equals("unbound")) {
+      return Starlark.UNBOUND;
+    } else if (expr.equals("0")) {
+      return StarlarkInt.of(0);
+    } else if (expr.equals("1")) {
+      return StarlarkInt.of(1);
+    } else if (expr.equals("[]")) {
+      return StarlarkList.empty();
+    } else if (expr.equals("()")) {
+      return Tuple.empty();
+    } else if (expr.equals("\" \"")) {
+      return " ";
+    }
+
+    Object x = defaultValueCache.get(expr);
+    if (x != null) {
+      return x;
+    }
+
+    // We can't evaluate Starlark code until UNIVERSE is bootstrapped.
+    Preconditions.checkState(
+        Starlark.UNIVERSE != null,
+        """
+        Attempted to evaluate a builtin method's parameter's default expr ('%s = %s'), prior to \
+        static initialization of Starlark.UNIVERSE. Either avoid this initialization cycle or else \
+        add the expr to the bootstrap list in ParamDescriptor#evalDefault.\
+        """,
+        name,
+        expr);
+
+    Module module = Module.create();
+    try (Mutability mu = Mutability.create("Builtin param default init")) {
+      // Note that this Starlark thread ignores command line flags.
+      // TODO: b/326588519 - The known default parameters are all simple values. If that changes, a
+      // non-transient symbol generator would be needed here.
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
+
+      // Disable polling of the java.lang.Thread.interrupt flag during
+      // Starlark evaluation. Assuming the expression does not call a
+      // built-in that throws InterruptedException, this allows us to
+      // assert that InterruptedException "can't happen".
+      //
+      // Bazel Java threads are routinely interrupted during Starlark execution,
+      // and the Starlark interpreter may be in a call to LoadingCache (in CallUtils).
+      // LoadingCache computes the cache entry in the same thread that first
+      // requested the entry, propagating undesirable thread state (which Einstein
+      // called "spooky action at a distance") from an arbitrary application thread
+      // to here, which is logically one-time initialization code.
+      //
+      // A simpler non-solution would be to use a "clean" pool thread
+      // to compute each cache entry; we could safely assume such a thread
+      // is never interrupted. However, this runs afoul of JVM class initialization:
+      // the initialization of Starlark.UNIVERSE depends on Starlark.UNBOUND
+      // because of the reference above. That's fine if they are initialized by
+      // the same thread, as JVM class initialization locks are reentrant,
+      // but the reference deadlocks if made from another thread.
+      // See https://docs.oracle.com/javase/specs/jls/se12/html/jls-12.html#jls-12.4
+      thread.ignoreThreadInterrupts();
+
+      x = Starlark.eval(ParserInput.fromLines(expr), FileOptions.DEFAULT, module, thread);
+    } catch (InterruptedException ex) {
+      throw new IllegalStateException(ex); // can't happen
+    } catch (SyntaxError.Exception | EvalException ex) {
+      throw new IllegalArgumentException(
+          String.format(
+              "failed to evaluate default value '%s' of parameter '%s': %s",
+              expr, name, ex.getMessage()),
+          ex);
+    }
+    defaultValueCache.put(expr, x);
+    return x;
+  }
+}

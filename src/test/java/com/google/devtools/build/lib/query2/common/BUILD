@@ -1,0 +1,112 @@
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
+
+package(default_applicable_licenses = ["//:license"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["*"]),
+    visibility = ["//src/test/java/com/google/devtools/build/lib/query2:__pkg__"],
+)
+
+java_test(
+    name = "UniverseScopeTest",
+    srcs = ["UniverseScopeTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/query2/common:universe-scope",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_library(
+    name = "QueryPreloadingTest_lib",
+    testonly = 1,
+    srcs = ["QueryPreloadingTestCase.java"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages:rule_visibility",
+        "//src/main/java/com/google/devtools/build/lib/query2/common:QueryTransitivePackagePreloader",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_target_key",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/skyframe:testutil",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "QueryPreloadingTest",
+    srcs = ["QueryPreloadingTest.java"],
+    deps = [
+        ":QueryPreloadingTest_lib",
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages:rule_visibility",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache:package_options",
+        "//src/main/java/com/google/devtools/build/lib/runtime:quiescing_executors_impl",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "QueryTransitivePackagePreloaderTest",
+    srcs = ["QueryTransitivePackagePreloaderTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/query2/common:QueryTransitivePackagePreloader",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_target_key",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
+        "//third_party/java/truth/extensions:proto",
+    ],
+)
+
+java_test(
+    name = "QueryTaskFutureImplTest",
+    srcs = ["QueryTaskFutureImplTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/query2/common:abstract-blaze-query-env",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)

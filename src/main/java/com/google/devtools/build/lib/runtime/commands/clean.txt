@@ -1,0 +1,10 @@
+
+Usage: %{product} %{command} [<option> ...]
+
+Removes %{product}-created output, including all object files, and %{product}
+metadata.
+
+If '--expunge' is specified, the entire working tree will be removed
+and the server stopped.
+
+%{options}

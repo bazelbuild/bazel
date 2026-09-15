@@ -1,0 +1,8 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "runfiles",
+    hdrs = ["runfiles.h"],
+    deps = ["@rules_cc//cc/runfiles"],
+    visibility = ["//visibility:public"],
+)

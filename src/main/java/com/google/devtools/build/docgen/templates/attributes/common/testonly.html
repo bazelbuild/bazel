@@ -1,0 +1,33 @@
+<p>Boolean; <a href="#configurable-attributes">nonconfigurable</a>; default is <code>False</code>
+  except for test and test suite targets</p>
+
+<p>
+If <code>True</code>, only testonly targets (such as tests) can depend on this target.
+</p>
+
+<p>
+Equivalently, a rule that is not <code>testonly</code> is not allowed to
+depend on any rule that is <code>testonly</code>.
+</p>
+
+<p>
+Tests (<code>*_test</code> rules)
+and test suites (<a href="${link test_suite}">test_suite</a> rules)
+are <code>testonly</code> by default.
+</p>
+
+<p>
+This attribute is intended to mean that the target should not be
+contained in binaries that are released to production.
+</p>
+
+<p>
+Because testonly is enforced at build time, not run time, and propagates
+virally through the dependency tree, it should be applied judiciously. For
+example, stubs and fakes that
+are useful for unit tests may also be useful for integration tests
+involving the same binaries that will be released to production, and
+therefore should probably not be marked testonly. Conversely, rules that
+are dangerous to even link in, perhaps because they unconditionally
+override normal behavior, should definitely be marked testonly.
+</p>

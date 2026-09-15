@@ -1,0 +1,17 @@
+# This is a denylist of class files that trigger a NPE in jdeps.
+./com/android/sdklib/internal/build/SignedJarBuilder.class
+./lombok/ast/app/Main$3.class
+./lombok/ast/javac/JcTreePrinter.class
+./lombok/javac/java6/CommentCollectingParser.class
+./lombok/javac/java6/CommentCollectingParserFactory.class
+./lombok/javac/java6/CommentCollectingScanner.class
+./lombok/javac/java6/CommentCollectingScannerFactory$1.class
+./lombok/javac/java6/CommentCollectingScannerFactory.class
+./lombok/javac/java7/CommentCollectingParser.class
+./lombok/javac/java7/CommentCollectingScanner.class
+./org/apache/commons/compress/harmony/pack200/Pack200Adapter.class
+./org/apache/commons/compress/java/util/jar/Pack200.class
+./org/apache/commons/compress/java/util/jar/Pack200$Packer.class
+./org/apache/commons/compress/java/util/jar/Pack200$Unpacker.class
+./org/apache/commons/lang3/concurrent/AbstractCircuitBreaker.class
+./org/apache/commons/lang3/concurrent/EventCountCircuitBreaker.class

@@ -1,0 +1,43 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+)
+
+java_library(
+    name = "external_package_exception",
+    srcs = ["ExternalPackageException.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
+    name = "repository_events",
+    srcs = [
+        "RepositoryFailedEvent.java",
+        "RepositoryFetchProgress.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "request_repository_information_event",
+    srcs = ["RequestRepositoryInformationEvent.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/events"],
+)

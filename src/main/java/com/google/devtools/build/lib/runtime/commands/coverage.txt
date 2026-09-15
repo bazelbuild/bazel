@@ -1,0 +1,16 @@
+
+Usage: %{product} %{command} <options> <test-targets>
+
+Builds and runs the specified test targets using the specified options while
+collecting code coverage statistics. Optionally, it also generates a combined
+HTML report containing coverage results for all executed tests.
+
+This command accepts all valid options to 'test' and 'build', and inherits
+defaults for 'test' (and 'build') from your .%{product}rc.  If you don't use
+.%{product}rc, don't forget to pass all your 'build' options to '%{command}'
+too.
+
+See '%{product} help target-syntax' for details and examples on how to
+specify targets.
+
+%{options}

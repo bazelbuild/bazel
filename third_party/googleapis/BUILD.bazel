@@ -1,0 +1,19 @@
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//third_party:__pkg__"],
+)
+
+# for bootstrapping
+filegroup(
+    name = "dist_jars",
+    srcs = [
+        "@googleapis//google/bytestream:bytestream_java_grpc",
+        "@googleapis//google/bytestream:bytestream_java_proto",
+        "@googleapis//google/devtools/build/v1:build_java_grpc",
+        "@googleapis//google/devtools/build/v1:build_java_proto",
+        "@googleapis//google/longrunning:longrunning_java_proto",
+        "@googleapis//google/rpc:rpc_java_proto",
+    ],
+    visibility = ["//:__pkg__"],
+)

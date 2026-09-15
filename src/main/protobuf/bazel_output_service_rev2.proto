@@ -1,0 +1,70 @@
+// Copyright 2024 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// This file contains the protocol buffer representation of a list of supported
+// flags for Bazel commands.
+
+// Companion proto that contains REv2 specific types to use with
+// bazel_output_service.proto.
+syntax = "proto3";
+
+package bazel_output_service_rev2;
+
+import "build/bazel/remote/execution/v2/remote_execution.proto";
+
+option java_package = "com.google.devtools.build.lib.remote";
+option java_outer_classname = "BazelOutputServiceREv2Proto";
+option go_package = "bazeloutputservicerev2";
+
+message StartBuildArgs {
+  // The endpoint for the Content Addressable Storage.
+  //
+  // Bazel sets to this value to --remote_cache (or --remote_executor, in case
+  // --remote_cache is not explicitly set).
+  string remote_cache = 1;
+
+  // The instance name that Bazel uses when communicating with the remote
+  // execution system. The remote output service uses this value when loading
+  // objects from the Content Addressable Storage.
+  //
+  // Bazel sets this value to --remote_instance_name.
+  string instance_name = 2;
+
+  // The digest function that Bazel uses when communicating with the remote
+  // execution system. The remote output service uses this value to ensure
+  // that BatchStatResponse contains digests that were computed with right
+  // digest function.
+  //
+  // Bazel sets this value to one of the digest functions in the REAPI spec
+  // according to --digest_function.
+  build.bazel.remote.execution.v2.DigestFunction.Value digest_function = 3;
+}
+
+message FileArtifactLocator {
+  build.bazel.remote.execution.v2.Digest digest = 1;
+}
+
+message TreeArtifactLocator {
+  // The digest of the encoded [Tree][build.bazel.remote.execution.v2.Tree]
+  // proto containing the directory's contents.
+  build.bazel.remote.execution.v2.Digest tree_digest = 1;
+
+  // The digest of the encoded
+  // [Directory][build.bazel.remote.execution.v2.Directory] proto containing the
+  // contents the directory's root.
+  //
+  // If both `tree_digest` and `root_directory_digest` are set, this field MUST
+  // match the digest of the root directory contained in the Tree message.
+  build.bazel.remote.execution.v2.Digest root_directory_digest = 2;
+}

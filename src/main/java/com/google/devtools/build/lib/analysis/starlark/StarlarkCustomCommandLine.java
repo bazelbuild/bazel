@@ -1,0 +1,1866 @@
+// Copyright 2017 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.analysis.starlark;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
+import com.google.common.collect.UnmodifiableIterator;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ArgChunk;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.CommandLineItem;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.PathMapper;
+import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationEquality;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.starlarkbuildapi.DirectoryExpander;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
+import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.HashCodes;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.function.Consumer;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
+
+/**
+ * Supports {@code ctx.actions.args()} from Starlark.
+ *
+ * <p>To be as memory-friendly as possible, expansion happens in three stages. First, when a
+ * Starlark rule is analyzed, its {@code Args} are built into a {@code StarlarkCustomCommandLine}.
+ * This is retained in Skyframe, so care is taken to be as compact as possible. At this point, the
+ * command line is split into an interned {@link Recipe} (which captures the static flag structure)
+ * and a {@code values} object (holding dynamic data such as artifacts or depsets). If there is only
+ * a single value object, it is stored directly to avoid an array object allocation. Additionally,
+ * {@link CommandLine#addToFingerprint} supports computing a fingerprint without actually
+ * constructing the expanded command line.
+ *
+ * <p>Second, right before an action executes, {@link #expand(InputMetadataProvider, PathMapper)} is
+ * called to "preprocess" the {@link Recipe} into a {@link PreprocessedCommandLine}. This step
+ * includes flattening nested sets and applying any operations that can throw an exception, such as
+ * expanding directories and invoking {@code map_each} functions. At this point, the representation
+ * stores a string for each individual argument, but string formatting (including {@code format},
+ * {@code format_each}, {@code before_each}, {@code join_with}, {@code format_joined}, and {@code
+ * flag_per_line}), is not yet applied. If {@code map_each} is not used, path mapping is also not
+ * applied yet. This means that in the common case of an {@link Artifact} with no {@code map_each}
+ * function, the string representation is still its {@link Artifact#getExecPathString}, which is not
+ * a novel string instance - it is already stored in the {@link Artifact}. This is crucial because
+ * for param files (the longest command lines), the preprocessed representation is retained
+ * throughout the action's execution. If {@code map_each} is used, path mapping affects the result
+ * of the callback and thus needs to be applied eagerly.
+ *
+ * <p>Finally, string formatting and path mapping are applied lazily during iteration over a {@link
+ * PreprocessedCommandLine}. When there is no param file, this happens up front during {@link
+ * CommandLines#expand(InputMetadataProvider, PathFragment, PathMapper, CommandLineLimits)}. When a
+ * param file is used, the lazy {@link PreprocessedCommandLine#arguments} is stored in a {@link
+ * ParamFileActionInput}, which is processed by the action execution strategy. Strategies should
+ * respect the laziness of {@link ParamFileActionInput#getArguments} by iterating as few times as
+ * possible and not retaining elements longer than necessary.
+ *
+ * <p>As an example, consider this common usage pattern, where {@code inputs} is a {@code depset} of
+ * artifacts:
+ *
+ * <pre>{@code
+ * args = ctx.actions.args()
+ * args.use_param_file("--flagfile=%s")
+ * args.add_all(inputs, format_each = "--input=%s")
+ * }</pre>
+ *
+ * During analysis, the nested set is stored without flattening. During preprocessing, the nested
+ * set is flattened and {@link Artifact#expandToCommandLine} is called for each element, but this
+ * returns an exec path string instance already stored inside the artifact. {@code format_each} is
+ * not yet applied, so no new strings are created. {@link SingleStringArgFormatter#format} is only
+ * called during iteration over the {@link PreprocessedCommandLine#arguments}. If path mapping is
+ * used, the artifact instances are kept around instead and the mapped exec paths strings are only
+ * created during iteration, together with the formatted strings.
+ */
+public class StarlarkCustomCommandLine extends CommandLine {
+
+  private static final Joiner LINE_JOINER = Joiner.on("\n").skipNulls();
+  private static final Joiner FIELD_JOINER = Joiner.on(": ").skipNulls();
+
+  // Used to distinguish command line arguments that are potentially subject to special default
+  // stringification (such as Artifacts when path mapped or Labels when not main repo labels) from
+  // strings that happen to be identical to their string representations.
+  @VisibleForSerialization
+  enum StringificationType {
+    DEFAULT,
+    FILE,
+    LABEL
+  }
+
+  /**
+   * Representation of a sequence of arguments originating from {@code Args.add_all} or {@code
+   * Args.add_joined}.
+   */
+  @AutoCodec(memoizationEquality = MemoizationEquality.BY_VALUE)
+  static final class VectorArg {
+
+    private static final Interner<VectorArg> interner = BlazeInterners.newWeakInterner();
+
+    private static final UUID EXPAND_DIRECTORIES_UUID =
+        UUID.fromString("9d7520d2-a187-11e8-98d0-529269fb1459");
+    private static final UUID UNIQUIFY_UUID =
+        UUID.fromString("7f494c3e-faea-4498-a521-5d3bc6ee19eb");
+    private static final UUID OMIT_IF_EMPTY_UUID =
+        UUID.fromString("923206f1-6474-4a8f-b30f-4dd3143622e6");
+    private static final UUID ARG_NAME_UUID =
+        UUID.fromString("2bc00382-7199-46ec-ad52-1556577cde1a");
+    private static final UUID FORMAT_EACH_UUID =
+        UUID.fromString("8e974aec-df07-4a51-9418-f4c1172b4045");
+    private static final UUID BEFORE_EACH_UUID =
+        UUID.fromString("f7e101bc-644d-4277-8562-6515ad55a988");
+    private static final UUID JOIN_WITH_UUID =
+        UUID.fromString("c227dbd3-edad-454e-bc8a-c9b5ba1c38a3");
+    private static final UUID FORMAT_JOINED_UUID =
+        UUID.fromString("528af376-4233-4c27-be4d-b0ff24ed68db");
+    private static final UUID TERMINATE_WITH_UUID =
+        UUID.fromString("a4e5e090-0dbd-4d41-899a-77cfbba58655");
+
+    private final boolean isNestedSet;
+    private final boolean expandDirectories;
+    private final boolean uniquify;
+    private final boolean omitIfEmpty;
+    private final boolean hasSingleArg;
+    private final boolean hasNonGlobalMapEach;
+    private final StringificationType stringificationType;
+    @Nullable private final Location location;
+    @Nullable private final String argName;
+    @Nullable private final StarlarkCallable mapEach;
+    @Nullable private final StarlarkSemantics starlarkSemantics;
+    @Nullable private final String formatEach;
+    @Nullable private final String beforeEach;
+    @Nullable private final String joinWith;
+    @Nullable private final String formatJoined;
+    @Nullable private final String terminateWith;
+
+    @VisibleForSerialization
+    VectorArg(
+        boolean isNestedSet,
+        boolean expandDirectories,
+        boolean uniquify,
+        boolean omitIfEmpty,
+        boolean hasSingleArg,
+        boolean hasNonGlobalMapEach,
+        StringificationType stringificationType,
+        @Nullable Location location,
+        @Nullable String argName,
+        @Nullable StarlarkCallable mapEach,
+        @Nullable StarlarkSemantics starlarkSemantics,
+        @Nullable String formatEach,
+        @Nullable String beforeEach,
+        @Nullable String joinWith,
+        @Nullable String formatJoined,
+        @Nullable String terminateWith) {
+      this.isNestedSet = isNestedSet;
+      this.expandDirectories = expandDirectories;
+      this.uniquify = uniquify;
+      this.omitIfEmpty = omitIfEmpty;
+      this.hasSingleArg = hasSingleArg;
+      this.hasNonGlobalMapEach = hasNonGlobalMapEach;
+      this.stringificationType = stringificationType;
+      this.location = location;
+      this.argName = argName;
+      this.mapEach = mapEach;
+      this.starlarkSemantics = starlarkSemantics;
+      this.formatEach = formatEach;
+      this.beforeEach = beforeEach;
+      this.joinWith = joinWith;
+      this.formatJoined = formatJoined;
+      this.terminateWith = terminateWith;
+    }
+
+    @AutoCodec.Instantiator
+    static VectorArg create(
+        boolean isNestedSet,
+        boolean expandDirectories,
+        boolean uniquify,
+        boolean omitIfEmpty,
+        boolean hasSingleArg,
+        boolean hasNonGlobalMapEach,
+        StringificationType stringificationType,
+        @Nullable Location location,
+        @Nullable String argName,
+        @Nullable StarlarkCallable mapEach,
+        @Nullable StarlarkSemantics starlarkSemantics,
+        @Nullable String formatEach,
+        @Nullable String beforeEach,
+        @Nullable String joinWith,
+        @Nullable String formatJoined,
+        @Nullable String terminateWith) {
+      VectorArg vectorArg =
+          new VectorArg(
+              isNestedSet,
+              expandDirectories,
+              uniquify,
+              omitIfEmpty,
+              hasSingleArg,
+              hasNonGlobalMapEach,
+              stringificationType,
+              location,
+              argName,
+              mapEach,
+              starlarkSemantics,
+              formatEach,
+              beforeEach,
+              joinWith,
+              formatJoined,
+              terminateWith);
+      return interner.intern(vectorArg);
+    }
+
+    private static void push(
+        List<Object> recipe,
+        List<Object> values,
+        Builder arg,
+        StarlarkSemantics starlarkSemantics) {
+      checkNotNull(arg.location);
+
+      if (arg.beforeEach != null) {
+        checkState(arg.joinWith == null, "before_each and join_with are mutually exclusive");
+        checkState(
+            arg.formatJoined == null, "before_each and format_joined are mutually exclusive");
+      }
+      if (arg.formatJoined != null) {
+        checkNotNull(arg.joinWith, "format_joined requires join_with");
+      }
+
+      boolean hasNonGlobalMapEach = arg.mapEach instanceof StarlarkFunction fn && !fn.isGlobal();
+      recipe.add(
+          VectorArg.create(
+              arg.nestedSet != null,
+              arg.expandDirectories,
+              arg.uniquify,
+              arg.omitIfEmpty,
+              arg.nestedSet == null && arg.list.size() == 1,
+              hasNonGlobalMapEach,
+              arg.nestedSetStringificationType,
+              arg.mapEach != null ? arg.location : null,
+              arg.argName,
+              hasNonGlobalMapEach ? null : arg.mapEach,
+              arg.mapEach != null ? starlarkSemantics : null,
+              arg.formatEach,
+              arg.beforeEach,
+              arg.joinWith,
+              arg.formatJoined,
+              arg.terminateWith));
+
+      if (hasNonGlobalMapEach) {
+        values.add(arg.mapEach);
+      }
+      if (arg.nestedSet != null) {
+        values.add(arg.nestedSet);
+      } else {
+        List<?> list = arg.list;
+        int count = list.size();
+        if (count != 1) {
+          // A count of 1 is encoded via the hasSingleArg field.
+          values.add(count);
+        }
+        for (int i = 0; i < count; ++i) {
+          values.add(list.get(i));
+        }
+      }
+    }
+
+    /**
+     * Adds this {@link VectorArg} to the given {@link PreprocessedCommandLine.Builder}.
+     *
+     * @param arguments result of {@link #rawValuesAsList}
+     * @param argi index in {@code arguments} at which this {@link VectorArg} begins; should be
+     *     directly preceded by {@code this}
+     * @param builder the {@link PreprocessedCommandLine.Builder} in which to add a preprocessed
+     *     representation of this arg
+     * @param pathMapper mapper for exec paths
+     * @return index in {@code arguments} where the next arg begins, or {@code arguments.size()} if
+     *     this is the last argument
+     */
+    private int preprocess(
+        List<Object> arguments,
+        int argi,
+        PreprocessedCommandLine.Builder builder,
+        @Nullable InputMetadataProvider inputMetadataProvider,
+        PathMapper pathMapper,
+        @Nullable RepositoryMapping mainRepoMapping)
+        throws CommandLineExpansionException, InterruptedException {
+      StarlarkCallable mapEach =
+          hasNonGlobalMapEach ? (StarlarkCallable) arguments.get(argi++) : this.mapEach;
+      List<Object> originalValues;
+      if (isNestedSet) {
+        @SuppressWarnings("unchecked")
+        NestedSet<Object> nestedSet = (NestedSet<Object>) arguments.get(argi++);
+        originalValues = nestedSet.toList();
+      } else {
+        int count = hasSingleArg ? 1 : (Integer) arguments.get(argi++);
+        originalValues = arguments.subList(argi, argi + count);
+        argi += count;
+      }
+      List<Object> expandedValues =
+          maybeExpandDirectories(inputMetadataProvider, originalValues, pathMapper);
+      List<Object /* String | DerivedArtifact */> values;
+      if (mapEach != null) {
+        values = new ArrayList<>(expandedValues.size());
+        applyMapEach(
+            mapEach,
+            expandedValues,
+            values::add,
+            location,
+            inputMetadataProvider,
+            pathMapper,
+            starlarkSemantics,
+            expandDirectories);
+      } else {
+        int count = expandedValues.size();
+        values = new ArrayList<>(expandedValues.size());
+        for (int i = 0; i < count; ++i) {
+          values.add(expandToCommandLine(expandedValues.get(i), mainRepoMapping));
+        }
+      }
+      // It's safe to uniquify at this stage, any transformations after this
+      // will ensure continued uniqueness of the values
+      if (uniquify) {
+        int count = values.size();
+        HashSet<String> seen = Sets.newHashSetWithExpectedSize(count);
+        int addIndex = 0;
+        for (int i = 0; i < count; ++i) {
+          Object /* String | DerivedArtifact */ val = values.get(i);
+          // If the path mapper is a no-op, an artifact behaves just like its (trivially mapped)
+          // exec path string. If the path mapper is not a no-op, mapped paths are always distinct
+          // from unmapped paths. We can thus uniquify based on the mapped exec path string in each
+          // case.
+          if (seen.add(maybePathMap(val, pathMapper))) {
+            values.set(addIndex++, val);
+          }
+        }
+        values = values.subList(0, addIndex);
+      }
+      boolean isEmptyAndShouldOmit = omitIfEmpty && values.isEmpty();
+      if (argName != null && !isEmptyAndShouldOmit) {
+        builder.addString(argName);
+      }
+
+      // If !omitIfEmpty, joining yields a single argument even if values is empty. Note that
+      // the argument may still be non-empty if format_joined is used.
+      if (!values.isEmpty() || (!omitIfEmpty && joinWith != null)) {
+        PreprocessedArg arg =
+            joinWith != null
+                ? new JoinedPreprocessedVectorArg(values, formatEach, joinWith, formatJoined)
+                : new UnjoinedPreprocessedVectorArg(values, formatEach, beforeEach);
+        builder.addPreprocessedArg(arg);
+      }
+
+      if (terminateWith != null && !isEmptyAndShouldOmit) {
+        builder.addString(terminateWith);
+      }
+      return argi;
+    }
+
+    /**
+     * Expands the directories if {@code expand_directories} feature is enabled and an
+     * InputMetadataProvider is available.
+     *
+     * <p>Technically, we should always expand the directories if the feature is requested, however
+     * we cannot do that in the absence of the {@link InputMetadataProvider}.
+     */
+    private List<Object> maybeExpandDirectories(
+        @Nullable InputMetadataProvider inputMetadataProvider,
+        List<Object> originalValues,
+        PathMapper pathMapper)
+        throws CommandLineExpansionException {
+      if (!expandDirectories || inputMetadataProvider == null || !hasDirectory(originalValues)) {
+        return originalValues;
+      }
+
+      return expandDirectories(inputMetadataProvider, originalValues, pathMapper);
+    }
+
+    private static boolean hasDirectory(List<Object> originalValues) {
+      int n = originalValues.size();
+      for (int i = 0; i < n; ++i) {
+        Object object = originalValues.get(i);
+        if (isDirectory(object)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    private static boolean isDirectory(Object object) {
+      return object instanceof Artifact artifact && artifact.isDirectory();
+    }
+
+    private static List<Object> expandDirectories(
+        InputMetadataProvider inputMetadataProvider,
+        List<Object> originalValues,
+        PathMapper pathMapper)
+        throws CommandLineExpansionException {
+      List<Object> expandedValues = new ArrayList<>(originalValues.size());
+      for (Object object : originalValues) {
+        if (isDirectory(object)) {
+          Artifact artifact = (Artifact) object;
+          if (artifact.isTreeArtifact()) {
+            TreeArtifactValue treeArtifactValue = inputMetadataProvider.getTreeMetadata(artifact);
+            if (treeArtifactValue == null) {
+              throw new CommandLineExpansionException(
+                  String.format(
+                      "Failed to expand directory %s. Either add the directory as an input of the"
+                          + " action or set 'expand_directories = False' in the 'add_all' or"
+                          + " 'add_joined' call to have the path of the directory added to the"
+                          + " command line instead of its contents.",
+                      Starlark.repr(artifact, StarlarkSemantics.DEFAULT)));
+            }
+            expandedValues.addAll(treeArtifactValue.getChildren());
+          } else if (artifact.isFileset()) {
+            expandFileset(inputMetadataProvider, artifact, expandedValues, pathMapper);
+          } else {
+            throw new AssertionError("Unknown artifact type.");
+          }
+        } else {
+          expandedValues.add(object);
+        }
+      }
+      return expandedValues;
+    }
+
+    private static void expandFileset(
+        InputMetadataProvider inputMetadataProvider,
+        Artifact fileset,
+        List<Object> expandedValues,
+        PathMapper pathMapper)
+        throws CommandLineExpansionException {
+      FilesetOutputTree filesetOutput = inputMetadataProvider.getFileset(fileset);
+      if (filesetOutput == null) {
+        throw new CommandLineExpansionException(
+            String.format(
+                "Could not expand fileset: %s. Did you forget to add it as an input of the action?",
+                fileset));
+      }
+      PathFragment mappedExecPath = pathMapper.map(fileset.getExecPath());
+      for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
+        expandedValues.add(
+            new FilesetSymlinkFile(fileset, mappedExecPath.getRelative(link.name())));
+      }
+    }
+
+    private int addToFingerprint(
+        List<Object> arguments,
+        int argi,
+        ActionKeyContext actionKeyContext,
+        Fingerprint fingerprint,
+        @Nullable InputMetadataProvider inputMetadataProvider,
+        CoreOptions.OutputPathsMode outputPathsMode,
+        RepositoryMapping mainRepoMapping)
+        throws CommandLineExpansionException, InterruptedException {
+      // NestedSets and lists never result in the same fingerprint as the
+      // ActionKeyContext#addNestedSetToFingerprint call below always adds the order of the
+      // NestedSet to the fingerprint.
+      //
+      // Path mapping may affect the default stringification of Artifact instances at execution
+      // time, but the effect of path mapping on an individual command line element is a pure
+      // function of:
+      // * whether the element is of type Artifact (FileApi in Starlark), which is fingerprinted
+      //   via the elementType UUID below;
+      // * the path of the artifact, which is fingerprinted via its default string representation
+      //   below;
+      // * the paths and possibly the digests of all input artifacts as well as the path mapping
+      //   mode, which are fingerprinted by SpawnAction.
+      // It is thus safe to ignore pathMapper below for anything that relies on the default
+      // stringification behavior (which excludes custom mapEach functions).
+      StarlarkCallable mapEach =
+          hasNonGlobalMapEach ? (StarlarkCallable) arguments.get(argi++) : this.mapEach;
+      if (isNestedSet) {
+        NestedSet<?> values = (NestedSet<?>) arguments.get(argi++);
+        if (mapEach != null) {
+          // mapEach functions do not rely on default stringification behavior, so we can omit
+          // fingerprinting stringificationType here.
+          CommandLineItemMapEachAdaptor commandLineItemMapFn =
+              new CommandLineItemMapEachAdaptor(
+                  mapEach,
+                  location,
+                  starlarkSemantics,
+                  expandDirectories || wantsDirectoryExpander(mapEach)
+                      ? inputMetadataProvider
+                      : null,
+                  outputPathsMode,
+                  expandDirectories);
+          try {
+            actionKeyContext.addNestedSetToFingerprint(commandLineItemMapFn, fingerprint, values);
+          } finally {
+            // The cache holds an entry for a NestedSet for every (map_fn, hasInputMetadataProvider
+            // bit, pathMapperCacheKey).
+            // Clearing the input metadata provider itself saves us from storing the contents of it
+            // in the cache keys (it is no longer needed after we evaluate the value).
+            // NestedSet cache is cleared after every build, which means that the input metadata
+            // provider for a given action, if present, cannot change within the lifetime of the
+            // fingerprintcache (we call getKey with inputMetadataProvider to check action key, when
+            // we are ready to execute the action in case of a cache miss).
+            commandLineItemMapFn.clearInputMetadataProvider();
+          }
+        } else {
+          fingerprint.addInt(stringificationType.ordinal());
+          if (stringificationType == StringificationType.LABEL) {
+            fingerprint.addStringMap(
+                Maps.transformValues(mainRepoMapping.entries(), RepositoryName::getName));
+          }
+          actionKeyContext.addNestedSetToFingerprint(fingerprint, values);
+        }
+      } else {
+        int count = hasSingleArg ? 1 : (Integer) arguments.get(argi++);
+        List<Object> maybeExpandedValues =
+            maybeExpandDirectories(
+                inputMetadataProvider,
+                arguments.subList(argi, argi + count),
+                PathMapper.forActionKey(outputPathsMode));
+        argi += count;
+        if (mapEach != null) {
+          // TODO(b/160181927): If inputMetadataProvider == null (happens in the analysis phase)
+          // but expandDirectories is true, we emit the directory path without running map_each.
+          // This differs from the real evaluation behavior. This means that we can erroneously
+          // produce the same digest for two command lines that differ only in their directory
+          // expansion. Fortunately, this is only a problem for shared action conflict checking/
+          // aquery result, since at execution time we have an input metadata provider.
+          applyMapEach(
+              mapEach,
+              maybeExpandedValues,
+              fingerprint::addString,
+              location,
+              inputMetadataProvider,
+              PathMapper.forActionKey(outputPathsMode),
+              starlarkSemantics,
+              expandDirectories);
+        } else {
+          for (Object value : maybeExpandedValues) {
+            addSingleObjectToFingerprint(fingerprint, value, mainRepoMapping);
+          }
+        }
+      }
+      if (expandDirectories) {
+        fingerprint.addUUID(EXPAND_DIRECTORIES_UUID);
+      }
+      if (uniquify) {
+        fingerprint.addUUID(UNIQUIFY_UUID);
+      }
+      if (omitIfEmpty) {
+        fingerprint.addUUID(OMIT_IF_EMPTY_UUID);
+      }
+      if (argName != null) {
+        fingerprint.addUUID(ARG_NAME_UUID);
+        fingerprint.addString(argName);
+      }
+      if (formatEach != null) {
+        fingerprint.addUUID(FORMAT_EACH_UUID);
+        fingerprint.addString(formatEach);
+      }
+      if (beforeEach != null) {
+        fingerprint.addUUID(BEFORE_EACH_UUID);
+        fingerprint.addString(beforeEach);
+      } else if (joinWith != null) {
+        fingerprint.addUUID(JOIN_WITH_UUID);
+        fingerprint.addString(joinWith);
+        if (formatJoined != null) {
+          fingerprint.addUUID(FORMAT_JOINED_UUID);
+          fingerprint.addString(formatJoined);
+        }
+      }
+      if (terminateWith != null) {
+        fingerprint.addUUID(TERMINATE_WITH_UUID);
+        fingerprint.addString(terminateWith);
+      }
+      return argi;
+    }
+
+    static final class Builder {
+      @Nullable private final Sequence<?> list;
+      @Nullable private final NestedSet<?> nestedSet;
+      private final StringificationType nestedSetStringificationType;
+      private Location location;
+      private String argName;
+      private boolean expandDirectories;
+      private StarlarkCallable mapEach;
+      private String formatEach;
+      private String beforeEach;
+      private String joinWith;
+      private String formatJoined;
+      private boolean omitIfEmpty;
+      private boolean uniquify;
+      private String terminateWith;
+
+      Builder(Sequence<?> list) {
+        this.list = list;
+        this.nestedSet = null;
+        this.nestedSetStringificationType = StringificationType.DEFAULT;
+      }
+
+      Builder(NestedSet<?> nestedSet, Class<?> nestedSetElementType) {
+        this.list = null;
+        this.nestedSet = nestedSet;
+        if (nestedSetElementType == FileApi.class) {
+          this.nestedSetStringificationType = StringificationType.FILE;
+        } else if (nestedSetElementType == Label.class) {
+          this.nestedSetStringificationType = StringificationType.LABEL;
+        } else {
+          this.nestedSetStringificationType = StringificationType.DEFAULT;
+        }
+      }
+
+      @CanIgnoreReturnValue
+      Builder setLocation(Location location) {
+        this.location = location;
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      Builder setArgName(String argName) {
+        this.argName = argName;
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      Builder setExpandDirectories(boolean expandDirectories) {
+        this.expandDirectories = expandDirectories;
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      Builder setMapEach(StarlarkCallable mapEach) {
+        this.mapEach = mapEach;
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      Builder setFormatEach(String format) {
+        this.formatEach = format;
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      Builder setBeforeEach(String beforeEach) {
+        this.beforeEach = beforeEach;
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      Builder setJoinWith(String joinWith) {
+        this.joinWith = joinWith;
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      Builder setFormatJoined(String formatJoined) {
+        this.formatJoined = formatJoined;
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      Builder omitIfEmpty(boolean omitIfEmpty) {
+        this.omitIfEmpty = omitIfEmpty;
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      Builder uniquify(boolean uniquify) {
+        this.uniquify = uniquify;
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      Builder setTerminateWith(String terminateWith) {
+        this.terminateWith = terminateWith;
+        return this;
+      }
+    }
+
+    @Override
+    @SuppressWarnings("ReferenceEquality")
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof VectorArg that)) {
+        return false;
+      }
+      return isNestedSet == that.isNestedSet
+          && expandDirectories == that.expandDirectories
+          && uniquify == that.uniquify
+          && omitIfEmpty == that.omitIfEmpty
+          && hasSingleArg == that.hasSingleArg
+          && hasNonGlobalMapEach == that.hasNonGlobalMapEach
+          && stringificationType.equals(that.stringificationType)
+          && Objects.equals(location, that.location)
+          && Objects.equals(argName, that.argName)
+          && mapEach == that.mapEach
+          && Objects.equals(starlarkSemantics, that.starlarkSemantics)
+          && Objects.equals(formatEach, that.formatEach)
+          && Objects.equals(beforeEach, that.beforeEach)
+          && Objects.equals(joinWith, that.joinWith)
+          && Objects.equals(formatJoined, that.formatJoined)
+          && Objects.equals(terminateWith, that.terminateWith);
+    }
+
+    @Override
+    public int hashCode() {
+      int result = Boolean.hashCode(isNestedSet);
+      result = 31 * result + Boolean.hashCode(expandDirectories);
+      result = 31 * result + Boolean.hashCode(uniquify);
+      result = 31 * result + Boolean.hashCode(omitIfEmpty);
+      result = 31 * result + Boolean.hashCode(hasSingleArg);
+      result = 31 * result + Boolean.hashCode(hasNonGlobalMapEach);
+      result =
+          31 * result
+              + HashCodes.hashObjects(
+                  stringificationType,
+                  location,
+                  argName,
+                  starlarkSemantics,
+                  formatEach,
+                  beforeEach,
+                  joinWith,
+                  formatJoined,
+                  terminateWith);
+      result = 31 * result + System.identityHashCode(mapEach);
+      return result;
+    }
+  }
+
+  /** Denotes that the following element in recipe is a format string. */
+  @SerializationConstant @VisibleForSerialization
+  public static final Object SINGLE_FORMATTED_ARG_MARKER =
+      new Object() {
+        @Override
+        public String toString() {
+          return "SINGLE_FORMATTED_ARG_MARKER";
+        }
+      };
+
+  @SerializationConstant @VisibleForSerialization
+  public static final Object PLAIN_ARG_MARKER =
+      new Object() {
+        @Override
+        public String toString() {
+          return "PLAIN_ARG_MARKER";
+        }
+      };
+
+  /**
+   * Represents the static structural recipe of a {@link StarlarkCustomCommandLine}.
+   *
+   * <p>Contains structural marker elements (e.g. {@link VectorArg}, {@link
+   * #SINGLE_FORMATTED_ARG_MARKER}, {@link #PLAIN_ARG_MARKER}). Because Starlark rules repeatedly
+   * generate identical command line flag structures across actions and targets, {@code Recipe}
+   * instances are weakly interned so that all command lines with the same flag "template" share a
+   * single instance.
+   */
+  @AutoCodec(memoizationEquality = MemoizationEquality.BY_VALUE)
+  static final class Recipe {
+    private static final Interner<Recipe> interner = BlazeInterners.newWeakInterner();
+
+    final Object[] elements;
+    private final int hashCode;
+
+    @VisibleForSerialization
+    Recipe(Object[] elements) {
+      this.elements = elements;
+      this.hashCode = Arrays.hashCode(elements);
+    }
+
+    @AutoCodec.Instantiator
+    static Recipe create(Object[] elements) {
+      return interner.intern(new Recipe(elements));
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof Recipe that)) {
+        return false;
+      }
+      return Arrays.equals(this.elements, that.elements);
+    }
+
+    @Override
+    public int hashCode() {
+      return hashCode;
+    }
+  }
+
+  /** Representation of a single formatted argument originating from {@code Args.add} */
+  private static final class SingleFormattedArg {
+
+    private static final UUID SINGLE_FORMATTED_ARG_UUID =
+        UUID.fromString("8cb96642-a235-4fe0-b3ed-ebfdae8a0bd9");
+
+    static void push(List<Object> recipe, List<Object> values, Object object, String format) {
+      recipe.add(SINGLE_FORMATTED_ARG_MARKER);
+      recipe.add(format);
+      values.add(object);
+    }
+  }
+
+  static final class Builder {
+    private final StarlarkSemantics starlarkSemantics;
+    private final List<Object> recipe = new ArrayList<>();
+    private final List<Object> values = new ArrayList<>();
+    // Indexes in recipe list where individual args begin
+    private final ImmutableList.Builder<Integer> argStartIndexes = ImmutableList.builder();
+
+    public Builder(StarlarkSemantics starlarkSemantics) {
+      this.starlarkSemantics = checkNotNull(starlarkSemantics);
+    }
+
+    @CanIgnoreReturnValue
+    Builder recordArgStart() {
+      if (!recipe.isEmpty()) {
+        argStartIndexes.add(recipe.size());
+      }
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    Builder addArgName(String argName) {
+      checkNotNull(argName);
+      recipe.add(argName);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    Builder add(Object object) {
+      checkNotNull(object);
+      recipe.add(PLAIN_ARG_MARKER);
+      values.add(object);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    Builder add(VectorArg.Builder vectorArg) {
+      VectorArg.push(recipe, values, vectorArg, starlarkSemantics);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    Builder addFormatted(Object object, String format) {
+      checkNotNull(object);
+      checkNotNull(format);
+      SingleFormattedArg.push(recipe, values, object, format);
+      return this;
+    }
+
+    CommandLine build(boolean flagPerLine, @Nullable RepositoryMapping mainRepoMapping) {
+      if (recipe.isEmpty()) {
+        return CommandLine.empty();
+      }
+      Object[] vals;
+      if (mainRepoMapping != null) {
+        vals = values.toArray(new Object[values.size() + 1]);
+        vals[values.size()] = mainRepoMapping;
+      } else {
+        vals = values.toArray();
+      }
+      Recipe internedRecipe = Recipe.create(recipe.toArray());
+      Object compactValues = vals.length == 1 && !(vals[0] instanceof Object[]) ? vals[0] : vals;
+      return flagPerLine
+          ? new StarlarkCustomCommandLineWithIndexes(
+              internedRecipe, compactValues, argStartIndexes.build())
+          : new StarlarkCustomCommandLine(internedRecipe, compactValues);
+    }
+  }
+
+  private final Recipe recipe;
+
+  /**
+   * Holds the argument values corresponding to {@link #recipe}.
+   *
+   * <p>To save memory:
+   *
+   * <ul>
+   *   <li>If there is exactly 1 value, it is stored directly as an {@link Object} reference
+   *       (eliminating an {@code Object[1]} array header allocation).
+   *   <li>If there are no values, it points to a shared static {@code Object[0]}.
+   *   <li>If there are multiple values, it is stored as an {@code Object[]} array.
+   * </ul>
+   */
+  private final Object values;
+
+  private StarlarkCustomCommandLine(Recipe recipe, Object values) {
+    this.recipe = recipe;
+    this.values = values;
+  }
+
+  private List<Object> rawValuesAsList() {
+    return values instanceof Object[] array ? List.of(array) : List.of(values);
+  }
+
+  @Override
+  public final ArgChunk expand() throws CommandLineExpansionException, InterruptedException {
+    return expand(null, PathMapper.NOOP);
+  }
+
+  @Override
+  public ArgChunk expand(
+      @Nullable InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
+      throws CommandLineExpansionException, InterruptedException {
+    PreprocessedCommandLine.Builder builder = new PreprocessedCommandLine.Builder();
+    List<Object> values = rawValuesAsList();
+
+    RepositoryMapping mainRepoMapping;
+    if (!values.isEmpty() && values.getLast() instanceof RepositoryMapping) {
+      mainRepoMapping = (RepositoryMapping) values.getLast();
+    } else {
+      mainRepoMapping = null;
+    }
+
+    Object[] recipeElems = recipe.elements;
+    int vali = 0;
+    for (int recipei = 0; recipei < recipeElems.length; recipei++) {
+      Object item = recipeElems[recipei];
+      if (item instanceof VectorArg vectorArg) {
+        vali =
+            vectorArg.preprocess(
+                values, vali, builder, inputMetadataProvider, pathMapper, mainRepoMapping);
+      } else if (item == SINGLE_FORMATTED_ARG_MARKER) {
+        String format = (String) recipeElems[++recipei];
+        Object arg = values.get(vali++);
+        switch (expandToCommandLine(arg, mainRepoMapping)) {
+          case DerivedArtifact derivedArtifact ->
+              builder.addPreprocessedArg(
+                  new PreprocessedSingleFormattedArtifactArg(format, derivedArtifact));
+          case String stringValue ->
+              builder.addPreprocessedArg(new PreprocessedSingleFormattedArg(format, stringValue));
+          default -> throw new AssertionError("Unexpected object type: " + arg);
+        }
+      } else if (item == PLAIN_ARG_MARKER) {
+        Object arg = values.get(vali++);
+        builder.addArg(expandToCommandLine(arg, mainRepoMapping));
+      } else if (item instanceof String s) {
+        builder.addArg(s);
+      } else {
+        throw new AssertionError("Unexpected recipe item: " + item);
+      }
+    }
+    return pathMapper.mapCustomStarlarkArgs(builder.build());
+  }
+
+  @Override
+  public final Iterable<String> arguments()
+      throws CommandLineExpansionException, InterruptedException {
+    return expand().arguments(PathMapper.NOOP);
+  }
+
+  @Override
+  public final Iterable<String> arguments(
+      InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
+      throws CommandLineExpansionException, InterruptedException {
+    return expand(inputMetadataProvider, pathMapper).arguments(pathMapper);
+  }
+
+  private static Object /* String | DerivedArtifact */ expandToCommandLine(
+      Object object, @Nullable RepositoryMapping mainRepoMapping) {
+    // Label arguments are rare, so we don't bother rendering them lazily.
+    if (object instanceof Label label) {
+      return label.getDisplayForm(mainRepoMapping);
+    }
+
+    // DerivedArtifacts are path mapped lazily.
+    return object instanceof DerivedArtifact derivedArtifact
+        ? derivedArtifact
+        : CommandLineItem.expandToCommandLine(object);
+  }
+
+  private static void addSingleObjectToFingerprint(
+      Fingerprint fingerprint, Object object, @Nullable RepositoryMapping mainRepoMapping) {
+    if (object instanceof Label label) {
+      fingerprint.addString(label.getDisplayForm(mainRepoMapping));
+      return;
+    }
+    StringificationType stringificationType =
+        object instanceof FileApi ? StringificationType.FILE : StringificationType.DEFAULT;
+    fingerprint.addInt(stringificationType.ordinal());
+    fingerprint.addString(CommandLineItem.expandToCommandLine(object));
+  }
+
+  private static class StarlarkCustomCommandLineWithIndexes extends StarlarkCustomCommandLine {
+    /**
+     * An extra level of grouping on top of the 'arguments' list. Each element is the start of a
+     * group of args, with index 0 omitted. For example, if this contains 3, then arguments 0, 1 and
+     * 2 constitute the first group, and arguments 3 to the end constitute the next. The expanded
+     * version of these arguments will be concatenated together to support {@code flag_per_line}
+     * format.
+     */
+    private final ImmutableList<Integer> argStartIndexes;
+
+    StarlarkCustomCommandLineWithIndexes(
+        Recipe recipe, Object values, ImmutableList<Integer> argStartIndexes) {
+      super(recipe, values);
+      this.argStartIndexes = argStartIndexes;
+    }
+
+    @Override
+    public ArgChunk expand(
+        @Nullable InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
+        throws CommandLineExpansionException, InterruptedException {
+      PreprocessedCommandLine.Builder builder = new PreprocessedCommandLine.Builder();
+      List<Object> values = ((StarlarkCustomCommandLine) this).rawValuesAsList();
+      Iterator<Integer> startIndexIterator = argStartIndexes.iterator();
+
+      RepositoryMapping mainRepoMapping;
+      if (!values.isEmpty() && values.getLast() instanceof RepositoryMapping) {
+        mainRepoMapping = (RepositoryMapping) values.getLast();
+      } else {
+        mainRepoMapping = null;
+      }
+
+      Object[] recipeElems = ((StarlarkCustomCommandLine) this).recipe.elements;
+      int vali = 0;
+      for (int recipei = 0; recipei < recipeElems.length; ) {
+        int nextStartIndex =
+            startIndexIterator.hasNext() ? startIndexIterator.next() : recipeElems.length;
+        PreprocessedCommandLine.Builder line = new PreprocessedCommandLine.Builder();
+
+        while (recipei < nextStartIndex) {
+          Object item = recipeElems[recipei++];
+          if (item instanceof VectorArg vectorArg) {
+            vali =
+                vectorArg.preprocess(
+                    values, vali, line, inputMetadataProvider, pathMapper, mainRepoMapping);
+          } else if (item == SINGLE_FORMATTED_ARG_MARKER) {
+            String format = (String) recipeElems[recipei++];
+            Object arg = values.get(vali++);
+            switch (expandToCommandLine(arg, mainRepoMapping)) {
+              case DerivedArtifact derivedArtifact ->
+                  line.addPreprocessedArg(
+                      new PreprocessedSingleFormattedArtifactArg(format, derivedArtifact));
+              case String stringValue ->
+                  line.addPreprocessedArg(new PreprocessedSingleFormattedArg(format, stringValue));
+              default -> throw new AssertionError("Unexpected object type: " + arg);
+            }
+          } else if (item == PLAIN_ARG_MARKER) {
+            Object arg = values.get(vali++);
+            line.addArg(expandToCommandLine(arg, mainRepoMapping));
+          } else if (item instanceof String s) {
+            line.addArg(s);
+          } else {
+            throw new AssertionError("Unexpected recipe item: " + item);
+          }
+        }
+
+        builder.addLineForFlagPerLine(line);
+      }
+
+      return pathMapper.mapCustomStarlarkArgs(builder.build());
+    }
+  }
+
+  @Override
+  public void addToFingerprint(
+      ActionKeyContext actionKeyContext,
+      @Nullable InputMetadataProvider inputMetadataProvider,
+      CoreOptions.OutputPathsMode effectiveOutputPathsMode,
+      Fingerprint fingerprint)
+      throws CommandLineExpansionException, InterruptedException {
+    List<Object> values = rawValuesAsList();
+    RepositoryMapping mainRepoMapping;
+    if (!values.isEmpty() && values.getLast() instanceof RepositoryMapping mapping) {
+      mainRepoMapping = mapping;
+    } else {
+      mainRepoMapping = null;
+    }
+
+    Object[] recipeElems = recipe.elements;
+    int vali = 0;
+    for (int recipei = 0; recipei < recipeElems.length; recipei++) {
+      Object item = recipeElems[recipei];
+      if (item instanceof VectorArg vectorArg) {
+        vali =
+            vectorArg.addToFingerprint(
+                values,
+                vali,
+                actionKeyContext,
+                fingerprint,
+                inputMetadataProvider,
+                effectiveOutputPathsMode,
+                mainRepoMapping);
+      } else if (item == SINGLE_FORMATTED_ARG_MARKER) {
+        String format = (String) recipeElems[++recipei];
+        Object arg = values.get(vali++);
+        addSingleObjectToFingerprint(fingerprint, arg, mainRepoMapping);
+        fingerprint.addString(format);
+        fingerprint.addUUID(SingleFormattedArg.SINGLE_FORMATTED_ARG_UUID);
+      } else if (item == PLAIN_ARG_MARKER) {
+        Object arg = values.get(vali++);
+        addSingleObjectToFingerprint(fingerprint, arg, mainRepoMapping);
+      } else if (item instanceof String s) {
+        fingerprint.addString(s);
+      } else {
+        throw new AssertionError("Unexpected recipe item: " + item);
+      }
+    }
+  }
+
+  /** Used during action key evaluation when we don't have an input metadata provider. */
+  private static class NoopExpander implements DirectoryExpander {
+    @Override
+    public ImmutableList<FileApi> list(FileApi file) {
+      return ImmutableList.of(file);
+    }
+
+    static final DirectoryExpander INSTANCE = new NoopExpander();
+  }
+
+  private static final class FullExpander implements DirectoryExpander {
+    private final InputMetadataProvider inputMetadataProvider;
+
+    FullExpander(InputMetadataProvider inputMetadataProvider) {
+      this.inputMetadataProvider = inputMetadataProvider;
+    }
+
+    @Override
+    public ImmutableList<FileApi> list(FileApi file) throws EvalException {
+      Artifact artifact = (Artifact) file;
+      if (artifact.isTreeArtifact()) {
+        TreeArtifactValue treeArtifactValue = inputMetadataProvider.getTreeMetadata(artifact);
+        if (treeArtifactValue == null) {
+          throw Starlark.errorf(
+              "Failed to expand directory %s. Only directories that are action inputs can be"
+                  + " expanded.",
+              Starlark.repr(artifact, StarlarkSemantics.DEFAULT));
+        }
+
+        return ImmutableList.copyOf(treeArtifactValue.getChildren());
+      } else {
+        return ImmutableList.of(file);
+      }
+    }
+  }
+
+  private static void applyMapEach(
+      StarlarkCallable mapFn,
+      List<Object> originalValues,
+      Consumer<String> consumer,
+      Location loc,
+      @Nullable InputMetadataProvider inputMetadataProvider,
+      PathMapper pathMapper,
+      StarlarkSemantics starlarkSemantics,
+      boolean expandDirectories)
+      throws CommandLineExpansionException, InterruptedException {
+    try (Mutability mu = Mutability.create("map_each")) {
+      // This computation produces only a String list, which doesn't require reference semantics,
+      // so createTransient() is safe.
+      StarlarkThread thread =
+          StarlarkThread.createTransient(mu, pathMapper.storeIn(starlarkSemantics));
+      // TODO(b/77140311): Error if we issue print statements.
+      thread.setPrintHandler((th, msg) -> {});
+      int count = originalValues.size();
+      // We create a list that we reuse for the args to map_each
+      List<Object> args = new ArrayList<>(2);
+      args.add(null); // This will be overwritten each iteration.
+      // map_each can accept either each object, or each object + a directory expander.
+      if (wantsDirectoryExpander(mapFn)) {
+        DirectoryExpander expander;
+        if (inputMetadataProvider != null) {
+          expander = new FullExpander(inputMetadataProvider);
+        } else {
+          expander = NoopExpander.INSTANCE;
+        }
+        args.add(expander); // This will remain constant each iteration
+      }
+      boolean bypassDirectoryArtifacts = expandDirectories && inputMetadataProvider == null;
+      for (int i = 0; i < count; ++i) {
+        Object item = originalValues.get(i);
+        if (bypassDirectoryArtifacts && VectorArg.isDirectory(item)) {
+          // If inputMetadataProvider == null (e.g. during aquery or analysis-phase fingerprinting)
+          // but expandDirectories is true, directory contents cannot be expanded yet. Avoid
+          // calling map_each on the unexpanded directory artifact (which expects child files) and
+          // emit the mapped directory exec path directly.
+          consumer.accept(pathMapper.getMappedExecPathString((Artifact) item));
+          continue;
+        }
+        args.set(0, item);
+        Object ret = Starlark.call(thread, mapFn, args, /* kwargs= */ ImmutableMap.of());
+        if (ret instanceof String string) {
+          consumer.accept(string);
+        } else if (ret instanceof Sequence<?> sequence) {
+          for (Object val : sequence) {
+            if (!(val instanceof String)) {
+              throw new CommandLineExpansionException(
+                  "Expected map_each to return string, None, or list of strings, "
+                      + "found list containing "
+                      + Starlark.type(val));
+            }
+            consumer.accept((String) val);
+          }
+        } else if (ret != Starlark.NONE) {
+          throw new CommandLineExpansionException(
+              "Expected map_each to return string, None, or list of strings, found "
+                  + Starlark.type(ret));
+        }
+      }
+    } catch (EvalException e) {
+      // TODO(adonovan): consider calling a wrapper function to interpose a fake stack
+      // frame that establishes the args.add_all call at loc. Or manipulating the stack
+      // before printing it.
+      throw new CommandLineExpansionException(
+          errorMessage(e.getMessageWithStack(), loc, e.getCause()));
+    }
+  }
+
+  private static boolean wantsDirectoryExpander(StarlarkCallable mapFn) {
+    return mapFn instanceof StarlarkFunction starlarkFunction
+        && starlarkFunction.getParameterNames().size() >= 2;
+  }
+
+  private static class CommandLineItemMapEachAdaptor
+      extends CommandLineItem.ParametrizedMapFn<Object> {
+    private final StarlarkCallable mapFn;
+    private final Location location;
+    private final StarlarkSemantics starlarkSemantics;
+
+    /**
+     * Indicates whether an input metadata provider was provided on construction. This is used to
+     * distinguish the case where it's not provided from the case where it was provided but
+     * subsequently cleared.
+     */
+    private final boolean hasInputMetadataProvider;
+
+    private final CoreOptions.OutputPathsMode outputPathsMode;
+    private final boolean expandDirectories;
+
+    @Nullable private InputMetadataProvider inputMetadataProvider;
+
+    CommandLineItemMapEachAdaptor(
+        StarlarkCallable mapFn,
+        Location location,
+        StarlarkSemantics starlarkSemantics,
+        @Nullable InputMetadataProvider inputMetadataProvider,
+        CoreOptions.OutputPathsMode outputPathsMode,
+        boolean expandDirectories) {
+      this.mapFn = mapFn;
+      this.location = location;
+      this.starlarkSemantics = starlarkSemantics;
+      this.hasInputMetadataProvider = inputMetadataProvider != null;
+      this.inputMetadataProvider = inputMetadataProvider;
+      this.outputPathsMode = outputPathsMode;
+      this.expandDirectories = expandDirectories;
+    }
+
+    @Override
+    public void expandToCommandLine(Object object, Consumer<String> args)
+        throws CommandLineExpansionException, InterruptedException {
+      checkState(inputMetadataProvider != null || !hasInputMetadataProvider);
+      applyMapEach(
+          mapFn,
+          maybeExpandDirectory(object),
+          args,
+          location,
+          inputMetadataProvider,
+          PathMapper.forActionKey(outputPathsMode),
+          starlarkSemantics,
+          expandDirectories);
+    }
+
+    private List<Object> maybeExpandDirectory(Object object) throws CommandLineExpansionException {
+      if (!expandDirectories || inputMetadataProvider == null || !VectorArg.isDirectory(object)) {
+        return ImmutableList.of(object);
+      }
+
+      return VectorArg.expandDirectories(
+          inputMetadataProvider,
+          ImmutableList.of(object),
+          PathMapper.forActionKey(outputPathsMode));
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (!(obj instanceof CommandLineItemMapEachAdaptor other)) {
+        return false;
+      }
+      // Instance compare intentional
+      // The normal implementation uses location + name of function,
+      // which can conceivably conflict in tests
+      // We only compare presence of inputMetadataProvider vs absence of it since the nested set
+      // fingerprint cache is emptied after every build, therefore if the artifact expander is
+      // provided, it will be the same.
+      return mapFn == other.mapFn
+          && hasInputMetadataProvider == other.hasInputMetadataProvider
+          && outputPathsMode == other.outputPathsMode
+          && expandDirectories == other.expandDirectories;
+    }
+
+    @Override
+    public int hashCode() {
+      // Force use of identityHashCode, in case the callable uses a custom hash function. (As of
+      // this writing, only providers seem to have a custom hashCode, and those shouldn't be used
+      // as map_each functions, but doesn't hurt to be safe...).
+      return outputPathsMode.hashCode()
+          + 31
+              * (Boolean.hashCode(hasInputMetadataProvider)
+                  + 31
+                      * (Boolean.hashCode(expandDirectories)
+                          + 31 * (System.identityHashCode(mapFn) + 1)));
+    }
+
+    @Override
+    public int maxInstancesAllowed() {
+      // No limit to these, as this is just a wrapper for Starlark functions, which are
+      // always static
+      return Integer.MAX_VALUE;
+    }
+
+    /**
+     * Clears the input metadata provider in order not to prolong the lifetime of it unnecessarily.
+     *
+     * <p>Although this operation technically changes this object, it can be called after we add the
+     * object to a {@link HashSet}. Clearing inputMetadataProvider does not affect the result of
+     * {@link #equals} or {@link #hashCode}. Please note that once we call this function, we can no
+     * longer call {@link #expandToCommandLine}.
+     */
+    void clearInputMetadataProvider() {
+      inputMetadataProvider = null;
+    }
+  }
+
+  private static String errorMessage(
+      String message, @Nullable Location location, @Nullable Throwable cause) {
+    return LINE_JOINER.join(
+        "\n", FIELD_JOINER.join(location, message), getCauseMessage(cause, message));
+  }
+
+  @Nullable
+  private static String getCauseMessage(@Nullable Throwable cause, String message) {
+    if (cause == null) {
+      return null;
+    }
+    String causeMessage = cause.getMessage();
+    if (causeMessage == null) {
+      return null;
+    }
+    if (message == null) {
+      return causeMessage;
+    }
+    // Skip the cause if it is redundant with the message so far.
+    if (message.contains(causeMessage)) {
+      return null;
+    }
+    return causeMessage;
+  }
+
+  /**
+   * When we expand filesets the user might still expect a File object (since the results may be fed
+   * into map_each. Therefore we synthesize a File object from the fileset symlink.
+   */
+  static class FilesetSymlinkFile implements FileApi, CommandLineItem {
+    private final Artifact fileset;
+    private final PathFragment execPath;
+
+    FilesetSymlinkFile(Artifact fileset, PathFragment execPath) {
+      this.fileset = fileset;
+      this.execPath = execPath;
+    }
+
+    @Override
+    public String getDirnameForStarlark(StarlarkSemantics semantics) {
+      PathFragment parent = execPath.getParentDirectory();
+      return (parent == null) ? "/" : parent.getSafePathString();
+    }
+
+    @Override
+    public String getFilename() {
+      return execPath.getBaseName();
+    }
+
+    @Override
+    public String getExtension() {
+      return execPath.getFileExtension();
+    }
+
+    @Override
+    public Label getOwnerLabel() {
+      return fileset.getOwnerLabel();
+    }
+
+    @Override
+    public FileRootApi getRootForStarlark(StarlarkSemantics semantics) {
+      return fileset.getRoot();
+    }
+
+    @Override
+    public boolean isSourceArtifact() {
+      // This information is lost to us.
+      // Since the symlinks are always in the output tree, settle for saying "no"
+      return false;
+    }
+
+    @Override
+    public boolean isDirectory() {
+      return false;
+    }
+
+    @Override
+    public boolean isSymlink() {
+      return false;
+    }
+
+    @Override
+    public String getRunfilesPathString() {
+      PathFragment relativePath = execPath.relativeTo(fileset.getExecPath());
+      return fileset.getRunfilesPath().getRelative(relativePath).getPathString();
+    }
+
+    @Override
+    public String getExecPathStringForStarlark(StarlarkSemantics semantics) {
+      return execPath.getPathString();
+    }
+
+    @Override
+    public String getTreeRelativePathString() throws EvalException {
+      throw Starlark.errorf(
+          "tree_relative_path not allowed for files that are not tree artifact files.");
+    }
+
+    @Override
+    public String expandToCommandLine() {
+      return execPath.getPathString();
+    }
+
+    @Override
+    public void repr(Printer printer, StarlarkSemantics semantics) {
+      if (isSourceArtifact()) {
+        printer.append("<source file " + getRunfilesPathString() + ">");
+      } else {
+        printer.append("<generated file " + getRunfilesPathString() + ">");
+      }
+    }
+  }
+
+  /** An element in a {@link PreprocessedCommandLine}. */
+  private interface PreprocessedArg {
+    Iterable<String> toIterable(PathMapper pathMapper);
+
+    int numArgs();
+
+    int totalArgLength(PathMapper pathMapper);
+  }
+
+  /**
+   * Intermediate command line representation with directory expansion and {@code map_each} already
+   * applied, but with string formatting and path mapping not yet applied. See {@link
+   * StarlarkCustomCommandLine} class-level documentation for details.
+   *
+   * <p>Implements {@link #totalArgLength} without applying string formatting and path mapping so
+   * that the total command line length can be efficiently tested against {@link CommandLineLimits}
+   * and param file thresholds.
+   */
+  private static final class PreprocessedCommandLine implements ArgChunk {
+    private final ImmutableList<PreprocessedArg> preprocessedArgs;
+
+    PreprocessedCommandLine(ImmutableList<PreprocessedArg> preprocessedArgs) {
+      this.preprocessedArgs = preprocessedArgs;
+    }
+
+    @Override
+    public Iterable<String> arguments(PathMapper pathMapper) {
+      return Iterables.concat(Lists.transform(preprocessedArgs, arg -> arg.toIterable(pathMapper)));
+    }
+
+    @Override
+    public int totalArgLength(PathMapper pathMapper) {
+      int total = 0;
+      for (PreprocessedArg arg : preprocessedArgs) {
+        total += arg.totalArgLength(pathMapper);
+      }
+      return total;
+    }
+
+    static final class Builder {
+      private final ImmutableList.Builder<PreprocessedArg> preprocessedArgs =
+          ImmutableList.builder();
+      private int numArgs = 0;
+
+      void addPreprocessedArg(PreprocessedArg arg) {
+        preprocessedArgs.add(arg);
+        numArgs += arg.numArgs();
+      }
+
+      void addString(String string) {
+        addPreprocessedArg(new PreprocessedStringArg(string));
+      }
+
+      void addArg(Object /* String | DerivedArtifact */ arg) {
+        switch (arg) {
+          case String string -> addPreprocessedArg(new PreprocessedStringArg(string));
+          case DerivedArtifact artifact ->
+              addPreprocessedArg(new PreprocessedArtifactArg(artifact));
+          default -> throw new IllegalStateException("Unexpected arg type: " + arg);
+        }
+      }
+
+      void addLineForFlagPerLine(PreprocessedCommandLine.Builder line) {
+        ImmutableList<PreprocessedArg> group = line.preprocessedArgs.build();
+        if (line.numArgs < 2) {
+          for (PreprocessedArg arg : group) {
+            addPreprocessedArg(arg);
+          }
+        } else {
+          addPreprocessedArg(new GroupedPreprocessedArgs(group));
+        }
+      }
+
+      PreprocessedCommandLine build() {
+        return new PreprocessedCommandLine(preprocessedArgs.build());
+      }
+    }
+  }
+
+  /** Preprocessed version a single string argument. */
+  private static final class PreprocessedStringArg implements PreprocessedArg {
+    private final String arg;
+
+    PreprocessedStringArg(String arg) {
+      this.arg = arg;
+    }
+
+    @Override
+    public ImmutableList<String> toIterable(PathMapper pathMapper) {
+      return ImmutableList.of(arg);
+    }
+
+    @Override
+    public int numArgs() {
+      return 1;
+    }
+
+    @Override
+    public int totalArgLength(PathMapper pathMapper) {
+      return arg.length() + 1;
+    }
+  }
+
+  private static final class PreprocessedArtifactArg implements PreprocessedArg {
+    private final DerivedArtifact artifact;
+
+    PreprocessedArtifactArg(DerivedArtifact artifact) {
+      this.artifact = artifact;
+    }
+
+    @Override
+    public ImmutableList<String> toIterable(PathMapper pathMapper) {
+      return ImmutableList.of(pathMapper.getMappedExecPathString(artifact));
+    }
+
+    @Override
+    public int numArgs() {
+      return 1;
+    }
+
+    @Override
+    public int totalArgLength(PathMapper pathMapper) {
+      return artifact.getExecPathString().length()
+          - pathMapper.computeExecPathLengthDiff(artifact)
+          + 1;
+    }
+  }
+
+  /** Preprocessed version of a {@link SingleFormattedArg}. */
+  private static final class PreprocessedSingleFormattedArg implements PreprocessedArg {
+    private final String format;
+    private final String stringValue;
+
+    PreprocessedSingleFormattedArg(String format, String stringValue) {
+      this.format = format;
+      this.stringValue = stringValue;
+    }
+
+    @Override
+    public ImmutableList<String> toIterable(PathMapper pathMapper) {
+      return ImmutableList.of(SingleStringArgFormatter.format(format, stringValue));
+    }
+
+    @Override
+    public int numArgs() {
+      return 1;
+    }
+
+    @Override
+    public int totalArgLength(PathMapper pathMapper) {
+      return SingleStringArgFormatter.formattedLength(format) + stringValue.length() + 1;
+    }
+  }
+
+  /** Preprocessed version of a {@link SingleFormattedArg} for a {@link DerivedArtifact}. */
+  private static final class PreprocessedSingleFormattedArtifactArg implements PreprocessedArg {
+    private final String format;
+    private final DerivedArtifact artifact;
+
+    PreprocessedSingleFormattedArtifactArg(String format, DerivedArtifact artifact) {
+      this.format = format;
+      this.artifact = artifact;
+    }
+
+    @Override
+    public ImmutableList<String> toIterable(PathMapper pathMapper) {
+      return ImmutableList.of(
+          SingleStringArgFormatter.format(format, pathMapper.getMappedExecPathString(artifact)));
+    }
+
+    @Override
+    public int numArgs() {
+      return 1;
+    }
+
+    @Override
+    public int totalArgLength(PathMapper pathMapper) {
+      return SingleStringArgFormatter.formattedLength(format)
+          + artifact.getExecPathString().length()
+          - pathMapper.computeExecPathLengthDiff(artifact)
+          + 1;
+    }
+  }
+
+  /** Preprocessed version of a {@link VectorArg} originating from {@code Args.add_all}. */
+  private static final class UnjoinedPreprocessedVectorArg implements PreprocessedArg {
+    private final List<Object /* String | DerivedArtifact */> values;
+    @Nullable private final String formatEach;
+    @Nullable private final String beforeEach;
+
+    UnjoinedPreprocessedVectorArg(
+        List<Object /* String | DerivedArtifact */> values,
+        @Nullable String formatEach,
+        @Nullable String beforeEach) {
+      this.values = values;
+      this.formatEach = formatEach;
+      this.beforeEach = beforeEach;
+    }
+
+    @Override
+    public Iterable<String> toIterable(PathMapper pathMapper) {
+      List<String> list = Lists.transform(values, value -> maybePathMap(value, pathMapper));
+      if (formatEach != null) {
+        list = Lists.transform(list, s -> SingleStringArgFormatter.format(formatEach, s));
+      }
+      if (beforeEach == null) {
+        return list;
+      } else {
+        List<String> finalList = list;
+        return () -> new BeforeEachIterator(finalList.iterator(), beforeEach);
+      }
+    }
+
+    @Override
+    public int numArgs() {
+      return (beforeEach != null ? 2 : 1) * values.size();
+    }
+
+    @Override
+    public int totalArgLength(PathMapper pathMapper) {
+      int total = 0;
+      for (Object arg : values) {
+        total += argLength(arg, pathMapper);
+      }
+      if (formatEach != null) {
+        total += SingleStringArgFormatter.formattedLength(formatEach) * values.size();
+      }
+      if (beforeEach != null) {
+        total += beforeEach.length() * values.size();
+      }
+      return total + numArgs();
+    }
+  }
+
+  /** Preprocessed version of a {@link VectorArg} originating from {@code Args.add_joined}. */
+  private static final class JoinedPreprocessedVectorArg implements PreprocessedArg {
+    private final List<Object /* String | DerivedArtifact */> values;
+    @Nullable private final String formatEach;
+    private final String joinWith;
+    @Nullable private final String formatJoined;
+
+    JoinedPreprocessedVectorArg(
+        List<Object /* String | DerivedArtifact */> values,
+        @Nullable String formatEach,
+        String joinWith,
+        @Nullable String formatJoined) {
+      this.values = values;
+      this.formatEach = formatEach;
+      this.joinWith = joinWith;
+      this.formatJoined = formatJoined;
+    }
+
+    @Override
+    public ImmutableList<String> toIterable(PathMapper pathMapper) {
+      List<String> it = Lists.transform(values, value -> maybePathMap(value, pathMapper));
+      if (formatEach != null) {
+        it = Lists.transform(it, s -> SingleStringArgFormatter.format(formatEach, s));
+      }
+      String result = Joiner.on(joinWith).join(it);
+      if (formatJoined != null) {
+        result = SingleStringArgFormatter.format(formatJoined, result);
+      }
+      return ImmutableList.of(result);
+    }
+
+    @Override
+    public int numArgs() {
+      return 1;
+    }
+
+    @Override
+    public int totalArgLength(PathMapper pathMapper) {
+      int total = 0;
+      for (Object arg : values) {
+        total += argLength(arg, pathMapper);
+      }
+      if (formatEach != null) {
+        total += SingleStringArgFormatter.formattedLength(formatEach) * values.size();
+      }
+      if (values.size() > 1) {
+        total += joinWith.length() * (values.size() - 1);
+      }
+      if (formatJoined != null) {
+        total += SingleStringArgFormatter.formattedLength(formatJoined);
+      }
+      return total + 1;
+    }
+  }
+
+  /** Preprocessed representation of a single line in {@code flag_per_line} format. */
+  private static final class GroupedPreprocessedArgs implements PreprocessedArg {
+    private static final Joiner SPACE_JOINER = Joiner.on(' ');
+
+    private final ImmutableList<PreprocessedArg> args;
+
+    GroupedPreprocessedArgs(ImmutableList<PreprocessedArg> args) {
+      this.args = args;
+    }
+
+    @Override
+    public ImmutableList<String> toIterable(PathMapper pathMapper) {
+      Iterator<String> it =
+          Iterables.concat(Lists.transform(args, arg -> arg.toIterable(pathMapper))).iterator();
+      String first = it.next();
+      String rest = SPACE_JOINER.join(it);
+      String line = first.isEmpty() ? rest : first + '=' + rest;
+      return ImmutableList.of(line);
+    }
+
+    @Override
+    public int numArgs() {
+      return 1;
+    }
+
+    @Override
+    public int totalArgLength(PathMapper pathMapper) {
+      int total = 0;
+      for (PreprocessedArg arg : args) {
+        total += arg.totalArgLength(pathMapper);
+      }
+      String first =
+          Iterables.concat(Lists.transform(args, arg -> arg.toIterable(pathMapper)))
+              .iterator()
+              .next();
+      if (first.isEmpty()) {
+        total--;
+      }
+      return total;
+    }
+  }
+
+  private static String maybePathMap(
+      Object /* String | DerivedArtifact */ arg, PathMapper pathMapper) {
+    return switch (arg) {
+      case String string -> string;
+      case DerivedArtifact artifact -> pathMapper.getMappedExecPathString(artifact);
+      default -> throw new AssertionError("Unexpected arg type: " + arg);
+    };
+  }
+
+  private static int argLength(Object /* String | DerivedArtifact */ arg, PathMapper pathMapper) {
+    return switch (arg) {
+      case String string -> string.length();
+      case DerivedArtifact artifact ->
+          artifact.getExecPathString().length() - pathMapper.computeExecPathLengthDiff(artifact);
+      default -> throw new AssertionError("Unexpected arg type: " + arg);
+    };
+  }
+
+  /** Implements the {@code before_each} behavior of {@code Args.add_all}. */
+  private static final class BeforeEachIterator extends UnmodifiableIterator<String> {
+    private final Iterator<String> strings;
+    private final String beforeEach;
+    private boolean before = true;
+
+    BeforeEachIterator(Iterator<String> strings, String beforeEach) {
+      this.strings = strings;
+      this.beforeEach = beforeEach;
+    }
+
+    @Override
+    public boolean hasNext() {
+      return strings.hasNext();
+    }
+
+    @Override
+    public String next() {
+      if (!hasNext()) {
+        throw new NoSuchElementException();
+      }
+      String next = before ? beforeEach : strings.next();
+      before = !before;
+      return next;
+    }
+  }
+}

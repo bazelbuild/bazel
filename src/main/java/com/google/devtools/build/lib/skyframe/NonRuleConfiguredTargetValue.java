@@ -1,0 +1,61 @@
+// Copyright 2014 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.skyframe;
+
+import com.google.common.base.MoreObjects;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.TargetData;
+import javax.annotation.Nullable;
+
+/** A non-rule configured target in the context of a Skyframe graph. */
+@Immutable
+@ThreadSafe
+public final class NonRuleConfiguredTargetValue
+    extends AbstractConfiguredTargetValue<ConfiguredTarget> implements ConfiguredTargetValue {
+
+  @Nullable // Non-null when this is an alias of a remotely fetched ConfiguredTarget.
+  private final TargetData targetData;
+
+  NonRuleConfiguredTargetValue(
+      ConfiguredTarget configuredTarget, @Nullable NestedSet<Package.Metadata> transitivePackages) {
+    super(configuredTarget, transitivePackages);
+    this.targetData = null;
+  }
+
+  NonRuleConfiguredTargetValue(
+      ConfiguredTarget configuredTarget,
+      @Nullable NestedSet<Package.Metadata> transitivePackages,
+      TargetData targetData) {
+    super(configuredTarget, transitivePackages);
+    this.targetData = targetData;
+  }
+
+  @Nullable
+  @Override
+  public TargetData getTargetData() {
+    return targetData;
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("configuredTarget", getConfiguredTarget())
+        .toString();
+  }
+}

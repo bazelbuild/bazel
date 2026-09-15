@@ -1,0 +1,62 @@
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_testonly = 1,
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
+)
+
+filegroup(
+    name = "srcs",
+    testonly = 0,
+    srcs = glob(["**"]),
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib:__pkg__",
+    ],
+)
+
+java_library(
+    name = "EventsTests_lib",
+    srcs = glob(["*.java"]),
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/events:event_bus_event_handler",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
+        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
+        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:testing",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "EventsTests",
+    size = "small",
+    test_class = "com.google.devtools.build.lib.AllTests",
+    runtime_deps = [
+        ":EventsTests_lib",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
+    ],
+)
+
+java_library(
+    name = "testutil",
+    testonly = 1,
+    srcs = glob(["util/*.java"]) + ["EventTestTemplate.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/events:event_bus_event_handler",
+        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
+        "//src/main/java/net/starlark/java/syntax",
+        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/junit",
+    ],
+)

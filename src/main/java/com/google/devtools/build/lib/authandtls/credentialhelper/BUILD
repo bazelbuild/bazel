@@ -1,0 +1,52 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/main/java/com/google/devtools/build/lib/authandtls:__pkg__"],
+)
+
+java_library(
+    name = "credential_module",
+    srcs = ["CredentialModule.java"],
+    deps = [
+        ":credentialhelper",
+        "//src/main/java/com/google/devtools/build/lib/authandtls",
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party/java/caffeine",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "credentialhelper",
+    srcs = glob(
+        ["*.java"],
+        exclude = ["CredentialModule.java"],
+    ),
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party/java/auth_kit:credentials",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/caffeine",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/gson",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
+    ],
+)

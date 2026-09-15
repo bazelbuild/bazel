@@ -1,0 +1,168 @@
+// Copyright 2018 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.runtime;
+
+import com.google.common.collect.ConcurrentHashMultiset;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multiset;
+import com.google.devtools.build.lib.actions.ActionResult;
+import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
+import com.google.devtools.build.lib.util.StringUtil;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import javax.annotation.concurrent.ThreadSafe;
+
+/** Collects results from SpawnResult. */
+@ThreadSafe
+public class SpawnStats {
+  private static final ImmutableList<String> REPORT_FIRST =
+      ImmutableList.of("disk cache hit", "remote cache hit");
+
+  private final ConcurrentHashMultiset<String> runners = ConcurrentHashMultiset.create();
+  private final ConcurrentHashMap<String, String> runnerExecKinds = new ConcurrentHashMap<>();
+  private final AtomicLong totalWallTimeMillis = new AtomicLong();
+  // Counts all actions, where an action can run an arbitrary number of spawns (including zero).
+  private final AtomicInteger allActionsCount = new AtomicInteger();
+  // Counts internal actions, such as SymlinkTree actions, which are recognized by having zero
+  // spawns.
+  private final AtomicInteger nonInternalActionsCount = new AtomicInteger();
+  private int actionCacheHitCount = 0;
+
+  public void countActionResult(ActionResult actionResult) {
+    // This method is usually not called for internal actions with {@link ActionResult#EMPTY}, but
+    // just in case, we double-check here.
+    if (!actionResult.spawnResults().isEmpty()) {
+      nonInternalActionsCount.incrementAndGet();
+    }
+    for (SpawnResult r : actionResult.spawnResults()) {
+      storeRunnerExecKind(r);
+      runners.add(r.getRunnerName());
+      totalWallTimeMillis.addAndGet(r.getMetrics().executionWallTimeInMs());
+    }
+  }
+
+  private void storeRunnerExecKind(SpawnResult r) {
+    String name = r.getRunnerName();
+    String execKind = r.getMetrics().execKind().toString();
+    runnerExecKinds.put(name, execKind);
+  }
+
+  public void incrementActionCount() {
+    allActionsCount.incrementAndGet();
+  }
+
+  public long getTotalWallTimeMillis() {
+    return totalWallTimeMillis.get();
+  }
+
+  public void recordActionCacheStats(ActionCacheStatistics actionCacheStatistics) {
+    actionCacheHitCount = actionCacheStatistics.getHits();
+  }
+
+  /*
+   * Returns a human-readable summary of spawns counted.
+   */
+  public ImmutableMap<String, Integer> getSummary() {
+    return getSummary(REPORT_FIRST);
+  }
+
+  /*
+   * Returns a human-readable summary of spawns counted.
+   */
+  public ImmutableMap<String, Integer> getSummary(ImmutableList<String> reportFirst) {
+    ImmutableMap.Builder<String, Integer> result = ImmutableMap.builder();
+    int numNonInternalActions = nonInternalActionsCount.get();
+    int numAllActions = allActionsCount.get();
+    result.put("total", numAllActions);
+
+    // First report cache results.
+    if (actionCacheHitCount > 0) {
+      result.put("action cache hit", actionCacheHitCount);
+    }
+    for (String s : reportFirst) {
+      int count = runners.setCount(s, 0);
+      if (count > 0) {
+        result.put(s, count);
+      }
+    }
+
+    // Account for internal actions such as SymlinkTree.
+    // This condition is always fulfilled if {@link #incrementActionCount} is called for each
+    // action for which {@link #countActionResult} is called eventually.
+    if (numNonInternalActions < numAllActions) {
+      result.put("internal", numAllActions - numNonInternalActions);
+    }
+
+    // Sort the rest alphabetically
+    ArrayList<Multiset.Entry<String>> list = new ArrayList<>(runners.entrySet());
+    Collections.sort(list, Comparator.comparing(e -> e.getElement()));
+
+    for (Multiset.Entry<String> e : list) {
+      result.put(e.getElement(), e.getCount());
+    }
+
+    return result.buildOrThrow();
+  }
+
+  public String getExecKindFor(String runnerName) {
+    return runnerExecKinds.getOrDefault(runnerName, null);
+  }
+
+  public static String convertSummaryToString(ImmutableMap<String, Integer> spawnSummary) {
+    // This summary is misleading in a number of ways:
+    // - The "processes" count is actually the number of actions, not spawns.
+    // - Even if it were the number of spawns, the "* cache hit" runners do not correspond to
+    //   processes executed, but rather to cache hits that avoided process execution.
+    // - The total count does not include action cache hits, so the sum of the parts is greater than
+    //   the total.
+    // TODO: Find a better way to report this information, e.g.:
+    // 15 cache hits (5 action, 5 disk, 5 remote), 10 processes (2 local, 3 remote, 5 sandboxed), 7
+    // internal.
+    // A large number of integration tests rely on the current format, though, so changing it is
+    // non-trivial.
+    Integer total = spawnSummary.get("total");
+    if (total == 0) {
+      return "0 processes.";
+    }
+
+    StringBuilder stringSummary = new StringBuilder();
+    stringSummary.append(StringUtil.formatCount(total)).append(" process");
+    if (total > 1) {
+      stringSummary.append("es");
+    }
+    String separator = ": ";
+
+    for (Map.Entry<String, Integer> runnerStats : spawnSummary.entrySet()) {
+      if ("total".equals(runnerStats.getKey())) {
+        continue;
+      }
+      stringSummary.append(separator);
+      separator = ", ";
+      stringSummary
+          .append(StringUtil.formatCount(runnerStats.getValue()))
+          .append(' ')
+          .append(runnerStats.getKey());
+    }
+    stringSummary.append('.');
+    return stringSummary.toString();
+  }
+}

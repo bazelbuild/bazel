@@ -1,0 +1,345 @@
+// Copyright 2015 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.packages;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.HasBinary;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TokenKind;
+import net.starlark.java.syntax.TypeConstructor;
+
+/**
+ * An attribute value consisting of a concatenation (via the {@code +} operator for lists or the
+ * {@code |} operator for dicts) of native types and selects, e.g:
+ *
+ * <pre>
+ *   rule(
+ *       name = 'myrule',
+ *       deps =
+ *           [':defaultdep']
+ *           + select({
+ *               'a': [':adep'],
+ *               'b': [':bdep'],})
+ *           + select({
+ *               'c': [':cdep'],
+ *               'd': [':ddep'],})
+ *   )
+ * </pre>
+ */
+@StarlarkBuiltin(
+    name = "select",
+    doc = "A selector between configuration-dependent entities.",
+    documented = false)
+public final class SelectorList implements StarlarkValue, HasBinary {
+
+  // TODO(adonovan): combine Selector{List,Value} and BuildType.SelectorList.
+  // We don't need three classes for the same concept
+
+  private final Class<?> type;
+  private final List<Object> elements;
+
+  public static TypeConstructor getAssociatedTypeConstructor() {
+    return SelectorValue.TYPE_CONSTRUCTOR;
+  }
+
+  private SelectorList(Class<?> type, List<Object> elements) {
+    this.type = type;
+    this.elements = elements;
+  }
+
+  /**
+   * Returns an ordered list of the elements in this expression. Each element may be a native type
+   * or a select.
+   */
+  List<Object> getElements() {
+    return elements;
+  }
+
+  /** Returns the native type contained by this expression. */
+  Class<?> getType() {
+    return type;
+  }
+
+  /** Implementation of the Starlark {@code select()} function exposed to BUILD and .bzl files. */
+  private static SelectorList select(
+      Dict<?, ?> dict, String noMatchError, @Nullable LabelConverter labelConverter)
+      throws EvalException, LabelSyntaxException {
+    if (dict.isEmpty()) {
+      throw Starlark.errorf(
+          "select({}) with an empty dictionary can never resolve because it includes no conditions"
+              + " to match");
+    }
+    var selectDict = ImmutableMap.builderWithExpectedSize(dict.size());
+    for (var entry : dict.entrySet()) {
+      switch (entry.getKey()) {
+        case Label label -> selectDict.put(label, entry.getValue());
+        case String labelString ->
+            selectDict.put(
+                labelConverter != null ? labelConverter.convert(labelString) : labelString,
+                entry.getValue());
+        default ->
+            throw Starlark.errorf(
+                "select: got %s for dict key, want a Label or label string",
+                Starlark.type(entry.getKey()));
+      }
+    }
+    // TODO(#26281): Tighten SelectorValue to accept an ImmutableMap<Label, Object> after flipping
+    //  --incompatible_resolve_select_keys_eagerly.
+    return SelectorList.of(new SelectorValue(selectDict.buildOrThrow(), noMatchError));
+  }
+
+  /** Creates a "wrapper" list that consists of a single select. */
+  static SelectorList of(SelectorValue selector) {
+    return new SelectorList(selector.getType(), ImmutableList.of(selector));
+  }
+
+  /**
+   * Creates a list from the given sequence of values, which must be non-empty. Each value may be a
+   * native type, a select over that type, or a selector list over that type.
+   *
+   * @throws EvalException if all values don't have the same underlying type
+   */
+  static SelectorList of(Iterable<?> values) throws EvalException {
+    Preconditions.checkArgument(!Iterables.isEmpty(values));
+    ImmutableList.Builder<Object> elements = ImmutableList.builder();
+    Object firstValue = null;
+
+    for (Object value : values) {
+      if (value instanceof SelectorList selectorList) {
+        elements.addAll(selectorList.elements);
+      } else {
+        elements.add(value);
+      }
+      if (firstValue == null) {
+        firstValue = value;
+      }
+      if (!canConcatenate(getNativeType(firstValue), getNativeType(value))) {
+        throw Starlark.errorf(
+            "Cannot combine incompatible types (%s, %s)",
+            getTypeName(firstValue), getTypeName(value));
+      }
+    }
+
+    return new SelectorList(getNativeType(firstValue), elements.build());
+  }
+
+  /**
+   * Wraps a single value in a {@code select()} where the default condition maps to the given value
+   */
+  public static SelectorList wrapSingleValue(Object obj) {
+    return SelectorList.of(
+        new SelectorValue(ImmutableMap.of(BuildType.Selector.DEFAULT_CONDITION_KEY, obj), ""));
+  }
+
+  /**
+   * Creates a list that concatenates two values, where each value may be a native type, a select
+   * over that type, or a selector list over that type.
+   *
+   * @throws EvalException if the values don't have the same underlying type
+   */
+  static SelectorList concat(Object x, Object y) throws EvalException {
+    return of(Arrays.asList(x, y));
+  }
+
+  private static TokenKind binaryOpToken(Object value) {
+    return Map.class.isAssignableFrom(getNativeType(value)) ? TokenKind.PIPE : TokenKind.PLUS;
+  }
+
+  @Override
+  @Nullable
+  public SelectorList binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
+    if (op == binaryOpToken(that)) {
+      return thisLeft ? concat(this, that) : concat(that, this);
+    }
+    return null;
+  }
+
+  private static String getTypeName(Object x) {
+    if (x instanceof SelectorList selectorList) {
+      return "select of " + Depset.ElementType.of(selectorList.type);
+    } else if (x instanceof SelectorValue selectorValue) {
+      return "select of " + Depset.ElementType.of(selectorValue.getType());
+    } else {
+      return Starlark.type(x);
+    }
+  }
+
+  private static Class<?> getNativeType(Object value) {
+    if (value instanceof SelectorList selectorList) {
+      return selectorList.type;
+    } else if (value instanceof SelectorValue selectorValue) {
+      return selectorValue.getType();
+    } else {
+      return value.getClass();
+    }
+  }
+
+  private static boolean isMappingType(Class<?> type) {
+    return Map.class.isAssignableFrom(type);
+  }
+
+  private static boolean isListType(Class<?> type) {
+    return List.class.isAssignableFrom(type);
+  }
+
+  private static boolean canConcatenate(Class<?> type1, Class<?> type2) {
+    return type1 == type2
+        || (isMappingType(type1) && isMappingType(type2))
+        || (isListType(type1) && isListType(type2));
+  }
+
+  @Override
+  public String toString() {
+    return Starlark.repr(this, StarlarkSemantics.DEFAULT);
+  }
+
+  @Override
+  public void repr(Printer printer, StarlarkSemantics semantics) {
+    printer.printList(elements, "", String.format(" %s ", binaryOpToken(this)), "", semantics);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(type, elements);
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
+    if (!(other instanceof SelectorList that)) {
+      return false;
+    }
+    return Objects.equals(this.type, that.type) && Objects.equals(this.elements, that.elements);
+  }
+
+  /** The user-facing API to the {@code select()} callable. */
+  @GlobalMethodDocs(environment = {Environment.BUILD, Environment.BZL})
+  @StarlarkLibrary
+  public static final class SelectLibrary {
+
+    private SelectLibrary() {}
+
+    public static final SelectLibrary INSTANCE = new SelectLibrary();
+
+    @StarlarkMethod(
+        name = "select",
+        doc =
+            "<code>select()</code> is the helper function that makes a rule attribute "
+                + "<a href=\"${link common-definitions#configurable-attributes}\">"
+                + "configurable</a>. See "
+                + "<a href=\"${link functions#select}\">build encyclopedia</a> for details.",
+        parameters = {
+          @Param(
+              name = "x",
+              positional = true,
+              doc =
+                  "A dict that maps configuration conditions to values. Each key is a "
+                      + "<a href=\"../builtins/Label.html\">Label</a> or a label string"
+                      + " that identifies a config_setting or constraint_value instance. See the"
+                      + " <a href=\"https://bazel.build/extending/legacy-macros#label-resolution\">"
+                      + "documentation on macros</a> for when to use a Label instead of a string."
+                      + " If <code>--incompatible_resolve_select_keys_eagerly</code> is enabled,"
+                      + " the keys are resolved to <code>Label</code> objects relative to the"
+                      + " package of the file that contains this call to <code>select</code>."),
+          @Param(
+              name = "no_match_error",
+              defaultValue = "''",
+              doc = "Optional custom error to report if no condition matches.",
+              named = true),
+        },
+        useStarlarkThread = true,
+        isTypeConstructor = true)
+    public SelectorList select(Dict<?, ?> dict, String noMatchError, StarlarkThread thread)
+        throws EvalException {
+      // If this is not null, string keys in the dict will be resolved to Labels eagerly using the
+      // given context.
+      LabelConverter labelConverter = null;
+      if (thread
+          .getSemantics()
+          .getBool(BuildLanguageOptions.INCOMPATIBLE_RESOLVE_SELECT_KEYS_EAGERLY)) {
+        // Handle the case of an initializer.
+        labelConverter = thread.getThreadLocal(LabelConverter.class);
+        // Handle the case of a regular BUILD thread.
+        if (labelConverter == null) {
+          var targetDefinitionContext = TargetDefinitionContext.fromOrNull(thread);
+          if (targetDefinitionContext != null) {
+            labelConverter = targetDefinitionContext.getLabelConverter();
+          }
+        }
+        // In all other cases, must be in a .bzl file.
+        if (labelConverter == null) {
+          labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
+        }
+      }
+      try {
+        return SelectorList.select(dict, noMatchError, labelConverter);
+      } catch (LabelSyntaxException e) {
+        throw Starlark.errorf("invalid label in select(): %s", e.getMessage());
+      }
+    }
+  }
+
+  @Override
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+    StarlarkType overallType = null;
+    TokenKind operator = null;
+    for (Object element : elements) {
+      StarlarkType elementType = Starlark.getStarlarkType(element, semantics);
+      if (overallType == null) {
+        overallType = elementType;
+        operator = binaryOpToken(element);
+      } else {
+        overallType =
+            checkNotNull(
+                StarlarkType.inferBinaryOperator(overallType, operator, elementType),
+                "In %s, cannot apply %s operator to element types '%s' and '%s'. This is a bug in"
+                    + " SelectorList machinery.",
+                Starlark.repr(this, semantics),
+                operator,
+                overallType,
+                elementType);
+      }
+    }
+    return overallType; // non-null because elements is non-empty
+  }
+}

@@ -1,0 +1,52 @@
+// Copyright 2025 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+edition = "2023";
+
+package build_project;
+
+// Tells blaze how to respond when builds and tests set flags that don't match
+// canonical project settings. Doesn't apply to TAP builds.
+//
+// All policies apply to flags set at the command line or in a user blazerc.
+// Global blazerc flags that aren't hidden behind a --config are always allowed,
+// egardless of policy.
+//
+// See https://github.com/bazelbuild/bazel/issues/24839.
+enum EnforcementPolicy {
+  // Policy not specified
+  // (https://protobuf.dev/programming-guides/editions/#enum-default).
+  ENFORCEMENT_POLICY_UNSPECIFIED = 0;
+  // Warn when a developer sets flags that aren't specified in the project's
+  // configuration file.
+  //
+  // For example: "$ blaze build //foo --define a=1" emits a warning when
+  // //foo's PROJECT.scl sets "--compilation_mode-opt". But "$ blaze build //foo
+  // --compilation_mode=opt" emits no warning.
+  WARN = 1;
+  // Fail when a developer sets flags that conflict with the project's
+  // canonical flags.
+  //
+  // For example, "$ blaze build //foo -compilation_mode=dbg" fails the build
+  // when //foo's PROJECT.scl sets "--compilation_mode=opt". But "$ blaze build
+  // //foo --compilation_mode=opt" and "$ blaze build //foo
+  // --define unrelated=1" both succeed.
+  COMPATIBLE = 2;
+  // Fail when a developer sets flags that don't exactly match project flags.
+  //
+  // For example, "$ blaze build //foo --define unrelated=1" fails the build
+  // when //foo's PROJECT.scl sets "--compilation_mode=opt". But "$ blaze build
+  // //foo --compilation_mode=opt" succeeds.
+  STRICT = 3;
+}

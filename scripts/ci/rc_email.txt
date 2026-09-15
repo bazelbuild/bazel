@@ -1,0 +1,14 @@
+bazel-discuss+release-candidate@googlegroups.com
+Bazel %release_name% release candidate %rc% is available for testing
+Bazel %release_name%rc%rc% is now available for those that want to try
+it out.
+
+You can download it from:
+  %url%
+
+Please report regressions to https://github.com/bazelbuild/bazel/issues as soon
+as possible.
+
+The release notes for version %release_name% are:
+
+%relnotes%

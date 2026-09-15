@@ -1,0 +1,229 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["*"]) + [
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache:srcs",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/decompressor:srcs",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader:srcs",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark:srcs",
+    ],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/bazel:__pkg__"],
+)
+
+java_library(
+    name = "repository_resolved_event",
+    srcs = ["RepositoryResolvedEvent.java"],
+    deps = [
+        ":repo_definition",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "exception",
+    srcs = ["RepositoryFunctionException.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/repository:external_package_exception",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:already_reported_exception",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/guava:base",
+    ],
+)
+
+java_library(
+    name = "repo_metadata_requirements",
+    srcs = ["RepoMetadataRequirements.java"],
+    deps = [
+        ":repository_options",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+    ],
+)
+
+java_library(
+    name = "repository_fetch_function",
+    srcs = [
+        "RepositoryFetchFunction.java",
+    ],
+    deps = [
+        ":digest_writer",
+        ":exception",
+        ":repo_definition",
+        ":repo_definition_value",
+        ":repo_metadata_requirements",
+        ":repository_options",
+        ":repository_resolved_event",
+        ":utils",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/repository:repository_events",
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/repo_recorded_input",
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
+        "//src/main/java/com/google/devtools/build/lib/runtime:process_wrapper",
+        "//src/main/java/com/google/devtools/build/lib/runtime:remote_repo_contents_cache",
+        "//src/main/java/com/google/devtools/build/lib/runtime:repository_remote_executor",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:already_reported_exception",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_subdirectories_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repo_environment_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "digest_writer",
+    srcs = [
+        "DigestWriter.java",
+    ],
+    deps = [
+        ":exception",
+        ":repo_definition",
+        ":utils",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:serialization",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/repo_recorded_input",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repo_environment_function",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "repo_definition",
+    srcs = [
+        "RepoDefinition.java",
+        "RepoRule.java",
+    ],
+    deps = [
+        ":attribute_utils",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:exception",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/spelling",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "repo_definition_value",
+    srcs = ["RepoDefinitionValue.java"],
+    deps = [
+        ":repo_definition",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+    ],
+)
+
+java_library(
+    name = "attribute_utils",
+    srcs = ["AttributeUtils.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:exception",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/spelling",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "utils",
+    srcs = ["RepositoryUtils.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_value",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "repo_definition_function",
+    srcs = ["RepoDefinitionFunction.java"],
+    deps = [
+        ":repo_definition",
+        ":repo_definition_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:exception",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_failed_exception",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/spelling",
+        "//src/main/java/net/starlark/java/syntax",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "repository_options",
+    srcs = ["RepositoryOptions.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/eval",
+    ],
+)

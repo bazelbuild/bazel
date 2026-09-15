@@ -1,0 +1,55 @@
+<p>String <code>"enormous"</code>, <code>"large"</code>, <code>"medium"</code>, or
+  <code>"small"</code>; <a href="#configurable-attributes">nonconfigurable</a>;
+  default is <code>"medium"</code></p>
+
+<p>Specifies a test target's "heaviness": how much time/resources it needs to run.</p>
+
+<p>Unit tests are considered "small", integration tests "medium", and end-to-end tests "large" or
+"enormous". Bazel uses the size to determine a default timeout, which can be overridden using the
+<code>timeout</code> attribute. The timeout is for all tests in the BUILD target, not for each
+individual test. When the test is run locally, the <code>size</code> is additionally used for
+scheduling purposes: Bazel tries to respect <code>--local_{ram,cpu}_resources</code> and not
+overwhelm the local machine by running lots of heavy tests at the same time.</p>
+
+<p>Test sizes correspond to the following default timeouts and assumed peak local resource
+usages:</p>
+
+<table style="width: 100%">
+  <tr>
+    <th>Size</th>
+    <th>RAM (in MB)</th>
+    <th>CPU (in CPU cores)</th>
+    <th>Default timeout</th>
+  </tr>
+  <tr>
+    <td>small</td>
+    <td>20</td>
+    <td>1</td>
+    <td>short (1 minute)</td>
+  </tr>
+  <tr>
+    <td>medium</td>
+    <td>100</td>
+    <td>1</td>
+    <td>moderate (5 minutes)</td>
+  </tr>
+  <tr>
+    <td>large</td>
+    <td>300</td>
+    <td>1</td>
+    <td>long (15 minutes)</td>
+  </tr>
+  <tr>
+    <td>enormous</td>
+    <td>800</td>
+    <td>1</td>
+    <td>eternal (60 minutes)</td>
+  </tr>
+</table>
+
+<p>
+  The environment variable
+  <code><a href="${link test-encyclopedia#initial-conditions}">TEST_SIZE</a></code> will be set to
+  the value of this attribute when spawning the test.
+</p>
+

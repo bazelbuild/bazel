@@ -1,0 +1,18 @@
+commit 0ab1cea1bfe4493df1f590e820692d3e8da0d339
+Author: Ivo List <ilist@google.com>
+Date:   Mon Oct 27 11:51:02 2025 +0100
+
+    Add missing load
+
+diff --git a/crosstool/cc_toolchain_config.bzl b/crosstool/cc_toolchain_config.bzl
+index ef21444..2908255 100644
+--- a/crosstool/cc_toolchain_config.bzl
++++ b/crosstool/cc_toolchain_config.bzl
+@@ -33,6 +33,7 @@ load(
+ )
+ load("@build_bazel_apple_support//lib:apple_support.bzl", "apple_support")
+ load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
++load("@rules_cc//cc/toolchains:cc_toolchain_config_info.bzl", "CcToolchainConfigInfo")
+ 
+ _DYNAMIC_LINK_ACTIONS = [
+     ACTION_NAMES.cpp_link_dynamic_library,

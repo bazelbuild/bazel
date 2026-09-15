@@ -1,0 +1,142 @@
+// Copyright 2020 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.remote.common;
+
+
+import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.PathMapper;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * A {@link RemotePathResolver} is used to resolve input/output paths for remote execution from
+ * Bazel's internal path, or vice versa.
+ */
+public interface RemotePathResolver {
+
+  /** Resolves the output path relative to input root for the given {@link Path}. */
+  String localPathToOutputPath(Path path);
+
+  /**
+   * Resolves the output path relative to input root for the given {@link PathFragment}.
+   *
+   * @param execPath a path fragment relative to {@code execRoot}.
+   */
+  String localPathToOutputPath(PathFragment execPath);
+
+  /** Resolves the output path relative to input root for the {@link ActionInput}. */
+  default String localPathToOutputPath(ActionInput actionInput) {
+    return localPathToOutputPath(actionInput.getExecPath());
+  }
+
+  /**
+   * Resolves the local {@link Path} of an output file.
+   *
+   * @param outputPath the return value of {@link #localPathToOutputPath(PathFragment)}.
+   */
+  Path outputPathToLocalPath(String outputPath);
+
+  /** Returns the exec path for the given local path. */
+  PathFragment localPathToExecPath(PathFragment localPath);
+
+  /** Creates the default {@link RemotePathResolver}. */
+  static RemotePathResolver createDefault(Path execRoot) {
+    return new DefaultRemotePathResolver(execRoot);
+  }
+
+  /** The default {@link RemotePathResolver} which uses {@code execRoot} as the input root. */
+  class DefaultRemotePathResolver implements RemotePathResolver {
+
+    private final Path execRoot;
+
+    public DefaultRemotePathResolver(Path execRoot) {
+      this.execRoot = execRoot;
+    }
+
+    @Override
+    public String localPathToOutputPath(Path path) {
+      return path.relativeTo(execRoot).getPathString();
+    }
+
+    @Override
+    public String localPathToOutputPath(PathFragment execPath) {
+      return execPath.getPathString();
+    }
+
+    @Override
+    public Path outputPathToLocalPath(String outputPath) {
+      return execRoot.getRelative(outputPath);
+    }
+
+    @Override
+    public PathFragment localPathToExecPath(PathFragment localPath) {
+      return localPath.relativeTo(execRoot.asFragment());
+    }
+  }
+
+  /**
+   * Adapts a given base {@link RemotePathResolver} to also apply a {@link PathMapper} to map (and
+   * inverse map) paths.
+   */
+  static RemotePathResolver createMapped(
+      RemotePathResolver base, Path execRoot, PathMapper pathMapper) {
+    if (pathMapper.isNoop()) {
+      return base;
+    }
+    return new RemotePathResolver() {
+      private final ConcurrentHashMap<PathFragment, PathFragment> inverse =
+          new ConcurrentHashMap<>();
+
+      @Override
+      public String localPathToOutputPath(Path path) {
+        return localPathToOutputPath(path.relativeTo(execRoot));
+      }
+
+      @Override
+      public String localPathToOutputPath(PathFragment execPath) {
+        return base.localPathToOutputPath(map(execPath));
+      }
+
+      @Override
+      public Path outputPathToLocalPath(String outputPath) {
+        return execRoot.getRelative(
+            inverseMap(base.outputPathToLocalPath(outputPath).relativeTo(execRoot)));
+      }
+
+      @Override
+      public PathFragment localPathToExecPath(PathFragment localPath) {
+        return base.localPathToExecPath(localPath);
+      }
+
+      private PathFragment map(PathFragment path) {
+        PathFragment mappedPath = pathMapper.map(path);
+        PathFragment previousPath = inverse.put(mappedPath, path);
+        Preconditions.checkState(
+            previousPath == null || previousPath.equals(path),
+            "Two different paths %s and %s map to the same path %s",
+            previousPath,
+            path,
+            mappedPath);
+        return mappedPath;
+      }
+
+      private PathFragment inverseMap(PathFragment path) {
+        return Preconditions.checkNotNull(
+            inverse.get(path), "Failed to find original path for mapped path %s", path);
+      }
+    };
+  }
+}

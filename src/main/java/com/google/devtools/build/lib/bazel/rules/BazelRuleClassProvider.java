@@ -1,0 +1,389 @@
+// Copyright 2014 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.bazel.rules;
+
+import static com.google.devtools.build.lib.util.StringEncoding.platformToInternal;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
+import com.google.devtools.build.lib.analysis.ShellConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
+import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.PackageCallable;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
+import com.google.devtools.build.lib.rules.android.AndroidStarlarkCommon;
+import com.google.devtools.build.lib.rules.android.BazelAndroidConfiguration;
+import com.google.devtools.build.lib.rules.config.ConfigRules;
+import com.google.devtools.build.lib.rules.core.CoreRules;
+import com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal;
+import com.google.devtools.build.lib.rules.platform.PlatformRules;
+import com.google.devtools.build.lib.rules.proto.BazelProtoCommon;
+import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
+import com.google.devtools.build.lib.rules.test.TestingSupportRules;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ContextGuardedValue;
+import com.google.devtools.build.lib.util.EnvVar;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.ResourceFileLoader;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.function.Function;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.Starlark;
+
+/** A rule class provider implementing the rules Bazel knows. */
+public class BazelRuleClassProvider {
+  /** Command-line options. */
+  @OptionsClass
+  public abstract static class StrictActionEnvOptions extends FragmentOptions {
+    @Option(
+        name = "incompatible_strict_action_env",
+        oldName = "experimental_strict_action_env",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help =
+            """
+            If true, Bazel uses an environment with a static value for PATH and does not
+            inherit `LD_LIBRARY_PATH`. Use `--action_env=ENV_VARIABLE` if you want to
+            inherit specific environment variables from the client, but note that doing so
+            can prevent cross-user caching if a shared cache is used.
+            """)
+    public abstract boolean getUseStrictActionEnv();
+
+    public abstract void setUseStrictActionEnv(boolean value);
+  }
+
+  private static final PathFragment FALLBACK_SHELL = PathFragment.create("/bin/bash");
+
+  @VisibleForTesting
+  public static final ImmutableMap<OS, PathFragment> SHELL_EXECUTABLES =
+      ImmutableMap.<OS, PathFragment>builder()
+          .put(OS.WINDOWS, PathFragment.create("c:/msys64/usr/bin/bash.exe"))
+          .put(OS.FREEBSD, PathFragment.create("/usr/local/bin/bash"))
+          .put(OS.OPENBSD, PathFragment.create("/usr/local/bin/bash"))
+          .put(OS.NETBSD, PathFragment.create("/usr/pkg/bin/bash"))
+          .put(OS.LINUX, PathFragment.create("/bin/bash"))
+          .put(OS.DARWIN, PathFragment.create("/bin/bash"))
+          .put(OS.UNKNOWN, FALLBACK_SHELL)
+          .buildOrThrow();
+
+  /**
+   * {@link com.google.devtools.build.lib.skyframe.config.BuildConfigurationFunction} constructs
+   * {@link BuildOptions} out of the options required by the registered fragments. We create and
+   * register this fragment exclusively to ensure {@link StrictActionEnvOptions} is always
+   * available.
+   */
+  @RequiresOptions(options = {StrictActionEnvOptions.class})
+  public static class StrictActionEnvConfiguration extends Fragment {
+    public StrictActionEnvConfiguration(BuildOptions buildOptions) {}
+  }
+
+  @VisibleForTesting
+  @Nullable
+  public static PathFragment getDefaultPathFromOptions(ShellConfiguration.Options options) {
+    if (options.getShellExecutable() != null) {
+      return options.getShellExecutable();
+    }
+
+    // Honor BAZEL_SH env variable for backwards compatibility.
+    String path = System.getenv("BAZEL_SH");
+    if (path != null) {
+      return PathFragment.create(platformToInternal(path));
+    }
+    return null;
+  }
+
+  @VisibleForTesting
+  static PathFragment getShellExecutableForOs(OS os, ShellConfiguration.Options options) {
+    // TODO(ulfjack): instead of using the OS Bazel runs on, we need to use the exec platform,
+    // which may be different for remote execution. For now, this can be overridden with
+    // --shell_executable, so at least there's a workaround.
+    return getDefaultPathFromOptions(options) != null
+        ? getDefaultPathFromOptions(options)
+        : SHELL_EXECUTABLES.getOrDefault(os, FALLBACK_SHELL);
+  }
+
+  public static final Function<BuildOptions, ActionEnvironment> SHELL_ACTION_ENV =
+      (BuildOptions options) -> {
+        if (options.hasNoConfig()) {
+          return ActionEnvironment.EMPTY;
+        }
+        boolean strictActionEnv = options.get(StrictActionEnvOptions.class).getUseStrictActionEnv();
+        OS os = OS.getCurrent();
+        // TODO(ulfjack): instead of using the OS Bazel runs on, we need to use the exec platform,
+        // which may be different for remote execution. For now, this can be overridden with
+        // --shell_executable, so at least there's a workaround.
+        PathFragment shellExecutable =
+            getShellExecutableForOs(os, options.get(ShellConfiguration.Options.class));
+
+        TreeMap<String, String> env = new TreeMap<>();
+
+        // All entries in the builder that have a value of null inherit the value from the client
+        // environment, which is only known at execution time - we don't want to bake the client env
+        // into the configuration since any change to the configuration requires rerunning the full
+        // analysis phase.
+        if (!strictActionEnv) {
+          env.put("LD_LIBRARY_PATH", null);
+        }
+
+        if (strictActionEnv) {
+          env.put("PATH", pathOrDefault(os, null, shellExecutable));
+        } else if (os == OS.WINDOWS) {
+          // TODO(ulfjack): We want to add the MSYS root to the PATH, but that prevents us from
+          // inheriting PATH from the client environment. For now we use System.getenv even though
+          // that is incorrect. We should enable strict_action_env by default and then remove this
+          // code, but that change may break Windows users who are relying on the MSYS root being in
+          // the PATH.
+          String pathEnv = System.getenv("PATH");
+          if (pathEnv != null) {
+            pathEnv = platformToInternal(pathEnv);
+          }
+          env.put("PATH", pathOrDefault(os, pathEnv, shellExecutable));
+        } else {
+          // The previous implementation used System.getenv (which uses the server's environment),
+          // and fell back to a hard-coded "/bin:/usr/bin" if PATH was not set.
+          env.put("PATH", null);
+        }
+
+        // Signal Unicode support to locale-aware tools. A sandboxed environment
+        // without any locale variable set would typically be interpreted as an
+        // ASCII-only setup, which may not support special characters in filenames.
+        env.put("LC_CTYPE", "C.UTF-8");
+
+        // Shell environment variables specified via options take precedence over the
+        // ones inherited from the fragments. In the long run, these fragments will
+        // be replaced by appropriate default rc files anyway.
+        for (var envVar : options.get(CoreOptions.class).getActionEnvironment()) {
+          switch (envVar) {
+            case EnvVar.Set(String name, String value) -> env.put(name, value);
+            case EnvVar.Inherit(String name) -> env.put(name, null);
+            case EnvVar.Unset(String name) -> env.remove(name);
+          }
+        }
+
+        if (!BuildConfigurationValue.runfilesEnabled(options.get(CoreOptions.class))) {
+          // Setting this environment variable is for telling the binary running
+          // in a Bazel action when to use runfiles library or runfiles tree.
+          // The downside is that it will discard cache for all actions once
+          // --enable_runfiles changes, but this also prevents wrong caching result if a binary
+          // behaves differently with and without runfiles tree.
+          env.put("RUNFILES_MANIFEST_ONLY", "1");
+        }
+
+        return ActionEnvironment.split(env);
+      };
+
+  /** Convenience wrapper around {@link #setup} that returns a final ConfiguredRuleClassProvider. */
+  // Used by the build encyclopedia generator.
+  public static ConfiguredRuleClassProvider create() {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    setup(builder);
+    return builder.build();
+  }
+
+  /** Adds this class's definitions to a builder. */
+  public static void setup(ConfiguredRuleClassProvider.Builder builder) {
+    builder.setToolsRepository(RepositoryName.BAZEL_TOOLS);
+    builder.setBuiltinsBzlZipResource(
+        ResourceFileLoader.resolveResource(BazelRuleClassProvider.class, "builtins_bzl.zip"));
+    builder.setBuiltinsBzlPackagePathInSource("src/main/starlark/builtins_bzl");
+
+    for (RuleSet ruleSet : RULE_SETS) {
+      ruleSet.init(builder);
+    }
+  }
+
+  public static final RuleSet BAZEL_SETUP =
+      new RuleSet() {
+        @Override
+        public void init(ConfiguredRuleClassProvider.Builder builder) {
+          ShellConfiguration.injectShellExecutableFinder(
+              BazelRuleClassProvider::getDefaultPathFromOptions, SHELL_EXECUTABLES);
+          builder
+              .setPrelude("//tools/build_rules:prelude_bazel")
+              .setRunfilesPrefix("_main")
+              .setPrerequisiteValidator(new BazelPrerequisiteValidator())
+              .setActionEnvironmentProvider(SHELL_ACTION_ENV)
+              .addUniversalConfigurationFragment(ShellConfiguration.class)
+              .addUniversalConfigurationFragment(PlatformConfiguration.class)
+              .addUniversalConfigurationFragment(StrictActionEnvConfiguration.class)
+              .addConfigurationOptions(CoreOptions.class);
+
+          builder.addStarlarkBuiltinsInternal(CcStarlarkInternal.NAME, new CcStarlarkInternal());
+
+          // Add the package() function.
+          // TODO(bazel-team): Factor this into a group of similar BUILD definitions, or add a more
+          // convenient way of obtaining a BuiltinFunction than addMethods().
+          ImmutableMap.Builder<String, Object> symbols = ImmutableMap.builder();
+          Starlark.addMethods(symbols, PackageCallable.INSTANCE);
+          for (Map.Entry<String, Object> entry : symbols.buildOrThrow().entrySet()) {
+            builder.addBuildFileToplevel(entry.getKey(), entry.getValue());
+          }
+        }
+      };
+
+  public static final RuleSet PROTO_RULES =
+      new RuleSet() {
+        @Override
+        public void init(ConfiguredRuleClassProvider.Builder builder) {
+          builder.addConfigurationFragment(ProtoConfiguration.class);
+          builder.addBzlToplevel("proto_common_do_not_use", BazelProtoCommon.INSTANCE);
+        }
+
+        @Override
+        public ImmutableList<RuleSet> requires() {
+          return ImmutableList.of(CoreRules.INSTANCE);
+        }
+      };
+
+  public static final RuleSet ANDROID_RULES =
+      new RuleSet() {
+        @Override
+        public void init(ConfiguredRuleClassProvider.Builder builder) {
+
+          builder.addConfigurationFragment(AndroidConfiguration.class);
+          builder.addConfigurationFragment(BazelAndroidConfiguration.class);
+
+          builder.addBzlToplevel("android_common", new AndroidStarlarkCommon());
+        }
+
+        @Override
+        public ImmutableList<RuleSet> requires() {
+          return ImmutableList.of(CoreRules.INSTANCE, CcRules.INSTANCE, JavaRules.INSTANCE);
+        }
+      };
+
+  public static final RuleSet PYTHON_RULES =
+      new RuleSet() {
+        public static final ImmutableSet<PackageIdentifier> allowedRepositories =
+            ImmutableSet.of(
+                PackageIdentifier.createUnchecked("_builtins", ""),
+                PackageIdentifier.createUnchecked("bazel_tools", ""),
+                PackageIdentifier.createUnchecked("rules_python", ""),
+                PackageIdentifier.createUnchecked("", "tools/build_defs/python"));
+
+        @Override
+        public void init(ConfiguredRuleClassProvider.Builder builder) {
+          // This symbol is overridden by exports.bzl
+          builder.addBzlToplevel(
+              "py_internal",
+              ContextGuardedValue.onlyInAllowedRepos(Starlark.NONE, allowedRepositories));
+          builder.addStarlarkBuiltinsInternal(BazelPyBuiltins.NAME, new BazelPyBuiltins());
+        }
+
+        @Override
+        public ImmutableList<RuleSet> requires() {
+          return ImmutableList.of(CoreRules.INSTANCE, CcRules.INSTANCE);
+        }
+      };
+
+  static final RuleSet PACKAGING_RULES =
+      new RuleSet() {
+        @Override
+        public void init(ConfiguredRuleClassProvider.Builder builder) {
+          builder.addBzlToplevel("PackageSpecificationInfo", PackageSpecificationProvider.PROVIDER);
+        }
+      };
+
+  private static final ImmutableSet<RuleSet> RULE_SETS =
+      ImmutableSet.of(
+          BAZEL_SETUP,
+          CoreRules.INSTANCE,
+          GenericRules.INSTANCE,
+          ConfigRules.INSTANCE,
+          PlatformRules.INSTANCE,
+          PROTO_RULES,
+          CcRules.INSTANCE,
+          JavaRules.INSTANCE,
+          ANDROID_RULES,
+          PYTHON_RULES,
+          ObjcRules.INSTANCE,
+          TestingSupportRules.INSTANCE,
+          PACKAGING_RULES,
+          // This rule set is a little special: it needs to depend on every configuration fragment
+          // that has Make variables, so we put it last.
+          ToolchainRules.INSTANCE);
+
+  @VisibleForTesting
+  public static String pathOrDefault(OS os, @Nullable String path, @Nullable PathFragment sh) {
+    // TODO(ulfjack): The default PATH should be set from the exec platform, which may be different
+    // from the local machine. For now, this can be overridden with --action_env=PATH=<value>, so
+    // at least there's a workaround.
+
+    // On the BSDs system package manager binaries, and importantly bash, end
+    // up in /usr/local/bin, so we need to include that in the default PATH. On
+    // other Unix platforms we want to exclude /usr/local/bin which commonly
+    // holds user installed tools making things less hermetic.
+    if (os == OS.FREEBSD || os == OS.OPENBSD || os == OS.NETBSD) {
+      return "/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin";
+    } else if (os != OS.WINDOWS) {
+      return "/bin:/usr/bin:/sbin:/usr/sbin";
+    }
+
+    String newPath = "";
+    // Attempt to compute the MSYS root (the real Windows path of "/") from `sh`.
+    if (sh != null && sh.getParentDirectory() != null) {
+      newPath = sh.getParentDirectory().getPathString();
+      if (sh.getParentDirectory().endsWith(PathFragment.create("usr/bin"))) {
+        newPath +=
+            ";" + sh.getParentDirectory().getParentDirectory().replaceName("bin").getPathString();
+      } else if (sh.getParentDirectory().endsWith(PathFragment.create("bin"))) {
+        newPath +=
+            ";" + sh.getParentDirectory().replaceName("usr").getRelative("bin").getPathString();
+      }
+      newPath = newPath.replace('/', '\\');
+    }
+    // On Windows, the following dirs should always be available in PATH:
+    //   C:\Windows
+    //   C:\Windows\System32
+    //   C:\Windows\System32\WindowsPowerShell\v1.0
+    // They are similar to /bin:/usr/bin, which makes the basic tools on the platform available.
+    String systemRoot = System.getenv("SYSTEMROOT");
+    if (Strings.isNullOrEmpty(systemRoot)) {
+      systemRoot = "C:\\Windows";
+    } else {
+      systemRoot = platformToInternal(systemRoot);
+    }
+    newPath += ";" + systemRoot;
+    newPath += ";" + systemRoot + "\\System32";
+    newPath += ";" + systemRoot + "\\System32\\WindowsPowerShell\\v1.0";
+    if (path != null) {
+      newPath += ";" + path;
+    }
+    return newPath;
+  }
+}

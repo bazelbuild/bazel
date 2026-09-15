@@ -1,0 +1,62 @@
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_testonly = 1,
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
+)
+
+filegroup(
+    name = "srcs",
+    testonly = 0,
+    srcs = glob(["*"]) + [
+        "//src/test/java/com/google/devtools/build/lib/bazel/rules/genrule:srcs",
+        "//src/test/java/com/google/devtools/build/lib/bazel/rules/java:srcs",
+        "//src/test/java/com/google/devtools/build/lib/bazel/rules/python:srcs",
+    ],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/bazel:__pkg__"],
+)
+
+java_library(
+    name = "BazelRuleTests_lib",
+    srcs = glob(["*.java"]),
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib/bazel:__pkg__",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_class_set",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:bazel_rule_class_provider",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:cc_rules",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:generic_rules",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:java_rules",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:objc_rules",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:toolchain_rules",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/rules/config",
+        "//src/main/java/com/google/devtools/build/lib/rules/core",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "BazelRuleTests",
+    test_class = "com.google.devtools.build.lib.AllTests",
+    runtime_deps = [
+        ":BazelRuleTests_lib",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
+    ],
+)

@@ -1,0 +1,32 @@
+load("@rules_java//java:defs.bzl", "java_test")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_testonly = 1,
+    default_visibility = [
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
+)
+
+filegroup(
+    name = "srcs",
+    testonly = 0,
+    srcs = glob(["**"]),
+    visibility = ["//src/tools/execlog:__pkg__"],
+)
+
+java_test(
+    name = "ExecLogParserTest",
+    size = "small",
+    srcs = ["ExecLogParserTest.java"],
+    test_class = "com.google.devtools.build.execlog.ExecLogParserTest",
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_log_reconstructor",
+        "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
+        "//src/main/protobuf:spawn_java_proto",
+        "//src/tools/execlog/src/main/java/com/google/devtools/build/execlog:parser",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+        "//third_party/java/zstd_jni",
+    ],
+)

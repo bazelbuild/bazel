@@ -1,0 +1,237 @@
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_testonly = 1,
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
+)
+
+filegroup(
+    name = "srcs",
+    testonly = 0,
+    srcs = glob(["**"]),
+    visibility = ["//src/test/java/com/google/devtools/build/lib/collect:__pkg__"],
+)
+
+java_test(
+    name = "CompileOrderExpanderTest",
+    srcs = ["CompileOrderExpanderTest.java"],
+    deps = [
+        ":ExpanderTestBase",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+    ],
+)
+
+java_test(
+    name = "DeferredNestedSetCodecTest",
+    srcs = ["DeferredNestedSetCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:dumper",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/junit",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "DepsetTest",
+    srcs = ["DepsetTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/test/java/com/google/devtools/build/lib/starlark/util",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+# Keep this as a java_library so that other tests with different hash functions can depend on it.
+java_library(
+    name = "DigestMapTest_lib",
+    srcs = ["DigestMapTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:fingerprint_cache",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "DigestMapTest",
+    test_class = "com.google.devtools.build.lib.collect.nestedset.DigestMapTest",
+    runtime_deps = [
+        ":DigestMapTest_lib",
+    ],
+)
+
+java_library(
+    name = "ExpanderTestBase",
+    srcs = ["ExpanderTestBase.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "DigestDeduperTest",
+    srcs = ["DigestDeduperTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:fingerprint_cache",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "LinkOrderExpanderTest",
+    srcs = ["LinkOrderExpanderTest.java"],
+    deps = [
+        ":ExpanderTestBase",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+    ],
+)
+
+java_test(
+    name = "NaiveLinkOrderExpanderTest",
+    srcs = ["NaiveLinkOrderExpanderTest.java"],
+    deps = [
+        ":ExpanderTestBase",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+    ],
+)
+
+java_test(
+    name = "NestedSetCodecTest",
+    srcs = ["NestedSetCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:testutils",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:fingerprint_value_store",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:key_bytes_provider",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_status",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
+        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:testing",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "NestedSetFingerprintCacheTest",
+    srcs = ["NestedSetFingerprintCacheTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:fingerprint_cache",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "NestedSetSerializationCacheTest",
+    srcs = ["NestedSetSerializationCacheTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:fingerprint_value_store",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:testing",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "NestedSetTest",
+    srcs = ["NestedSetTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:artifact_nested_set_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:fingerprint_value_store",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:testing",
+        "//third_party/java/junit",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "NestedSetTopologyTest",
+    srcs = ["NestedSetTopologyTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "NestedSetVisitorTest",
+    srcs = ["NestedSetVisitorTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "OrderTest",
+    srcs = ["OrderTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+test_suite(
+    name = "NestedSetTests",
+)

@@ -1,0 +1,123 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/main/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__"],
+)
+
+DUMPER_SOURCES = [
+    "Canonizer.java",
+    "Dumper.java",
+    "FieldInfoCache.java",
+    "IsomorphismKey.java",
+    "GraphDataCollector.java",
+    "GraphTraverser.java",
+]
+
+java_library(
+    name = "testutils",
+    testonly = 1,
+    srcs = glob(
+        ["*.java"],
+        exclude = DUMPER_SOURCES + [
+            "FakeDirectories.java",
+            "FakeInvalidationDataHelper.java",
+            "RoundTripping.java",
+            "SerializationDepsUtils.java",
+        ],
+    ),
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/collect:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/skyframe:__subpackages__",
+    ],
+    runtime_deps = [
+        "//src/test/java/com/google/devtools/build/lib/vfs/util",  # For FileSystem modules
+    ],
+    deps = [
+        ":round-tripping",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:fingerprint_value_store",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:key_bytes_provider",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_status",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_statuses",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/truth",
+    ],
+)
+
+java_library(
+    name = "round-tripping",
+    srcs = ["RoundTripping.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
+    ],
+)
+
+java_library(
+    name = "depsutils",
+    srcs = ["SerializationDepsUtils.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "fake_directories",
+    testonly = 1,
+    srcs = ["FakeDirectories.java"],
+    deps = [
+        ":testutils",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+    ],
+)
+
+java_library(
+    name = "dumper",
+    srcs = DUMPER_SOURCES,
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:hash",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "fake_invalidation_data_helper",
+    srcs = ["FakeInvalidationDataHelper.java"],
+    deps = [
+        "//src/main/protobuf:file_invalidation_data_java_proto",
+        "//third_party/java/protobuf:protobuf_lite",
+    ],
+)

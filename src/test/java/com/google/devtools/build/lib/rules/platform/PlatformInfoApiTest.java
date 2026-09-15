@@ -1,0 +1,550 @@
+// Copyright 2018 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.rules.platform;
+
+import static com.google.common.truth.Truth.assertThat;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.cmdline.Label;
+import java.util.List;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+/** Tests Starlark API for {@link PlatformInfo} providers. */
+@RunWith(JUnit4.class)
+public class PlatformInfoApiTest extends PlatformTestCase {
+
+  @Test
+  public void constructor() throws Exception {
+    constraintBuilder("//foo:basic").addConstraintValue("value1").write();
+    platformBuilder("//foo:my_platform").addConstraint("value1").write();
+    assertNoEvents();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:my_platform");
+    assertThat(platformInfo).isNotNull();
+    ConstraintSettingInfo constraintSetting =
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//foo:basic"));
+    ConstraintValueInfo constraintValue =
+        ConstraintValueInfo.create(
+            constraintSetting, Label.parseCanonicalUnchecked("//foo:value1"));
+    assertThat(platformInfo.constraints().get(constraintSetting)).isEqualTo(constraintValue);
+  }
+
+  @Test
+  public void tooManyParentsError() throws Exception {
+    List<String> lines =
+        new ImmutableList.Builder<String>()
+            .addAll(platformBuilder("//foo:parent_platform1").lines())
+            .addAll(platformBuilder("//foo:parent_platform2").lines())
+            .addAll(
+                ImmutableList.of(
+                    "platform(name = 'my_platform',\n",
+                    "  parents = [\n",
+                    "    ':parent_platform1',\n",
+                    "    ':parent_platform2',\n",
+                    "  ])"))
+            .build();
+
+    checkError(
+        "foo",
+        "my_platform",
+        "in parents attribute of platform rule //foo:my_platform: "
+            + "parents attribute must have a single value",
+        lines.toArray(new String[] {}));
+  }
+
+  @Test
+  public void constraints_overlappingError() throws Exception {
+    ImmutableList<String> lines =
+        new ImmutableList.Builder<String>()
+            .addAll(
+                constraintBuilder("//foo:basic")
+                    .addConstraintValue("value1")
+                    .addConstraintValue("value2")
+                    .lines())
+            .addAll(
+                platformBuilder("//foo:my_platform")
+                    .addConstraint("value1")
+                    .addConstraint("value2")
+                    .lines())
+            .build();
+
+    checkError(
+        "foo",
+        "my_platform",
+        "Duplicate constraint values detected: "
+            + "constraint_setting //foo:basic has [//foo:value1, //foo:value2]",
+        lines.toArray(new String[] {}));
+  }
+
+  @Test
+  public void constraints_repeatedViaAlias() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        """
+        constraint_setting(name = "basic")
+
+        constraint_value(
+            name = "value1",
+            constraint_setting = ":basic",
+        )
+
+        alias(
+            name = "value1_alias",
+            actual = ":value1",
+        )
+
+        platform(
+            name = "my_platform",
+            constraint_values = [
+                ":value1",
+                ":value1_alias",
+            ],
+        )
+        """);
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:my_platform");
+    assertNoEvents();
+    assertThat(platformInfo).isNotNull();
+    ConstraintSettingInfo constraintSetting =
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//foo:basic"));
+    ConstraintValueInfo constraintValue =
+        ConstraintValueInfo.create(
+            constraintSetting, Label.parseCanonicalUnchecked("//foo:value1"));
+    assertThat(platformInfo.constraints().get(constraintSetting)).isEqualTo(constraintValue);
+  }
+
+  @Test
+  public void constraints_refinesConstraintValue_satisfied() throws Exception {
+    scratch.file(
+        "libc/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = ":libc",
+        )
+        """);
+    scratch.file(
+        "libc/glibc/BUILD",
+        """
+        constraint_setting(
+            name = "version",
+            refines_constraint_value = "//libc:glibc",
+        )
+
+        constraint_value(
+            name = "2.42",
+            constraint_setting = ":version",
+        )
+        """);
+    scratch.file(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "glibc242",
+            constraint_values = [
+                "//libc:glibc",
+                "//libc/glibc:2.42",
+            ],
+        )
+        """);
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//platforms:glibc242");
+    assertThat(platformInfo).isNotNull();
+  }
+
+  @Test
+  public void constraints_refinesConstraintValue_alias_satisfied() throws Exception {
+    scratch.file(
+        "libc/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = ":libc",
+        )
+
+        alias(
+            name = "glibc_alias",
+            actual = ":glibc",
+        )
+        """);
+    scratch.file(
+        "libc/glibc/BUILD",
+        """
+        constraint_setting(
+            name = "version",
+            refines_constraint_value = "//libc:glibc_alias",
+        )
+
+        constraint_value(
+            name = "2.42",
+            constraint_setting = ":version",
+        )
+        """);
+    // The refined value is declared by its real label even though refines_constraint_value used
+    // an alias.
+    scratch.file(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "glibc242",
+            constraint_values = [
+                "//libc:glibc",
+                "//libc/glibc:2.42",
+            ],
+        )
+        """);
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//platforms:glibc242");
+    assertThat(platformInfo).isNotNull();
+  }
+
+  @Test
+  public void constraints_refinesConstraintValue_missingRefined_error() throws Exception {
+    scratch.file(
+        "libc/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = ":libc",
+        )
+        """);
+    scratch.file(
+        "libc/glibc/BUILD",
+        """
+        constraint_setting(
+            name = "version",
+            refines_constraint_value = "//libc:glibc",
+        )
+
+        constraint_value(
+            name = "2.42",
+            constraint_setting = ":version",
+        )
+        """);
+    checkError(
+        "platforms",
+        "broken",
+        "constraint_value //libc/glibc:2.42 refines //libc:glibc, but platform //platforms:broken"
+            + " does not set the latter.",
+        """
+        platform(
+            name = "broken",
+            constraint_values = ["//libc/glibc:2.42"],
+        )
+        """);
+    assertContainsEvent("buildozer 'add constraint_values //libc:glibc' //platforms:broken");
+  }
+
+  @Test
+  public void constraints_refinesConstraintValue_wrongValue_error() throws Exception {
+    scratch.file(
+        "libc/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = ":libc",
+        )
+
+        constraint_value(
+            name = "musl",
+            constraint_setting = ":libc",
+        )
+        """);
+    scratch.file(
+        "libc/glibc/BUILD",
+        """
+        constraint_setting(
+            name = "version",
+            refines_constraint_value = "//libc:glibc",
+        )
+
+        constraint_value(
+            name = "2.42",
+            constraint_setting = ":version",
+        )
+        """);
+    // The platform sets a conflicting value (musl) for the refined setting.
+    checkError(
+        "platforms",
+        "wrong",
+        "constraint_value //libc/glibc:2.42 refines //libc:glibc, but platform //platforms:wrong"
+            + " sets the conflicting constraint_value //libc:musl for //libc",
+        """
+        platform(
+            name = "wrong",
+            constraint_values = [
+                "//libc:musl",
+                "//libc/glibc:2.42",
+            ],
+        )
+        """);
+    // A conflicting value is a likely-real contradiction, so no mechanical buildozer fixup is
+    // suggested.
+    assertDoesNotContainEvent("buildozer");
+  }
+
+  @Test
+  public void constraints_refinesConstraintValue_defaultNotEnforced() throws Exception {
+    scratch.file(
+        "libc/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = ":libc",
+        )
+        """);
+    scratch.file(
+        "libc/glibc/BUILD",
+        """
+        constraint_setting(
+            name = "version",
+            default_constraint_value = ":unknown",
+            refines_constraint_value = "//libc:glibc",
+        )
+
+        constraint_value(
+            name = "unknown",
+            constraint_setting = ":version",
+        )
+
+        constraint_value(
+            name = "2.42",
+            constraint_setting = ":version",
+        )
+        """);
+    // Platform may explicitly set the *default* refining value without declaring the refined one.
+    scratch.file(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "default_only",
+            constraint_values = ["//libc/glibc:unknown"],
+        )
+        """);
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//platforms:default_only");
+    assertThat(platformInfo).isNotNull();
+  }
+
+  @Test
+  public void constraints_refinesConstraintValue_inheritedFromParent() throws Exception {
+    scratch.file(
+        "libc/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = ":libc",
+        )
+        """);
+    scratch.file(
+        "libc/glibc/BUILD",
+        """
+        constraint_setting(
+            name = "version",
+            refines_constraint_value = "//libc:glibc",
+        )
+
+        constraint_value(
+            name = "2.42",
+            constraint_setting = ":version",
+        )
+        """);
+    scratch.file(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "parent",
+            constraint_values = ["//libc:glibc"],
+        )
+
+        platform(
+            name = "child",
+            parents = [":parent"],
+            constraint_values = ["//libc/glibc:2.42"],
+        )
+        """);
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//platforms:child");
+    assertThat(platformInfo).isNotNull();
+  }
+
+  @Test
+  public void constraints_invalidTarget_error() throws Exception {
+    checkError(
+        "foo",
+        "my_platform",
+        // TODO: https://github.com/bazelbuild/bazel/issues/23126 - Have a better error message.
+        // Something like "Invalid dependency :lib does not provide ConstraintValueInfo"
+        "errors encountered while analyzing target",
+        """
+        filegroup(name = "lib")
+
+        platform(
+            name = "my_platform",
+            constraint_values = [
+                ":lib",
+            ],
+        )
+        """);
+  }
+
+  @Test
+  public void constraints_parent() throws Exception {
+    constraintBuilder("//foo:setting1").addConstraintValue("value1").write();
+    constraintBuilder("//foo:setting2").addConstraintValue("value2").write();
+    platformBuilder("//foo:parent_platform").addConstraint("value1").write();
+    platformBuilder("//foo:my_platform")
+        .setParent("//foo:parent_platform")
+        .addConstraint("value2")
+        .write();
+    assertNoEvents();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:my_platform");
+    assertThat(platformInfo).isNotNull();
+    ConstraintSettingInfo constraintSetting1 =
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//foo:setting1"));
+    ConstraintValueInfo constraintValue1 =
+        ConstraintValueInfo.create(
+            constraintSetting1, Label.parseCanonicalUnchecked("//foo:value1"));
+    assertThat(platformInfo.constraints().get(constraintSetting1)).isEqualTo(constraintValue1);
+    ConstraintSettingInfo constraintSetting2 =
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//foo:setting2"));
+    ConstraintValueInfo constraintValue2 =
+        ConstraintValueInfo.create(
+            constraintSetting2, Label.parseCanonicalUnchecked("//foo:value2"));
+    assertThat(platformInfo.constraints().get(constraintSetting2)).isEqualTo(constraintValue2);
+  }
+
+  @Test
+  public void constraints_parent_override() throws Exception {
+    constraintBuilder("//foo:setting1")
+        .addConstraintValue("value1a")
+        .addConstraintValue("value1b")
+        .write();
+    platformBuilder("//foo:parent_platform").addConstraint("value1a").write();
+    platformBuilder("//foo:my_platform").addConstraint("value1b").write();
+    assertNoEvents();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:my_platform");
+    assertThat(platformInfo).isNotNull();
+    ConstraintSettingInfo constraintSetting1 =
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//foo:setting1"));
+    ConstraintValueInfo constraintValue1 =
+        ConstraintValueInfo.create(
+            constraintSetting1, Label.parseCanonicalUnchecked("//foo:value1b"));
+    assertThat(platformInfo.constraints().get(constraintSetting1)).isEqualTo(constraintValue1);
+  }
+
+  @Test
+  public void execProperties() throws Exception {
+    ImmutableMap<String, String> props = ImmutableMap.of("k1", "v1", "k2", "v2");
+    platformBuilder("//foo:my_platform").setExecProperties(props).write();
+    assertNoEvents();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:my_platform");
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.execProperties()).isEqualTo(props);
+  }
+
+  @Test
+  public void execProperties_parent() throws Exception {
+    ImmutableMap<String, String> props = ImmutableMap.of("k1", "v1", "k2", "v2");
+    platformBuilder("//foo:parent_platform").setExecProperties(props).write();
+    platformBuilder("//foo:my_platform").setParent("//foo:parent_platform").write();
+    assertNoEvents();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:my_platform");
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.execProperties()).isEqualTo(props);
+  }
+
+  @Test
+  public void execProperties_parent_merged() throws Exception {
+    ImmutableMap<String, String> propsParent = ImmutableMap.of("k1", "v1", "k2", "v2");
+    ImmutableMap<String, String> propsChild = ImmutableMap.of("k2", "child_v2", "k3", "child_v3");
+    platformBuilder("//foo:parent_platform").setExecProperties(propsParent).write();
+    platformBuilder("//foo:my_platform")
+        .setParent("//foo:parent_platform")
+        .setExecProperties(propsChild)
+        .write();
+    assertNoEvents();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:my_platform");
+    assertThat(platformInfo).isNotNull();
+    ImmutableMap<String, String> expected =
+        ImmutableMap.of("k1", "v1", "k2", "child_v2", "k3", "child_v3");
+    assertThat(platformInfo.execProperties()).isEqualTo(expected);
+  }
+
+  @Test
+  public void flags() throws Exception {
+    platformBuilder("//foo:basic").addFlags("--cpu=k8", "--//starlark:flag=other").write();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:basic");
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.flags()).containsExactly("--cpu=k8", "--//starlark:flag=other");
+  }
+
+  @Test
+  public void flags_parent() throws Exception {
+    platformBuilder("//foo:parent").addFlags("--cpu=k8").write();
+    platformBuilder("//foo:basic").setParent("//foo:parent").write();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:basic");
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.flags()).containsExactly("--cpu=k8");
+  }
+
+  @Test
+  public void flags_parent_merged() throws Exception {
+    platformBuilder("//foo:parent").addFlags("--cpu=k8").write();
+    platformBuilder("//foo:basic")
+        .setParent("//foo:parent")
+        .addFlags("--//starlark:flag=other")
+        .write();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:basic");
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.flags()).containsExactly("--cpu=k8", "--//starlark:flag=other");
+  }
+
+  @Test
+  public void flags_parent_override() throws Exception {
+    platformBuilder("//foo:parent").addFlags("--cpu=arm").write();
+    platformBuilder("//foo:basic").setParent("//foo:parent").addFlags("--cpu=k8").write();
+
+    PlatformInfo platformInfo = fetchPlatformInfo("//foo:basic");
+    assertThat(platformInfo).isNotNull();
+    assertThat(platformInfo.flags()).containsExactly("--cpu=arm", "--cpu=k8").inOrder();
+  }
+}

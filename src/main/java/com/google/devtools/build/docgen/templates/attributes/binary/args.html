@@ -1,0 +1,21 @@
+<p>
+  List of strings; subject to
+  <a href="${link make-variables#predefined_label_variables}">$(location)</a> and
+  <a href="${link make-variables}">"Make variable"</a> substitution, and
+  <a href="#sh-tokenization">Bourne shell tokenization</a>;
+  <a href="#configurable-attributes">nonconfigurable</a>;
+  default is <code>[]</code>
+</p>
+
+<p>
+Command line arguments that Bazel will pass to the target when it is executed
+either by the <code>run</code> command or as a test. These arguments are
+passed before the ones that are specified on the <code>bazel run</code> or
+<code>bazel test</code> command line.
+</p>
+
+<p>
+<em class="harmful">NOTE: The arguments are not passed when you run the target
+outside of Bazel (for example, by manually executing the binary in
+<code>bazel-bin/</code>).</em>
+</p>

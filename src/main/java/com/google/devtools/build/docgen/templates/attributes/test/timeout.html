@@ -1,0 +1,54 @@
+<p>String <code>"short"</code>, <code>"moderate"</code>, <code>"long"</code>, or
+  <code>"eternal"</code>; <a href="#configurable-attributes">nonconfigurable</a>; default is derived
+  from the test's <code>size</code> attribute</code></p>
+
+<p>
+How long the test is expected to run before returning.
+</p>
+
+<p>
+While a test's size attribute controls resource estimation, a test's
+timeout may be set independently.  If not explicitly specified, the
+timeout is based on the <a href="#test.size">test's size</a>. The test
+timeout can be overridden with the <code>--test_timeout</code> flag, e.g. for
+running under certain conditions which are known to be slow. Test timeout values
+correspond to the following time periods:
+</p>
+
+<table style="width: 100%">
+  <tr>
+    <th>Timeout Value</th>
+    <th>Time Period</th>
+  </tr>
+  <tr>
+    <td>short</td>
+    <td>1 minute</td>
+  </tr>
+  <tr>
+    <td>moderate</td>
+    <td>5 minutes</td>
+  </tr>
+  <tr>
+    <td>long</td>
+    <td>15 minutes</td>
+  </tr>
+  <tr>
+    <td>eternal</td>
+    <td>60 minutes</td>
+  </tr>
+</table>
+
+<p>
+For times other than the above, the test timeout can be overridden with the
+<code>--test_timeout</code> bazel flag, e.g. for manually running under
+conditions which are known to be slow. The <code>--test_timeout</code> values
+are in seconds. For example <code>--test_timeout=120</code> will set the test
+timeout to two minutes.
+</p>
+
+<p>
+  The environment variable
+  <code><a href="${link test-encyclopedia#initial-conditions}">TEST_TIMEOUT</a></code> will be set
+  to the test timeout (in seconds) when spawning the test.
+</p>
+

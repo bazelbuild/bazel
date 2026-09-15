@@ -1,0 +1,60 @@
+// Copyright 2017 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto2";
+
+package bazel.tools.desugar;
+
+// option java_api_version = 2;
+option java_package = "com.google.devtools.build.android.desugar.proto";
+
+// Top-level message that describes a desugared Jar file.
+message DesugarDepsInfo {
+  repeated Dependency assume_present = 1;
+  repeated Dependency missing_interface = 2;
+  repeated InterfaceDetails interface_with_supertypes = 3;
+  repeated InterfaceWithCompanion interface_with_companion = 4;
+  // Next ID: 5
+}
+
+// Dependency between two types, may be transitive or direct.
+message Dependency {
+  optional Type origin = 1;
+  optional Type target = 2;
+  // Next ID: 3
+}
+
+// Summary of relevant information about an interface, to avoid parsing it.
+message InterfaceDetails {
+  optional Type origin = 1;
+  repeated Type extended_interface = 2;
+  // Next ID: 3
+}
+
+// Details about an interface with a companion class.  This helps distinguishing
+// interfaces with default methods, which are a subset, and can also be used to
+// check for the presence of expected companion classes.
+message InterfaceWithCompanion {
+  optional Type origin = 1;
+  optional int32 num_default_methods = 2;
+  // Next ID: 3
+}
+
+// Wrapper around a JVMS 4.2.1 binary class or interface name.
+message Type {
+  // JVMS 4.2.1 binary class name, e.g., java/lang/String, similar to how a
+  // class or interface name would appear in bytecode.
+  optional string binary_name = 1;
+  // Next ID: 2
+}

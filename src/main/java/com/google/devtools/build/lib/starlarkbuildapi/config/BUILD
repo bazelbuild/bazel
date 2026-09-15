@@ -1,0 +1,69 @@
+# Description:
+#   This package contains interfaces representing the Starlark "build API"
+#   (but not the implementation of that API). Ultimately, this package
+#   may be broken out of the Bazel package hierarchy to be standalone.
+#   Thus, this package should not depend on Bazel-specific packages (only
+#   those which contain pure-Starlark concepts, such as the interpreter or
+#   annotation interfaces).
+
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/main/java/com/google/devtools/build/lib/starlarkbuildapi:__pkg__"],
+)
+
+java_library(
+    name = "configuration_transition_api",
+    srcs = [
+        "ComposedConfigurationTransition.java",
+        "ConfigurationTransitionApi.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/docgen/annot",
+        "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "starlark_toolchain_type_requirement",
+    srcs = ["StarlarkToolchainTypeRequirement.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/docgen/annot",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
+    name = "config",
+    srcs = glob(
+        ["*.java"],
+        exclude = [
+            "ComposedConfigurationTransition.java",
+            "ConfigurationTransitionApi.java",
+            "StarlarkToolchainTypeRequirement.java",
+        ],
+    ),
+    deps = [
+        ":configuration_transition_api",
+        ":starlark_toolchain_type_requirement",
+        "//src/main/java/com/google/devtools/build/docgen/annot",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
+        "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)

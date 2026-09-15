@@ -1,0 +1,150 @@
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/sandbox/cgroups:srcs",
+    ],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+)
+
+java_library(
+    name = "testutil",
+    testonly = 1,
+    srcs = [
+        "SandboxedSpawnRunnerTestCase.java",
+        "SpawnRunnerTestUtil.java",
+    ],
+    runtime_deps = [
+        "//src/test/shell/integration:spend_cpu_time",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/protobuf:spawn_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+    ],
+)
+
+java_test(
+    name = "SmallTests",
+    size = "small",
+    srcs =
+        [
+            "AbstractContainerizingSandboxedSpawnTest.java",
+            "SandboxHelpersTest.java",
+            "SandboxModuleTest.java",
+            "SandboxOptionsTest.java",
+            "SymlinkedSandboxedSpawnTest.java",
+        ],
+    test_class = "com.google.devtools.build.lib.AllTests",
+    runtime_deps = [
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:param_file_action_input",
+        "//src/main/java/com/google/devtools/build/lib/actions:parameter_file",
+        "//src/main/java/com/google/devtools/build/lib/actions:virtual_action_input",
+        "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
+        "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_module",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_options",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:sandboxed_spawns",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:tree_deleter",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/exec/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "SpawnRunnerTests",
+    size = "medium",
+    srcs = [
+        "DarwinSandboxedSpawnRunnerTest.java",
+        "LinuxSandboxCommandLineBuilderTest.java",
+        "LinuxSandboxedSpawnRunnerTest.java",
+        "ProcessWrapperSandboxedSpawnRunnerTest.java",
+    ],
+    data = ["//src/test/java/com/google/devtools/build/lib:embedded_scripts"],
+    exec_group_compatible_with = {
+        "test": [
+            "//:highcpu_machine",
+            "//:mount_capable",
+        ],
+    },
+    tags = ["no_windows"],
+    test_class = "com.google.devtools.build.lib.AllTests",
+    runtime_deps = [
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
+    ],
+    deps = [
+        ":testutil",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/actions:param_file_action_input",
+        "//src/main/java/com/google/devtools/build/lib/actions:parameter_file",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
+        "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:darwin_sandbox",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_command_line_builder",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:process_wrapper_sandbox",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_options",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:sandboxed_spawns",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:tree_deleter",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/main/java/com/google/devtools/common/options:options_internal",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/exec/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:io",
+        "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
+    ],
+)

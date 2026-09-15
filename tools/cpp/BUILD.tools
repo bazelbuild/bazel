@@ -1,0 +1,128 @@
+# Copyright 2018 The Bazel Authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+# The toolchain type used to distinguish cc toolchains.
+toolchain_type(name = "toolchain_type")
+
+# The toolchain type used to for cc runtimes.
+toolchain_type(name = "cc_runtimes_toolchain_type")
+
+# The toolchain_type used for cc test runners.
+toolchain_type(name = "test_runner_toolchain_type")
+
+# Aliases to @rules_cc
+[
+    alias(
+        name = target,
+        actual = actual,
+        deprecation = "Please use %s instead." % actual,
+    )
+    for target, actual in {
+        "cc_compiler": "@rules_cc//cc/private/toolchain:cc_compiler",
+        "clang": "@rules_cc//cc/private/toolchain:clang",
+        "gcc": "@rules_cc//cc/private/toolchain:gcc",
+        "msvc": "@rules_cc//cc/private/toolchain:msvc",
+        "clang-cl": "@rules_cc//cc/private/toolchain:clang-cl",
+        "mingw": "@rules_cc//cc/private/toolchain:mingw",
+        "msys": "@rules_cc//cc/private/toolchain:msys",
+        "grep-includes": "@rules_cc//cc/private/toolchain:grep-includes",
+        "interface_library_builder": "@rules_cc//cc/private/toolchain:interface_library_builder",
+        "link_dynamic_library": "@rules_cc//cc/private/toolchain:link_dynamic_library",
+        "lib_cc_configure": "@rules_cc//cc/private/toolchain:lib_cc_configure",
+        "compiler": "@rules_cc//cc/private/toolchain:compiler",
+        "cc_flags": "@rules_cc//cc/private/toolchain:cc_flags",
+        "current_cc_toolchain": "@rules_cc//cc:current_cc_toolchain",
+        "optional_current_cc_toolchain": "@rules_cc//cc:optional_current_cc_toolchain",
+        "current_libc_top": "@rules_cc//cc:current_libc_top",
+    }.items()
+]
+
+cc_library(
+    name = "empty_lib",
+    tags = ["__DONT_DEPEND_ON_DEF_PARSER__"],
+)
+
+# Label flag for extra libraries to be linked into every binary.
+# TODO(bazel-team): Support passing flag multiple times to build a list.
+label_flag(
+    name = "link_extra_libs",
+    build_setting_default = ":empty_lib",
+)
+
+# The final extra library to be linked into every binary target. This collects
+# the above flag, but may also include more libraries depending on config.
+cc_library(
+    name = "link_extra_lib",
+    tags = ["__DONT_DEPEND_ON_DEF_PARSER__"],
+    deps = [
+        ":link_extra_libs",
+    ],
+)
+
+cc_library(
+    name = "malloc",
+    tags = ["__DONT_DEPEND_ON_DEF_PARSER__"],
+)
+
+filegroup(
+    name = "aggregate-ddi",
+    srcs = ["//tools/cpp/modules_tools:aggregate-ddi-bin"],
+)
+
+filegroup(
+    name = "generate-modmap",
+    srcs = ["//tools/cpp/modules_tools:generate-modmap-bin"],
+)
+
+filegroup(
+    name = "empty",
+    srcs = [],
+)
+
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//tools:__pkg__"],
+)
+
+config_setting(
+    name = "disable_static_cc_toolchains",
+    values = {
+        "incompatible_disable_static_cc_toolchains": "true",
+    },
+)
+
+# This is the entry point for --crosstool_top.  Toolchains are found
+# by lopping off the name of --crosstool_top and searching for
+# "cc-compiler-${CPU}" in this BUILD file, where CPU is the target CPU
+# specified in --cpu.
+#
+# This file group should include
+#   * all cc_toolchain targets supported
+#   * all file groups that said cc_toolchain might refer to
+alias(
+    name = "toolchain",
+    actual = "@local_config_cc//:toolchain",
+)
+
+# The following is the default value for --xcode_version_config.
+alias(
+    name = "host_xcodes",
+    actual = "@local_config_xcode//:host_xcodes",
+)

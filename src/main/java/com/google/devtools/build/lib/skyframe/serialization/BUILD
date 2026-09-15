@@ -1,0 +1,352 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]) + [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:srcs",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:srcs",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:srcs",
+    ],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__subpackages__"],
+)
+
+java_library(
+    name = "codec-scanning-constants",
+    srcs = ["CodecScanningConstants.java"],
+)
+
+java_library(
+    name = "serialization_registry_setup_helpers",
+    srcs = ["SerializationRegistrySetupHelpers.java"],
+    runtime_deps = [
+        ":builtin_manager_codec",
+    ],
+    deps = [
+        ":module_codec",
+        ":serialization",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_metadata",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
+        "//src/main/java/com/google/devtools/build/lib/analysis:aspect_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider_map_impl",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
+        "//src/main/java/com/google/devtools/build/lib/rules:alias",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:rule_configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/protobuf:protobuf_lite",
+    ],
+)
+
+java_library(
+    name = "serialization_module",
+    srcs = ["SerializationModule.java"],
+    deps = [
+        ":fingerprint_value_store",
+        ":serialization",
+        ":serialization_registry_setup_helpers",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_caching_services_supplier",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:concurrent",
+    ],
+)
+
+java_library(
+    name = "depend_on_future_shim",
+    srcs = ["DependOnFutureShim.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
+    ],
+)
+
+java_library(
+    name = "frontier_node_version",
+    srcs = ["FrontierNodeVersion.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:client_id",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:hash",
+        "//third_party/java/guava:primitives",
+    ],
+)
+
+java_library(
+    name = "serialization",
+    srcs = glob(
+        ["**/*.java"],
+        exclude = [
+            "AbstractExportedStarlarkSymbolCodec.java",
+            "BuiltinManagerCodec.java",
+            "CacheMissReason.java",
+            "CodecScanningConstants.java",
+            "DependOnFutureShim.java",
+            "DeserializedSkyValue.java",
+            "ErrorMessageHelper.java",
+            "FingerprintValueStore.java",
+            "FrontierNodeVersion.java",
+            "KeyBytesProvider.java",
+            "ModuleCodec.java",
+            "SerializationRegistrySetupHelpers.java",
+            "SerializationConstants.java",
+            "SerializationModule.java",
+            "SkycacheMetadataParams.java",
+            "SkyValueRetriever.java",
+            "PlatformConfigurationProvider.java",
+            "VisibleForSerialization.java",
+            "WriteStatus.java",
+            "WriteStatuses.java",
+        ],
+    ),
+    add_opens = [
+        "java.base/java.lang.invoke",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
+    deps = [
+        ":codec-scanning-constants",
+        ":constants",
+        ":fingerprint_value_store",
+        ":frontier_node_version",
+        ":key_bytes_provider",
+        ":write_status",
+        ":write_statuses",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_miss_reason_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
+        "//src/main/java/com/google/devtools/build/lib/util:bucket",
+        "//src/main/java/com/google/devtools/build/lib/util:decimal_bucketer",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party/java/caffeine",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/fastutil:int-to-object-open-hash-map",
+        "//third_party/java/fastutil:object-to-int-open-hash-map",
+        "//third_party/java/fastutil:reference-to-int-open-hash-map",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:hash",
+        "//third_party/java/guava:io",
+        "//third_party/java/guava:primitives",
+        "//third_party/java/guava:reflect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/pprof:profile_java_proto",
+    ],
+)
+
+java_library(
+    name = "constants",
+    srcs = ["SerializationConstants.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:TestType",
+    ],
+)
+
+java_library(
+    name = "platform_providers",
+    srcs = ["PlatformConfigurationProvider.java"],
+    deps = [
+        ":serialization",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+    ],
+)
+
+java_library(
+    name = "visible-for-serialization",
+    srcs = ["VisibleForSerialization.java"],
+)
+
+java_library(
+    name = "deserialized-sky-value",
+    srcs = ["DeserializedSkyValue.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+    ],
+)
+
+java_library(
+    name = "error_message_helper",
+    srcs = ["ErrorMessageHelper.java"],
+    deps = [
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "abstract-exported-starlark-symbol-codec",
+    srcs = ["AbstractExportedStarlarkSymbolCodec.java"],
+    deps = [
+        ":serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/protobuf:protobuf_lite",
+    ],
+)
+
+java_library(
+    name = "builtin_manager_codec",
+    srcs = ["BuiltinManagerCodec.java"],
+    deps = [
+        ":serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/guava:base",
+        "//third_party/java/protobuf:protobuf_lite",
+    ],
+)
+
+java_library(
+    name = "module_codec",
+    srcs = ["ModuleCodec.java"],
+    deps = [
+        ":serialization",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/guava:base",
+        "//third_party/java/protobuf:protobuf_lite",
+    ],
+)
+
+java_library(
+    name = "write_status",
+    srcs = [
+        "WriteStatus.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+        "//third_party/java/guava:concurrent",
+    ],
+)
+
+java_library(
+    name = "write_statuses",
+    srcs = [
+        "WriteStatuses.java",
+    ],
+    deps = [
+        ":write_status",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
+    ],
+)
+
+java_library(
+    name = "skycache_metadata_params",
+    srcs = ["SkycacheMetadataParams.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+    ],
+)
+
+java_library(
+    name = "fingerprint_value_store",
+    srcs = ["FingerprintValueStore.java"],
+    deps = [
+        ":key_bytes_provider",
+        ":write_status",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+        "//src/main/java/com/google/devtools/build/lib/util:bucket",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "stats_impl",
+    srcs = [
+        "StatsImpl.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
+    deps = [
+        ":fingerprint_value_store",
+        "//src/main/java/com/google/devtools/build/lib/util:bucket",
+    ],
+)
+
+java_library(
+    name = "key_bytes_provider",
+    srcs = ["KeyBytesProvider.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface"],
+)
+
+java_library(
+    name = "skyvalue_retriever",
+    srcs = ["SkyValueRetriever.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/metrics:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib/metrics:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__",
+    ],
+    deps = [
+        ":depend_on_future_shim",
+        ":frontier_node_version",
+        ":serialization",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_op_node_map",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:lookup_result",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:skycache_channel_state_advisor",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis/proto:analysis_cache_service_miss_reason_java_proto",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
+    ],
+)

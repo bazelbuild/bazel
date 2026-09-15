@@ -1,0 +1,356 @@
+// Copyright 2023 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.bazel.bzlmod;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import com.google.gson.JsonIOException;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Predicate;
+
+/**
+ * Module collecting Bazel module and module extensions resolution results and updating the
+ * lockfile.
+ */
+public class BazelLockFileModule extends BlazeModule {
+
+  private CommandEnvironment env;
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  private static final ImmutableSet<LockfileMode> ENABLED_IN_MODES =
+      Sets.immutableEnumSet(LockfileMode.UPDATE, LockfileMode.REFRESH);
+
+  @Override
+  public void beforeCommand(CommandEnvironment env) {
+    this.env = env;
+  }
+
+  @Override
+  public void afterCommand() {
+    CommandEnvironment env = this.env;
+    this.env = null;
+    if (env == null || !env.hasSyncedPackageLoading()) {
+      // The current command (e.g. shutdown) didn't evaluate the lockfile values so they may
+      // be stale, e.g., if a server with a different output base changed the lockfile
+      // in the meantime.
+      return;
+    }
+    LockfileMode lockfileMode =
+        env.getOptions().getOptions(RepositoryOptions.class).getLockfileMode();
+    if (!ENABLED_IN_MODES.contains(lockfileMode)) {
+      return;
+    }
+    Path workspaceRoot = env.getWorkspace();
+    Path outputBase = env.getOutputBase();
+    MemoizingEvaluator evaluator = env.getSkyframeExecutor().getEvaluator();
+    BazelModuleResolutionValue moduleResolutionValue;
+    BazelDepGraphValue depGraphValue;
+    BazelLockFileValue oldLockfile;
+    BazelLockFileValue oldHiddenLockfile;
+    try {
+      moduleResolutionValue =
+          (BazelModuleResolutionValue) evaluator.getExistingValue(BazelModuleResolutionValue.KEY);
+      depGraphValue = (BazelDepGraphValue) evaluator.getExistingValue(BazelDepGraphValue.KEY);
+      oldLockfile = (BazelLockFileValue) evaluator.getExistingValue(BazelLockFileValue.KEY);
+      oldHiddenLockfile =
+          (BazelLockFileValue) evaluator.getExistingValue(BazelLockFileValue.HIDDEN_KEY);
+    } catch (InterruptedException e) {
+      // Not thrown in Bazel.
+      throw new IllegalStateException(e);
+    }
+    if (moduleResolutionValue == null || depGraphValue == null || oldLockfile == null) {
+      // Since these values are required to compute the main repo mapping, which happens in every
+      // build, an error must have occurred that prevented the evaluation of these values and that
+      // has already been reported at this point.
+      return;
+    }
+    if (oldHiddenLockfile == null) {
+      oldHiddenLockfile = BazelLockFileValue.EMPTY_LOCKFILE;
+    }
+
+    // All nodes corresponding to module extensions that have been evaluated in the current build
+    // are done at this point. Look up entries by eval keys to record results even if validation
+    // later fails due to invalid imports.
+    // Note: This also picks up up-to-date results from previous builds that are not in the
+    // transitive closure of the current build. Since extensions are potentially costly to evaluate,
+    // this is seen as an advantage. Full reproducibility can be ensured by running 'bazel shutdown'
+    // first if needed.
+    var numExtensions = depGraphValue.getExtensionUsagesTable().rowKeySet().size();
+    var newExtensionInfos =
+        new HashMap<ModuleExtensionId, LockFileModuleExtension.WithFactors>(numExtensions);
+    var combinedFacts = new HashMap<ModuleExtensionId, Facts>(numExtensions);
+    combinedFacts.putAll(oldLockfile.getFacts());
+    var combinedFactsVersions = new HashMap<ModuleExtensionId, Integer>(numExtensions);
+    combinedFactsVersions.putAll(oldLockfile.getFactsVersions());
+    // The hidden lockfile's facts serve as the record of the facts produced by the most recent
+    // actual evaluation of each extension, which SingleExtensionEvalFunction compares against the
+    // workspace lockfile's facts to detect manual edits. They must thus only be combined with
+    // results of the current build, never with the workspace lockfile's (possibly edited) facts.
+    var combinedHiddenFacts = new HashMap<ModuleExtensionId, Facts>(numExtensions);
+    combinedHiddenFacts.putAll(oldHiddenLockfile.getFacts());
+    var combinedHiddenFactsVersions = new HashMap<ModuleExtensionId, Integer>(numExtensions);
+    combinedHiddenFactsVersions.putAll(oldHiddenLockfile.getFactsVersions());
+    var doneValues = evaluator.getDoneValues();
+    for (var extensionId : depGraphValue.getExtensionUsagesTable().rowKeySet()) {
+      if (extensionId.isInnate()) {
+        // The innate extensions are implemented in Java and don't benefit from a lockfile entry.
+        continue;
+      }
+      var value = (SingleExtensionValue) doneValues.get(SingleExtensionValue.evalKey(extensionId));
+      if (value != null) {
+        newExtensionInfos.put(extensionId, value.lockFileInfo().get());
+        combinedFacts.put(extensionId, value.facts());
+        combinedFactsVersions.put(extensionId, value.factsVersion());
+        combinedHiddenFacts.put(extensionId, value.facts());
+        combinedHiddenFactsVersions.put(extensionId, value.factsVersion());
+      }
+    }
+    var relevantFacts = filterRelevantFacts(combinedFacts, depGraphValue);
+    var relevantFactsVersions = filterRelevantFactsVersions(combinedFactsVersions, relevantFacts);
+    var relevantHiddenFacts = filterRelevantFacts(combinedHiddenFacts, depGraphValue);
+    var relevantHiddenFactsVersions =
+        filterRelevantFactsVersions(combinedHiddenFactsVersions, relevantHiddenFacts);
+
+    Thread updateLockfile =
+        Thread.startVirtualThread(
+            () -> {
+              var notReproducibleExtensionInfos =
+                  combineModuleExtensions(
+                      oldLockfile.getModuleExtensions(),
+                      newExtensionInfos,
+                      /* hasUsages= */ depGraphValue.getExtensionUsagesTable()::containsRow,
+                      /* reproducible= */ false);
+
+              // Bazel may track the hashes of files fetched from local registries for internal
+              // purposes, but those should never show up in the lockfile for two reasons:
+              // - they are not needed for reproducibility, as local registries are assumed to be
+              //   under the user's control, just like CLI flags;
+              // - they would contribute absolute paths and thus aren't portable.
+              var remoteRegistryFileHashes =
+                  ImmutableSortedMap.copyOf(
+                      Maps.filterKeys(
+                          moduleResolutionValue.getRegistryFileHashes(),
+                          url -> !url.startsWith("file:")));
+
+              // Create an updated version of the lockfile, keeping only the extension results from
+              // the old lockfile that are still up-to-date and adding the newly resolved
+              // extension results, as long as any of them are not known to be reproducible.
+              BazelLockFileValue newLockfile =
+                  BazelLockFileValue.builder()
+                      .setRegistryFileHashes(remoteRegistryFileHashes)
+                      .setSelectedYankedVersions(moduleResolutionValue.getSelectedYankedVersions())
+                      .setModuleExtensions(notReproducibleExtensionInfos)
+                      .setFacts(relevantFacts)
+                      .setFactsVersions(relevantFactsVersions)
+                      .build();
+
+              // Write the new values to the files, but only if needed. This is not just a
+              // performance optimization: whenever the lockfile is updated, most Skyframe nodes
+              // will be marked as dirty on the next build, which breaks commands such as `bazel
+              // config` that rely on
+              // com.google.devtools.build.skyframe.MemoizingEvaluator#getDoneValues.
+              if (!newLockfile.equals(oldLockfile)) {
+                updateLockfile(workspaceRoot, newLockfile);
+              }
+            });
+
+    final BazelLockFileValue oldHiddenLockfileFinal = oldHiddenLockfile;
+    Thread updateHiddenLockfile =
+        Thread.startVirtualThread(
+            () -> {
+              // Results of reproducible extensions do not need to be stored for reproducibility,
+              // but avoiding reevaluations on server startups helps cold build performance.
+              var reproducibleExtensionInfos =
+                  combineModuleExtensions(
+                      oldHiddenLockfileFinal.getModuleExtensions(),
+                      newExtensionInfos,
+                      /* hasUsages= */ depGraphValue.getExtensionUsagesTable()::containsRow,
+                      /* reproducible= */ true);
+              BazelLockFileValue newHiddenLockfile =
+                  BazelLockFileValue.builder()
+                      .setSelectedYankedVersions(ImmutableMap.of())
+                      .setModuleExtensions(reproducibleExtensionInfos)
+                      .setFacts(relevantHiddenFacts)
+                      .setFactsVersions(relevantHiddenFactsVersions)
+                      .build();
+
+              if (!newHiddenLockfile.equals(oldHiddenLockfileFinal)) {
+                updateLockfile(outputBase, newHiddenLockfile);
+              }
+            });
+
+    try {
+      updateLockfile.join();
+      updateHiddenLockfile.join();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      logger.atSevere().withCause(e).log(
+          "Interrupted while updating MODULE.bazel.lock file: %s", e.getMessage());
+    }
+  }
+
+  private static ImmutableSortedMap<ModuleExtensionId, Facts> filterRelevantFacts(
+      Map<ModuleExtensionId, Facts> combinedFacts, BazelDepGraphValue depGraphValue) {
+    return ImmutableSortedMap.copyOf(
+        Maps.filterEntries(
+            combinedFacts,
+            entry ->
+                depGraphValue.getExtensionUsagesTable().containsRow(entry.getKey())
+                    && !entry.getValue().equals(Facts.EMPTY)),
+        ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR);
+  }
+
+  /** Only keeps non-zero versions for extensions that have facts persisted; the default is 0. */
+  private static ImmutableSortedMap<ModuleExtensionId, Integer> filterRelevantFactsVersions(
+      Map<ModuleExtensionId, Integer> combinedFactsVersions,
+      ImmutableSortedMap<ModuleExtensionId, Facts> relevantFacts) {
+    return ImmutableSortedMap.copyOf(
+        Maps.filterEntries(
+            combinedFactsVersions,
+            entry ->
+                relevantFacts.containsKey(entry.getKey())
+                    && entry.getValue() != null
+                    && entry.getValue() != 0),
+        ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR);
+  }
+
+  /**
+   * Combines the old extensions stored in the lockfile -if they are still used and have the same
+   * dependence on os/arch - with the new extensions from the events (if any)
+   */
+  @VisibleForTesting
+  static ImmutableMap<
+          ModuleExtensionId, ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
+      combineModuleExtensions(
+          Map<ModuleExtensionId, ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
+              oldExtensionInfos,
+          Map<ModuleExtensionId, LockFileModuleExtension.WithFactors> newExtensionInfos,
+          Predicate<ModuleExtensionId> hasUsages,
+          boolean reproducible) {
+    Map<ModuleExtensionId, ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
+        updatedExtensionMap = new HashMap<>();
+
+    // Keep those per factor extension results that are still used according to the static
+    // information given in the extension declaration (dependence on os and arch).
+    // Other information such as transitive .bzl hash and usages hash are *not* checked here.
+    for (var entry : oldExtensionInfos.entrySet()) {
+      var moduleExtensionId = entry.getKey();
+      if (!hasUsages.test(moduleExtensionId)) {
+        // Extensions without any usages are not needed anymore.
+        continue;
+      }
+      var newExtensionInfo = newExtensionInfos.get(moduleExtensionId);
+      if (newExtensionInfo == null) {
+        // No information based on which we could invalidate old entries, keep all of them.
+        updatedExtensionMap.put(moduleExtensionId, entry.getValue());
+        continue;
+      }
+      var newFactors = newExtensionInfo.extensionFactors();
+      // Prefer the new result for its particular set of factors.
+      var perFactorsResultsToKeep =
+          ImmutableSortedMap.copyOf(
+              Maps.filterKeys(
+                  entry.getValue(),
+                  oldFactors ->
+                      oldFactors.hasSameDependenciesAs(newFactors)
+                          && !oldFactors.equals(newFactors)));
+      if (perFactorsResultsToKeep.isEmpty()) {
+        continue;
+      }
+      updatedExtensionMap.put(moduleExtensionId, perFactorsResultsToKeep);
+    }
+
+    // Add the new resolved extensions
+    for (var extensionIdAndInfo : newExtensionInfos.entrySet()) {
+      LockFileModuleExtension extension = extensionIdAndInfo.getValue().moduleExtension();
+      if (extension.isReproducible() != reproducible) {
+        continue;
+      }
+
+      var oldExtensionEntries = updatedExtensionMap.get(extensionIdAndInfo.getKey());
+      ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension> extensionEntries;
+      var factors = extensionIdAndInfo.getValue().extensionFactors();
+      if (oldExtensionEntries != null) {
+        // extension exists, add the new entry to the existing map
+        extensionEntries =
+            ImmutableSortedMap.copyOf(
+                ImmutableMap.<ModuleExtensionEvalFactors, LockFileModuleExtension>builder()
+                    .putAll(oldExtensionEntries)
+                    .put(factors, extension)
+                    .buildKeepingLast());
+      } else {
+        // new extension
+        extensionEntries = ImmutableMap.of(factors, extension);
+      }
+      updatedExtensionMap.put(extensionIdAndInfo.getKey(), extensionEntries);
+    }
+
+    // The order in which extensions are added to extensionResolutionEvents depends on the order
+    // in which their Skyframe evaluations finish, which is non-deterministic. We ensure a
+    // deterministic lockfile by sorting.
+    return ImmutableSortedMap.copyOf(
+        updatedExtensionMap, ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR);
+  }
+
+  /**
+   * Updates the data stored in the lockfile (MODULE.bazel.lock)
+   *
+   * @param lockfileRoot Root under which the lockfile is located
+   * @param updatedLockfile The updated lockfile data to save
+   */
+  @VisibleForTesting
+  static void updateLockfile(Path lockfileRoot, BazelLockFileValue updatedLockfile) {
+    RootedPath lockfilePath =
+        RootedPath.toRootedPath(Root.fromPath(lockfileRoot), LabelConstants.MODULE_LOCKFILE_NAME);
+    try (var outputStream = lockfilePath.asPath().getOutputStream();
+        var outputStreamWriter = new OutputStreamWriter(outputStream, UTF_8);
+        var writer = new BufferedWriter(outputStreamWriter)) {
+      try {
+        GsonTypeAdapterUtil.LOCKFILE_GSON.toJson(updatedLockfile, writer);
+      } catch (JsonIOException e) {
+        // Gson.toJson(Object, Appendable) documents JsonIOException for writer failures.
+        if (e.getCause() instanceof IOException ioException) {
+          throw ioException;
+        }
+        throw new IOException(e);
+      }
+      writer.append('\n');
+    } catch (IOException e) {
+      logger.atSevere().withCause(e).log(
+          "Error while updating MODULE.bazel.lock file: %s", e.getMessage());
+    }
+  }
+}

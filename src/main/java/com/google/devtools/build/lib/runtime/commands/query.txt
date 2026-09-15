@@ -1,0 +1,19 @@
+
+Usage: %{product} %{command} <options> <query-expression>
+
+Executes a query language expression over a specified subgraph of the
+build dependency graph.
+
+For example, to show all C++ test rules in the strings package, use:
+
+  % %{product} query 'kind("cc_.*test", strings:*)'
+
+or to find all dependencies of //path/to/package:target, use:
+
+  % %{product} query 'deps(//path/to/package:target)'
+
+or to find a dependency path between //path/to/package:target and //dependency:
+
+  % %{product} query 'somepath(//path/to/package:target, //dependency)'
+
+%{options}

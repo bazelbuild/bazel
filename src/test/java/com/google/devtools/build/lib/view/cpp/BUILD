@@ -1,0 +1,28 @@
+load("@rules_java//java:defs.bzl", "java_test")
+
+package(default_applicable_licenses = ["//:license"])
+
+filegroup(
+    name = "srcs",
+    testonly = 0,
+    srcs = glob(["*"]),
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__subpackages__"],
+)
+
+java_test(
+    name = "CppTemplateTest",
+    srcs = ["CppTemplateTest.java"],
+    tags = ["manual"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
+    ],
+)

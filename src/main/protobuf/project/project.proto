@@ -1,0 +1,51 @@
+// Copyright 2025 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// After updating this file, create a new version of project_proto.scl with:
+//
+// $ blaze run
+// //third_party/bazel/src/main/protobuf/project:foo_proto_scl_update
+
+edition = "2023";
+
+package build_project;
+
+import "devtools/starlark/protolark/proto/protolark.proto";
+import "src/main/protobuf/project/buildable_unit.proto";
+import "src/main/protobuf/project/enforcement_policy.proto";
+
+// Configuration for a Blaze project.
+message Project {
+  string name = 1;
+
+  // Targets to be built and tested with a set of build or test flags.
+  // Cloned from BlueprintFile.buildable_unit.
+  repeated BuildableUnit buildable_units = 3
+      [(.protolark.used_in_blaze) = true];
+
+  // For blaze. Interactive build enforcement policy. Defaults to WARN.
+  EnforcementPolicy enforcement_policy = 4 [(.protolark.used_in_blaze) = true];
+
+  // The packages that make up this project. Expected syntax:
+  // ["//foo", "//bar/baz",  ...].
+  //
+  // Blaze uses this to remove flags from build graph dependencies for flags
+  // that are defined as "project-only scoe".
+  repeated string project_directories = 5 [(.protolark.used_in_blaze) = true];
+
+  // --configs that are always allowed. Permit all flags that derive from any
+  // --config set here.
+  repeated string always_allowed_configs = 6
+      [(.protolark.used_in_blaze) = true];
+}

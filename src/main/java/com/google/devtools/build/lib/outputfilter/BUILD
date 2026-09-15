@@ -1,0 +1,33 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["*"]),
+    visibility = [
+        "//src:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib:__pkg__",
+    ],
+)
+
+java_library(
+    name = "outputfilter",
+    srcs = glob(["*.java"]),
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform:constants",
+        "//src/main/java/com/google/devtools/build/lib/buildtool:build_request_options",
+        "//src/main/java/com/google/devtools/build/lib/buildtool/buildevent",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
+    ],
+)

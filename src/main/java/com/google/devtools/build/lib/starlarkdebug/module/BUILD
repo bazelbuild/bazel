@@ -1,0 +1,37 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+)
+
+java_library(
+    name = "module",
+    srcs = ["StarlarkDebuggerModule.java"],
+    deps = [
+        ":options",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdebug/server",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "options",
+    srcs = ["StarlarkDebuggerOptions.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/common/options",
+    ],
+)

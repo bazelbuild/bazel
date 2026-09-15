@@ -1,0 +1,71 @@
+// Copyright 2014 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Definitions for dependency reports.
+
+syntax = "proto2";
+
+package blaze_deps;
+
+option java_package = "com.google.devtools.build.lib.view.proto";
+
+// A specific location within a source file.
+message SourceLocation {
+  required string path = 1;
+  optional int32 line = 2;
+  optional int32 column = 3;
+}
+
+message Dependency {
+
+  enum Kind {
+    // Dependency used explicitly in the source.
+    EXPLICIT = 0;
+    // Dependency that is implicitly loaded and used by the compiler.
+    IMPLICIT = 1;
+    // Unused dependency.
+    UNUSED = 2;
+    // Implicit dependency considered by the compiler but not completed.
+    INCOMPLETE = 3;
+  }
+
+  // Path to the artifact representing this dependency.
+  required string path = 1;
+
+  // Dependency kind
+  required Kind kind = 2;
+
+  // Source file locations: compilers can pinpoint the uses of a dependency.
+  repeated SourceLocation location = 3;
+}
+
+// Top-level message found in .deps artifacts
+message Dependencies {
+  repeated Dependency dependency = 1;
+
+  // Name of the rule being analyzed.
+  optional string rule_label = 2;
+
+  // Whether the action was successful; even when compilation fails, partial
+  // dependency information can be useful.
+  optional bool success = 3;
+
+  // Packages contained in the output jar, sorted alphabetically.
+  repeated string contained_package = 4;
+
+  // If the Java action was started with a reduced classpath and an error
+  // occurred suggesting that it should be rerun with the full classpath, this
+  // will be true.
+  optional bool requires_reduced_classpath_fallback = 5;
+}

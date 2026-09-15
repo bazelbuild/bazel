@@ -1,0 +1,5 @@
+Bazel is a tool that automates software builds and tests. Supported
+build tasks include running compilers and linkers to produce
+executable programs and libraries, and assembling deployable
+packages for Android, iOS and other target environments. Bazel is
+similar to other tools like Make, Ant, Gradle, Buck, Pants and Maven.

@@ -1,0 +1,102 @@
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+)
+
+java_library(
+    name = "labelrenderer",
+    srcs = ["LabelRenderer.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
+    name = "extractionexception",
+    srcs = ["ExtractionException.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party/java/guava:base",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "starlarkfunctioninfoextractor",
+    srcs = ["StarlarkFunctionInfoExtractor.java"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/starlarkdocextract:__subpackages__"],
+    deps = [
+        ":extractionexception",
+        ":labelrenderer",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
+        "//src/main/protobuf:stardoc_output_java_proto",
+        "//src/tools/starlark/java/com/google/devtools/starlark/common",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "ruleinfoextractor",
+    srcs = [
+        "AttributeInfoExtractor.java",
+        "ExtractorContext.java",
+        "ProviderNameGroupExtractor.java",
+        "RuleInfoExtractor.java",
+    ],
+    deps = [
+        ":labelrenderer",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/protobuf:stardoc_output_java_proto",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "moduleinfoextractor",
+    srcs = [
+        "ModuleInfoExtractor.java",
+    ],
+    deps = [
+        ":extractionexception",
+        ":labelrenderer",
+        ":ruleinfoextractor",
+        ":starlarkfunctioninfoextractor",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_core",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
+        "//src/main/java/com/google/devtools/build/lib/packages:starlark_exportable",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
+        "//src/main/protobuf:stardoc_output_java_proto",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)

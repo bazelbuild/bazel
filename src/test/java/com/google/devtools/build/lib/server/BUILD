@@ -1,0 +1,74 @@
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_testonly = 1,
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
+)
+
+filegroup(
+    name = "srcs",
+    testonly = 0,
+    srcs = glob(["**"]),
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+)
+
+java_library(
+    name = "ServerTests_lib",
+    srcs = glob(["*.java"]),
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_result",
+        "//src/main/java/com/google/devtools/build/lib/runtime:command_dispatcher",
+        "//src/main/java/com/google/devtools/build/lib/server:command_manager",
+        "//src/main/java/com/google/devtools/build/lib/server:command_server",
+        "//src/main/java/com/google/devtools/build/lib/server:grpc_command_server",
+        "//src/main/java/com/google/devtools/build/lib/server:grpc_command_server_impl",
+        "//src/main/java/com/google/devtools/build/lib/server:idle_task",
+        "//src/main/java/com/google/devtools/build/lib/server:idle_task_manager",
+        "//src/main/java/com/google/devtools/build/lib/server:install_base_garbage_collector",
+        "//src/main/java/com/google/devtools/build/lib/server:pid_file_watcher",
+        "//src/main/java/com/google/devtools/build/lib/server:server_watcher_runnable",
+        "//src/main/java/com/google/devtools/build/lib/server:shutdown_hooks",
+        "//src/main/java/com/google/devtools/build/lib/server:terminal_size_monitor",
+        "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
+        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//src/main/protobuf:command_server_java_grpc",
+        "//src/main/protobuf:command_server_java_proto",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//src/main/protobuf:invocation_policy_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
+        "//src/test/java/com/google/devtools/build/lib/testutil:external_file_system_lock",
+        "//third_party/google/protobuf:any_java_proto",
+        "//third_party/google/protobuf:wrappers_java_proto",
+        "//third_party/java/grpc:core",
+        "//third_party/java/grpc:inprocess",
+        "//third_party/java/grpc:stub",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "ServerTests",
+    size = "medium",
+    shard_count = 3,
+    tags = ["requires-network"],  # https://github.com/bazelbuild/bazel/issues/20743
+    test_class = "com.google.devtools.build.lib.AllTests",
+    runtime_deps = [
+        ":ServerTests_lib",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
+    ],
+)

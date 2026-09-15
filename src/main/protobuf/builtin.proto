@@ -1,0 +1,108 @@
+// Copyright 2018 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Proto that exposes all BUILD and Starlark builtin symbols.
+//
+// The API exporter is used for code completion in Cider.
+
+syntax = "proto3";
+package builtin;
+
+// option java_api_version = 2;
+option java_package = "com.google.devtools.build.docgen.builtin";
+option java_outer_classname = "BuiltinProtos";
+
+// Top-level object for all BUILD and Starlark builtin modules.
+// Globals contains a list of all builtin variables, functions and packages
+// (e.g. "java_common" and "native" will be included, same as "None" and
+// "dict").
+// Types contains a list of all builtin packages (e.g. "java_common"
+// and "native"). All types should be uniquely named.
+message Builtins {
+  repeated Type type = 1;
+
+  repeated Value global = 2;
+}
+
+// Representation for Starlark builtin packages. It contains all the symbols
+// (variables and functions) exposed by the package.
+// E.g. "list" is a Type that exposes a list of fields containing: "insert",
+// "index", "remove" etc.
+message Type {
+  string name = 1;
+
+  // List of fields and methods of this type. All such entities are listed as
+  // fields, and methods are fields which are callable.
+  repeated Value field = 2;
+
+  // Module documentation.
+  string doc = 3;
+}
+
+// ApiContext specifies the context(s) in which a symbol is available. For
+// example, a symbol may be available as a builtin only in .bzl files, but
+// not in BUILD files.
+enum ApiContext {
+  ALL = 0;
+  BZL = 1;
+  BUILD = 2;
+}
+
+// Generic representation for a Starlark object. If the object is callable
+// (can act as a function), then callable will be set.
+message Value {
+  string name = 1;
+
+  // Name of the type.
+  string type = 2;
+
+  // Set when the object is a function.
+  Callable callable = 3;
+
+  // Value documentation.
+  string doc = 4;
+
+  // The context(s) in which the symbol is recognized.
+  ApiContext api_context = 5;
+}
+
+message Callable {
+  repeated Param param = 1;
+
+  // Name of the return type.
+  string return_type = 2;
+}
+
+message Param {
+  string name = 1;
+
+  // Parameter type represented as a name.
+  string type = 2;
+
+  // Parameter documentation.
+  string doc = 3;
+
+  // Default value for the parameter, written as Starlark expression (e.g.
+  // "False", "True", "[]", "None")
+  string default_value = 4;
+
+  // Whether the param is mandatory or optional.
+  bool is_mandatory = 5;
+
+  // Whether the param is a star argument.
+  bool is_star_arg = 6;
+
+  // Whether the param is a star-star argument.
+  bool is_star_star_arg = 7;
+}

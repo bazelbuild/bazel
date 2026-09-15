@@ -1,0 +1,410 @@
+# Bazel - Google's Build System
+
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_java//java:defs.bzl", "java_package_configuration")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "DEFAULT_TOOLCHAIN_CONFIGURATION", "default_java_toolchain")
+load("@rules_license//rules:license.bzl", "license")
+load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//src:release_archive.bzl", "MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION", "MINIMUM_JAVA_RUNTIME_VERSION")
+load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
+load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
+
+package(default_visibility = ["//scripts/release:__pkg__"])
+
+license(
+    name = "license",
+    package_name = "bazelbuild/bazel",
+    copyright_notice = "Copyright © 2014 The Bazel Authors. All rights reserved.",
+    license_kinds = [
+        "@rules_license//licenses/spdx:Apache-2.0",
+    ],
+    license_text = "LICENSE",
+)
+
+exports_files([
+    "LICENSE",
+    "MODULE.bazel.lock",
+])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(
+        ["*"],
+        exclude = [
+            "bazel-*",  # convenience symlinks
+            "out",  # IntelliJ with setup-intellij.sh
+            "output",  # output of compile.sh
+            ".*",  # mainly .git* files
+        ],
+    ) + [
+        "//:MODULE.bazel.lock.dist",
+        "//docs:srcs",
+        "//examples:srcs",
+        "//scripts:srcs",
+        "//src:srcs",
+        "//third_party:srcs",
+        "//tools:srcs",
+    ] + glob(
+        [".bazelci/*"],
+        # allow_empty = True is needed in bootstrap.
+        allow_empty = True,
+    ) + [
+        ".bazelrc",
+        ".bazelversion",
+    ] + glob(
+        [".gemini/*"],
+        allow_empty = True,
+    ),
+    applicable_licenses = ["@io_bazel//:license"],
+    visibility = ["//src/test/shell/bazel:__pkg__"],
+)
+
+filegroup(
+    name = "dummy",
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "changelog-file",
+    srcs = [":CHANGELOG.md"],
+    visibility = [
+        "//scripts/packages:__subpackages__",
+    ],
+)
+
+genrule(
+    name = "generate_dist_lockfile",
+    srcs = [
+        "MODULE.bazel",
+        "//third_party:remoteapis/MODULE.bazel",
+        "//third_party:BUILD",
+        "//third_party:patches",
+    ],
+    outs = ["MODULE.bazel.lock.dist"],
+    cmd = " && ".join([
+        "ROOT=$$PWD",
+        "TMPDIR=$$(mktemp -d)",
+        "trap 'rm -rf $$TMPDIR' EXIT",
+        "mkdir -p $$TMPDIR/workspace",
+        "touch $$TMPDIR/workspace/BUILD.bazel",
+        "for i in $(SRCS); do dir=$$TMPDIR/workspace/$$(dirname $$i); mkdir -p $$dir; cp $$i $$dir; done",
+        "cd $$TMPDIR/workspace",
+        # Instead of `bazel mod deps`, we run a simpler command like `bazel query :all` here
+        # so that we only trigger module resolution, not extension eval.
+        # Also use `--batch` so that Bazel doesn't keep a server process alive.
+        "$$ROOT/$(location //src:bazel) --batch --output_user_root=$$TMPDIR/output_user_root query --check_direct_dependencies=error --lockfile_mode=update :all",
+        "mv MODULE.bazel.lock $$ROOT/$@",
+    ]),
+    tags = ["requires-network"],
+    tools = ["//src:bazel"],
+)
+
+sh_test(
+    name = "verify_module_bazel_lock",
+    timeout = "long",
+    srcs = ["verify_module_bazel_lock.sh"],
+    data = [
+        ".bazelversion",
+        "MODULE.bazel",
+        "MODULE.bazel.lock",
+        "//third_party:patches",
+        "//third_party:remoteapis/MODULE.bazel",
+    ],
+    env_inherit = [
+        "BUILDKITE_PIPELINE_SLUG",
+        "UPDATE_BAZEL_LOCK_FILE",
+    ],
+    tags = ["requires-network"],
+    visibility = ["//visibility:private"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+pkg_tar(
+    name = "bootstrap-jars",
+    srcs = [
+        "//third_party/chicory:dist_jars",
+        "//third_party/googleapis:dist_jars",
+        "//third_party/grpc-java:grpc_jars",
+        "@async_profiler//file",
+        "@com_google_protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java_util",
+        "@com_google_protobuf//:protobuf_javalite",
+        "@com_google_protobuf//java/core:lite_runtime_only",
+        "@zstd-jni//:zstd-jni",
+    ],
+    package_dir = "derived/jars",
+    remap_paths = {
+        "external/": "",
+        "../": "",
+    },
+    strip_prefix = ".",
+    # Public but bazel-only visibility.
+    visibility = ["//:__subpackages__"],
+)
+
+distrib_jar_filegroup(
+    name = "bootstrap-derived-java-jars",
+    srcs = glob(
+        ["derived/jars/**/*.jar"],
+        allow_empty = True,
+    ),
+    enable_distributions = ["debian"],
+    visibility = ["//:__subpackages__"],
+)
+
+filegroup(
+    name = "bootstrap-derived-java-srcs",
+    srcs = glob(
+        ["derived/**/*.java"],
+        allow_empty = True,
+    ),
+    visibility = ["//:__subpackages__"],
+)
+
+# Additional generated files that are not Java sources (which could otherwise
+# be included in //src:derived_java_sources).
+filegroup(
+    name = "generated_resources",
+    srcs = [
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:builtins_bzl.zip",
+    ],
+)
+
+# Bazel sources excluding files that are not needed in the distfile.
+pkg_files(
+    name = "dist-srcs",
+    srcs = ["//:srcs"],
+    attributes = pkg_attributes(mode = "0755"),
+    excludes = [
+        "MODULE.bazel.lock",  # Use MODULE.bazel.lock.dist instead
+        "//examples:srcs",
+        "//docs:srcs",
+        "//src:srcs-to-exclude-in-distfile",
+    ] + glob(
+        [".bazelci/*"],
+        # allow_empty = True is needed in bootstrap.
+        allow_empty = True,
+    ) + glob(
+        [".gemini/*"],
+        allow_empty = True,
+    ),
+    renames = {
+        "MODULE.bazel.lock.dist": "MODULE.bazel.lock",
+    },
+    strip_prefix = "/",  # Ensure paths are relative to the workspace root.
+)
+
+pkg_tar(
+    name = "bazel-srcs",
+    srcs = [
+        ":dist-srcs",
+        ":generated_resources",
+    ],
+    strip_prefix = ".",
+    # Public but bazel-only visibility.
+    visibility = ["//:__subpackages__"],
+)
+
+pkg_tar(
+    name = "platforms-srcs",
+    srcs = ["@platforms//:srcs"],
+    remap_paths = {
+        "external/": "",
+        "../": "",
+    },
+    strip_prefix = ".",
+    visibility = ["//:__subpackages__"],
+)
+
+write_file(
+    name = "gen_maven_repo_name",
+    out = "MAVEN_CANONICAL_REPO_NAME",
+    content = [get_canonical_repo_name("@maven")],
+)
+
+# The @maven repository is created by maven_install from rules_jvm_external.
+# `@maven//:srcs` contains all jar files downloaded and BUILD files created by maven_install.
+pkg_tar(
+    name = "maven-srcs",
+    srcs = ["@maven//:srcs"] + ["MAVEN_CANONICAL_REPO_NAME"],
+    package_dir = "derived/maven",
+    remap_paths = {
+        "external/" + get_canonical_repo_name("@maven") + "/": "",
+        "../" + get_canonical_repo_name("@maven") + "/": "",
+    },
+    strip_prefix = ".",
+    visibility = ["//:__subpackages__"],
+)
+
+exports_files(
+    ["maven_install.json"],
+    visibility = ["//tools/compliance:__pkg__"],
+)
+
+py_binary(
+    name = "combine_distfiles",
+    srcs = ["combine_distfiles.py"],
+    visibility = ["//visibility:private"],
+    deps = ["//src:create_embedded_tools_lib"],
+)
+
+genrule(
+    name = "bazel-distfile",
+    srcs = [
+        ":bazel-srcs",
+        ":bootstrap-jars",
+        ":maven-srcs",
+        "//src:derived_java_srcs",
+        "@bootstrap_repo_cache//:archives.tar",
+    ],
+    outs = ["bazel-distfile.zip"],
+    cmd = "$(location :combine_distfiles) $@ $(SRCS)",
+    tools = [":combine_distfiles"],
+    # Public but bazel-only visibility.
+    visibility = ["//:__subpackages__"],
+)
+
+genrule(
+    name = "bazel-distfile-tar",
+    srcs = [
+        ":bazel-srcs",
+        ":bootstrap-jars",
+        ":platforms-srcs",
+        ":maven-srcs",
+        "//src:derived_java_srcs",
+        "@bootstrap_repo_cache//:archives.tar",
+    ],
+    outs = ["bazel-distfile.tar"],
+    cmd = "$(location :combine_distfiles_to_tar.sh) $@ $(SRCS)",
+    tools = ["combine_distfiles_to_tar.sh"],
+    # Public but bazel-only visibility.
+    visibility = ["//:__subpackages__"],
+)
+
+constraint_setting(name = "machine_size")
+
+# A machine with "high cpu count".
+constraint_value(
+    name = "highcpu_machine",
+    constraint_setting = ":machine_size",
+    visibility = ["//visibility:public"],
+)
+
+constraint_setting(name = "mount_support")
+
+# A machine that permits privileged mount operations.
+constraint_value(
+    name = "mount_capable",
+    constraint_setting = ":mount_support",
+    visibility = ["//visibility:public"],
+)
+
+platform(
+    name = "default_host_platform",
+    constraint_values = [
+        ":highcpu_machine",
+        ":mount_capable",
+    ],
+    parents = ["@platforms//host"],
+)
+
+platform(
+    name = "windows_arm64",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:arm64",
+    ],
+)
+
+REMOTE_PLATFORMS = ("rbe_ubuntu2404",)
+
+[
+    platform(
+        name = platform_name + "_platform",
+        constraint_values = [
+            "//:mount_capable",
+        ],
+        exec_properties = {
+            "dockerNetwork": "standard",
+            "dockerPrivileged": "true",
+            "Pool": "default",
+        },
+        parents = ["@" + platform_name + "//config:platform"],
+    )
+    for platform_name in REMOTE_PLATFORMS
+]
+
+[
+    # The highcpu RBE platform where heavy actions run on. In order to
+    # use this platform add the highcpu_machine constraint to your target.
+    platform(
+        name = platform_name + "_highcpu_platform",
+        constraint_values = [
+            "//:highcpu_machine",
+        ],
+        exec_properties = {
+            "Pool": "highcpu",
+        },
+        parents = ["//:" + platform_name + "_platform"],
+    )
+    for platform_name in REMOTE_PLATFORMS
+]
+
+# Bazel's own Java sources. External modules built as dependencies are
+# deliberately not covered, since we do not control their code.
+package_group(
+    name = "bazel_java_packages",
+    packages = ["//src/..."],
+)
+
+# Error Prone checks that are already enforced when Bazel is built inside
+# Google. Enabling them here surfaces the errors on pull requests instead of
+# after a change has been imported.
+#
+# These are attached to the Java toolchain rather than passed with --javacopt
+# because --javacopt also reaches rules that invoke javac directly, such as the
+# bootstrap Java rules in //tools/build_rules:java_rules_skylark.bzl, and plain
+# javac rejects -Xep: flags outright.
+java_package_configuration(
+    name = "bazel_error_prone_checks",
+    javacopts = [
+        "-Xep:ClassName:ERROR",
+        "-Xep:EqualsIncompatibleType:ERROR",
+        "-Xep:FutureReturnValueIgnored:ERROR",
+        "-Xep:TruthIncompatibleType:ERROR",
+        "-Xep:UnnecessaryBreakInSwitch:ERROR",
+    ],
+    packages = [":bazel_java_packages"],
+)
+
+# LINT.IfChange
+[
+    default_java_toolchain(
+        name = "java_toolchain_%s" % language_version,
+        java_runtime = "@rules_java//toolchains:remotejdk_25",
+        oneversion_allowlist = ":oneversion_allowlist.csv",
+        oneversion_allowlist_for_tests = ":oneversion_allowlist_for_tests.csv",
+        package_configuration = [":bazel_error_prone_checks"],
+        source_version = str(language_version),
+        target_version = str(language_version),
+        turbine_jvm_opts = DEFAULT_TOOLCHAIN_CONFIGURATION["jvm_opts"] + [
+            # Silence a warning about unsafe memory access by Protobuf running as part of Turbine:
+            #
+            # WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+            # WARNING: sun.misc.Unsafe::arrayBaseOffset has been called by com.google.protobuf.UnsafeUtil$MemoryAccessor (file:/.../java_tools/turbine_direct_binary_deploy.jar)
+            # WARNING: Please consider reporting this to the maintainers of class com.google.protobuf.UnsafeUtil$MemoryAccessor
+            #
+            # https://github.com/protocolbuffers/protobuf/issues/20760
+            "--sun-misc-unsafe-memory-access=allow",
+        ],
+    )
+    for language_version in set([
+        MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION,
+        MINIMUM_JAVA_RUNTIME_VERSION,
+        25,
+    ])
+]
+# LINT.ThenChange(//.bazelrc)

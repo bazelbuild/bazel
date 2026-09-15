@@ -1,0 +1,17 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_strip:
+
+override_dh_auto_build:
+	./compile.sh
+
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -f bazel-*
+	rm -f output
+
+override_dh_install:
+	install -D -m 0755 output/bazel $$(pwd)/debian/bazel/usr/bin/bazel

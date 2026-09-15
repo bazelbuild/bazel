@@ -1,0 +1,167 @@
+config_setting(
+    name = "freebsd",
+    constraint_values = ["@platforms//os:freebsd"],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "openbsd",
+    constraint_values = ["@platforms//os:openbsd"],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "netbsd",
+    constraint_values = ["@platforms//os:netbsd"],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "darwin",
+    constraint_values = ["@platforms//os:macos"],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "linux",
+    constraint_values = ["@platforms//os:linux"],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "linux_ppc",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:ppc",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "linux_ppc64le",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:ppc64le",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "linux_s390x",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:s390x",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "linux_mips64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:mips64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "linux_riscv64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:riscv64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+  name = "linux_loongarch64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:loongarch64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "linux_x86_64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "linux_aarch64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "darwin_x86_64",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:x86_64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "darwin_arm64",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:arm64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "darwin_arm64e",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:arm64e",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "windows",
+    constraint_values = ["@platforms//os:windows"],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "windows_x64",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "windows_arm64",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:arm64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# TODO: figure out how to base this selection on constraints
+config_setting(
+    name = "windows_msvc",
+    values = {"cpu": "x64_windows_msvc"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "debian_build",
+    values = {
+        "define": "distribution=debian",
+    },
+    visibility = ["//visibility:public"],
+)

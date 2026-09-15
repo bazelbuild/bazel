@@ -1,0 +1,126 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title">Bazel BUILD Encyclopedia of Functions</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/docgen/templates/be/overview.vm" %}
+{% include "_buttons.html" %}
+<h2>Concepts and terminology</h2>
+
+<ul>
+  <li>
+    <a href="$expander.expandRef("common-definitions")">Common definitions</a>
+    <ul>
+      <li><a href="$expander.expandRef("common-definitions#sh-tokenization")">Bourne shell tokenization</a></li>
+      <li><a href="$expander.expandRef("common-definitions#label-expansion")">Label expansion</a></li>
+      <li><a href="$expander.expandRef("common-definitions#typical-attributes")">Typical attributes for most rules</a></li>
+      <li><a href="$expander.expandRef("common-definitions#common-attributes")">Common attributes for all rules</a></li>
+      <li><a href="$expander.expandRef("common-definitions#common-attributes-tests")">Common attributes for tests</a></li>
+      <li><a href="$expander.expandRef("common-definitions#common-attributes-binaries")">Common attributes for binaries</a></li>
+      <li><a href="$expander.expandRef("common-definitions#configurable-attributes")">Configurable attributes</a></li>
+      <li><a href="$expander.expandRef("common-definitions#implicit-outputs")">Implicit output targets</a></li>
+    </ul>
+  </li>
+  <li>
+    <a href="$expander.expandRef("make-variables")">"Make" variables</a>
+    <ul class="be-toc">
+      <li><a href="$expander.expandRef("make-variables#use")">Use</a></li>
+
+    </ul>
+  </li>
+</ul>
+
+<h2>Functions</h2>
+
+<ul class="be-toc">
+  <li><a href="$expander.expandRef("package")">package</a></li>
+  <li><a href="$expander.expandRef("package_group")">package_group</a></li>
+
+  <li><a href="$expander.expandRef("exports_files")">exports_files</a></li>
+  <li><a href="$expander.expandRef("glob")">glob</a></li>
+  <li><a href="$expander.expandRef("select")">select</a></li>
+</ul>
+
+<h2>Rules</h2>
+
+Native rules ship with the Bazel binary and do not require a <code>load</code> statement.
+Native rules are available globally in BUILD files. In .bzl files, you can find them in
+the <code>native</code> module.
+
+For non-native Starlark rules that ship separately from Bazel, see the list of
+<a href="/rules/rules#recommended-rules">recommended rules</a>.
+
+<h3>Language-specific native rules</h3>
+
+#macro(ruleLink $ruleFamily $rule)
+  <a href="#if($singlePage)#${rule.ruleName}#else${ruleFamily.id}.html#${rule.ruleName}#end"#if($rule.isDeprecated()) class="deprecated"#end>${rule.ruleName}</a>
+#end
+
+<table class="table table-condensed table-striped" summary="Table of rules sorted by language">
+  <thead>
+    <tr>
+      <th>Language</th>
+      <th>Flags</th>
+      <th>Binary rules</th>
+      <th>Library rules</th>
+      <th>Test rules</th>
+      <th>Other rules</th>
+    </tr>
+  </thead>
+  <tbody>
+  #foreach($ruleFamily in $langSpecificRuleFamilies)
+    #if($ruleFamily.size() > 0)
+      <tr>
+        <td class="lang">${ruleFamily.name}</td>
+              <td>#if ($ruleFamily.flags.size() > 0) <a href="#${ruleFamily.name.toLowerCase()}.flags">flags</a>#end</td>
+
+      #set( $ruleTypes = [$ruleFamily.binaryRules, $ruleFamily.libraryRules, $ruleFamily.testRules, $ruleFamily.otherRules] )
+      #foreach($ruleType in $ruleTypes)
+        <td>
+        #foreach($rule in $ruleType)
+          #ruleLink($ruleFamily, $rule)
+          <br />
+        #end
+        </td>
+      #end
+      </tr>
+    #end
+  #end
+  </tbody>
+
+</table>
+<h3>Language-agnostic native rules</h3>
+
+<table class="table table-condensed table-striped" summary="Table of rules not specific to a programming language">
+  <thead>
+    <tr>
+      <th>Family</th>
+      <th>Rules</th>
+    </tr>
+  </thead>
+  <tbody>
+  #foreach($ruleFamily in $genericRuleFamilies)
+    #if($ruleFamily.size() > 0)
+      <tr>
+        <td class="lang">${ruleFamily.name}</td>
+        <td>
+          <ul class="hlist">
+          #foreach($rule in $ruleFamily.rules)
+            <li>#ruleLink($ruleFamily, $rule)
+          #end
+          </ul>
+        </td>
+      </tr>
+    #end
+  #end
+  </tbody>
+
+</table>
+#if (!$singlePage)
+</body>
+</html>
+#end

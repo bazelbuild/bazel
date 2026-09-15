@@ -1,0 +1,41 @@
+---
+title: 'apple\_toolchain'
+---
+
+Utilities for resolving items from the Apple toolchain.
+
+## Members
+
+* [developer\_dir](#developer_dir)
+* [platform\_developer\_framework\_dir](#platform_developer_framework_dir)
+* [sdk\_dir](#sdk_dir)
+
+## developer\_dir
+
+```
+string apple_toolchain.developer_dir()
+```
+
+Returns the Developer directory inside of Xcode for a given configuration.
+
+## platform\_developer\_framework\_dir
+
+```
+string apple_toolchain.platform_developer_framework_dir(configuration)
+```
+
+Returns the platform frameworks directory inside of Xcode for a given configuration.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `configuration` | required  The apple configuration fragment. |
+
+## sdk\_dir
+
+```
+string apple_toolchain.sdk_dir()
+```
+
+Returns the platform directory inside of Xcode for a given configuration.

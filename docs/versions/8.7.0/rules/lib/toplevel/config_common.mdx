@@ -1,0 +1,33 @@
+---
+title: 'config_common'
+---
+
+Functions for Starlark to interact with Blaze's configurability APIs.
+
+## Members
+
+* [FeatureFlagInfo](#FeatureFlagInfo)
+* [toolchain_type](#toolchain_type)
+
+## FeatureFlagInfo
+
+```
+Provider config_common.FeatureFlagInfo
+```
+
+The key used to retrieve the provider containing config_feature_flag's value.
+
+## toolchain_type
+
+```
+toolchain_type config_common.toolchain_type(name, *, mandatory=True)
+```
+
+Declare a rule's dependency on a toolchain type.
+
+### Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `name` | [string](../core/string); or [Label](../builtins/Label); required  The toolchain type that is required. |
+| `mandatory` | [bool](../core/bool); default is `True`  Whether the toolchain type is mandatory or optional. |

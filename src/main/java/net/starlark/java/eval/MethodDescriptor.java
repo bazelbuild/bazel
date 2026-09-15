@@ -1,0 +1,605 @@
+// Copyright 2018 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package net.starlark.java.eval;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Arrays.stream;
+
+import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.CheckReturnValue;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.math.BigInteger;
+import java.util.Arrays;
+import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
+import net.starlark.java.annot.StarlarkAnnotations;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.ParamDescriptor.ConditionalCheck;
+import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.Types;
+
+/**
+ * A value class to store Methods with their corresponding {@link StarlarkMethod} annotation
+ * metadata. This is needed because the annotation is sometimes in a superclass.
+ *
+ * <p>The annotation metadata is duplicated in this class to avoid usage of Java dynamic proxies
+ * which are ~7× slower.
+ */
+final class MethodDescriptor {
+  private final CallUtils.BuiltinManager manager;
+
+  private final Method method;
+  @Nullable private transient StarlarkMethod annotation;
+
+  private final String name;
+  private final String doc;
+  private final boolean documented;
+  private final boolean structField;
+  private final ParamDescriptor[] parameters;
+  private final boolean extraPositionals;
+  private final boolean extraKeywords;
+  private final boolean selfCall;
+  private final boolean allowReturnNones;
+  private final boolean useStarlarkThread;
+  private final boolean useStarlarkSemantics;
+  @Nullable private final Class<?> typeConstructorProxy;
+  private final boolean positionalsReusableAsJavaArgsVectorIfArgumentCountValid;
+  private final StarlarkType starlarkType;
+
+  @Nullable private final ConditionalCheck conditionalCheck;
+
+  private enum HowToHandleReturn {
+    NULL_TO_NONE, // any Starlark value; null -> None
+    ERROR_ON_NULL, // any Starlark value; null -> error
+    STARLARK_INT_OF_INT, // Java int -> StarlarkInt
+    FROM_JAVA, // Starlark.fromJava conversion (List, Map, various Numbers, null perhaps)
+    DOES_NOT_RETURN, // any return value -> error
+  }
+
+  private final HowToHandleReturn howToHandleReturn;
+
+  private MethodDescriptor(
+      CallUtils.BuiltinManager manager,
+      Method method,
+      StarlarkMethod annotation,
+      String name,
+      String doc,
+      boolean documented,
+      boolean structField,
+      ParamDescriptor[] parameters,
+      boolean extraPositionals,
+      boolean extraKeywords,
+      boolean selfCall,
+      boolean allowReturnNones,
+      boolean doesNotReturn,
+      boolean useStarlarkThread,
+      boolean useStarlarkSemantics,
+      boolean isTypeConstructor) {
+    this.manager = manager;
+    this.method = method;
+    this.annotation = annotation;
+    this.name = name;
+    this.doc = doc;
+    this.documented = documented;
+    this.structField = structField;
+    this.parameters = parameters;
+    this.extraPositionals = extraPositionals;
+    this.extraKeywords = extraKeywords;
+    this.selfCall = selfCall;
+    this.allowReturnNones = allowReturnNones;
+    this.useStarlarkThread = useStarlarkThread;
+    this.useStarlarkSemantics = useStarlarkSemantics;
+    this.typeConstructorProxy = isTypeConstructor ? method.getReturnType() : null;
+
+    Class<?> ret = method.getReturnType();
+    if (doesNotReturn) {
+      howToHandleReturn = HowToHandleReturn.DOES_NOT_RETURN;
+    } else if (ret == void.class || ret == boolean.class) {
+      // * `void` function returns `null`
+      // * `boolean` function never returns `null`
+      // We could have specialized enum variant, but null check is cheap.
+      howToHandleReturn = HowToHandleReturn.NULL_TO_NONE;
+    } else if (StarlarkValue.class.isAssignableFrom(ret)
+        || String.class == ret
+        || Boolean.class == ret) {
+      howToHandleReturn =
+          allowReturnNones ? HowToHandleReturn.NULL_TO_NONE : HowToHandleReturn.ERROR_ON_NULL;
+    } else if (ret == int.class) {
+      howToHandleReturn = HowToHandleReturn.STARLARK_INT_OF_INT;
+    } else {
+      howToHandleReturn = HowToHandleReturn.FROM_JAVA;
+    }
+
+    this.positionalsReusableAsJavaArgsVectorIfArgumentCountValid =
+        !extraKeywords
+            && !extraPositionals
+            && !useStarlarkSemantics
+            && !useStarlarkThread
+            && stream(parameters).allMatch(MethodDescriptor::paramUsableAsPositionalWithoutChecks);
+
+    if (!annotation.enableOnlyWithFlag().isEmpty() || !annotation.disableWithFlag().isEmpty()) {
+      conditionalCheck =
+          new ConditionalCheck(annotation.enableOnlyWithFlag(), annotation.disableWithFlag());
+    } else {
+      conditionalCheck = null;
+    }
+
+    starlarkType =
+        buildStarlarkType(
+            method,
+            annotation,
+            parameters,
+            structField,
+            extraPositionals,
+            extraKeywords,
+            allowReturnNones,
+            doesNotReturn);
+  }
+
+  private StarlarkType buildStarlarkType(
+      Method method,
+      StarlarkMethod annotation,
+      ParamDescriptor[] parameters,
+      boolean structField,
+      boolean extraPositionals,
+      boolean extraKeywords,
+      boolean allowReturnNones,
+      boolean doesNotReturn) {
+    if (structField) {
+      checkArgument(
+          !doesNotReturn,
+          "In method '%s': structField=true is incompatible with doesNotReturn",
+          method.getName());
+      StarlarkType returnType = starlarkTypeFromJava(method.getGenericReturnType());
+      if (allowReturnNones) {
+        returnType = Types.union(returnType, Types.NONE);
+      }
+      return returnType;
+    }
+
+    Param[] paramAnnotations = annotation.parameters();
+    Type[] methodParamTypes = method.getGenericParameterTypes();
+
+    // String methods are special-cased to pass the string receiver object as the first parameter
+    // to the Java method. We don't want to include the string receiver in the callable's signature.
+    if (method.getDeclaringClass().equals(StringModule.class)) {
+      parameters = Arrays.copyOfRange(parameters, 1, parameters.length);
+      paramAnnotations = Arrays.copyOfRange(paramAnnotations, 1, paramAnnotations.length);
+      methodParamTypes = Arrays.copyOfRange(methodParamTypes, 1, methodParamTypes.length);
+    }
+
+    ImmutableList.Builder<String> parameterNames = ImmutableList.builder();
+    ImmutableList.Builder<StarlarkType> parameterTypes = ImmutableList.builder();
+    ImmutableSet.Builder<String> mandatoryParameters = ImmutableSet.builder();
+    boolean processingPositionalOnly = true;
+    boolean processingPositional = true;
+    int numPositionalOnlyParameters = parameters.length;
+    int numOrdinaryParameters = parameters.length;
+    for (int i = 0; i < parameters.length; i++) {
+      if (parameters[i].isNamed() && processingPositionalOnly) {
+        processingPositionalOnly = false;
+        numPositionalOnlyParameters = i;
+      }
+      if (!parameters[i].isPositional() && processingPositional) { // the first keyword argument
+        processingPositional = false;
+        numOrdinaryParameters = i;
+      }
+      parameterNames.add(parameters[i].getName());
+      ParamType[] allowedTypes = paramAnnotations[i].allowedTypes();
+      // User supplied type
+      if (allowedTypes.length > 0) {
+        parameterTypes.add(starlarkTypeFromAnnotation(allowedTypes));
+      } else {
+        parameterTypes.add(starlarkTypeFromJava(methodParamTypes[i]));
+      }
+      if (parameters[i].getDefaultValue() == null) {
+        mandatoryParameters.add(parameters[i].getName());
+      }
+    }
+    StarlarkType returnType;
+    if (doesNotReturn) {
+      returnType = Types.NEVER;
+    } else if (method.getReturnType() == Object.class) {
+      returnType = Types.ANY;
+    } else {
+      returnType = starlarkTypeFromJava(method.getGenericReturnType());
+      if (allowReturnNones) {
+        returnType = Types.union(returnType, Types.NONE);
+      }
+    }
+
+    return Types.generalCallable(
+        parameterNames.build(),
+        parameterTypes.build(),
+        numPositionalOnlyParameters,
+        numOrdinaryParameters,
+        mandatoryParameters.build(),
+        // TODO(ilist@): more precise type on args and kwargs
+        extraPositionals ? Types.ANY : null,
+        extraKeywords ? Types.ANY : null,
+        returnType);
+  }
+
+  private static class ParameterizedTypeImpl implements ParameterizedType {
+    private final Type rawType;
+    private final Type[] actualTypeArguments;
+
+    private ParameterizedTypeImpl(Type rawType, Type[] actualTypeArguments) {
+      this.rawType = rawType;
+      this.actualTypeArguments = actualTypeArguments;
+    }
+
+    @Override
+    public Type[] getActualTypeArguments() {
+      return actualTypeArguments;
+    }
+
+    @Override
+    public Type getRawType() {
+      return rawType;
+    }
+
+    @Override
+    public Type getOwnerType() {
+      return null;
+    }
+  }
+
+  private StarlarkType starlarkTypeFromAnnotation(ParamType[] paramTypes) {
+    return Types.union(
+        Arrays.stream(paramTypes)
+            .map(
+                paramType -> {
+                  if (paramType.type().getTypeParameters().length == 1) {
+                    return new ParameterizedTypeImpl(
+                        paramType.type(), new Type[] {paramType.generic1()});
+                  } else {
+                    return paramType.type();
+                  }
+                })
+            .map(this::starlarkTypeFromJava)
+            .collect(toImmutableSet()));
+  }
+
+  /** Returns the Starlark type corresponding to the given Java type. */
+  private StarlarkType starlarkTypeFromJava(Type cls) {
+    if (cls == NoneType.class || cls == void.class) {
+      return Types.NONE;
+    } else if (cls == String.class) {
+      return Types.STR;
+    } else if (cls == Boolean.class || cls == boolean.class) {
+      return Types.BOOL;
+    } else if (cls == int.class
+        || cls == long.class
+        || cls == Integer.class
+        || cls == Long.class
+        || cls == StarlarkInt.class
+        || (cls instanceof Class<?> c && BigInteger.class.isAssignableFrom(c))) {
+      return Types.INT;
+    } else if (cls == double.class || cls == Double.class || cls == StarlarkFloat.class) {
+      return Types.FLOAT;
+    } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == Dict.class) {
+      return Types.dict(
+          starlarkTypeFromJava(ptype.getActualTypeArguments()[0]),
+          starlarkTypeFromJava(ptype.getActualTypeArguments()[1]));
+    } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == StarlarkList.class) {
+      return Types.list(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
+    } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == StarlarkSet.class) {
+      return Types.set(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
+    } else if (cls instanceof Class<?> c && Tuple.class.isAssignableFrom(c)) {
+      // TODO: #27370 - Should we ever return a narrower tuple type?
+      return Types.homogeneousTuple(Types.ANY);
+    } else if (cls instanceof ParameterizedType ptype
+        && ptype.getRawType() == StarlarkIterable.class) {
+      return Types.collection(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
+    } else if (cls instanceof ParameterizedType ptype && ptype.getRawType() == Sequence.class) {
+      return Types.sequence(starlarkTypeFromJava(ptype.getActualTypeArguments()[0]));
+    } else if (cls == StarlarkCallable.class || cls == StarlarkFunction.class) {
+      return Types.ANY_CALLABLE;
+    } else if (cls == Object.class || cls == StarlarkValue.class) {
+      return Types.OBJECT;
+    } else {
+      if (cls instanceof Class<?> c) {
+        @Nullable StarlarkType classStarlarkType = CallUtils.getStarlarkBuiltinAutoType(c);
+        if (classStarlarkType != null) {
+          return classStarlarkType;
+        }
+        if (Structure.class.isAssignableFrom(c)) {
+          return Types.ANY_STRUCT;
+        }
+      }
+      return Types.ANY;
+    }
+  }
+
+  private static boolean paramUsableAsPositionalWithoutChecks(ParamDescriptor param) {
+    return param.isPositional()
+        && param.conditionalCheck == null
+        && param.getAllowedClasses() == null;
+  }
+
+  /** Returns the StarlarkMethod annotation corresponding to this method. */
+  StarlarkMethod getAnnotation() {
+    if (annotation == null) {
+      // Annotation is null on deserialization, because deserializer can't handle annotations
+      annotation = StarlarkAnnotations.getStarlarkMethod(method);
+    }
+    return annotation;
+  }
+
+  /** Returns starlark method descriptor for provided Java method and signature annotation. */
+  static MethodDescriptor of(
+      CallUtils.BuiltinManager manager, Method method, StarlarkMethod annotation) {
+    // This happens when the interface is public but the implementation classes
+    // have reduced visibility.
+    method.setAccessible(true);
+
+    Class<?>[] paramClasses = method.getParameterTypes();
+    Param[] paramAnnots = annotation.parameters();
+    ParamDescriptor[] params = new ParamDescriptor[paramAnnots.length];
+    Arrays.setAll(params, i -> ParamDescriptor.of(paramAnnots[i], paramClasses[i]));
+
+    return new MethodDescriptor(
+        manager,
+        method,
+        annotation,
+        annotation.name(),
+        annotation.doc(),
+        annotation.documented(),
+        annotation.structField(),
+        params,
+        !annotation.extraPositionals().name().isEmpty(),
+        !annotation.extraKeywords().name().isEmpty(),
+        annotation.selfCall(),
+        annotation.allowReturnNones(),
+        annotation.doesNotReturn(),
+        annotation.useStarlarkThread(),
+        annotation.useStarlarkSemantics(),
+        annotation.isTypeConstructor());
+  }
+
+  private static final Object[] EMPTY = {};
+
+  /** Calls this method, which must have {@code structField=true}. */
+  Object callField(Object obj, StarlarkSemantics semantics, @Nullable Mutability mu)
+      throws EvalException, InterruptedException {
+    if (!structField) {
+      throw new IllegalStateException("not a struct field: " + name);
+    }
+    Object[] args = useStarlarkSemantics ? new Object[] {semantics} : EMPTY;
+    return call(obj, args, mu);
+  }
+
+  /**
+   * Invokes this method using {@code obj} as a target and {@code args} as Java arguments.
+   *
+   * <p>Methods with {@code void} return type return {@code None} following Python convention.
+   *
+   * <p>The Mutability is used if it is necessary to allocate a Starlark copy of a Java result.
+   */
+  Object call(Object obj, Object[] args, @Nullable Mutability mu)
+      throws EvalException, InterruptedException {
+    Preconditions.checkNotNull(obj);
+    Object result;
+    try {
+      result = method.invoke(obj, args);
+    } catch (IllegalAccessException ex) {
+      // "Can't happen": the annotated processor ensures that annotated methods are accessible.
+      throw new IllegalStateException(ex);
+
+    } catch (IllegalArgumentException ex) {
+      // "Can't happen": unexpected type mismatch in obj/args.
+      // Show details to aid debugging (see e.g. b/162444744).
+      StringBuilder buf = new StringBuilder();
+      buf.append(
+          String.format(
+              "IllegalArgumentException (%s) in Starlark call of `%s`, obj=%s (%s), args=[",
+              ex.getMessage(),
+              method,
+              Starlark.repr(obj, StarlarkSemantics.DEFAULT),
+              Starlark.type(obj)));
+      String sep = "";
+      for (Object arg : args) {
+        buf.append(
+            String.format(
+                "%s%s (%s)",
+                sep, Starlark.repr(arg, StarlarkSemantics.DEFAULT), Starlark.type(arg)));
+        sep = ", ";
+      }
+      buf.append(']');
+      throw new IllegalStateException(buf.toString(), ex);
+
+    } catch (InvocationTargetException ex) {
+      Throwable e = ex.getCause();
+      if (e == null) {
+        throw new IllegalStateException(ex);
+      }
+      // Don't intercept unchecked exceptions.
+      Throwables.throwIfUnchecked(e);
+      if (e instanceof EvalException) {
+        throw (EvalException) e;
+      } else if (e instanceof InterruptedException) {
+        throw (InterruptedException) e;
+      } else {
+        // All other checked exceptions (e.g. LabelSyntaxException) are reported to Starlark.
+        throw new EvalException(e);
+      }
+    }
+
+    // This switch is an optimization to reduce the overhead
+    // of an unconditional null check and fromJava call.
+    switch (howToHandleReturn) {
+      case NULL_TO_NONE:
+        return result != null ? result : Starlark.NONE;
+      case ERROR_ON_NULL:
+        if (result == null) {
+          throw methodInvocationReturnedNull(args);
+        }
+        return result;
+      case STARLARK_INT_OF_INT:
+        return StarlarkInt.of((Integer) result);
+      case FROM_JAVA:
+        if (result == null && !allowReturnNones) {
+          throw methodInvocationReturnedNull(args);
+        }
+        return Starlark.fromJava(result, mu);
+      case DOES_NOT_RETURN:
+        throw new IllegalStateException(
+            String.format(
+                "Method invocation %s%s returned '%s' but the method is annotated with"
+                    + " doesNotReturn=true",
+                getName(), Tuple.of(args), result));
+    }
+    throw new IllegalStateException("unreachable: " + howToHandleReturn);
+  }
+
+  @CheckReturnValue // don't forget to throw it
+  private NullPointerException methodInvocationReturnedNull(Object[] args) {
+    return new NullPointerException(
+        "method invocation returned null: " + getName() + Tuple.of(args));
+  }
+
+  /** See {@link StarlarkMethod#name()}. */
+  String getName() {
+    return name;
+  }
+
+  CallUtils.BuiltinManager getManager() {
+    return manager;
+  }
+
+  Method getMethod() {
+    return method;
+  }
+
+  /** See {@link StarlarkMethod#structField()}. */
+  boolean isStructField() {
+    return structField;
+  }
+
+  /** See {@link StarlarkMethod#useStarlarkThread()}. */
+  boolean isUseStarlarkThread() {
+    return useStarlarkThread;
+  }
+
+  /** See {@link StarlarkMethod#useStarlarkSemantics()}. */
+  boolean isUseStarlarkSemantics() {
+    return useStarlarkSemantics;
+  }
+
+  /**
+   * If true, this method accepts extra positional arguments ({@code *args}); see {@link
+   * StarlarkMethod#extraPositionals()}.
+   */
+  boolean acceptsExtraArgs() {
+    return extraPositionals;
+  }
+
+  /**
+   * If true, this method accepts extra keyword arguments ({@code **kwargs}); see {@link
+   * StarlarkMethod#extraKeywords()}.
+   */
+  boolean acceptsExtraKwargs() {
+    return extraKeywords;
+  }
+
+  /** See {@link StarlarkMethod#parameters()}. */
+  ParamDescriptor[] getParameters() {
+    return parameters;
+  }
+
+  /** Returns the index of the named parameter or -1 if not found. */
+  int getParameterIndex(String name) {
+    for (int i = 0; i < parameters.length; i++) {
+      if (parameters[i].getName().equals(name)) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /** See {@link StarlarkMethod#documented()}. */
+  boolean isDocumented() {
+    return documented;
+  }
+
+  /** See {@link StarlarkMethod#doc()}. */
+  String getDoc() {
+    return doc;
+  }
+
+  /** See {@link StarlarkMethod#selfCall()}. */
+  boolean isSelfCall() {
+    return selfCall;
+  }
+
+  public StarlarkType getStarlarkType() {
+    return starlarkType;
+  }
+
+  @Nullable
+  Class<?> getTypeConstructorProxy() {
+    return typeConstructorProxy;
+  }
+
+  /**
+   * Returns true if we may directly reuse the Starlark positionals vector as the Java {@code args}
+   * vector passed to {@link #call} as long as the Starlark call was made with a valid number of
+   * arguments.
+   *
+   * <p>More precisely, this means that we do not need to insert extra values into the args vector
+   * (such as ones corresponding to {@code *args}, {@code **kwargs}, or {@code self} in Starlark),
+   * and all Starlark parameters are simple positional parameters which cannot be disabled by a flag
+   * and do not require type checking.
+   */
+  boolean isPositionalsReusableAsJavaArgsVectorIfArgumentCountValid() {
+    return positionalsReusableAsJavaArgsVectorIfArgumentCountValid;
+  }
+
+  /** Returns true if parameter is enabled. */
+  void checkEnabled(StarlarkThread thread) throws EvalException {
+    if (conditionalCheck == null) { // fast path
+      return;
+    }
+
+    // TODO(b/407506132): A method enabled by a non-experimental flag should not be marked as
+    //  experimental
+    if (!thread
+        .getSemantics()
+        .isFeatureEnabledBasedOnTogglingFlags(
+            conditionalCheck.enableOnlyWithFlag(), conditionalCheck.disableWithFlag())) {
+      if (!conditionalCheck.enableOnlyWithFlag().isEmpty()) {
+        throw Starlark.errorf(
+            "function %s() is experimental and thus unavailable with the current flags. It may be"
+                + " enabled by setting --%s",
+            name, conditionalCheck.enableOnlyWithFlag().substring(1)); // remove [+-] prefix
+      }
+      if (!conditionalCheck.disableWithFlag().isEmpty()) {
+        throw Starlark.errorf(
+            "function %s() is deprecated and will be removed soon. It may be temporarily re-enabled"
+                + " by setting --%s",
+            name, conditionalCheck.disableWithFlag().substring(1)); // remove [+-] prefix
+      }
+    }
+  }
+}

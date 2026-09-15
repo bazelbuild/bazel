@@ -1,0 +1,43 @@
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_testonly = 1,
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
+)
+
+filegroup(
+    name = "srcs",
+    testonly = 0,
+    srcs = glob(["**"]),
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+)
+
+java_library(
+    name = "GraphTests_lib",
+    srcs = glob(["*.java"]),
+    javacopts = [
+        "-Xep:CompareToZero:OFF",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/graph",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:rule_visibility",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "GraphTests",
+    test_class = "com.google.devtools.build.lib.AllTests",
+    runtime_deps = [
+        ":GraphTests_lib",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+    ],
+)

@@ -1,0 +1,23 @@
+name: "PR Labeler"
+
+on:
+  pull_request_target:
+    types: ["opened", "reopened", "ready_for_review"]
+
+permissions:
+  contents: read
+
+jobs:
+  triage:
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+    - name: Harden Runner
+      uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+      with:
+        egress-policy: audit
+
+    - uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7.0.0
+    if: ${{ github.event.pull_request.draft == false && github.event.pull_request.user.login != 'bazel-io' }}
