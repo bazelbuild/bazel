@@ -382,7 +382,7 @@ public final class StaticTypeCheckTest {
         min([-1, -2, -3], key = abs)
         """);
     assertInvalid(
-        "parameter 'key' got value of type 'str', want 'Callable|None'",
+        "parameter 'key' got value of type 'str', want 'Callable | None'",
         "x: int = min([1, 2, 3], key = 'abc')");
   }
 
@@ -662,14 +662,14 @@ public final class StaticTypeCheckTest {
         """);
 
     assertInvalid(
-        "cannot assign type 'bool' to 'x' of type 'int|str'",
+        "cannot assign type 'bool' to 'x' of type 'int | str'",
         """
         load("dep.bzl", "int_or_str")
         x: int_or_str = False
         """);
 
     assertInvalid(
-        "cannot assign type 'list[str]' to 'x' of type 'list[int]|None'",
+        "cannot assign type 'list[str]' to 'x' of type 'list[int] | None'",
         """
         load("dep.bzl", "optional_list_of")
         x: optional_list_of[int] = ["abc"]

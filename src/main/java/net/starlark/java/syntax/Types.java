@@ -916,7 +916,7 @@ public final class Types {
 
     @Override
     public final String toString() {
-      return getTypes().stream().map(StarlarkType::toString).collect(joining("|"));
+      return getTypes().stream().map(StarlarkType::toString).collect(joining(" | "));
     }
 
     @Override

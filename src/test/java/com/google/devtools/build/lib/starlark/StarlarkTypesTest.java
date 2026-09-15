@@ -587,9 +587,9 @@ public class StarlarkTypesTest extends BuildViewTestCase {
     "{x: select_of_int, op: '+', y: 1.5, result: 'select[float]'}",
     "{x: '\"hello\"', op: '+', y: select_of_str, result: 'select[str]'}",
     "{x: select_of_list_of_str, op: '+', y: select_of_list_of_label, result:"
-        + " 'select[list[str|Label]]'}",
+        + " 'select[list[str | Label]]'}",
     "{x: select_of_dict_of_str, op: '|', y: '{\"y\": Label(\"//foo\")}', "
-        + "result: 'select[dict[str, str|Label]]'}",
+        + "result: 'select[dict[str, str | Label]]'}",
   })
   public void select_validBinaryOperator(String x, String op, String y, String result)
       throws Exception {
