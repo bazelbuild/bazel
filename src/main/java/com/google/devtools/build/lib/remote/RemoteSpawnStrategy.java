@@ -22,12 +22,24 @@ import com.google.devtools.build.lib.exec.SpawnRunner;
  * strategy also support offloading the work to a remote worker.
  */
 final class RemoteSpawnStrategy extends AbstractSpawnStrategy {
-  RemoteSpawnStrategy(SpawnRunner spawnRunner, ExecutionOptions executionOptions) {
+
+  private final RemoteExecutionService remoteExecutionService;
+
+  RemoteSpawnStrategy(
+      RemoteExecutionService remoteExecutionService,
+      SpawnRunner spawnRunner,
+      ExecutionOptions executionOptions) {
     super(spawnRunner, executionOptions);
+    this.remoteExecutionService = remoteExecutionService;
   }
 
   @Override
   public String toString() {
     return "remote";
+  }
+
+  @Override
+  public boolean forceExclusiveIfLocalTestsInParallel() {
+    return remoteExecutionService.forceExclusiveIfLocalTestsInParallel();
   }
 }
