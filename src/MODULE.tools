@@ -55,6 +55,10 @@ bazel_dep(name = "rules_shell", version = "0.6.1")
 # //tools/objc, //tools/osx (including xcode_configure.bzl and its generated repo).
 bazel_dep(name = "apple_support", version = "2.5.2")
 
+# //third_party/ijar (zipper built from source when the execution platform differs
+# from the host).
+bazel_dep(name = "zlib", version = "1.3.1.bcr.5")
+
 winsdk_configure = use_repo_rule("//tools/res:winsdk_configure.bzl", "winsdk_configure")
 
 winsdk_configure(name = "local_config_winsdk")
