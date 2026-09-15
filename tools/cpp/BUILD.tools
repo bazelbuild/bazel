@@ -40,6 +40,14 @@ alias(
     deprecation = "Please use @rules_cc//cc/private/toolchain:link_dynamic_library instead.",
 )
 
+# TODO: Remove this alias once protobuf no longer uses it in compiler-based
+# config_settings.
+alias(
+    name = "compiler",
+    actual = "@rules_cc//cc/private/toolchain:compiler",
+    deprecation = "Please use @rules_cc//cc/private/toolchain:compiler instead.",
+)
+
 cc_library(
     name = "empty_lib",
     tags = ["__DONT_DEPEND_ON_DEF_PARSER__"],
