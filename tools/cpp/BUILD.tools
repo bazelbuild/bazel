@@ -26,33 +26,6 @@ toolchain_type(name = "cc_runtimes_toolchain_type")
 # The toolchain_type used for cc test runners.
 toolchain_type(name = "test_runner_toolchain_type")
 
-# Aliases to @rules_cc
-[
-    alias(
-        name = target,
-        actual = actual,
-        deprecation = "Please use %s instead." % actual,
-    )
-    for target, actual in {
-        "cc_compiler": "@rules_cc//cc/private/toolchain:cc_compiler",
-        "clang": "@rules_cc//cc/private/toolchain:clang",
-        "gcc": "@rules_cc//cc/private/toolchain:gcc",
-        "msvc": "@rules_cc//cc/private/toolchain:msvc",
-        "clang-cl": "@rules_cc//cc/private/toolchain:clang-cl",
-        "mingw": "@rules_cc//cc/private/toolchain:mingw",
-        "msys": "@rules_cc//cc/private/toolchain:msys",
-        "grep-includes": "@rules_cc//cc/private/toolchain:grep-includes",
-        "interface_library_builder": "@rules_cc//cc/private/toolchain:interface_library_builder",
-        "link_dynamic_library": "@rules_cc//cc/private/toolchain:link_dynamic_library",
-        "lib_cc_configure": "@rules_cc//cc/private/toolchain:lib_cc_configure",
-        "compiler": "@rules_cc//cc/private/toolchain:compiler",
-        "cc_flags": "@rules_cc//cc/private/toolchain:cc_flags",
-        "current_cc_toolchain": "@rules_cc//cc:current_cc_toolchain",
-        "optional_current_cc_toolchain": "@rules_cc//cc:optional_current_cc_toolchain",
-        "current_libc_top": "@rules_cc//cc:current_libc_top",
-    }.items()
-]
-
 cc_library(
     name = "empty_lib",
     tags = ["__DONT_DEPEND_ON_DEF_PARSER__"],
