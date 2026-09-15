@@ -304,7 +304,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction
    * Sort the entries in both the normal and root manifests and write the output file.
    *
    * @param out is the message stream to write errors to.
-   * @param output The actual mapping of the output manifest.
+   * @param output The actual mapping of the output manifest, sorted by path
    * @param inputMetadataProvider The input metadata provider if available.
    * @throws IOException
    */
