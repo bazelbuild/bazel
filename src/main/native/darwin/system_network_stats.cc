@@ -40,7 +40,7 @@ Java_com_google_devtools_build_lib_profiler_SystemNetworkStatsServiceImpl_getNet
   size_t buf_len;
   for (;;) {
     if (sysctl(mib, 6, nullptr, &buf_len, nullptr, 0) < 0) {
-      PostException(env, errno, "sysctl");
+      PostNativePosixFilesException(env, errno, "sysctl");
       return;
     }
 
@@ -49,7 +49,7 @@ Java_com_google_devtools_build_lib_profiler_SystemNetworkStatsServiceImpl_getNet
       break;
     }
     if (errno != ENOMEM) {
-      PostException(env, errno, "sysctl");
+      PostNativePosixFilesException(env, errno, "sysctl");
       return;
     }
 
