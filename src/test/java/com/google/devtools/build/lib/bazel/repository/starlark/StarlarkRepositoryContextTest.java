@@ -621,13 +621,56 @@ public final class StarlarkRepositoryContextTest {
   public void testDirectoryListing() throws Exception {
     setUpRepo("test");
     scratch.file("/my/folder/a");
-    scratch.file("/my/folder/b");
-    scratch.file("/my/folder/c");
+    scratch.dir("/my/folder/b");
+    scratch.symlink("/my/folder/c", "a");
+    scratch.symlink("/my/folder/d", "b");
+    scratch.symlink("/my/folder/e", "nothing"); // dangling symlink
+    scratch.symlink("/my/folder/f", "f"); // looping symlink
+
     assertThat(context.getPath("/my/folder").readdir("no"))
         .containsExactly(
             context.getPath("/my/folder/a"),
             context.getPath("/my/folder/b"),
-            context.getPath("/my/folder/c"));
+            context.getPath("/my/folder/c"),
+            context.getPath("/my/folder/d"),
+            context.getPath("/my/folder/e"),
+            context.getPath("/my/folder/f"));
+  }
+
+  @Test
+  public void testExists() throws Exception {
+    setUpRepo("test");
+    scratch.file("/my/folder/a");
+    scratch.dir("/my/folder/b");
+    scratch.symlink("/my/folder/c", "a");
+    scratch.symlink("/my/folder/d", "b");
+    scratch.symlink("/my/folder/e", "nothing"); // dangling symlink
+    scratch.symlink("/my/folder/f", "f"); // looping symlink
+
+    assertThat(context.getPath("/my/folder/a").exists()).isTrue();
+    assertThat(context.getPath("/my/folder/b").exists()).isTrue();
+    assertThat(context.getPath("/my/folder/c").exists()).isTrue();
+    assertThat(context.getPath("/my/folder/d").exists()).isTrue();
+    assertThat(context.getPath("/my/folder/e").exists()).isFalse();
+    assertThat(context.getPath("/my/folder/f").exists()).isFalse();
+  }
+
+  @Test
+  public void testIsDir() throws Exception {
+    setUpRepo("test");
+    scratch.file("/my/folder/a");
+    scratch.dir("/my/folder/b");
+    scratch.symlink("/my/folder/c", "a");
+    scratch.symlink("/my/folder/d", "b");
+    scratch.symlink("/my/folder/e", "nothing"); // dangling symlink
+    scratch.symlink("/my/folder/f", "f"); // looping symlink
+
+    assertThat(context.getPath("/my/folder/a").isDir()).isFalse();
+    assertThat(context.getPath("/my/folder/b").isDir()).isTrue();
+    assertThat(context.getPath("/my/folder/c").isDir()).isFalse();
+    assertThat(context.getPath("/my/folder/d").isDir()).isTrue();
+    assertThat(context.getPath("/my/folder/e").isDir()).isFalse();
+    assertThat(context.getPath("/my/folder/f").isDir()).isFalse();
   }
 
   @Test
