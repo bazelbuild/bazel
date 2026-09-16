@@ -103,10 +103,6 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     return createAction(ManifestType.SOURCE_SYMLINKS, true);
   }
 
-  private SourceManifestAction createSourceOnlyAction() {
-    return createAction(ManifestType.SOURCES_ONLY, true);
-  }
-
   private SourceManifestAction createAction(ManifestType type, boolean addInitPy) {
     Runfiles.Builder builder = new Runfiles.Builder("TESTING");
     builder.addSymlinks(fakeManifest);
@@ -193,22 +189,6 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
   }
 
   /**
-   * Tests that the source-only formatting strategy includes relative paths only
-   * (i.e. not symlinks).
-   */
-  @Test
-  public void testSourceOnlyFormatting() throws Exception {
-    String manifestContents = createSourceOnlyAction().getFileContents(reporter);
-    assertThat(manifestContents)
-        .isEqualTo(
-            """
-            TESTING/trivial/BUILD
-            TESTING/trivial/__init__.py
-            TESTING/trivial/trivial.py
-            """);
-  }
-
-  /**
    * Test that a directory which has only a .so file in the manifest triggers
    * the inclusion of a __init__.py file for that directory.
    */
@@ -241,7 +221,6 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     assertThat(createSymlinkAction().getMnemonic()).isEqualTo("SourceSymlinkManifest");
     assertThat(createAction(ManifestType.SOURCE_SYMLINKS, false).getMnemonic())
         .isEqualTo("SourceSymlinkManifest");
-    assertThat(createSourceOnlyAction().getMnemonic()).isEqualTo("PackagingSourcesManifest");
   }
 
   @Test
@@ -255,20 +234,6 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
   @Test
   public void testSymlinkProgressMessageNoPyInitFiles() {
     String progress = createAction(ManifestType.SOURCE_SYMLINKS, false).getProgressMessage();
-    assertWithMessage("null action not found in %s", progress)
-        .that(progress.contains("//null/action:owner"))
-        .isTrue();
-  }
-
-  @Test
-  public void testSourceOnlyProgressMessage() {
-    SourceManifestAction action =
-        new SourceManifestAction(
-            ManifestType.SOURCES_ONLY,
-            NULL_ACTION_OWNER,
-            getBinArtifactWithNoOwner("trivial.runfiles_manifest"),
-            Runfiles.EMPTY);
-    String progress = action.getProgressMessage();
     assertWithMessage("null action not found in %s", progress)
         .that(progress.contains("//null/action:owner"))
         .isTrue();

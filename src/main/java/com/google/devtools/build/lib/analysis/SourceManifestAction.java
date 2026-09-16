@@ -450,49 +450,6 @@ public final class SourceManifestAction extends AbstractFileWriteAction
       public boolean emitsAbsolutePaths() {
         return true;
       }
-    },
-
-    /**
-     * Writes each line as:
-     *
-     * <p>[rootRelativePath]
-     *
-     * <p>This strategy is suitable for an input into a packaging system (notably .par) that
-     * consumes a list of all source files but needs that list to be constant with respect to how
-     * the user has their client laid out on local disk.
-     */
-    SOURCES_ONLY {
-      @Override
-      public void writeEntry(
-          Writer manifestWriter,
-          PathFragment rootRelativePath,
-          @Nullable PathFragment symlinkTarget)
-          throws IOException {
-        manifestWriter.append(rootRelativePath.getPathString());
-        manifestWriter.append('\n');
-        manifestWriter.flush();
-      }
-
-      @Override
-      public String getMnemonic() {
-        return "PackagingSourcesManifest";
-      }
-
-      @Override
-      public String getRawProgressMessage() {
-        return "Creating file sources list";
-      }
-
-      @Override
-      public boolean isRemotable() {
-        // Source-only symlink manifest has root-relative paths and does not include absolute paths.
-        return true;
-      }
-
-      @Override
-      public boolean emitsAbsolutePaths() {
-        return false;
-      }
     }
   }
 }
