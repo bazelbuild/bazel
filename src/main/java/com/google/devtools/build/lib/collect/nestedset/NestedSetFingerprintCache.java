@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.HashMultiset;
+import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.collect.nestedset.DigestDeduper.DigestReference;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,11 +32,18 @@ import javax.annotation.Nullable;
 public class NestedSetFingerprintCache {
   private static final int EMPTY_SET_DIGEST = 104_395_303;
 
-  /** Memoize the subresults. We have to have one cache per type of command item map function. */
-  private Map<CommandLineItem.MapFn<?>, DigestMap> mapFnToDigestMap = createMap();
+  /**
+   * Memoize the subresults. We have to have one cache per type of command item map function.
+   *
+   * <p>Volatile because {@link #clear} replaces the map wholesale.
+   */
+  private volatile Map<CommandLineItem.MapFn<?>, DigestMap> mapFnToDigestMap = createMap();
 
-  private final Set<Class<?>> seenMapFns = new HashSet<>();
-  private final Multiset<Class<?>> seenParametrizedMapFns = HashMultiset.create();
+  // These are mutated from newDigestMap, which runs inside ConcurrentHashMap#computeIfAbsent.
+  // That only locks the bin belonging to the key being computed, so two threads inserting
+  // different mapFns run newDigestMap concurrently and must not race on this shared bookkeeping.
+  private final Set<Class<?>> seenMapFns = ConcurrentHashMap.newKeySet();
+  private final Multiset<Class<?>> seenParametrizedMapFns = ConcurrentHashMultiset.create();
 
   public <T> void addNestedSetToFingerprint(Fingerprint fingerprint, NestedSet<T> nestedSet)
       throws CommandLineExpansionException, InterruptedException {
