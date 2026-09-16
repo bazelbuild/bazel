@@ -347,11 +347,10 @@ public abstract sealed class NestedSet<E> {
   }
 
   /**
-   * Private implementation of getChildren that will propagate an InterruptedException from a future
-   * in the nested set based on the value of {@code interruptStrategy}.
+   * Package-private implementation of getChildren that will propagate an InterruptedException from
+   * a future in the nested set based on the value of {@code interruptStrategy}.
    */
-  private Object getChildrenInternal(InterruptStrategy interruptStrategy)
-      throws InterruptedException {
+  Object getChildrenInternal(InterruptStrategy interruptStrategy) throws InterruptedException {
     return switch (interruptStrategy) {
       case CRASH -> getChildrenUninterruptibly();
       case PROPAGATE -> getChildrenInterruptibly();

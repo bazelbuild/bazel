@@ -194,6 +194,7 @@ java_test(
         "//third_party/java/guava:concurrent",
         "//third_party/java/guava:testing",
         "//third_party/java/junit",
+        "//third_party/java/protobuf:protobuf_lite",
         "//third_party/java/truth",
     ],
 )
