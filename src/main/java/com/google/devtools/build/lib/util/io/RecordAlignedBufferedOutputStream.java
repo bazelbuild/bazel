@@ -32,13 +32,13 @@ import java.util.Arrays;
  * disk in the event of an abrupt exit. It isn't completely safe since partial underlying writes are
  * still possible, but experiments suggest that they're very unlikely for small buffer sizes.
  */
-public final class RecordOutputStream extends OutputStream {
+public final class RecordAlignedBufferedOutputStream extends OutputStream {
   private final OutputStream out;
   private byte[] buf = new byte[4096];
   private int writeOff = 0;
   private int flushOff = 0;
 
-  public RecordOutputStream(OutputStream out) {
+  public RecordAlignedBufferedOutputStream(OutputStream out) {
     this.out = out;
   }
 

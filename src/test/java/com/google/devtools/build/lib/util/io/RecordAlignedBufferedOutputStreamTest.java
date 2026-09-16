@@ -21,20 +21,22 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link RecordOutputStream}. */
+/** Tests for {@link RecordAlignedBufferedOutputStream}. */
 @RunWith(JUnit4.class)
-public final class RecordOutputStreamTest {
+public final class RecordAlignedBufferedOutputStreamTest {
   @Test
   public void empty() throws IOException {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    try (RecordOutputStream recordOut = new RecordOutputStream(baos)) {}
+    try (RecordAlignedBufferedOutputStream recordOut =
+        new RecordAlignedBufferedOutputStream(baos)) {}
     assertThat(baos.toByteArray()).isEmpty();
   }
 
   @Test
   public void write_singleRecord() throws IOException {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    try (RecordOutputStream recordOut = new RecordOutputStream(baos)) {
+    try (RecordAlignedBufferedOutputStream recordOut =
+        new RecordAlignedBufferedOutputStream(baos)) {
       recordOut.write(new byte[] {0x12, 0x34, 0x56});
       recordOut.finishRecord();
     }
@@ -44,7 +46,8 @@ public final class RecordOutputStreamTest {
   @Test
   public void write_multipleRecords() throws IOException {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    try (RecordOutputStream recordOut = new RecordOutputStream(baos)) {
+    try (RecordAlignedBufferedOutputStream recordOut =
+        new RecordAlignedBufferedOutputStream(baos)) {
       recordOut.write(new byte[] {0x12, 0x34, 0x56});
       recordOut.finishRecord();
       recordOut.write(new byte[] {0x21, 0x43, 0x65});
@@ -60,7 +63,8 @@ public final class RecordOutputStreamTest {
       record[i] = (byte) i;
     }
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    try (RecordOutputStream recordOut = new RecordOutputStream(baos)) {
+    try (RecordAlignedBufferedOutputStream recordOut =
+        new RecordAlignedBufferedOutputStream(baos)) {
       recordOut.write(record);
       recordOut.finishRecord();
     }
@@ -74,7 +78,8 @@ public final class RecordOutputStreamTest {
       record[i] = (byte) i;
     }
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    try (RecordOutputStream recordOut = new RecordOutputStream(baos)) {
+    try (RecordAlignedBufferedOutputStream recordOut =
+        new RecordAlignedBufferedOutputStream(baos)) {
       for (int i = 0; i < record.length; i++) {
         recordOut.write(record[i]);
       }
@@ -86,7 +91,8 @@ public final class RecordOutputStreamTest {
   @Test
   public void flush_onlyCompleteRecords() throws IOException {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    try (RecordOutputStream recordOut = new RecordOutputStream(baos)) {
+    try (RecordAlignedBufferedOutputStream recordOut =
+        new RecordAlignedBufferedOutputStream(baos)) {
       recordOut.write(new byte[] {0x12, 0x34});
       recordOut.finishRecord();
       recordOut.write(new byte[] {0x56, 0x78});
@@ -102,7 +108,8 @@ public final class RecordOutputStreamTest {
   @Test
   public void close_onlyCompleteRecords() throws IOException {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    try (RecordOutputStream recordOut = new RecordOutputStream(baos)) {
+    try (RecordAlignedBufferedOutputStream recordOut =
+        new RecordAlignedBufferedOutputStream(baos)) {
       recordOut.write(new byte[] {0x21, 0x34});
       recordOut.finishRecord();
       recordOut.write(new byte[] {0x56, 0x78});
