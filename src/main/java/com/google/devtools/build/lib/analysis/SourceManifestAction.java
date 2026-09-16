@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.escape.CharEscaperBuilder;
 import com.google.common.escape.Escaper;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -52,6 +54,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
@@ -224,12 +227,14 @@ public final class SourceManifestAction extends AbstractFileWriteAction
 
   @VisibleForTesting
   public void writeTo(OutputStream out, @Nullable EventHandler eventHandler) throws IOException {
-    writeFile(
-        out,
+    SortedMap<PathFragment, Artifact> runfilesInputs =
         runfiles.getRunfilesInputs(
             repoMappingManifest,
-            preferTargetConfigurationRunfiles ? getPrimaryOutput().getRoot() : null),
-        /* inputMetadataProvider= */ null);
+            preferTargetConfigurationRunfiles ? getPrimaryOutput().getRoot() : null);
+    writeFile(
+        out,
+        runfilesInputs,
+        resolveSymlinkTargets(runfilesInputs, /* inputMetadataProvider= */ null));
   }
 
   /**
@@ -292,10 +297,47 @@ public final class SourceManifestAction extends AbstractFileWriteAction
               .build();
       throw new UserExecException(failureDetail);
     }
-    // A lazy file write may retain this writer after execution. Keep only the input metadata,
-    // rather than the entire execution context.
-    InputMetadataProvider inputMetadataProvider = ctx.getInputMetadataProvider();
-    return out -> writeFile(out, runfilesInputs, inputMetadataProvider);
+    // A lazy file write may retain this writer after execution. Resolve symlink targets now so
+    // that it doesn't retain the input metadata provider.
+    ImmutableMap<Artifact, PathFragment> symlinkTargets;
+    try {
+      symlinkTargets = resolveSymlinkTargets(runfilesInputs, ctx.getInputMetadataProvider());
+    } catch (IOException e) {
+      throw new EnvironmentalExecException(
+          e, FailureDetails.Execution.Code.FILE_WRITE_IO_EXCEPTION);
+    }
+    return out -> writeFile(out, runfilesInputs, symlinkTargets);
+  }
+
+  /**
+   * Resolves the targets of all symlink artifacts among the given runfiles.
+   *
+   * @param inputMetadataProvider the input metadata provider, or null to read the symlinks from
+   *     the file system instead
+   */
+  private static ImmutableMap<Artifact, PathFragment> resolveSymlinkTargets(
+      Map<PathFragment, Artifact> runfilesInputs,
+      @Nullable InputMetadataProvider inputMetadataProvider)
+      throws IOException {
+    Map<Artifact, PathFragment> symlinkTargets = new HashMap<>();
+    for (Artifact artifact : runfilesInputs.values()) {
+      if (artifact == null || !artifact.isSymlink() || symlinkTargets.containsKey(artifact)) {
+        continue;
+      }
+      PathFragment symlinkTarget;
+      if (inputMetadataProvider != null) {
+        FileArtifactValue metadata =
+            checkNotNull(
+                inputMetadataProvider.getInputMetadata(artifact),
+                "missing metadata for %s",
+                artifact);
+        symlinkTarget = PathFragment.createAlreadyNormalized(metadata.getUnresolvedSymlinkTarget());
+      } else {
+        symlinkTarget = artifact.getPath().readSymbolicLink();
+      }
+      symlinkTargets.put(artifact, symlinkTarget);
+    }
+    return ImmutableMap.copyOf(symlinkTargets);
   }
 
   @Override
@@ -308,13 +350,13 @@ public final class SourceManifestAction extends AbstractFileWriteAction
    *
    * @param out is the message stream to write errors to.
    * @param output The actual mapping of the output manifest, sorted by path
-   * @param inputMetadataProvider The input metadata provider if available.
+   * @param symlinkTargets The targets of all symlink artifacts in the output.
    * @throws IOException
    */
   private void writeFile(
       OutputStream out,
       SortedMap<PathFragment, Artifact> output,
-      @Nullable InputMetadataProvider inputMetadataProvider)
+      ImmutableMap<Artifact, PathFragment> symlinkTargets)
       throws IOException {
     Writer manifestFile = new BufferedWriter(new OutputStreamWriter(out, ISO_8859_1));
     for (Map.Entry<PathFragment, Artifact> line : output.entrySet()) {
@@ -323,17 +365,8 @@ public final class SourceManifestAction extends AbstractFileWriteAction
       if (artifact == null) {
         symlinkTarget = null;
       } else if (artifact.isSymlink()) {
-        if (inputMetadataProvider != null) {
-          FileArtifactValue metadata =
-              checkNotNull(
-                  inputMetadataProvider.getInputMetadata(artifact),
-                  "missing metadata for %s",
-                  artifact);
-          symlinkTarget =
-              PathFragment.createAlreadyNormalized(metadata.getUnresolvedSymlinkTarget());
-        } else {
-          symlinkTarget = artifact.getPath().readSymbolicLink();
-        }
+        symlinkTarget =
+            checkNotNull(symlinkTargets.get(artifact), "missing symlink target for %s", artifact);
       } else {
         symlinkTarget = artifact.getPath().asFragment();
       }

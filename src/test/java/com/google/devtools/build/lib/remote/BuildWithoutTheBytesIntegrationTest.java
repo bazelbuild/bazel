@@ -96,16 +96,14 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
-  public void lazyFileWrite_switchToLocalBuild_materializesOutput(
-      @TestParameter({"expand_template", "write_file"}) String fileWriteRule) throws Exception {
+  public void lazyFileWrite_switchToLocalBuild_materializesOutput() throws Exception {
     writeFileWriteRules();
     write(
         "BUILD",
         """
-        load('//rules:%1$s.bzl', '%1$s')
-        %1$s(name = 'foo', content = 'hello')
-        """
-            .formatted(fileWriteRule));
+        load('//rules:write_file.bzl', 'write_file')
+        write_file(name = 'foo', content = 'hello')
+        """);
     addOptions("--file_write_strategy=lazy");
     buildTarget("//:foo");
     assertOutputsDoNotExist("//:foo");
@@ -250,8 +248,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
             username = "buchgr",
         )
         """);
-
-    addOptions("--file_write_strategy=eager");
 
     buildTarget("//a:substitute-buchgr");
 

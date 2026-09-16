@@ -1346,7 +1346,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     addOptions("--file_write_strategy=" + fileWriteStrategy);
 
     buildTarget("//:gen");
-    if (fileWriteStrategy == FileWriteStrategy.LAZY) {
+    // Template expansions are always written eagerly.
+    if (fileWriteStrategy == FileWriteStrategy.LAZY && fileWriteRule.equals("write_file")) {
       assertOutputsDoNotExist("//:foo");
     } else {
       assertValidOutputFile("foo", "hello");
@@ -1834,8 +1835,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void incrementalBuild_writeFileOutputIsPrefetched_noRuns(
-      @TestParameter({"expand_template", "write_file"}) String fileWriteRule) throws Exception {
+  public void incrementalBuild_writeFileOutputIsPrefetched_noRuns() throws Exception {
     // We need to download the intermediate output
     if (!hasAccessToRemoteOutputs()) {
       return;
@@ -1846,8 +1846,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     write(
         "BUILD",
         """
-        load('//rules:%1$s.bzl', '%1$s')
-        %1$s(
+        load('//rules:write_file.bzl', 'write_file')
+        write_file(
           name = 'foo',
           content = 'foo',
           executable = True,
@@ -1859,8 +1859,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
           cmd = 'cat $(location :foo) > $@ && echo bar >> $@',
           tags = ['no-remote'],
         )
-        """
-            .formatted(fileWriteRule));
+        """);
 
     addOptions("--file_write_strategy=lazy");
 

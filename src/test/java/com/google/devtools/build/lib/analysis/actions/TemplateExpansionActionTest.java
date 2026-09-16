@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_AC
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
@@ -30,7 +29,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -38,7 +36,6 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -46,11 +43,9 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
-import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 import net.starlark.java.eval.EvalException;
 import org.junit.Before;
 import org.junit.Test;
@@ -255,41 +250,6 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
         expected,
         ImmutableList.of(
             Substitution.of("%key%", StringEncoding.unicodeToInternal(SPECIAL_CHARS))));
-  }
-
-  @Test
-  public void retainedWriterSnapshotsTemplateContents() throws Exception {
-    AtomicReference<DeterministicWriter> retainedWriter = new AtomicReference<>();
-    FileWriteActionContext fileWriteContext =
-        new FileWriteActionContext() {
-          @Override
-          public boolean mayRetainWriter() {
-            return true;
-          }
-
-          @Override
-          public ImmutableList<SpawnResult> writeOutputToFile(
-              AbstractAction action,
-              ActionExecutionContext context,
-              DeterministicWriter writer,
-              boolean makeExecutable,
-              boolean isRemotable,
-              Artifact output) {
-            retainedWriter.set(writer);
-            return ImmutableList.of();
-          }
-        };
-    Executor executor =
-        new TestExecutorBuilder(fileSystem, directories)
-            .addContext(FileWriteActionContext.class, fileWriteContext)
-            .build();
-    var unused = createWithArtifact().execute(createContext(executor));
-    FileSystemUtils.writeContentAsLatin1(inputArtifact.getPath(), "changed template");
-    for (int i = 0; i < 2; i++) {
-      ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-      retainedWriter.get().writeTo(bytes);
-      assertThat(bytes.toString(StandardCharsets.UTF_8)).isEqualTo("key=foo\nvalue=bar\n");
-    }
   }
 
   private String computeKey(TemplateExpansionAction action)

@@ -43,8 +43,11 @@ public final class LazyFileWriteStrategy extends EagerFileWriteStrategy {
       boolean isRemotable,
       Artifact output)
       throws ExecException {
-    // Volatile file writes may read changing inputs, so their writers cannot be retained for
-    // later materialization (for example, Python's CopyWithoutCachingAction).
+    // Non-remotable file writes are always consumed locally and, for now, also opt out of lazy
+    // writes when their writers would retain too much state (see
+    // AbstractFileWriteAction#isRemotable). Volatile file writes may read changing inputs, so their
+    // writers cannot be retained for later materialization (for example, Python's
+    // CopyWithoutCachingAction).
     if (!isRemotable
         || action.isVolatile()
         || actionExecutionContext.getActionFileSystem() == null) {
@@ -73,10 +76,5 @@ public final class LazyFileWriteStrategy extends EagerFileWriteStrategy {
       }
     }
     return ImmutableList.of();
-  }
-
-  @Override
-  public boolean mayRetainWriter() {
-    return true;
   }
 }
