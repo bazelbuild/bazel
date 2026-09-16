@@ -4,7 +4,7 @@
 
 module(name = "bazel_tools")
 
-bazel_dep(name = "bazel_skylib", version = "1.8.2")
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
 bazel_dep(name = "buildozer", version = "10.0.1")
 bazel_dep(name = "platforms", version = "1.0.0")
 
