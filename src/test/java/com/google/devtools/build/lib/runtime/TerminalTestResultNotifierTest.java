@@ -661,6 +661,19 @@ public final class TerminalTestResultNotifierTest {
     assertThat(options.getTerminalHyperlinks()).isEqualTo(TriState.AUTO);
     assertThat(options.useHyperlinks()).isFalse();
 
+    options.setUseColorEnum(UiOptions.UseColor.YES);
+    options.setIsATty(false);
+    assertThat(options.useHyperlinks()).isFalse();
+
+    options.setIsATty(true);
+    assertThat(options.useHyperlinks()).isTrue();
+
+    options.setUseColorEnum(UiOptions.UseColor.AUTO);
+    assertThat(options.useHyperlinks()).isTrue();
+
+    options.setUseColorEnum(UiOptions.UseColor.NO);
+    assertThat(options.useHyperlinks()).isFalse();
+
     options.setTerminalHyperlinks(TriState.YES);
     assertThat(options.useHyperlinks()).isTrue();
 
