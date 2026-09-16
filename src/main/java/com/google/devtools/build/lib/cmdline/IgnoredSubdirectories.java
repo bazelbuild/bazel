@@ -202,6 +202,16 @@ public final class IgnoredSubdirectories {
       }
     }
 
+    for (PathFragment exclusion : traversalExclusions) {
+      if (!exclusion.startsWith(directory)) {
+        return false;
+      }
+
+      if (exclusion.equals(directory)) {
+        return false;
+      }
+    }
+
     return true;
   }
 

@@ -137,6 +137,19 @@ public class IgnoredSubdirectoriesTest {
   }
 
   @Test
+  public void allPathsAreUnderConsidersTraversalExclusions() throws Exception {
+    IgnoredSubdirectories ignored =
+        IgnoredSubdirectories.of(prefixes(), patterns(), prefixes("bar/qux"));
+
+    assertThat(ignored.allPathsAreUnder(PathFragment.create("bar"))).isTrue();
+    // The exclusion is not strictly beneath "bar/qux", so it must not be reported as being under
+    // it: neither an unrelated directory ...
+    assertThat(ignored.allPathsAreUnder(PathFragment.create("other"))).isFalse();
+    // ... nor the excluded directory itself, mirroring the prefixes() equality check above.
+    assertThat(ignored.allPathsAreUnder(PathFragment.create("bar/qux"))).isFalse();
+  }
+
+  @Test
   public void traversalExclusionsOnlyMatchForTraversal() throws Exception {
     IgnoredSubdirectories ignored =
         IgnoredSubdirectories.of(prefixes("pre"), patterns("pat/*"), prefixes("foo"));
