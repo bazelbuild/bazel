@@ -169,6 +169,8 @@ def _impl(repository_ctx):
         executable = False,
     )
 
+    return repository_ctx.repo_metadata(reproducible = False)
+
 winsdk_configure = repository_rule(
     implementation = _impl,
     local = True,
