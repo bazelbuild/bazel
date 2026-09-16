@@ -97,15 +97,16 @@ public final class SkyframeErrorProcessor {
    * com.google.devtools.build.lib.analysis.BuildView#createAnalysisFailureDetail}.
    *
    * @param hasLoadingError whether there are loading errors.
-   * @param hasAnalysisError whether there are analysis errors.
+   * @param hasAnalysisError whether there are any non-execution errors. Note that this includes
+   *     loading errors and action conflicts.
    * @param actionConflicts the action conflicts encountered during analysis.
    * @param executionDetailedExitCode the detailed exit code for execution errors. This is
    *     <ul>
    *       <li>{@code null}, if {@code result} had no errors or the errors were all analysis errors.
-   *       <li>{@code e} if result had errors and one of them specified a {@link DetailedExitCode}
-   *           value {@code e}
-   *       <li>a {@link DetailedExitCode} with {@link Execution.Code#NON_ACTION_EXECUTION_FAILURE}
-   *           if result had errors but none specified a {@link DetailedExitCode} value
+   *       <li>the most important {@link DetailedExitCode} among the execution errors that specified
+   *           one, ranked by {@link DetailedExitCodeComparator}
+   *       <li>a {@link DetailedExitCode} with {@link Execution.Code#UNEXPECTED_EXCEPTION} if an
+   *           execution error specified no {@link DetailedExitCode} at all
    *     </ul>
    *
    * @param aspectKeysForConflictReporting the aspect keys for conflict reporting.
@@ -256,12 +257,10 @@ public final class SkyframeErrorProcessor {
    *       information.
    * </ul>
    *
-   * <p>Visible only for use by tests via {@link
-   * SkyframeExecutor#getConfiguredTargetMapForTesting(ExtendedEventHandler,
-   * BuildConfigurationValue, Iterable)}. When called there, {@code eventBus} must be null to
-   * indicate that this is a test, and so there may be additional {@link SkyKey}s in the {@code
-   * result} that are not {@link AspectKeyCreator}s or {@link ConfiguredTargetKey}s. Those keys will
-   * be ignored.
+   * <p>A null {@code eventBus} indicates that this is a {@code BuildViewTestCase}. Such tests don't
+   * parse target patterns before requesting analysis, so the {@code result} may contain {@link
+   * SkyKey}s that are neither {@link AspectBaseKey}s nor {@link ConfiguredTargetKey}s, which cannot
+   * happen in production. Those keys are reported to the event handler and otherwise ignored.
    *
    * @throws ViewCreationFailedException when the root cause is analysis-related.
    * @throws BuildFailedException when the root cause is execution-related.
@@ -311,7 +310,7 @@ public final class SkyframeErrorProcessor {
       Preconditions.checkState(
           nullableCause != null || !errorInfo.getCycleInfo().isEmpty(), errorInfo);
 
-      // TODO(b/249690006): Can we remove this divergence?
+      // TODO(b/561978611): Can we remove this divergence?
       if (inBuildViewTest && !isValidErrorKeyType(errorKey)) {
         // This means that we are in a BuildViewTestCase.
         //
@@ -371,11 +370,12 @@ public final class SkyframeErrorProcessor {
     return aggregatingResultBuilder.build();
   }
 
-  /*
-   * Post the relevant failure events if we're not in test.
+  /**
+   * Posts the failure events for a single error, which must not be an action conflict.
    *
-   * <p>There is 1 exception: for aspects, the failures should already have been reported to the
-   * event handler, so we do nothing here.
+   * <p>A {@link TopLevelAspectsKey} does get an {@link AnalysisFailureEvent}, attributed to its
+   * base configured target, but with no root causes (see {@link #processIndividualError}). A bare
+   * aspect key, and any key type other than {@link ConfiguredTargetKey}, gets nothing.
    */
   private static void maybePostFailureEventsForNonConflictError(
       ExtendedEventHandler eventHandler,
@@ -393,7 +393,8 @@ public final class SkyframeErrorProcessor {
     }
 
     Preconditions.checkNotNull(eventBus);
-    // Top-level aspect failures may be the only processed error in nokeep_going Skymeld.
+    // AnalysisFailureEvent.whileAnalyzingTarget can only name a configured target, so a failing
+    // aspect is reported against the configured target it was applied to.
     if (errorKey instanceof TopLevelAspectsKey topLevelAspectsKey) {
       if (individualErrorProcessingResult.isAnalysisError()) {
         eventBus.post(
@@ -489,10 +490,11 @@ public final class SkyframeErrorProcessor {
     DetailedExitCode executionDetailedExitCode = null;
     ActionLookupKey aspectKeyForConflictReporting = null;
 
-    // Legacy: analysis-related failure events for Aspects are sent somewhere else, so we don't have
-    // to do any work related to constructing the analysis failure events here, only for the other
-    // cases like action conflict or execution-related errors.
-    // TODO(b/249690006): Can we simplify things by moving aspects events here?
+    // Aspect errors discard their root causes. An AnalysisFailureEvent is still posted for a
+    // TopLevelAspectsKey (see maybePostFailureEventsForNonConflictError), but with an empty cause
+    // set, even though e.g. AspectCreationException#getCauses would supply real ones. A bare
+    // AspectKey gets no event at all.
+    // TODO(b/561978611): Populate the root causes and treat aspect keys like any other key.
     if (errorKey instanceof AspectBaseKey) {
       if (exception instanceof TopLevelConflictException tlce) {
         actionConflicts = tlce.getTransitiveActionConflicts();
