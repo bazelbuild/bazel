@@ -56,7 +56,7 @@ public class ForkJoinQuiescingExecutorTest {
 
       // Confirm only one thing (the first task) was submitted via execute, the other should have
       // gone through the ForkJoinTask#fork() machinery.
-      verify(forkJoinPool, times(1)).execute(any(Runnable.class));
+      verify(forkJoinPool, times(1)).execute(any(ForkJoinTask.class));
     } finally {
       // Avoid leaving dangling threads.
       forkJoinPool.shutdownNow();

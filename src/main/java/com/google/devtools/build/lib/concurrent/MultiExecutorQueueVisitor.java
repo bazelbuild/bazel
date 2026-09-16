@@ -46,7 +46,7 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
 
   @GuardedBy("this")
   @Nullable
-  private List<Runnable> queuedPendingGoAhead;
+  private List<QuiescingTask> queuedPendingGoAhead;
 
   private MultiExecutorQueueVisitor(
       ExecutorService regularPoolExecutorService,
@@ -99,15 +99,7 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
   @Override
   public void execute(
       Runnable runnable, ThreadPoolType threadPoolType, boolean shouldStallAwaitingSignal) {
-    if (shouldStallAwaitingSignal && !executionPhaseTasksGoAhead) {
-      synchronized (this) {
-        if (!executionPhaseTasksGoAhead) {
-          Preconditions.checkNotNull(queuedPendingGoAhead).add(runnable);
-          return;
-        }
-      }
-    }
-    super.executeWithExecutorService(runnable, getExecutorServiceByThreadPoolType(threadPoolType));
+    execute(wrapRunnable(runnable), threadPoolType, shouldStallAwaitingSignal);
   }
 
   @Override
@@ -166,15 +158,8 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
   public void launchQueuedUpExecutionPhaseTasks() {
     synchronized (this) {
       executionPhaseTasksGoAhead = true;
-      for (Runnable runnable : Preconditions.checkNotNull(queuedPendingGoAhead)) {
-        if (runnable instanceof QuiescingTask quiescingTask) {
-          execute(
-              quiescingTask,
-              ThreadPoolType.EXECUTION_PHASE,
-              /* shouldStallAwaitingSignal= */ false);
-        } else {
-          execute(runnable, ThreadPoolType.EXECUTION_PHASE, /* shouldStallAwaitingSignal= */ false);
-        }
+      for (QuiescingTask task : Preconditions.checkNotNull(queuedPendingGoAhead)) {
+        execute(task, ThreadPoolType.EXECUTION_PHASE, /* shouldStallAwaitingSignal= */ false);
       }
       queuedPendingGoAhead = null;
     }
