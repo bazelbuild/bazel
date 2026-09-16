@@ -56,7 +56,7 @@ public final class RepoFileGlobals {
   public void ignoreDirectories(Iterable<?> dirsUnchecked, StarlarkThread thread)
       throws EvalException {
     Sequence<String> dirs = Sequence.cast(dirsUnchecked, String.class, "dirs");
-    RepoThreadContext context = RepoThreadContext.fromOrFail(thread, "repo()");
+    RepoThreadContext context = RepoThreadContext.fromOrFail(thread, "ignore_directories()");
 
     if (context.isIgnoredDirectoriesSet()) {
       throw new EvalException("'ignored_directories()' can only be called once");
@@ -87,7 +87,8 @@ public final class RepoFileGlobals {
   public void traversalIgnoreDirectories(Iterable<?> dirsUnchecked, StarlarkThread thread)
       throws EvalException {
     Sequence<String> dirs = Sequence.cast(dirsUnchecked, String.class, "dirs");
-    RepoThreadContext context = RepoThreadContext.fromOrFail(thread, "repo()");
+    RepoThreadContext context =
+        RepoThreadContext.fromOrFail(thread, "traversal_ignore_directories()");
 
     if (context.isTraversalIgnoreDirectoriesSet()) {
       throw new EvalException("'traversal_ignore_directories()' can only be called once");
