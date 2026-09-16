@@ -235,8 +235,10 @@ public abstract class ModOptions extends OptionsBase {
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.TERMINAL_OUTPUT},
       help =
           "For mod tidy: print a unified diff of the changes to MODULE.bazel and included module"
-              + " files without modifying them. Exit with code 1 if any changes are needed,"
-              + " including formatting changes.")
+              + " files, and report whether MODULE.bazel.lock would change under the selected"
+              + " --lockfile_mode, without modifying these files. Exit with code 1 if any changes"
+              + " are needed, including formatting changes. Lockfile changes are reported without"
+              + " a diff. Use --lockfile_mode=update (the default) to check additions and pruning.")
   public abstract boolean getDiff();
 
   public abstract void setDiff(boolean value);

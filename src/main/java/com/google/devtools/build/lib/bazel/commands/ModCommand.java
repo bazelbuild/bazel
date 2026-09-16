@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileModule;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModTidyValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
@@ -239,6 +240,12 @@ public final class ModCommand implements BlazeCommand {
       return reportAndCreateFailureResult(env, errorMessage, Code.MOD_COMMAND_UNKNOWN);
     }
     List<String> args = options.getResidue().subList(1, options.getResidue().size());
+
+    if (subcommand == ModSubcommand.TIDY && modOptions.getDiff()) {
+      // Set this before evaluation: the after-command hook also runs on failures.
+      Preconditions.checkNotNull(env.getRuntime().getBlazeModule(BazelLockFileModule.class))
+          .setWorkspaceLockfileReadOnly();
+    }
 
     // Validate and parse args as early as possible, so we don't have to
     // wait for Skyframe evaluations to happen before failing due to a simple error.
@@ -710,7 +717,15 @@ public final class ModCommand implements BlazeCommand {
       buildozerInputs.put(moduleFilePath, input.toString());
     }
 
-    boolean needsTidy = false;
+    boolean needsTidy =
+        diff
+            && Preconditions.checkNotNull(
+                    env.getRuntime().getBlazeModule(BazelLockFileModule.class))
+                .workspaceLockfileNeedsUpdate();
+    if (needsTidy) {
+      env.getReporter()
+          .handle(Event.info("MODULE.bazel.lock would change. Run 'bazel mod tidy' to update it."));
+    }
     try {
       if (diff) {
         // Buildozer's stdout has no file boundaries, so preview each file separately.
@@ -756,7 +771,7 @@ public final class ModCommand implements BlazeCommand {
     if (needsTidy && modTidyValue.errors().isEmpty()) {
       return reportAndCreateFailureResult(
           env,
-          "Module files are not tidy. Run 'bazel mod tidy' to update them.",
+          "Module files or MODULE.bazel.lock are not tidy. Run 'bazel mod tidy' to update them.",
           Code.MODULE_NEEDS_TIDY);
     }
     return reportAndCreateTidyResult(env, modTidyValue);

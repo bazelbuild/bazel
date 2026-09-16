@@ -1018,18 +1018,25 @@ class ModCommandTest(test_base.TestBase):
       module_files=('MODULE.bazel',),
       flags=(),
       exit_code=None,
+      lockfile_changes=None,
   ):
     original_contents = {}
     for path in module_files:
       with open(path, 'rb') as module_file:
         original_contents[path] = module_file.read()
+    lockfile_path = 'MODULE.bazel.lock'
+    if os.path.exists(lockfile_path):
+      with open(lockfile_path, 'rb') as lockfile:
+        original_contents[lockfile_path] = lockfile.read()
 
     actual_exit_code, stdout, stderr = self.RunBazel(
         ['mod', 'tidy', '--diff', *flags], allow_failure=True, rstrip=True
     )
     self.AssertExitCode(
         actual_exit_code,
-        exit_code if exit_code is not None else (1 if changed_files else 0),
+        exit_code
+        if exit_code is not None
+        else (1 if changed_files or lockfile_changes else 0),
         stderr,
     )
     self.assertEqual(
@@ -1046,9 +1053,15 @@ class ModCommandTest(test_base.TestBase):
       self.assertEmpty(stdout)
     stderr = '\n'.join(stderr)
     self.assertNotIn('INFO: Updated use_repo calls', stderr)
-    for path in module_files:
+    if lockfile_changes is not None:
+      self.assertEqual(
+          lockfile_changes, 'MODULE.bazel.lock would change.' in stderr
+      )
+    for path in original_contents:
       with open(path, 'rb') as module_file:
         self.assertEqual(original_contents[path], module_file.read(), path)
+    if lockfile_path not in original_contents:
+      self.assertFalse(os.path.exists(lockfile_path))
     return stderr
 
   def testModTidy(self):
@@ -1229,6 +1242,170 @@ class ModCommandTest(test_base.TestBase):
         [], flags=['--experimental_isolated_extension_usages']
     )
 
+  def createTransitiveTidyExtension(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "dep", version = "1.0")',
+            'local_path_override(module_name = "dep", path = "dep")',
+        ],
+    )
+    self.ScratchFile(
+        'dep/MODULE.bazel',
+        [
+            'module(name = "dep", version = "1.0")',
+            'use_extension("//:ext.bzl", "ext")',
+        ],
+    )
+    self.ScratchFile('dep/BUILD.bazel')
+    self.ScratchFile(
+        'dep/ext.bzl',
+        [
+            'def _impl(ctx):',
+            '    return ctx.extension_metadata(facts = {"key": "value"})',
+            'ext = module_extension(implementation = _impl, facts_version = 1)',
+        ],
+    )
+    return '@@dep+//:ext.bzl%ext'
+
+  def testModTidyLocksTransitiveExtensions(self):
+    extension_id = self.createTransitiveTidyExtension()
+    self.assertModTidyDiff(['MODULE.bazel'], lockfile_changes=True)
+    self.RunBazel(['mod', 'tidy'])
+    self.assertModTidyDiff([], lockfile_changes=False)
+    with open('MODULE.bazel.lock', 'r') as lockfile:
+      original = json.load(lockfile)
+    self.assertIn(extension_id, original['moduleExtensions'])
+    self.assertEqual({'key': 'value'}, original['facts'][extension_id])
+    self.assertEqual(1, original['factsVersions'][extension_id])
+
+    # A dependency-only extension must also be checked when its result is stale.
+    with open('dep/ext.bzl', 'a') as extension:
+      extension.write('\n# Changed implementation digest.\n')
+    self.assertModTidyDiff([], lockfile_changes=True)
+    self.RunBazel(['mod', 'tidy'])
+    self.assertModTidyDiff([], lockfile_changes=False)
+    with open('MODULE.bazel.lock', 'r') as lockfile:
+      updated = json.load(lockfile)
+    self.assertNotEqual(
+        original['moduleExtensions'][extension_id],
+        updated['moduleExtensions'][extension_id],
+    )
+
+    # Removing the usage must prune its result, facts, and facts version.
+    self.ScratchFile(
+        'dep/MODULE.bazel', ['module(name = "dep", version = "1.0")']
+    )
+    self.assertModTidyDiff([], lockfile_changes=True)
+    self.RunBazel(['mod', 'tidy'])
+    self.assertModTidyDiff([], lockfile_changes=False)
+    with open('MODULE.bazel.lock', 'r') as lockfile:
+      updated = json.load(lockfile)
+    for field in ['moduleExtensions', 'facts', 'factsVersions']:
+      self.assertNotIn(extension_id, updated.get(field, {}))
+
+  def testModTidyDiffLockfileChanges(self):
+    extension_id = self.createTransitiveTidyExtension()
+    self.RunBazel(['mod', 'tidy', '--lockfile_mode=refresh'])
+    with open('MODULE.bazel.lock', 'rb') as lockfile:
+      original = lockfile.read()
+
+    for mode in ['update', 'refresh']:
+      for change in [
+          'missing_file',
+          'missing_hash',
+          'extra_hash',
+          'missing_extension',
+          'extra_extension',
+          'missing_facts',
+          'extra_facts',
+          'extra_facts_version',
+          'extra_yanked_version',
+          'old_lockfile_version',
+      ]:
+        with self.subTest(mode=mode, change=change):
+          contents = json.loads(original)
+          unused_extension = '//:unused.bzl%unused'
+          if change == 'missing_file':
+            os.remove('MODULE.bazel.lock')
+          else:
+            if change == 'missing_hash':
+              del contents['registryFileHashes'][
+                  next(iter(contents['registryFileHashes']))
+              ]
+            elif change == 'extra_hash':
+              contents['registryFileHashes'][
+                  'https://example.invalid/unused/MODULE.bazel'
+              ] = '0' * 64
+            elif change == 'missing_extension':
+              del contents['moduleExtensions'][extension_id]
+            elif change == 'extra_extension':
+              contents['moduleExtensions'][unused_extension] = contents[
+                  'moduleExtensions'
+              ][extension_id]
+            elif change == 'missing_facts':
+              del contents['facts'][extension_id]
+            elif change == 'extra_facts':
+              contents['facts'][unused_extension] = {'unused': 'value'}
+            elif change == 'extra_facts_version':
+              contents['factsVersions'][unused_extension] = 1
+            elif change == 'extra_yanked_version':
+              contents['selectedYankedVersions']['unused@1.0'] = 'unused'
+            elif change == 'old_lockfile_version':
+              contents['lockFileVersion'] = 1
+            with open('MODULE.bazel.lock', 'w') as lockfile:
+              json.dump(contents, lockfile)
+
+          flags = ['--lockfile_mode=' + mode]
+          # Repeated checks must keep reporting the change without writing it,
+          # even after evaluation has populated the server and hidden caches.
+          self.assertModTidyDiff([], flags=flags, lockfile_changes=True)
+          self.assertModTidyDiff([], flags=flags, lockfile_changes=True)
+          self.RunBazel(['mod', 'tidy', *flags])
+          with open('MODULE.bazel.lock', 'rb') as lockfile:
+            self.assertEqual(original, lockfile.read())
+          self.assertModTidyDiff([], flags=flags, lockfile_changes=False)
+
+  def testModTidyDiffHonorsLockfileMode(self):
+    self.ScratchFile('MODULE.bazel', [])
+    self.RunBazel(['mod', 'tidy'])
+    with open('MODULE.bazel.lock', 'r') as lockfile:
+      contents = json.load(lockfile)
+    contents['registryFileHashes'][
+        'https://example.invalid/unused/MODULE.bazel'
+    ] = '0' * 64
+    with open('MODULE.bazel.lock', 'w') as lockfile:
+      json.dump(contents, lockfile)
+
+    for mode in ['error', 'off']:
+      self.assertModTidyDiff(
+          [], flags=['--lockfile_mode=' + mode], lockfile_changes=False
+      )
+    self.assertModTidyDiff([], lockfile_changes=True)
+    self.RunBazel(['mod', 'tidy'])
+    self.assertModTidyDiff([], lockfile_changes=False)
+
+  def testModTidyDiffPreservesLockfileOnTransitiveExtensionError(self):
+    self.createTransitiveTidyExtension()
+    self.RunBazel(['mod', 'tidy'])
+    with open('MODULE.bazel.lock', 'r') as lockfile:
+      contents = json.load(lockfile)
+    contents['registryFileHashes'][
+        'https://example.invalid/unused/MODULE.bazel'
+    ] = '0' * 64
+    with open('MODULE.bazel.lock', 'w') as lockfile:
+      json.dump(contents, lockfile)
+    self.ScratchFile(
+        'dep/ext.bzl',
+        [
+            'def _impl(ctx):',
+            '    fail("dependency extension failed")',
+            'ext = module_extension(implementation = _impl)',
+        ],
+    )
+    stderr = self.assertModTidyDiff([], exit_code=2, lockfile_changes=True)
+    self.assertIn('dependency extension failed', stderr)
+
   def testModTidyAlwaysFormatsModuleFile(self):
     self.ScratchFile(
         'MODULE.bazel',
@@ -1304,8 +1481,8 @@ class ModCommandTest(test_base.TestBase):
         ],
     )
 
-    # Verify that bazel mod tidy doesn't fail or change the file.
-    self.assertModTidyDiff([])
+    # Only the missing lockfile needs updating; the module file is already tidy.
+    self.assertModTidyDiff([], lockfile_changes=True)
     self.RunBazel(['mod', 'tidy'])
     self.assertModTidyDiff([])
 
@@ -1322,7 +1499,7 @@ class ModCommandTest(test_base.TestBase):
 
   def testModTidyEmptyFile(self):
     self.ScratchFile('MODULE.bazel', [])
-    self.assertModTidyDiff([])
+    self.assertModTidyDiff([], lockfile_changes=True)
     self.RunBazel(['mod', 'tidy'])
     with open('MODULE.bazel', 'rb') as module_file:
       self.assertEqual(b'', module_file.read())
