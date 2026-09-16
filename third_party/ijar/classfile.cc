@@ -477,6 +477,38 @@ struct HasAttrs {
   }
 };
 
+static const std::string CLASS_NAME = std::string("java/lang/UnsupportedOperationException");
+static const std::string METHOD_NAME = std::string("<init>");
+static const std::string DESCRIPTOR_NAME = std::string("()V");
+
+struct CodeAttribute : Attribute {
+  static CodeAttribute* Read(const u1 *&p, Constant *attribute_name, const u4 &attribute_length) {
+    CodeAttribute *attr = new CodeAttribute;
+    attr->attribute_name_ = attribute_name;
+    p+=attribute_length;
+    return attr;
+  }
+
+  void Write(u1 *&p) {
+    u4 CODE_LENGTH = 8;
+
+    WriteProlog(p, 2 + 2 + 4 + CODE_LENGTH + 2 + 2);
+    put_u2be(p, 2); // Max stack
+    put_u2be(p, 65535); // Max locals
+    put_u4be(p, CODE_LENGTH);
+
+    put_u1(p, 187); // new
+    put_u2be(p, constant(const_pool_in.size() - 3)->slot());
+    put_u1(p, 89); // DUP
+    put_u1(p, 183); // InvokeSpecial
+    put_u2be(p, constant(const_pool_in.size() - 1)->slot());
+    put_u1(p, 191); // throw
+
+    put_u2be(p, 0);
+    put_u2be(p, 0);
+  }
+};
+
 // See sec.4.7.5 of JVM spec.
 struct ExceptionsAttribute : Attribute {
 
@@ -1533,11 +1565,12 @@ void HasAttrs::ReadAttrs(const u1 *&p) {
         attr_name == "LineNumberTable" ||
         attr_name == "LocalVariableTable" ||
         attr_name == "LocalVariableTypeTable" ||
-        attr_name == "Code" ||
         attr_name == "Synthetic" ||
         attr_name == "BootstrapMethods" ||
         attr_name == "SourceDebugExtension") {
       p += attribute_length; // drop these attributes
+    } else if (attr_name == "Code") {
+      attributes.push_back(CodeAttribute::Read(p, attribute_name, attribute_length));
     } else if (attr_name == "Exceptions") {
       attributes.push_back(ExceptionsAttribute::Read(p, attribute_name));
     } else if (attr_name == "Signature") {
@@ -1622,6 +1655,7 @@ void HasAttrs::WriteAttrs(u1 *&p) {
 
 // See sec.4.4 of JVM spec.
 bool ClassFile::ReadConstantPool(const u1 *&p) {
+  u2 class_name_idx = 0, method_name_idx = 0, descriptor_idx = 0;
 
   const_pool_in.clear();
   const_pool_in.push_back(NULL); // dummy first item
@@ -1667,7 +1701,19 @@ bool ClassFile::ReadConstantPool(const u1 *&p) {
                   std::string((const char*) p, length).c_str(), length);
         }
 
-        const_pool_in.push_back(new Constant_Utf8(length, p));
+        Constant *c = new Constant_Utf8(length, p);
+        std::string str = c->Display();
+        if (str == CLASS_NAME) {
+          class_name_idx = const_pool_in.size();
+        }
+        else if (str == METHOD_NAME) {
+          method_name_idx = const_pool_in.size();
+        }
+        else if (str == DESCRIPTOR_NAME) {
+          descriptor_idx = const_pool_in.size();
+        }
+
+        const_pool_in.push_back(c);
         p += length;
         break;
       }
@@ -1723,6 +1769,24 @@ bool ClassFile::ReadConstantPool(const u1 *&p) {
       }
     }
   }
+
+  auto add_utf8 = [](const std::string &name) {
+     const_pool_in.push_back(new Constant_Utf8((u2) name.size(), (const u1*) name.c_str()));
+     return const_pool_in.size() - 1;
+  };
+
+  class_name_idx = class_name_idx > 0 ? class_name_idx : add_utf8(CLASS_NAME);
+  method_name_idx = method_name_idx > 0 ? method_name_idx : add_utf8(METHOD_NAME);
+  descriptor_idx = descriptor_idx > 0 ? descriptor_idx : add_utf8(DESCRIPTOR_NAME);
+  // Put these at the and as they are used to stub the code attributes
+  // Note: these might already be present, but it is fine for the
+  //       JVM and we accept the possibiltiy of have 3 duplicated
+  //       entries in the cp and save us a lot of complexity.
+  //       We don't do the same for utf8 contants because they are much
+  //       larger and are easy to discover
+  const_pool_in.push_back(new Constant_Class(class_name_idx));
+  const_pool_in.push_back(new Constant_NameAndType(method_name_idx, descriptor_idx));
+  const_pool_in.push_back(new Constant_FMIref(CONSTANT_Methodref, const_pool_in.size() - 2, const_pool_in.size() - 1));
 
   return true;
 }
