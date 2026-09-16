@@ -6,10 +6,6 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("@rules_java//java:defs.bzl", "java_import")
 load(":launcher_flag_alias.bzl", "launcher_flag_alias")
 
-exports_files([
-    "BUILD.java_tools",
-])
-
 # A single binary distribution of a JDK (e.g., OpenJDK 17 for Windows arm64) provides three
 # different types of toolchains from the perspective of Bazel:
 

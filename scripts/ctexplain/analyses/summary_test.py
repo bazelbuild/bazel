@@ -16,10 +16,10 @@ import unittest
 
 from frozendict import frozendict
 
-import tools.ctexplain.analyses.summary as summary
-from tools.ctexplain.ctexplain_types import Configuration
-from tools.ctexplain.ctexplain_types import ConfiguredTarget
-from tools.ctexplain.ctexplain_types import NullConfiguration
+import scripts.ctexplain.analyses.summary as summary
+from scripts.ctexplain.ctexplain_types import Configuration
+from scripts.ctexplain.ctexplain_types import ConfiguredTarget
+from scripts.ctexplain.ctexplain_types import NullConfiguration
 
 
 class SummaryTest(unittest.TestCase):
