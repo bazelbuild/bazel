@@ -302,9 +302,19 @@ constraint_value(
     visibility = ["//visibility:public"],
 )
 
+constraint_setting(name = "cgroup_support")
+
+# A machine with a writable delegated cgroup hierarchy.
+constraint_value(
+    name = "cgroup_capable",
+    constraint_setting = ":cgroup_support",
+    visibility = ["//visibility:public"],
+)
+
 platform(
     name = "default_host_platform",
     constraint_values = [
+        ":cgroup_capable",
         ":highcpu_machine",
         ":mount_capable",
     ],
@@ -325,6 +335,7 @@ REMOTE_PLATFORMS = ("rbe_ubuntu2404",)
     platform(
         name = platform_name + "_platform",
         constraint_values = [
+            "//:cgroup_capable",
             "//:mount_capable",
         ],
         exec_properties = {
