@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 package(default_visibility = ["//visibility:public"])
 
 filegroup(
@@ -41,14 +44,36 @@ filegroup(
         "proguard_allowlister.cc",
         "proguard_allowlister_lib.cc",
         "proguard_allowlister_lib.h",
-        "proguard_allowlister_test.cc",
-        "proguard_allowlister_test_input.pgcfg",
-        "proguard_allowlister_test_lib.cc",
-        "proguard_allowlister_test_lib.h",
         "remote_java_repository.bzl",
         "toolchain_utils.bzl",
     ],
     visibility = ["//tools:__pkg__"],
+)
+
+cc_library(
+    name = "proguard_allowlister_test_lib",
+    testonly = 1,
+    srcs = [
+        "proguard_allowlister_lib.cc",
+        "proguard_allowlister_lib.h",
+        "proguard_allowlister_test_lib.cc",
+    ],
+    hdrs = ["proguard_allowlister_test_lib.h"],
+    deps = ["@rules_cc//cc/runfiles"],
+)
+
+cc_test(
+    name = "proguard_allowlister_test",
+    srcs = [
+        "proguard_allowlister_test.cc",
+    ],
+    data = ["proguard_allowlister_test_input.pgcfg"],
+    env = {
+        "TEST_INPUT": "$(rlocationpath :proguard_allowlister_test_input.pgcfg)",
+    },
+    deps = [
+        ":proguard_allowlister_test_lib",
+    ],
 )
 
 alias(
