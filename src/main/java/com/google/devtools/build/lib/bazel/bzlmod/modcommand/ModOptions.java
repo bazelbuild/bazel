@@ -228,6 +228,19 @@ public abstract class ModOptions extends OptionsBase {
 
   public abstract void setAllVisibleRepos(boolean value);
 
+  @Option(
+      name = "diff",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.MOD_COMMAND,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "For mod tidy: print a unified diff of the changes to MODULE.bazel and included module"
+              + " files without modifying them. Exit with code 1 if any changes are needed,"
+              + " including formatting changes.")
+  public abstract boolean getDiff();
+
+  public abstract void setDiff(boolean value);
+
   /** Possible subcommands that can be specified for the `mod` command. */
   public enum ModSubcommand {
     DEPS(true),

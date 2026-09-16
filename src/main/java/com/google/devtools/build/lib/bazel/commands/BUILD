@@ -78,6 +78,7 @@ java_library(
         "//third_party/java/guava:collect",
         "//third_party/java/guava:io",
         "//third_party/java/guava:primitives",
+        "//third_party/java/java_diff_utils",
         "//third_party/java/jsr305_annotations",
     ],
 )

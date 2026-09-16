@@ -17,6 +17,13 @@ bazel mod <subcommand> [<options>] [<arg> [<arg>...]]
 
 The available subcommands and their respective required arguments are:
 
+*   `tidy`: Formats `MODULE.bazel` and its included module files and updates
+    `use_repo` calls for supported module extensions. Pass `--diff` to print
+    a unified diff of the changes without modifying them. This exits with code 1
+    if changes are needed, including formatting changes, and code 0 if the files
+    are already tidy. Errors evaluating extensions or running buildozer still
+    cause the command to fail.
+
 *   `graph`: Displays the full dependency graph of the project, starting from
     the root module. If one or more modules are specified in `--from`, these
     modules are shown directly under the root, and the graph is only expanded
