@@ -14,13 +14,3 @@ filegroup(
     srcs = glob(["*.bzl"]),
     visibility = ["//tools:__pkg__"],
 )
-
-filegroup(
-    name = "embedded_tools_srcs",
-    srcs = [
-        "BUILD.tools",
-        "java_rules_skylark.bzl",
-        "utilities.bzl",
-    ],
-    visibility = ["//visibility:public"],
-)

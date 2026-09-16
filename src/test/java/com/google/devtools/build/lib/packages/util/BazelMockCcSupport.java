@@ -70,7 +70,6 @@ public final class BazelMockCcSupport extends MockCcSupport {
     setupRulesCc(config);
     setupCcToolchainConfig(config, getToolchainConfigs());
     createParseHeadersAndLayeringCheckWhitelist(config);
-    createStarlarkLooseHeadersWhitelist(config, "//...");
     config.append(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD",
         "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",

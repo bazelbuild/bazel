@@ -2645,7 +2645,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "load('@rules_java//java:defs.bzl', 'java_runtime',"
             + " 'java_toolchain')",
         "load(",
-        "    ':java_toolchain_alias.bzl',",
+        "    '@rules_java//toolchains:java_toolchain_alias.bzl',",
         "    'java_toolchain_alias',",
         "    'java_runtime_alias',",
         "    'java_host_runtime_alias',",

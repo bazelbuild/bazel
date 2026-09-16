@@ -9,9 +9,7 @@ filegroup(
 
 filegroup(
     name = "bzl_srcs",
-    srcs = glob(["*.bzl"]) + [
-        "private/py_test_alias.bzl",
-    ],
+    srcs = glob(["*.bzl"]),
     visibility = ["//tools:__pkg__"],
 )
 
