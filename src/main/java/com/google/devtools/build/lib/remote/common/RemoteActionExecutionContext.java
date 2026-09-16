@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.common;
 
+import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -73,6 +74,7 @@ public class RemoteActionExecutionContext {
   private final NetworkTime networkTime;
   private final CachePolicy writeCachePolicy;
   private final CachePolicy readCachePolicy;
+  @Nullable private final ChunkingFunction.Value chunkingFunction;
 
   private RemoteActionExecutionContext(
       @Nullable Spawn spawn,
@@ -85,7 +87,8 @@ public class RemoteActionExecutionContext {
         requestMetadata,
         networkTime,
         CachePolicy.ANY_CACHE,
-        CachePolicy.ANY_CACHE);
+        CachePolicy.ANY_CACHE,
+        /* chunkingFunction= */ null);
   }
 
   private RemoteActionExecutionContext(
@@ -95,12 +98,31 @@ public class RemoteActionExecutionContext {
       NetworkTime networkTime,
       CachePolicy writeCachePolicy,
       CachePolicy readCachePolicy) {
+    this(
+        spawn,
+        spawnExecutionContext,
+        requestMetadata,
+        networkTime,
+        writeCachePolicy,
+        readCachePolicy,
+        /* chunkingFunction= */ null);
+  }
+
+  private RemoteActionExecutionContext(
+      @Nullable Spawn spawn,
+      @Nullable SpawnExecutionContext spawnExecutionContext,
+      RequestMetadata requestMetadata,
+      NetworkTime networkTime,
+      CachePolicy writeCachePolicy,
+      CachePolicy readCachePolicy,
+      @Nullable ChunkingFunction.Value chunkingFunction) {
     this.spawn = spawn;
     this.spawnExecutionContext = spawnExecutionContext;
     this.requestMetadata = requestMetadata;
     this.networkTime = networkTime;
     this.writeCachePolicy = writeCachePolicy;
     this.readCachePolicy = readCachePolicy;
+    this.chunkingFunction = chunkingFunction;
   }
 
   public RemoteActionExecutionContext withWriteCachePolicy(CachePolicy writeCachePolicy) {
@@ -110,7 +132,8 @@ public class RemoteActionExecutionContext {
         requestMetadata,
         networkTime,
         writeCachePolicy,
-        readCachePolicy);
+        readCachePolicy,
+        chunkingFunction);
   }
 
   public RemoteActionExecutionContext withReadCachePolicy(CachePolicy readCachePolicy) {
@@ -120,7 +143,29 @@ public class RemoteActionExecutionContext {
         requestMetadata,
         networkTime,
         writeCachePolicy,
-        readCachePolicy);
+        readCachePolicy,
+        chunkingFunction);
+  }
+
+  /**
+   * Returns a context that marks ByteStream Write calls as carrying a chunk produced by {@code
+   * chunkingFunction}. The server can use this to skip re-chunking the uploaded data.
+   */
+  public RemoteActionExecutionContext chunked(ChunkingFunction.Value chunkingFunction) {
+    return new RemoteActionExecutionContext(
+        spawn,
+        spawnExecutionContext,
+        requestMetadata,
+        networkTime,
+        writeCachePolicy,
+        readCachePolicy,
+        chunkingFunction);
+  }
+
+  /** Returns the chunking function to signal on ByteStream Write calls, or {@code null}. */
+  @Nullable
+  public ChunkingFunction.Value getChunkingFunction() {
+    return chunkingFunction;
   }
 
   /**
