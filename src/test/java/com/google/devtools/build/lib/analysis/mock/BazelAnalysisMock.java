@@ -15,10 +15,8 @@ package com.google.devtools.build.lib.analysis.mock;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.Short.MAX_VALUE;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.MoreFiles;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.util.AbstractMockJavaSupport;
@@ -41,9 +39,6 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.Map;
 
 /** Subclass of {@link AnalysisMock} using Bazel-specific semantics. */
@@ -93,13 +88,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "third_party/bazel_rules/rules_shell");
 
     Runfiles runfiles = Runfiles.preload().withSourceRepository("");
-    for (String filename : Arrays.asList("tools/jdk/java_toolchain_alias.bzl")) {
-      java.nio.file.Path path = Paths.get(runfiles.rlocation("io_bazel/" + filename));
-      if (!Files.exists(path)) {
-        continue; // the io_bazel workspace root only exists for Bazel
-      }
-      config.create("embedded_tools/" + filename, MoreFiles.asCharSource(path, UTF_8).read());
-    }
     config.create(
         "embedded_tools/tools/jdk/launcher_flag_alias.bzl",
         """
@@ -138,7 +126,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
 load("@rules_java//java:defs.bzl",
   "java_binary", "java_import", "java_toolchain", "java_runtime")
 load(
-    ":java_toolchain_alias.bzl",
+    "@rules_java//toolchains:java_toolchain_alias.bzl",
     "java_host_runtime_alias",
     "java_runtime_alias",
     "java_toolchain_alias",
