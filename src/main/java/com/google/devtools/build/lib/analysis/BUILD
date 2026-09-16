@@ -107,7 +107,6 @@ java_library(
         "starlark/StarlarkAttrModule.java",
         "starlark/StarlarkAttributeTransitionProvider.java",
         "starlark/StarlarkAttributesCollection.java",
-        "starlark/StarlarkErrorReporter.java",
         "starlark/StarlarkGlobalsImpl.java",
         "starlark/StarlarkRuleClassFunctions.java",
         "starlark/StarlarkRuleConfiguredTargetUtil.java",
@@ -181,6 +180,7 @@ java_library(
         ":starlark/bazel_build_api_globals",
         ":starlark/function_transition_util",
         ":starlark/starlark_api_provider",
+        ":starlark/starlark_error_reporter",
         ":starlark/starlark_exec_group_collection",
         ":starlark/starlark_late_bound_default",
         ":starlark/starlark_toolchain_context",
@@ -1512,7 +1512,9 @@ java_library(
         "actions/LocalTemplateExpansionStrategy.java",
         "actions/TemplateExpansionAction.java",
         "actions/TemplateExpansionContext.java",
-        "actions/TemplateExpansionException.java",
+    ],
+    exports = [
+        ":template_expansion_exception",
     ],
     deps = [
         ":actions/file_write_action_context",
@@ -1653,14 +1655,17 @@ java_library(
 java_library(
     name = "constraints/top_level_constraint_semantics",
     srcs = [
-        "constraints/PlatformRestrictionsResult.java",
         "constraints/TopLevelConstraintSemantics.java",
+    ],
+    exports = [
+        ":constraints/platform_restrictions_result",
     ],
     deps = [
         ":analysis_cluster",
         ":configured_target",
         ":constraints/constraint_semantics",
         ":constraints/environment_collection",
+        ":constraints/platform_restrictions_result",
         ":constraints/supported_environments_provider",
         ":incompatible_platform_provider",
         ":transitive_info_collection",
