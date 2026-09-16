@@ -88,16 +88,24 @@ struct DIROrError {
   int error;
 };
 
-static void PostException(JNIEnv *env, const char *exception_classname,
-                          const std::string &message) {
+static void PostException(JNIEnv* env, const char* exception_classname,
+                          const std::string& message) {
   jclass exception_class = env->FindClass(exception_classname);
+  BAZEL_CHECK_NE(exception_class, nullptr) << exception_classname;
+  jmethodID constructor =
+      getConstructorID(env, exception_class, "(Ljava/lang/String;)V");
+
   bool success = false;
-  if (exception_class != nullptr) {
-    success = env->ThrowNew(exception_class, message.c_str()) == 0;
+  jstring j_message = NewStringLatin1(env, message.c_str());
+  if (j_message != nullptr) {
+    jobject exception = env->NewObject(exception_class, constructor, j_message);
+    if (exception != nullptr) {
+      success = env->Throw(reinterpret_cast<jthrowable>(exception)) == 0;
+    }
   }
   if (!success) {
-    BAZEL_LOG(FATAL) << "Failed to throw Java exception from JNI: "
-                     << message.c_str();
+    BAZEL_LOG(FATAL) << "Failed to throw " << exception_classname
+                     << " with message '" << message.c_str() << "'";
   }
 }
 
@@ -169,7 +177,7 @@ static void PostNativePosixFilesException(JNIEnv* env,
       getConstructorID(env, exception_class,
                        "(Ljava/lang/String;Lcom/google/devtools/build/lib/unix/"
                        "NativePosixFilesException$PosixError;)V");
-  jstring j_message = env->NewStringUTF(message.c_str());
+  jstring j_message = NewStringLatin1(env, message.c_str());
   bool success = false;
   if (j_message != nullptr) {
     jobject exception =
@@ -179,8 +187,9 @@ static void PostNativePosixFilesException(JNIEnv* env,
     }
   }
   if (!success) {
-    BAZEL_LOG(FATAL) << "Failed to throw NativePosixFilesException: "
-                     << message.c_str();
+    BAZEL_LOG(FATAL)
+        << "Failed to throw NativePosixFilesException with message '"
+        << message.c_str() << "'";
   }
 }
 
@@ -252,19 +261,10 @@ static bool PostRuntimeException(JNIEnv *env, int error_number,
     return false;
   }
 
-  jclass exception_class = env->FindClass(exception_classname);
-  if (exception_class != nullptr) {
-    std::string message(file_path);
-    message += " (";
-    message += ErrorMessage(error_number);
-    message += ")";
-    env->ThrowNew(exception_class, message.c_str());
-    return true;
-  } else {
-    BAZEL_LOG(FATAL) << "Unable to find exception_class: "
-                     << exception_classname;
-    return false;
-  }
+  PostException(
+      env, exception_classname,
+      std::string(file_path) + " (" + ErrorMessage(error_number) + ")");
+  return true;
 }
 
 static JavaVM *GetJavaVM(JNIEnv *env) {
