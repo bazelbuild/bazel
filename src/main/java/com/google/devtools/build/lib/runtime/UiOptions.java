@@ -293,7 +293,7 @@ public abstract class UiOptions extends OptionsBase {
 
   @Option(
       name = "terminal_hyperlinks",
-      defaultValue = "auto",
+      defaultValue = "no",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
