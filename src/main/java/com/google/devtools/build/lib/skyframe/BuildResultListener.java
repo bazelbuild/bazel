@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
+import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
@@ -56,6 +58,7 @@ public class BuildResultListener {
   private final Set<AspectKey> builtAspects = ConcurrentHashMap.newKeySet();
   private final Map<ConfiguredTargetKey, NestedSet<Cause>> targetRootCauses =
       new ConcurrentHashMap<>();
+  private final Map<AspectKey, NestedSet<Cause>> aspectRootCauses = new ConcurrentHashMap<>();
 
   @GuardedBy("this")
   @Nullable
@@ -133,8 +136,30 @@ public class BuildResultListener {
     }
   }
 
+  @Subscribe
+  @AllowConcurrentEvents
+  public void aspectComplete(AspectCompleteEvent event) {
+    if (event.failed()) {
+      aspectRootCauses.put(event.getAspectKey(), event.getRootCauses());
+    }
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void analysisFailure(AnalysisFailureEvent event) {
+    if (event.getFailedAspect() != null) {
+      aspectRootCauses.put(event.getFailedAspect(), event.getRootCauses());
+    } else {
+      targetRootCauses.put(event.getFailedTarget(), event.getRootCauses());
+    }
+  }
+
   public ImmutableMap<ConfiguredTargetKey, NestedSet<Cause>> getTargetRootCauses() {
     return ImmutableMap.copyOf(targetRootCauses);
+  }
+
+  public ImmutableMap<AspectKey, NestedSet<Cause>> getAspectRootCauses() {
+    return ImmutableMap.copyOf(aspectRootCauses);
   }
 
   public synchronized void setAnalysisTimer(Stopwatch timer) {

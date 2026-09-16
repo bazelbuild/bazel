@@ -262,13 +262,69 @@ public abstract class BuildResultTestCase extends BuildIntegrationTestCase {
             + " cmd='exit 42')\n");
     write("test/in", "(input)");
 
-    addOptions("--keep_going", "--show_result=1");
+    addOptions("--keep_going", "--show_result=2");
     build(true, GENRULE_ERROR, "//test:top1", "//test:top2");
 
     String stderr = recOutErr.errAsLatin1();
     assertThat(stderr).contains("Target //test:top1 failed to build\n");
     assertThat(stderr).contains("Target //test:top2 failed to build\n");
     assertThat(stderr).contains("  due to action in //test:dep\n");
+  }
+
+  @Test
+  public void testFailedTargetsSuppressedWhenExceedingShowResult() throws Exception {
+    write(
+        "test/BUILD",
+        "genrule(name='top1', srcs=['dep'], outs=['top1.out'],"
+            + " cmd='/bin/cp test/in $(location top1.out)')\n"
+            + "genrule(name='top2', srcs=['dep'], outs=['top2.out'],"
+            + " cmd='/bin/cp test/in $(location top2.out)')\n"
+            + "genrule(name='dep', srcs=[], outs=['dep.out'],"
+            + " cmd='exit 42')\n");
+    write("test/in", "(input)");
+
+    addOptions("--keep_going", "--show_result=1");
+    build(true, GENRULE_ERROR, "//test:top1", "//test:top2");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).doesNotContain("Target //test:top1 failed to build\n");
+    assertThat(stderr).doesNotContain("Target //test:top2 failed to build\n");
+    assertThat(stderr)
+        .contains("Use --verbose_failures to see the command lines of failed build steps.\n");
+  }
+
+  @Test
+  public void testNoKeepGoingUnbuiltTargetsExcludedFromFailedBudget() throws Exception {
+    write(
+        "test/BUILD",
+        "genrule(name='top1', srcs=['dep'], outs=['top1.out'],"
+            + " cmd='/bin/cp test/in $(location top1.out)')\n"
+            + "genrule(name='unbuilt', srcs=['in'], outs=['unbuilt.out'],"
+            + " cmd='/bin/cp $(location in) $(location unbuilt.out)')\n"
+            + "genrule(name='dep', srcs=[], outs=['dep.out'],"
+            + " cmd='exit 42')\n");
+    write("test/in", "(input)");
+
+    addOptions("--nokeep_going", "--show_result=1");
+    build(true, GENRULE_ERROR, "//test:top1", "//test:unbuilt");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).contains("Target //test:top1 failed to build\n");
+    assertThat(stderr).contains("  due to action in //test:dep\n");
+    assertThat(stderr).doesNotContain("Target //test:unbuilt failed to build\n");
+  }
+
+  @Test
+  public void testShowResultZeroSuppressesFailedTargets() throws Exception {
+    write("test/BUILD", "genrule(name='fail', srcs=[], outs=['fail.out'], cmd='exit 42')\n");
+
+    addOptions("--show_result=0");
+    build(true, GENRULE_ERROR, "//test:fail");
+
+    String stderr = recOutErr.errAsLatin1();
+    assertThat(stderr).doesNotContain("Target //test:fail failed to build\n");
+    assertThat(stderr)
+        .contains("Use --verbose_failures to see the command lines of failed build steps.\n");
   }
 
   @Test

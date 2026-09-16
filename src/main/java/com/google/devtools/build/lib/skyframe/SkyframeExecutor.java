@@ -2057,7 +2057,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               .setExecutionPhase()
               .build();
       return memoizingEvaluator.evaluate(
-          Iterables.concat(Artifact.keys(artifactsToBuild), targetKeys, aspectKeys, testKeys),
+          Iterables.concat(targetKeys, aspectKeys, testKeys, Artifact.keys(artifactsToBuild)),
           evaluationContext);
     } finally {
       // Also releases thread locks.
