@@ -55,7 +55,7 @@ use_repo(cc_compatibility_proxy, "cc_compatibility_proxy")
 bazel_dep(name = "remoteapis", version = "")
 
 # Indirect module dependencies. Minimal versions are specified for compatibility; repo_name=None avoids accidental usages
-bazel_dep(name = "buildozer", version = "8.5.1", repo_name = None)  # Keep in sync with MODULE.tools
+bazel_dep(name = "buildozer", version = "10.0.1", repo_name = None)  # Keep in sync with MODULE.tools
 bazel_dep(name = "rules_swift", version = "3.3.0")  # with repo_name = None, version drops to 2.4.0
 bazel_dep(name = "rules_apple", version = "4.3.1", repo_name = None)
 bazel_dep(name = "google_benchmark", version = "1.9.4", repo_name = None)
@@ -105,8 +105,6 @@ single_version_override(
     patches = ["//third_party:googleapis.patch"],
     version = "0.0.0-20250604-de157ca3",
 )
-
-
 
 # 1. Expose @com_google_protobuf//java/core:lite_runtime_only
 # due to https://github.com/protocolbuffers/protobuf/commit/079be27925955348d1b3cb30ffbfa33dcec5778c
@@ -280,10 +278,10 @@ maven.override(
 # Pin to the version in //third_party/asm/... to avoid one-version violations.
 [
     maven.artifact(
-        group = "org.ow2.asm",
         artifact = artifact,
-        version = "9.10",
         force_version = True,
+        group = "org.ow2.asm",
+        version = "9.10",
     )
     for artifact in [
         "asm",
@@ -474,7 +472,6 @@ use_repo(
 bazel_dep(name = "bazel_ci_rules", version = "2.1.1")
 bazel_dep(name = "rules_fuzzing", version = "0.6.0")
 bazel_dep(name = "wabt", version = "1.0.37")
-
 
 rbe = use_extension("@bazel_ci_rules//:rbe_config.bzl", "rbe_config_extension")
 rbe.config(
