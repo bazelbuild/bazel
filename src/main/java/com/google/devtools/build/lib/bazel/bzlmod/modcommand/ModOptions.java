@@ -232,7 +232,7 @@ public abstract class ModOptions extends OptionsBase {
       name = "diff",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.MOD_COMMAND,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.TERMINAL_OUTPUT},
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           "For mod tidy: print a unified diff of the changes to MODULE.bazel and included module"
               + " files, and report whether MODULE.bazel.lock would change under the selected"

@@ -1310,19 +1310,21 @@ class ModCommandTest(test_base.TestBase):
     with open('MODULE.bazel.lock', 'rb') as lockfile:
       original = lockfile.read()
 
-    for mode in ['update', 'refresh']:
-      for change in [
-          'missing_file',
-          'missing_hash',
-          'extra_hash',
-          'missing_extension',
-          'extra_extension',
-          'missing_facts',
-          'extra_facts',
-          'extra_facts_version',
-          'extra_yanked_version',
-          'old_lockfile_version',
-      ]:
+    changes = [
+        'missing_file',
+        'missing_hash',
+        'extra_hash',
+        'missing_extension',
+        'extra_extension',
+        'missing_facts',
+        'extra_facts',
+        'extra_facts_version',
+        'extra_yanked_version',
+        'old_lockfile_version',
+    ]
+    # Refresh mode shares the updater with update mode, so a few cases suffice.
+    for mode, cases in [('update', changes), ('refresh', changes[:2])]:
+      for change in cases:
         with self.subTest(mode=mode, change=change):
           contents = json.loads(original)
           unused_extension = '//:unused.bzl%unused'
@@ -1365,6 +1367,18 @@ class ModCommandTest(test_base.TestBase):
           with open('MODULE.bazel.lock', 'rb') as lockfile:
             self.assertEqual(original, lockfile.read())
           self.assertModTidyDiff([], flags=flags, lockfile_changes=False)
+
+  def testModDiffRequiresTidy(self):
+    self.ScratchFile('MODULE.bazel', [])
+    exit_code, _, stderr = self.RunBazel(
+        ['mod', 'graph', '--diff'], rstrip=True, allow_failure=True
+    )
+    self.AssertExitCode(exit_code, 2, stderr)
+    self.assertIn(
+        "ERROR: the 'graph' command doesn't take the --diff option. Type"
+        " 'bazel help mod' for syntax and help.",
+        stderr,
+    )
 
   def testModTidyDiffHonorsLockfileMode(self):
     self.ScratchFile('MODULE.bazel', [])

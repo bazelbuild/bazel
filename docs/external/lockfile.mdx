@@ -80,8 +80,8 @@ if neither does. Evaluation errors also cause failure. The check may download
 dependencies, evaluate extensions, and update Bazel's caches, including the
 [hidden lockfile](#hidden-lockfile).
 
-These commands require the default `update` lockfile mode. If your `.bazelrc`
-sets another mode, override it with `--lockfile_mode=update`.
+These commands require the `update` (default) or `refresh` lockfile mode. If
+your `.bazelrc` sets another mode, override it with `--lockfile_mode=update`.
 
 For CI builds and tests, use `error` to require the recorded information needed
 by that invocation to be up-to-date:

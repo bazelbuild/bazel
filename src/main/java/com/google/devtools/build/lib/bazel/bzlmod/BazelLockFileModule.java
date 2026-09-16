@@ -49,6 +49,9 @@ public class BazelLockFileModule extends BlazeModule {
 
   private CommandEnvironment env;
   private boolean workspaceLockfileReadOnly;
+  // The update computed by workspaceLockfileNeedsUpdate, if any. It is reused by afterCommand
+  // since the command doesn't evaluate anything in Skyframe after checking.
+  @Nullable private LockfileUpdate lockfileUpdate;
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -59,28 +62,37 @@ public class BazelLockFileModule extends BlazeModule {
   public void beforeCommand(CommandEnvironment env) {
     this.env = env;
     workspaceLockfileReadOnly = false;
+    lockfileUpdate = null;
   }
 
   @Override
   public void afterCommand() {
     CommandEnvironment env = this.env;
     this.env = null;
-    LockfileUpdate update = collectLockfileUpdate(env);
+    LockfileUpdate update = lockfileUpdate != null ? lockfileUpdate : collectLockfileUpdate(env);
+    lockfileUpdate = null;
     if (update == null) {
       return;
     }
-    boolean writeWorkspaceLockfile = !workspaceLockfileReadOnly;
+    // Write the new values to the files, but only if needed. This is not just a performance
+    // optimization: whenever the lockfile is updated, most Skyframe nodes will be marked as dirty
+    // on the next build, which breaks commands such as `bazel config` that rely on
+    // com.google.devtools.build.skyframe.MemoizingEvaluator#getDoneValues.
+    boolean writeWorkspaceLockfile =
+        !workspaceLockfileReadOnly && update.workspaceLockfileNeedsUpdate();
+    boolean writeHiddenLockfile = !update.newHiddenLockfile().equals(update.oldHiddenLockfile());
+    // Write both files in parallel.
     Thread updateLockfile =
         Thread.startVirtualThread(
             () -> {
-              if (writeWorkspaceLockfile && update.workspaceLockfileNeedsUpdate()) {
+              if (writeWorkspaceLockfile) {
                 updateLockfile(env.getWorkspace(), update.newLockfile());
               }
             });
     Thread updateHiddenLockfile =
         Thread.startVirtualThread(
             () -> {
-              if (!update.newHiddenLockfile().equals(update.oldHiddenLockfile())) {
+              if (writeHiddenLockfile) {
                 updateLockfile(env.getOutputBase(), update.newHiddenLockfile());
               }
             });
@@ -99,10 +111,14 @@ public class BazelLockFileModule extends BlazeModule {
     workspaceLockfileReadOnly = true;
   }
 
-  /** Returns whether the selected lockfile mode would update the workspace lockfile. */
+  /**
+   * Returns whether the selected lockfile mode would update the workspace lockfile.
+   *
+   * <p>Must only be called after all Skyframe evaluations of the current command have completed.
+   */
   public boolean workspaceLockfileNeedsUpdate() {
-    LockfileUpdate update = collectLockfileUpdate(env);
-    return update != null && update.workspaceLockfileNeedsUpdate();
+    lockfileUpdate = collectLockfileUpdate(env);
+    return lockfileUpdate != null && lockfileUpdate.workspaceLockfileNeedsUpdate();
   }
 
   private record LockfileUpdate(
@@ -111,8 +127,6 @@ public class BazelLockFileModule extends BlazeModule {
       BazelLockFileValue oldHiddenLockfile,
       BazelLockFileValue newHiddenLockfile) {
     boolean workspaceLockfileNeedsUpdate() {
-      // Compare values just as the writer does. Rewriting unchanged lockfiles would dirty
-      // Skyframe nodes and break commands that rely on MemoizingEvaluator#getDoneValues.
       return !newLockfile.equals(oldLockfile);
     }
   }

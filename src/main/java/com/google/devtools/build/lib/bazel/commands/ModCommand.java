@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.io.CharSource;
@@ -99,6 +100,7 @@ import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -216,6 +218,11 @@ public final class ModCommand implements BlazeCommand {
             Code.INVALID_ARGUMENTS);
       }
     }
+    if (subcommand != ModSubcommand.TIDY && modOptions.getDiff()) {
+      throw new InvalidArgumentException(
+          String.format("the '%s' command doesn't take the --diff option", subcommand),
+          Code.INVALID_ARGUMENTS);
+    }
   }
 
   private BlazeCommandResult execInternal(CommandEnvironment env, OptionsParsingResult options) {
@@ -243,8 +250,7 @@ public final class ModCommand implements BlazeCommand {
 
     if (subcommand == ModSubcommand.TIDY && modOptions.getDiff()) {
       // Set this before evaluation: the after-command hook also runs on failures.
-      Preconditions.checkNotNull(env.getRuntime().getBlazeModule(BazelLockFileModule.class))
-          .setWorkspaceLockfileReadOnly();
+      getLockFileModule(env).setWorkspaceLockfileReadOnly();
     }
 
     // Validate and parse args as early as possible, so we don't have to
@@ -700,14 +706,19 @@ public final class ModCommand implements BlazeCommand {
     return targetToRepoName.buildKeepingLast();
   }
 
+  private static BazelLockFileModule getLockFileModule(CommandEnvironment env) {
+    return Preconditions.checkNotNull(env.getRuntime().getBlazeModule(BazelLockFileModule.class));
+  }
+
   private BlazeCommandResult runTidy(
       CommandEnvironment env, BazelModTidyValue modTidyValue, boolean diff) {
     ImmutableListMultimap<PathFragment, String> allCommandsPerFile =
         modTidyValue.fixups().stream()
             .flatMap(fixup -> fixup.moduleFilePathToBuildozerCommands().entries().stream())
             .collect(toImmutableListMultimap(Entry::getKey, Entry::getValue));
-    ImmutableMap.Builder<PathFragment, String> buildozerInputs = ImmutableMap.builder();
-    for (PathFragment moduleFilePath : ImmutableSortedSet.copyOf(modTidyValue.moduleFilePaths())) {
+    ImmutableSortedMap.Builder<PathFragment, String> buildozerInputs =
+        ImmutableSortedMap.naturalOrder();
+    for (PathFragment moduleFilePath : modTidyValue.moduleFilePaths()) {
       StringBuilder input = new StringBuilder();
       input.append("//").append(moduleFilePath).append(":all|");
       for (String command : allCommandsPerFile.get(moduleFilePath)) {
@@ -717,53 +728,43 @@ public final class ModCommand implements BlazeCommand {
       buildozerInputs.put(moduleFilePath, input.toString());
     }
 
-    boolean needsTidy =
-        diff
-            && Preconditions.checkNotNull(
-                    env.getRuntime().getBlazeModule(BazelLockFileModule.class))
-                .workspaceLockfileNeedsUpdate();
+    try {
+      if (diff) {
+        return runTidyDiff(env, modTidyValue, buildozerInputs.buildOrThrow());
+      }
+      runBuildozer(
+          env, modTidyValue, String.join("", buildozerInputs.buildOrThrow().values()), false);
+    } catch (InterruptedException | CommandException | IOException e) {
+      return reportBuildozerFailure(env, modTidyValue, e);
+    }
+
+    for (RootModuleFileFixup fixupEvent : modTidyValue.fixups()) {
+      env.getReporter().handle(Event.info(fixupEvent.getSuccessMessage()));
+    }
+    return reportAndCreateTidyResult(env, modTidyValue);
+  }
+
+  /** Reports the changes that {@code tidy} would make without writing any files. */
+  private static BlazeCommandResult runTidyDiff(
+      CommandEnvironment env,
+      BazelModTidyValue modTidyValue,
+      ImmutableSortedMap<PathFragment, String> buildozerInputs)
+      throws InterruptedException, CommandException, IOException {
+    boolean needsTidy = getLockFileModule(env).workspaceLockfileNeedsUpdate();
     if (needsTidy) {
       env.getReporter()
           .handle(Event.info("MODULE.bazel.lock would change. Run 'bazel mod tidy' to update it."));
     }
-    try {
-      if (diff) {
-        // Buildozer's stdout has no file boundaries, so preview each file separately.
-        for (var entry : buildozerInputs.buildOrThrow().entrySet()) {
-          CommandResult result = runBuildozer(env, modTidyValue, entry.getValue(), true);
-          // With -stdout, buildozer always exits with code 0 on success and prints even unchanged
-          // files. Since buildozer 10.0.1, it also emits a "fixed ..." message exactly when its
-          // byte comparison detects a change, just as when writing files.
-          if (new String(result.getStderr(), UTF_8)
-              .lines()
-              .anyMatch(line -> line.startsWith("fixed "))) {
-            needsTidy = true;
-            printTidyDiff(env, entry.getKey(), result.getStdout());
-          }
-        }
-      } else {
-        runBuildozer(
-            env, modTidyValue, String.join("", buildozerInputs.buildOrThrow().values()), false);
-      }
-    } catch (InterruptedException | CommandException | IOException e) {
-      String suffix = "";
-      if (e instanceof AbnormalTerminationException abnormalTerminationException) {
-        if (abnormalTerminationException.getResult().terminationStatus().getRawExitCode() == 3) {
-          // Buildozer exits with exit code 3 if it didn't make any changes.
-          return reportAndCreateTidyResult(env, modTidyValue);
-        }
-        suffix =
-            ":\n" + new String(abnormalTerminationException.getResult().getStderr(), ISO_8859_1);
-      }
-      return reportAndCreateFailureResult(
-          env,
-          "Unexpected error while running buildozer: " + e.getMessage() + suffix,
-          Code.BUILDOZER_FAILED);
-    }
-
-    if (!diff) {
-      for (RootModuleFileFixup fixupEvent : modTidyValue.fixups()) {
-        env.getReporter().handle(Event.info(fixupEvent.getSuccessMessage()));
+    // Buildozer's stdout has no file boundaries, so preview each file separately.
+    for (var entry : buildozerInputs.entrySet()) {
+      PathFragment moduleFilePath = entry.getKey();
+      // With -stdout, buildozer always exits with code 0 and prints the new contents of the file
+      // even if it is unchanged. Compare bytes, just as buildozer does before writing a file.
+      byte[] original = FileSystemUtils.readContent(env.getWorkspace().getRelative(moduleFilePath));
+      byte[] updated = runBuildozer(env, modTidyValue, entry.getValue(), true).getStdout();
+      if (!Arrays.equals(original, updated)) {
+        needsTidy = true;
+        printTidyDiff(env, moduleFilePath, original, updated);
       }
     }
 
@@ -777,14 +778,30 @@ public final class ModCommand implements BlazeCommand {
     return reportAndCreateTidyResult(env, modTidyValue);
   }
 
+  private static BlazeCommandResult reportBuildozerFailure(
+      CommandEnvironment env, BazelModTidyValue modTidyValue, Exception e) {
+    String suffix = "";
+    if (e instanceof AbnormalTerminationException abnormalTerminationException) {
+      if (abnormalTerminationException.getResult().terminationStatus().getRawExitCode() == 3) {
+        // Buildozer exits with exit code 3 if it didn't make any changes.
+        return reportAndCreateTidyResult(env, modTidyValue);
+      }
+      suffix = ":\n" + new String(abnormalTerminationException.getResult().getStderr(), ISO_8859_1);
+    }
+    return reportAndCreateFailureResult(
+        env,
+        "Unexpected error while running buildozer: " + e.getMessage() + suffix,
+        Code.BUILDOZER_FAILED);
+  }
+
   private static CommandResult runBuildozer(
-      CommandEnvironment env, BazelModTidyValue modTidyValue, String input, boolean diff)
+      CommandEnvironment env, BazelModTidyValue modTidyValue, String input, boolean stdout)
       throws IOException, CommandException, InterruptedException {
     try (var stdin = CharSource.wrap(input).asByteSource(ISO_8859_1).openStream()) {
       return new CommandBuilder(env.getClientEnv())
           .setWorkingDir(env.getWorkspace())
           .addArg(modTidyValue.buildozer().getPathString())
-          .addArg("-stdout=" + diff)
+          .addArg("-stdout=" + stdout)
           .addArg("-f")
           .addArg("-")
           .build()
@@ -794,16 +811,12 @@ public final class ModCommand implements BlazeCommand {
   }
 
   private static void printTidyDiff(
-      CommandEnvironment env, PathFragment moduleFilePath, byte[] updatedContents)
+      CommandEnvironment env, PathFragment moduleFilePath, byte[] original, byte[] updated)
       throws IOException {
     // Retain line endings so that CRLF and missing final newlines are represented in the diff.
     // Latin-1 preserves the original bytes, including the internal encoding of moduleFilePath.
-    String original =
-        FileSystemUtils.readContent(env.getWorkspace().getRelative(moduleFilePath), ISO_8859_1);
-    String updated = new String(updatedContents, ISO_8859_1);
-    List<String> originalLines =
-        original.isEmpty() ? List.of() : List.of(original.split("(?<=\n)"));
-    List<String> updatedLines = updated.isEmpty() ? List.of() : List.of(updated.split("(?<=\n)"));
+    List<String> originalLines = splitLines(new String(original, ISO_8859_1));
+    List<String> updatedLines = splitLines(new String(updated, ISO_8859_1));
     List<String> diff =
         UnifiedDiffUtils.generateUnifiedDiff(
             "a/" + moduleFilePath,
@@ -822,6 +835,10 @@ public final class ModCommand implements BlazeCommand {
         }
       }
     }
+  }
+
+  private static List<String> splitLines(String contents) {
+    return contents.isEmpty() ? List.of() : List.of(contents.split("(?<=\n)"));
   }
 
   private static BlazeCommandResult reportAndCreateTidyResult(
