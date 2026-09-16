@@ -57,8 +57,6 @@ public final class JacocoInstrumentationProcessor {
 
   private JacocoInstrumentationProcessor(String coverageInfo, Path workDir) {
     this.coverageInformation = coverageInfo;
-    // Sandboxed workers get a per-request working directory that is not the process's, so the
-    // execroot-relative path can't be resolved against the latter.
     this.coverageInformationFile = workDir.resolve(coverageInfo);
   }
 
