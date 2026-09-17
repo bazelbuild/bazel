@@ -115,6 +115,10 @@ public final class CpuProfiler {
     return instance;
   }
 
+  // Cache the native thread ID to avoid repeated JNI calls when registering Starlark threads.
+  private static final ThreadLocal<Integer> threadId =
+      ThreadLocal.withInitial(() -> nativeSupport.getThreadId());
+
   // Maps OS thread ID to StarlarkThread.
   // The StarlarkThread is needed only for its cpuTicks field.
   private static final Map<Integer, StarlarkThread> threads = new ConcurrentHashMap<>();
@@ -126,9 +130,9 @@ public final class CpuProfiler {
   @Nullable
   static StarlarkThread setStarlarkThread(StarlarkThread thread) {
     if (thread == null) {
-      return threads.remove(nativeSupport.getThreadId());
+      return threads.remove(threadId.get());
     } else {
-      return threads.put(nativeSupport.getThreadId(), thread);
+      return threads.put(threadId.get(), thread);
     }
   }
 
