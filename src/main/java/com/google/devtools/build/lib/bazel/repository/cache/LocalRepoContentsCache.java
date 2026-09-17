@@ -221,10 +221,7 @@ public final class LocalRepoContentsCache {
       public void run() throws InterruptedException, IdleTaskException {
         try {
           Preconditions.checkState(path != null);
-          // If we can't grab the lock, abort GC. Someone will come along later.
-          try (var lock = FileSystemLock.tryGet(path.getRelative(LOCK_PATH), LockMode.EXCLUSIVE)) {
-            runGc(maxAge);
-          }
+          runGc(maxAge);
           // Empty the trash dir outside the lock. No one is reading from these files, so it should
           // be safe. At worst, multiple servers performing GC will try to delete the same files,
           // but whatever.
@@ -249,28 +246,35 @@ public final class LocalRepoContentsCache {
       if (dirent.getType() != Dirent.Type.DIRECTORY || dirent.getName().equals(TRASH_PATH)) {
         continue;
       }
-      // Sort all recorded input files by descending mtime, so that deduplication keeps around the
-      // most recent entry.
-      var recordedInputsFiles =
-          path.getChild(dirent.getName()).getDirectoryEntries().stream()
-              .filter(file -> file.getBaseName().endsWith(RECORDED_INPUTS_SUFFIX))
-              .sorted(comparingLong(LocalRepoContentsCache::getLastModifiedTimeOrZero).reversed())
-              .collect(toImmutableList());
-      var seen = new HashSet<HashCode>();
-      for (Path recordedInputsFile : recordedInputsFiles) {
-        if (Thread.interrupted()) {
-          throw new InterruptedException();
-        }
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
+      // Yield between input hashes so commands in other servers can acquire the shared lock
+      // without waiting for the entire cache scan. If the lock is busy, abort GC as before.
+      try (var lock = FileSystemLock.tryGet(path.getRelative(LOCK_PATH), LockMode.EXCLUSIVE)) {
+        // Sort all recorded input files by descending mtime, so that deduplication keeps around the
+        // most recent entry.
+        var recordedInputsFiles =
+            path.getChild(dirent.getName()).getDirectoryEntries().stream()
+                .filter(file -> file.getBaseName().endsWith(RECORDED_INPUTS_SUFFIX))
+                .sorted(comparingLong(LocalRepoContentsCache::getLastModifiedTimeOrZero).reversed())
+                .collect(toImmutableList());
+        var seen = new HashSet<HashCode>();
+        for (Path recordedInputsFile : recordedInputsFiles) {
+          if (Thread.interrupted()) {
+            throw new InterruptedException();
+          }
 
-        // In addition to deleting old entries, also remove identical entries. These may be created
-        // when multiple Bazel servers fetch the same repo at the same time. The servers that have
-        // their referenced entry deleted will roll over to the next entry on the next build.
-        if (Instant.ofEpochMilli(recordedInputsFile.getLastModifiedTime()).isBefore(cutoff)
-            || !seen.add(sha256.hashBytes(FileSystemUtils.readContent(recordedInputsFile)))) {
-          recordedInputsFile.delete();
-          var repoDir = CandidateRepo.fromRecordedInputsFile(recordedInputsFile).contentsDir;
-          // Use a UUID to avoid clashes.
-          repoDir.renameTo(trashDir.getChild(UUID.randomUUID().toString()));
+          // In addition to deleting old entries, also remove identical entries. These may be created
+          // when multiple Bazel servers fetch the same repo at the same time. The servers that have
+          // their referenced entry deleted will roll over to the next entry on the next build.
+          if (Instant.ofEpochMilli(recordedInputsFile.getLastModifiedTime()).isBefore(cutoff)
+              || !seen.add(sha256.hashBytes(FileSystemUtils.readContent(recordedInputsFile)))) {
+            recordedInputsFile.delete();
+            var repoDir = CandidateRepo.fromRecordedInputsFile(recordedInputsFile).contentsDir;
+            // Use a UUID to avoid clashes.
+            repoDir.renameTo(trashDir.getChild(UUID.randomUUID().toString()));
+          }
         }
       }
     }
