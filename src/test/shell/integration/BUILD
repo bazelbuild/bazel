@@ -698,6 +698,16 @@ sh_test(
 )
 
 sh_test(
+    name = "build_query_test",
+    size = "medium",
+    srcs = ["build_query_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "process_wrapper_test",
     size = "medium",
     srcs = ["process-wrapper_test.sh"],
