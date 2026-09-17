@@ -220,6 +220,17 @@ public final class BazelMockCcSupport extends MockCcSupport {
     config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/BUILD");
     config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/impl/BUILD");
     config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/variables/BUILD");
+    config.overwrite(
+        "third_party/bazel_rules/rules_cc/cc/toolchains/args/archiver_flags/BUILD",
+        """
+        load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+
+        bool_flag(
+            name = "use_libtool_on_macos",
+            build_setting_default = True,
+            visibility = ["//cc/private/toolchain:__pkg__"],
+        )
+        """);
   }
 
   @Override
