@@ -105,16 +105,6 @@ public class Rule extends RuleOrMacroInstance implements Target {
   // Initialized by populateOutputFilesInternal().
   private Object outputFiles;
 
-  private boolean hasMissingMandatoryAttribute = false;
-
-  void setHasMissingMandatoryAttribute() {
-    this.hasMissingMandatoryAttribute = true;
-  }
-
-  boolean hasMissingMandatoryAttribute() {
-    return hasMissingMandatoryAttribute;
-  }
-
   Rule(
       Packageoid pkg,
       Label label,
@@ -468,23 +458,32 @@ public class Rule extends RuleOrMacroInstance implements Target {
    */
   void populateOutputFiles(EventHandler eventHandler, PackageIdentifier pkgId)
       throws LabelSyntaxException, InterruptedException {
+    populateOutputFiles(eventHandler, pkgId, /* computeImplicitOutputs= */ true);
+  }
+
+  void populateOutputFiles(
+      EventHandler eventHandler, PackageIdentifier pkgId, boolean computeImplicitOutputs)
+      throws LabelSyntaxException, InterruptedException {
     populateOutputFilesInternal(
         eventHandler,
         pkgId,
         ruleClass.getDefaultImplicitOutputsFunction(),
-        /* checkLabels= */ true);
+        /* checkLabels= */ true,
+        computeImplicitOutputs);
   }
 
   void populateOutputFilesUnchecked(
       TargetDefinitionContext targetDefinitionContext,
-      ImplicitOutputsFunction implicitOutputsFunction)
+      ImplicitOutputsFunction implicitOutputsFunction,
+      boolean computeImplicitOutputs)
       throws InterruptedException {
     try {
       populateOutputFilesInternal(
           NullEventHandler.INSTANCE,
           targetDefinitionContext.getPackageIdentifier(),
           implicitOutputsFunction,
-          /* checkLabels= */ false);
+          /* checkLabels= */ false,
+          computeImplicitOutputs);
     } catch (LabelSyntaxException e) {
       throw new IllegalStateException(e);
     }
@@ -504,7 +503,8 @@ public class Rule extends RuleOrMacroInstance implements Target {
       EventHandler eventHandler,
       PackageIdentifier pkgId,
       ImplicitOutputsFunction implicitOutputsFunction,
-      boolean checkLabels)
+      boolean checkLabels,
+      boolean computeImplicitOutputs)
       throws LabelSyntaxException, InterruptedException {
     Preconditions.checkState(outputFiles == null);
 
@@ -543,7 +543,7 @@ public class Rule extends RuleOrMacroInstance implements Target {
         };
 
     // Populate the implicit outputs.
-    if (!hasMissingMandatoryAttribute) {
+    if (computeImplicitOutputs) {
       try {
         RawAttributeMapper attributeMap = RawAttributeMapper.of(this);
         // TODO(bazel-team): Reconsider the ImplicitOutputsFunction abstraction. It doesn't seem to
