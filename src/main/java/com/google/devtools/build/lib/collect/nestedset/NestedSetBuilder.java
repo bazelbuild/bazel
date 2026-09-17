@@ -272,12 +272,13 @@ public abstract sealed class NestedSetBuilder<E> {
 
     // When there is exactly one transitive set, we can reuse it if its order matches and either
     // there are no direct members, or the only direct member equals the transitive set's singleton.
+    // Checking isSingleton() avoids blocking on deserialization futures for sets that cannot match.
     if (transitive.size() == 1 && directSet.size() <= 1) {
       NestedSet<E> candidate = getOnlyElement(transitive);
       if (candidate.getOrder() == getOrder()
           && (directSet.isEmpty()
-              || getOnlyElement(directSet)
-                  .equals(candidate.getChildrenInternal(interruptStrategy)))) {
+              || (candidate.isSingleton()
+                  && getOnlyElement(directSet).equals(candidate.getSingleton())))) {
         return candidate;
       }
     }

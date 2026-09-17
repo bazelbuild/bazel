@@ -898,4 +898,26 @@ public final class NestedSetTest {
     assertThat(diffOrder.getApproxDepth()).isEqualTo(sub1.getApproxDepth());
     assertThat(diffOrder.toList()).containsExactly("x", "y").inOrder();
   }
+
+  @Test
+  public void builder_singleTransitiveAndMatchingDirect_reusesSingletonCandidate() {
+    NestedSet<String> singleton = NestedSetBuilder.create(Order.STABLE_ORDER, "x");
+
+    // Matching direct member + singleton candidate -> candidate reused
+    assertThat(NestedSetBuilder.<String>stableOrder().add("x").addTransitive(singleton).build())
+        .isSameInstanceAs(singleton);
+
+    // Non-matching direct member + singleton candidate -> new set
+    NestedSet<String> notReused =
+        NestedSetBuilder.<String>stableOrder().add("y").addTransitive(singleton).build();
+    assertThat(notReused).isNotSameInstanceAs(singleton);
+    assertThat(notReused.toList()).containsExactly("x", "y").inOrder();
+
+    // Compound candidate + direct member -> new compound set without blocking
+    NestedSet<String> compound = NestedSetBuilder.<String>stableOrder().add("x").add("y").build();
+    NestedSet<String> withCompound =
+        NestedSetBuilder.<String>stableOrder().add("x").addTransitive(compound).build();
+    assertThat(withCompound).isNotSameInstanceAs(compound);
+    assertThat(withCompound.toList()).containsExactly("x", "y").inOrder();
+  }
 }
