@@ -55,7 +55,7 @@ public class RepoOutputFormatter {
     this.externalDirectory = externalDirectory;
   }
 
-  /** Returns the root directory of the given repo, which only exists after it has been fetched. */
+  /** Returns the root directory of the given repo. */
   private Path getRepoRoot(RepoDefinition repoDefinition) {
     return externalDirectory.getRelative(repoDefinition.name());
   }
