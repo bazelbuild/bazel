@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.Scrubber.SpawnScrubber;
@@ -161,13 +162,12 @@ class DirectoryTreeBuilder {
           }
 
           if (input instanceof ChildActionInput childActionInput) {
-            // Files discovered by walking a directory input must be read via the path at which
-            // they were discovered: resolving their exec path against the exec root can fail if
-            // they belong to an external repository backed by the remote repo contents cache,
-            // whose contents may only exist in an in-memory file system overlaid over the output
-            // base.
+            // Files discovered by walking a directory input are read via the path at which they
+            // were discovered, but their digest is looked up through the input metadata provider
+            // first: it caches the metadata for the duration of the build, whereas the directory
+            // is walked anew for every action that has it as an input.
             Path inputPath = childActionInput.getRealPath();
-            Digest d = digestUtil.compute(inputPath);
+            Digest d = computeChildDigest(childActionInput, inputMetadataProvider, digestUtil);
             boolean childAdded =
                 currDir.addChild(
                     FileNode.create(path.getBaseName(), inputPath, d, toolInputs.contains(path)));
@@ -279,6 +279,32 @@ class DirectoryTreeBuilder {
     }
 
     return numFiles;
+  }
+
+  /**
+   * Computes the digest of a file discovered by walking a directory input.
+   *
+   * <p>The input metadata provider is consulted first as it caches the metadata of source files for
+   * the duration of the build, which avoids repeatedly hashing the contents of a directory that is
+   * an input to many actions. It resolves the exec path of the file against the exec root, which
+   * can fail if the file belongs to an external repository backed by the remote repo contents
+   * cache, whose contents may only exist in an in-memory file system overlaid over the output base.
+   * In that case, the file is digested at the path at which it was discovered, which the overlay
+   * file system can serve from memory.
+   */
+  private static Digest computeChildDigest(
+      ChildActionInput input, InputMetadataProvider inputMetadataProvider, DigestUtil digestUtil)
+      throws IOException {
+    FileArtifactValue metadata;
+    try {
+      metadata = inputMetadataProvider.getInputMetadata(input);
+    } catch (IOException e) {
+      metadata = null;
+    }
+    if (metadata != null && metadata.getType() == FileStateType.REGULAR_FILE) {
+      return DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
+    }
+    return digestUtil.compute(input.getRealPath());
   }
 
   private static SortedMap<PathFragment, ActionInput> explodeDirectory(
