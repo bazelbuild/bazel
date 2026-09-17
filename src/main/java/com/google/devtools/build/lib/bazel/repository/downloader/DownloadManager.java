@@ -176,10 +176,19 @@ public class DownloadManager {
       return submitDownload.get();
     }
 
+    return startDeduplicatedDownload(
+        executorService, submitDownload, checksum.get(), canonicalId);
+  }
+
+  private ListenableFuture<Path> startDeduplicatedDownload(
+      ExecutorService executorService,
+      Supplier<ListenableFuture<Path>> submitDownload,
+      Checksum checksum,
+      String canonicalId) {
     var isLeader = new AtomicBoolean();
     ListenableFuture<Path> download =
         downloadDeduplicator.execute(
-            new DedupeKey(checksum.get(), canonicalId),
+            new DedupeKey(checksum, canonicalId),
             /* attributes= */ null,
             /* canJoin= */ unused -> true,
             () -> {
@@ -187,8 +196,20 @@ public class DownloadManager {
               isLeader.set(true);
               return submitDownload.get();
             });
+    ListenableFuture<Path> downloadWithRetry =
+        Futures.catchingAsync(
+            download,
+            IOException.class,
+            // A joined caller may have different mirror URLs and thus succeed where the shared
+            // download failed.
+            e ->
+                isLeader.get()
+                    ? Futures.immediateFailedFuture(e)
+                    : startDeduplicatedDownload(
+                        executorService, submitDownload, checksum, canonicalId),
+            executorService);
     return Futures.transformAsync(
-        download,
+        downloadWithRetry,
         downloaded -> {
           if (isLeader.get()) {
             return Futures.immediateFuture(downloaded);
@@ -196,9 +217,7 @@ public class DownloadManager {
           // This call joined an ongoing download. The shared download has put the payload into
           // the repository cache, so the standard download path now hits it; a cache miss is
           // practically impossible since the repository cache does not evict entries, but in that
-          // case this call downloads by itself. A failed shared download is propagated to all
-          // callers as-is, as it is the same failure they would have gotten by downloading
-          // themselves.
+          // case this call downloads by itself.
           return submitDownload.get();
         },
         executorService);

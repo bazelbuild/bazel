@@ -364,7 +364,7 @@ public class HttpDownloaderTest {
   }
 
   @Test
-  public void failedSharedDownload_failsAllCallersWithoutRetry() throws Exception {
+  public void failedSharedDownload_fallsBackToOwnDownload() throws Exception {
     try (BlockingServer server = startBlockingServer("HTTP/1.1 404 Not Found", "")) {
       DownloadCache downloadCache = new DownloadCache();
       downloadCache.setPath(fs.getPath(workingDir.newFolder().getAbsolutePath()));
@@ -405,11 +405,68 @@ public class HttpDownloaderTest {
 
       server.releaseResponse().countDown();
 
-      // All callers get the shared download's failure instead of retrying on their own.
+      // Both fail because the URL returns 404.
       assertThrows(IOException.class, () -> downloadManager.finalizeDownload(download1));
       assertThrows(IOException.class, () -> downloadManager.finalizeDownload(download2));
       downloadExecutor.shutdown();
-      assertThat(server.requestCount().get()).isEqualTo(1);
+      assertThat(server.requestCount().get()).isEqualTo(2);
+    }
+  }
+
+  @Test
+  public void failedSharedDownload_joinerSucceedsViaOwnMirror() throws Exception {
+    try (BlockingServer badServer = startBlockingServer("HTTP/1.1 404 Not Found", "");
+        BlockingServer goodServer = startBlockingServer()) {
+      DownloadCache downloadCache = new DownloadCache();
+      downloadCache.setPath(fs.getPath(workingDir.newFolder().getAbsolutePath()));
+      DownloadManager downloadManager =
+          new DownloadManager(downloadCache, httpDownloader, httpDownloader, eventHandler);
+      ExecutorService downloadExecutor = Executors.newFixedThreadPool(2);
+      URI badUrl =
+          URI.create(String.format("http://localhost:%d/foo", badServer.socket().getLocalPort()));
+      URI goodUrl =
+          URI.create(String.format("http://localhost:%d/foo", goodServer.socket().getLocalPort()));
+      Path destination1 = fs.getPath(workingDir.newFolder().getAbsolutePath()).getChild("file1");
+      Path destination2 = fs.getPath(workingDir.newFolder().getAbsolutePath()).getChild("file2");
+      Future<Path> download1 =
+          downloadManager.startDownload(
+              downloadExecutor,
+              ImmutableList.of(badUrl),
+              ImmutableMap.of(),
+              ImmutableMap.of(),
+              helloChecksum(),
+              "testCanonicalId",
+              Optional.empty(),
+              destination1,
+              ImmutableMap.of(),
+              "testRepo1",
+              /* mayHardlink= */ true);
+      assertThat(badServer.requestReceived().await(10, SECONDS)).isTrue();
+      Future<Path> download2 =
+          downloadManager.startDownload(
+              downloadExecutor,
+              ImmutableList.of(badUrl, goodUrl),
+              ImmutableMap.of(),
+              ImmutableMap.of(),
+              helloChecksum(),
+              "testCanonicalId",
+              Optional.empty(),
+              destination2,
+              ImmutableMap.of(),
+              "testRepo2",
+              /* mayHardlink= */ true);
+
+      badServer.releaseResponse().countDown();
+      goodServer.releaseResponse().countDown();
+
+      // The caller holding a working mirror URL retries on its own and succeeds.
+      assertThrows(IOException.class, () -> downloadManager.finalizeDownload(download1));
+      Path result2 = downloadManager.finalizeDownload(download2);
+      downloadExecutor.shutdown();
+
+      assertThat(new String(FileSystemUtils.readContent(result2), UTF_8)).isEqualTo("hello");
+      assertThat(badServer.requestCount().get()).isEqualTo(2);
+      assertThat(goodServer.requestCount().get()).isEqualTo(1);
     }
   }
 
