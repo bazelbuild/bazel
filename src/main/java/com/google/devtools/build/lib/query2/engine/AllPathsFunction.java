@@ -33,8 +33,7 @@ import java.util.Set;
  * Implementation of the <code>allpaths()</code> function.
  */
 public class AllPathsFunction implements QueryFunction {
-  AllPathsFunction() {
-  }
+  public AllPathsFunction() {}
 
   @Override
   public String getName() {
@@ -49,6 +48,11 @@ public class AllPathsFunction implements QueryFunction {
   @Override
   public List<ArgumentType> getArgumentTypes() {
     return ImmutableList.of(ArgumentType.EXPRESSION, ArgumentType.EXPRESSION);
+  }
+
+  @Override
+  public boolean requiresEdges() {
+    return true;
   }
 
   @Override

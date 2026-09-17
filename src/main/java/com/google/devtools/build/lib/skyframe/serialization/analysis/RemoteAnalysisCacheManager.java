@@ -22,8 +22,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.SkycacheMetadataParams;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient.LookupTopLevelTargetsResult;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
@@ -34,6 +33,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /** A collection of dependencies and minor bits of functionality for remote analysis caching. */
 // Non-final for mockability
@@ -48,12 +48,13 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
 
   private final ExtendedEventHandler eventHandler;
 
-  private final boolean areMetadataQueriesEnabled;
   private final SkycacheMetadataParams skycacheMetadataParams;
 
   private boolean bailedOut;
 
   private final boolean minimizeMemory;
+
+  private final SettablePlatformConfigurationProvider platformConfigurationProvider;
 
   /**
    * A collection of various parts of this class that various parts of Bazel (cache reading, cache
@@ -77,19 +78,19 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
     this.minimizeMemory = false;
     this.eventHandler = null;
     this.skycacheMetadataParams = null;
-    this.areMetadataQueriesEnabled = false;
+    this.platformConfigurationProvider = null;
   }
 
   RemoteAnalysisCacheManager(
       RemoteAnalysisCacheMode mode,
-      boolean areMetadataQueriesEnabled,
       ExtendedEventHandler eventHandler,
       SkycacheMetadataParams skycacheMetadataParams,
       Future<? extends RemoteAnalysisCacheClient> analysisCacheClient,
       Future<? extends AnalysisCacheInvalidator> analysisCacheInvalidator,
       Collection<Label> topLevelTargets,
       Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher,
-      boolean minimizeMemory) {
+      boolean minimizeMemory,
+      SettablePlatformConfigurationProvider platformConfigurationProvider) {
     this.mode = mode;
     this.analysisCacheClient = analysisCacheClient;
     this.analysisCacheInvalidator = analysisCacheInvalidator;
@@ -98,7 +99,7 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
     this.minimizeMemory = minimizeMemory;
     this.eventHandler = eventHandler;
     this.skycacheMetadataParams = skycacheMetadataParams;
-    this.areMetadataQueriesEnabled = areMetadataQueriesEnabled;
+    this.platformConfigurationProvider = platformConfigurationProvider;
   }
 
   @Override
@@ -109,7 +110,7 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
   @Override
   public void queryMetadataAndMaybeBailout() throws InterruptedException {
     Preconditions.checkState(mode == RemoteAnalysisCacheMode.DOWNLOAD);
-    if (!areMetadataQueriesEnabled) {
+    if (skycacheMetadataParams == null) {
       return;
     }
     if (skycacheMetadataParams.getTargets().isEmpty()) {
@@ -117,18 +118,33 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
           Event.warn("Skycache: Not querying Skycache metadata because invocation has no targets"));
     } else {
       try {
+        RemoteAnalysisCacheClient client =
+            RemoteAnalysisCacheDeps.resolveWithTimeout(
+                analysisCacheClient, "analysis cache client");
+        if (client == null) {
+          bailedOut = true;
+          eventHandler.handle(
+              Event.warn(
+                  "Skycache: Failed to initialize analysis cache client for metadata query."
+                      + " Skipping query."));
+          return;
+        }
         LookupTopLevelTargetsResult result =
-            RemoteAnalysisCacheDeps.resolveWithTimeout(analysisCacheClient, "analysis cache client")
-                .lookupTopLevelTargets(
-                    skycacheMetadataParams.getEvaluatingVersion(),
-                    skycacheMetadataParams.getConfigurationHash(),
-                    skycacheMetadataParams.getUseFakeStampData(),
-                    skycacheMetadataParams.getBazelVersion());
+            client.lookupTopLevelTargets(
+                skycacheMetadataParams.getEvaluatingVersion(),
+                skycacheMetadataParams.getConfigurationHash(),
+                skycacheMetadataParams.getUseFakeStampData(),
+                skycacheMetadataParams.getBazelVersion());
 
+        TopLevelTargetsMatchStatus matchStatus =
+            TopLevelTargetsMatchStatus.forNumber(result.status());
+        if (matchStatus == null) {
+          // Possible version skew: the old LC doesn't know about the new enum value.
+          matchStatus = TopLevelTargetsMatchStatus.MATCH_STATUS_UNSPECIFIED;
+        }
         Event event =
-            switch (result.status()) {
+            switch (matchStatus) {
               case MATCH_STATUS_MATCH -> Event.info("Skycache: " + result.statusMessage());
-              case MATCH_STATUS_FAILURE -> Event.warn("Skycache: " + result.statusMessage());
               default -> {
                 bailedOut = true;
                 yield Event.warn("Skycache: " + result.statusMessage());
@@ -183,4 +199,10 @@ public class RemoteAnalysisCacheManager implements RemoteAnalysisCachingDependen
     return minimizeMemory;
   }
 
+  /** Returns the provider, or null when remote analysis caching is disabled. */
+  @Override
+  @Nullable
+  public SettablePlatformConfigurationProvider getPlatformConfigurationProvider() {
+    return platformConfigurationProvider;
+  }
 }

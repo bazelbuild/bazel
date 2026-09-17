@@ -297,6 +297,8 @@ class StartupOptions {
   // external repositories.
   bool remote_repo_contents_cache;
 
+  bool use_compact_object_headers_;
+
  protected:
   // Constructor for subclasses only so that site-specific extensions of this
   // class can override the product name. The product_name must be capitalized,

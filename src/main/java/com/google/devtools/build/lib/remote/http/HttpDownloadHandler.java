@@ -22,6 +22,7 @@ import com.google.common.collect.Lists;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
+import io.netty.handler.codec.TooLongFrameException;
 import io.netty.handler.codec.compression.Zstd;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.HttpContent;
@@ -163,6 +164,7 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
     addCredentialHeaders(request, cmd.uri());
     addExtraRemoteHeaders(request);
     addUserAgentHeader(request);
+    addAcceptHeaders(request);
     ctx.writeAndFlush(request)
         .addListener(
             (f) -> {
@@ -176,6 +178,8 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
   public void exceptionCaught(ChannelHandlerContext ctx, Throwable t) {
     if (t instanceof ReadTimeoutException) {
       super.exceptionCaught(ctx, new DownloadTimeoutException(path, bytesReceived, contentLength));
+    } else if (t instanceof TooLongFrameException) {
+      super.exceptionCaught(ctx, new IOException("HTTP response too large", t));
     } else {
       super.exceptionCaught(ctx, t);
     }
@@ -186,7 +190,6 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
         new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, path);
     httpRequest.headers().set(HttpHeaderNames.HOST, host);
     httpRequest.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
-    httpRequest.headers().set(HttpHeaderNames.ACCEPT, "*/*");
     httpRequest.headers().set(HttpHeaderNames.ACCEPT_ENCODING, ACCEPT_ENCODING);
     return httpRequest;
   }

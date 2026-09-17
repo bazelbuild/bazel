@@ -23,6 +23,7 @@ import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.embedded.EmbeddedChannel;
+import io.netty.handler.codec.TooLongFrameException;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpChunkedInput;
@@ -33,6 +34,7 @@ import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.net.URI;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -143,5 +145,20 @@ public class HttpUploadHandlerTest {
     assertThat(((HttpException) writePromise.cause()).response().status())
         .isEqualTo(HttpResponseStatus.NOT_FOUND);
     assertThat(ch.isOpen()).isTrue();
+  }
+
+  @Test
+  public void tooLongFrameExceptionHasCleanMessage() {
+    EmbeddedChannel ch = new EmbeddedChannel(new HttpUploadHandler(null, ImmutableList.of()));
+    ByteArrayInputStream data = new ByteArrayInputStream(new byte[] {1, 2, 3, 4, 5});
+    ChannelPromise writePromise = ch.newPromise();
+    ch.writeOneOutbound(new UploadCommand(CACHE_URI, true, "abcdef", data, 5), writePromise);
+
+    ch.pipeline().fireExceptionCaught(new TooLongFrameException("too long"));
+
+    assertThat(writePromise.isDone()).isTrue();
+    assertThat(writePromise.cause()).isInstanceOf(IOException.class);
+    assertThat(writePromise.cause()).hasMessageThat().isEqualTo("HTTP response too large");
+    assertThat(writePromise.cause()).hasCauseThat().isInstanceOf(TooLongFrameException.class);
   }
 }

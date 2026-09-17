@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
+import static com.google.devtools.build.lib.bazel.BazelServices.BAZEL_SERVICES;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -57,6 +58,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
@@ -101,14 +103,18 @@ public final class BlazeCommandDispatcherTest {
     ServerDirectories serverDirectories =
         new ServerDirectories(
             scratch.dir("install_base"), scratch.dir("output_base"), scratch.dir("user_root"));
+    OptionsParsingResult startupOptionsProvider =
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
+    for (var service : BAZEL_SERVICES) {
+      service.globalInit(startupOptionsProvider, BAZEL_SERVICES);
+    }
     // no ConfiguredTargetFactory is needed for testing command dispatch
     BlazeRuntime.Builder builder =
         new BlazeRuntime.Builder()
             .setFileSystem(scratch.getFileSystem())
             .setServerDirectories(serverDirectories)
             .setProductName(productName)
-            .setStartupOptionsProvider(
-                OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
+            .setStartupOptionsProvider(startupOptionsProvider)
             .addBlazeModule(
                 new BlazeModule() {
                   @Override
@@ -123,6 +129,9 @@ public final class BlazeCommandDispatcherTest {
                     }
                   }
                 });
+    for (var service : BAZEL_SERVICES) {
+      builder.addBlazeService(service);
+    }
     for (BlazeModule module : additionalModules) {
       builder.addBlazeModule(module);
     }
@@ -140,36 +149,38 @@ public final class BlazeCommandDispatcherTest {
   @After
   public void stopProfilers() throws Exception {
     // Needs to be done because we are simulating crashes but keeping the jvm alive.
-    Profiler.instance().stop();
-    MemoryProfiler.instance().stop();
+    try {
+      Profiler.instance().stop();
+      MemoryProfiler.instance().stop();
+    } finally {
+      Profiler.setTraceProfilerService(null);
+    }
   }
 
   /** Options for {@link FooCommand}. */
-  public static class FooOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class FooOptions extends OptionsBase {
 
     @Option(
-      name = "success",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "true"
-    )
-    public boolean exitStatus;
+        name = "success",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "true")
+    public abstract boolean getExitStatus();
 
     @Option(
-      name = "stdout",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = ""
-    )
-    public String stdout;
+        name = "stdout",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "")
+    public abstract String getStdout();
 
     @Option(
-      name = "stderr",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = ""
-    )
-    public String stderr;
+        name = "stderr",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "")
+    public abstract String getStderr();
   }
 
   @Command(name = "foo", options = {FooOptions.class},
@@ -179,9 +190,9 @@ public final class BlazeCommandDispatcherTest {
     @Override
     public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
       FooOptions fooOptions = options.getOptions(FooOptions.class);
-      env.getReporter().getOutErr().printOut(fooOptions.stdout);
-      env.getReporter().getOutErr().printErr(fooOptions.stderr);
-      if (fooOptions.exitStatus) {
+      env.getReporter().getOutErr().printOut(fooOptions.getStdout());
+      env.getReporter().getOutErr().printErr(fooOptions.getStderr());
+      if (fooOptions.getExitStatus()) {
         return BlazeCommandResult.success();
       } else {
         return BlazeCommandResult.failureDetail(

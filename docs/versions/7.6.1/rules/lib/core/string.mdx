@@ -82,8 +82,8 @@ Returns the number of (non-overlapping) occurrences of substring `sub` in string
 | Parameter | Description |
 | --- | --- |
 | `sub` | required |
-| `start` | [int](../core/int); or `None`; default is `0` |
-| `end` | [int](../core/int); or `None`; default is `None`  optional position before which to restrict to search. |
+| `start` | [int](/versions/7.6.1/rules/lib/core/int); or `None`; default is `0` |
+| `end` | [int](/versions/7.6.1/rules/lib/core/int); or `None`; default is `None`  optional position before which to restrict to search. |
 
 ## elems
 
@@ -105,9 +105,9 @@ Returns True if the string ends with `sub`, otherwise False, optionally restrict
 
 | Parameter | Description |
 | --- | --- |
-| `sub` | [string](../core/string); or [tuple](../core/tuple) of [string](../core/string)s; required  The suffix (or tuple of alternative suffixes) to match. |
-| `start` | [int](../core/int); or `None`; default is `0`  Test beginning at this position. |
-| `end` | [int](../core/int); or `None`; default is `None`  optional position at which to stop comparing. |
+| `sub` | [string](/versions/7.6.1/rules/lib/core/string); or [tuple](/versions/7.6.1/rules/lib/core/tuple) of [string](/versions/7.6.1/rules/lib/core/string)s; required  The suffix (or tuple of alternative suffixes) to match. |
+| `start` | [int](/versions/7.6.1/rules/lib/core/int); or `None`; default is `0`  Test beginning at this position. |
+| `end` | [int](/versions/7.6.1/rules/lib/core/int); or `None`; default is `None`  optional position at which to stop comparing. |
 
 ## find
 
@@ -122,8 +122,8 @@ Returns the first index where `sub` is found, or -1 if no such index exists, opt
 | Parameter | Description |
 | --- | --- |
 | `sub` | required  The substring to find. |
-| `start` | [int](../core/int); or `None`; default is `0`  Restrict to search from this position. |
-| `end` | [int](../core/int); or `None`; default is `None`  optional position before which to restrict to search. |
+| `start` | [int](/versions/7.6.1/rules/lib/core/int); or `None`; default is `0`  Restrict to search from this position. |
+| `end` | [int](/versions/7.6.1/rules/lib/core/int); or `None`; default is `None`  optional position before which to restrict to search. |
 
 ## format
 
@@ -131,7 +131,7 @@ Returns the first index where `sub` is found, or -1 if no such index exists, opt
 string string.format(*args, **kwargs)
 ```
 
-Perform string interpolation. Format strings contain replacement fields surrounded by curly braces `{}`. Anything that is not contained in braces is considered literal text, which is copied unchanged to the output.If you need to include a brace character in the literal text, it can be escaped by doubling: `{{` and `}}`A replacement field can be either a name, a number, or empty. Values are converted to strings using the [str](../globals/all#str) function.
+Perform string interpolation. Format strings contain replacement fields surrounded by curly braces `{}`. Anything that is not contained in braces is considered literal text, which is copied unchanged to the output.If you need to include a brace character in the literal text, it can be escaped by doubling: `{{` and `}}`A replacement field can be either a name, a number, or empty. Values are converted to strings using the [str](/versions/7.6.1/rules/lib/globals/all#str) function.
 
 ```
 # Access in order:
@@ -162,8 +162,8 @@ Returns the first index where `sub` is found, or raises an error if no such inde
 | Parameter | Description |
 | --- | --- |
 | `sub` | required  The substring to find. |
-| `start` | [int](../core/int); or `None`; default is `0`  Restrict to search from this position. |
-| `end` | [int](../core/int); or `None`; default is `None`  optional position before which to restrict to search. |
+| `start` | [int](/versions/7.6.1/rules/lib/core/int); or `None`; default is `0`  Restrict to search from this position. |
+| `end` | [int](/versions/7.6.1/rules/lib/core/int); or `None`; default is `None`  optional position before which to restrict to search. |
 
 ## isalnum
 
@@ -263,7 +263,7 @@ Returns a copy of the string where leading characters that appear in `chars` are
 
 | Parameter | Description |
 | --- | --- |
-| `chars` | [string](../core/string); or `None`; default is `None`  The characters to remove, or all whitespace if None. |
+| `chars` | [string](/versions/7.6.1/rules/lib/core/string); or `None`; default is `None`  The characters to remove, or all whitespace if None. |
 
 ## partition
 
@@ -336,8 +336,8 @@ Returns the last index where `sub` is found, or -1 if no such index exists, opti
 | Parameter | Description |
 | --- | --- |
 | `sub` | required  The substring to find. |
-| `start` | [int](../core/int); or `None`; default is `0`  Restrict to search from this position. |
-| `end` | [int](../core/int); or `None`; default is `None`  optional position before which to restrict to search. |
+| `start` | [int](/versions/7.6.1/rules/lib/core/int); or `None`; default is `0`  Restrict to search from this position. |
+| `end` | [int](/versions/7.6.1/rules/lib/core/int); or `None`; default is `None`  optional position before which to restrict to search. |
 
 ## rindex
 
@@ -352,8 +352,8 @@ Returns the last index where `sub` is found, or raises an error if no such index
 | Parameter | Description |
 | --- | --- |
 | `sub` | required  The substring to find. |
-| `start` | [int](../core/int); or `None`; default is `0`  Restrict to search from this position. |
-| `end` | [int](../core/int); or `None`; default is `None`  optional position before which to restrict to search. |
+| `start` | [int](/versions/7.6.1/rules/lib/core/int); or `None`; default is `0`  Restrict to search from this position. |
+| `end` | [int](/versions/7.6.1/rules/lib/core/int); or `None`; default is `None`  optional position before which to restrict to search. |
 
 ## rpartition
 
@@ -382,7 +382,7 @@ Returns a list of all the words in the string, using `sep` as the separator, opt
 | Parameter | Description |
 | --- | --- |
 | `sep` | required  The string to split on. |
-| `maxsplit` | [int](../core/int); or `None`; default is `None`  The maximum number of splits. |
+| `maxsplit` | [int](/versions/7.6.1/rules/lib/core/int); or `None`; default is `None`  The maximum number of splits. |
 
 ## rstrip
 
@@ -400,7 +400,7 @@ Returns a copy of the string where trailing characters that appear in `chars` ar
 
 | Parameter | Description |
 | --- | --- |
-| `chars` | [string](../core/string); or `None`; default is `None`  The characters to remove, or all whitespace if None. |
+| `chars` | [string](/versions/7.6.1/rules/lib/core/string); or `None`; default is `None`  The characters to remove, or all whitespace if None. |
 
 ## split
 
@@ -415,7 +415,7 @@ Returns a list of all the words in the string, using `sep` as the separator, opt
 | Parameter | Description |
 | --- | --- |
 | `sep` | required  The string to split on. |
-| `maxsplit` | [int](../core/int); or `None`; default is `None`  The maximum number of splits. |
+| `maxsplit` | [int](/versions/7.6.1/rules/lib/core/int); or `None`; default is `None`  The maximum number of splits. |
 
 ## splitlines
 
@@ -443,9 +443,9 @@ Returns True if the string starts with `sub`, otherwise False, optionally restri
 
 | Parameter | Description |
 | --- | --- |
-| `sub` | [string](../core/string); or [tuple](../core/tuple) of [string](../core/string)s; required  The prefix (or tuple of alternative prefixes) to match. |
-| `start` | [int](../core/int); or `None`; default is `0`  Test beginning at this position. |
-| `end` | [int](../core/int); or `None`; default is `None`  Stop comparing at this position. |
+| `sub` | [string](/versions/7.6.1/rules/lib/core/string); or [tuple](/versions/7.6.1/rules/lib/core/tuple) of [string](/versions/7.6.1/rules/lib/core/string)s; required  The prefix (or tuple of alternative prefixes) to match. |
+| `start` | [int](/versions/7.6.1/rules/lib/core/int); or `None`; default is `0`  Test beginning at this position. |
+| `end` | [int](/versions/7.6.1/rules/lib/core/int); or `None`; default is `None`  Stop comparing at this position. |
 
 ## strip
 
@@ -463,7 +463,7 @@ Returns a copy of the string where leading or trailing characters that appear in
 
 | Parameter | Description |
 | --- | --- |
-| `chars` | [string](../core/string); or `None`; default is `None`  The characters to remove, or all whitespace if None. |
+| `chars` | [string](/versions/7.6.1/rules/lib/core/string); or `None`; default is `None`  The characters to remove, or all whitespace if None. |
 
 ## title
 

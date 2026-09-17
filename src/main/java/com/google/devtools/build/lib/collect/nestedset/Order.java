@@ -116,7 +116,7 @@ public enum Order {
 
   Order(String starlarkName) {
     this.starlarkName = starlarkName;
-    this.emptySet = new NestedSet<>(this);
+    this.emptySet = NestedSet.empty(this);
     this.emptyDepset = new Depset(null, this.emptySet);
   }
 

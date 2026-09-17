@@ -14,22 +14,35 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueCache;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
+import com.google.devtools.build.lib.skyframe.serialization.Fingerprinter;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalPhase;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.SerializationDependenciesProvider;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
+import com.google.devtools.build.lib.versioning.LongVersionGetter;
+import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -53,16 +66,30 @@ public class RemoteAnalysisCacheDeps
 
   private final RemoteAnalysisCacheMode mode;
   private final boolean bailOutOnMissingFingerprint;
+  private final boolean minimizeMemory;
   private final String serializedFrontierProfile;
   private final Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher;
   private final RemoteAnalysisCachingEventListener listener;
   private final FrontierNodeVersion frontierNodeVersion;
-  @Nullable private final RemoteAnalysisJsonLogWriter jsonLogWriter;
+  private final boolean skycacheAnalysisOnly;
+  private final boolean emitUploadedEvents;
 
   private final ListenableFuture<ObjectCodecs> objectCodecs;
-  private final ListenableFuture<FingerprintValueService> fingerprintValueServiceFuture;
-  @Nullable private final ListenableFuture<? extends RemoteAnalysisCacheClient> analysisCacheClient;
-  @Nullable private final ListenableFuture<? extends RemoteAnalysisMetadataWriter> metadataWriter;
+  private final CompressionService compressionService;
+  @Nullable private final ListenableFuture<FingerprintValueService> fingerprintValueServiceFuture;
+  private final LazyResolver<FingerprintValueService> fingerprintValueService;
+  private final LazyResolver<? extends RemoteAnalysisCacheClient> analysisCacheClient;
+  private final LazyResolver<? extends RemoteAnalysisMetadataWriter> metadataWriter;
+  private final SkycacheChannelStateAdvisor channelStateAdvisor;
+
+  // Volatile because double-checked locking is used in the getter
+  @Nullable private volatile SkyValueRetriever skyValueRetriever;
+  @Nullable private volatile SkycacheUploadClient skycacheUploadClient;
+  @Nullable private volatile FileOpNodeMemoizingLookup fileOpNodes;
+
+  private final InMemoryGraph graph;
+  private final EventBus eventBus;
+  private final LongVersionGetter versionGetter;
 
   private final AtomicBoolean bailedOut = new AtomicBoolean();
   private final ExtendedEventHandler eventHandler;
@@ -75,44 +102,84 @@ public class RemoteAnalysisCacheDeps
       ExtendedEventHandler eventHandler,
       RemoteAnalysisCacheMode mode,
       boolean bailOutOnMissingFingerprint,
+      boolean minimizeMemory,
       RemoteAnalysisCachingServicesSupplier servicesSupplier,
       RemoteAnalysisCachingEventListener listener,
-      RemoteAnalysisJsonLogWriter jsonLogWriter,
       ListenableFuture<ObjectCodecs> objectCodecs,
+      CompressionService compressionService,
       FrontierNodeVersion frontierNodeVersion,
       Optional<Predicate<PackageIdentifier>> activeDirectoriesMatcher,
-      String serializedFrontierProfile) {
+      String serializedFrontierProfile,
+      boolean skycacheAnalysisOnly,
+      boolean emitUploadedEvents,
+      Fingerprinter fingerprinterForAnalysisCaching,
+      InMemoryGraph graph,
+      EventBus eventBus,
+      LongVersionGetter versionGetter,
+      SafeExecutor commandExecutor) {
     this.mode = mode;
     this.bailOutOnMissingFingerprint = bailOutOnMissingFingerprint;
+    this.skycacheAnalysisOnly = skycacheAnalysisOnly;
+    this.emitUploadedEvents = emitUploadedEvents;
+    this.minimizeMemory = minimizeMemory;
     this.serializedFrontierProfile = serializedFrontierProfile;
     this.activeDirectoriesMatcher = activeDirectoriesMatcher;
     this.eventHandler = eventHandler;
-
-    this.jsonLogWriter = jsonLogWriter;
 
     this.objectCodecs = objectCodecs;
     this.listener = listener;
 
     this.frontierNodeVersion = frontierNodeVersion;
 
-    this.fingerprintValueServiceFuture = servicesSupplier.getFingerprintValueService();
-    this.metadataWriter = servicesSupplier.getMetadataWriter();
-    this.analysisCacheClient = servicesSupplier.getAnalysisCacheClient();
+    this.compressionService = compressionService;
+
+    this.fingerprintValueServiceFuture =
+        servicesSupplier.getFingerprintValueStore() == null
+            ? null
+            : Futures.transform(
+                servicesSupplier.getFingerprintValueStore(),
+                store ->
+                    new FingerprintValueService(
+                        commandExecutor,
+                        store,
+                        new FingerprintValueCache(FingerprintValueCache.SyncMode.NOT_LINKED),
+                        fingerprinterForAnalysisCaching),
+                directExecutor());
+    this.fingerprintValueService =
+        new LazyResolver<>(this.fingerprintValueServiceFuture, "fingerprint value service");
+    this.analysisCacheClient =
+        new LazyResolver<>(servicesSupplier.getAnalysisCacheClient(), "analysis cache client");
+    this.metadataWriter =
+        new LazyResolver<>(servicesSupplier.getMetadataWriter(), "metadata writer");
+    this.channelStateAdvisor = servicesSupplier.getChannelStateAdvisor();
+
+    this.graph = graph;
+    this.eventBus = eventBus;
+    this.versionGetter = versionGetter;
   }
 
   private RemoteAnalysisCacheDeps() {
     this.mode = RemoteAnalysisCacheMode.OFF;
     this.bailOutOnMissingFingerprint = false;
+    this.minimizeMemory = false;
+    this.skycacheAnalysisOnly = false;
+    this.emitUploadedEvents = false;
     this.serializedFrontierProfile = "";
     this.activeDirectoriesMatcher = Optional.empty();
     this.eventHandler = null;
-    this.jsonLogWriter = null;
     this.objectCodecs = null;
     this.listener = null;
     this.frontierNodeVersion = null;
+    this.compressionService = null;
     this.fingerprintValueServiceFuture = null;
-    this.metadataWriter = null;
-    this.analysisCacheClient = null;
+    this.fingerprintValueService = new LazyResolver<>(null, "");
+    this.analysisCacheClient = new LazyResolver<>(null, "");
+    this.metadataWriter = new LazyResolver<>(null, "");
+    this.channelStateAdvisor = SkycacheChannelStateAdvisor.DISABLED;
+
+    this.graph = null;
+    this.eventBus = null;
+    this.versionGetter = null;
   }
 
   static <T> T resolveWithTimeout(Future<? extends T> future, String what)
@@ -120,7 +187,7 @@ public class RemoteAnalysisCacheDeps
     if (future == null) {
       return null;
     }
-    try {
+    try (SilentCloseable unused = Profiler.instance().profile("resolveWithTimeout: " + what)) {
       return future.get(CLIENT_LOOKUP_TIMEOUT_SEC, SECONDS);
     } catch (ExecutionException | TimeoutException e) {
       logger.atWarning().withCause(e).log("Unable to initialize %s", what);
@@ -136,6 +203,12 @@ public class RemoteAnalysisCacheDeps
   @Override
   public RemoteAnalysisCacheMode mode() {
     return mode;
+  }
+
+  @Override
+  public boolean shouldMinimizeMemory() {
+    checkEnabled();
+    return minimizeMemory;
   }
 
   @Override
@@ -166,13 +239,27 @@ public class RemoteAnalysisCacheDeps
     }
   }
 
+  @Nullable
   @Override
-  public FingerprintValueService getFingerprintValueService() throws InterruptedException {
+  public CompressionService getCompressionService() {
     checkEnabled();
-    return resolveWithTimeout(fingerprintValueServiceFuture, "fingerprint value service");
+    return compressionService;
+  }
+
+  @Nullable
+  ListenableFuture<FingerprintValueService> getFingerprintValueServiceFuture() {
+    return fingerprintValueServiceFuture;
   }
 
   @Override
+  @Nullable
+  public FingerprintValueService getFingerprintValueService() throws InterruptedException {
+    checkEnabled();
+    return fingerprintValueService.get();
+  }
+
+  @Override
+  @Nullable
   public KeyValueWriter getFileInvalidationWriter() throws InterruptedException {
     checkEnabled();
     return getFingerprintValueService();
@@ -182,33 +269,130 @@ public class RemoteAnalysisCacheDeps
   @Nullable
   public RemoteAnalysisCacheClient getAnalysisCacheClient() throws InterruptedException {
     checkEnabled();
-    return resolveWithTimeout(analysisCacheClient, "analysis cache client");
+    return analysisCacheClient.get();
+  }
+
+  @Override
+  @Nullable
+  public FileOpNodeMemoizingLookup getFileOpNodes() throws InterruptedException {
+    checkEnabled();
+
+    if (fileOpNodes != null) {
+      return fileOpNodes;
+    }
+
+    FingerprintValueService fingerprintValueService = getFingerprintValueService();
+    if (fingerprintValueService == null) {
+      return null;
+    }
+    synchronized (this) {
+      if (fileOpNodes == null) {
+        fileOpNodes =
+            new FileOpNodeMemoizingLookup(
+                fingerprintValueService.getExecutor(),
+                graph,
+                ImmutableSet.of(),
+                /* shouldDiscardMemory= */ false,
+                /* referencedPackages= */ null);
+      }
+      return fileOpNodes;
+    }
+  }
+
+  @Override
+  @Nullable
+  public SkyValueRetriever getSkyValueRetriever() throws InterruptedException {
+    checkEnabled();
+    if (skyValueRetriever != null) {
+      return skyValueRetriever;
+    }
+
+    FingerprintValueService fingerprintValueService = getFingerprintValueService();
+    if (fingerprintValueService == null) {
+      return null;
+    }
+    ObjectCodecs codecs = getObjectCodecs();
+    FileOpNodeMemoizingLookup fileOp = Preconditions.checkNotNull(getFileOpNodes());
+
+    synchronized (this) {
+      if (skyValueRetriever == null) {
+        skyValueRetriever =
+            new SkyValueRetriever(
+                compressionService,
+                fingerprintValueService,
+                codecs,
+                frontierNodeVersion,
+                fileOp,
+                channelStateAdvisor);
+      }
+      return skyValueRetriever;
+    }
+  }
+
+  @Override
+  @Nullable
+  public SkycacheUploadClient getSkycacheUploadClient() throws InterruptedException {
+    checkEnabled();
+    if (skycacheUploadClient != null) {
+      return skycacheUploadClient;
+    }
+
+    FingerprintValueService fingerprintValueService = getFingerprintValueService();
+    if (fingerprintValueService == null) {
+      return null;
+    }
+    ObjectCodecs codecs = getObjectCodecs();
+    FileOpNodeMemoizingLookup fileOp = Preconditions.checkNotNull(getFileOpNodes());
+
+    synchronized (this) {
+      if (skycacheUploadClient == null) {
+        skycacheUploadClient =
+            new SkycacheUploadClient(
+                compressionService,
+                fingerprintValueService,
+                codecs,
+                frontierNodeVersion,
+                graph,
+                eventBus,
+                versionGetter,
+                emitUploadedEvents,
+                fileOp);
+      }
+      return skycacheUploadClient;
+    }
+  }
+
+  @Override
+  public void waitForUploadCompletion() throws InterruptedException, ExecutionException {
+    var client = skycacheUploadClient;
+    if (client != null) {
+      client.waitForCompletion();
+    }
   }
 
   @Override
   @Nullable
   public RemoteAnalysisMetadataWriter getMetadataWriter() throws InterruptedException {
     checkEnabled();
-    return resolveWithTimeout(metadataWriter, "metadata writer");
-  }
-
-  @Nullable
-  @Override
-  public RemoteAnalysisJsonLogWriter getJsonLogWriter() {
-    checkEnabled();
-    return jsonLogWriter;
+    return metadataWriter.get();
   }
 
   @Override
-  public void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key) {
+  public void recordRetrievalResult(
+      RetrievalResult retrievalResult,
+      SkyKey key,
+      ImmutableMap<RetrievalPhase, Long> phaseDurationMicros) {
     checkEnabled();
-    listener.recordRetrievalResult(retrievalResult, key);
+    listener.recordRetrievalResult(retrievalResult, key, phaseDurationMicros);
   }
 
   @Override
-  public void recordSerializationException(SerializationException e, SkyKey key) {
+  public void recordSerializationException(
+      SerializationException e,
+      SkyKey key,
+      ImmutableMap<RetrievalPhase, Long> phaseDurationMicros) {
     checkEnabled();
-    listener.recordSerializationException(e, key);
+    listener.recordSerializationException(e, key, phaseDurationMicros);
   }
 
   @Override
@@ -224,21 +408,74 @@ public class RemoteAnalysisCacheDeps
     try {
       FingerprintValueService service = getFingerprintValueService();
       boolean retVal = service != null && service.getStats().entriesNotFound() > 0;
-      if (retVal) {
-        bailedOut.set(true);
+      if (retVal && bailedOut.compareAndSet(false, true)) {
         eventHandler.handle(
             Event.warn(
                 "Skycache: falling back to local evaluation due to unexpected missing cache"
                     + " entries"));
-        analysisCacheClient.get().bailOutDueToMissingFingerprint();
+        RemoteAnalysisCacheClient client = getAnalysisCacheClient();
+        if (client != null) {
+          client.bailOutDueToMissingFingerprint();
+        }
       }
       return retVal;
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       return false;
-    } catch (ExecutionException e) {
-      throw new IllegalStateException(
-          "At this point the Skycache client should have been initialized", e);
+    }
+  }
+
+  @Override
+  public boolean getSkycacheAnalysisOnly() {
+    checkEnabled();
+    return skycacheAnalysisOnly;
+  }
+
+  @Override
+  public boolean getEmitUploadedEvents() {
+    checkEnabled();
+    return emitUploadedEvents;
+  }
+
+  /**
+   * Encapsulates lazy, thread-safe initialization of a remote service.
+   *
+   * <p>This class exists to:
+   *
+   * <ul>
+   *   <li><b>Cache Timeouts:</b> It caches the result of {@code resolveWithTimeout} (even if it
+   *       returns {@code null} due to {@link TimeoutException} or {@link ExecutionException}) by
+   *       setting {@code initialized = true}. This prevents subsequent calls from blocking again on
+   *       incomplete futures, avoiding cascading timeouts.
+   *   <li><b>Serialize Resolution:</b> The blocking {@code resolveWithTimeout} call is kept
+   *       <i>inside</i> the {@code synchronized(this)} block of the resolver instance. This ensures
+   *       that only one thread attempts to resolve the service concurrently, preventing duplicate
+   *       warnings and redundant resource usage (log spam).
+   * </ul>
+   */
+  private static final class LazyResolver<T> {
+    @Nullable private final Future<? extends T> future;
+    private final String description;
+    @Nullable private volatile T resolvedValue;
+    private volatile boolean initialized = false;
+
+    private LazyResolver(@Nullable Future<? extends T> future, String description) {
+      this.future = future;
+      this.description = description;
+    }
+
+    @Nullable
+    private T get() throws InterruptedException {
+      if (initialized) {
+        return resolvedValue;
+      }
+      synchronized (this) {
+        if (!initialized) {
+          resolvedValue = resolveWithTimeout(future, description);
+          initialized = true;
+        }
+        return resolvedValue;
+      }
     }
   }
 }

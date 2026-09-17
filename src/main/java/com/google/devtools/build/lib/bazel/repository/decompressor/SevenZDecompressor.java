@@ -27,7 +27,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.HashSet;
-import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 import org.apache.commons.compress.archivers.sevenz.SevenZArchiveEntry;
@@ -47,7 +46,8 @@ public class SevenZDecompressor implements Decompressor {
   public Path decompress(DecompressorDescriptor descriptor)
       throws IOException, RepositoryFunctionException, InterruptedException {
     Path destinationDirectory = descriptor.destinationPath();
-    Optional<String> prefix = descriptor.prefix();
+    String prefix = descriptor.prefix();
+    int stripComponents = descriptor.stripComponents();
     ImmutableMap<String, String> renameFiles = descriptor.renameFiles();
     boolean foundPrefix = false;
 
@@ -81,7 +81,7 @@ public class SevenZDecompressor implements Decompressor {
         }
         entryName = renameFiles.getOrDefault(entryName, entryName);
         StripPrefixedPath entryPath =
-            StripPrefixedPath.maybeDeprefix(entryName.getBytes(UTF_8), prefix);
+            StripPrefixedPath.maybeDeprefix(entryName.getBytes(UTF_8), prefix, stripComponents);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
         if (entryPath.skip()) {
           continue;
@@ -89,15 +89,15 @@ public class SevenZDecompressor implements Decompressor {
         extract7zEntry(sevenZFile, entry, destinationDirectory, entryPath.getPathFragment());
       }
 
-      if (prefix.isPresent() && !foundPrefix) {
+      if (!prefix.isEmpty() && !foundPrefix) {
         Set<String> prefixes = new HashSet<>();
         for (SevenZArchiveEntry entry : entries) {
           StripPrefixedPath entryPath =
-              StripPrefixedPath.maybeDeprefix(entry.getName().getBytes(UTF_8), Optional.empty());
+              StripPrefixedPath.maybeDeprefix(entry.getName().getBytes(UTF_8), "", 0);
           CouldNotFindPrefixException.maybeMakePrefixSuggestion(entryPath.getPathFragment())
               .ifPresent(prefixes::add);
         }
-        throw new CouldNotFindPrefixException(prefix.get(), prefixes);
+        throw new CouldNotFindPrefixException(prefix, prefixes);
       }
     }
     return destinationDirectory;

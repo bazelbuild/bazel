@@ -147,6 +147,11 @@ public final class StarlarkRuleConfiguredTargetUtil {
     }
   }
 
+  /** Returns the location of the rule implementation function. */
+  private static Location implLoc(RuleContext context) {
+    return context.getRule().getRuleClassObject().getConfiguredTargetFunction().getLocation();
+  }
+
   /**
    * Creates a Rule Configured Target from the raw providers returned by the rule's implementation
    * function.
@@ -164,10 +169,6 @@ public final class StarlarkRuleConfiguredTargetUtil {
       throws InterruptedException, ActionConflictException {
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(context);
 
-    // Location of rule.implementation function.
-    Location implLoc =
-        context.getRule().getRuleClassObject().getConfiguredTargetFunction().getLocation();
-
     // TODO(adonovan): clean up addProviders' error handling,
     // reporting provider validity errors through ruleError
     // where possible. This allows for multiple events, with independent
@@ -175,7 +176,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
     // The required change is fiddly due to frequent and nested use of
     // Structure.getField, Sequence.cast, and similar operators.
     try {
-      addProviders(context, builder, rawProviders, implLoc, isDefaultExecutableCreated);
+      addProviders(context, builder, rawProviders, isDefaultExecutableCreated);
     } catch (EvalException ex) {
       // Emit a single event that spans two lines (see infoError).
       // The message typically starts with another location, e.g. of provider creation.
@@ -203,7 +204,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
       // The message typically starts with another location, e.g. of provider creation.
       //     ERROR p/BUILD:1:1: in foo_library rule //p:p:
       //     ...message...
-      context.ruleError("\n" + implLoc + ": " + ex.getMessage());
+      context.ruleError("\n" + implLoc(context) + ": " + ex.getMessage());
       return null;
     }
 
@@ -216,7 +217,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
         // Check all advertised providers were created.
         checkDeclaredProviders(ct, advertisedProviders);
       } catch (EvalException ex) {
-        context.ruleError("\n" + implLoc + ": " + ex.getMessage());
+        context.ruleError("\n" + implLoc(context) + ": " + ex.getMessage());
         return null;
       }
     }
@@ -239,23 +240,23 @@ public final class StarlarkRuleConfiguredTargetUtil {
       RuleContext context,
       RuleConfiguredTargetBuilder builder,
       Object rawProviders,
-      Location implLoc,
       boolean isDefaultExecutableCreated)
       throws EvalException, InterruptedException {
 
     // Handle "return provider" vs "return [provider]"
     Map<Provider.Key, Info> declaredProviders = new LinkedHashMap<>();
     if (rawProviders instanceof Info info) {
-      if (getProviderKey(info).equals(StructProvider.STRUCT.getKey())) {
-        throw infoError(
-            info, "Returning a struct from a rule implementation function is deprecated.");
+      if (getProviderKey(info, context).equals(StructProvider.STRUCT.getKey())) {
+        throw errorWithLoc(
+            implLoc(context),
+            "Returning a struct from a rule implementation function is deprecated.");
       }
 
       // A single declared provider (not in a list)
       if (info instanceof StarlarkInfo starlarkInfo) {
         info = starlarkInfo.unsafeOptimizeMemoryLayout();
       }
-      Provider.Key providerKey = getProviderKey(info);
+      Provider.Key providerKey = getProviderKey(info, context);
       // Single declared provider
       declaredProviders.put(providerKey, info);
     } else if (rawProviders instanceof Sequence) {
@@ -268,7 +269,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
           // path, but we don't expect that much in practice.
           provider = starlarkInfo.unsafeOptimizeMemoryLayout();
         }
-        Provider.Key providerKey = getProviderKey(provider);
+        Provider.Key providerKey = getProviderKey(provider, context);
         if (declaredProviders.put(providerKey, provider) != null) {
           context.ruleError("Multiple conflicting returned providers with key " + providerKey);
         }
@@ -306,7 +307,12 @@ public final class StarlarkRuleConfiguredTargetUtil {
     for (Info declaredProvider : declaredProviders.values()) {
       if (declaredProvider instanceof DefaultInfo defaultInfo) {
         parseDefaultProviderFields(
-            defaultInfo, context, builder, isDefaultExecutableCreated, runEnvironmentInfo);
+            defaultInfo,
+            defaultInfo.getCreationLocation(),
+            context,
+            builder,
+            isDefaultExecutableCreated,
+            runEnvironmentInfo);
         defaultProviderProvidedExplicitly = true;
       } else {
         builder.addStarlarkDeclaredProvider(declaredProvider);
@@ -314,10 +320,9 @@ public final class StarlarkRuleConfiguredTargetUtil {
     }
 
     if (!defaultProviderProvidedExplicitly) {
-      // TODO(b/308767456): Avoid creating an empty DefaultInfo, just to pass location for throwing
-      // exceptions.
       parseDefaultProviderFields(
-          DefaultInfo.createEmpty(implLoc),
+          /* defaultInfo= */ null,
+          implLoc(context),
           context,
           builder,
           isDefaultExecutableCreated,
@@ -325,11 +330,11 @@ public final class StarlarkRuleConfiguredTargetUtil {
     }
   }
 
-  // Returns an EvalException whose message has the info's creation location as a prefix.
-  // The exception is intended to be reported as ruleErrors by createTarget.
+  // Returns an EvalException whose message has a location as the prefix. The exception is intended
+  // to be reported as ruleErrors by createTarget.
   @FormatMethod
-  private static EvalException infoError(Info info, String format, Object... args) {
-    return Starlark.errorf("%s: %s", info.getCreationLocation(), String.format(format, args));
+  private static EvalException errorWithLoc(Location loc, String format, Object... args) {
+    return Starlark.errorf("%s: %s", loc, String.format(format, args));
   }
 
   /**
@@ -339,14 +344,14 @@ public final class StarlarkRuleConfiguredTargetUtil {
    *     occur if the provider was declared in a non-global scope (for example a rule implementation
    *     function)
    */
-  private static Provider.Key getProviderKey(Info info) throws EvalException {
+  private static Provider.Key getProviderKey(Info info, RuleContext context) throws EvalException {
     Provider provider = info.getProvider();
     if (!provider.isExported()) {
       // TODO(adonovan): report separate error events at distinct locations:
       //  "cannot return non-exported provider" (at location of instantiation), and
       //  "provider definition not at top level" (at location of definition).
-      throw infoError(
-          info,
+      throw errorWithLoc(
+          implLoc(context),
           "The rule implementation function returned an instance of an unnamed provider. "
               + "A provider becomes named by being assigned to a global variable in a .bzl file. "
               + "(Provider defined at %s.)",
@@ -357,23 +362,23 @@ public final class StarlarkRuleConfiguredTargetUtil {
 
   /** Parses fields of a default provider. */
   private static void parseDefaultProviderFields(
-      DefaultInfo defaultInfo,
+      @Nullable DefaultInfo defaultInfo,
+      Location locForError,
       RuleContext context,
       RuleConfiguredTargetBuilder builder,
       boolean isDefaultExecutableCreated,
       @Nullable RunEnvironmentInfo runEnvironmentInfo)
       throws EvalException, InterruptedException {
-    Depset files = defaultInfo.getFiles();
-    Runfiles statelessRunfiles = defaultInfo.getStatelessRunfiles();
-    Runfiles dataRunfiles = defaultInfo.getDataRunfiles();
-    Runfiles defaultRunfiles = defaultInfo.getDefaultRunfiles();
-    Artifact executable = defaultInfo.getExecutable();
+    Depset files = defaultInfo == null ? null : defaultInfo.getFiles();
+    Runfiles statelessRunfiles = defaultInfo == null ? null : defaultInfo.getStatelessRunfiles();
+    Runfiles dataRunfiles = defaultInfo == null ? null : defaultInfo.getDataRunfiles();
+    Runfiles defaultRunfiles = defaultInfo == null ? null : defaultInfo.getDefaultRunfiles();
+    Artifact executable = defaultInfo == null ? null : defaultInfo.getExecutable();
 
     if (executable != null && !executable.getArtifactOwner().equals(context.getOwner())) {
-      throw infoError(
-          defaultInfo,
-          "'executable' provided by an executable rule '%s' should be created "
-              + "by the same rule.",
+      throw errorWithLoc(
+          locForError,
+          "'executable' provided by an executable rule '%s' should be created by the same rule.",
           context.getRule().getRuleClass());
     }
 
@@ -381,10 +386,10 @@ public final class StarlarkRuleConfiguredTargetUtil {
     if (executable != null && isExecutable && isDefaultExecutableCreated) {
       Artifact defaultExecutable = context.createOutputArtifact();
       if (!executable.equals(defaultExecutable)) {
-        throw infoError(
-            defaultInfo,
-            "The rule '%s' both accesses 'ctx.outputs.executable' and provides "
-                + "a different executable '%s'. Do not use 'ctx.output.executable'.",
+        throw errorWithLoc(
+            locForError,
+            "The rule '%s' both accesses 'ctx.outputs.executable' and provides a different"
+                + " executable '%s'. Do not use 'ctx.output.executable'.",
             context.getRule().getRuleClass(),
             executable.getRootRelativePathString());
       }
@@ -407,11 +412,10 @@ public final class StarlarkRuleConfiguredTargetUtil {
         // created in StarlarkRuleContext.
         executable = context.createOutputArtifact();
       } else {
-        throw infoError(
-            defaultInfo,
-            "The rule '%s' is executable. "
-                + "It needs to create an executable File and pass it as the 'executable' "
-                + "parameter to the DefaultInfo it returns.",
+        throw errorWithLoc(
+            locForError,
+            "The rule '%s' is executable. It needs to create an executable File and pass it as the"
+                + " 'executable' parameter to the DefaultInfo it returns.",
             context.getRule().getRuleClass());
       }
     }

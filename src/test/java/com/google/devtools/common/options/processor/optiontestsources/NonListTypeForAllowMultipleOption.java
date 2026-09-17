@@ -17,15 +17,18 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /** This example options class should fail to compile. */
-public class NonListTypeForAllowMultipleOption extends OptionsBase {
+@OptionsClass
+public abstract class NonListTypeForAllowMultipleOption extends OptionsBase {
   @Option(
-    name = "bad_option",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP},
-    allowMultiple = true
-  )
-  public String badOption;
+      name = "bad_option",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      allowMultiple = true)
+  public abstract String getBadOption();
+
+  public abstract void setBadOption(String value);
 }

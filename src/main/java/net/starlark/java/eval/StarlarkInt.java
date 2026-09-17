@@ -41,7 +41,7 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
   }
 
   @Override
-  public StarlarkType getStarlarkType() {
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
     return Types.INT;
   }
 
@@ -421,6 +421,11 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
 
   @Override
   public boolean isImmutable() {
+    return true;
+  }
+
+  @Override
+  public boolean isAcyclic() {
     return true;
   }
 

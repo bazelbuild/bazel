@@ -30,7 +30,8 @@ import com.google.devtools.build.skyframe.SkyValue;
 /** The value for {@link ModuleExtensionRepoMappingEntriesFunction}. */
 @AutoCodec
 public record ModuleExtensionRepoMappingEntriesValue(
-    ImmutableMap<String, RepositoryName> entries, ModuleKey moduleKey) implements SkyValue {
+    ImmutableMap<String, RepositoryName> entries, int entriesHashCode, ModuleKey moduleKey)
+    implements SkyValue {
   public ModuleExtensionRepoMappingEntriesValue {
     requireNonNull(entries, "entries");
     requireNonNull(moduleKey, "moduleKey");
@@ -38,8 +39,8 @@ public record ModuleExtensionRepoMappingEntriesValue(
 
   @AutoCodec.Instantiator
   public static ModuleExtensionRepoMappingEntriesValue create(
-      ImmutableMap<String, RepositoryName> entries, ModuleKey moduleKey) {
-    return new ModuleExtensionRepoMappingEntriesValue(entries, moduleKey);
+      ImmutableMap<String, RepositoryName> entries, int entriesHashCode, ModuleKey moduleKey) {
+    return new ModuleExtensionRepoMappingEntriesValue(entries, entriesHashCode, moduleKey);
   }
 
   public static ModuleExtensionRepoMappingEntriesValue.Key key(ModuleExtensionId id) {

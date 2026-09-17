@@ -1,0 +1,134 @@
+---
+title: 'java'
+---
+
+A java compiler configuration.
+
+## Members
+
+* [bytecode_optimization_pass_actions](#bytecode_optimization_pass_actions)
+* [bytecode_optimizer_mnemonic](#bytecode_optimizer_mnemonic)
+* [default_javac_flags](#default_javac_flags)
+* [default_javac_flags_depset](#default_javac_flags_depset)
+* [default_jvm_opts](#default_jvm_opts)
+* [disallow_java_import_exports](#disallow_java_import_exports)
+* [multi_release_deploy_jars](#multi_release_deploy_jars)
+* [one_version_enforcement_level](#one_version_enforcement_level)
+* [plugins](#plugins)
+* [run_android_lint](#run_android_lint)
+* [split_bytecode_optimization_pass](#split_bytecode_optimization_pass)
+* [strict_java_deps](#strict_java_deps)
+* [use_header_compilation_direct_deps](#use_header_compilation_direct_deps)
+* [use_ijars](#use_ijars)
+
+## bytecode_optimization_pass_actions
+
+```
+int java.bytecode_optimization_pass_actions
+```
+
+This specifies the number of actions to divide the OPTIMIZATION stage of the bytecode optimizer into. Note that if split_bytecode_optimization_pass is set, this will only change behavior if it is &gt; 2.
+
+## bytecode_optimizer_mnemonic
+
+```
+string java.bytecode_optimizer_mnemonic
+```
+
+The mnemonic for the bytecode optimizer.
+
+## default_javac_flags
+
+```
+list java.default_javac_flags
+```
+
+The default flags for the Java compiler.
+
+## default_javac_flags_depset
+
+```
+depset java.default_javac_flags_depset
+```
+
+The default flags for the Java compiler.
+
+## default_jvm_opts
+
+```
+list java.default_jvm_opts
+```
+
+Additional options to pass to the Java VM for each java_binary target
+
+## disallow_java_import_exports
+
+```
+bool java.disallow_java_import_exports()
+```
+
+Returns true if java_import exports are not allowed.
+
+## multi_release_deploy_jars
+
+```
+bool java.multi_release_deploy_jars
+```
+
+The value of the --incompatible_multi_release_deploy_jars flag.
+
+## one_version_enforcement_level
+
+```
+string java.one_version_enforcement_level
+```
+
+The value of the --experimental_one_version_enforcement flag.
+
+## plugins
+
+```
+list java.plugins
+```
+
+A list containing the labels provided with --plugins, if any.
+
+## run_android_lint
+
+```
+bool java.run_android_lint
+```
+
+The value of the --experimental_run_android_lint_on_java_rules flag.
+
+## split_bytecode_optimization_pass
+
+```
+bool java.split_bytecode_optimization_pass
+```
+
+Returns whether the OPTIMIZATION stage of the bytecode optimizer will be split across two actions.
+
+## strict_java_deps
+
+```
+string java.strict_java_deps
+```
+
+The value of the strict_java_deps flag.
+
+## use_header_compilation_direct_deps
+
+```
+bool java.use_header_compilation_direct_deps()
+```
+
+Returns true if Java header compilation should use separate outputs for direct deps.
+
+## use_ijars
+
+```
+bool java.use_ijars()
+```
+
+Returns true iff Java compilation should use ijars.

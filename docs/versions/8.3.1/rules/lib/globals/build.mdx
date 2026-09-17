@@ -28,7 +28,7 @@ Methods available in BUILD files. See also the Build Encyclopedia for extra [fun
 depset depset(direct=None, order="default", *, transitive=None)
 ```
 
-Creates a [depset](../builtins/depset). The `direct` parameter is a list of direct elements of the depset, and `transitive` parameter is a list of depsets whose elements become indirect elements of the created depset. The order in which elements are returned when the depset is converted to a list is specified by the `order` parameter. See the [Depsets overview](https://bazel.build/versions/8.3.1/extending/depsets) for more information.
+Creates a [depset](/versions/8.3.1/rules/lib/builtins/depset). The `direct` parameter is a list of direct elements of the depset, and `transitive` parameter is a list of depsets whose elements become indirect elements of the created depset. The order in which elements are returned when the depset is converted to a list is specified by the `order` parameter. See the [Depsets overview](https://bazel.build/versions/8.3.1/extending/depsets) for more information.
 
 All elements (direct and indirect) of a depset must be of the same type, as obtained by the expression `type(x)`.
 
@@ -42,9 +42,9 @@ The order of the created depset should be *compatible* with the order of its `tr
 
 | Parameter | Description |
 | --- | --- |
-| `direct` | [sequence](../core/list); or `None`; default is `None`  A list of *direct* elements of a depset. |
-| `order` | [string](../core/string); default is `"default"`  The traversal strategy for the new depset. See [here](../builtins/depset) for the possible values. |
-| `transitive` | [sequence](../core/list) of [depset](../builtins/depset)s; or `None`; default is `None`  A list of depsets whose elements will become indirect elements of the depset. |
+| `direct` | [sequence](/versions/8.3.1/rules/lib/core/list); or `None`; default is `None`  A list of *direct* elements of a depset. |
+| `order` | [string](/versions/8.3.1/rules/lib/core/string); default is `"default"`  The traversal strategy for the new depset. See [here](/versions/8.3.1/rules/lib/builtins/depset) for the possible values. |
+| `transitive` | [sequence](/versions/8.3.1/rules/lib/core/list) of [depset](/versions/8.3.1/rules/lib/builtins/depset)s; or `None`; default is `None`  A list of depsets whose elements will become indirect elements of the depset. |
 
 ## existing\_rule
 
@@ -72,7 +72,7 @@ If possible, avoid using this function. It makes BUILD files brittle and order-d
 
 | Parameter | Description |
 | --- | --- |
-| `name` | [string](../core/string); required  The name of the target. |
+| `name` | [string](/versions/8.3.1/rules/lib/core/string); required  The name of the target. |
 
 ## existing\_rules
 
@@ -98,9 +98,9 @@ Specifies a list of files belonging to this package that are exported to other p
 
 | Parameter | Description |
 | --- | --- |
-| `srcs` | [sequence](../core/list) of [string](../core/string)s; required  The list of files to export. |
-| `visibility` | [sequence](../core/list); or `None`; default is `None`  A visibility declaration can to be specified. The files will be visible to the targets specified. If no visibility is specified, the files will be visible to every package. |
-| `licenses` | [sequence](../core/list) of [string](../core/string)s; or `None`; default is `None`  Licenses to be specified. |
+| `srcs` | [sequence](/versions/8.3.1/rules/lib/core/list) of [string](/versions/8.3.1/rules/lib/core/string)s; required  The list of files to export. |
+| `visibility` | [sequence](/versions/8.3.1/rules/lib/core/list); or `None`; default is `None`  A visibility declaration can to be specified. The files will be visible to the targets specified. If no visibility is specified, the files will be visible to every package. |
+| `licenses` | [sequence](/versions/8.3.1/rules/lib/core/list) of [string](/versions/8.3.1/rules/lib/core/string)s; or `None`; default is `None`  Licenses to be specified. |
 
 ## glob
 
@@ -119,9 +119,9 @@ If the `exclude_directories` argument is enabled (set to `1`), files of type dir
 
 | Parameter | Description |
 | --- | --- |
-| `include` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  The list of glob patterns to include. |
-| `exclude` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  The list of glob patterns to exclude. |
-| `exclude_directories` | [int](../core/int); default is `1`  A flag whether to exclude directories or not. |
+| `include` | [sequence](/versions/8.3.1/rules/lib/core/list) of [string](/versions/8.3.1/rules/lib/core/string)s; default is `[]`  The list of glob patterns to include. |
+| `exclude` | [sequence](/versions/8.3.1/rules/lib/core/list) of [string](/versions/8.3.1/rules/lib/core/string)s; default is `[]`  The list of glob patterns to exclude. |
+| `exclude_directories` | [int](/versions/8.3.1/rules/lib/core/int); default is `1`  A flag whether to exclude directories or not. |
 | `allow_empty` | default is `unbound`  Whether we allow glob patterns to match nothing. If `allow\_empty` is False, each individual include pattern must match something and also the final result must be non-empty (after the matches of the `exclude` patterns are excluded). |
 
 ## module\_name
@@ -168,9 +168,9 @@ This function defines a set of packages and assigns a label to the group. The la
 
 | Parameter | Description |
 | --- | --- |
-| `name` | [string](../core/string); required  The unique name for this rule. |
-| `packages` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  A complete enumeration of packages in this group. |
-| `includes` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  Other package groups that are included in this one. |
+| `name` | [string](/versions/8.3.1/rules/lib/core/string); required  The unique name for this rule. |
+| `packages` | [sequence](/versions/8.3.1/rules/lib/core/list) of [string](/versions/8.3.1/rules/lib/core/string)s; default is `[]`  A complete enumeration of packages in this group. |
+| `includes` | [sequence](/versions/8.3.1/rules/lib/core/list) of [string](/versions/8.3.1/rules/lib/core/string)s; default is `[]`  Other package groups that are included in this one. |
 
 ## package\_name
 
@@ -186,19 +186,19 @@ The name of the package being evaluated, without the repository name. For exampl
 Label package_relative_label(input)
 ```
 
-Converts the input string into a [Label](../builtins/Label) object, in the context of the package currently being initialized (that is, the `BUILD` file for which the current macro is executing). If the input is already a `Label`, it is returned unchanged.
+Converts the input string into a [Label](/versions/8.3.1/rules/lib/builtins/Label) object, in the context of the package currently being initialized (that is, the `BUILD` file for which the current macro is executing). If the input is already a `Label`, it is returned unchanged.
 
 This function may only be called while evaluating a BUILD file and the macros it directly or indirectly calls; it may not be called in (for instance) a rule implementation function.
 
 The result of this function is the same `Label` value as would be produced by passing the given string to a label-valued attribute of a target declared in the BUILD file.
 
-*Usage note:* The difference between this function and [Label()](../builtins/Label#Label) is that `Label()` uses the context of the package of the `.bzl` file that called it, not the package of the `BUILD` file. Use `Label()` when you need to refer to a fixed target that is hardcoded into the macro, such as a compiler. Use `package_relative_label()` when you need to normalize a label string supplied by the BUILD file to a `Label` object. (There is no way to convert a string to a `Label` in the context of a package other than the BUILD file or the calling .bzl file. For that reason, outer macros should always prefer to pass Label objects to inner macros rather than label strings.)
+*Usage note:* The difference between this function and [Label()](/versions/8.3.1/rules/lib/builtins/Label#Label) is that `Label()` uses the context of the package of the `.bzl` file that called it, not the package of the `BUILD` file. Use `Label()` when you need to refer to a fixed target that is hardcoded into the macro, such as a compiler. Use `package_relative_label()` when you need to normalize a label string supplied by the BUILD file to a `Label` object. (There is no way to convert a string to a `Label` in the context of a package other than the BUILD file or the calling .bzl file. For that reason, outer macros should always prefer to pass Label objects to inner macros rather than label strings.)
 
 ### Parameters
 
 | Parameter | Description |
 | --- | --- |
-| `input` | [string](../core/string); or [Label](../builtins/Label); required  The input label string or Label object. If a Label object is passed, it's returned as is. |
+| `input` | [string](/versions/8.3.1/rules/lib/core/string); or [Label](/versions/8.3.1/rules/lib/builtins/Label); required  The input label string or Label object. If a Label object is passed, it's returned as is. |
 
 ## repo\_name
 
@@ -231,8 +231,8 @@ unknown select(x, no_match_error='')
 
 | Parameter | Description |
 | --- | --- |
-| `x` | [dict](../core/dict); required |
-| `no_match_error` | [string](../core/string); default is `''`  Optional custom error to report if no condition matches. |
+| `x` | [dict](/versions/8.3.1/rules/lib/core/dict); required |
+| `no_match_error` | [string](/versions/8.3.1/rules/lib/core/string); default is `''`  Optional custom error to report if no condition matches. |
 
 ## subpackages
 
@@ -246,6 +246,6 @@ Returns a new mutable list of every direct subpackage of the current package, re
 
 | Parameter | Description |
 | --- | --- |
-| `include` | [sequence](../core/list) of [string](../core/string)s; required  The list of glob patterns to include in subpackages scan. |
-| `exclude` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  The list of glob patterns to exclude from subpackages scan. |
-| `allow_empty` | [bool](../core/bool); default is `False`  Whether we fail if the call returns an empty list. By default empty list indicates potential error in BUILD file where the call to subpackages() is superflous. Setting to true allows this function to succeed in that case. |*
+| `include` | [sequence](/versions/8.3.1/rules/lib/core/list) of [string](/versions/8.3.1/rules/lib/core/string)s; required  The list of glob patterns to include in subpackages scan. |
+| `exclude` | [sequence](/versions/8.3.1/rules/lib/core/list) of [string](/versions/8.3.1/rules/lib/core/string)s; default is `[]`  The list of glob patterns to exclude from subpackages scan. |
+| `allow_empty` | [bool](/versions/8.3.1/rules/lib/core/bool); default is `False`  Whether we fail if the call returns an empty list. By default empty list indicates potential error in BUILD file where the call to subpackages() is superflous. Setting to true allows this function to succeed in that case. |*

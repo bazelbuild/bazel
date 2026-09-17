@@ -180,6 +180,11 @@ public final class SpawnController {
     public boolean canExec(Spawn spawn, ActionContextRegistry actionContextRegistry) {
       return delegate.canExec(spawn, actionContextRegistry);
     }
+
+    @Override
+    public void usedContext(ActionContextRegistry actionContextRegistry) {
+      delegate.usedContext(actionContextRegistry);
+    }
   }
 
   private static final class SpawnShimException extends ExecException {

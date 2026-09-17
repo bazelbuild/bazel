@@ -64,7 +64,7 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
                 @Override
                 public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
                   BuildOptionsView toOptions = options.clone();
-                  toOptions.get(LateBoundSplitUtil.TestOptions.class).fooFlag = "PATCHED!";
+                  toOptions.get(LateBoundSplitUtil.TestOptions.class).setFooFlag("PATCHED!");
                   return toOptions.underlying();
                 }
               };
@@ -122,7 +122,8 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
             SkyframeExecutorTestUtils.getExistingConfiguredTargets(
                 skyframeExecutor, Label.parseCanonical("//foo:latebound_dep")));
     assertThat(getConfiguration(dep)).isNotEqualTo(getTargetConfiguration());
-    assertThat(LateBoundSplitUtil.getOptions(getConfiguration(dep)).fooFlag).isEqualTo("PATCHED!");
+    assertThat(LateBoundSplitUtil.getOptions(getConfiguration(dep)).getFooFlag())
+        .isEqualTo("PATCHED!");
   }
 
   @Test

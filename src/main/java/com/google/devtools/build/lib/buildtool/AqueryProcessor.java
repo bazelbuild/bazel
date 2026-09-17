@@ -77,6 +77,12 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
   /** Outputs the current action graph from Skyframe. */
   public BlazeCommandResult dumpActionGraphFromSkyframe(CommandEnvironment env) {
     AqueryOptions aqueryOptions = getQueryOptions(env);
+    if (aqueryOptions.getPruneUnusedActions()) {
+      String message = "--prune_unused_actions is currently not supported with --skyframe_state.";
+      env.getReporter().handle(Event.error(message));
+      return getFailureResult(message, Code.SKYFRAME_STATE_PREREQ_UNMET);
+    }
+
     try (QueryRuntimeHelper queryRuntimeHelper =
         env.getRuntime().getQueryRuntimeHelperFactory().create(env, aqueryOptions)) {
 
@@ -87,17 +93,17 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
 
       try (AqueryOutputHandler aqueryOutputHandler =
           ActionGraphProtoOutputFormatterCallback.constructAqueryOutputHandler(
-              OutputType.fromString(aqueryOptions.outputFormat),
+              OutputType.fromString(aqueryOptions.getOutputFormat()),
               queryRuntimeHelper.getOutputStreamForQueryOutput(),
               printStream)) {
         ActionGraphDump actionGraphDump =
             new ActionGraphDump(
-                aqueryOptions.includeCommandline,
-                aqueryOptions.includeArtifacts,
-                aqueryOptions.includePrunedInputs,
+                aqueryOptions.getIncludeCommandline(),
+                aqueryOptions.getIncludeArtifacts(),
+                aqueryOptions.getIncludePrunedInputs(),
                 actionFilters,
-                aqueryOptions.includeParamFiles,
-                aqueryOptions.includeFileWriteContents,
+                aqueryOptions.getIncludeParamFiles(),
+                aqueryOptions.getIncludeFileWriteContents(),
                 aqueryOutputHandler,
                 env.getReporter());
         dumpActionGraph(env, aqueryOutputHandler, actionGraphDump);
@@ -175,7 +181,8 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
             aqueryOptions,
             request
                 .getOptions(AqueryOptions.class)
-                .getLabelPrinter(starlarkSemantics, mainRepoTargetParser.getRepoMapping()));
+                .getLabelPrinter(starlarkSemantics, mainRepoTargetParser.getRepoMapping()),
+            request.getTopLevelArtifactContext());
     queryEnvironment.setActionFilters(actionFilters);
 
     return queryEnvironment;

@@ -209,6 +209,8 @@ class OutputZipFile : public ZipBuilder {
   virtual int FinishFile(size_t filelength, bool compress = false,
                          bool compute_crc = false);
   virtual int WriteEmptyFile(const char *filename);
+  virtual int AddFile(const char* zip_path, const char* disk_path, u4 attr,
+                      bool compress = false, bool compute_crc = true);
   virtual size_t GetSize() {
     return Offset(q);
   }
@@ -237,7 +239,7 @@ class OutputZipFile : public ZipBuilder {
     u4 external_attr;
 
     // Start/length of the file_name in the local header.
-    u1 *file_name;
+    const u1* file_name;
     u2 file_name_length;
 
     // Start/length of the extra_field in the local header.
@@ -875,6 +877,7 @@ int OutputZipFile::WriteEmptyFile(const char *filename) {
   put_u4le(q, 0);  // uncompressed_size
   put_u2le(q, file_name_length);
   put_u2le(q, 0);  // extra_field_length
+  entry->file_name = q;
   put_n(q, file_name, file_name_length);
 
   entry->file_name_length = file_name_length;
@@ -883,7 +886,6 @@ int OutputZipFile::WriteEmptyFile(const char *filename) {
   entry->uncompressed_length = 0;
   entry->compression_method = 0;
   entry->extra_field = (const u1 *)"";
-  entry->file_name = (u1*) strdup((const char *) file_name);
   entries_.push_back(entry);
 
   return 0;
@@ -978,9 +980,7 @@ u1* OutputZipFile::WriteLocalFileHeader(const char* filename, const u4 attr) {
   LocalFileEntry *entry = new LocalFileEntry;
   entry->local_header_offset = Offset(q);
   entry->file_name_length = file_name_length_;
-  entry->file_name = new u1[file_name_length_];
   entry->external_attr = attr;
-  memcpy(entry->file_name, filename, file_name_length_);
   entry->extra_field_length = 0;
   entry->extra_field = (const u1 *)"";
   entry->crc32 = 0;
@@ -998,7 +998,8 @@ u1* OutputZipFile::WriteLocalFileHeader(const char* filename, const u4 attr) {
   put_u2le(q, entry->file_name_length);
   put_u2le(q, entry->extra_field_length);
 
-  put_n(q, entry->file_name, entry->file_name_length);
+  entry->file_name = q;
+  put_n(q, reinterpret_cast<const u1*>(filename), entry->file_name_length);
   put_n(q, entry->extra_field, entry->extra_field_length);
   entries_.push_back(entry);
 
@@ -1033,12 +1034,21 @@ int OutputZipFile::Finish() {
 
   finished_ = true;
   WriteCentralDirectory();
+
+  int ret = 0;
   if (output_file_->Close(GetSize()) < 0) {
-    return error("%s", output_file_->Error());
+    ret = error("%s", output_file_->Error());
   }
+
   delete output_file_;
-  output_file_ = NULL;
-  return 0;
+  output_file_ = nullptr;
+
+  for (LocalFileEntry* entry : entries_) {
+    delete entry;
+  }
+  entries_.clear();
+
+  return ret;
 }
 
 u1* OutputZipFile::NewFile(const char* filename, const u4 attr) {
@@ -1075,6 +1085,23 @@ int OutputZipFile::FinishFile(size_t filelength, bool compress,
   }
   q += compressed_size;
   return 0;
+}
+
+int OutputZipFile::AddFile(const char* zip_path, const char* disk_path, u4 attr,
+                           bool compress, bool compute_crc) {
+  Stat file_stat;
+  if (!stat_file(disk_path, &file_stat)) {
+    return error("stat(%s): %s", disk_path, strerror(errno));
+  }
+  size_t file_size = static_cast<size_t>(file_stat.total_size);
+  u1* out_ptr = NewFile(zip_path, attr);
+  if (out_ptr == nullptr) {
+    return -1;
+  }
+  if (file_size > 0 && !read_file(disk_path, out_ptr, file_size)) {
+    return error("read(%s): failed to read file", disk_path);
+  }
+  return FinishFile(file_size, compress, compute_crc);
 }
 
 bool OutputZipFile::Open() {
@@ -1117,7 +1144,9 @@ u8 ZipBuilder::EstimateSize(char const* const* files,
                             int nb_entries) {
   Stat file_stat;
   // Digital signature field size = 6, End of central directory = 22, Total = 28
-  u8 size = 28;
+  // Add zip64 end of central directory (56 bytes) and locator (20 bytes)
+  // in case the zip uses zip64.
+  u8 size = 28 + ZIP64_EOCD_FIXED_SIZE + ZIP64_EOCD_LOCATOR_SIZE;
   // Count the size of all the files in the input to estimate the size of the
   // output.
   for (int i = 0; i < nb_entries; i++) {

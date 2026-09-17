@@ -17,10 +17,12 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 
 /** Defines the options specific to Bazel's fetch command */
-public class FetchOptions extends OptionsBase {
+@OptionsClass
+public abstract class FetchOptions extends OptionsBase {
 
   @Option(
       name = "all",
@@ -33,7 +35,7 @@ public class FetchOptions extends OptionsBase {
           This is the default if no other flags and arguments are provided. Only works
           when `--enable_bzlmod` is on.
           """)
-  public boolean all;
+  public abstract boolean getAll();
 
   @Option(
       name = "configure",
@@ -45,7 +47,7 @@ public class FetchOptions extends OptionsBase {
           Only fetches repositories marked as `configure` for system-configuration purpose. Only
           works when `--enable_bzlmod` is on.
           """)
-  public boolean configure;
+  public abstract boolean getConfigure();
 
   @Option(
       name = "repo",
@@ -58,7 +60,7 @@ public class FetchOptions extends OptionsBase {
           Only fetches the specified repository, which can be either `@apparent_repo_name` or
           `@@canonical_repo_name`. Only works when `--enable_bzlmod` is on.
           """)
-  public List<String> repos;
+  public abstract List<String> getRepos();
 
   @Option(
       name = "force",
@@ -70,5 +72,5 @@ public class FetchOptions extends OptionsBase {
           Ignore existing repository if any and force fetch the repository again. Only works when
           `--enable_bzlmod` is on.
           """)
-  public boolean force;
+  public abstract boolean getForce();
 }

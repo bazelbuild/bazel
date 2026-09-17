@@ -18,6 +18,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /**
  * An option class for <code>--keep_state_after_build</code>.
@@ -26,7 +27,8 @@ import com.google.devtools.common.options.OptionsBase;
  * SkyframeExecutor</code> and referencing {@link CommonCommandOptions} would cause a dependency
  * cycle.
  */
-public class KeepStateAfterBuildOption extends OptionsBase {
+@OptionsClass
+public abstract class KeepStateAfterBuildOption extends OptionsBase {
   @Option(
       name = "keep_state_after_build",
       defaultValue = "true",
@@ -36,5 +38,7 @@ public class KeepStateAfterBuildOption extends OptionsBase {
           "If false, Blaze will discard the inmemory state from this build when the build "
               + "finishes. Subsequent builds will not have any incrementality with respect to this "
               + "one.")
-  public boolean keepStateAfterBuild;
+  public abstract boolean getKeepStateAfterBuild();
+
+  public abstract void setKeepStateAfterBuild(boolean value);
 }

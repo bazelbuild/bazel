@@ -35,10 +35,25 @@ public class Scope {
     /** The flag's value resets on exec transitions. */
     public static final String TARGET = "target";
 
-    /** The flag resets on targets outside the flag's project. See PROJECT.scl. */
+    /**
+     * The flag resets on targets outside the flag's project. See PROJECT.scl.
+     *
+     * <p>Unlike {@code target} scope, this flag's value is preserved across exec transitions: the
+     * value propagates from the target configuration into exec configurations. The project-boundary
+     * enforcement (resetting out-of-scope targets to the baseline) is still applied independently
+     * for each target configuration via {@code BuildConfigurationKeyProducer}.
+     */
     public static final String PROJECT = "project";
 
-    /** Placeholder for flags that don't explicitly specify scope. Shouldn't be set directly. */
+    /**
+     * Placeholder for flags that don't explicitly specify scope. Cannot be set by users in BUILD
+     * files.
+     *
+     * <p>If --incompatible_exclude_starlark_flags_from_exec_config=true, this aliases to "target".
+     * Else it aliases to "universal".
+     */
+    // TODO: bazel-team: remove this when --incompatible_exclude_starlark_flags_from_exec_config is
+    //       removed in Bazel 10. At that point, default directly to TARGET.
     public static final String DEFAULT = "default";
 
     public ScopeType {

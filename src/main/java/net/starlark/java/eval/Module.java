@@ -14,7 +14,11 @@
 
 package net.starlark.java.eval;
 
+import static com.google.common.base.Preconditions.checkState;
+
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import java.util.Arrays;
@@ -24,9 +28,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.syntax.Resolver;
 import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.TypeTagger;
+import net.starlark.java.syntax.Types;
 
 /**
  * A {@link Module} represents a Starlark module, a container of global variables populated by
@@ -51,7 +58,7 @@ import net.starlark.java.syntax.TypeConstructor;
  * the universal ones) and client data. The particular {@link StarlarkSemantics} and client data may
  * filter what predeclared bindings are available via {@link GuardedValue}.
  */
-public final class Module implements Resolver.Module {
+public final class Module implements Resolver.Module, TypeTagger.LoadableModule {
 
   // The module's predeclared environment. Excludes UNIVERSE bindings. Values that are conditionally
   // present are stored as GuardedValues regardless of whether they are actually enabled.
@@ -60,6 +67,10 @@ public final class Module implements Resolver.Module {
   // The module's global variables, in order of creation.
   private final LinkedHashMap<String, Integer> globalIndex = new LinkedHashMap<>();
   private Object[] globals = new Object[8];
+  // The module's exported global variables' types. Null if type checking is not enabled for this
+  // module. Otherwise, has the same length and same order as {@link #globals}.  Intended for use by
+  // other modules which load this.
+  @Nullable private StarlarkType[] globalsTypes;
 
   // An optional piece of application-specific metadata associated with the module/file.
   // Its toString appears to Starlark in str(function): "<function f from ...>".
@@ -159,6 +170,11 @@ public final class Module implements Resolver.Module {
     return clientData;
   }
 
+  /** Returns the Starlark semantics used by the execution of this module. */
+  public StarlarkSemantics getSemantics() {
+    return semantics;
+  }
+
   /** Sets the module's doc string. It may be retrieved using {@link #getDocumentation}. */
   public void setDocumentation(String documentation) {
     this.documentation = documentation;
@@ -193,6 +209,27 @@ public final class Module implements Resolver.Module {
     return filterGuardedValue(value);
   }
 
+  @Override
+  @Nullable
+  public StarlarkType getPredeclaredSymbolType(String name) {
+    @Nullable Object value = getPredeclared(name);
+    if (value == null || value instanceof GuardedValue) {
+      return null;
+    }
+    // TODO: #27370 - Precompute and cache predeclared types.
+    return Starlark.getStarlarkType(value, semantics);
+  }
+
+  @Override
+  @Nullable
+  public StarlarkType getUniversalSymbolType(String name) {
+    @Nullable StarlarkType type = Starlark.UNIVERSAL_SYMBOL_TYPES.get(name);
+    if (type == null && Starlark.UNIVERSE_EXTRA_TYPE_CONSTRUCTORS.containsKey(name)) {
+      type = Types.TYPE;
+    }
+    return type;
+  }
+
   /**
    * Returns this module's additional predeclared bindings. (Excludes {@link Starlark#UNIVERSE}.)
    *
@@ -223,7 +260,7 @@ public final class Module implements Resolver.Module {
 
   /** Implements the resolver's module interface. */
   @Override
-  public Resolver.Scope resolve(String name) throws Undefined {
+  public Resolver.Scope resolve(String name, boolean resolveTypeSyntax) throws Undefined {
     // global?
     if (globalIndex.containsKey(name)) {
       return Resolver.Scope.GLOBAL;
@@ -243,24 +280,35 @@ public final class Module implements Resolver.Module {
     if (Starlark.UNIVERSE.containsKey(name)) {
       return Resolver.Scope.UNIVERSAL;
     }
+    if (resolveTypeSyntax && Starlark.UNIVERSE_EXTRA_TYPE_CONSTRUCTORS.containsKey(name)) {
+      return Resolver.Scope.UNIVERSAL;
+    }
 
     // undefined
     Set<String> candidates = new HashSet<>();
     candidates.addAll(globalIndex.keySet());
     candidates.addAll(predeclared.keySet());
     candidates.addAll(Starlark.UNIVERSE.keySet());
+    if (resolveTypeSyntax) {
+      candidates.addAll(Starlark.UNIVERSE_EXTRA_TYPE_CONSTRUCTORS.keySet());
+    }
     throw new Undefined(String.format("name '%s' is not defined", name), candidates);
   }
 
   @Override
   @Nullable
   public TypeConstructor getTypeConstructor(String name) throws Undefined {
-    Resolver.Scope scope = resolve(name);
+    Resolver.Scope scope = resolve(name, /* resolveTypeSyntax= */ true);
     Object value;
     switch (scope) {
       case GLOBAL -> value = getGlobal(name);
       case PREDECLARED -> value = getPredeclared(name);
-      case UNIVERSAL -> value = Starlark.UNIVERSE.get(name);
+      case UNIVERSAL -> {
+        value = Starlark.UNIVERSE.get(name);
+        if (value == null) {
+          value = Starlark.UNIVERSE_EXTRA_TYPE_CONSTRUCTORS.get(name);
+        }
+      }
       default -> throw new AssertionError(String.format("Unexpected scope: %s", scope));
     }
     return value instanceof TypeConstructor constructorValue ? constructorValue : null;
@@ -298,6 +346,23 @@ public final class Module implements Resolver.Module {
     return desc == null ? null : desc.getStarlarkType();
   }
 
+  @Override
+  @Nullable
+  public StarlarkType getStarlarkBuiltinFieldType(Class<?> clazz, String fieldName) {
+    if (StarlarkAnnotations.getStarlarkBuiltin(clazz) == null) {
+      // Support only @StarlarkBuiltin annotated classes, not @StarlarkLibrary ones.
+      return null;
+    }
+    MethodDescriptor desc = getMethods(clazz).get(fieldName);
+    return desc == null ? null : desc.getStarlarkType();
+  }
+
+  @Override
+  @Nullable
+  public ImmutableList<StarlarkType> getStarlarkBuiltinAutoTypeSupertypes(Class<?> clazz) {
+    return CallUtils.getBuiltinManager(semantics).getStarlarkBuiltinAutoTypeSupertypes(clazz);
+  }
+
   /**
    * Returns the value of the specified global variable, or null if not bound. Does not look in the
    * predeclared environment.
@@ -306,6 +371,40 @@ public final class Module implements Resolver.Module {
   public Object getGlobal(String name) {
     Integer i = globalIndex.get(name);
     return i != null ? globals[i] : null;
+  }
+
+  @Override
+  public Set<String> getExports() {
+    return globalIndex.keySet();
+  }
+
+  @Override
+  public boolean hasExport(String name) {
+    return globalIndex.containsKey(name);
+  }
+
+  /**
+   * Returns the exported Starlark type of the specified global variable; intended for use by other
+   * modules that load this module (not by the evaluation of this module itself).
+   *
+   * <p>If type checking was enabled for this module, returns the variable's declared static type if
+   * there is one; or the variable's value's dynamic type otherwise.
+   *
+   * <p>If type checking was not enabled for this module (or if the global variable does not exist),
+   * returns null.
+   */
+  @Override
+  @Nullable
+  public StarlarkType getExportType(String name) {
+    Integer i = globalIndex.get(name);
+    return i != null ? getGlobalTypeByIndex(i) : null;
+  }
+
+  @Override
+  @Nullable
+  public TypeConstructor getExportTypeConstructor(String name) {
+    @Nullable Object value = getGlobal(name);
+    return value instanceof TypeConstructor constructorValue ? constructorValue : null;
   }
 
   /**
@@ -318,13 +417,36 @@ public final class Module implements Resolver.Module {
   }
 
   /**
-   * Returns the value of a global variable based on its index in this module ({@see
-   * getIndexOfGlobal}.) Returns null if the variable has not been assigned a value.
+   * Returns the value of a global variable based on its index in this module (see {@link
+   * #getIndexOfGlobal}.) Returns null if the variable has not been assigned a value.
    */
   @Nullable
   Object getGlobalByIndex(int i) {
     Preconditions.checkArgument(i < globalIndex.size());
     return this.globals[i];
+  }
+
+  /**
+   * Returns the value of a global variable based on its index in this module (see {@link
+   * #getIndexOfGlobal}.) Returns null if the variable has not been assigned an exported type (in
+   * particular, if type checking is not enabled).
+   */
+  @Nullable
+  StarlarkType getGlobalTypeByIndex(int i) {
+    Preconditions.checkArgument(i < globalIndex.size());
+    return globalsTypes != null ? globalsTypes[i] : null;
+  }
+
+  /**
+   * Sets the exported type of a global variable based on its index in this module (see {@link
+   * #getIndexOfGlobal}.)
+   */
+  void setGlobalTypeByIndex(int i, StarlarkType type) {
+    Preconditions.checkArgument(i < globalIndex.size());
+    if (globalsTypes == null) {
+      globalsTypes = new StarlarkType[globals.length];
+    }
+    globalsTypes[i] = type;
   }
 
   /**
@@ -340,7 +462,12 @@ public final class Module implements Resolver.Module {
       return prev;
     }
     if (i == globals.length) {
-      globals = Arrays.copyOf(globals, globals.length << 1); // grow by doubling
+      // grow by doubling
+      checkState(globalsTypes == null || globals.length == globalsTypes.length);
+      globals = Arrays.copyOf(globals, globals.length << 1);
+      if (globalsTypes != null) {
+        globalsTypes = Arrays.copyOf(globalsTypes, globalsTypes.length << 1);
+      }
     }
     return i;
   }
@@ -360,10 +487,31 @@ public final class Module implements Resolver.Module {
     return array;
   }
 
-  /** Updates a global binding in the module environment. */
-  public void setGlobal(String name, Object value) {
+  /**
+   * Updates a global binding and (optionally) its declared type in the module environment.
+   *
+   * <p>Intended only for use by tests.
+   *
+   * @param declaredType if non-null, the declared type to set for the global; ignored if null.
+   */
+  @VisibleForTesting
+  public void setGlobal(String name, Object value, @Nullable StarlarkType declaredType) {
     Preconditions.checkNotNull(value, "Module.setGlobal(%s, null)", name);
-    setGlobalByIndex(getIndexOfGlobal(name), value);
+    int index = getIndexOfGlobal(name);
+    setGlobalByIndex(index, value);
+    if (declaredType != null) {
+      setGlobalTypeByIndex(index, declaredType);
+    }
+  }
+
+  /**
+   * Updates a global binding in the module environment, without altering its static type.
+   *
+   * <p>Intended only for use by tests.
+   */
+  @VisibleForTesting
+  public void setGlobal(String name, Object value) {
+    setGlobal(name, value, null);
   }
 
   @Override

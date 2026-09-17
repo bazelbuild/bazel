@@ -57,6 +57,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
@@ -89,14 +90,15 @@ public class ConfigCommand implements BlazeCommand {
   }
 
   /** Options for the "config" command. */
-  public static class ConfigOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class ConfigOptions extends OptionsBase {
     @Option(
         name = "dump_all",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         help = "If set, dump all known configurations instead of just the ids.")
-    public boolean dumpAll;
+    public abstract boolean getDumpAll();
 
     /** Converter for --output. */
     public static class OutputTypeConverter extends EnumConverter<OutputType> {
@@ -112,7 +114,7 @@ public class ConfigCommand implements BlazeCommand {
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         help = "Formats the output of displayed results. Can be one of: 'text', 'json'. ")
-    public OutputType outputType;
+    public abstract OutputType getOutputType();
   }
 
   /**
@@ -204,7 +206,7 @@ public class ConfigCommand implements BlazeCommand {
 
       ConfigOptions configCommandOptions = options.getOptions(ConfigOptions.class);
       ConfigCommandOutputFormatter outputFormatter =
-          configCommandOptions.outputType == OutputType.TEXT
+          configCommandOptions.getOutputType() == OutputType.TEXT
               ? new TextOutputFormatter(writer)
               : new JsonOutputFormatter(writer);
       ImmutableSortedMap<
@@ -213,7 +215,7 @@ public class ConfigCommand implements BlazeCommand {
               getFragmentDefs(env.getRuntime().getRuleClassProvider().getFragmentRegistry());
 
       if (options.getResidue().isEmpty()) {
-        if (configCommandOptions.dumpAll) {
+        if (configCommandOptions.getDumpAll()) {
           return reportAllConfigurations(outputFormatter, forOutput(configurations, fragmentDefs));
         } else {
           return reportConfigurationIds(outputFormatter, forOutput(configurations, fragmentDefs));
@@ -308,28 +310,48 @@ public class ConfigCommand implements BlazeCommand {
   private static ConfigurationForOutput getConfiguration(
       Collection<ConfigurationForOutput> configurations, String configPrefix)
       throws InvalidConfigurationException {
-    ImmutableList<ConfigurationForOutput> matches =
+    ImmutableList<ConfigurationForOutput> hashMatches =
         configurations.stream()
-            .filter(config -> doesConfigMatch(config, configPrefix))
+            .filter(config -> config.getConfigHash().startsWith(configPrefix))
             .collect(toImmutableList());
-    if (matches.isEmpty()) {
-      throw new InvalidConfigurationException(
-          String.format("No configuration found with ID prefix %s", configPrefix));
-    } else if (matches.size() > 1) {
-      throw new InvalidConfigurationException(
-          String.format(
-              "Configuration identifier '%s' is ambiguous.\n"
-                  + "'%s' is a prefix of multiple configurations:\n %s\n\n"
-                  + "Use a sufficient prefix to uniquely identify one configuration.",
-              configPrefix,
-              configPrefix,
-              matches.stream().map(ConfigurationForOutput::getConfigHash).collect(joining("\n "))));
-    }
-    return Iterables.getOnlyElement(matches);
-  }
 
-  private static boolean doesConfigMatch(ConfigurationForOutput config, String configPrefix) {
-    return config.getConfigHash().startsWith(configPrefix);
+    ImmutableList<ConfigurationForOutput> prefixMnemonicMatches =
+        configurations.stream()
+            .filter(
+                config ->
+                    config.getDisplayMnemonic().startsWith(configPrefix)
+                        || config.getMnemonic().startsWith(configPrefix))
+            .collect(toImmutableList());
+
+    ImmutableSet<ConfigurationForOutput> combinedMatches =
+        ImmutableSet.<ConfigurationForOutput>builder()
+            .addAll(hashMatches)
+            .addAll(prefixMnemonicMatches)
+            .build();
+
+    if (combinedMatches.size() == 1) {
+      return Iterables.getOnlyElement(combinedMatches);
+    } else if (combinedMatches.size() > 1) {
+      if (prefixMnemonicMatches.isEmpty()) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "Configuration identifier '%s' is ambiguous.\n"
+                    + "'%s' is a prefix of multiple configurations:\n %s\n\n"
+                    + "Use a sufficient prefix to uniquely identify one configuration.",
+                configPrefix,
+                configPrefix,
+                hashMatches.stream()
+                    .map(ConfigurationForOutput::getConfigHash)
+                    .collect(joining("\n "))));
+      } else {
+        throw new InvalidConfigurationException(
+            "Multiple configurations match this prefix. Please choose a specific checksum to"
+                + " disambiguate");
+      }
+    }
+
+    throw new InvalidConfigurationException(
+        String.format("No configuration found with ID prefix %s", configPrefix));
   }
 
   /**

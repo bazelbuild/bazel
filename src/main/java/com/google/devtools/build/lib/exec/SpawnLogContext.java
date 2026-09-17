@@ -51,11 +51,23 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.SortedMap;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** An {@link ActionContext} providing the ability to log executed spawns. */
 public abstract class SpawnLogContext implements ActionContext {
+  protected final Predicate<Spawn> logSpawnPredicate;
+
+  protected SpawnLogContext(Predicate<Spawn> logSpawnPredicate) {
+    this.logSpawnPredicate = logSpawnPredicate;
+  }
+
+  /** Returns true if the spawn should be logged. */
+  protected boolean shouldLog(Spawn spawn) {
+    return logSpawnPredicate.test(spawn);
+  }
+
   /**
    * Logs an executed spawn.
    *
@@ -250,6 +262,7 @@ public abstract class SpawnLogContext implements ActionContext {
     builder.setInputBytes(metrics.inputBytes());
     builder.setInputFiles(metrics.inputFiles());
     builder.setMemoryEstimateBytes(metrics.memoryEstimate());
+    builder.setMeasuredMemoryPeakBytes(metrics.measuredMemoryPeak());
     builder.setInputBytesLimit(metrics.inputBytesLimit());
     builder.setInputFilesLimit(metrics.inputFilesLimit());
     builder.setOutputBytesLimit(metrics.outputBytesLimit());

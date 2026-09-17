@@ -17,7 +17,6 @@ import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_
 import static com.google.devtools.build.lib.server.FailureDetails.TargetPatterns.Code.DEPENDENCY_NOT_FOUND;
 
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.ProjectResolutionException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Scope;
@@ -38,6 +37,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -97,12 +97,19 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
         }
 
         if (!key.getBuildOptions().getStarlarkOptions().containsKey(anotherFlag)) {
+          var anotherFlagAttrs = RawAttributeMapper.of(anotherFlagTarget.getAssociatedRule());
+          String anotherFlagScopeType = Scope.ScopeType.DEFAULT;
+          if (anotherFlagAttrs.isAttributeValueExplicitlySpecified("scope")) {
+            anotherFlagScopeType = anotherFlagAttrs.get("scope", Type.STRING);
+          }
           fullyResolvedBuildOptionsBuilder =
-              fullyResolvedBuildOptionsBuilder.addStarlarkOption(
-                  anotherFlag,
-                  anotherFlagTarget
-                      .getAssociatedRule()
-                      .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME));
+              fullyResolvedBuildOptionsBuilder
+                  .addStarlarkOption(
+                      anotherFlag,
+                      anotherFlagTarget
+                          .getAssociatedRule()
+                          .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))
+                  .addScopeType(anotherFlag, new Scope.ScopeType(anotherFlagScopeType));
         }
       }
     }
@@ -151,7 +158,7 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
 
     return BuildOptionsScopeValue.create(
         fullyResolvedBuildOptionsBuilder.build(),
-        Lists.newArrayList(projectValueSkyKeysMap.keySet()),
+        new ArrayList<>(projectValueSkyKeysMap.keySet()),
         scopes);
   }
 
@@ -212,10 +219,7 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
 
     var attrs = RawAttributeMapper.of(target.getAssociatedRule());
     if (!attrs.has("scope", Type.STRING)
-        // TODO: https://github.com/bazelbuild/bazel/issues/26909 - Honor the rule's actual
-        // value when --incompatible_exclude_starlark_flags_from_exec_config is stably enabled
-        // and existing rules like skylib's have updated to TARGET.
-        || !attrs.isAttributeValueExplicitlySpecified("scope")) {
+        || attrs.get("scope", Type.STRING).equals(Type.STRING.getDefaultValue())) {
       return new Scope.ScopeType(Scope.ScopeType.DEFAULT);
     }
     return new Scope.ScopeType(attrs.get("scope", Type.STRING));

@@ -171,7 +171,7 @@ public class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredT
       SkyFunctionName skyFunctionName = revDep.functionName();
       if (SkyFunctions.ASPECT.equals(skyFunctionName)) {
         AspectValue aspectValue = (AspectValue) walkableGraph.getValue(revDep);
-        if (((AspectKey) revDep).getLabel().equals(label)) {
+        if (aspectValue != null && ((AspectKey) revDep).getLabel().equals(label)) {
           result.add(aspectValue);
         }
       }

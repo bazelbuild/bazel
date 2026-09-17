@@ -20,6 +20,7 @@ import org.junit.runners.Suite;
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
   DynamicTypeCheckTest.class,
+  CompactImmutableDictTest.class,
   EvaluationTest.class,
   EvalUtilsTest.class,
   FunctionTest.class,
@@ -36,5 +37,6 @@ import org.junit.runners.Suite;
   StarlarkThreadDebuggingTest.class,
   StarlarkThreadTest.class,
   StaticTypeCheckTest.class,
+  SymbolGeneratorTest.class,
 })
 public class EvalTests {}

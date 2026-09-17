@@ -15,18 +15,20 @@
 package com.google.devtools.build.lib.starlarkbuildapi.repository;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.docgen.annot.GlobalMethods;
-import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs;
+import com.google.devtools.build.docgen.annot.GlobalMethodDocs.Environment;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -34,7 +36,8 @@ import net.starlark.java.eval.StarlarkValue;
  * The Starlark module containing the definition of {@code repository_rule} function to define a
  * Starlark remote repository.
  */
-@GlobalMethods(environment = Environment.BZL)
+@GlobalMethodDocs(environment = Environment.BZL)
+@StarlarkLibrary
 public interface RepositoryModuleApi {
 
   @StarlarkMethod(
@@ -202,6 +205,24 @@ public interface RepositoryModuleApi {
             defaultValue = "False",
             doc = "Indicates whether this extension is architecture-dependent or not",
             named = true,
+            positional = false),
+        @Param(
+            name = "facts_version",
+            defaultValue = "0",
+            doc =
+                """
+                The schema version of the <code>facts</code> dict returned by this extension's \
+                implementation function via <code><a \
+                href="../builtins/module_ctx.html#extension_metadata">extension_metadata</a>\
+                </code>. The version is persisted in the lockfile alongside the facts and \
+                compared against the current value before the extension runs: if they differ, \
+                the persisted facts are discarded and the extension is invoked with an empty \
+                <code><a href="../builtins/module_ctx.html#facts">module_ctx.facts</a></code>. \
+                Increment this value whenever the extension changes the schema of the facts in \
+                a backwards-incompatible way so that older facts are not interpreted with the \
+                new schema.
+                """,
+            named = true,
             positional = false)
       },
       useStarlarkThread = true)
@@ -212,6 +233,7 @@ public interface RepositoryModuleApi {
       Sequence<?> environ, // <String>
       boolean osDependent,
       boolean archDependent,
+      StarlarkInt factsVersion,
       StarlarkThread thread)
       throws EvalException;
 
@@ -264,14 +286,4 @@ public interface RepositoryModuleApi {
           <a href="../globals/bzl.html#tag_class"><code>tag_class()</code></a>.
           """)
   interface TagClassApi extends StarlarkValue {}
-
-  @StarlarkMethod(
-      name = "__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc",
-      doc =
-          "When --incompatible_use_cc_configure_from_rules_cc is set to true, Bazel will "
-              + "fail the build. Please see https://github.com/bazelbuild/bazel/issues/10134 for "
-              + "details and migration instructions.",
-      documented = false,
-      useStarlarkThread = true)
-  void failWithIncompatibleUseCcConfigureFromRulesCc(StarlarkThread thread) throws EvalException;
 }

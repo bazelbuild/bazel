@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.events.Event;
@@ -30,6 +29,7 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.IntVersion;
 import com.google.devtools.common.options.OptionsProvider;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -58,7 +58,7 @@ public final class DiffAwarenessManager {
     abstract IgnoredSubdirectories ignoredPaths();
   }
 
-  private final Map<StateKey, DiffAwarenessState> currentDiffAwarenessStates = Maps.newHashMap();
+  private final Map<StateKey, DiffAwarenessState> currentDiffAwarenessStates = new HashMap<>();
 
   public DiffAwarenessManager(Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories) {
     this.diffAwarenessFactories = ImmutableList.copyOf(diffAwarenessFactories);

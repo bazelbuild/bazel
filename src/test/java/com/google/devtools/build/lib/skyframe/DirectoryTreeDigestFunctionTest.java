@@ -28,6 +28,8 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAc
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -54,7 +56,7 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
   private EvaluationContext evaluationContext;
 
   @Before
-  public void setup() throws Exception {
+  public void setup() {
     differencer = new SequencedRecordingDifferencer();
     evaluationContext =
         EvaluationContext.newBuilder().setParallelism(8).setEventHandler(reporter).build();
@@ -97,9 +99,13 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
   }
 
   private String getTreeDigest(String path) throws Exception {
+    return getTreeDigest(path, ImmutableList.of());
+  }
+
+  private String getTreeDigest(String path, ImmutableList<String> excludes) throws Exception {
     RootedPath rootedPath =
         RootedPath.toRootedPath(Root.absoluteRoot(fileSystem), scratch.resolve(path));
-    SkyKey key = DirectoryTreeDigestValue.key(rootedPath);
+    SkyKey key = DirectoryTreeDigestValue.key(rootedPath, rootedPath, excludes);
     MemoizingEvaluator evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
     var result = evaluator.evaluate(ImmutableList.of(key), evaluationContext);
     if (result.hasError()) {
@@ -120,6 +126,18 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void basicExcludes() throws Exception {
+    scratch.file("a", "a");
+    scratch.file("b/b", "b");
+    scratch.file("c", "c");
+    String excludeB = "**/b/b";
+    String oldDigest = getTreeDigest("/", ImmutableList.of(excludeB));
+
+    scratch.overwriteFile("b/b", "something else");
+    assertThat(getTreeDigest("/", ImmutableList.of(excludeB))).isEqualTo(oldDigest);
+  }
+
+  @Test
   public void addFile() throws Exception {
     scratch.file("a", "a");
     scratch.file("b/b", "b");
@@ -127,7 +145,11 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
     String oldDigest = getTreeDigest("/");
 
     scratch.file("b/d", "something else");
-    assertThat(getTreeDigest("/")).isNotEqualTo(oldDigest);
+    String updatedDigest = getTreeDigest("/");
+    assertThat(updatedDigest).isNotEqualTo(oldDigest);
+
+    scratch.file("b/ignoredFile", "ignored");
+    assertThat(getTreeDigest("/", ImmutableList.of("**/ignoredFile"))).isEqualTo(updatedDigest);
   }
 
   @Test
@@ -135,10 +157,15 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
     scratch.file("a", "a");
     scratch.file("b/b", "b");
     scratch.file("c", "c");
-    String oldDigest = getTreeDigest("/");
+    scratch.file("ignoredFile", "ignored");
+    String ignorePattern = "**/ignoredFile";
+    String oldDigest = getTreeDigest("/", ImmutableList.of(ignorePattern));
+
+    scratch.deleteFile("ignoredFile");
+    assertThat(getTreeDigest("/", ImmutableList.of(ignorePattern))).isEqualTo(oldDigest);
 
     scratch.deleteFile("b/b");
-    assertThat(getTreeDigest("/")).isNotEqualTo(oldDigest);
+    assertThat(getTreeDigest("/", ImmutableList.of(ignorePattern))).isNotEqualTo(oldDigest);
   }
 
   @Test
@@ -146,11 +173,17 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
     scratch.file("a", "a");
     scratch.file("b/b", "b");
     scratch.file("c", "c");
-    String oldDigest = getTreeDigest("/");
+    scratch.file("ignoredFile", "ignored");
+    String ignorePattern = "**/ignored*";
+    String oldDigest = getTreeDigest("/", ImmutableList.of(ignorePattern));
+
+    scratch.deleteFile("ignoredFile");
+    scratch.file("ignoredFileRenamed", "ignored");
+    assertThat(getTreeDigest("/", ImmutableList.of(ignorePattern))).isEqualTo(oldDigest);
 
     scratch.deleteFile("b/b");
     scratch.file("b/b1", "b");
-    assertThat(getTreeDigest("/")).isNotEqualTo(oldDigest);
+    assertThat(getTreeDigest("/", ImmutableList.of(ignorePattern))).isNotEqualTo(oldDigest);
   }
 
   @Test
@@ -172,6 +205,7 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
     scratch.file("a", "a");
     scratch.file("b", "b");
     scratch.file("c", "c");
+
     String oldDigest = getTreeDigest("/");
 
     // We don't digest mtimes so this shouldn't affect anything.
@@ -220,5 +254,68 @@ public class DirectoryTreeDigestFunctionTest extends FoundationTestCase {
     scratch.file("otherdir/b", "b");
     scratch.file("otherdir/sub/sub", "sub");
     assertThat(getTreeDigest("dir")).isEqualTo(oldDigest);
+  }
+
+  public static boolean excludes(DirectoryTreeDigestValue.Key key, String path) {
+    return DirectoryTreeDigestFunction.excludes(path, key.globBase(), key.excludes(), null);
+  }
+
+  public static boolean excludes(DirectoryTreeDigestValue.Key key, RootedPath path) {
+    return DirectoryTreeDigestFunction.excludes(path, key.globBase(), key.excludes(), null);
+  }
+
+  @Test
+  public void keyBasicExcludes() {
+    Path pkg = root.getRelative("pkg");
+    RootedPath rootedPath =
+        RootedPath.toRootedPath(Root.fromPath(pkg), PathFragment.create("foo/bar"));
+    DirectoryTreeDigestValue.Key key =
+        DirectoryTreeDigestValue.key(
+            rootedPath, rootedPath, ImmutableList.of("ignoredFile", "**/*.tmp"));
+
+    assertThat(excludes(key, "foo/bar/ignoredFile")).isTrue();
+    assertThat(excludes(key, "foo/bar/anything.ending.in.tmp")).isTrue();
+    assertThat(excludes(key, "foo/bar/anything/ending/in/file.tmp")).isTrue();
+    assertThat(excludes(key, "foo/bar/notIgnored")).isFalse();
+  }
+
+  @Test
+  public void keyDifferentRoots() {
+    Path pkg1 = root.getRelative("pkg");
+    RootedPath rootedPath =
+        RootedPath.toRootedPath(Root.fromPath(pkg1), PathFragment.create("foo/bar"));
+
+    Path pkg2 = root.getRelative("pkg2");
+    RootedPath differentRoot =
+        RootedPath.toRootedPath(Root.fromPath(pkg2), PathFragment.create("foo/bar/ignoredFile"));
+
+    DirectoryTreeDigestValue.Key key =
+        DirectoryTreeDigestValue.key(rootedPath, rootedPath, ImmutableList.of("ignoredFile"));
+
+    assertThat(excludes(key, differentRoot)).isFalse();
+  }
+
+  @Test
+  public void keySameRoots() {
+    Path pkg = root.getRelative("pkg");
+    RootedPath rootedPath =
+        RootedPath.toRootedPath(Root.fromPath(pkg), PathFragment.create("foo/bar"));
+    RootedPath sameRootIgnoredFile =
+        RootedPath.toRootedPath(Root.fromPath(pkg), PathFragment.create("foo/bar/ignoredFile"));
+
+    DirectoryTreeDigestValue.Key key =
+        DirectoryTreeDigestValue.key(rootedPath, rootedPath, ImmutableList.of("ignoredFile"));
+    assertThat(excludes(key, sameRootIgnoredFile)).isTrue();
+  }
+
+  @Test
+  public void keyEmptyExcludes() {
+    Path pkg = root.getRelative("pkg");
+    RootedPath rootedPath =
+        RootedPath.toRootedPath(Root.fromPath(pkg), PathFragment.create("foo/bar"));
+
+    DirectoryTreeDigestValue.Key key =
+        DirectoryTreeDigestValue.key(rootedPath, rootedPath, ImmutableList.of());
+    assertThat(excludes(key, "/pkg/foo/bar")).isFalse();
   }
 }

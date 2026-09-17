@@ -36,6 +36,7 @@ BazelStartupOptions::BazelStartupOptions()
   RegisterNullaryStartupFlagNoRc("system_rc", &use_system_rc);
   RegisterNullaryStartupFlagNoRc("workspace_rc", &use_workspace_rc);
   RegisterUnaryStartupFlag("bazelrc");
+  use_compact_object_headers_ = true;
 }
 
 blaze_util::Path BazelStartupOptions::GetDefaultOutputRoot() const {

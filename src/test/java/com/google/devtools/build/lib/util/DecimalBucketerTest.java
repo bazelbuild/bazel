@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.util;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.devtools.build.lib.util.DecimalBucketer.Bucket;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -35,14 +34,14 @@ public final class DecimalBucketerTest {
   public void testSingleValue() {
     DecimalBucketer bucketer = new DecimalBucketer();
     bucketer.add(5);
-    assertThat(bucketer.getBuckets()).containsExactly(new Bucket(5, 6, 1));
+    assertThat(bucketer.getBuckets()).containsExactly(new DecimalBucketer.BucketImpl(5, 6, 1));
   }
 
   @Test
   public void testZero() {
     DecimalBucketer bucketer = new DecimalBucketer();
     bucketer.add(0);
-    assertThat(bucketer.getBuckets()).containsExactly(new Bucket(0, 1, 1));
+    assertThat(bucketer.getBuckets()).containsExactly(new DecimalBucketer.BucketImpl(0, 1, 1));
   }
 
   @Test
@@ -51,7 +50,7 @@ public final class DecimalBucketerTest {
     bucketer.add(10);
     bucketer.add(15);
     bucketer.add(19);
-    assertThat(bucketer.getBuckets()).containsExactly(new Bucket(10, 20, 3));
+    assertThat(bucketer.getBuckets()).containsExactly(new DecimalBucketer.BucketImpl(10, 20, 3));
   }
 
   @Test
@@ -66,11 +65,11 @@ public final class DecimalBucketerTest {
 
     assertThat(bucketer.getBuckets())
         .containsExactly(
-            new Bucket(5, 6, 1),
-            new Bucket(10, 20, 2),
-            new Bucket(20, 30, 1),
-            new Bucket(90, 100, 1),
-            new Bucket(100, 200, 1))
+            new DecimalBucketer.BucketImpl(5, 6, 1),
+            new DecimalBucketer.BucketImpl(10, 20, 2),
+            new DecimalBucketer.BucketImpl(20, 30, 1),
+            new DecimalBucketer.BucketImpl(90, 100, 1),
+            new DecimalBucketer.BucketImpl(100, 200, 1))
         .inOrder();
   }
 
@@ -82,7 +81,9 @@ public final class DecimalBucketerTest {
     bucketer.add(69999);
 
     assertThat(bucketer.getBuckets())
-        .containsExactly(new Bucket(5, 6, 1), new Bucket(60000, 70000, 2))
+        .containsExactly(
+            new DecimalBucketer.BucketImpl(5, 6, 1),
+            new DecimalBucketer.BucketImpl(60000, 70000, 2))
         .inOrder();
   }
 
@@ -98,6 +99,7 @@ public final class DecimalBucketerTest {
     long val = 9000000000000000000L; // 9 * 10^18
     bucketer.add(val);
 
-    assertThat(bucketer.getBuckets()).containsExactly(new Bucket(val, Long.MAX_VALUE, 1));
+    assertThat(bucketer.getBuckets())
+        .containsExactly(new DecimalBucketer.BucketImpl(val, Long.MAX_VALUE, 1));
   }
 }

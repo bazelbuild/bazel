@@ -30,14 +30,14 @@ The `PyRuntimeInfo` constructor.
 
 | Parameter | Description |
 | --- | --- |
-| `interpreter_path` | [string](../core/string); or `None`; default is `None`  The value for the new object's `interpreter_path` field. Do not give a value for this argument if you pass in `interpreter`. |
-| `interpreter` | [File](../builtins/File); or `None`; default is `None`  The value for the new object's `interpreter` field. Do not give a value for this argument if you pass in `interpreter_path`. |
-| `files` | [depset](../builtins/depset) of [File](../builtins/File)s; or `None`; default is `None`  The value for the new object's `files` field. Do not give a value for this argument if you pass in `interpreter_path`. If `interpreter` is given and this argument is `None`, `files` becomes an empty `depset` instead. |
-| `coverage_tool` | [File](../builtins/File); or `None`; default is `None`  The value for the new object's `coverage_tool` field. |
-| `coverage_files` | [depset](../builtins/depset) of [File](../builtins/File)s; or `None`; default is `None`  The value for the new object's `coverage_files` field. Do not give a value for this argument if you do not also pass in `coverage_tool`. |
+| `interpreter_path` | [string](/versions/7.6.1/rules/lib/core/string); or `None`; default is `None`  The value for the new object's `interpreter_path` field. Do not give a value for this argument if you pass in `interpreter`. |
+| `interpreter` | [File](/versions/7.6.1/rules/lib/builtins/File); or `None`; default is `None`  The value for the new object's `interpreter` field. Do not give a value for this argument if you pass in `interpreter_path`. |
+| `files` | [depset](/versions/7.6.1/rules/lib/builtins/depset) of [File](/versions/7.6.1/rules/lib/builtins/File)s; or `None`; default is `None`  The value for the new object's `files` field. Do not give a value for this argument if you pass in `interpreter_path`. If `interpreter` is given and this argument is `None`, `files` becomes an empty `depset` instead. |
+| `coverage_tool` | [File](/versions/7.6.1/rules/lib/builtins/File); or `None`; default is `None`  The value for the new object's `coverage_tool` field. |
+| `coverage_files` | [depset](/versions/7.6.1/rules/lib/builtins/depset) of [File](/versions/7.6.1/rules/lib/builtins/File)s; or `None`; default is `None`  The value for the new object's `coverage_files` field. Do not give a value for this argument if you do not also pass in `coverage_tool`. |
 | `python_version` | required  The value for the new object's `python_version` field. |
-| `stub_shebang` | [string](../core/string); default is `None`  The value for the new object's `stub_shebang` field. If None or not specified, `#!/usr/bin/env python3` is used. |
-| `bootstrap_template` | [File](../builtins/File); or `None`; default is `None` |
+| `stub_shebang` | [string](/versions/7.6.1/rules/lib/core/string); default is `None`  The value for the new object's `stub_shebang` field. If None or not specified, `#!/usr/bin/env python3` is used. |
+| `bootstrap_template` | [File](/versions/7.6.1/rules/lib/builtins/File); or `None`; default is `None` |
 
 ## bootstrap\_template
 

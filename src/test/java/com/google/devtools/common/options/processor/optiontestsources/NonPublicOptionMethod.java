@@ -24,7 +24,7 @@ public abstract class NonPublicOptionMethod extends OptionsBase {
   @Option(
       name = "foo",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       defaultValue = "42")
   abstract int getFoo();
 }

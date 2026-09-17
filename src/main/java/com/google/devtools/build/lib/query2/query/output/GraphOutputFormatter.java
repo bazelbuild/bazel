@@ -61,15 +61,15 @@ class GraphOutputFormatter extends OutputFormatter {
       EventHandler eventHandler,
       HashFunction hashFunction,
       LabelPrinter labelPrinter) {
-    boolean sortLabels = options.orderOutput == OrderOutput.FULL;
+    boolean sortLabels = options.getOrderOutput() == OrderOutput.FULL;
     GraphOutputWriter<Target> graphWriter =
         new GraphOutputWriter<>(
             NODE_READER,
             options.getLineTerminator(),
             sortLabels,
-            options.graphNodeStringLimit,
-            options.graphConditionalEdgesLimit,
-            options.graphFactored,
+            options.getGraphNodeStringLimit(),
+            options.getGraphConditionalEdgesLimit(),
+            options.getGraphFactored(),
             labelPrinter);
     graphWriter.write(result, new ConditionalEdges(result), out);
   }

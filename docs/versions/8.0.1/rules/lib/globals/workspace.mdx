@@ -25,8 +25,8 @@ Gives a target an alias in the `//external` package.
 
 | Parameter | Description |
 | --- | --- |
-| `name` | [string](../core/string); required  The label under '//external' to serve as the alias name |
-| `actual` | [string](../core/string); or `None`; default is `None`  The real label to be aliased |
+| `name` | [string](/versions/8.0.1/rules/lib/core/string); required  The label under '//external' to serve as the alias name |
+| `actual` | [string](/versions/8.0.1/rules/lib/core/string); or `None`; default is `None`  The real label to be aliased |
 
 ## register\_execution\_platforms
 
@@ -40,7 +40,7 @@ Specifies already-defined execution platforms to be registered. Should be absolu
 
 | Parameter | Description |
 | --- | --- |
-| `platform_labels` | [sequence](../core/list) of [string](../core/string)s; required  The target patterns to register. |
+| `platform_labels` | [sequence](/versions/8.0.1/rules/lib/core/list) of [string](/versions/8.0.1/rules/lib/core/string)s; required  The target patterns to register. |
 
 ## register\_toolchains
 
@@ -54,7 +54,7 @@ Specifies already-defined toolchains to be registered. Should be absolute [targe
 
 | Parameter | Description |
 | --- | --- |
-| `toolchain_labels` | [sequence](../core/list) of [string](../core/string)s; required  The target patterns to register. |
+| `toolchain_labels` | [sequence](/versions/8.0.1/rules/lib/core/list) of [string](/versions/8.0.1/rules/lib/core/string)s; required  The target patterns to register. |
 
 ## workspace
 
@@ -74,4 +74,4 @@ This name is used for the directory that the repository's runfiles are stored in
 
 | Parameter | Description |
 | --- | --- |
-| `name` | [string](../core/string); required  the name of the workspace. Names must start with a letter and can only contain letters, numbers, underscores, dashes, and dots. |
+| `name` | [string](/versions/8.0.1/rules/lib/core/string); required  the name of the workspace. Names must start with a letter and can only contain letters, numbers, underscores, dashes, and dots. |

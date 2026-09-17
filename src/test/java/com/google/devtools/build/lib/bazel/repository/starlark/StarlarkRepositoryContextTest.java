@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -27,7 +27,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableTable;
+import com.google.common.io.BaseEncoding;
 import com.google.common.io.CharStreams;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
+import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithContentsProxy;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -41,6 +44,8 @@ import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileName;
@@ -50,15 +55,18 @@ import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -99,6 +107,8 @@ public final class StarlarkRepositoryContextTest {
   private Path outputDirectory;
   private Root root;
   private StarlarkRepositoryContext context;
+  private SkyFunction.Environment environment;
+  private ExtendedEventHandler listener;
   private Label fakeFileLabel;
   private RepoRule repoRule;
   private static final StarlarkThread thread =
@@ -167,18 +177,18 @@ public final class StarlarkRepositoryContextTest {
       throws Exception {
     LabelConverter labelConverter =
         new LabelConverter(PackageIdentifier.EMPTY_PACKAGE_ID, RepositoryMapping.EMPTY);
-    ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
+    listener = Mockito.mock(ExtendedEventHandler.class);
     RepoSpec repoSpec =
         repoRule.instantiate(kwargs, DUMMY_STACK, labelConverter, listener, "somewhere");
     RepoDefinition repoDefinition =
         new RepoDefinition(repoRule, repoSpec.attributes(), (String) kwargs.get("name"), null);
     DownloadManager downloader = Mockito.mock(DownloadManager.class);
-    SkyFunction.Environment environment = Mockito.mock(SkyFunction.Environment.class);
+    environment = Mockito.mock(SkyFunction.Environment.class);
     when(environment.getListener()).thenReturn(listener);
     fakeFileLabel = Label.parseCanonical("//:foo");
     when(environment.getValue(PackageLookupValue.key(fakeFileLabel.getPackageIdentifier())))
         .thenReturn(PackageLookupValue.success(root, BuildFileName.BUILD));
-    when(environment.getValueOrThrow(any(), eq(IOException.class)))
+    when(environment.getValue(argThat(key -> key instanceof FileKey)))
         .thenReturn(Mockito.mock(FileValue.class));
     PathPackageLocator packageLocator =
         new PathPackageLocator(
@@ -372,8 +382,35 @@ public final class StarlarkRepositoryContextTest {
     StarlarkPath patchFile = context.getPath("my.patch");
     context.createFile(
         context.getPath("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
-    context.patch(patchFile, StarlarkInt.of(0), "auto", thread);
+    context.patch(patchFile, StarlarkInt.of(0), "", "auto", thread);
     testOutputFile(foo.getPath(), "line one\nline two\n");
+  }
+
+  @Test
+  public void testPatchInDirectory() throws Exception {
+    setUpRepo("test");
+    StarlarkPath foo = context.getPath("sub/foo");
+    context.createFile(foo, "line one\n", false, true, thread);
+    StarlarkPath patchFile = context.getPath("my.patch");
+    context.createFile(patchFile, "--- a/foo\n+++ b/foo\n" + ONE_LINE_PATCH, false, true, thread);
+    context.patch(patchFile, StarlarkInt.of(1), "sub", "auto", thread);
+    testOutputFile(foo.getPath(), "line one\nline two\n");
+  }
+
+  @Test
+  public void testPatchInDirectoryOutsideOfExternalRepository() throws Exception {
+    setUpRepo("test");
+    StarlarkPath patchFile = context.getPath("my.patch");
+    context.createFile(patchFile, "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
+    try {
+      context.patch(patchFile, StarlarkInt.of(0), "/other_root", "auto", thread);
+      fail("Expected RepositoryFunctionException");
+    } catch (RepositoryFunctionException ex) {
+      assertThat(ex)
+          .hasCauseThat()
+          .hasMessageThat()
+          .isEqualTo("Cannot write outside of the repository directory for path /other_root");
+    }
   }
 
   @Test
@@ -383,7 +420,7 @@ public final class StarlarkRepositoryContextTest {
     context.createFile(
         context.getPath("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
     try {
-      context.patch(patchFile, StarlarkInt.of(0), "auto", thread);
+      context.patch(patchFile, StarlarkInt.of(0), "", "auto", thread);
       fail("Expected RepositoryFunctionException");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -406,7 +443,7 @@ public final class StarlarkRepositoryContextTest {
         true,
         thread);
     try {
-      context.patch(patchFile, StarlarkInt.of(0), "auto", thread);
+      context.patch(patchFile, StarlarkInt.of(0), "", "auto", thread);
       fail("Expected RepositoryFunctionException");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -423,11 +460,23 @@ public final class StarlarkRepositoryContextTest {
     setUpRepo("test");
     StarlarkPath foo = context.getPath("foo");
     StarlarkPath patchFile = context.getPath("my.patch");
-    context.createFile(foo, "line three\n", false, true, thread);
-    context.createFile(
-        context.getPath("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
+    context.createFile(foo, "line1\nline2\nWRONG\nALSO WRONG\nline5\nline6\n", false, true, thread);
+    String patch =
+        """
+        --- foo
+        +++ foo
+        @@ -1,6 +1,7 @@
+         line1
+         line2
+         line3
+         line4
+        +inserted
+         line5
+         line6
+        """;
+    context.createFile(context.getPath("my.patch"), patch, false, true, thread);
     try {
-      context.patch(patchFile, StarlarkInt.of(0), "auto", thread);
+      context.patch(patchFile, StarlarkInt.of(0), "", "auto", thread);
       fail("Expected RepositoryFunctionException");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -622,13 +671,56 @@ public final class StarlarkRepositoryContextTest {
   public void testDirectoryListing() throws Exception {
     setUpRepo("test");
     scratch.file("/my/folder/a");
-    scratch.file("/my/folder/b");
-    scratch.file("/my/folder/c");
+    scratch.dir("/my/folder/b");
+    scratch.symlink("/my/folder/c", "a");
+    scratch.symlink("/my/folder/d", "b");
+    scratch.symlink("/my/folder/e", "nothing"); // dangling symlink
+    scratch.symlink("/my/folder/f", "f"); // looping symlink
+
     assertThat(context.getPath("/my/folder").readdir("no"))
         .containsExactly(
             context.getPath("/my/folder/a"),
             context.getPath("/my/folder/b"),
-            context.getPath("/my/folder/c"));
+            context.getPath("/my/folder/c"),
+            context.getPath("/my/folder/d"),
+            context.getPath("/my/folder/e"),
+            context.getPath("/my/folder/f"));
+  }
+
+  @Test
+  public void testExists() throws Exception {
+    setUpRepo("test");
+    scratch.file("/my/folder/a");
+    scratch.dir("/my/folder/b");
+    scratch.symlink("/my/folder/c", "a");
+    scratch.symlink("/my/folder/d", "b");
+    scratch.symlink("/my/folder/e", "nothing"); // dangling symlink
+    scratch.symlink("/my/folder/f", "f"); // looping symlink
+
+    assertThat(context.getPath("/my/folder/a").exists()).isTrue();
+    assertThat(context.getPath("/my/folder/b").exists()).isTrue();
+    assertThat(context.getPath("/my/folder/c").exists()).isTrue();
+    assertThat(context.getPath("/my/folder/d").exists()).isTrue();
+    assertThat(context.getPath("/my/folder/e").exists()).isFalse();
+    assertThat(context.getPath("/my/folder/f").exists()).isFalse();
+  }
+
+  @Test
+  public void testIsDir() throws Exception {
+    setUpRepo("test");
+    scratch.file("/my/folder/a");
+    scratch.dir("/my/folder/b");
+    scratch.symlink("/my/folder/c", "a");
+    scratch.symlink("/my/folder/d", "b");
+    scratch.symlink("/my/folder/e", "nothing"); // dangling symlink
+    scratch.symlink("/my/folder/f", "f"); // looping symlink
+
+    assertThat(context.getPath("/my/folder/a").isDir()).isFalse();
+    assertThat(context.getPath("/my/folder/b").isDir()).isTrue();
+    assertThat(context.getPath("/my/folder/c").isDir()).isFalse();
+    assertThat(context.getPath("/my/folder/d").isDir()).isTrue();
+    assertThat(context.getPath("/my/folder/e").isDir()).isFalse();
+    assertThat(context.getPath("/my/folder/f").isDir()).isFalse();
   }
 
   @Test
@@ -667,5 +759,46 @@ public final class StarlarkRepositoryContextTest {
             context.getRecordedInputs().stream()
                 .filter(inputAndValue -> inputAndValue.input() instanceof RepoRecordedInput.File))
         .isEmpty();
+  }
+
+  @Test
+  public void testRecordedFileInputIsLockedInOnFirstAccess() throws Exception {
+    setUpRepo("test");
+    Path fooPath = scratch.file(root.getRelative("foo").getPathString(), "original");
+    // Simulate a file system without fast digests, on which the recorded digest of a file is
+    // computed from its current contents rather than taken from the cached Skyframe value.
+    when(environment.getValue(FileKey.create(RootedPath.toRootedPath(root, fooPath))))
+        .thenReturn(
+            new RegularFileStateValueWithContentsProxy(
+                fooPath.getFileSize(), FileContentsProxy.create(fooPath.stat())));
+    String originalDigest = BaseEncoding.base16().lowerCase().encode(fooPath.getDigest());
+
+    assertThat(context.readFile(fakeFileLabel, "yes", thread)).isEqualTo("original\n");
+    // The repo rule modifies the file, e.g. via ctx.execute, and then reads it again (#29114).
+    scratch.overwriteFile(fooPath.getPathString(), "modified");
+    assertThat(context.readFile(fakeFileLabel, "yes", thread)).isEqualTo("modified\n");
+    assertThat(context.readFile(fakeFileLabel, "yes", thread)).isEqualTo("modified\n");
+
+    // A single warning is emitted for the change.
+    verify(listener)
+        .handle(
+            argThat(
+                event ->
+                    event.getKind() == EventKind.WARNING
+                        && event
+                            .getMessage()
+                            .equals(
+                                "file info or contents of @@//foo changed during the evaluation"
+                                    + " of repository @@test, which will cause it to be"
+                                    + " re-evaluated the next time Bazel is run. Report this"
+                                    + " issue to its maintainers.")));
+    // The recorded digest describes the state of the file before the fetch modified it.
+    assertThat(context.getRecordedInputs())
+        .containsExactly(
+            new RepoRecordedInput.WithValue(
+                new RepoRecordedInput.File(
+                    RepoCacheFriendlyPath.createInsideWorkspace(
+                        RepositoryName.MAIN, PathFragment.create("foo"))),
+                originalDigest));
   }
 }

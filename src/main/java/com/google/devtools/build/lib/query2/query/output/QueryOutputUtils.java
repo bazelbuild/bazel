@@ -37,12 +37,14 @@ public class QueryOutputUtils {
 
   public static boolean lexicographicallySortOutput(
       QueryOptions queryOptions, OutputFormatter formatter) {
-    return queryOptions.orderOutput == OrderOutput.AUTO && formatter instanceof StreamedFormatter;
+    return queryOptions.getOrderOutput() == OrderOutput.AUTO
+        && formatter instanceof StreamedFormatter;
   }
 
   public static boolean shouldStreamUnorderedOutput(
       QueryOptions queryOptions, OutputFormatter formatter) {
-    return queryOptions.orderOutput == OrderOutput.NO && formatter instanceof StreamedFormatter;
+    return queryOptions.getOrderOutput() == OrderOutput.NO
+        && formatter instanceof StreamedFormatter;
   }
 
   public static boolean shouldStreamResults(QueryOptions queryOptions, OutputFormatter formatter) {

@@ -208,14 +208,14 @@ public class TestAspects {
 
       if (ruleContext.getRule().getRuleClassObject().getName().equals("honest")) {
         builder.addStarlarkDeclaredProvider(
-            StarlarkInfo.create(REQUIRED_PROVIDER, ImmutableMap.of(), null));
+            StarlarkInfo.create(REQUIRED_PROVIDER, ImmutableMap.of()));
       }
 
       return builder.build();
     }
   }
 
-  /** A simple rule configured target factory that exports provider {@link REQUIRED_PROVIDER2}. */
+  /** A simple rule configured target factory that exports provider {@link #REQUIRED_PROVIDER2}. */
   public static class DummyRuleFactory2 implements RuleConfiguredTargetFactory {
     @Override
     public ConfiguredTarget create(RuleContext ruleContext)
@@ -226,10 +226,8 @@ public class TestAspects {
           .setFilesToBuild(NestedSetBuilder.<Artifact>create(Order.STABLE_ORDER))
           .setRunfilesSupport(null, null)
           .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
-          .addStarlarkDeclaredProvider(
-              StarlarkInfo.create(REQUIRED_PROVIDER, ImmutableMap.of(), null))
-          .addStarlarkDeclaredProvider(
-              StarlarkInfo.create(REQUIRED_PROVIDER2, ImmutableMap.of(), null))
+          .addStarlarkDeclaredProvider(StarlarkInfo.create(REQUIRED_PROVIDER, ImmutableMap.of()))
+          .addStarlarkDeclaredProvider(StarlarkInfo.create(REQUIRED_PROVIDER2, ImmutableMap.of()))
           .build();
     }
   }
@@ -459,7 +457,7 @@ public class TestAspects {
         return ConfiguredAspect.builder(ruleContext)
             .addStarlarkDeclaredProvider(
                 StarlarkInfo.create(
-                    PROVIDER, ImmutableMap.of("label", dep.getLabel().getCanonicalForm()), null))
+                    PROVIDER, ImmutableMap.of("label", dep.getLabel().getCanonicalForm())))
             .build();
       } catch (EvalException e) {
         throw new IllegalStateException(e);
@@ -521,7 +519,7 @@ public class TestAspects {
         return ConfiguredAspect.builder(ruleContext)
             .addStarlarkDeclaredProvider(
                 StarlarkInfo.create(
-                    PROVIDER, ImmutableMap.of("val", ct.getLabel().getCanonicalForm()), null))
+                    PROVIDER, ImmutableMap.of("val", ct.getLabel().getCanonicalForm())))
             .build();
       } catch (EvalException e) {
         throw new IllegalStateException(e);
@@ -646,8 +644,8 @@ public class TestAspects {
   }
 
   /**
-   * An aspect that requires provider sets {{@link RequiredProvider}} and
-   * {{@link RequiredProvider2}}.
+   * An aspect that requires provider sets {@link #REQUIRED_PROVIDER} and {@link
+   * #REQUIRED_PROVIDER2}.
    */
   public static class AspectRequiringProviderSets extends BaseAspect {
     @Override

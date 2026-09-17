@@ -1,0 +1,86 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="371" aria-label="mobile-install performance" style="overflow: hidden;">
+  <defs id="defs">
+    <clipPath id="_ABSTRACT_RENDERER_ID_0">
+      <rect x="115" y="71" width="371" height="229"/>
+    </clipPath>
+  </defs>
+  <rect x="0" y="0" width="600" height="371" stroke="none" stroke-width="0" fill="#ffffff"/>
+  <g>
+    <text text-anchor="start" x="115" y="50.2" font-family="Arial" font-size="12" font-weight="bold" stroke="none" stroke-width="0" fill="#000000">Build times</text>
+  </g>
+  <g>
+    <rect x="498" y="71" width="90" height="79" stroke="none" stroke-width="0" fill-opacity="0" fill="#ffffff"/>
+    <g>
+      <rect x="498" y="71" width="90" height="28" stroke="none" stroke-width="0" fill-opacity="0" fill="#ffffff"/>
+      <g>
+        <text text-anchor="start" x="527" y="81.2" font-family="Arial" font-size="12" stroke="none" stroke-width="0" fill="#222222">adb install</text>
+      </g>
+      <rect x="498" y="71" width="24" height="12" stroke="none" stroke-width="0" fill="#3366cc"/>
+    </g>
+    <g>
+      <rect x="498" y="106" width="90" height="44" stroke="none" stroke-width="0" fill-opacity="0" fill="#ffffff"/>
+      <g>
+        <text text-anchor="start" x="527" y="116.2" font-family="Arial" font-size="12" stroke="none" stroke-width="0" fill="#222222">mobile-install</text>
+      </g>
+      <rect x="498" y="106" width="24" height="12" stroke="none" stroke-width="0" fill="#dc3912"/>
+    </g>
+  </g>
+  <g>
+    <rect x="115" y="71" width="371" height="229" stroke="none" stroke-width="0" fill-opacity="0" fill="#ffffff"/>
+    <g clip-path="url(https://docs.google.com/spreadsheets/d/1taQnyaw10DUfxh2HuMSZ7InXylis3wZa_KPdTVMdbtQ/edit#_ABSTRACT_RENDERER_ID_0)">
+      <g>
+        <rect x="115" y="299" width="371" height="1" stroke="none" stroke-width="0" fill="#cccccc"/>
+        <rect x="115" y="242" width="371" height="1" stroke="none" stroke-width="0" fill="#cccccc"/>
+        <rect x="115" y="185" width="371" height="1" stroke="none" stroke-width="0" fill="#cccccc"/>
+        <rect x="115" y="128" width="371" height="1" stroke="none" stroke-width="0" fill="#cccccc"/>
+        <rect x="115" y="71" width="371" height="1" stroke="none" stroke-width="0" fill="#cccccc"/>
+      </g>
+      <g>
+        <rect x="139" y="87" width="37" height="212" stroke="none" stroke-width="0" fill="#3366cc"/>
+        <rect x="263" y="254" width="37" height="45" stroke="none" stroke-width="0" fill="#3366cc"/>
+        <rect x="386" y="194" width="37" height="105" stroke="none" stroke-width="0" fill="#3366cc"/>
+        <rect x="177" y="272" width="37" height="27" stroke="none" stroke-width="0" fill="#dc3912"/>
+        <rect x="301" y="289" width="37" height="10" stroke="none" stroke-width="0" fill="#dc3912"/>
+        <rect x="424" y="282" width="37" height="17" stroke="none" stroke-width="0" fill="#dc3912"/>
+      </g>
+      <g>
+        <rect x="115" y="299" width="371" height="1" stroke="none" stroke-width="0" fill="#333333"/>
+      </g>
+    </g>
+    <g/>
+    <g>
+      <g>
+        <text text-anchor="middle" x="177.16666666666666" y="317.2" font-family="Arial" font-size="12" stroke="none" stroke-width="0" fill="#222222">Google Maps</text>
+      </g>
+      <g>
+        <text text-anchor="middle" x="300.5" y="317.2" font-family="Arial" font-size="12" stroke="none" stroke-width="0" fill="#222222">Google+</text>
+      </g>
+      <g>
+        <text text-anchor="middle" x="423.8333333333333" y="317.2" font-family="Arial" font-size="12" stroke="none" stroke-width="0" fill="#222222">YouTube</text>
+      </g>
+      <g>
+        <text text-anchor="end" x="103" y="303.7" font-family="Arial" font-size="12" stroke="none" stroke-width="0" fill="#444444">0</text>
+      </g>
+      <g>
+        <text text-anchor="end" x="103" y="246.7" font-family="Arial" font-size="12" stroke="none" stroke-width="0" fill="#444444">75</text>
+      </g>
+      <g>
+        <text text-anchor="end" x="103" y="189.7" font-family="Arial" font-size="12" stroke="none" stroke-width="0" fill="#444444">150</text>
+      </g>
+      <g>
+        <text text-anchor="end" x="103" y="132.7" font-family="Arial" font-size="12" stroke="none" stroke-width="0" fill="#444444">225</text>
+      </g>
+      <g>
+        <text text-anchor="end" x="103" y="75.7" font-family="Arial" font-size="12" stroke="none" stroke-width="0" fill="#444444">300</text>
+      </g>
+    </g>
+  </g>
+  <g>
+    <g>
+      <text text-anchor="middle" x="45.7" y="185.5" font-family="Arial" font-size="12" font-style="italic" transform="rotate(-90 45.7 185.5)" stroke="none" stroke-width="0" fill="#222222">Seconds</text>
+    </g>
+  </g>
+  <g/>
+</svg>

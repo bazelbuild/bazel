@@ -314,4 +314,10 @@ public final class BuildEventIdUtil {
             BuildEventId.ConvenienceSymlinksIdentifiedId.getDefaultInstance())
         .build();
   }
+
+  public static BuildEventId skyValueUploadedId(String key) {
+    return BuildEventId.newBuilder()
+        .setSkyvalueUploaded(BuildEventId.SkyValueUploadedId.newBuilder().setKey(key).build())
+        .build();
+  }
 }

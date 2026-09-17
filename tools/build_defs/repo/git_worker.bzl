@@ -41,11 +41,11 @@ after fetching and resetting the repo to the specified instance.""",
 def git_repo(ctx, directory):
     """ Fetches data from git repository and checks out file tree.
 
-    Called by git_repository or new_git_repository rules.
+    Called by git_repository rule.
 
     Args:
         ctx: Context of the calling rules, for reading the attributes.
-        Please refer to the git_repository and new_git_repository rules for the description.
+        Please refer to the git_repository rule for the description.
         directory: Directory where to check out the file tree.
     Returns:
         The struct with the following fields:
@@ -159,7 +159,7 @@ def add_origin(ctx, git_repo, remote):
     _git(ctx, git_repo, "remote", "add", "origin", remote)
 
 def fetch(ctx, git_repo):
-    args = ["fetch", "origin", git_repo.fetch_ref]
+    args = ["fetch", "origin"]
 
     sparse_checkout_patterns_or_file = \
         getattr(ctx.attr, "sparse_checkout_patterns", None) or \
@@ -172,6 +172,7 @@ def fetch(ctx, git_repo):
             print("WARNING: Sparse checkout is not supported. Doing a full checkout.")
             sparse_checkout_patterns_or_file = None
 
+    args.extend(["--", git_repo.fetch_ref])
     st = _git_maybe_shallow(ctx, git_repo, *args)
 
     if sparse_checkout_patterns_or_file:
@@ -193,6 +194,7 @@ def fetch(ctx, git_repo):
             git_repo,
             "fetch",
             "origin",
+            "--",
             "refs/heads/*:refs/remotes/origin/*",
             "refs/tags/*:refs/tags/*",
         )

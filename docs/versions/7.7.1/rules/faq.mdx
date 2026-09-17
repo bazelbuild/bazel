@@ -17,7 +17,7 @@ Bazel only executes the actions needed to produce the *requested* output files.
 
 * If you want the file to be built automatically whenever your target is
   mentioned on the command line, add it to your rule's default outputs by
-  returning a [`DefaultInfo`](lib/globals#DefaultInfo) provider.
+  returning a [`DefaultInfo`](/versions/7.7.1/rules/lib/globals#DefaultInfo) provider.
 
 See the [Rules page](/versions/7.7.1/extending/rules#requesting-output-files) for more information.
 
@@ -35,24 +35,24 @@ correct path.
 
 For actions, you declare inputs by passing them to the `ctx.actions.*` function
 that creates the action. The proper path for the file can be obtained using
-[`File.path`](lib/File#path).
+[`File.path`](/versions/7.7.1/rules/lib/builtins/File#path).
 
 For binaries (the executable outputs run by a `bazel run` or `bazel test`
 command), you declare inputs by including them in the
 [runfiles](/versions/7.7.1/extending/rules#runfiles). Instead of using the `path` field, use
-[`File.short_path`](lib/File#short_path), which is file's path relative to
+[`File.short_path`](/versions/7.7.1/rules/lib/builtins/File#short_path), which is file's path relative to
 the runfiles directory in which the binary executes.
 
 ## How can I control which files are built by `bazel build //pkg:mytarget`?
 
-Use the [`DefaultInfo`](lib/globals#DefaultInfo) provider to
+Use the [`DefaultInfo`](/versions/7.7.1/rules/lib/globals#DefaultInfo) provider to
 [set the default outputs](/versions/7.7.1/extending/rules#requesting-output-files).
 
 ## How can I run a program or do file I/O as part of my build?
 
 A tool can be declared as a target, just like any other part of your build, and
 run during the execution phase to help build other targets. To create an action
-that runs a tool, use [`ctx.actions.run`](lib/actions#run) and pass in the
+that runs a tool, use [`ctx.actions.run`](/versions/7.7.1/rules/lib/builtins/actions#run) and pass in the
 tool as the `executable` parameter.
 
 During the loading and analysis phases, a tool *cannot* run, nor can you perform

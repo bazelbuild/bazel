@@ -45,7 +45,6 @@ class BazelVendorTest(test_base.TestBase):
             'common --java_language_version=8',
             'common --tool_java_language_version=8',
             'common --lockfile_mode=update',
-            'common --incompatible_disable_native_repo_rules',
             'startup --windows_enable_symlinks' if self.IsWindows() else '',
         ],
     )
@@ -234,7 +233,7 @@ class BazelVendorTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(
         ['vendor', '--vendor_dir=vendor', '--repo=hello'], allow_failure=True
     )
-    self.AssertExitCode(exit_code, 8, stderr)
+    self.AssertExitCode(exit_code, 2, stderr)
     self.assertIn(
         'ERROR: Invalid repo name: The repo value has to be either apparent'
         " '@repo' or canonical '@@repo' repo name",
@@ -251,7 +250,7 @@ class BazelVendorTest(test_base.TestBase):
         ['vendor', '--vendor_dir=vendor', '--repo=@@nono', '--repo=@nana'],
         allow_failure=True,
     )
-    self.AssertExitCode(exit_code, 8, stderr)
+    self.AssertExitCode(exit_code, 2, stderr)
     self.assertIn(
         "ERROR: Vendoring some repos failed with errors: [Repository '@@nono'"
         " is not defined, No repository visible as '@nana' from main"
@@ -756,7 +755,7 @@ class BazelVendorTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(
         ['vendor', '--vendor_dir=vendor'], allow_failure=True
     )
-    self.AssertExitCode(exit_code, 8, stderr)
+    self.AssertExitCode(exit_code, 2, stderr)
     self.assertIn(
         'ERROR: Error while vendoring repos: Vendor paths conflict detected for'
         ' registry URLs:',
@@ -873,6 +872,67 @@ class BazelVendorTest(test_base.TestBase):
     # This should not fail
     # Regression test for https://github.com/bazelbuild/bazel/issues/23300
     self.RunBazel(['vendor', '//foo/...', '--vendor_dir=vendor'])
+
+  def testVendorToolsForBazelSubcommands(self):
+    # Regression test for https://github.com/bazelbuild/bazel/issues/29222:
+    # `bazel vendor //...` alone doesn't pull in tools needed by Bazel
+    # subcommands (e.g. buildozer for `bazel mod tidy`). Users must explicitly
+    # vendor @bazel_tools//tools:tools_for_bazel_subcommands for those
+    # subcommands to work under `--nofetch`.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("//:extension.bzl", "ext")',
+            'use_repo(ext, "dep", "indirect_dep")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            'repo_rule = repository_rule(implementation=_repo_impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    repo_rule(name="dep")',
+            '    repo_rule(name="missing_dep")',
+            '    repo_rule(name="indirect_dep")',
+            '    return ctx.extension_metadata(',
+            '        root_module_direct_deps=["dep", "missing_dep"],',
+            '        root_module_direct_dev_deps=[],',
+            '    )',
+            '',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    # Vendor the main target set plus the tools filegroup so that
+    # `bazel mod tidy` (which invokes buildozer) can run offline.
+    self.RunBazel([
+        'vendor',
+        '--vendor_dir=vendor',
+        '//...',
+        '@bazel_tools//tools:tools_for_bazel_subcommands',
+    ])
+
+    # Run `bazel mod tidy` under `--nofetch`. Without the filegroup being
+    # vendored above, this would fail because buildozer can't be fetched.
+    self.RunBazel([
+        'mod',
+        'tidy',
+        '--vendor_dir=vendor',
+        '--nofetch',
+    ])
+
+    # Verify that mod tidy actually rewrote MODULE.bazel based on the
+    # extension's root_module_direct_deps metadata.
+    with open(self.Path('MODULE.bazel'), 'r', encoding='utf-8') as f:
+      contents = f.read()
+    self.assertIn('"dep"', contents)
+    self.assertIn('"missing_dep"', contents)
+    self.assertNotIn('"indirect_dep"', contents)
 
 
 if __name__ == '__main__':

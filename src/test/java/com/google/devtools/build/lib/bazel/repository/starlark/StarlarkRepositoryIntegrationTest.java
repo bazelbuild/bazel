@@ -66,35 +66,6 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testfailWithIncompatibleUseCcConfigureFromRulesCcDoesNothing() throws Exception {
-    // A simple test that recreates local_repository with Starlark.
-    scratch.file("/repo2/MODULE.bazel", "module(name='repo2')");
-    scratch.file("/repo2/bar.txt");
-    scratch.file("/repo2/BUILD", "filegroup(name='bar', srcs=['bar.txt'])");
-    scratch.file(
-        "def.bzl",
-        """
-        __do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()
-
-        def _impl(repository_ctx):
-            repository_ctx.symlink(repository_ctx.attr.path, "")
-
-        repo = repository_rule(
-            implementation = _impl,
-            local = True,
-            attrs = {"path": attr.string(mandatory = True)},
-        )
-        """);
-    scratch.file(rootDirectory.getRelative("BUILD").getPathString());
-    scratch.overwriteFile(
-        rootDirectory.getRelative("MODULE.bazel").getPathString(),
-        "repo = use_repo_rule('//:def.bzl', 'repo')",
-        "repo(name='foo', path='/repo2')");
-    invalidatePackages();
-    getConfiguredTargetAndData("@@+repo+foo//:bar");
-  }
-
-  @Test
   public void testStarlarkSymlinkFileFromRepository() throws Exception {
     // This test creates a symbolic link BUILD -> bar.txt.
     scratch.file("/repo2/bar.txt", "filegroup(name='bar', srcs=['foo.txt'])");

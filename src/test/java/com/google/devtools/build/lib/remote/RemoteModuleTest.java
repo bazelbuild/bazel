@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.util.io.CommandExtensionReporter.NO_OP_COMMAND_EXTENSION_REPORTER;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -31,7 +32,6 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.eventbus.EventBus;
 import com.google.common.truth.extensions.proto.ProtoTruth;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -42,6 +42,8 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.authandtls.credentialhelper.GetCredentialsResponse;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -88,6 +90,8 @@ import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.Assert;
 import org.junit.Before;
@@ -138,8 +142,15 @@ public final class RemoteModuleTest {
                   .build())
           .build();
 
+  @FunctionalInterface
+  private interface WorkspaceInitializer {
+    void initialize(Scratch scratch) throws IOException;
+  }
+
   private static CommandEnvironment createTestCommandEnvironment(
-      RemoteModule remoteModule, RemoteOptions remoteOptions)
+      RemoteModule remoteModule,
+      RemoteOptions remoteOptions,
+      WorkspaceInitializer workspaceInitializer)
       throws IOException, AbruptExitException {
     CoreOptions coreOptions = Options.getDefaults(CoreOptions.class);
     CommonCommandOptions commonCommandOptions = Options.getDefaults(CommonCommandOptions.class);
@@ -165,6 +176,8 @@ public final class RemoteModuleTest {
     ServerDirectories serverDirectories =
         new ServerDirectories(
             scratch.dir("install"), scratch.dir("output"), scratch.dir("user_root"));
+    Path workspacePath = scratch.dir("/workspace");
+    workspaceInitializer.initialize(scratch);
 
     BlazeRuntime runtime =
         new BlazeRuntime.Builder()
@@ -173,6 +186,7 @@ public final class RemoteModuleTest {
             .setServerDirectories(serverDirectories)
             .setStartupOptionsProvider(
                 OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
+            .addBlazeService(new CompressionServiceImpl())
             .addBlazeModule(new CredentialModule())
             .addBlazeModule(remoteModule)
             .addBlazeModule(new BlockWaitingModule())
@@ -186,10 +200,7 @@ public final class RemoteModuleTest {
             .build();
 
     BlazeDirectories directories =
-        new BlazeDirectories(
-            serverDirectories,
-            scratch.dir("/workspace"),
-            productName);
+        new BlazeDirectories(serverDirectories, workspacePath, productName);
     BlazeWorkspace workspace = runtime.initWorkspace(directories, BinTools.empty(directories));
     Command command = BuildCommand.class.getAnnotation(Command.class);
     return workspace.initCommand(
@@ -241,16 +252,101 @@ public final class RemoteModuleTest {
         .build();
   }
 
+  private static RemoteOptions parseRemoteOptions(String... args) throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse(args);
+    return parser.getOptions(RemoteOptions.class);
+  }
+
   private RemoteModule remoteModule;
   private RemoteOptions remoteOptions;
+  private Map<String, Map<String, ?>> serviceConfigsByTarget;
 
   @Before
   public void initialize() {
+    serviceConfigsByTarget = new HashMap<>();
     remoteModule = new RemoteModule();
     remoteModule.setChannelFactory(
-        (target, proxy, options, interceptors) ->
-            InProcessChannelBuilder.forName(target).directExecutor().build());
+        (target, proxy, options, interceptors, serviceConfig) -> {
+          serviceConfigsByTarget.put(target, serviceConfig);
+          return InProcessChannelBuilder.forName(target).directExecutor().build();
+        });
     remoteOptions = Options.getDefaults(RemoteOptions.class);
+  }
+
+  @Test
+  public void remoteGrpcServiceConfig_passesRemoteTimeoutConfigToChannelFactory() throws Exception {
+    CapabilitiesImpl cacheCapabilitiesImpl = new CapabilitiesImpl(CACHE_ONLY_CAPS);
+    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, cacheCapabilitiesImpl);
+    cacheServer.start();
+
+    try {
+      remoteOptions =
+          parseRemoteOptions("--remote_cache=" + CACHE_SERVER_NAME, "--remote_timeout=123s");
+
+      beforeCommand();
+
+      assertThat(
+              remoteModule
+                  .getActionContextProvider()
+                  .getCombinedCache()
+                  .getRemoteCacheCapabilities())
+          .isEqualTo(CACHE_ONLY_CAPS.getCacheCapabilities());
+      assertThat(serviceConfigsByTarget.get(CACHE_SERVER_NAME))
+          .isEqualTo(RemoteGrpcServiceConfig.create(Duration.ofSeconds(123)));
+    } finally {
+      cacheServer.shutdownNow();
+      cacheServer.awaitTermination();
+    }
+  }
+
+  @Test
+  public void remoteGrpcServiceConfig_passesUserSuppliedJsonFileToChannelFactory()
+      throws Exception {
+    CapabilitiesImpl cacheCapabilitiesImpl = new CapabilitiesImpl(CACHE_ONLY_CAPS);
+    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, cacheCapabilitiesImpl);
+    cacheServer.start();
+
+    try {
+      remoteOptions =
+          parseRemoteOptions(
+              "--remote_cache=" + CACHE_SERVER_NAME,
+              "--remote_grpc_service_config=service_config.json");
+
+      beforeCommand(
+          scratch ->
+              scratch.file(
+                  "/workspace/service_config.json",
+                  """
+                  {
+                    "methodConfig": [
+                      {
+                        "name": [{"service": "google.bytestream.ByteStream"}],
+                        "timeout": "3.500s"
+                      }
+                    ]
+                  }
+                  """));
+
+      assertThat(
+              remoteModule
+                  .getActionContextProvider()
+                  .getCombinedCache()
+                  .getRemoteCacheCapabilities())
+          .isEqualTo(CACHE_ONLY_CAPS.getCacheCapabilities());
+      assertThat(serviceConfigsByTarget.get(CACHE_SERVER_NAME))
+          .containsExactly(
+              "methodConfig",
+              ImmutableList.of(
+                  ImmutableMap.of(
+                      "name",
+                      ImmutableList.of(ImmutableMap.of("service", "google.bytestream.ByteStream")),
+                      "timeout",
+                      "3.500s")));
+    } finally {
+      cacheServer.shutdownNow();
+      cacheServer.awaitTermination();
+    }
   }
 
   @Test
@@ -267,8 +363,8 @@ public final class RemoteModuleTest {
     cacheServer.start();
 
     try {
-      remoteOptions.remoteExecutor = EXECUTION_SERVER_NAME;
-      remoteOptions.remoteDownloader = CACHE_SERVER_NAME;
+      remoteOptions.setRemoteExecutor(EXECUTION_SERVER_NAME);
+      remoteOptions.setRemoteDownloader(CACHE_SERVER_NAME);
 
       beforeCommand();
 
@@ -307,7 +403,7 @@ public final class RemoteModuleTest {
     executionServer.start();
 
     try {
-      remoteOptions.remoteExecutor = EXECUTION_SERVER_NAME;
+      remoteOptions.setRemoteExecutor(EXECUTION_SERVER_NAME);
 
       beforeCommand();
 
@@ -339,7 +435,7 @@ public final class RemoteModuleTest {
     cacheServer.start();
 
     try {
-      remoteOptions.remoteCache = CACHE_SERVER_NAME;
+      remoteOptions.setRemoteCache(CACHE_SERVER_NAME);
 
       beforeCommand();
 
@@ -370,8 +466,8 @@ public final class RemoteModuleTest {
     cacheServer.start();
 
     try {
-      remoteOptions.remoteExecutor = EXECUTION_SERVER_NAME;
-      remoteOptions.remoteCache = CACHE_SERVER_NAME;
+      remoteOptions.setRemoteExecutor(EXECUTION_SERVER_NAME);
+      remoteOptions.setRemoteCache(CACHE_SERVER_NAME);
 
       beforeCommand();
 
@@ -412,8 +508,8 @@ public final class RemoteModuleTest {
     cacheServer.start();
 
     try {
-      remoteOptions.remoteExecutor = EXECUTION_SERVER_NAME;
-      remoteOptions.remoteCache = CACHE_SERVER_NAME;
+      remoteOptions.setRemoteExecutor(EXECUTION_SERVER_NAME);
+      remoteOptions.setRemoteCache(CACHE_SERVER_NAME);
 
       beforeCommand();
 
@@ -454,9 +550,9 @@ public final class RemoteModuleTest {
     Credentials credentials =
         RemoteModule.createCredentials(
             CredentialHelperEnvironment.newBuilder()
-                .setEventReporter(new Reporter(new EventBus()))
+                .setEventReporter(new Reporter(EventBusEventHandler.createWithNewEventBus()))
                 .setWorkspacePath(fileSystem.getPath("/workspace"))
-                .setClientEnvironment(ImmutableMap.of("NETRC", netrc))
+                .setClientEnvironment(() -> ImmutableMap.of("NETRC", netrc))
                 .setHelperExecutionTimeout(Duration.ZERO)
                 .build(),
             credentialCache,
@@ -477,7 +573,7 @@ public final class RemoteModuleTest {
     cacheServer.start();
 
     try {
-      remoteOptions.remoteCache = CACHE_SERVER_NAME;
+      remoteOptions.setRemoteCache(CACHE_SERVER_NAME);
 
       beforeCommand();
 
@@ -501,7 +597,7 @@ public final class RemoteModuleTest {
     executionServer.start();
 
     try {
-      remoteOptions.remoteExecutor = EXECUTION_SERVER_NAME;
+      remoteOptions.setRemoteExecutor(EXECUTION_SERVER_NAME);
 
       beforeCommand();
 
@@ -526,8 +622,8 @@ public final class RemoteModuleTest {
     executionServer.start();
 
     try {
-      remoteOptions.remoteExecutor = EXECUTION_SERVER_NAME;
-      remoteOptions.circuitBreakerStrategy = RemoteOptions.CircuitBreakerStrategy.FAILURE;
+      remoteOptions.setRemoteExecutor(EXECUTION_SERVER_NAME);
+      remoteOptions.setCircuitBreakerStrategy(RemoteOptions.CircuitBreakerStrategy.FAILURE);
 
       beforeCommand();
 
@@ -553,8 +649,8 @@ public final class RemoteModuleTest {
     cacheServer.start();
 
     try {
-      remoteOptions.remoteCache = CACHE_SERVER_NAME;
-      remoteOptions.circuitBreakerStrategy = RemoteOptions.CircuitBreakerStrategy.FAILURE;
+      remoteOptions.setRemoteCache(CACHE_SERVER_NAME);
+      remoteOptions.setCircuitBreakerStrategy(RemoteOptions.CircuitBreakerStrategy.FAILURE);
 
       beforeCommand();
 
@@ -577,7 +673,7 @@ public final class RemoteModuleTest {
   public void bazelOutputService_noRemoteCache_exit() throws Exception {
     Server outputServiceService = createFakeServer(OUTPUT_SERVICE_SERVER_NAME);
     try {
-      remoteOptions.remoteOutputService = OUTPUT_SERVICE_SERVER_NAME;
+      remoteOptions.setRemoteOutputService(OUTPUT_SERVICE_SERVER_NAME);
 
       var exception = Assert.assertThrows(AbruptExitException.class, this::beforeCommand);
 
@@ -591,7 +687,7 @@ public final class RemoteModuleTest {
   @Test
   public void diskCacheGarbageCollectionIdleTask_disabled() throws Exception {
     var diskCacheDir = TestUtils.createUniqueTmpDir(null);
-    remoteOptions.diskCache = diskCacheDir.asFragment();
+    remoteOptions.setDiskCache(diskCacheDir.asFragment());
 
     var env = beforeCommand();
 
@@ -601,10 +697,10 @@ public final class RemoteModuleTest {
   @Test
   public void diskCacheGarbageCollectionIdleTask_enabled() throws Exception {
     var diskCacheDir = TestUtils.createUniqueTmpDir(null);
-    remoteOptions.diskCache = diskCacheDir.asFragment();
-    remoteOptions.diskCacheGcIdleDelay = Duration.ofMinutes(2);
-    remoteOptions.diskCacheGcMaxSize = 1234567890L;
-    remoteOptions.diskCacheGcMaxAge = Duration.ofDays(7);
+    remoteOptions.setDiskCache(diskCacheDir.asFragment());
+    remoteOptions.setDiskCacheGcIdleDelay(Duration.ofMinutes(2));
+    remoteOptions.setDiskCacheGcMaxSize(1234567890L);
+    remoteOptions.setDiskCacheGcMaxAge(Duration.ofDays(7));
 
     var env = beforeCommand();
 
@@ -618,9 +714,30 @@ public final class RemoteModuleTest {
         .isEqualTo(new CollectionPolicy(Optional.of(1234567890L), Optional.of(Duration.ofDays(7))));
   }
 
+  @Test
+  public void repositoryRemoteHelpersFactory_initializedForDiskCacheOnlyPath() throws Exception {
+    // Regression test: non-gRPC caches must still register the
+    // RepositoryRemoteHelpersFactory delegate so repo rules can use the remote
+    // contents cache.
+    var diskCacheDir = TestUtils.createUniqueTmpDir(null);
+    remoteOptions.setDiskCache(diskCacheDir.asFragment());
+
+    beforeCommand();
+
+    assertThat(remoteModule.getRepositoryRemoteHelpersFactoryDelegate().createRepoContentsCache())
+        .isNotNull();
+  }
+
   @CanIgnoreReturnValue
   private CommandEnvironment beforeCommand() throws IOException, AbruptExitException {
-    CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
+    return beforeCommand(scratch -> {});
+  }
+
+  @CanIgnoreReturnValue
+  private CommandEnvironment beforeCommand(WorkspaceInitializer workspaceInitializer)
+      throws IOException, AbruptExitException {
+    CommandEnvironment env =
+        createTestCommandEnvironment(remoteModule, remoteOptions, workspaceInitializer);
     remoteModule.beforeCommand(env);
     env.throwPendingException();
     return env;
@@ -628,7 +745,7 @@ public final class RemoteModuleTest {
 
   @Test
   public void diskCache_defaultLocation_resolvesToOutputUserRoot() throws Exception {
-    remoteOptions.diskCache = PathFragment.EMPTY_FRAGMENT;
+    remoteOptions.setDiskCache(PathFragment.EMPTY_FRAGMENT);
 
     var env = beforeCommand();
 
@@ -643,9 +760,9 @@ public final class RemoteModuleTest {
 
   @Test
   public void diskCache_defaultLocation_withGarbageCollection() throws Exception {
-    remoteOptions.diskCache = PathFragment.EMPTY_FRAGMENT;
-    remoteOptions.diskCacheGcIdleDelay = Duration.ofMinutes(2);
-    remoteOptions.diskCacheGcMaxSize = 1234567890L;
+    remoteOptions.setDiskCache(PathFragment.EMPTY_FRAGMENT);
+    remoteOptions.setDiskCacheGcIdleDelay(Duration.ofMinutes(2));
+    remoteOptions.setDiskCacheGcMaxSize(1234567890L);
 
     var env = beforeCommand();
 
@@ -660,11 +777,11 @@ public final class RemoteModuleTest {
 
   @Test
   public void diskCacheUnset_disablesDiskCache() throws Exception {
-    remoteOptions.diskCache = null;
+    remoteOptions.setDiskCache(null);
 
     var env = beforeCommand();
 
-    assertThat(remoteOptions.diskCache).isNull();
+    assertThat(remoteOptions.getDiskCache()).isNull();
     assertThat(env.getIdleTasks()).isEmpty();
   }
 
@@ -688,11 +805,99 @@ public final class RemoteModuleTest {
       return;
     }
 
-    if (remoteOptions.circuitBreakerStrategy == RemoteOptions.CircuitBreakerStrategy.FAILURE) {
+    if (remoteOptions.getCircuitBreakerStrategy() == RemoteOptions.CircuitBreakerStrategy.FAILURE) {
       assertThat(circuitBreaker).isInstanceOf(FailureCircuitBreaker.class);
     }
-    if (remoteOptions.circuitBreakerStrategy == null) {
+    if (remoteOptions.getCircuitBreakerStrategy() == null) {
       assertThat(circuitBreaker).isEqualTo(Retrier.ALLOW_ALL_CALLS);
     }
   }
+
+  @Test
+  public void openRpcLogFile_firstAttempt_doesNotRenameExistingFile() throws Exception {
+    Scratch scratch = new Scratch(new InMemoryFileSystem(DigestHashFunction.SHA256));
+    Path log = scratch.file("/workspace/grpc.log", "stale contents");
+
+    RemoteModule.openRpcLogFile(log, /* attemptNumber= */ 1).close();
+
+    // Attempt 1 is a fresh build: the log is (re)created at the base path and nothing is preserved.
+    assertThat(log.exists()).isTrue();
+    assertThat(scratch.resolve("/workspace/grpc.log.1").exists()).isFalse();
+  }
+
+  @Test
+  public void openRpcLogFile_retry_preservesPreviousAttemptLog() throws Exception {
+    Scratch scratch = new Scratch(new InMemoryFileSystem(DigestHashFunction.SHA256));
+    Path log = scratch.file("/workspace/grpc.log", "attempt 1 contents");
+
+    RemoteModule.openRpcLogFile(log, /* attemptNumber= */ 2).close();
+
+    // The retry must not clobber the previous attempt's log: it is renamed aside, and a fresh log
+    // is opened at the base path for the new attempt.
+    Path preserved = scratch.resolve("/workspace/grpc.log.1");
+    assertThat(preserved.exists()).isTrue();
+    assertThat(preserved.getFileSize()).isGreaterThan(0L);
+    assertThat(log.exists()).isTrue();
+  }
+
+  @Test
+  public void testComputeActionExecutionSalt_changesWhenCacheInstanceChanges() throws Exception {
+    RemoteOptions baseOptions =
+        parseRemoteOptions(
+            "--remote_cache=grpc://cache1",
+            "--remote_executor=grpc://exec1",
+            "--remote_instance_name=instance1");
+    String baseSalt = RemoteModule.computeActionExecutionSalt(baseOptions);
+    assertThat(RemoteModule.computeActionExecutionSalt(null)).isNotNull();
+    assertThat(RemoteModule.computeActionExecutionSalt(baseOptions)).isEqualTo(baseSalt);
+
+    RemoteOptions changedInstanceName =
+        parseRemoteOptions(
+            "--remote_cache=grpc://cache1",
+            "--remote_executor=grpc://exec1",
+            "--remote_instance_name=instance2");
+    assertThat(RemoteModule.computeActionExecutionSalt(changedInstanceName)).isNotEqualTo(baseSalt);
+
+    RemoteOptions changedRemoteCache =
+        parseRemoteOptions(
+            "--remote_cache=grpc://cache2",
+            "--remote_executor=grpc://exec1",
+            "--remote_instance_name=instance1");
+    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteCache)).isNotEqualTo(baseSalt);
+
+    RemoteOptions changedRemoteExecutor =
+        parseRemoteOptions(
+            "--remote_cache=grpc://cache1",
+            "--remote_executor=grpc://exec2",
+            "--remote_instance_name=instance1");
+    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteExecutor))
+        .isNotEqualTo(baseSalt);
+
+    RemoteOptions changedRemoteDownloader =
+        parseRemoteOptions(
+            "--remote_cache=grpc://cache1",
+            "--remote_executor=grpc://exec1",
+            "--remote_instance_name=instance1",
+            "--remote_downloader=grpc://downloader1");
+    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteDownloader))
+        .isNotEqualTo(baseSalt);
+
+    RemoteOptions changedBytestreamPrefix =
+        parseRemoteOptions(
+            "--remote_cache=grpc://cache1",
+            "--remote_executor=grpc://exec1",
+            "--remote_instance_name=instance1",
+            "--remote_bytestream_uri_prefix=host/instance2");
+    assertThat(RemoteModule.computeActionExecutionSalt(changedBytestreamPrefix))
+        .isNotEqualTo(baseSalt);
+
+    RemoteOptions changedRemoteProxy =
+        parseRemoteOptions(
+            "--remote_cache=grpc://cache1",
+            "--remote_executor=grpc://exec1",
+            "--remote_instance_name=instance1",
+            "--remote_proxy=unix:/socket2");
+    assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteProxy)).isNotEqualTo(baseSalt);
+  }
 }
+

@@ -77,7 +77,7 @@ Returns the list of entries in the directory denoted by this path. Each entry is
 
 | Parameter | Description |
 | --- | --- |
-| `watch` | [string](../core/string); default is `'auto'`  whether Bazel should watch the list of entries in this directory and refetch the repository or re-evaluate the module extension next time when any changes are detected. Changes to detect include entry creation, deletion, and renaming. Note that this doesn't watch the *contents* of any entries in the directory. Can be the string 'yes', 'no', or 'auto'. If set to 'auto', Bazel will only watch this directory when it is legal to do so (see [`repository_ctx.watch()`](repository_ctx#watch) docs for more information). |
+| `watch` | [string](/versions/8.2.1/rules/lib/core/string); default is `'auto'`  whether Bazel should watch the list of entries in this directory and refetch the repository or re-evaluate the module extension next time when any changes are detected. Changes to detect include entry creation, deletion, and renaming. Note that this doesn't watch the *contents* of any entries in the directory. Can be the string 'yes', 'no', or 'auto'. If set to 'auto', Bazel will only watch this directory when it is legal to do so (see [`repository_ctx.watch()`](/versions/8.2.1/rules/lib/builtins/repository_ctx#watch) docs for more information). |
 
 ## realpath
 

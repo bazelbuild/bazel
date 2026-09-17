@@ -52,6 +52,11 @@ final class DepsFunction implements QueryFunction {
     return ImmutableList.of(ArgumentType.EXPRESSION, ArgumentType.INTEGER);
   }
 
+  @Override
+  public boolean requiresEdges() {
+    return true;
+  }
+
   /** Breadth-first search from the arguments. */
   @SuppressWarnings("unchecked")
   @Override

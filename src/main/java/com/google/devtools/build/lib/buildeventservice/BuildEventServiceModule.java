@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
-import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.CommandContext;
+import com.google.devtools.build.lib.buildeventservice.client.CommandContext;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
@@ -75,6 +75,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.io.AnsiTerminal;
 import com.google.devtools.build.lib.util.io.AnsiTerminal.Color;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -92,6 +93,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
@@ -121,6 +123,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   private AuthAndTLSOptions authTlsOptions;
   private BuildEventStreamOptions besStreamOptions;
   private boolean uiUsesColor;
+  private boolean uiUsesHyperlinks;
   private boolean isRunsPerTestOverTheLimit;
   private BuildEventArtifactUploaderFactory uploaderFactoryToCleanup;
 
@@ -151,6 +154,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   @Nullable private ImmutableSet<BuildEventTransport> bepTransports;
   @Nullable private String buildRequestId;
   @Nullable private String invocationId;
+  @Nullable private String prevInvocationId;
   @Nullable private Reporter reporter;
   @Nullable private BuildEventStreamer streamer;
   @Nullable private ConnectivityStatusProvider connectivityProvider;
@@ -239,6 +243,13 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       return;
     }
 
+    String prevInvocationIdMsg;
+    if (prevInvocationId != null) {
+      prevInvocationIdMsg = "(ID: " + prevInvocationId + ")";
+    } else {
+      prevInvocationIdMsg = "";
+    }
+
     ConnectivityStatus status = connectivityProvider.getStatus(CONNECTIVITY_CACHE_KEY);
     if (status.status != ConnectivityStatus.Status.OK) {
       reporter.handle(
@@ -298,11 +309,12 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       long waitedMillis = stopwatch.elapsed().toMillis();
       String msg =
           String.format(
-              "The background upload of the Build Event Protocol for the previous invocation "
+              "The background upload of the Build Event Protocol for the previous invocation %s "
                   + "failed to complete in %d.%03d seconds. "
                   + "Cancelling and starting a new invocation...",
-              waitedMillis / 1000, waitedMillis % 1000);
+              prevInvocationIdMsg, waitedMillis / 1000, waitedMillis % 1000);
       reporter.handle(Event.warn(msg));
+      reporter.post(new PrevInvocationBesUploadReportFailedEvent(true, prevInvocationId));
       logger.atWarning().withCause(exception).log("%s", msg);
       cancelCloseFutures = closeFuturesWithTimeoutsMap;
     } catch (ExecutionException e) {
@@ -311,18 +323,21 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       // times out.
       if (isTimeoutException(e)) {
         msg =
-            "The background upload of the Build Event Protocol for the previous invocation "
-                + "failed due to a network timeout. Ignoring the failure and starting a new "
-                + "invocation...";
+            String.format(
+                "The background upload of the Build Event Protocol for the previous invocation %s "
+                    + "failed due to a network timeout. Ignoring the failure and starting a new "
+                    + "invocation...",
+                prevInvocationIdMsg);
       } else {
         msg =
             String.format(
-                "The background upload of the Build Event Protocol for the previous invocation "
+                "The background upload of the Build Event Protocol for the previous invocation %s "
                     + "failed with the following exception: '%s'. "
                     + "Ignoring the failure and starting a new invocation...",
-                e.getMessage());
+                prevInvocationIdMsg, e.getMessage());
       }
       reporter.handle(Event.warn(msg));
+      reporter.post(new PrevInvocationBesUploadReportFailedEvent(true, prevInvocationId));
       logger.atWarning().withCause(e).log("%s", msg);
       cancelCloseFutures = closeFuturesWithTimeoutsMap;
     } finally {
@@ -335,6 +350,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
 
   @Override
   public void beforeCommand(CommandEnvironment cmdEnv) throws AbruptExitException {
+    this.prevInvocationId = this.invocationId;
     this.invocationId = cmdEnv.getCommandId().toString();
     this.buildRequestId = cmdEnv.getBuildRequestId();
     this.reporter = cmdEnv.getReporter();
@@ -354,18 +370,19 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
         Preconditions.checkNotNull(parsingResult.getOptions(BuildEventStreamOptions.class));
     this.isRunsPerTestOverTheLimit =
         parsingResult.getOptions(TestOptions.class) != null
-            && parsingResult.getOptions(TestOptions.class).runsPerTest.stream()
+            && parsingResult.getOptions(TestOptions.class).getRunsPerTest().stream()
                 .anyMatch(
                     (perLabelOptions) ->
                         Integer.parseInt(Iterables.getOnlyElement(perLabelOptions.getOptions()))
                             > RUNS_PER_TEST_LIMIT);
-    this.uiUsesColor =
-        Preconditions.checkNotNull(parsingResult.getOptions(UiOptions.class)).useColor();
+    UiOptions uiOptions = Preconditions.checkNotNull(parsingResult.getOptions(UiOptions.class));
+    this.uiUsesColor = uiOptions.useColor();
+    this.uiUsesHyperlinks = uiOptions.useHyperlinks();
 
     ConnectivityStatus status = connectivityProvider.getStatus(CONNECTIVITY_CACHE_KEY);
     String buildEventUploadStrategy =
         status.status.equals(ConnectivityStatus.Status.OK)
-            ? this.bepOptions.buildEventUploadStrategy
+            ? this.bepOptions.getBuildEventUploadStrategy()
             : "local";
 
     buildEventOutputStreamFactory = createBuildEventOutputStreamFactory(cmdEnv);
@@ -375,7 +392,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     // allow completing previous runs using BES, for example:
     //   bazel build (..run with async BES..)
     //   bazel info <-- Doesn't run with BES unless we wait before checking {@code allowedCommands}.
-    boolean commandIsShutdown = "shutdown".equals(cmdEnv.getCommandName());
+    boolean commandIsShutdown = Objects.equals(cmdEnv.getCommandName(), "shutdown");
     waitForPreviousInvocation(commandIsShutdown);
     if (commandIsShutdown && uploaderFactoryToCleanup != null) {
       uploaderFactoryToCleanup.shutdown();
@@ -415,7 +432,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       return;
     }
 
-    if (bepOptions.publishTargetSummary) {
+    if (bepOptions.getPublishTargetSummary()) {
       cmdEnv
           .getEventBus()
           .register(
@@ -428,7 +445,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
             .buildEventTransports(bepTransports)
             .besStreamOptions(besStreamOptions)
             .outputGroupFileModes(bepOptions.getOutputGroupFileModesMapping())
-            .publishTargetSummaries(bepOptions.publishTargetSummary)
+            .publishTargetSummaries(bepOptions.getPublishTargetSummary())
             .artifactGroupNamer(artifactGroupNamer)
             .oomMessage(parsingResult.getOptions(CommonCommandOptions.class).getOomMessage())
             .build();
@@ -443,8 +460,8 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   }
 
   private void registerOutAndErrOutputStreams() {
-    int bufferSize = besOptions.besOuterrBufferSize;
-    int chunkSize = besOptions.besOuterrChunkSize;
+    int bufferSize = besOptions.getBesOuterrBufferSize();
+    int chunkSize = besOptions.getBesOuterrChunkSize();
     SynchronizedOutputStream out =
         new SynchronizedOutputStream(bufferSize, chunkSize, /* isStderr= */ false);
     SynchronizedOutputStream err =
@@ -484,7 +501,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
         // GC thrashing during severe OOMs may prevent future completion, so don't wait forever.
         // We do want to wait in case this is a "benign" OOM - a brief high-water-mark - because
         // then we can preserve that information in the BEP being uploaded to BES.
-        besClosedFuture.get(besOptions.besOomFinishUploadTimeout.toMillis(), MILLISECONDS);
+        besClosedFuture.get(besOptions.getBesOomFinishUploadTimeout().toMillis(), MILLISECONDS);
       } else {
         Uninterruptibles.getUninterruptibly(besClosedFuture);
       }
@@ -671,7 +688,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
 
       closeBepTransports();
 
-      if (!Strings.isNullOrEmpty(besOptions.besBackend)) {
+      if (!Strings.isNullOrEmpty(besOptions.getBesBackend())) {
         constructAndMaybeReportInvocationIdUrl();
       } else if (!bepTransports.isEmpty()) {
         reporter.handle(Event.info("Build Event Protocol files produced successfully."));
@@ -679,7 +696,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     }
 
     // besStreamOptions can be null if we are crashing. Don't crash here too.
-    if (besStreamOptions != null && !besStreamOptions.keepBackendConnections) {
+    if (besStreamOptions != null && !besStreamOptions.getKeepBackendConnections()) {
       clearBesClient();
     } else if (besStreamOptions == null) {
       BugReport.sendNonFatalBugReport(
@@ -691,7 +708,6 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   public void commandComplete() {
     this.outErr = null;
     this.bepTransports = null;
-    this.invocationId = null;
     this.buildRequestId = null;
     this.reporter = null;
     this.streamer = null;
@@ -700,19 +716,23 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
 
   private void constructAndMaybeReportInvocationIdUrl() {
     if (!getInvocationIdPrefix().isEmpty()) {
-      StringBuilder msg = new StringBuilder();
-      msg.append("Streaming build results to: ");
-      if (uiUsesColor) {
-        msg.append(new String(Color.CYAN.getEscapeSeq(), StandardCharsets.US_ASCII));
-      }
-      msg.append(getInvocationIdPrefix());
-      msg.append(invocationId);
-      if (uiUsesColor) {
-        msg.append(new String(Color.DEFAULT.getEscapeSeq(), StandardCharsets.US_ASCII));
-      }
-
-      reporter.handle(Event.info(msg.toString()));
+      String url = getInvocationIdPrefix() + invocationId;
+      reporter.handle(
+          Event.info(
+              "Streaming build results to: "
+                  + formatUrlForTerminal(url, uiUsesColor, uiUsesHyperlinks)));
     }
+  }
+
+  private static String formatUrlForTerminal(String url, boolean useColor, boolean useHyperlinks) {
+    String text = useHyperlinks ? AnsiTerminal.hyperlink(url, url) : url;
+    if (!useColor) {
+      return text;
+    }
+
+    return new String(Color.CYAN.getEscapeSeq(), StandardCharsets.US_ASCII)
+        + text
+        + new String(Color.DEFAULT.getEscapeSeq(), StandardCharsets.US_ASCII);
   }
 
   private void constructAndMaybeReportBuildRequestIdUrl() {
@@ -730,7 +750,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     logger.atInfo().log(
         "Streaming Build Event Protocol to '%s' with build_request_id: '%s'"
             + " and invocation_id: '%s'",
-        besOptions.besBackend, buildRequestId, invocationId);
+        besOptions.getBesBackend(), buildRequestId, invocationId);
   }
 
   @Nullable
@@ -739,7 +759,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       ThrowingBuildEventArtifactUploaderSupplier uploaderSupplier,
       CountingArtifactGroupNamer artifactGroupNamer)
       throws IOException {
-    if (Strings.isNullOrEmpty(besOptions.besBackend)) {
+    if (Strings.isNullOrEmpty(besOptions.getBesBackend())) {
       clearBesClient();
       return null;
     }
@@ -786,7 +806,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     }
 
     CommandContext commandContext =
-        CommandContext.builder()
+        CommandContextImpl.builder()
             .setBuildId(buildRequestId)
             .setInvocationId(invocationId)
             .setAttemptNumber(cmdEnv.getAttemptNumber())
@@ -795,8 +815,9 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                     cmdEnv.getCommandName(),
                     besOptions,
                     cmdEnv.getRuntime().getStartupOptionsProvider()))
-            .setProjectId(besOptions.instanceName)
-            .setCheckPrecedingLifecycleEvents(besOptions.besCheckPrecedingLifecycleEvents)
+            .setStreamMetadata(getStreamMetadata(cmdEnv))
+            .setProjectId(besOptions.getInstanceName())
+            .setCheckPrecedingLifecycleEvents(besOptions.getBesCheckPrecedingLifecycleEvents())
             .build();
 
     return new BuildEventServiceTransport.Builder()
@@ -829,13 +850,13 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       throws IOException {
     ImmutableSet.Builder<BuildEventTransport> bepTransportsBuilder = new ImmutableSet.Builder<>();
 
-    if (!Strings.isNullOrEmpty(besStreamOptions.buildEventTextFile)) {
+    if (!Strings.isNullOrEmpty(besStreamOptions.getBuildEventTextFile())) {
       try {
         BufferedOutputStream bepTextOutputStream =
             buildEventOutputStreamFactory.create(
-                BuildEventFileType.TEXT, besStreamOptions.buildEventTextFile);
+                BuildEventFileType.TEXT, besStreamOptions.getBuildEventTextFile());
         BuildEventArtifactUploader localFileUploader =
-            besStreamOptions.buildEventTextFilePathConversion
+            besStreamOptions.getBuildEventTextFilePathConversion()
                 ? uploaderSupplier.get()
                 : new LocalFilesArtifactUploader();
         bepTransportsBuilder.add(
@@ -844,7 +865,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                 bepOptions,
                 localFileUploader,
                 artifactGroupNamer,
-                besStreamOptions.buildEventTextFileUploadMode));
+                besStreamOptions.getBuildEventTextFileUploadMode()));
       } catch (IOException exception) {
         // TODO(b/125216340): Consider making this a warning instead of an error once the
         //  associated bug has been resolved.
@@ -852,20 +873,20 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
             reporter,
             cmdEnv.getBlazeModuleEnvironment(),
             "Unable to write to '"
-                + besStreamOptions.buildEventTextFile
+                + besStreamOptions.getBuildEventTextFile()
                 + "'. Omitting --build_event_text_file.",
             exception,
             BuildProgress.Code.BES_LOCAL_WRITE_ERROR);
       }
     }
 
-    if (!Strings.isNullOrEmpty(besStreamOptions.buildEventBinaryFile)) {
+    if (!Strings.isNullOrEmpty(besStreamOptions.getBuildEventBinaryFile())) {
       try {
         BufferedOutputStream bepBinaryOutputStream =
             buildEventOutputStreamFactory.create(
-                BuildEventFileType.BINARY, besStreamOptions.buildEventBinaryFile);
+                BuildEventFileType.BINARY, besStreamOptions.getBuildEventBinaryFile());
         BuildEventArtifactUploader localFileUploader =
-            besStreamOptions.buildEventBinaryFilePathConversion
+            besStreamOptions.getBuildEventBinaryFilePathConversion()
                 ? uploaderSupplier.get()
                 : new LocalFilesArtifactUploader();
         bepTransportsBuilder.add(
@@ -874,7 +895,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                 bepOptions,
                 localFileUploader,
                 artifactGroupNamer,
-                besStreamOptions.buildEventBinaryFileUploadMode));
+                besStreamOptions.getBuildEventBinaryFileUploadMode()));
       } catch (IOException exception) {
         // TODO(b/125216340): Consider making this a warning instead of an error once the
         //  associated bug has been resolved.
@@ -882,20 +903,20 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
             reporter,
             cmdEnv.getBlazeModuleEnvironment(),
             "Unable to write to '"
-                + besStreamOptions.buildEventBinaryFile
+                + besStreamOptions.getBuildEventBinaryFile()
                 + "'. Omitting --build_event_binary_file.",
             exception,
             BuildProgress.Code.BES_LOCAL_WRITE_ERROR);
       }
     }
 
-    if (!Strings.isNullOrEmpty(besStreamOptions.buildEventJsonFile)) {
+    if (!Strings.isNullOrEmpty(besStreamOptions.getBuildEventJsonFile())) {
       try {
         BufferedOutputStream bepJsonOutputStream =
             buildEventOutputStreamFactory.create(
-                BuildEventFileType.JSON, besStreamOptions.buildEventJsonFile);
+                BuildEventFileType.JSON, besStreamOptions.getBuildEventJsonFile());
         BuildEventArtifactUploader localFileUploader =
-            besStreamOptions.buildEventJsonFilePathConversion
+            besStreamOptions.getBuildEventJsonFilePathConversion()
                 ? uploaderSupplier.get()
                 : new LocalFilesArtifactUploader();
         bepTransportsBuilder.add(
@@ -905,7 +926,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                 localFileUploader,
                 artifactGroupNamer,
                 makeJsonTypeRegistry(),
-                besStreamOptions.buildEventJsonFileUploadMode));
+                besStreamOptions.getBuildEventJsonFileUploadMode()));
       } catch (IOException exception) {
         // TODO(b/125216340): Consider making this a warning instead of an error once the
         //  associated bug has been resolved.
@@ -913,7 +934,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
             reporter,
             cmdEnv.getBlazeModuleEnvironment(),
             "Unable to write to '"
-                + besStreamOptions.buildEventJsonFile
+                + besStreamOptions.getBuildEventJsonFile()
                 + "'. Omitting --build_event_json_file.",
             exception,
             BuildProgress.Code.BES_LOCAL_WRITE_ERROR);
@@ -962,6 +983,11 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       String commandName,
       OptionsT besOptions,
       @Nullable OptionsParsingResult startupOptionsProvider);
+
+  /** Returns arbitrary metadata to be sent to the Build Event Service upon stream creation. */
+  protected List<byte[]> getStreamMetadata(CommandEnvironment cmdEnv) {
+    return ImmutableList.of();
+  }
 
   /** Returns the prefix used when printing the invocation ID in the command line. */
   protected abstract String getInvocationIdPrefix();

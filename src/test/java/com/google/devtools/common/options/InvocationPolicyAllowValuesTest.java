@@ -55,13 +55,13 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
 
     // Option should be "foo" as specified by the user.
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(ALLOWED_VALUE_1);
+    assertThat(testOptions.getTestString()).isEqualTo(ALLOWED_VALUE_1);
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // Still "foo" since "foo" is allowed by the policy.
     testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(ALLOWED_VALUE_1);
+    assertThat(testOptions.getTestString()).isEqualTo(ALLOWED_VALUE_1);
   }
 
   @Test
@@ -80,7 +80,7 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
 
     // Option should be "foo" as specified by the user.
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(ALLOWED_VALUE_1);
+    assertThat(testOptions.getTestString()).isEqualTo(ALLOWED_VALUE_1);
 
     // Should throw because "foo" is not allowed.
     assertThrows(
@@ -104,7 +104,7 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
 
     // Option should be "baz" and "bar" as specified by the user.
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testMultipleString)
+    assertThat(testOptions.getTestMultipleString())
         .containsExactly(UNFILTERED_VALUE, ALLOWED_VALUE_2)
         .inOrder();
 
@@ -129,12 +129,12 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
     parser.parse("--test_string=" + UNFILTERED_VALUE);
 
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(UNFILTERED_VALUE);
+    assertThat(testOptions.getTestString()).isEqualTo(UNFILTERED_VALUE);
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(ALLOWED_VALUE_1);
+    assertThat(testOptions.getTestString()).isEqualTo(ALLOWED_VALUE_1);
   }
 
   @Test
@@ -152,12 +152,12 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
     parser.parse("--test_string=" + UNFILTERED_VALUE);
 
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(UNFILTERED_VALUE);
+    assertThat(testOptions.getTestString()).isEqualTo(UNFILTERED_VALUE);
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TestOptions.TEST_STRING_DEFAULT);
+    assertThat(testOptions.getTestString()).isEqualTo(TestOptions.TEST_STRING_DEFAULT);
   }
 
   @Test
@@ -176,7 +176,7 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
         "--test_multiple_string=" + ALLOWED_VALUE_1, "--test_multiple_string=" + UNFILTERED_VALUE);
 
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testMultipleString)
+    assertThat(testOptions.getTestMultipleString())
         .containsExactly(ALLOWED_VALUE_1, UNFILTERED_VALUE)
         .inOrder();
 
@@ -184,7 +184,7 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
 
     testOptions = getTestOptions();
     // Default value for repeatable flags is always empty.
-    assertThat(testOptions.testMultipleString).isEmpty();
+    assertThat(testOptions.getTestMultipleString()).isEmpty();
   }
 
   /**
@@ -207,13 +207,13 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
 
     // Option should be its default
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TestOptions.TEST_STRING_DEFAULT);
+    assertThat(testOptions.getTestString()).isEqualTo(TestOptions.TEST_STRING_DEFAULT);
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // Flag's value should be the default value from the policy.
     testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo("new default");
+    assertThat(testOptions.getTestString()).isEqualTo("new default");
   }
 
   @Test
@@ -232,7 +232,7 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
 
     // Option should be its default
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TestOptions.TEST_STRING_DEFAULT);
+    assertThat(testOptions.getTestString()).isEqualTo(TestOptions.TEST_STRING_DEFAULT);
 
     assertThrows(
         OptionsParsingException.class,
@@ -252,7 +252,7 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
     parser.parse("--test_list_converters=a,b,c");
 
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testListConverters).isEqualTo(Arrays.asList("a", "b", "c"));
+    assertThat(testOptions.getTestListConverters()).isEqualTo(Arrays.asList("a", "b", "c"));
 
     OptionsParsingException e =
         assertThrows(
@@ -279,12 +279,12 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
     // Check the value before invocation policy enforcement.
     parser.parse("--test_string_null_by_default=a");
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testStringNullByDefault).isEqualTo("a");
+    assertThat(testOptions.getTestStringNullByDefault()).isEqualTo("a");
 
     // Check the value afterwards.
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
     testOptions = getTestOptions();
-    assertThat(testOptions.testStringNullByDefault).isEqualTo("a");
+    assertThat(testOptions.getTestStringNullByDefault()).isEqualTo("a");
   }
 
   @Test
@@ -302,12 +302,12 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
     // Check the value before invocation policy enforcement.
     parser.parse("--test_string_null_by_default=b");
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testStringNullByDefault).isEqualTo("b");
+    assertThat(testOptions.getTestStringNullByDefault()).isEqualTo("b");
 
     // Check the value afterwards.
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
     testOptions = getTestOptions();
-    assertThat(testOptions.testStringNullByDefault).isNull();
+    assertThat(testOptions.getTestStringNullByDefault()).isNull();
   }
 
   @Test
@@ -324,11 +324,11 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
     // Check the value before invocation policy enforcement.
     parser.parse();
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testStringNullByDefault).isNull();
+    assertThat(testOptions.getTestStringNullByDefault()).isNull();
 
     // Check the value afterwards.
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
     testOptions = getTestOptions();
-    assertThat(testOptions.testStringNullByDefault).isNull();
+    assertThat(testOptions.getTestStringNullByDefault()).isNull();
   }
 }

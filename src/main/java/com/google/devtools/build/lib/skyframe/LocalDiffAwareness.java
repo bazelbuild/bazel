@@ -28,6 +28,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -44,10 +45,9 @@ import javax.annotation.Nullable;
  * {@link WatchServiceDiffAwareness}.
  */
 public abstract class LocalDiffAwareness implements DiffAwareness {
-  /**
-   * Option to enable / disable local diff awareness.
-   */
-  public static final class Options extends OptionsBase {
+  /** Option to enable / disable local diff awareness. */
+  @OptionsClass
+  public abstract static class Options extends OptionsBase {
     @Option(
         name = "watchfs",
         defaultValue = "false",
@@ -60,7 +60,9 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
                 + "with --experimental_windows_watchfs. On any OS: The behavior is undefined "
                 + "if your workspace is on a network file system, and files are edited on a "
                 + "remote machine.")
-    public boolean watchFS;
+    public abstract boolean getWatchFS();
+
+    public abstract void setWatchFS(boolean value);
 
     @Option(
         name = "experimental_windows_watchfs",
@@ -70,7 +72,7 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
         help =
             "If true, experimental Windows support for --watchfs is enabled. Otherwise --watchfs"
                 + "is a non-op on Windows. Make sure to also enable --watchfs.")
-    public boolean windowsWatchFS;
+    public abstract boolean getWindowsWatchFS();
   }
 
   /** Factory for creating {@link LocalDiffAwareness} instances. */

@@ -41,27 +41,21 @@ import org.junit.runners.JUnit4;
 public class StarlarkInfoTest {
 
   @Test
-  public void nullLocationDefaultsToBuiltin() throws Exception {
-    StarlarkInfo info = StarlarkInfo.create(makeProvider(), ImmutableMap.of(), null);
-    assertThat(info.getCreationLocation()).isEqualTo(Location.BUILTIN);
-  }
-
-  @Test
-  public void instancesOfUnexportedProvidersAreMutable() throws Exception {
+  public void instancesOfUnexportedProvidersAreMutable() {
     StarlarkProvider provider = makeProvider();
     StarlarkInfo info = makeInfoWithF1F2Values(provider, StarlarkInt.of(5), null);
     assertThat(info.isImmutable()).isFalse();
   }
 
   @Test
-  public void instancesOfExportedProvidersMayBeImmutable() throws Exception {
+  public void instancesOfExportedProvidersMayBeImmutable() {
     StarlarkProvider provider = makeExportedProvider();
     StarlarkInfo info = makeInfoWithF1F2Values(provider, StarlarkInt.of(5), null);
     assertThat(info.isImmutable()).isTrue();
   }
 
   @Test
-  public void mutableIfContentsAreMutable() throws Exception {
+  public void mutableIfContentsAreMutable() {
     StarlarkProvider provider = makeExportedProvider();
     StarlarkValue v = new StarlarkValue() {};
     StarlarkInfo info = makeInfoWithF1F2Values(provider, StarlarkInt.of(5), v);
@@ -87,19 +81,20 @@ public class StarlarkInfoTest {
   }
 
   @Test
-  public void concatWithDifferentProvidersFails() throws Exception {
+  public void concatWithDifferentProvidersFails() {
     StarlarkProvider provider1 = makeProvider();
     StarlarkProvider provider2 = makeProvider();
     StarlarkInfo info1 = makeInfoWithF1F2Values(provider1, StarlarkInt.of(4), StarlarkInt.of(5));
     StarlarkInfo info2 = makeInfoWithF1F2Values(provider2, StarlarkInt.of(4), StarlarkInt.of(5));
     EvalException expected =
         assertThrows(EvalException.class, () -> info1.binaryOp(TokenKind.PLUS, info2, true));
-    assertThat(expected).hasMessageThat()
+    assertThat(expected)
+        .hasMessageThat()
         .contains("Cannot use '+' operator on instances of different providers");
   }
 
   @Test
-  public void concatWithOverlappingFieldsFails() throws Exception {
+  public void concatWithOverlappingFieldsFails() {
     StarlarkProvider provider1 = makeProvider();
     StarlarkInfo info1 = makeInfoWithF1F2Values(provider1, StarlarkInt.of(4), StarlarkInt.of(5));
     StarlarkInfo info2 = makeInfoWithF1F2Values(provider1, StarlarkInt.of(4), null);
@@ -159,12 +154,12 @@ public class StarlarkInfoTest {
     if (v2 != null) {
       values.put("f2", v2);
     }
-    return StarlarkInfo.create(provider, values.build(), Location.BUILTIN);
+    return StarlarkInfo.create(provider, values.buildOrThrow());
   }
 
   // Tests sortPairs using arrays of various lengths from Fibonacci sequence.
   @Test
-  public void testSortPairs() throws Exception {
+  public void testSortPairs() {
     boolean ok = true;
     Random rand = new Random(0);
 

@@ -28,10 +28,22 @@ import javax.annotation.Nullable;
  */
 final class InMemoryDirectoryInfo extends InMemoryContentInfo {
 
-  private final Map<String, InMemoryContentInfo> directoryContent = new HashMap<>();
+  private final Map<String, InMemoryContentInfo> directoryContent;
 
   InMemoryDirectoryInfo(Clock clock) {
+    this(clock, /* expectedChildCount= */ -1);
+  }
+
+  /**
+   * Creates a directory info that is presized for the expected number of children if non-negative.
+   *
+   * <p>The expected child count should not include the "." and ".." entries, which every directory
+   * contains in addition to its children.
+   */
+  InMemoryDirectoryInfo(Clock clock, int expectedChildCount) {
     super(clock);
+    this.directoryContent =
+        expectedChildCount < 0 ? new HashMap<>() : HashMap.newHashMap(expectedChildCount + 2);
     setExecutable(true);
   }
 

@@ -66,11 +66,10 @@ public class CppLinkActionBuilder {
     public Artifact create(PathFragment rootRelativePath) {
       RepositoryName repositoryName = context.getActionOwner().getLabel().getRepository();
       if (shareableArtifacts) {
-        return context.getShareableArtifact(
-            rootRelativePath, config.getBinDirectory(repositoryName));
+        return context.getShareableArtifact(rootRelativePath, config.getBinDirectory());
 
       } else {
-        return context.getDerivedArtifact(rootRelativePath, config.getBinDirectory(repositoryName));
+        return context.getDerivedArtifact(rootRelativePath, config.getBinDirectory());
       }
     }
 
@@ -79,14 +78,14 @@ public class CppLinkActionBuilder {
       if (shareableArtifacts) {
         return context
             .getAnalysisEnvironment()
-            .getTreeArtifact(rootRelativePath, config.getBinDirectory(repositoryName));
+            .getTreeArtifact(rootRelativePath, config.getBinDirectory());
       } else {
-        return context.getTreeArtifact(rootRelativePath, config.getBinDirectory(repositoryName));
+        return context.getTreeArtifact(rootRelativePath, config.getBinDirectory());
       }
     }
 
     public ArtifactRoot getBinDirectory() {
-      return config.getBinDirectory(context.getActionOwner().getLabel().getRepository());
+      return config.getBinDirectory();
     }
   }
 

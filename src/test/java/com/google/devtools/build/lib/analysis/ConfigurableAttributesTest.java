@@ -929,6 +929,49 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         /*not expected:*/ ImmutableList.of("src a/a.in"));
   }
 
+  /**
+   * Tests that a condition matching via a refining {@code constraint_value} is treated as more
+   * specific than a condition matching via the refined {@code constraint_value}, so that both can
+   * appear in the same {@code select()} without producing an "ambiguous match" error.
+   */
+  @Test
+  public void multipleMatchesUnambiguous_refinedConstraintValue() throws Exception {
+    scratch.file(
+        "conditions/BUILD",
+        "constraint_setting(name = 'libc')",
+        "constraint_value(name = 'glibc', constraint_setting = ':libc')",
+        "constraint_setting(",
+        "    name = 'glibc_version',",
+        "    refines_constraint_value = ':glibc')",
+        "constraint_value(name = 'glibc_2_42', constraint_setting = ':glibc_version')",
+        "platform(",
+        "    name = 'specialized_platform',",
+        "    constraint_values = [':glibc', ':glibc_2_42'],",
+        ")",
+        "config_setting(",
+        "    name = 'refined',",
+        "    constraint_values = [':glibc'])",
+        "config_setting(",
+        "    name = 'refining',",
+        "    constraint_values = [':glibc_2_42'])");
+    scratch.file(
+        "a/BUILD",
+        "genrule(",
+        "    name = 'gen',",
+        "    cmd = '',",
+        "    outs = ['gen.out'],",
+        "    srcs = select({",
+        "        '//conditions:refined': ['refined.in'],",
+        "        '//conditions:refining': ['refining.in'],",
+        "    }))");
+    checkRule(
+        "//a:gen",
+        "srcs",
+        ImmutableList.of("--platforms=//conditions:specialized_platform"),
+        /*expected:*/ ImmutableList.of("src a/refining.in"),
+        /*not expected:*/ ImmutableList.of("src a/refined.in"));
+  }
+
   /** Tests that default conditions are only required when no main condition matches. */
   @Test
   public void noDefaultCondition() throws Exception {

@@ -83,7 +83,7 @@ platform(
 )
 EOF
 
-  bazel build --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt &> $TEST_log || fail "Build failed"
+  bazel build --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file=out.txt &> $TEST_log || fail "Build failed"
   grep "key2" out.txt || fail "Did not find the platform key"
   grep "key3" out.txt || fail "Did not find the target attribute key"
   grep "child_value" out.txt || fail "Did not find the overriding value"
@@ -133,7 +133,7 @@ platform(
 )
 EOF
 
-  bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt &> $TEST_log || fail "Build failed"
+  bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file=out.txt &> $TEST_log || fail "Build failed"
   grep "key2" out.txt || fail "Did not find the platform key"
   grep "key3" out.txt || fail "Did not find the target attribute key"
   grep "child_value" out.txt || fail "Did not find the overriding value"
@@ -173,7 +173,7 @@ EOF
   bazel build \
       --extra_execution_platforms="${pkg}:my_platform" \
       --toolchain_resolution_debug=.* \
-       --execution_log_json_file out.txt \
+       --execution_log_json_file=out.txt \
       ${pkg}:a &> $TEST_log || fail "Build failed"
   grep "key3" out.txt || fail "Did not find the target attribute key"
   grep "child_value" out.txt || fail "Did not find the overriding value"
@@ -211,7 +211,7 @@ platform(
     constraint_values = [":local"],
 )
 EOF
-  bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt &> $TEST_log || fail "Build failed"
+  bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file=out.txt &> $TEST_log || fail "Build failed"
   grep "key2" out.txt || fail "Did not find the platform key"
   grep "key3" out.txt || fail "Did not find the target attribute key"
   grep "child_value" out.txt || fail "Did not find the overriding value"
@@ -247,7 +247,7 @@ platform(
     constraint_values = [":local"],
 )
 EOF
-  bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt &> $TEST_log || fail "Build failed"
+  bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file=out.txt &> $TEST_log || fail "Build failed"
   grep "key2" out.txt || fail "Did not find the platform key"
   grep "key3" out.txt || fail "Did not find the target attribute key"
   grep "child_value" out.txt || fail "Did not find the overriding value"
@@ -280,12 +280,12 @@ platform(
     constraint_values = [":local"],
 )
 EOF
-  bazel build --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt || fail "Build failed"
+  bazel build --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file=out.txt || fail "Build failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
   grep "default_value" out.txt || fail "Did not find the default value"
   grep "test_value" out.txt && fail "Used the test-action value when not testing"
 
-  bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt || fail "Test failed"
+  bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file=out.txt || fail "Test failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
   grep "test_value" out.txt || fail "Did not find the test-action value"
 }
@@ -334,7 +334,7 @@ platform(
 )
 EOF
 
-  bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a_test --execution_log_json_file out.txt || fail "Test failed"
+  bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a_test --execution_log_json_file=out.txt || fail "Test failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
   grep "test_value" out.txt || fail "Did not find the test-action value"
 }
@@ -387,7 +387,7 @@ platform(
 )
 EOF
 
-  bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a_test --execution_log_json_file out.txt || fail "Test failed"
+  bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a_test --execution_log_json_file=out.txt || fail "Test failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
   grep "test_value" out.txt || fail "Did not find the test-action value"
 }
@@ -425,7 +425,7 @@ platform(
     constraint_values = [":local"],
 )
 EOF
-  bazel build --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt || fail "Build failed"
+  bazel build --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file=out.txt || fail "Build failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
   grep "override_value" out.txt || fail "Did not find the overriding value"
   # If we could do json parsing, we would check that override_value is used for
@@ -441,7 +441,7 @@ EOF
     "$(grep targetLabel out.txt | (grep -cv "${pkg}:a" || true))" \
     "Used default_value the wrong number of times"
 
-  bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt || fail "Test failed"
+  bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file=out.txt || fail "Test failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
   grep "override_value" out.txt || fail "Did not find the overriding value"
 }
@@ -476,11 +476,11 @@ platform(
     constraint_values = [":local"],
 )
 EOF
-  bazel build --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt || fail "Build failed"
+  bazel build --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file=out.txt || fail "Build failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
   grep "default_value" out.txt || fail "Used the default value"
 
-  bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt || fail "Test failed"
+  bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file=out.txt || fail "Test failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
   grep "test_override" out.txt || fail "Did not find the overriding test-action value"
 }
@@ -520,7 +520,7 @@ platform(
     constraint_values = [":local"],
 )
 EOF
-  bazel build --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt || fail "Build failed"
+  bazel build --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file=out.txt || fail "Build failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
   grep "override_value" out.txt || fail "Did not find the overriding value"
   # If we could do json parsing, we would check that override_value is used for
@@ -536,7 +536,7 @@ EOF
     "$(grep targetLabel out.txt | (grep -cv "${pkg}:a" || true))" \
     "Used default_value the wrong number of times"
 
-  bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt || fail "Test failed"
+  bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file=out.txt || fail "Test failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
   grep "test_override" out.txt || fail "Did not find the overriding test-action value"
 }
@@ -585,7 +585,7 @@ platform(
 )
 EOF
 
-  bazel test --extra_execution_platforms="${pkg}:platform_no_constraint,${pkg}:platform_with_constraint" ${pkg}:a --execution_log_json_file out.txt || fail "Test failed"
+  bazel test --extra_execution_platforms="${pkg}:platform_no_constraint,${pkg}:platform_with_constraint" ${pkg}:a --execution_log_json_file=out.txt || fail "Test failed"
   grep --after=4 "platform" out.txt | grep "exec_property" || fail "Did not find the property key"
   grep --after=4 "platform" out.txt | grep "requires_test_constraint" || fail "Did not find the property value"
 }
@@ -617,7 +617,7 @@ platform(
     constraint_values = [":local"],
 )
 EOF
-  bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt || fail "Build failed"
+  bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file=out.txt || fail "Build failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
   grep "default_value" out.txt || fail "Did not find the default value"
 }
@@ -1014,7 +1014,7 @@ my_rule_test(
 )
 EOF
 
-  bazel test ${pkg}:a_test --execution_log_json_file out.txt &> $TEST_log || fail "Test execution failed"
+  bazel test ${pkg}:a_test --execution_log_json_file=out.txt &> $TEST_log || fail "Test execution failed"
   grep "testkey" out.txt || fail "Did not find the platform key"
   grep "testvalue" out.txt || fail "Did not find the platform value"
 }

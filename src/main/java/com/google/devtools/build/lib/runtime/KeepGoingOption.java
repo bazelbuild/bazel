@@ -17,18 +17,20 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /** Defines the --keep_going option which is used by multiple commands. */
-public class KeepGoingOption extends OptionsBase {
+@OptionsClass
+public abstract class KeepGoingOption extends OptionsBase {
   @Option(
-    name = "keep_going",
-    abbrev = 'k',
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-    effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
-    help =
-        "Continue as much as possible after an error.  While the target that failed and those "
-            + "that depend on it cannot be analyzed, other prerequisites of these targets can be."
-  )
-  public boolean keepGoing;
+      name = "keep_going",
+      abbrev = 'k',
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
+      help =
+          "Continue as much as possible after an error.  While the target that failed and those"
+              + " that depend on it cannot be analyzed, other prerequisites of these targets can"
+              + " be.")
+  public abstract boolean getKeepGoing();
 }

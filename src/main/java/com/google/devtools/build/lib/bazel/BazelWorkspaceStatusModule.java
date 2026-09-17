@@ -17,6 +17,9 @@ import static com.google.common.base.StandardSystemProperty.USER_NAME;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.joining;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -109,7 +112,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
               .handle(
                   Event.progress(
                       "Getting additional workspace status by running "
-                          + options.workspaceStatusCommand));
+                          + options.getWorkspaceStatusCommand()));
           ByteArrayOutputStream stdoutStream = new ByteArrayOutputStream();
           try (OutputStream errStream =
               actionExecutionContext.getFileOutErr().getErrorPath().getOutputStream()) {
@@ -136,13 +139,13 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       return key.startsWith("STABLE_") || SPECIAL_STABLE_KEYS.contains(key);
     }
 
-    private static Map<String, String> parseWorkspaceStatus(String input) {
+    @VisibleForTesting
+    static Map<String, String> parseWorkspaceStatus(String input) {
       TreeMap<String, String> result = new TreeMap<>();
-      for (String line : input.trim().split("\n")) {
+      for (String line :
+          Splitter.on('\n').trimResults(CharMatcher.is('\r')).omitEmptyStrings().split(input)) {
         String[] splitLine = line.split(" ", 2);
-        if (splitLine.length >= 2) {
-          result.put(splitLine[0], splitLine[1].trim());
-        }
+        result.put(splitLine[0], splitLine.length >= 2 ? splitLine[1].trim() : "");
       }
 
       return result;
@@ -180,7 +183,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       Map<String, String> volatileMap = new TreeMap<>();
       Map<String, String> stableMap = new TreeMap<>();
 
-      stableMap.put(BuildInfo.BUILD_EMBED_LABEL, options.embedLabel);
+      stableMap.put(BuildInfo.BUILD_EMBED_LABEL, options.getEmbedLabel());
       stableMap.put(BuildInfo.BUILD_HOST, hostname);
       stableMap.put(BuildInfo.BUILD_USER, username);
       long currentTimeMillis = getCurrentTimeMillis(clientEnv);
@@ -217,7 +220,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
         String message =
             String.format(
                 "Failed to run workspace status command %s: %s",
-                options.workspaceStatusCommand, e.getMessage());
+                options.getWorkspaceStatusCommand(), e.getMessage());
         DetailedExitCode code = createDetailedCode(message, Code.CONTENT_UPDATE_IO_EXCEPTION);
         throw new ActionExecutionException(message, e, this, true, code);
       }
@@ -307,10 +310,10 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     public com.google.devtools.build.lib.shell.Command getCommand() {
       WorkspaceStatusAction.Options options =
           env.getOptions().getOptions(WorkspaceStatusAction.Options.class);
-      return options.workspaceStatusCommand.equals(PathFragment.EMPTY_FRAGMENT)
+      return options.getWorkspaceStatusCommand().equals(PathFragment.EMPTY_FRAGMENT)
           ? null
           : new CommandBuilder(env.getClientEnv())
-              .addArgs(options.workspaceStatusCommand.toString())
+              .addArgs(options.getWorkspaceStatusCommand().toString())
               // Pass client env to allow SCM clients (like git) relying on environment variables to
               // work correctly.
               .setEnv(env.getClientEnv())

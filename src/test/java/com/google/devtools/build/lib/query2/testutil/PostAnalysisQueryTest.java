@@ -751,7 +751,7 @@ my_rule = rule(
     @Override
     public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
       BuildOptionsView result = options.clone();
-      result.get(DummyTestOptions.class).foo = toOption;
+      result.get(DummyTestOptions.class).setFoo(toOption);
       return result.underlying();
     }
   }
@@ -785,8 +785,8 @@ my_rule = rule(
             BuildOptionsView options, EventHandler eventHandler) {
           BuildOptionsView result1 = options.clone();
           BuildOptionsView result2 = options.clone();
-          result1.get(DummyTestOptions.class).foo = toOption1;
-          result2.get(DummyTestOptions.class).foo = toOption2;
+          result1.get(DummyTestOptions.class).setFoo(toOption1);
+          result2.get(DummyTestOptions.class).setFoo(toOption2);
           return ImmutableMap.of("result1", result1.underlying(), "result2", result2.underlying());
         }
       };

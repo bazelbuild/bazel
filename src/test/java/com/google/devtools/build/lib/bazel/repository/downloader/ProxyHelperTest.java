@@ -20,6 +20,8 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
+import java.net.Authenticator;
+import java.net.PasswordAuthentication;
 import java.net.Proxy;
 import java.net.URI;
 import java.nio.charset.Charset;
@@ -452,5 +454,176 @@ public class ProxyHelperTest {
         System.clearProperty("http.nonProxyHosts");
       }
     }
+  }
+
+  // Tests for SOCKS proxy support
+
+  @Test
+  public void testSocks5ProxyDefaultPort() throws Exception {
+    ProxyInfo proxyInfo = ProxyHelper.createProxy("socks5://my.example.com");
+    assertThat(proxyInfo.proxy().type()).isEqualTo(Proxy.Type.SOCKS);
+    assertThat(proxyInfo.proxy().toString()).endsWith(":1080");
+  }
+
+  @Test
+  public void testSocks5ProxyExplicitPort() throws Exception {
+    ProxyInfo proxyInfo = ProxyHelper.createProxy("socks5://my.example.com:5000");
+    assertThat(proxyInfo.proxy().type()).isEqualTo(Proxy.Type.SOCKS);
+    assertThat(proxyInfo.proxy().toString()).endsWith(":5000");
+  }
+
+  @Test
+  public void testSocks4ProxyDefaultPort() throws Exception {
+    ProxyInfo proxyInfo = ProxyHelper.createProxy("socks4://my.example.com");
+    assertThat(proxyInfo.proxy().type()).isEqualTo(Proxy.Type.SOCKS);
+    assertThat(proxyInfo.proxy().toString()).endsWith(":1080");
+  }
+
+  @Test
+  public void testSocksProxyDefaultPort() throws Exception {
+    ProxyInfo proxyInfo = ProxyHelper.createProxy("socks://my.example.com");
+    assertThat(proxyInfo.proxy().type()).isEqualTo(Proxy.Type.SOCKS);
+    assertThat(proxyInfo.proxy().toString()).endsWith(":1080");
+  }
+
+  @Test
+  public void testSocks5ProxyWithAuth() throws Exception {
+    ProxyInfo proxyInfo = ProxyHelper.createProxy("socks5://user:pass@my.example.com:1080");
+    assertThat(proxyInfo.proxy().type()).isEqualTo(Proxy.Type.SOCKS);
+    assertThat(proxyInfo.proxy().toString()).endsWith(":1080");
+    assertThat(proxyInfo.hasCredentials()).isTrue();
+    String encoded = proxyInfo.getProxyAuthorizationHeader().substring("Basic ".length());
+    String decoded = new String(Base64.getDecoder().decode(encoded), UTF_8);
+    assertThat(decoded).isEqualTo("user:pass");
+  }
+
+  @Test
+  public void testCreateIfNeededSocks5Proxy() throws Exception {
+    ProxyHelper helper = new ProxyHelper(ImmutableMap.of("HTTPS_PROXY", "socks5://localhost:5000"));
+    ProxyInfo proxyInfo = helper.createProxyIfNeeded(URI.create("https://www.something.com"));
+    assertThat(proxyInfo.proxy().type()).isEqualTo(Proxy.Type.SOCKS);
+    assertThat(proxyInfo.proxy().toString()).contains("localhost");
+    assertThat(proxyInfo.proxy().toString()).endsWith(":5000");
+  }
+
+  // Tests for Authenticator host:port scoping and isolation
+
+  @Test
+  public void testAuthenticatorScopesCredentialsToHostAndPort() throws Exception {
+    var unused1 = ProxyHelper.createProxy("http://userA:passA@proxy-a.example.com:8080");
+    var unused2 = ProxyHelper.createProxy("http://userB:passB@proxy-b.example.com:9090");
+
+    PasswordAuthentication authA =
+        Authenticator.requestPasswordAuthentication(
+            "proxy-a.example.com",
+            null,
+            8080,
+            "http",
+            "prompt",
+            "basic",
+            null,
+            Authenticator.RequestorType.PROXY);
+    assertThat(authA).isNotNull();
+    assertThat(authA.getUserName()).isEqualTo("userA");
+    assertThat(new String(authA.getPassword())).isEqualTo("passA");
+
+    PasswordAuthentication authB =
+        Authenticator.requestPasswordAuthentication(
+            "proxy-b.example.com",
+            null,
+            9090,
+            "http",
+            "prompt",
+            "basic",
+            null,
+            Authenticator.RequestorType.PROXY);
+    assertThat(authB).isNotNull();
+    assertThat(authB.getUserName()).isEqualTo("userB");
+    assertThat(new String(authB.getPassword())).isEqualTo("passB");
+  }
+
+  @Test
+  public void testAuthenticatorReturnsNullForUnregisteredProxyEndpoint() throws Exception {
+    var unused = ProxyHelper.createProxy("http://userA:passA@proxy-a.example.com:8080");
+
+    // Mismatched hostname
+    PasswordAuthentication authWrongHost =
+        Authenticator.requestPasswordAuthentication(
+            "proxy-unregistered.example.com",
+            null,
+            8080,
+            "http",
+            "prompt",
+            "basic",
+            null,
+            Authenticator.RequestorType.PROXY);
+    assertThat(authWrongHost).isNull();
+
+    // Mismatched port
+    PasswordAuthentication authWrongPort =
+        Authenticator.requestPasswordAuthentication(
+            "proxy-a.example.com",
+            null,
+            9999,
+            "http",
+            "prompt",
+            "basic",
+            null,
+            Authenticator.RequestorType.PROXY);
+    assertThat(authWrongPort).isNull();
+  }
+
+  @Test
+  public void testAuthenticatorOnlyHandlesProxyRequestorType() throws Exception {
+    var unused = ProxyHelper.createProxy("http://userA:passA@proxy-a.example.com:8080");
+
+    PasswordAuthentication authServer =
+        Authenticator.requestPasswordAuthentication(
+            "proxy-a.example.com",
+            null,
+            8080,
+            "http",
+            "prompt",
+            "basic",
+            null,
+            Authenticator.RequestorType.SERVER);
+    assertThat(authServer).isNull();
+  }
+
+  @Test
+  public void testAuthenticatorCaseInsensitiveHostMatching() throws Exception {
+    var unused = ProxyHelper.createProxy("http://userA:passA@PROXY-A.EXAMPLE.COM:8080");
+
+    PasswordAuthentication auth =
+        Authenticator.requestPasswordAuthentication(
+            "proxy-a.example.com",
+            null,
+            8080,
+            "http",
+            "prompt",
+            "basic",
+            null,
+            Authenticator.RequestorType.PROXY);
+    assertThat(auth).isNotNull();
+    assertThat(auth.getUserName()).isEqualTo("userA");
+    assertThat(new String(auth.getPassword())).isEqualTo("passA");
+  }
+
+  @Test
+  public void testResetAuthenticatorClearsCredentials() throws Exception {
+    var unused = ProxyHelper.createProxy("http://userA:passA@proxy-a.example.com:8080");
+    ProxyHelper.resetAuthenticatorForTesting();
+
+    PasswordAuthentication auth =
+        Authenticator.requestPasswordAuthentication(
+            "proxy-a.example.com",
+            null,
+            8080,
+            "http",
+            "prompt",
+            "basic",
+            null,
+            Authenticator.RequestorType.PROXY);
+    assertThat(auth).isNull();
   }
 }

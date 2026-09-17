@@ -147,7 +147,7 @@ public final class OutputFormatters {
       }
       AugmentedModule module = depGraph.get(key);
       AugmentedModule parentModule = depGraph.get(parent);
-      String repoName = parentModule.getAllDeps(options.includeUnused).get(key);
+      String repoName = parentModule.getAllDeps(options.getIncludeUnused()).get(key);
       Version changedVersion;
       ImmutableSet<ModuleKey> changedByModules = null;
       ResolutionReason reason = parentModule.depReasons().get(repoName);

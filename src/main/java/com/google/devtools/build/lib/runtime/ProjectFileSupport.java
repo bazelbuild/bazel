@@ -72,8 +72,8 @@ public final class ProjectFileSupport {
                   // We only need a non-null outputBase for the PathPackageLocator if we support
                   // external
                   // repositories, which we don't for project files.
-                  /*outputBase=*/ null,
-                  optionsParser.getOptions(PackageOptions.class).packagePath,
+                  /* outputBase= */ null,
+                  optionsParser.getOptions(PackageOptions.class).getPackagePath(),
                   eventHandler,
                   workspaceDir,
                   workingDir,

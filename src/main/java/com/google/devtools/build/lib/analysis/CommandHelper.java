@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -31,6 +30,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
@@ -194,7 +194,7 @@ public final class CommandHelper {
   private static Collection<Artifact> mapGet(Map<Label, Collection<Artifact>> map, Label key) {
     // We use sets not lists, because it's conceivable that the same artifact
     // could appear twice, e.g. in "srcs" and "deps".
-    return map.computeIfAbsent(key, k -> Sets.newHashSet());
+    return map.computeIfAbsent(key, k -> new HashSet<>());
   }
 
   private static final int[] maxCommandLengthOverride = {-1};

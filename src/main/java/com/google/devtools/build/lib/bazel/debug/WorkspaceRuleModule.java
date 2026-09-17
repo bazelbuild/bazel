@@ -47,7 +47,7 @@ public final class WorkspaceRuleModule extends BlazeModule {
     }
 
     PathFragment logFile =
-        env.getOptions().getOptions(DebuggingOptions.class).workspaceRulesLogFile;
+        env.getOptions().getOptions(DebuggingOptions.class).getWorkspaceRulesLogFile();
     if (logFile != null) {
       try {
         outFileStream =

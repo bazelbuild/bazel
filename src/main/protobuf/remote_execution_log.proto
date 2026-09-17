@@ -45,6 +45,35 @@ message LogEntry {
 
   // Time the call closed.
   google.protobuf.Timestamp end_time = 6;
+
+  // Identifies the logical RPC this entry belongs to. All attempt entries for
+  // the same logical call (the initial attempt plus any retries) share the same
+  // rpc_id, letting log analysis group interleaved entries into a single chain
+  // even under high concurrency. Set on every entry when --remote_grpc_log is
+  // set.
+  string rpc_id = 7;
+
+  // 1-based index of this attempt within the logical call (the initial attempt
+  // is 1, the first retry is 2, and so on). Set together with rpc_id.
+  int32 attempt_number = 8;
+
+  // Set only on a synthetic terminal entry emitted when a logical RPC failed
+  // after all retry attempts were exhausted. Correlate it to its attempts via
+  // rpc_id. This is an explicit marker, so post-retry failures need not be
+  // inferred from the attempt chain. Only populated when --remote_grpc_log is
+  // set.
+  RetrySummary retry_summary = 9;
+}
+
+// Summarizes the retry outcome of a logical RPC. Present only on the synthetic
+// terminal entry described in LogEntry.retry_summary.
+message RetrySummary {
+  // Number of retries attempted before giving up (does not count the initial
+  // attempt). The total number of executions is retry_attempts + 1.
+  int32 retry_attempts = 1;
+
+  // Always true on a terminal entry: the call failed after exhausting retries.
+  bool retries_exhausted = 2;
 }
 
 // Details for a call to

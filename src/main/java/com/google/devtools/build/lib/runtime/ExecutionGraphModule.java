@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
@@ -42,6 +42,8 @@ import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.SharedActionEvent;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
+import com.google.devtools.build.lib.actions.SpawnInputs;
+import com.google.devtools.build.lib.actions.SpawnInputs.FlattenedInputs;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
@@ -56,8 +58,8 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory.InvalidPackagePathSymlinkException;
 import com.google.devtools.build.lib.server.FailureDetails.BuildReport;
@@ -70,19 +72,21 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.CodedOutputStream;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntArrays;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -99,11 +103,13 @@ import javax.annotation.Nullable;
 public class ExecutionGraphModule extends BlazeModule {
 
   private static final String ACTION_DUMP_NAME = "execution_graph_dump.proto.zst";
+  private static final PathFragment WORKSPACE_PREFIX = PathFragment.create("%workspace%");
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** Options for the generated execution graph. */
-  public static class ExecutionGraphOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class ExecutionGraphOptions extends OptionsBase {
     @Option(
         name = "experimental_enable_execution_graph_log",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -114,7 +120,7 @@ public class ExecutionGraphModule extends BlazeModule {
                 + "Note that this dump may use a different granularity of actions than other APIs, "
                 + "and may also contain additional information as necessary to reconstruct the "
                 + "full dependency graph in combination with other sources of data.")
-    public boolean enableExecutionGraphLog;
+    public abstract boolean getEnableExecutionGraphLog();
 
     @Option(
         name = "experimental_execution_graph_log_path",
@@ -127,8 +133,9 @@ public class ExecutionGraphModule extends BlazeModule {
                 + " experimental_enable_execution_graph_log is disabled, there will be an error. If"
                 + " this is unset while BEP uploads are disabled and"
                 + " experimental_enable_execution_graph_log is enabled, the log will be written to"
-                + " a local default.")
-    public String executionGraphLogPath;
+                + " a local default. The path can be absolute, relative to the current working"
+                + " directory, or prefixed with %workspace% to be relative to the workspace root.")
+    public abstract String getExecutionGraphLogPath();
 
     @Option(
         name = "experimental_execution_graph_log_dep_type",
@@ -139,7 +146,7 @@ public class ExecutionGraphModule extends BlazeModule {
         help =
             "Selects what kind of dependency information is reported in the action dump. If 'all',"
                 + " every inter-action edge will be reported.")
-    public DependencyInfo depType;
+    public abstract DependencyInfo getDepType();
 
     @Option(
         name = "experimental_execution_graph_log_queue_size",
@@ -150,7 +157,7 @@ public class ExecutionGraphModule extends BlazeModule {
             "The size of the action dump queue, where actions are kept before writing. Larger"
                 + " sizes will increase peak memory usage, but should decrease queue blocking. -1"
                 + " means unbounded")
-    public int queueSize;
+    public abstract int getQueueSize();
 
     @Option(
         name = "execution_graph_log_queued_bytes_limit",
@@ -161,7 +168,7 @@ public class ExecutionGraphModule extends BlazeModule {
             "The maximum number of bytes that can be enqueued at a time in the action dump queue."
                 + " -1 means unbounded. Setting this can limit peak memory at the cost of stalling"
                 + " execution threads.")
-    public int queuedBytesLimit;
+    public abstract int getQueuedBytesLimit();
 
     @Option(
         name = "experimental_execution_graph_enable_edges_from_filewrite_actions",
@@ -169,15 +176,8 @@ public class ExecutionGraphModule extends BlazeModule {
         effectTags = {OptionEffectTag.UNKNOWN},
         defaultValue = "true",
         help = "Handle edges from filewrite actions to their inputs correctly.")
-    public boolean logFileWriteEdges;
+    public abstract boolean getLogFileWriteEdges();
 
-    @Option(
-        name = "experimental_execution_graph_include_change_pruned_actions",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "false",
-        help = "Whether to include change pruned actions in execution graph.")
-    public boolean includeChangePrunedActions;
   }
 
   /** What level of dependency information to include in the dump. */
@@ -193,13 +193,10 @@ public class ExecutionGraphModule extends BlazeModule {
       super(DependencyInfo.class, "dependency edge strategy");
     }
   }
-
-  private boolean includeChangePrunedActions;
   private ActionDumpWriter writer;
   private CommandEnvironment env;
   private WalkableGraph graph;
-  private NanosToMillisSinceEpochConverter nanosToMillis =
-      BlazeClock.createNanosToMillisSinceEpochConverter();
+  private NanosToMillisSinceEpochConverter nanosToMillis;
   // Only relevant for Skymeld: there may be multiple events and we only count the first one.
   private final AtomicBoolean executionStarted = new AtomicBoolean();
 
@@ -221,22 +218,29 @@ public class ExecutionGraphModule extends BlazeModule {
   }
 
   @VisibleForTesting
-  void setNanosToMillis(NanosToMillisSinceEpochConverter nanosToMillis) {
-    this.nanosToMillis = nanosToMillis;
+  void resetNanosToMillis() {
+    this.nanosToMillis = BlazeClock.createNanosToMillisSinceEpochConverter();
+  }
+
+  @VisibleForTesting
+  NanosToMillisSinceEpochConverter getNanosToMillis() {
+    return nanosToMillis;
   }
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
     this.env = env;
+    // The offset between monotonic and wall clock time may change between commands.
+    resetNanosToMillis();
 
     if (env.getCommand().buildPhase().executes()) {
       ExecutionGraphOptions options =
           checkNotNull(
               env.getOptions().getOptions(ExecutionGraphOptions.class),
               "ExecutionGraphOptions must be present for ExecutionGraphModule");
-      if (options.enableExecutionGraphLog) {
+      if (options.getEnableExecutionGraphLog()) {
         env.getEventBus().register(this);
-      } else if (!options.executionGraphLogPath.isBlank()) {
+      } else if (!options.getExecutionGraphLogPath().isBlank()) {
         env.getBlazeModuleEnvironment()
             .exit(
                 new AbruptExitException(
@@ -250,8 +254,6 @@ public class ExecutionGraphModule extends BlazeModule {
                                 BuildReport.newBuilder().setCode(Code.BUILD_REPORT_WRITE_FAILED))
                             .build())));
       }
-
-      includeChangePrunedActions = options.includeChangePrunedActions;
     }
   }
 
@@ -268,7 +270,7 @@ public class ExecutionGraphModule extends BlazeModule {
   }
 
   private void handleExecutionBegin() {
-    if (includeChangePrunedActions) {
+    if (graph == null) {
       graph = SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
     }
     try {
@@ -458,7 +460,7 @@ public class ExecutionGraphModule extends BlazeModule {
       maybeAddEdges(
           node,
           action.getOutputs(),
-          action.getInputs(),
+          SpawnInputs.of(action.getInputs()),
           action,
           inputMetadataProvider,
           startMillis,
@@ -533,11 +535,11 @@ public class ExecutionGraphModule extends BlazeModule {
       }
       metrics = null;
 
-      NestedSet<? extends ActionInput> inputFiles;
+      SpawnInputs inputFiles;
       if (logFileWriteEdges && spawn.getResourceOwner() instanceof AbstractFileWriteAction) {
         // In order to handle file write like actions correctly, get the inputs
         // from the corresponding action.
-        inputFiles = spawn.getResourceOwner().getInputs();
+        inputFiles = SpawnInputs.of(spawn.getResourceOwner().getInputs());
       } else {
         inputFiles = spawn.getInputFiles();
       }
@@ -572,7 +574,7 @@ public class ExecutionGraphModule extends BlazeModule {
     private void maybeAddEdges(
         ExecutionGraph.Node.Builder nodeBuilder,
         Iterable<? extends ActionInput> outputs,
-        NestedSet<? extends ActionInput> inputs,
+        SpawnInputs inputs,
         ActionExecutionMetadata metadata,
         @Nullable InputMetadataProvider inputMetadataProvider,
         long startMillis,
@@ -632,42 +634,63 @@ public class ExecutionGraphModule extends BlazeModule {
       }
 
       NestedSetBuilder<Artifact> runfilesArtifactsBuilder = NestedSetBuilder.stableOrder();
+      IntArrayList deps;
 
-      // Don't store duplicate deps. This saves some storage space, and uses less memory when the
-      // action dump is parsed. Using a TreeSet is not slower than a HashSet, and it seems that
-      // keeping the deps ordered compresses better. See cl/377153712.
-      Set<Integer> deps = new TreeSet<>();
+      // Track the previous dep index to reduce the number of duplicates added to deps. Duplicates
+      // are often seen consecutively due to NestedSet structure (e.g. when all outputs of an action
+      // are added as inputs).
+      int previousDepIndex = -1;
 
-      for (ActionInput input : inputs.toList()) {
-        // We don't use inputMetadataProvider.getRunfilesTrees() because this method is called both
-        // for Spawns and Actions and the runfiles on a Spawn can be a subset of the runfiles of the
-        // action during whose execution it was created.
-        if ((input instanceof Artifact)
-            && ((Artifact) input).isRunfilesTree()
-            && inputMetadataProvider != null) {
-          // This is a runfiles tree. Collect the artifacts in it into
-          // runfilesArtifactsBuilder.
-          RunfilesTree runfilesTree =
-              inputMetadataProvider.getRunfilesMetadata(input).getRunfilesTree();
-          runfilesArtifactsBuilder.addTransitive(runfilesTree.getArtifacts());
-        }
+      {
+        FlattenedInputs flattenedInputs = inputs.flatten();
+        deps = new IntArrayList(flattenedInputs.size());
 
-        if (depType == DependencyInfo.ALL) {
-          maybeAddArtifactDependency(deps, input);
+        for (ActionInput input : flattenedInputs) {
+          // We don't use inputMetadataProvider.getRunfilesTrees() because this method is called
+          // both for Spawns and Actions and the runfiles on a Spawn can be a subset of the runfiles
+          // of the action during whose execution it was created.
+          if (input instanceof Artifact artifact
+              && artifact.isRunfilesTree()
+              && inputMetadataProvider != null) {
+            // This is a runfiles tree. Collect the artifacts in it into runfilesArtifactsBuilder.
+            RunfilesTree runfilesTree =
+                inputMetadataProvider.getRunfilesMetadata(input).getRunfilesTree();
+            runfilesArtifactsBuilder.addTransitive(runfilesTree.getArtifacts());
+          }
+
+          if (depType == DependencyInfo.ALL) {
+            NodeInfo dep = outputToNode.get(input);
+            if (dep != null && dep.index != previousDepIndex) {
+              deps.add(dep.index);
+              previousDepIndex = dep.index;
+            }
+          }
         }
       }
 
-      for (Artifact runfilesInput : runfilesArtifactsBuilder.build().toList()) {
-        maybeAddArtifactDependency(deps, runfilesInput);
+      {
+        ImmutableList<Artifact> runfilesList = runfilesArtifactsBuilder.build().toList();
+        deps.ensureCapacity(deps.size() + runfilesList.size());
+        for (ActionInput runfilesInput : runfilesList) {
+          NodeInfo dep = outputToNode.get(runfilesInput);
+          if (dep != null && dep.index != previousDepIndex) {
+            deps.add(dep.index);
+            previousDepIndex = dep.index;
+          }
+        }
       }
 
-      nodeBuilder.addAllDependentIndex(deps);
-    }
-
-    private void maybeAddArtifactDependency(Set<Integer> deps, ActionInput input) {
-      NodeInfo dep = outputToNode.get(input);
-      if (dep != null) {
-        deps.add(dep.index);
+      // Sort and deduplicate. Compression is more effective when the data is sorted.
+      int size = deps.size();
+      int[] elems = deps.elements();
+      IntArrays.radixSort(elems, 0, size);
+      previousDepIndex = -1;
+      for (int i = 0; i < size; i++) {
+        int depIndex = elems[i];
+        if (depIndex != previousDepIndex) {
+          nodeBuilder.addDependentIndex(depIndex);
+          previousDepIndex = depIndex;
+        }
       }
     }
 
@@ -681,6 +704,7 @@ public class ExecutionGraphModule extends BlazeModule {
       }
     }
 
+    private final CompressionService compressionService;
     private final BugReporter bugReporter;
     private final EventBus eventBus;
     private final boolean localLockFreeOutputEnabled;
@@ -715,6 +739,7 @@ public class ExecutionGraphModule extends BlazeModule {
     private static final int OUTPUT_BUFFER_SIZE = 1 << 21;
 
     ActionDumpWriter(
+        CompressionService compressionService,
         BugReporter bugReporter,
         EventBus eventBus,
         boolean localLockFreeOutputEnabled,
@@ -723,6 +748,7 @@ public class ExecutionGraphModule extends BlazeModule {
         DependencyInfo depType,
         int queueSize,
         int queuedBytesLimit) {
+      this.compressionService = compressionService;
       this.bugReporter = bugReporter;
       this.eventBus = eventBus;
       this.localLockFreeOutputEnabled = localLockFreeOutputEnabled;
@@ -744,6 +770,7 @@ public class ExecutionGraphModule extends BlazeModule {
       this.thread.start();
     }
 
+    @SuppressWarnings("StopwatchElapsedMillis") // Avoids garbage from Duration objects.
     void enqueueBytes(byte[] entry) {
       if (queuedBytesSemaphore != null && entry.length > 0) {
         int permits = numPermits(entry);
@@ -757,7 +784,7 @@ public class ExecutionGraphModule extends BlazeModule {
             Thread.currentThread().interrupt();
             return;
           } finally {
-            blockedMillis.addAndGet(sw.elapsed().toMillis());
+            blockedMillis.addAndGet(sw.elapsed(MILLISECONDS));
           }
         }
       }
@@ -869,14 +896,14 @@ public class ExecutionGraphModule extends BlazeModule {
 
     /** Test hook to allow injecting failures in tests. */
     @VisibleForTesting
-    ZstdOutputStream createCompressingOutputStream() throws IOException {
+    OutputStream createCompressingOutputStream() throws IOException {
       // zstd compression at the default level produces 20% smaller outputs than gzip, while being
       // faster to compress and decompress. Higher levels get slower quickly, without much benefit
       // in size. For example, level 4 produces 1% smaller outputs, but takes twice as long to
       // compress in standalone benchmarks. Lower levels quickly increase size, without much benefit
       // in speed. For example, level -3 produces 60% bigger outputs, but only runs 10% faster in
       // standalone benchmarks.
-      return new ZstdOutputStream(outStream);
+      return compressionService.newZstdOutputStream(outStream);
     }
 
     /**
@@ -920,7 +947,7 @@ public class ExecutionGraphModule extends BlazeModule {
       throws InvalidPackagePathSymlinkException {
     return env.getRuntime()
         .getBuildEventArtifactUploaderFactoryMap()
-        .select(bepOptions.buildEventUploadStrategy)
+        .select(bepOptions.getBuildEventUploadStrategy())
         .create(env);
   }
 
@@ -931,43 +958,68 @@ public class ExecutionGraphModule extends BlazeModule {
         checkNotNull(parsingResult.getOptions(BuildEventProtocolOptions.class));
     ExecutionGraphOptions executionGraphOptions =
         checkNotNull(parsingResult.getOptions(ExecutionGraphOptions.class));
-    if (bepOptions.streamingLogFileUploads
-        && executionGraphOptions.executionGraphLogPath.isBlank()) {
+    CompressionService compressionService =
+        checkNotNull(
+            env.getRuntime().getBlazeService(CompressionService.class),
+            "expected CompressionService to be available");
+    if (bepOptions.getStreamingLogFileUploads()
+        && executionGraphOptions.getExecutionGraphLogPath().isBlank()) {
       return new StreamingActionDumpWriter(
+          compressionService,
           env.getRuntime().getBugReporter(),
           env.getEventBus(),
-          env.getOptions().getOptions(LocalExecutionOptions.class).localLockfreeOutput,
-          executionGraphOptions.logFileWriteEdges,
+          env.getOptions().getOptions(LocalExecutionOptions.class).getLocalLockfreeOutput(),
+          executionGraphOptions.getLogFileWriteEdges(),
           newUploader(env, bepOptions).startUpload(LocalFileType.PERFORMANCE_LOG, null),
-          executionGraphOptions.depType,
-          executionGraphOptions.queueSize,
-          executionGraphOptions.queuedBytesLimit);
+          executionGraphOptions.getDepType(),
+          executionGraphOptions.getQueueSize(),
+          executionGraphOptions.getQueuedBytesLimit());
     }
 
-    String path = executionGraphOptions.executionGraphLogPath;
+    String path = executionGraphOptions.getExecutionGraphLogPath();
+    Path actionGraphFile;
     if (path.isBlank()) {
-      path = ACTION_DUMP_NAME;
+      actionGraphFile = env.getOutputBase().getRelative(ACTION_DUMP_NAME);
+    } else {
+      actionGraphFile = getAbsolutePath(PathFragment.create(path), env);
     }
-    Path actionGraphFile = env.getOutputBase().getRelative(path);
     try {
       return new FilesystemActionDumpWriter(
+          compressionService,
           env.getRuntime().getBugReporter(),
           env.getEventBus(),
-          env.getOptions().getOptions(LocalExecutionOptions.class).localLockfreeOutput,
-          executionGraphOptions.logFileWriteEdges,
+          env.getOptions().getOptions(LocalExecutionOptions.class).getLocalLockfreeOutput(),
+          executionGraphOptions.getLogFileWriteEdges(),
           actionGraphFile,
-          executionGraphOptions.depType,
-          executionGraphOptions.queueSize,
-          executionGraphOptions.queuedBytesLimit);
+          executionGraphOptions.getDepType(),
+          executionGraphOptions.getQueueSize(),
+          executionGraphOptions.getQueuedBytesLimit());
     } catch (IOException e) {
       throw new ActionDumpFileCreationException(actionGraphFile, e);
     }
+  }
+
+  /**
+   * If the given path is an absolute path, leave it as it is. If the given path is a relative path,
+   * it is relative to the current working directory. If the given path starts with '%workspace%',
+   * it is relative to the workspace root, which is the output of `bazel info workspace`.
+   */
+  private static Path getAbsolutePath(PathFragment path, CommandEnvironment env) {
+    if (env.getWorkspace() != null && path.startsWith(WORKSPACE_PREFIX)) {
+      return env.getWorkspace().getRelative(path.relativeTo(WORKSPACE_PREFIX));
+    }
+    if (!path.isAbsolute()) {
+      return env.getWorkingDirectory().getRelative(path);
+    }
+
+    return env.getRuntime().getFileSystem().getPath(path);
   }
 
   private static final class FilesystemActionDumpWriter extends ActionDumpWriter {
     private final Path actionGraphFile;
 
     FilesystemActionDumpWriter(
+        CompressionService compressionService,
         BugReporter bugReporter,
         EventBus eventBus,
         boolean localLockFreeOutputEnabled,
@@ -978,6 +1030,7 @@ public class ExecutionGraphModule extends BlazeModule {
         int queuedBytesLimit)
         throws IOException {
       super(
+          compressionService,
           bugReporter,
           eventBus,
           localLockFreeOutputEnabled,
@@ -1018,6 +1071,7 @@ public class ExecutionGraphModule extends BlazeModule {
     private final UploadContext uploadContext;
 
     public StreamingActionDumpWriter(
+        CompressionService compressionService,
         BugReporter bugReporter,
         EventBus eventBus,
         boolean localLockFreeOutputEnabled,
@@ -1027,6 +1081,7 @@ public class ExecutionGraphModule extends BlazeModule {
         int queueSize,
         int queuedBytesLimit) {
       super(
+          compressionService,
           bugReporter,
           eventBus,
           localLockFreeOutputEnabled,

@@ -25,11 +25,11 @@ The number of transitive dependencies of the test are limited. The limit is cont
 | Parameter | Description |
 | --- | --- |
 | `name` | required  Name of the target. It should be a Starlark identifier, matching pattern '[A-Za-z\_][A-Za-z0-9\_]\*'. |
-| `implementation` | required  The Starlark function implementing this analysis test. It must have exactly one parameter: [ctx](../builtins/ctx). The function is called during the analysis phase. It can access the attributes declared by `attrs` and populated via `attr_values`. The implementation function may not register actions. Instead, it must register a pass/fail result via providing [AnalysisTestResultInfo](../providers/AnalysisTestResultInfo). |
-| `attrs` | [dict](../core/dict); default is `{}`  Dictionary declaring the attributes. See the [rule](../globals/bzl#rule) call. Attributes are allowed to use configuration transitions defined using [analysis\_test\_transition](../globals/bzl#analysis_test_transition). |
-| `fragments` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  List of configuration fragments that are available to the implementation of the analysis test. |
-| `toolchains` | [sequence](../core/list); default is `[]`  The set of toolchains the test requires. See the [rule](../globals/bzl#rule) call. |
-| `attr_values` | [dict](../core/dict) of [string](../core/string)s; default is `{}`  Dictionary of attribute values to pass to the implementation. |
+| `implementation` | required  The Starlark function implementing this analysis test. It must have exactly one parameter: [ctx](/versions/7.6.1/rules/lib/builtins/ctx). The function is called during the analysis phase. It can access the attributes declared by `attrs` and populated via `attr_values`. The implementation function may not register actions. Instead, it must register a pass/fail result via providing [AnalysisTestResultInfo](/versions/7.6.1/rules/lib/providers/AnalysisTestResultInfo). |
+| `attrs` | [dict](/versions/7.6.1/rules/lib/core/dict); default is `{}`  Dictionary declaring the attributes. See the [rule](/versions/7.6.1/rules/lib/globals/bzl#rule) call. Attributes are allowed to use configuration transitions defined using [analysis\_test\_transition](/versions/7.6.1/rules/lib/globals/bzl#analysis_test_transition). |
+| `fragments` | [sequence](/versions/7.6.1/rules/lib/core/list) of [string](/versions/7.6.1/rules/lib/core/string)s; default is `[]`  List of configuration fragments that are available to the implementation of the analysis test. |
+| `toolchains` | [sequence](/versions/7.6.1/rules/lib/core/list); default is `[]`  The set of toolchains the test requires. See the [rule](/versions/7.6.1/rules/lib/globals/bzl#rule) call. |
+| `attr_values` | [dict](/versions/7.6.1/rules/lib/core/dict) of [string](/versions/7.6.1/rules/lib/core/string)s; default is `{}`  Dictionary of attribute values to pass to the implementation. |
 
 ## ExecutionInfo
 
@@ -37,7 +37,7 @@ The number of transitive dependencies of the test are limited. The limit is cont
 ExecutionInfo testing.ExecutionInfo(requirements={}, exec_group='test')
 ```
 
-[testing.ExecutionInfo](../providers/ExecutionInfo) provider key/constructor
+[testing.ExecutionInfo](/versions/7.6.1/rules/lib/providers/ExecutionInfo) provider key/constructor
 
 ## TestEnvironment
 
@@ -52,4 +52,4 @@ RunEnvironmentInfo testing.TestEnvironment(environment, inherited_environment=[]
 | Parameter | Description |
 | --- | --- |
 | `environment` | required  A map of string keys and values that represent environment variables and their values. These will be made available during the test execution. |
-| `inherited_environment` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  A sequence of names of environment variables. These variables are made available during the test execution with their current value taken from the shell environment. If a variable is contained in both `environment` and `inherited_environment`, the value inherited from the shell environment will take precedence if set. |
+| `inherited_environment` | [sequence](/versions/7.6.1/rules/lib/core/list) of [string](/versions/7.6.1/rules/lib/core/string)s; default is `[]`  A sequence of names of environment variables. These variables are made available during the test execution with their current value taken from the shell environment. If a variable is contained in both `environment` and `inherited_environment`, the value inherited from the shell environment will take precedence if set. |

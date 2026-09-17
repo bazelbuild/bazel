@@ -38,6 +38,8 @@ import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
+import com.google.devtools.build.lib.runtime.commands.BuildCommand;
+import com.google.devtools.build.lib.runtime.commands.TestCommand;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
@@ -48,6 +50,9 @@ import com.google.devtools.build.lib.testutil.SpawnController.ExecResult;
 import com.google.devtools.build.lib.testutil.SpawnInputUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -61,13 +66,12 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /**
  * Integration test verifying behavior of {@code
  * com.google.devtools.build.lib.runtime.TargetSummaryEvent} event.
  */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class TargetSummaryEventTest extends BuildIntegrationTestCase {
 
   private static final SpawnResult FAILED_RESULT =
@@ -107,11 +111,15 @@ public final class TargetSummaryEventTest extends BuildIntegrationTestCase {
         .addBlazeModule(helper.makeControllableActionStrategyModule("standalone"));
   }
 
+  private BlazeCommandDispatcher dispatcher;
+
   @Override
   protected void setupOptions() throws Exception {
     super.setupOptions();
+    getRuntime().overrideCommands(ImmutableList.of(new BuildCommand(), new TestCommand()));
     addOptions("--spawn_strategy=standalone", "--test_strategy=standalone");
     runtimeWrapper.registerSubscriber(actionEventRecorder);
+    dispatcher = new BlazeCommandDispatcher(getRuntime());
   }
 
   private void afterBuildCommand() throws Exception {
@@ -156,6 +164,44 @@ public final class TargetSummaryEventTest extends BuildIntegrationTestCase {
 
     TestSummary testSummary = findTestSummaryEventInBuildEventStream(bep);
     assertThat(testSummary.getOverallStatus()).isEqualTo(TestStatus.PASSED);
+  }
+
+  @Test
+  public void test_skymeldTargetActionsCached_interruptedTest_targetCompletedEventReplayed(
+      @TestParameter boolean isExclusiveTest) throws Exception {
+    addOptions("--experimental_merged_skyframe_analysis_execution", "--cache_test_results=no");
+    write("foo/good_test.sh", "#!/bin/bash", "true").setExecutable(true);
+    write(
+        "foo/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name = 'good_test', srcs = ['good_test.sh'], tags=["
+            + (isExclusiveTest ? "'exclusive'" : "")
+            + "])");
+
+    ImmutableList<String> options = runtimeWrapper.getOptions();
+
+    // 1st command: builds target, then test starts and is interrupted.
+    helper.addSpawnShim(
+        "Testing //foo:good_test",
+        (spawn, context) -> {
+          throw new InterruptedException("Interrupt during test execution");
+        });
+    File bep1 = tmpFolder.newFile();
+    testTargetAndCaptureBuildEventProtocol("//foo:good_test", bep1, options);
+    TargetSummary targetSummary1 = findTargetSummaryEventInBuildEventStream(bep1);
+    assertThat(targetSummary1.getOverallBuildSuccess()).isTrue();
+
+    // 2nd command: same command run immediately afterward when target-building actions are cached.
+    // The test begins and is interrupted again.
+    helper.addSpawnShim(
+        "Testing //foo:good_test",
+        (spawn, context) -> {
+          throw new InterruptedException("Interrupt during test execution");
+        });
+    File bep2 = tmpFolder.newFile();
+    testTargetAndCaptureBuildEventProtocol("//foo:good_test", bep2, options);
+    TargetSummary targetSummary2 = findTargetSummaryEventInBuildEventStream(bep2);
+    assertThat(targetSummary2.getOverallBuildSuccess()).isTrue();
   }
 
   @Test
@@ -349,11 +395,16 @@ public final class TargetSummaryEventTest extends BuildIntegrationTestCase {
   }
 
   private File testTargetAndCaptureBuildEventProtocol(String target) throws Exception {
-    File bep = tmpFolder.newFile();
-    BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(getRuntime());
+    return testTargetAndCaptureBuildEventProtocol(
+        target, tmpFolder.newFile(), runtimeWrapper.getOptions());
+  }
+
+  @CanIgnoreReturnValue
+  private File testTargetAndCaptureBuildEventProtocol(
+      String target, File bep, ImmutableList<String> options) throws Exception {
     ImmutableList.Builder<String> args = ImmutableList.builder();
     args.add("test", target);
-    args.addAll(runtimeWrapper.getOptions());
+    args.addAll(options);
     // We use WAIT_FOR_UPLOAD_COMPLETE because it's the easiest way to force the BES module to
     // wait until the BEP binary file has been written.
     args.add(
@@ -365,6 +416,7 @@ public final class TargetSummaryEventTest extends BuildIntegrationTestCase {
         "--build_event_binary_file=" + bep.getAbsolutePath(),
         "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE");
     dispatcher.exec(args.build(), /* clientDescription= */ "test", outErr);
+    afterBuildCommand();
     return bep;
   }
 

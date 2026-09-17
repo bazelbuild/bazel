@@ -80,6 +80,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
@@ -110,14 +111,15 @@ import net.starlark.java.spelling.SpellChecker;
 public class InfoCommand implements BlazeCommand {
 
   /** Options for the info command. */
-  public static class Options extends OptionsBase {
+  @OptionsClass
+  public abstract static class Options extends OptionsBase {
     @Option(
         name = "show_make_env",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.LOGGING,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
         help = "Include the \"Make\" environment in the output.")
-    public boolean showMakeEnvironment;
+    public abstract boolean getShowMakeEnvironment();
 
     @Option(
         name = "info_output_type",
@@ -128,7 +130,7 @@ public class InfoCommand implements BlazeCommand {
         help =
             "If stdout, results are directly printed to the console. If response_proto, the info"
                 + " command results are packed in response extensions.")
-    public InfoItemOutputType infoOutputType;
+    public abstract InfoItemOutputType getInfoOutputType();
   }
 
   private static class InfoItemOutputTypeConverter extends EnumConverter<InfoItemOutputType> {
@@ -206,8 +208,8 @@ public class InfoCommand implements BlazeCommand {
 
     try (InfoItemHandler infoItemHandler =
         infoItemHandlerFactory.create(
-            env, infoOptions.infoOutputType, /* printKeys= */ residue.size() != 1)) {
-      if (infoOptions.showMakeEnvironment) {
+            env, infoOptions.getInfoOutputType(), /* printKeys= */ residue.size() != 1)) {
+      if (infoOptions.getShowMakeEnvironment()) {
         Map<String, String> makeEnv = configurationSupplier.get().getMakeEnvironment();
         for (Map.Entry<String, String> entry : makeEnv.entrySet()) {
           InfoItem item = new MakeInfoItem(entry.getKey(), entry.getValue());

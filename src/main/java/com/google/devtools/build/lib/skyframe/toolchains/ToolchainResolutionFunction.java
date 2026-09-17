@@ -43,6 +43,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -50,7 +51,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.SequencedSet;
 import java.util.Set;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -228,6 +228,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
     Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains =
         HashBasedTable.create();
     SequencedSet<ToolchainTypeInfo> missingMandatoryToolchains = new LinkedHashSet<>();
+    Map<ToolchainTypeInfo, String> missingToolchainDiagnostics = new LinkedHashMap<>();
     for (SingleToolchainResolutionKey key : registeredToolchainKeys) {
       SingleToolchainResolutionValue singleToolchainResolutionValue =
           (SingleToolchainResolutionValue)
@@ -247,6 +248,10 @@ public class ToolchainResolutionFunction implements SkyFunction {
       } else if (key.toolchainType().mandatory()) {
         // Save the missing type and continue looping to check for more.
         missingMandatoryToolchains.add(key.toolchainTypeInfo());
+        if (singleToolchainResolutionValue.resolutionDiagnostic() != null) {
+          missingToolchainDiagnostics.put(
+              key.toolchainTypeInfo(), singleToolchainResolutionValue.resolutionDiagnostic());
+        }
       }
       // TODO(katre): track missing optional toolchains?
     }
@@ -254,7 +259,9 @@ public class ToolchainResolutionFunction implements SkyFunction {
     // Verify that all mandatory toolchain types have a toolchain.
     if (!missingMandatoryToolchains.isEmpty()) {
       throw new UnresolvedToolchainsException(
-          platformKeys.targetPlatformInfo(), missingMandatoryToolchains);
+          platformKeys.targetPlatformInfo(),
+          missingMandatoryToolchains,
+          missingToolchainDiagnostics);
     }
 
     if (valuesMissing) {
@@ -383,7 +390,14 @@ public class ToolchainResolutionFunction implements SkyFunction {
 
     UnresolvedToolchainsException(
         PlatformInfo targetPlatformInfo, SequencedSet<ToolchainTypeInfo> missingToolchainTypes) {
-      super(getMessage(targetPlatformInfo, missingToolchainTypes));
+      this(targetPlatformInfo, missingToolchainTypes, ImmutableMap.of());
+    }
+
+    UnresolvedToolchainsException(
+        PlatformInfo targetPlatformInfo,
+        SequencedSet<ToolchainTypeInfo> missingToolchainTypes,
+        Map<ToolchainTypeInfo, String> missingToolchainDiagnostics) {
+      super(getMessage(targetPlatformInfo, missingToolchainTypes, missingToolchainDiagnostics));
     }
 
     @Override
@@ -392,35 +406,29 @@ public class ToolchainResolutionFunction implements SkyFunction {
     }
 
     private static String getMessage(
-        PlatformInfo targetPlatformInfo, SequencedSet<ToolchainTypeInfo> missingToolchainTypes) {
-      // All characters with special meaning anywhere in a regex (':' for example is only special
-      // within brackets).
-      List<Character> regexSpecialChars =
-          "+.|([{^$?\\*".codePoints().mapToObj(c -> (char) c).toList();
+        PlatformInfo targetPlatformInfo,
+        SequencedSet<ToolchainTypeInfo> missingToolchainTypes,
+        Map<ToolchainTypeInfo, String> missingToolchainDiagnostics) {
       ImmutableList<String> labelStrings =
           missingToolchainTypes.stream()
               .map(ToolchainTypeInfo::typeLabel)
-              .map(Label::toString)
-              .map(
-                  label -> {
-                    // Regex-quote if label contains special characters.
-                    for (char c : regexSpecialChars) {
-                      if (label.indexOf(c) >= 0) {
-                        return Pattern.quote(label);
-                      }
-                    }
-
-                    return label;
-                  })
+              .map(PlatformConfiguration::toolchainResolutionDebugFilter)
               .collect(toImmutableList());
       ImmutableList<String> missingToolchainRows =
           missingToolchainTypes.stream()
               .map(
-                  type ->
-                      String.format(
-                          "  %s%s",
-                          type.typeLabel(),
-                          type.noneFoundError() != null ? ": " + type.noneFoundError() : ""))
+                  type -> {
+                    String base =
+                        String.format(
+                            "  %s%s",
+                            type.typeLabel(),
+                            type.noneFoundError() != null ? ": " + type.noneFoundError() : "");
+                    String diagnostic = missingToolchainDiagnostics.get(type);
+                    if (diagnostic != null && !diagnostic.isEmpty()) {
+                      return base + "\n" + diagnostic;
+                    }
+                    return base;
+                  })
               .collect(toImmutableList());
       String platformSpecificMessage = "";
       if (targetPlatformInfo.getMissingToolchainErrorMessage() != null) {
@@ -428,11 +436,12 @@ public class ToolchainResolutionFunction implements SkyFunction {
       }
       return String.format(
           """
-          No matching toolchains found for types:
+          No matching toolchains found for target platform %s:
           %s
           To debug, rerun with --toolchain_resolution_debug='%s'
           %s\
           """,
+          targetPlatformInfo.label(),
           String.join("\n", missingToolchainRows),
           String.join("|", labelStrings),
           platformSpecificMessage);

@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.skyframe.packages.testing;
 
 import com.google.common.base.StandardSystemProperty;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.Package;
@@ -42,7 +42,7 @@ public final class BazelPackageLoaderTester {
     try (PackageLoader packageLoader = createPackageLoader(installBase)) {
       for (int i = 1; i < args.length; i++) {
         Package pkg = packageLoader.loadPackage(PackageIdentifier.createInMainRepo(args[i]));
-        pkg.getTargets().values().stream().map(Target::getLabel).forEach(System.out::println);
+        pkg.getTargets().stream().map(Target::getLabel).forEach(System.out::println);
       }
     }
   }
@@ -58,7 +58,10 @@ public final class BazelPackageLoaderTester {
     return BazelPackageLoader.builder(workspaceDir, installBasePath, installBasePath)
         .enableFetchForTesting()
         .useDefaultStarlarkSemantics()
-        .setCommonReporter(new Reporter(new EventBus(), PrintingEventHandler.ERRORS_TO_STDERR))
+        .setCommonReporter(
+            new Reporter(
+                EventBusEventHandler.createWithNewEventBus(),
+                PrintingEventHandler.ERRORS_TO_STDERR))
         .build();
   }
 

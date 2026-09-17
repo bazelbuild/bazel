@@ -32,9 +32,7 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multiset;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -100,6 +98,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalLong;
@@ -163,13 +163,13 @@ public class PackageFunctionTest extends BuildViewTestCase {
     ImmutableList<String> packagePath =
         stream(roots).map(Path::getPathString).collect(toImmutableList());
     if (!packagePath.isEmpty()) {
-      packageOptions.packagePath = packagePath;
+      packageOptions.setPackagePath(packagePath);
     }
-    packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 7;
+    packageOptions.setDefaultVisibility(RuleVisibility.PUBLIC);
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(7);
     if (computationMode.equals(ComputationMode.PACKAGE_FROM_PACKAGE_PIECES)) {
-      packageOptions.lazyMacroExpansionPackages = PackageOptions.LazyMacroExpansionPackages.ALL;
+      packageOptions.setLazyMacroExpansionPackages(PackageOptions.LazyMacroExpansionPackages.ALL);
     }
     setPackageAndBuildLanguageOptions(packageOptions, buildLanguageOptions);
   }
@@ -217,7 +217,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
       if (computationMode.equals(ComputationMode.PACKAGE_FROM_PACKAGE_PIECES)) {
         // Targets are owned by package pieces, not by the package-from-pieces.
         assertThat(buildFile.getPackageoid()).isInstanceOf(PackagePiece.ForBuildFile.class);
-        for (Target target : value.getTargets().values()) {
+        for (Target target : value.getTargets()) {
           assertWithMessage("Packageoid of target %s", target.getLabel())
               .that(target.getPackageoid())
               .isNotSameInstanceAs(value);
@@ -281,7 +281,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     scratch.file("pkg/BUILD", "filegroup(name = 'foo')");
     preparePackageLoading(computationMode);
     Packageoid pkg = validPackageoidWithoutErrors("pkg");
-    assertThat(pkg.getTargets()).containsKey("foo");
+    assertThat(pkg.getTargetOrNull("foo")).isNotNull();
   }
 
   @Test
@@ -306,11 +306,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
         """);
     preparePackageLoading(computationMode);
     Packageoid pkg = validPackageoidWithoutErrors("pkg");
-    assertThat(pkg.getTargets()).containsKey("target_in_legacy_macro");
+    assertThat(pkg.getTargetOrNull("target_in_legacy_macro")).isNotNull();
     if (computationMode.equals(ComputationMode.PACKAGE_PIECE_FOR_BUILD_FILE)) {
-      assertThat(pkg.getTargets()).doesNotContainKey("target_in_symbolic_macro");
+      assertThat(pkg.getTargetOrNull("target_in_symbolic_macro")).isNull();
     } else {
-      assertThat(pkg.getTargets()).containsKey("target_in_symbolic_macro");
+      assertThat(pkg.getTargetOrNull("target_in_symbolic_macro")).isNotNull();
     }
   }
 
@@ -378,7 +378,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         \t\tmy_macro = macro(implementation = _impl)
         \tFile "/workspace/pkg/my_macro.bzl", line 3, column 9, in _impl
         \t\tfail("fail fail fail")
-        Error in fail: fail fail fail\
+        Error: fail fail fail\
         """);
     if (computationMode.equals(ComputationMode.MONOLITHIC_PACKAGE)) {
       assertThat(eventCollector.filtered(EventKind.ERROR)).hasSize(1);
@@ -693,11 +693,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertSrcs(validPackageoidWithoutErrors("foo"), "foo", "//foo:a.config", "//foo:b.txt");
     getSkyframeExecutor().resetEvaluator();
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 7;
+    packageOptions.setDefaultVisibility(RuleVisibility.PUBLIC);
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(7);
     if (computationMode.equals(ComputationMode.PACKAGE_FROM_PACKAGE_PIECES)) {
-      packageOptions.lazyMacroExpansionPackages = PackageOptions.LazyMacroExpansionPackages.ALL;
+      packageOptions.setLazyMacroExpansionPackages(PackageOptions.LazyMacroExpansionPackages.ALL);
     }
     getSkyframeExecutor()
         .preparePackageLoading(
@@ -709,6 +709,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             parseBuildLanguageOptions(),
             UUID.randomUUID(),
             ImmutableMap.of(),
+            /* repoEnv= */ ImmutableMap.of(),
             QuiescingExecutorsImpl.forTesting(),
             tsgm);
     getSkyframeExecutor().injectExtraPrecomputedValues(analysisMock.getPrecomputedValues());
@@ -909,8 +910,6 @@ public class PackageFunctionTest extends BuildViewTestCase {
     scratch.file("qux/ext.bzl", "c = 1");
 
     preparePackageLoading(computationMode, rootDirectory);
-    // must be done after preparePackageLoading()
-    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
 
     Packageoid pkg = validPackageoidWithoutErrors("foo");
     assertThat(pkg.getDeclarations().getOrComputeTransitivelyLoadedStarlarkFiles())
@@ -971,9 +970,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(ex)
         .hasMessageThat()
         .isEqualTo(
-            "error loading package 'test/starlark': "
-                + "at /workspace/test/starlark/extension.bzl:1:6: "
-                + "cannot load '//test/starlark:bad_extension.bzl': no such file");
+            """
+            error loading package 'test/starlark': at /workspace/test/starlark/extension.bzl:1:6:
+            cannot load '//test/starlark:bad_extension.bzl': no such file\
+            """);
     assertDetailedExitCode(
         ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
   }
@@ -2325,9 +2325,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
       }
     }
 
-    private final Map<PathFragment, FileStatusOrException> stubbedStats = Maps.newHashMap();
-    private final Set<PathFragment> makeUnreadableAfterReaddir = Sets.newHashSet();
-    private final Map<PathFragment, IOException> pathsToErrorOnGetInputStream = Maps.newHashMap();
+    private final Map<PathFragment, FileStatusOrException> stubbedStats = new HashMap<>();
+    private final Set<PathFragment> makeUnreadableAfterReaddir = new HashSet<>();
+    private final Map<PathFragment, IOException> pathsToErrorOnGetInputStream = new HashMap<>();
 
     CustomInMemoryFs(ManualClock manualClock) {
       super(manualClock, DigestHashFunction.SHA256);

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.extra;
 
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -28,6 +27,7 @@ import com.google.devtools.build.lib.analysis.extra.ExtraActionSpec;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.packages.Types;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -49,7 +49,7 @@ public final class ActionListener implements RuleConfiguredTargetFactory {
     Multimap<String, ExtraActionSpec> extraActionMap;
 
     Set<String> mnemonics =
-        Sets.newHashSet(ruleContext.attributes().get("mnemonics", Types.STRING_LIST));
+        new HashSet<>(ruleContext.attributes().get("mnemonics", Types.STRING_LIST));
     extraActions = retrieveAndValidateExtraActions(ruleContext);
     ImmutableSortedKeyListMultimap.Builder<String, ExtraActionSpec>
         extraActionMapBuilder = ImmutableSortedKeyListMultimap.builder();

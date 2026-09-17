@@ -143,7 +143,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
           summary,
           printer,
           testLogPathFormatter,
-          summaryOptions.verboseSummary,
+          summaryOptions.getVerboseSummary(),
           showAllTestCases,
           withConfig,
           mainRepoMapping);

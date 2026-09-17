@@ -24,8 +24,7 @@ import java.io.IOException;
  * restricted from using any asynchronous features. By construction, they can only be used to
  * serialize acyclic values and are always synchronous.
  *
- * <p>Values using this codec will be memoized using {@link Object#hashCode} and {@link
- * Object#equals}.
+ * <p>Values using this codec are memoized {@link MemoizationEquality#BY_VALUE}.
  */
 public abstract class LeafObjectCodec<T> implements ObjectCodec<T> {
   @Override
@@ -54,4 +53,9 @@ public abstract class LeafObjectCodec<T> implements ObjectCodec<T> {
    */
   public abstract T deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException;
+
+  @Override
+  public final MemoizationEquality getMemoizationEquality(T obj) {
+    return MemoizationEquality.BY_VALUE;
+  }
 }

@@ -17,14 +17,17 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /** This example options class should fail to compile. */
-public class BadNameForDocumentedOption extends OptionsBase {
+@OptionsClass
+public abstract class BadNameForDocumentedOption extends OptionsBase {
   @Option(
       name = "bad option",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP}
-  )
-  public boolean badOption;
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
+  public abstract boolean getBadOption();
+
+  public abstract void setBadOption(boolean value);
 }

@@ -583,8 +583,7 @@ The set of available toolchains, in priority order, is created from
   4. Toolchains registered in the "WORKSPACE suffix"; this is only used by
      certain native rules bundled with the Bazel installation.
 
-**NOTE:** [Pseudo-targets like `:all`, `:*`, and
-`/...`](/run/build#specifying-build-targets) are ordered by Bazel's package
+**NOTE:** [Pseudo-targets like `:all`, `:*`, and `/...`](/run/build#specifying-build-targets) are ordered by Bazel's package
 loading mechanism, which uses a lexicographic ordering.
 
 The resolution steps are as follows.

@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttrModuleApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ComposedConfigurationTransition;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.util.FileType;
@@ -66,6 +67,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -185,6 +187,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   }
 
   /** The object available as the {@code ctx} argument of materializers. */
+  @StarlarkBuiltin(name = "starlark_materializer_context", documented = false)
   private static class StarlarkMaterializerContext implements StarlarkValue {
     private final Label label;
     private final StructImpl attrs;
@@ -534,6 +537,12 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     }
     if (trans instanceof StarlarkDefinedConfigTransition starlarkDefinedTransition) {
       return new StarlarkAttributeTransitionProvider(starlarkDefinedTransition);
+    }
+    if (trans instanceof ComposedConfigurationTransition composition) {
+      return ComposedTransitionMaterializer.fold(
+          composition,
+          element -> convertCfg(thread, element),
+          "it contains a native transition that can only be used as a rule transition");
     }
     if (trans instanceof ConfigurationTransitionApi cta) {
       // Every ConfigurationTransitionApi must be a TransitionFactory instance to be usable.

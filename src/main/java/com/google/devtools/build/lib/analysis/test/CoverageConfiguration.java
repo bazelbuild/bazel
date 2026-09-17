@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.test.CoverageConfiguration
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsClass;
 import javax.annotation.Nullable;
 
 /** The coverage configuration fragment. */
@@ -35,7 +36,8 @@ import javax.annotation.Nullable;
 public class CoverageConfiguration extends Fragment implements CoverageConfigurationApi {
 
   /** Command-line options. */
-  public static class CoverageOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class CoverageOptions extends FragmentOptions {
 
     @Option(
         name = "coverage_output_generator",
@@ -52,7 +54,7 @@ public class CoverageConfiguration extends Fragment implements CoverageConfigura
             Location of the binary that is used to postprocess raw coverage reports. This must
             be a binary target. Defaults to `@bazel_tools//tools/test:lcov_merger`.
             """)
-    public Label coverageOutputGenerator;
+    public abstract Label getCoverageOutputGenerator();
 
     @Option(
         name = "coverage_report_generator",
@@ -69,7 +71,7 @@ public class CoverageConfiguration extends Fragment implements CoverageConfigura
             Location of the binary that is used to generate coverage reports. This must
             be a binary target. Defaults to `@bazel_tools//tools/test:coverage_report_generator`.
             """)
-    public Label coverageReportGenerator;
+    public abstract Label getCoverageReportGenerator();
   }
 
   private final CoverageOptions coverageOptions;
@@ -91,7 +93,7 @@ public class CoverageConfiguration extends Fragment implements CoverageConfigura
     if (coverageOptions == null) {
       return null;
     }
-    return coverageOptions.coverageOutputGenerator;
+    return coverageOptions.getCoverageOutputGenerator();
   }
 
   @Nullable
@@ -99,6 +101,6 @@ public class CoverageConfiguration extends Fragment implements CoverageConfigura
     if (coverageOptions == null) {
       return null;
     }
-    return coverageOptions.coverageReportGenerator;
+    return coverageOptions.getCoverageReportGenerator();
   }
 }

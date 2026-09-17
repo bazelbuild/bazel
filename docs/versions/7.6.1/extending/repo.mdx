@@ -74,8 +74,7 @@ specified.
 
 The input parameter `repository_ctx` can be used to access attribute values, and
 non-hermetic functions (finding a binary, executing a binary, creating a file in
-the repository or downloading a file from the Internet). See [the API
-docs](/versions/7.6.1/rules/lib/builtins/repository_ctx) for more context. Example:
+the repository or downloading a file from the Internet). See [the API docs](/versions/7.6.1/rules/lib/builtins/repository_ctx) for more context. Example:
 
 ```python
 def _impl(repository_ctx):
@@ -144,8 +143,7 @@ definition has the `configure` attribute set, use `bazel fetch --force
 
 ## Examples
 
--   [C++ auto-configured
-    toolchain](https://cs.opensource.google/bazel/bazel/+/master:tools/cpp/cc_configure.bzl;drc=644b7d41748e09eff9e47cbab2be2263bb71f29a;l=176):
+-   [C++ auto-configured toolchain](https://cs.opensource.google/bazel/bazel/+/master:tools/cpp/cc_configure.bzl;drc=644b7d41748e09eff9e47cbab2be2263bb71f29a;l=176):
     it uses a repo rule to automatically create the C++ configuration files for
     Bazel by looking for the local C++ compiler, the environment and the flags
     the C++ compiler supports.

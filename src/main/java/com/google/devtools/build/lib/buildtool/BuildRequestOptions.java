@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.buildtool;
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -92,6 +94,22 @@ public abstract class BuildRequestOptions extends OptionsBase {
           less than `--jobs`, it is clamped to `--jobs`.
           """)
   public abstract int getAsyncExecutionMaxConcurrentActions();
+
+  @Option(
+      name = "bust_action_caches",
+      converter = EmptyToNullLabelConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          """
+          If set to a target label, unconditionally executes all actions of this target,
+          circumventing the usual caching layers. Intended for debugging only; no guarantees are
+          made that every execution strategy will respect it.
+          """)
+  @Nullable
+  public abstract Label getBustActionCachesTarget();
 
   @Option(
       name = "progress_report_interval",
@@ -177,6 +195,17 @@ public abstract class BuildRequestOptions extends OptionsBase {
           bar are built.
           """)
   public abstract List<String> getOutputGroups();
+
+  @Option(
+      name = "incompatible_fail_on_unknown_output_groups",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, building explicitly requested output groups that are not present on any"
+              + " top-level target or aspect fails the build.")
+  public abstract boolean getIncompatibleFailOnUnknownOutputGroups();
 
   @Option(
       name = "run_validations",
@@ -373,11 +402,37 @@ public abstract class BuildRequestOptions extends OptionsBase {
 
   @Option(
       name = "rewind_lost_inputs",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.EXECUTION},
       help = "Whether to use action rewinding to recover from lost inputs.")
   public abstract boolean getRewindLostInputs();
+
+  @Option(
+      name = "experimental_max_repeated_lost_inputs",
+      defaultValue = "20",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "The maximum number of times action rewinding will try to recover the same lost input (or"
+              + " top-level output) for the same action before giving up and failing the build. Set"
+              + " this lower to fail fast on an unstable remote cache instead of repeatedly"
+              + " rewinding a single lost input; 0 fails on the first lost input. Only takes effect"
+              + " when --rewind_lost_inputs is enabled.")
+  public abstract int getMaxRepeatedLostInputs();
+
+  @Option(
+      name = "experimental_precise_rewinding",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Whether to use precise rewinding. If true, only the lost inputs (and their generating"
+              + " actions) are rewound through aggregation artifacts (e.g. runfiles trees),"
+              + " avoiding rewinding the entire set of inputs to the aggregator. This is a no-op"
+              + " unless --rewind_lost_inputs is true.")
+  public abstract boolean getExperimentalPreciseRewinding();
 
   @Option(
       name = "incompatible_skip_genfiles_symlink",
@@ -481,17 +536,6 @@ public abstract class BuildRequestOptions extends OptionsBase {
               + " PROJECT.scl, which can be found by walking up the target's packagge path. See"
               + " b/324126745.")
   public abstract boolean getEnforceProjectConfigs();
-
-  @Option(
-      name = "experimental_skyframe_error_handling_refactor",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.EXPERIMENTAL,
-      effectTags = {OptionEffectTag.NO_OP},
-      help =
-          "Used solely for the safe rollout of simplifying Skyframe error handling. This will be "
-              + "removed once the rollout is complete (expected timeframe: 1 release)")
-  public abstract boolean getSkyframeErrorHandlingRefactor();
 
   @Option(
       name = "experimental_aquery_dump_after_build_format",

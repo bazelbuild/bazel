@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.constraints;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -30,6 +31,8 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider.AccumulateResults;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -65,7 +68,8 @@ import javax.annotation.Nullable;
  *
  * <ol>
  *   <li>The target's <code>target_compatible_with</code> attribute specifies a constraint that is
- *       not present in the target platform. The target is said to be "directly incompatible".
+ *       not present in the target platform or a config_setting that does not match the target
+ *       configuration. The target is said to be "directly incompatible".
  *   <li>One or more of the target's dependencies is incompatible. The target is said to be
  *       "indirectly incompatible."
  * </ol>
@@ -84,8 +88,8 @@ public class IncompatibleTargetChecker {
   /**
    * Creates an incompatible configured target if it is "directly incompatible".
    *
-   * <p>In other words, this state machine checks if a target is incompatible because of its
-   * "target_compatible_with" attribute.
+   * <p>In other words, this state machine checks if a target is incompatible because of constraints
+   * or <code>config_settings</code> in its "target_compatible_with" attribute.
    *
    * <p>Outputs an {@code Optional} {@link RuleConfiguredTargetValue} as follows.
    *
@@ -110,6 +114,8 @@ public class IncompatibleTargetChecker {
     private final ImmutableList.Builder<ConstraintValueInfo> allConstraintValuesBuilder =
         new ImmutableList.Builder<>();
     private final ImmutableList.Builder<ConstraintValueInfo> invalidConstraintValuesBuilder =
+        new ImmutableList.Builder<>();
+    private final ImmutableList.Builder<ConfigMatchingProvider> configSettingsBuilder =
         new ImmutableList.Builder<>();
 
     /** Sink for the output of this state machine. */
@@ -173,17 +179,29 @@ public class IncompatibleTargetChecker {
     public void accept(SkyValue value) {
       var configuredTarget = ((ConfiguredTargetValue) value).getConfiguredTarget();
       @Nullable ConstraintValueInfo info = PlatformProviderUtils.constraintValue(configuredTarget);
-      if (info == null) {
-        return;
+      if (info != null) {
+        allConstraintValuesBuilder.add(info);
+        if (!platformInfo.constraints().hasConstraintValue(info)) {
+          invalidConstraintValuesBuilder.add(info);
+        }
       }
-      allConstraintValuesBuilder.add(info);
-      if (!platformInfo.constraints().hasConstraintValue(info)) {
-        invalidConstraintValuesBuilder.add(info);
+      @Nullable
+      ConfigMatchingProvider configSetting =
+          configuredTarget.getProvider(ConfigMatchingProvider.class);
+      if (configSetting != null) {
+        configSettingsBuilder.add(
+            ConfigMatchingProvider.create(
+                configuredTarget.getOriginalLabel(),
+                configSetting.settingsMap(),
+                configSetting.flagSettingsMap(),
+                configSetting.constraintValuesSetting(),
+                configSetting.result()));
       }
     }
 
     private StateMachine processResult(Tasks tasks) {
       var allConstraintValues = allConstraintValuesBuilder.build();
+      var configSettings = configSettingsBuilder.build();
 
       // Validate that there are no duplicate constraint values from the same constraint setting
       try {
@@ -193,16 +211,26 @@ public class IncompatibleTargetChecker {
         return runAfter;
       }
 
+      AccumulateResults configSettingResults =
+          ConfigMatchingProvider.accumulateMatchResults(configSettings);
+      if (!configSettingResults.errors().isEmpty()) {
+        sink.acceptValidationException(
+            new ValidationException(formatConfigSettingErrors(configSettingResults)));
+        return runAfter;
+      }
+
       var invalidConstraintValues = invalidConstraintValuesBuilder.build();
-      if (!invalidConstraintValues.isEmpty()) {
+      if (!invalidConstraintValues.isEmpty() || !configSettingResults.nonMatching().isEmpty()) {
         sink.acceptIncompatibleTarget(
             Optional.of(
                 createIncompatibleRuleConfiguredTarget(
                     configuredTargetKey,
                     targetAndConfiguration.getConfiguration(),
                     configConditions,
-                    IncompatiblePlatformProvider.incompatibleDueToConstraints(
-                        platformInfo.label(), invalidConstraintValues),
+                    IncompatiblePlatformProvider.incompatibleDueToConstraintsAndConfigSettings(
+                        platformInfo.label(),
+                        invalidConstraintValues,
+                        configSettingResults.nonMatching()),
                     targetAndConfiguration
                         .getTarget()
                         .getAssociatedRule()
@@ -213,6 +241,16 @@ public class IncompatibleTargetChecker {
       }
       sink.acceptIncompatibleTarget(Optional.empty());
       return runAfter;
+    }
+
+    private static String formatConfigSettingErrors(AccumulateResults configSettingResults) {
+      return configSettingResults.errors().asMap().entrySet().stream()
+          .map(
+              entry ->
+                  String.format(
+                      "For config_setting %s: %s",
+                      entry.getKey(), String.join(", ", entry.getValue())))
+          .collect(joining("; "));
     }
   }
 

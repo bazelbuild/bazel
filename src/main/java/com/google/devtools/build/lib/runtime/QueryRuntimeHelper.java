@@ -72,11 +72,11 @@ public interface QueryRuntimeHelper extends AutoCloseable {
     @Override
     public QueryRuntimeHelper create(CommandEnvironment env, CommonQueryOptions options)
         throws QueryRuntimeHelperException {
-      if (Strings.isNullOrEmpty(options.outputFile)) {
+      if (Strings.isNullOrEmpty(options.getOutputFile())) {
         return createInternal(env.getReporter().getOutErr().getOutputStream());
       } else {
         return FileQueryRuntimeHelper.create(
-            env.getWorkingDirectory().getRelative(options.outputFile));
+            env.getWorkingDirectory().getRelative(options.getOutputFile()));
       }
     }
 

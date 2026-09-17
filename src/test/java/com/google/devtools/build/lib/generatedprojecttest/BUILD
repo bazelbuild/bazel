@@ -3,14 +3,14 @@ load("@rules_java//java:defs.bzl", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__subpackages__"],
 )
 
 # Unit test for BuildFileContentsGenerator
@@ -18,13 +18,17 @@ java_test(
     name = "BuildFileContentsGeneratorTest",
     size = "small",
     srcs = ["BuildFileContentsGeneratorTest.java"],
-    runtime_deps = ["//src/main/java/com/google/devtools/build/lib/bazel/rules"],
+    runtime_deps = [
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:bazel_rule_class_provider",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:bazel_rules_module",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:bazel_strategy_module",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/net/starlark/java/syntax",
         "//src/test/java/com/google/devtools/build/lib/generatedprojecttest/util:testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )

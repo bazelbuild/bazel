@@ -23,6 +23,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 
@@ -38,18 +39,19 @@ import com.google.devtools.common.options.OptionsParsingResult;
         "This command shuts down the memory resident %{product} server process.\n" + "%{options}")
 public final class ShutdownCommand implements BlazeCommand {
 
-  public static class Options extends OptionsBase {
+  /** Options for the {@code shutdown} command. */
+  @OptionsClass
+  public abstract static class Options extends OptionsBase {
 
     @Option(
-      name = "iff_heap_size_greater_than",
-      defaultValue = "0",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.EAGERNESS_TO_EXIT},
-      help =
-          "Iff non-zero, then shutdown will only shut down the server if the total memory (in MB) "
-              + "consumed by the JVM exceeds this value."
-    )
-    public int heapSizeLimit;
+        name = "iff_heap_size_greater_than",
+        defaultValue = "0",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.EAGERNESS_TO_EXIT},
+        help =
+            "Iff non-zero, then shutdown will only shut down the server if the total memory (in MB)"
+                + " consumed by the JVM exceeds this value.")
+    public abstract int getHeapSizeLimit();
   }
 
   @Override
@@ -57,7 +59,7 @@ public final class ShutdownCommand implements BlazeCommand {
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
-    int limit = options.getOptions(Options.class).heapSizeLimit;
+    int limit = options.getOptions(Options.class).getHeapSizeLimit();
 
     // Iff limit is non-zero, shut down the server if total memory exceeds the
     // limit. totalMemory is the actual heap size that the VM currently uses

@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry.CodecDescriptor;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException.NoCodecException;
@@ -48,12 +49,16 @@ public class ObjectCodecRegistryTest {
 
     CodecDescriptor fooDescriptor = underTest.getCodecDescriptorForObject("hello");
     assertThat(fooDescriptor.codec()).isSameInstanceAs(codec1);
-    assertThat(underTest.getCodecDescriptorByTag(fooDescriptor.tag()))
+    assertThat(
+            underTest.getCodecDescriptorByTag(
+                WireType.CodecWireType.UNSTABLE.getTypedTagNumber(fooDescriptor.tag())))
         .isSameInstanceAs(fooDescriptor);
 
     CodecDescriptor barDescriptor = underTest.getCodecDescriptorForObject(1);
     assertThat(barDescriptor.codec()).isSameInstanceAs(codec2);
-    assertThat(underTest.getCodecDescriptorByTag(barDescriptor.tag()))
+    assertThat(
+            underTest.getCodecDescriptorByTag(
+                WireType.CodecWireType.UNSTABLE.getTypedTagNumber(barDescriptor.tag())))
         .isSameInstanceAs(barDescriptor);
 
     assertThat(barDescriptor.tag()).isNotEqualTo(fooDescriptor.tag());
@@ -80,7 +85,9 @@ public class ObjectCodecRegistryTest {
     CodecDescriptor barDefaultDescriptor = underTest.getCodecDescriptorForObject(15);
     assertThat(barDefaultDescriptor.codec()).isNotSameInstanceAs(codec);
     assertThat(barDefaultDescriptor.tag()).isNotEqualTo(fooDescriptor.tag());
-    assertThat(underTest.getCodecDescriptorByTag(barDefaultDescriptor.tag()))
+    assertThat(
+            underTest.getCodecDescriptorByTag(
+                WireType.CodecWireType.UNSTABLE.getTypedTagNumber(barDefaultDescriptor.tag())))
         .isSameInstanceAs(barDefaultDescriptor);
 
     assertThat(underTest.getCodecDescriptorForObject((byte) 9).codec().getClass())
@@ -137,10 +144,14 @@ public class ObjectCodecRegistryTest {
             .addReferenceConstant(constant1)
             .addReferenceConstant(constant2)
             .build();
-    assertThat(underTest1.maybeGetTagForConstant(constant1)).isEqualTo(3);
-    assertThat(underTest1.maybeGetTagForConstant(constant2)).isEqualTo(2);
-    assertThat(underTest2.maybeGetTagForConstant(constant1)).isEqualTo(1);
-    assertThat(underTest2.maybeGetTagForConstant(constant2)).isEqualTo(2);
+    assertThat(underTest1.maybeGetTagForConstant(constant1))
+        .isEqualTo(WireType.ConstantWireType.UNSTABLE.getTypedTagNumber(2));
+    assertThat(underTest1.maybeGetTagForConstant(constant2))
+        .isEqualTo(WireType.ConstantWireType.UNSTABLE.getTypedTagNumber(1));
+    assertThat(underTest2.maybeGetTagForConstant(constant1))
+        .isEqualTo(WireType.ConstantWireType.UNSTABLE.getTypedTagNumber(0));
+    assertThat(underTest2.maybeGetTagForConstant(constant2))
+        .isEqualTo(WireType.ConstantWireType.UNSTABLE.getTypedTagNumber(1));
   }
 
   private static ObjectCodecRegistry.Builder builderWithThisClass() {
@@ -450,5 +461,276 @@ public class ObjectCodecRegistryTest {
                 .that(out)
                 .isInstanceOf(ClassB.class));
     tester.runTests();
+  }
+
+  @Test
+  public void testStablePublicCodecLookups() throws NoCodecException {
+    SingletonCodec<String> codec1 = SingletonCodec.of("value1", "mnemonic1");
+    SingletonCodec<Integer> codec2 = SingletonCodec.of(1, "mnemonic2");
+    SingletonCodec<Long> codecLong = SingletonCodec.of(8L, "mnemonic8");
+
+    ObjectCodecRegistry underTest =
+        ObjectCodecRegistry.newBuilder()
+            .setAllowDefaultCodec(false)
+            .setStablePublicCodecs(ImmutableList.of(codec1, codec2, codecLong))
+            .build();
+    {
+      CodecDescriptor descriptor = underTest.getCodecDescriptorForObject("hello");
+      assertThat(descriptor.codec()).isSameInstanceAs(codec1);
+      assertThat(descriptor.wireType()).isEqualTo(WireType.CodecWireType.STABLE_PUBLIC);
+      assertThat(descriptor.tag()).isEqualTo(0);
+      assertThat(
+              underTest.getCodecDescriptorByTag(
+                  WireType.CodecWireType.STABLE_PUBLIC.getTypedTagNumber(descriptor.tag())))
+          .isSameInstanceAs(descriptor);
+    }
+    {
+      CodecDescriptor descriptor = underTest.getCodecDescriptorForObject(1);
+      assertThat(descriptor.codec()).isSameInstanceAs(codec2);
+      assertThat(descriptor.wireType()).isEqualTo(WireType.CodecWireType.STABLE_PUBLIC);
+      assertThat(descriptor.tag()).isEqualTo(1);
+      assertThat(
+              underTest.getCodecDescriptorByTag(
+                  WireType.CodecWireType.STABLE_PUBLIC.getTypedTagNumber(descriptor.tag())))
+          .isSameInstanceAs(descriptor);
+    }
+    {
+      CodecDescriptor descriptor = underTest.getCodecDescriptorForObject(8L);
+      assertThat(descriptor.codec()).isSameInstanceAs(codecLong);
+      assertThat(descriptor.wireType()).isEqualTo(WireType.CodecWireType.STABLE_PUBLIC);
+      assertThat(descriptor.tag()).isEqualTo(2);
+      assertThat(
+              underTest.getCodecDescriptorByTag(
+                  WireType.CodecWireType.STABLE_PUBLIC.getTypedTagNumber(descriptor.tag())))
+          .isSameInstanceAs(descriptor);
+    }
+    assertThrows(
+        NoCodecException.class,
+        () ->
+            underTest.getCodecDescriptorByTag(
+                WireType.CodecWireType.STABLE_PUBLIC.getTypedTagNumber(3)));
+  }
+
+  @Test
+  public void testStablePrivateCodecLookups() throws NoCodecException {
+    SingletonCodec<String> codec1 = SingletonCodec.of("value1", "mnemonic1");
+    SingletonCodec<Integer> codec2 = SingletonCodec.of(1, "mnemonic2");
+    SingletonCodec<Long> codecLong = SingletonCodec.of(8L, "mnemonic8");
+
+    ObjectCodecRegistry underTest =
+        ObjectCodecRegistry.newBuilder()
+            .setAllowDefaultCodec(false)
+            .setStablePrivateCodecs(ImmutableList.of(codec1, codec2, codecLong))
+            .build();
+
+    {
+      CodecDescriptor descriptor = underTest.getCodecDescriptorForObject("hello");
+      assertThat(descriptor.codec()).isSameInstanceAs(codec1);
+      assertThat(descriptor.wireType()).isEqualTo(WireType.CodecWireType.STABLE_PRIVATE);
+      assertThat(descriptor.tag()).isEqualTo(0);
+      assertThat(
+              underTest.getCodecDescriptorByTag(
+                  WireType.CodecWireType.STABLE_PRIVATE.getTypedTagNumber(descriptor.tag())))
+          .isSameInstanceAs(descriptor);
+    }
+    {
+      CodecDescriptor descriptor = underTest.getCodecDescriptorForObject(1);
+      assertThat(descriptor.codec()).isSameInstanceAs(codec2);
+      assertThat(descriptor.wireType()).isEqualTo(WireType.CodecWireType.STABLE_PRIVATE);
+      assertThat(descriptor.tag()).isEqualTo(1);
+      assertThat(
+              underTest.getCodecDescriptorByTag(
+                  WireType.CodecWireType.STABLE_PRIVATE.getTypedTagNumber(descriptor.tag())))
+          .isSameInstanceAs(descriptor);
+    }
+    {
+      CodecDescriptor descriptor = underTest.getCodecDescriptorForObject(8L);
+      assertThat(descriptor.codec()).isSameInstanceAs(codecLong);
+      assertThat(descriptor.wireType()).isEqualTo(WireType.CodecWireType.STABLE_PRIVATE);
+      assertThat(descriptor.tag()).isEqualTo(2);
+      assertThat(
+              underTest.getCodecDescriptorByTag(
+                  WireType.CodecWireType.STABLE_PRIVATE.getTypedTagNumber(descriptor.tag())))
+          .isSameInstanceAs(descriptor);
+    }
+
+    assertThrows(
+        NoCodecException.class,
+        () ->
+            underTest.getCodecDescriptorByTag(
+                WireType.CodecWireType.STABLE_PRIVATE.getTypedTagNumber(3)));
+  }
+
+  @Test
+  public void testStablePublicReferenceConstantLookups() throws SerializationException {
+    Object constant0 = new Object();
+    Object constant1 = new Object();
+    Object constant2 = new Object();
+
+    ImmutableList<Object> referenceConstants = ImmutableList.of(constant0, constant1, constant2);
+
+    ObjectCodecRegistry underTest =
+        ObjectCodecRegistry.newBuilder()
+            .setAllowDefaultCodec(false)
+            .setStablePublicReferenceConstants(referenceConstants)
+            .build();
+
+    assertThat(underTest.maybeGetTagForConstant(constant0))
+        .isEqualTo(WireType.ConstantWireType.STABLE_PUBLIC.getTypedTagNumber(0));
+    assertThat(underTest.maybeGetTagForConstant(constant1))
+        .isEqualTo(WireType.ConstantWireType.STABLE_PUBLIC.getTypedTagNumber(1));
+    assertThat(underTest.maybeGetTagForConstant(constant2))
+        .isEqualTo(WireType.ConstantWireType.STABLE_PUBLIC.getTypedTagNumber(2));
+
+    assertThat(
+            underTest.maybeGetConstantByTag(
+                WireType.ConstantWireType.STABLE_PUBLIC.getTypedTagNumber(0)))
+        .isSameInstanceAs(constant0);
+    assertThat(
+            underTest.maybeGetConstantByTag(
+                WireType.ConstantWireType.STABLE_PUBLIC.getTypedTagNumber(1)))
+        .isSameInstanceAs(constant1);
+    assertThat(
+            underTest.maybeGetConstantByTag(
+                WireType.ConstantWireType.STABLE_PUBLIC.getTypedTagNumber(2)))
+        .isSameInstanceAs(constant2);
+    assertThrows(
+        SerializationException.class,
+        () ->
+            underTest.maybeGetConstantByTag(
+                WireType.ConstantWireType.STABLE_PUBLIC.getTypedTagNumber(3)));
+  }
+
+  @Test
+  public void testStablePrivateReferenceConstantLookups() throws SerializationException {
+    Object constant0 = new Object();
+    Object constant1 = new Object();
+    Object constant2 = new Object();
+
+    ImmutableList<Object> referenceConstants = ImmutableList.of(constant0, constant1, constant2);
+
+    ObjectCodecRegistry underTest =
+        ObjectCodecRegistry.newBuilder()
+            .setAllowDefaultCodec(false)
+            .setStablePrivateReferenceConstants(referenceConstants)
+            .build();
+
+    assertThat(underTest.maybeGetTagForConstant(constant0))
+        .isEqualTo(WireType.ConstantWireType.STABLE_PRIVATE.getTypedTagNumber(0));
+    assertThat(underTest.maybeGetTagForConstant(constant1))
+        .isEqualTo(WireType.ConstantWireType.STABLE_PRIVATE.getTypedTagNumber(1));
+    assertThat(underTest.maybeGetTagForConstant(constant2))
+        .isEqualTo(WireType.ConstantWireType.STABLE_PRIVATE.getTypedTagNumber(2));
+
+    assertThat(
+            underTest.maybeGetConstantByTag(
+                WireType.ConstantWireType.STABLE_PRIVATE.getTypedTagNumber(0)))
+        .isSameInstanceAs(constant0);
+    assertThat(
+            underTest.maybeGetConstantByTag(
+                WireType.ConstantWireType.STABLE_PRIVATE.getTypedTagNumber(1)))
+        .isSameInstanceAs(constant1);
+    assertThat(
+            underTest.maybeGetConstantByTag(
+                WireType.ConstantWireType.STABLE_PRIVATE.getTypedTagNumber(2)))
+        .isSameInstanceAs(constant2);
+    assertThrows(
+        SerializationException.class,
+        () ->
+            underTest.maybeGetConstantByTag(
+                WireType.ConstantWireType.STABLE_PRIVATE.getTypedTagNumber(3)));
+  }
+
+  @Test
+  public void testDuplicateCodecRegistrations() {
+    SingletonCodec<String> codec1 = SingletonCodec.of("value1", "mnemonic1");
+    {
+      ObjectCodecRegistry.Builder builder =
+          ObjectCodecRegistry.newBuilder().setStablePublicCodecs(ImmutableList.of(codec1));
+      assertThrows(
+          IllegalStateException.class,
+          () -> builder.setStablePublicCodecs(ImmutableList.of(codec1)));
+    }
+    {
+      ObjectCodecRegistry.Builder builder =
+          ObjectCodecRegistry.newBuilder().setStablePrivateCodecs(ImmutableList.of(codec1));
+      assertThrows(
+          IllegalStateException.class,
+          () -> builder.setStablePrivateCodecs(ImmutableList.of(codec1)));
+    }
+  }
+
+  @Test
+  public void testDuplicateTagRegistrations() {
+    SingletonCodec<String> codec1 = SingletonCodec.of("value1", "mnemonic1");
+    SingletonCodec<Integer> codec2 = SingletonCodec.of(1, "mnemonic2");
+    {
+      ObjectCodecRegistry.Builder builder =
+          ObjectCodecRegistry.newBuilder().setStablePublicCodecs(ImmutableList.of(codec1));
+      assertThrows(
+          IllegalStateException.class,
+          () -> builder.setStablePublicCodecs(ImmutableList.of(codec2)));
+    }
+    {
+      ObjectCodecRegistry.Builder builder =
+          ObjectCodecRegistry.newBuilder().setStablePrivateCodecs(ImmutableList.of(codec1));
+      assertThrows(
+          IllegalStateException.class,
+          () -> builder.setStablePrivateCodecs(ImmutableList.of(codec2)));
+    }
+    {
+      ObjectCodecRegistry.Builder builder =
+          ObjectCodecRegistry.newBuilder()
+              .setStablePublicReferenceConstants(ImmutableList.of("c1"));
+      assertThrows(
+          IllegalStateException.class,
+          () -> builder.setStablePublicReferenceConstants(ImmutableList.of("c2")));
+    }
+    {
+      ObjectCodecRegistry.Builder builder =
+          ObjectCodecRegistry.newBuilder()
+              .setStablePrivateReferenceConstants(ImmutableList.of("c1"));
+      assertThrows(
+          IllegalStateException.class,
+          () -> builder.setStablePrivateReferenceConstants(ImmutableList.of("c2")));
+    }
+  }
+
+  @Test
+  public void testGetBuilderWithStableCodecsAndConstants() throws NoCodecException {
+    SingletonCodec<String> codec1 = SingletonCodec.of("value1", "mnemonic1");
+    SingletonCodec<Integer> codec2 = SingletonCodec.of(1, "mnemonic2");
+    Object constant1 = new Object();
+    Object constant2 = new Object();
+    Object constant3 = new Object();
+
+    ImmutableList<Object> stablePublicReferenceConstants = ImmutableList.of(constant1);
+    ImmutableList<Object> stablePrivateReferenceConstants = ImmutableList.of(constant2, constant3);
+
+    ObjectCodecRegistry underTest =
+        ObjectCodecRegistry.newBuilder()
+            .setAllowDefaultCodec(false)
+            .setStablePublicCodecs(ImmutableList.of(codec1))
+            .setStablePrivateCodecs(ImmutableList.of(codec2))
+            .setStablePublicReferenceConstants(stablePublicReferenceConstants)
+            .setStablePrivateReferenceConstants(stablePrivateReferenceConstants)
+            .build();
+
+    ObjectCodecRegistry copy = underTest.getBuilder().build();
+
+    assertThat(copy.getCodecDescriptorForObject("value1").tag()).isEqualTo(0);
+    assertThat(copy.getCodecDescriptorForObject("value1").wireType())
+        .isEqualTo(WireType.CodecWireType.STABLE_PUBLIC);
+
+    assertThat(copy.getCodecDescriptorForObject(12).tag()).isEqualTo(0);
+    assertThat(copy.getCodecDescriptorForObject(12).wireType())
+        .isEqualTo(WireType.CodecWireType.STABLE_PRIVATE);
+
+    assertThat(copy.maybeGetTagForConstant(constant1))
+        .isEqualTo(WireType.ConstantWireType.STABLE_PUBLIC.getTypedTagNumber(0));
+    assertThat(copy.maybeGetTagForConstant(constant2))
+        .isEqualTo(WireType.ConstantWireType.STABLE_PRIVATE.getTypedTagNumber(0));
+    assertThat(copy.maybeGetTagForConstant(constant3))
+        .isEqualTo(WireType.ConstantWireType.STABLE_PRIVATE.getTypedTagNumber(1));
   }
 }

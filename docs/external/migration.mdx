@@ -4,15 +4,14 @@ title: 'Bzlmod Migration Guide'
 
 
 
-Due to the [shortcomings of
-WORKSPACE](/external/overview#workspace-shortcomings), Bzlmod is replacing the
+Due to the [shortcomings of WORKSPACE](/external/overview#workspace-shortcomings), Bzlmod is replacing the
 legacy WORKSPACE system. The WORKSPACE file is already disabled in Bazel 8 (late
 2024) and will be removed in Bazel 9 (late 2025). This guide helps you migrate
 your project to Bzlmod and drop WORKSPACE for managing external dependencies.
 
 ## Why migrate to Bzlmod? {#why-migrate-to-bzlmod}
 
-*   There are many [advantages](overview#benefits) compared to the legacy
+*   There are many [advantages](/external/overview#benefits) compared to the legacy
     WORKSPACE system, which helps to ensure a healthy growth of the Bazel
     ecosystem.
 
@@ -31,8 +30,7 @@ Recommended migration process:
     streamline the migration process as much as possible.
 2.  If there are errors left after using the migration tool, resolve them
     manually. For understanding the main differences between concepts inside
-    `WORKSPACE` and `MODULE.bazel` files, check [WORKSPACE versus
-    Bzlmod](#workspace-vs-bzlmod) section.
+    `WORKSPACE` and `MODULE.bazel` files, check [WORKSPACE versus Bzlmod](#workspace-vs-bzlmod) section.
 
 ## WORKSPACE vs Bzlmod {#workspace-vs-bzlmod}
 
@@ -142,9 +140,7 @@ Bazel module when it also adopts Bzlmod.
 
 *   **Bzlmod**
 
-    With Bzlmod, as long as your dependency is available in [Bazel Central
-    Registry](https://registry.bazel.build) or your custom [Bazel
-    registry](/external/registry), you can simply depend on it with a
+    With Bzlmod, as long as your dependency is available in [Bazel Central Registry](https://registry.bazel.build) or your custom [Bazel registry](/external/registry), you can simply depend on it with a
     [`bazel_dep`](/rules/lib/globals/module#bazel_dep) directive.
 
     ```python
@@ -175,8 +171,7 @@ repository.
 
 If your dependency is not a Bazel project or not yet available in any Bazel
 registry, you can introduce it using
-[`use_repo_rule`](/external/module#use_repo_rule) or [module
-extensions](/external/extension).
+[`use_repo_rule`](/external/module#use_repo_rule) or [module extensions](/external/extension).
 
 *   **WORKSPACE**
 
@@ -617,8 +612,7 @@ flag after fetching all repos needed for a build.
 ## Manual migration {#manual-migration}
 
 This section provides useful information and guidance for your **manual** Bzlmod
-migration process. For more automatized migration process, check [recommended
-migration process](#how-migrate-to-bzlmod) section.
+migration process. For more automatized migration process, check [recommended migration process](#how-migrate-to-bzlmod) section.
 
 ### Know your dependencies in WORKSPACE {#know-deps-in-workspace}
 
@@ -632,8 +626,7 @@ macros.
 Fortunately, the flag
 [`--experimental_repository_resolved_file`][resolved_file_flag]
 can help. This flag essentially generates a "lock file" of all fetched external
-dependencies in your last Bazel command. You can find more details in this [blog
-post](https://blog.bazel.build/2018/07/09/bazel-sync-and-resolved-file.html).
+dependencies in your last Bazel command. You can find more details in this [blog post](https://blog.bazel.build/2018/07/09/bazel-sync-and-resolved-file.html).
 
 [resolved_file_flag]: /reference/command-line-reference#flag--experimental_repository_resolved_file
 
@@ -674,11 +667,9 @@ You may also know `bazel query` can be used for inspecting repository rules with
 bazel query --output=build //external:<repo name>
 ```
 
-While it is more convenient and much faster, [bazel query can lie about
-external dependency version](https://github.com/bazelbuild/bazel/issues/12947),
+While it is more convenient and much faster, [bazel query can lie about external dependency version](https://github.com/bazelbuild/bazel/issues/12947),
 so be careful using it! Querying and inspecting external
-dependencies with Bzlmod is going to achieved by a [new
-subcommand](https://github.com/bazelbuild/bazel/issues/15365).
+dependencies with Bzlmod is going to achieved by a [new subcommand](https://github.com/bazelbuild/bazel/issues/15365).
 
 #### Built-in default dependencies {#builtin-default-deps}
 
@@ -725,8 +716,7 @@ Using the WORKSPACE.bzlmod file can make the migration easier because:
 #### Repository visibility {#repository-visibility}
 
 Bzlmod is able to control which other repositories are visible from a given
-repository, check [repository names and strict
-deps](/external/module#repository_names_and_strict_deps) for more details.
+repository, check [repository names and strict deps](/external/module#repository_names_and_strict_deps) for more details.
 
 Here is a summary of repository visibilities from different types of
 repositories when also taking WORKSPACE into consideration.
@@ -739,8 +729,7 @@ repositories when also taking WORKSPACE into consideration.
 | WORKSPACE Repos | All visible | Not visible | Not visible | All visible |
 
 Note: For the root module, if a repository `@foo` is defined in WORKSPACE and
-`@foo` is also used as an [apparent repository
-name](/external/overview#apparent-repo-name) in MODULE.bazel, then `@foo`
+`@foo` is also used as an [apparent repository name](/external/overview#apparent-repo-name) in MODULE.bazel, then `@foo`
 refers to the one introduced in MODULE.bazel.
 
 Note: For a module extension generated repository `@bar`, if `@foo` is used as
@@ -785,9 +774,7 @@ the project. Take note of a few things when creating the source archive:
     GitHub isn't going to guarantee the checksum of source archives generated on
     demand. In short, URLs in the form of
     `https://github.com/<org>/<repo>/releases/download/...` is considered stable
-    while `https://github.com/<org>/<repo>/archive/...` is not. Check [GitHub
-    Archive Checksum
-    Outage](https://blog.bazel.build/2023/02/15/github-archive-checksum.html)
+    while `https://github.com/<org>/<repo>/archive/...` is not. Check [GitHub Archive Checksum Outage](https://blog.bazel.build/2023/02/15/github-archive-checksum.html)
     for more context.
 
 *   **Make sure the source tree follows the layout of the original repository.**
@@ -816,8 +803,7 @@ Pull Request.
 
 [bcr_contrib_guide]: https://github.com/bazelbuild/bazel-central-registry/tree/main/docs#contribute-a-bazel-module
 
-It is **highly recommended** to set up the [Publish to
-BCR](https://github.com/bazel-contrib/publish-to-bcr) GitHub App for your
+It is **highly recommended** to set up the [Publish to BCR](https://github.com/bazel-contrib/publish-to-bcr) GitHub App for your
 repository to automate the process of submitting your module to the BCR.
 
 ## Best practices {#best-practices}

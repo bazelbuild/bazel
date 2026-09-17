@@ -15,27 +15,15 @@
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
-import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import net.starlark.java.eval.Starlark;
 
 /** {@link Bootstrap} for Starlark objects related to cpp rules. */
 public class CcBootstrap implements Bootstrap {
-  private static final ImmutableSet<PackageIdentifier> allowedRepositories =
-      ImmutableSet.of(
-          PackageIdentifier.createUnchecked("_builtins", ""),
-          PackageIdentifier.createUnchecked("bazel_tools", ""),
-          PackageIdentifier.createUnchecked("local_config_cc", ""),
-          PackageIdentifier.createUnchecked("rules_cc", ""),
-          PackageIdentifier.createUnchecked("", "tools/build_defs/cc"));
-
   public CcBootstrap(
       CcModuleApi<
               ? extends StarlarkActionFactoryApi,
@@ -48,17 +36,7 @@ public class CcBootstrap implements Bootstrap {
 
   @Override
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
-    builder.put(
-        "cc_common",
-        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
-            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            Starlark.NONE,
-            allowedRepositories));
-    builder.put(
-        "CcToolchainConfigInfo",
-        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
-            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            Starlark.NONE,
-            allowedRepositories));
+    builder.put("cc_common", Starlark.NONE);
+    builder.put("CcToolchainConfigInfo", Starlark.NONE);
   }
 }

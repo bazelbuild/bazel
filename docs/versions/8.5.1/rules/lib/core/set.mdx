@@ -3,14 +3,14 @@ title: 'set'
 ---
 
 The built-in set type. A set is a mutable, iterable collection of unique values – the set's
-*elements*. The [type name](../globals/all#type) of a set is `"set"`.
+*elements*. The [type name](/versions/8.5.1/rules/lib/globals/all#type) of a set is `"set"`.
 
 Sets provide constant-time operations to insert, remove, or check for the presence of a value.
 Sets are implemented using a hash table, and therefore, just like keys of a
-[dictionary](../dict), elements of a set must be hashable. A value may be used as an
+[dictionary](/versions/8.5.1/rules/lib/core/dict), elements of a set must be hashable. A value may be used as an
 element of a set if and only if it may be used as a key of a dictionary.
 
-Sets may be constructed using the [`set()`](../globals/all#set) built-in
+Sets may be constructed using the [`set()`](/versions/8.5.1/rules/lib/globals/all#set) built-in
 function, which returns a new set containing the unique elements of its optional argument, which
 must be an iterable. Calling `set()` without an argument constructs an empty set. Sets
 have no literal syntax.
@@ -26,7 +26,7 @@ s = set(["a", "b", "c"])
 
 A set is iterable, and thus may be used as the operand of a `for` loop, a list
 comprehension, and the various built-in functions that operate on iterables. Its length can be
-retrieved using the [`len()`](../globals/all#len) built-in function, and the
+retrieved using the [`len()`](/versions/8.5.1/rules/lib/globals/all#len) built-in function, and the
 order of iteration is the order in which elements were first added to the set:
 
 ```

@@ -273,33 +273,6 @@ TEST_F(GetRcFileTest,
   EXPECT_THAT(parsed_rcs, IsEmpty());
 }
 
-TEST_F(GetRcFileTest, GetRcFilesWarnsAboutIgnoredMasterRcFiles) {
-  std::string workspace_rc;
-  ASSERT_TRUE(SetUpLegacyMasterRcFileInWorkspace("", &workspace_rc));
-  std::string binary_rc;
-  ASSERT_TRUE(SetUpLegacyMasterRcFileAlongsideBinary("", &binary_rc));
-
-  const CommandLine cmd_line = CommandLine(binary_path_, {}, "build", {});
-  std::string error = "check that this string is not modified";
-  std::vector<std::unique_ptr<RcFile>> parsed_rcs;
-
-  testing::internal::CaptureStderr();
-  const blaze_exit_code::ExitCode exit_code =
-      option_processor_->GetRcFiles(workspace_layout_.get(), workspace_, cwd_,
-                                    &cmd_line, &parsed_rcs, &error);
-  const std::string output = testing::internal::GetCapturedStderr();
-
-  EXPECT_EQ(blaze_exit_code::SUCCESS, exit_code);
-  EXPECT_EQ("check that this string is not modified", error);
-
-  // Expect that GetRcFiles outputs a warning about these files that are not
-  // read as expected.
-  EXPECT_THAT(output,
-              HasSubstr("The following rc files are no longer being read"));
-  EXPECT_THAT(output, HasSubstr(workspace_rc));
-  EXPECT_THAT(output, HasSubstr(binary_rc));
-}
-
 TEST_F(GetRcFileTest, GetRcFilesReadsCommandLineRc) {
   const std::string cmdline_rc_path =
       blaze_util::JoinPath(workspace_, "mybazelrc");
@@ -613,6 +586,57 @@ TEST_F(ParseOptionsTest, CommandLineBazelrcHasPriorityOverDefaultBazelrc) {
                    "--max_idle_secs=123\n"));
 }
 
+TEST_F(ParseOptionsTest, PlatformSpecificBazelrcOptions) {
+  std::string workspace_rc;
+  ASSERT_TRUE(
+      SetUpWorkspaceRcFile("startup --max_idle_secs=1\n"
+                           "startup:linux --max_idle_secs=2\n"
+                           "startup:macos --max_idle_secs=3\n"
+                           "startup:windows --max_idle_secs=4\n"
+                           "startup:freebsd --max_idle_secs=5\n"
+                           "startup:openbsd --max_idle_secs=6\n"
+                           "startup --max_idle_secs=7\n",
+                           &workspace_rc));
+
+  const std::vector<std::string> args = {binary_path_, "build"};
+  ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
+
+  int expected = 1;
+#if defined(__linux__)
+  expected = 2;
+#elif defined(__APPLE__)
+  expected = 3;
+#elif defined(_WIN32)
+  expected = 4;
+#elif defined(__FreeBSD__)
+  expected = 5;
+#elif defined(__OpenBSD__)
+  expected = 6;
+#endif
+
+  EXPECT_EQ(expected,
+            option_processor_->GetParsedStartupOptions()->max_idle_secs);
+
+  testing::internal::CaptureStderr();
+  option_processor_->PrintStartupOptionsProvenanceMessage();
+  const std::string output = testing::internal::GetCapturedStderr();
+
+  if (expected > 1) {
+    EXPECT_THAT(
+        output,
+        MatchesRegex(
+            "INFO: Reading 'startup' options from .*workspace.*bazelrc: "
+            "--max_idle_secs=1 --max_idle_secs=7 --max_idle_secs=" +
+            std::to_string(expected) + "\n"));
+  } else {
+    EXPECT_THAT(
+        output,
+        MatchesRegex(
+            "INFO: Reading 'startup' options from .*workspace.*bazelrc: "
+            "--max_idle_secs=1 --max_idle_secs=7\n"));
+  }
+}
+
 class BlazercImportTest : public ParseOptionsTest {
  protected:
   void TestBazelRcImportsMaintainsFlagOrdering(const std::string& import_type) {
@@ -854,6 +878,23 @@ TEST_F(BlazercImportTest, BazelRcTryImportDoesNotFallBackToLiteralPlaceholder) {
 
   const std::vector<std::string> args = {"bazel", "build"};
   ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
+}
+
+TEST_F(BlazercImportTest, WorkspaceRelativeImportFailsOutsideOfWorkspace) {
+  const std::string rc_path = blaze_util::JoinPath(cwd_, "mybazelrc");
+  ASSERT_TRUE(
+      blaze_util::WriteFile("import %workspace%/some_rc", rc_path, 0755));
+
+  const std::vector<std::string> args = {binary_path_, "--bazelrc=" + rc_path,
+                                         "build"};
+  std::string error;
+  // Use empty string for workspace to simulate being outside of a workspace
+  // directory.
+  const blaze_exit_code::ExitCode exit_code =
+      option_processor_->ParseOptions(args, "", cwd_, &error);
+
+  EXPECT_EQ(blaze_exit_code::BAD_ARGV, exit_code);
+  EXPECT_THAT(error, HasSubstr("This is because no workspace was found"));
 }
 
 TEST_F(BlazercImportTest, SuccessfulTryImportIfBazelVersion) {

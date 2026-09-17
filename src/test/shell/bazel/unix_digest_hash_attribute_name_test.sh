@@ -59,11 +59,16 @@ EOF
     setfattr -n user.checksum.sha256 -v "0x${build_file_hash}" BUILD
   fi
 
+  # Build the dummy target with xattr hash enabled.
+  # --noslim_profile is required, since the VFS xattr events can be very short
+  # and close together, causing Bazel to consolidate them into a combined
+  # event.
   bazel \
       --unix_digest_hash_attribute_name=user.checksum.sha256 \
       build \
       --profile=profile_log \
       --record_full_profiler_data \
+      --noslim_profile \
       //:foo || fail "Build failed"
   grep -q "VFS xattr.*BUILD" profile_log || \
       fail "Bazel did not perform getxattr() calls"

@@ -19,10 +19,12 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 
 /** The set of options for the Skyfocus feature. */
-public final class SkyfocusOptions extends OptionsBase {
+@OptionsClass
+public abstract class SkyfocusOptions extends OptionsBase {
 
   @Option(
       name = "experimental_enable_skyfocus",
@@ -32,7 +34,7 @@ public final class SkyfocusOptions extends OptionsBase {
       help =
           "If true, enable the use of --experimental_active_directories to reduce Bazel's memory"
               + " footprint for incremental builds. This feature is known as Skyfocus.")
-  public boolean skyfocusEnabled;
+  public abstract boolean getSkyfocusEnabled();
 
   @Option(
       name = "experimental_active_directories",
@@ -44,7 +46,7 @@ public final class SkyfocusOptions extends OptionsBase {
           "Active directories for Skyfocus and remote analysis caching. Specify as comma-separated"
               + " workspace root-relative paths. This is a stateful flag. Defining one persists it"
               + " for subsequent invocations, until it is redefined with a new set.")
-  public List<String> activeDirectories;
+  public abstract List<String> getActiveDirectories();
 
   @Option(
       name = "experimental_skyfocus_dump_keys",
@@ -55,7 +57,7 @@ public final class SkyfocusOptions extends OptionsBase {
       help =
           "For debugging Skyfocus. Dump the focused SkyKeys (roots, leafs, focused deps, focused"
               + " rdeps).")
-  public SkyfocusDumpOption dumpKeys;
+  public abstract SkyfocusDumpOption getDumpKeys();
 
   @Option(
       name = "experimental_skyfocus_dump_post_gc_stats",
@@ -65,7 +67,7 @@ public final class SkyfocusOptions extends OptionsBase {
       help =
           "For debugging Skyfocus. If enabled, trigger manual GC before/after focusing to report"
               + " heap sizes reductions. This will increase the Skyfocus latency.")
-  public boolean dumpPostGcStats;
+  public abstract boolean getDumpPostGcStats();
 
   /** Options to dump the state of the Skyframe graph before/after Skyfocus. */
   public enum SkyfocusDumpOption {
@@ -97,7 +99,7 @@ public final class SkyfocusOptions extends OptionsBase {
       help =
           "Strategies to handle potential incorrectness from changes beyond the frontier (i.e."
               + " outside the active directories)")
-  public FrontierViolationCheck frontierViolationCheck;
+  public abstract FrontierViolationCheck getFrontierViolationCheck();
 
   @Option(
       name = "experimental_frontier_violation_verbose",
@@ -105,7 +107,7 @@ public final class SkyfocusOptions extends OptionsBase {
       effectTags = OptionEffectTag.TERMINAL_OUTPUT,
       documentationCategory = OptionDocumentationCategory.LOGGING,
       help = "If true, Bazel will print instructions for fixing Skycache violations")
-  public boolean frontierViolationVerbose;
+  public abstract boolean getFrontierViolationVerbose();
 
   /**
    * Strategies for handing the "sad path" in Skyfocus and analysis caching, where it needs to

@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -27,6 +26,7 @@ import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -35,12 +35,16 @@ import java.util.List;
  */
 class TargetCycleReporter extends AbstractLabelCycleReporter {
 
-  private static final Predicate<SkyKey> CONFIGURED_TARGET_OR_TRANSITIVE_RDEP =
+  private static final Predicate<SkyKey> IS_TARGET_OR_ASPECT =
       Predicates.or(
           SkyFunctions.isSkyFunction(SkyFunctions.CONFIGURED_TARGET),
           SkyFunctions.isSkyFunction(SkyFunctions.ASPECT),
           SkyFunctions.isSkyFunction(SkyFunctions.TOP_LEVEL_ASPECTS),
-          SkyFunctions.isSkyFunction(TransitiveTargetKey.NAME),
+          SkyFunctions.isSkyFunction(TransitiveTargetKey.NAME));
+
+  private static final Predicate<SkyKey> CONFIGURED_TARGET_OR_TRANSITIVE_RDEP =
+      Predicates.or(
+          IS_TARGET_OR_ASPECT,
           SkyFunctions.isSkyFunction(SkyFunctions.PREPARE_ANALYSIS_PHASE),
           SkyFunctions.isSkyFunction(SkyFunctions.BUILD_DRIVER));
 
@@ -50,16 +54,13 @@ class TargetCycleReporter extends AbstractLabelCycleReporter {
 
   @Override
   protected boolean shouldSkipOnPathToCycle(SkyKey key) {
-    return SkyFunctions.PREPARE_ANALYSIS_PHASE.equals(key.functionName())
-        // BuildDriverKeys don't provide any relevant info for the end user.
-        || SkyFunctions.BUILD_DRIVER.equals(key.functionName());
+    return !IS_TARGET_OR_ASPECT.apply(key);
   }
 
   @Override
   protected boolean canReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo) {
     return CONFIGURED_TARGET_OR_TRANSITIVE_RDEP.apply(topLevelKey)
-        && cycleInfo.getPathToCycle().stream().allMatch(CONFIGURED_TARGET_OR_TRANSITIVE_RDEP)
-        && cycleInfo.getCycle().stream().allMatch(CONFIGURED_TARGET_OR_TRANSITIVE_RDEP);
+        && cycleInfo.getCycle().stream().allMatch(IS_TARGET_OR_ASPECT);
   }
 
   @Override
@@ -87,7 +88,7 @@ class TargetCycleReporter extends AbstractLabelCycleReporter {
   @Override
   protected String getAdditionalMessageAboutCycle(
       ExtendedEventHandler eventHandler, SkyKey topLevelKey, CycleInfo cycleInfo) {
-    List<SkyKey> keys = Lists.newArrayList();
+    List<SkyKey> keys = new ArrayList<>();
     if (!cycleInfo.getPathToCycle().isEmpty()) {
       if (!shouldSkipOnPathToCycle(topLevelKey)) {
         keys.add(topLevelKey);

@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.common.options.Options;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.function.Predicate;
@@ -116,11 +117,11 @@ public final class TestTargetUtilsTest extends PackageLoadingTestCase {
 
   @Test
   public void testFilterByLang() {
-    LoadingOptions options = new LoadingOptions();
-    options.testLangFilterList = ImmutableList.of("positive", "-negative");
-    options.testSizeFilterSet = ImmutableSet.of();
-    options.testTimeoutFilterSet = ImmutableSet.of();
-    options.testTagFilterList = ImmutableList.of();
+    LoadingOptions options = Options.getDefaults(LoadingOptions.class);
+    options.setTestLangFilterList(ImmutableList.of("positive", "-negative"));
+    options.setTestSizeFilterSet(ImmutableSet.of());
+    options.setTestTimeoutFilterSet(ImmutableSet.of());
+    options.setTestTagFilterList(ImmutableList.of());
     TestFilter filter = TestFilter.forOptions(options);
     Package pkg = mock(Package.class);
     RuleClass ruleClass = mock(RuleClass.class);
@@ -198,6 +199,30 @@ public final class TestTargetUtilsTest extends PackageLoadingTestCase {
 
     assertThat(result.first).containsExactly("tag1", "tag2", "tag3");
     assertThat(result.second).containsExactly("tag1", "tag3");
+  }
+
+  // Regression test for b/489243968.
+  @Test
+  public void testStarlarkRuleNamedTestSuite_notExpandedLikeTestSuite() throws Exception {
+    scratch.file(
+        "test/test_suite.bzl",
+        """
+        # Custom Starlark rule whose name happens to be test_suite.
+        test_suite = rule(
+            implementation = lambda ctx: [],
+        )
+        """);
+
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:test_suite.bzl", "test_suite")
+
+        test_suite(name = "not_a_real_test_suite")
+        """);
+
+    Target target = getTarget("//test:not_a_real_test_suite");
+    assertExpandedSuitesSkyframe(ImmutableList.of(target), ImmutableList.of(target));
   }
 
   private void assertExpandedSuitesSkyframe(Iterable<Target> expected, Collection<Target> suites)

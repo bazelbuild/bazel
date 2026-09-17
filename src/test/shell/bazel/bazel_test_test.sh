@@ -113,6 +113,15 @@ EOF
     >& $TEST_log || fail "Running sh_test failed"
   expect_log "TEST_TMPDIR=$TEST_TMPDIR"
   expect_log "HOME=$TEST_TMPDIR"
+
+  add_to_bazelrc "test --test_tmpdir=${TEST_TMPDIR}/from_bazelrc"
+  bazel test --nocache_test_results --test_output=all --test_tmpdir= //foo:bar_test \
+    >& $TEST_log || fail "Running sh_test with empty --test_tmpdir failed"
+  expect_log "TEST_TMPDIR=/.*"
+  expect_log "HOME=/.*"
+  expect_not_log "from_bazelrc"
+  [[ ! -e _tmp ]] || fail "Empty --test_tmpdir created _tmp in the workspace"
+  write_default_bazelrc
 }
 
 function test_env_vars() {
@@ -1256,7 +1265,7 @@ EOF
   expect_log "cannot set env variable TEST_NAME=foo because TEST_NAME is reserved"
 }
 
-function test_run_from_external_repo_sibling_repository_layout() {
+function test_run_from_external_repo() {
   cat <<EOF > MODULE.bazel
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
@@ -1277,10 +1286,10 @@ py_test(
 EOF
   touch a/x.py
 
-  bazel test --experimental_sibling_repository_layout @a//:x &> $TEST_log \
+  bazel test @a//:x &> $TEST_log \
       || fail "expected success"
 
-  cp $(testlogs_dir +local_repository+a)/x/test.xml $TEST_log
+  cp bazel-testlogs/external/+local_repository+a/x/test.xml $TEST_log
   expect_log "<testsuite name=\"+local_repository+a/x\""
   expect_log "<testcase name=\"+local_repository+a/x\""
 }

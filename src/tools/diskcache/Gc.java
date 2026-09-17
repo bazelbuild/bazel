@@ -30,6 +30,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import java.time.Duration;
 import java.util.Optional;
@@ -42,7 +43,8 @@ public final class Gc {
   private Gc() {}
 
   /** Command line options. */
-  public static final class Options extends OptionsBase {
+  @OptionsClass
+  public abstract static class Options extends OptionsBase {
 
     @Option(
         name = "disk_cache",
@@ -50,7 +52,7 @@ public final class Gc {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "Path to disk cache.")
-    public String diskCache;
+    public abstract String getDiskCache();
 
     @Option(
         name = "max_size",
@@ -61,7 +63,7 @@ public final class Gc {
         help =
             "The target size for the disk cache. If set to a positive value, older entries will be"
                 + " deleted as required to reach this size.")
-    public long maxSize;
+    public abstract long getMaxSize();
 
     @Option(
         name = "max_age",
@@ -71,7 +73,7 @@ public final class Gc {
         help =
             "The target age for the disk cache. If set to a positive value, entries exceeding this"
                 + " age will be deleted.")
-    public Duration maxAge;
+    public abstract Duration getMaxAge();
   }
 
   private static final ExecutorService executorService =
@@ -85,18 +87,18 @@ public final class Gc {
 
     Options options = op.getOptions(Options.class);
 
-    if (options.diskCache == null) {
+    if (options.getDiskCache() == null) {
       System.err.println("--disk_cache must be specified.");
       System.exit(1);
     }
 
-    if (options.maxSize <= 0 && options.maxAge.isZero()) {
+    if (options.getMaxSize() <= 0 && options.getMaxAge().isZero()) {
       System.err.println(
           "At least one of --max_size or --max_age must be set to a positive value.");
       System.exit(1);
     }
 
-    var root = getFileSystem().getPath(options.diskCache);
+    var root = getFileSystem().getPath(options.getDiskCache());
     if (!root.isDirectory()) {
       System.err.println("Expected --disk_cache to exist and be a directory.");
       System.exit(1);
@@ -104,8 +106,8 @@ public final class Gc {
 
     var policy =
         new CollectionPolicy(
-            options.maxSize == 0 ? Optional.empty() : Optional.of(options.maxSize),
-            options.maxAge.isZero() ? Optional.empty() : Optional.of(options.maxAge));
+            options.getMaxSize() == 0 ? Optional.empty() : Optional.of(options.getMaxSize()),
+            options.getMaxAge().isZero() ? Optional.empty() : Optional.of(options.getMaxAge()));
 
     var gc = new DiskCacheGarbageCollector(root, executorService, policy);
 

@@ -28,15 +28,17 @@ import javax.annotation.Nullable;
  */
 public final class Program {
 
+  private final FileOptions options;
   private final Resolver.Function body;
   private final ImmutableList<String> loads;
   private final ImmutableList<Location> loadLocations;
   private final ImmutableMap<String, DocComments> docCommentsMap;
   private final ImmutableList<Comment> unusedDocCommentLines;
-  // Set by compileFile/compileExpr if options.resolveTypeSyntax() is true; or by withTypeTable()
+  // Set by withTypeTable()
   @Nullable private final TypeTable typeTable;
 
   private Program(
+      FileOptions options,
       Resolver.Function body,
       ImmutableList<String> loads,
       ImmutableList<Location> loadLocations,
@@ -47,6 +49,7 @@ public final class Program {
         loads.size() == loadLocations.size(), "each load must have a corresponding location");
 
     // TODO(adonovan): compile here.
+    this.options = options;
     this.body = body;
     this.loads = loads;
     this.loadLocations = loadLocations;
@@ -58,12 +61,18 @@ public final class Program {
   /** Returns a copy of this program with the specified type table. */
   public Program withTypeTable(@Nullable TypeTable typeTable) {
     return new Program(
+        this.options,
         this.body,
         this.loads,
         this.loadLocations,
         this.docCommentsMap,
         this.unusedDocCommentLines,
         typeTable);
+  }
+
+  /** Returns the file options under which this program was parsed and compiled. */
+  public FileOptions getOptions() {
+    return options;
   }
 
   // TODO(adonovan): eliminate once Eval no longer needs access to syntax.
@@ -101,6 +110,17 @@ public final class Program {
   }
 
   /**
+   * Returns true if this program does not contain any top-level expressions that could mutate
+   * collections (e.g., calls, index assignments, or augmented assignments).
+   *
+   * <p>This is a heuristic used by the evaluator to safely optimize collection literals (lists and
+   * dicts) into compact, immutable implementations to save memory.
+   */
+  public boolean isMutationFreeAtTopLevel() {
+    return body.isMutationFreeAtTopLevel();
+  }
+
+  /**
    * Returns the static type table of this compiled program, or null if type resolution was not
    * performed.
    */
@@ -120,35 +140,18 @@ public final class Program {
    *   <li>in case of error, appending to {@code file.errors()}.
    * </ul>
    *
+   * @param loader A loader for processing load() statements; used by type tagging/checking; must be
+   *     specified if type tagging is enabled and the file contains load() statements.
    * @throws SyntaxError.Exception in case of resolution error, or if the syntax tree already
    *     contained syntax scan/parse errors. Resolution errors are added to {@code file.errors()}.
    */
-  public static Program compileFile(StarlarkFile file, Resolver.Module env)
+  public static Program compileFile(
+      StarlarkFile file, Resolver.Module env, @Nullable TypeTagger.Loader loader)
       throws SyntaxError.Exception {
     Resolver.resolveFile(file, env);
     if (!file.ok()) {
       throw new SyntaxError.Exception(file.errors());
     }
-    @Nullable TypeTable typeTable = null;
-
-    if (file.getOptions().resolveTypeSyntax()) {
-      typeTable = TypeTagger.tagFile(file, env);
-      if (!typeTable.ok()) {
-        file.errors.addAll(typeTable.errors());
-        throw new SyntaxError.Exception(typeTable.errors());
-      }
-
-      if (file.getOptions().staticTypeChecking()) {
-        TypeChecker.checkFile(file, typeTable, env);
-        if (!typeTable.ok()) {
-          file.errors.addAll(typeTable.errors());
-          throw new SyntaxError.Exception(typeTable.errors());
-        }
-      }
-    }
-
-    // TODO: #28037 - Call the static type checker when --experimental_starlark_type_checking is
-    // enabled. Blocked on having the type checker tolerate all AST nodes.
 
     // Extract load statements.
     ImmutableList.Builder<String> loads = ImmutableList.builder();
@@ -173,12 +176,18 @@ public final class Program {
             .collect(toImmutableList());
 
     return new Program(
+        file.getOptions(),
         file.getResolvedFunction(),
         loads.build(),
         loadLocations.build(),
         docCommentsMap,
         unusedDocCommentLines,
-        typeTable);
+        /* typeTable= */ null);
+  }
+
+  public static Program compileFile(StarlarkFile file, Resolver.Module env)
+      throws SyntaxError.Exception {
+    return compileFile(file, env, /* loader= */ null);
   }
 
   /**
@@ -191,27 +200,13 @@ public final class Program {
   public static Program compileExpr(Expression expr, Resolver.Module module, FileOptions options)
       throws SyntaxError.Exception {
     Resolver.Function body = Resolver.resolveExpr(expr, module, options);
-    @Nullable TypeTable typeTable = null;
-
-    if (options.resolveTypeSyntax()) {
-      typeTable = TypeTagger.tagExpr(expr, body, module);
-      if (typeTable.ok() && options.staticTypeChecking()) {
-        StarlarkType exprType = TypeChecker.inferTypeOf(expr, typeTable, module);
-        if (typeTable.ok()) {
-          TypeTagger.tagExprFunction(body, exprType, typeTable);
-        }
-      }
-      if (!typeTable.ok()) {
-        throw new SyntaxError.Exception(typeTable.errors());
-      }
-    }
-
     return new Program(
+        options,
         body,
         /* loads= */ ImmutableList.of(),
         /* loadLocations= */ ImmutableList.of(),
         /* docCommentsMap= */ ImmutableMap.of(),
         /* unusedDocCommentLines= */ ImmutableList.of(),
-        typeTable);
+        /* typeTable= */ null);
   }
 }

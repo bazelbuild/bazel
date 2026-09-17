@@ -108,7 +108,7 @@ public class ModExecutor {
     this.printer =
         new PrintWriter(
             new OutputStreamWriter(
-                outputStream, options.charset == ModOptions.Charset.UTF8 ? UTF_8 : US_ASCII));
+                outputStream, options.getCharset() == ModOptions.Charset.UTF8 ? UTF_8 : US_ASCII));
     // Easier lookup table for repo imports by module.
     // It is updated after pruneByDepthAndLink to filter out pruned modules.
     this.extensionRepoImports = computeRepoImportsTable(depGraph.keySet());
@@ -122,7 +122,7 @@ public class ModExecutor {
     } else {
       result = expandPathsToTargets(from, targets, false);
     }
-    OutputFormatters.getFormatter(options.outputFormat)
+    OutputFormatters.getFormatter(options.getOutputFormat())
         .output(result, depGraph, extensionRepos, extensionRepoImports, printer, options);
   }
 
@@ -145,7 +145,7 @@ public class ModExecutor {
       printer.flush();
       return;
     }
-    OutputFormatters.getFormatter(options.outputFormat)
+    OutputFormatters.getFormatter(options.getOutputFormat())
         .output(result, depGraph, extensionRepos, extensionRepoImports, printer, options);
   }
 
@@ -168,12 +168,12 @@ public class ModExecutor {
       printer.flush();
       return;
     }
-    OutputFormatters.getFormatter(options.outputFormat)
+    OutputFormatters.getFormatter(options.getOutputFormat())
         .output(result, depGraph, extensionRepos, extensionRepoImports, printer, options);
   }
 
   public void showRepo(ImmutableMap<String, RepoDefinitionValue> targetRepoDefinitions) {
-    var formatter = new RepoOutputFormatter(printer, outputStream, options.outputFormat);
+    var formatter = new RepoOutputFormatter(printer, outputStream, options.getOutputFormat());
     for (Map.Entry<String, RepoDefinitionValue> e : targetRepoDefinitions.entrySet()) {
       formatter.print(e.getKey(), e.getValue());
     }
@@ -216,7 +216,7 @@ public class ModExecutor {
 
     // Traverse up from the found path to the root, adding the path to the result graph.
     ImmutableSortedSet<ModuleKey> rootDirectChildren =
-        depGraph.get(ModuleKey.ROOT).getAllDeps(options.includeUnused).keySet();
+        depGraph.get(ModuleKey.ROOT).getAllDeps(options.getIncludeUnused()).keySet();
 
     ModuleKey currentChild = pathChild;
     ModuleKey currentParent = pathParent;
@@ -297,7 +297,7 @@ public class ModExecutor {
 
       AugmentedModule module = depGraph.get(currentModuleKey);
       ImmutableSortedSet<ModuleKey> dependencies =
-          module.getAllDeps(options.includeUnused).keySet().stream()
+          module.getAllDeps(options.getIncludeUnused()).keySet().stream()
               .filter(this::filterBuiltin)
               .collect(toImmutableSortedSet(ModuleKey.LEXICOGRAPHIC_COMPARATOR));
 
@@ -338,7 +338,7 @@ public class ModExecutor {
     // "Pinned" children are the modules that are explicitly requested to start the graph from.
     ResultNode.Builder rootBuilder = ResultNode.builder();
     ImmutableSet<ModuleKey> rootDirectChildren =
-        depGraph.get(ModuleKey.ROOT).getAllDeps(options.includeUnused).keySet();
+        depGraph.get(ModuleKey.ROOT).getAllDeps(options.getIncludeUnused()).keySet();
     ImmutableSortedSet<ModuleKey> pinnedChildren =
         getPinnedChildrenOfRootInTheResultGraph(rootDirectChildren, from).stream()
             .filter(this::filterBuiltin)
@@ -362,7 +362,7 @@ public class ModExecutor {
       ResultNode.Builder nodeBuilder = ResultNode.builder();
 
       ImmutableSortedSet<ModuleKey> dependencies =
-          module.getAllDeps(options.includeUnused).keySet().stream()
+          module.getAllDeps(options.getIncludeUnused()).keySet().stream()
               .filter(this::filterBuiltin)
               .collect(toImmutableSortedSet(ModuleKey.LEXICOGRAPHIC_COMPARATOR));
 
@@ -463,12 +463,12 @@ public class ModExecutor {
         ModuleKey childKey = e.getKey();
         IsExpanded childExpanded = e.getValue().isExpanded();
         if (notCycle(childKey)) {
-          if (depth < options.depth) {
+          if (depth < options.getDepth()) {
             visitVisible(childKey, depth + 1, moduleKey, childExpanded);
           } else if (!targets.isComplete()) {
             visitDetached(childKey, moduleKey, moduleKey, childExpanded);
           }
-        } else if (options.cycles) {
+        } else if (options.getCycles()) {
           nodeBuilder.addCycle(childKey);
         }
       }
@@ -505,7 +505,7 @@ public class ModExecutor {
         IsExpanded childExpanded = e.getValue().isExpanded();
         if (notCycle(childKey)) {
           visitDetached(childKey, moduleKey, lastVisibleParentKey, childExpanded);
-        } else if (options.cycles) {
+        } else if (options.getCycles()) {
           nodeBuilder.addCycle(childKey);
         }
       }
@@ -587,11 +587,11 @@ public class ModExecutor {
 
   private boolean filterUnused(ModuleKey key) {
     AugmentedModule module = depGraph.get(key);
-    return options.includeUnused || module.isUsed();
+    return options.getIncludeUnused() || module.isUsed();
   }
 
   private boolean filterBuiltin(ModuleKey key) {
-    return options.includeBuiltin || !isBuiltin(key);
+    return options.getIncludeBuiltin() || !isBuiltin(key);
   }
 
   private String tagToFunctionArgs(AttributeValues attributes) {

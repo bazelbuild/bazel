@@ -37,6 +37,8 @@ import com.google.devtools.build.lib.server.CommandProtos.RunRequest;
 import com.google.devtools.build.lib.server.CommandProtos.RunResponse;
 import com.google.devtools.build.lib.server.CommandProtos.ServerInfo;
 import com.google.devtools.build.lib.server.CommandProtos.StartupOption;
+import com.google.devtools.build.lib.server.CommandProtos.TerminalSizeRequest;
+import com.google.devtools.build.lib.server.CommandProtos.TerminalSizeResponse;
 import com.google.devtools.build.lib.server.FailureDetails.Command;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
@@ -514,7 +516,8 @@ public class CommandServer implements GrpcCommandServer.Callback {
                 Optional.of(startupOptions.build()),
                 commandManager::getIdleTaskResults,
                 request.getCommandExtensionsList(),
-                new RpcCommandExtensionReporter(command.getId(), responseCookie, responder));
+                new RpcCommandExtensionReporter(command.getId(), responseCookie, responder),
+                command.getTerminalSizeMonitor());
       } catch (OptionsParsingException e) {
         rpcOutErr.printErrLn(e.getMessage());
         result =
@@ -613,6 +616,30 @@ public class CommandServer implements GrpcCommandServer.Callback {
     } catch (IOException e) {
       // There is no one to report the failure to.
       logger.atInfo().withCause(e).log("Error while sending CancelResponse");
+    }
+  }
+
+  @Override
+  public void updateTerminalSize(byte[] serializedRequest, GrpcCommandServer.Responder responder) {
+    TerminalSizeRequest request;
+    try {
+      request =
+          TerminalSizeRequest.parseFrom(serializedRequest, ExtensionRegistry.getEmptyRegistry());
+    } catch (InvalidProtocolBufferException e) {
+      // Programming error: the SC proto must remain backwards-compatible with the LC proto.
+      throw new IllegalStateException(e);
+    }
+    logger.atInfo().log("Got TerminalSizeRequest for command id %s", request.getCommandId());
+    try {
+      if (isValidRequestCookie(request.getCookie())) {
+        commandManager.doUpdateTerminalSize(request);
+        responder.onNext(
+            TerminalSizeResponse.newBuilder().setCookie(responseCookie).build().toByteArray());
+      }
+      responder.onCompleted();
+    } catch (IOException e) {
+      // There is no one to report the failure to.
+      logger.atInfo().withCause(e).log("Error while sending TerminalSizeResponse");
     }
   }
 

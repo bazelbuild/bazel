@@ -81,7 +81,7 @@ public interface FeatureFlagValue {
     BuildOptions builtResult = result.build();
     var configFeatureFlagOptions = builtResult.get(ConfigFeatureFlagOptions.class);
     if (configFeatureFlagOptions != null) {
-      configFeatureFlagOptions.allFeatureFlagValuesArePresent = true;
+      configFeatureFlagOptions.setAllFeatureFlagValuesArePresent(true);
     }
     return builtResult;
   }
@@ -98,7 +98,7 @@ public interface FeatureFlagValue {
     var originalConfigFeatureFlagOptions = original.get(ConfigFeatureFlagOptions.class);
     boolean changeAllValuesPresentOption =
         originalConfigFeatureFlagOptions != null
-            && originalConfigFeatureFlagOptions.allFeatureFlagValuesArePresent;
+            && originalConfigFeatureFlagOptions.getAllFeatureFlagValuesArePresent();
 
     // What do we need to change?
     original.getStarlarkOptions().entrySet().stream()
@@ -125,7 +125,7 @@ public interface FeatureFlagValue {
     BuildOptions builtResult = result.build();
     var builtConfigFeatureFlagOptions = builtResult.get(ConfigFeatureFlagOptions.class);
     if (builtConfigFeatureFlagOptions != null) {
-      builtConfigFeatureFlagOptions.allFeatureFlagValuesArePresent = false;
+      builtConfigFeatureFlagOptions.setAllFeatureFlagValuesArePresent(false);
     }
     return builtResult;
   }

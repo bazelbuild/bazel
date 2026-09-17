@@ -153,7 +153,7 @@ public final class ResolvedTargets<T> {
     @CanIgnoreReturnValue
     public Builder<T> filter(Predicate<T> predicate) {
       Set<T> oldTargets = targets;
-      targets = Sets.newLinkedHashSet();
+      targets = new LinkedHashSet<>();
       for (T target : oldTargets) {
         if (predicate.apply(target)) {
           add(target);

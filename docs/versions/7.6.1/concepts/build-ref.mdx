@@ -17,8 +17,7 @@ its root; such a boundary marker file could be `MODULE.bazel`, `REPO.bazel`, or
 in legacy contexts, `WORKSPACE` or `WORKSPACE.bazel`.
 
 The repo in which the current Bazel command is being run is called the _main
-repo_. Other, (external) repos are defined by _repo rules_; see [external
-dependencies overview](/versions/7.6.1/external/overview) for more information.
+repo_. Other, (external) repos are defined by _repo rules_; see [external dependencies overview](/versions/7.6.1/external/overview) for more information.
 
 ## Workspace {#workspace}
 
@@ -95,9 +94,4 @@ have three properties: the list of packages they contain, their name, and other
 package groups they include. The only allowed ways to refer to them are from the
 `visibility` attribute of rules or from the `default_visibility` attribute of
 the `package` function; they do not generate or consume files. For more
-information, refer to the [`package_group`
-documentation](/versions/7.6.1/reference/be/functions#package_group).
-
-<a class="button button-with-icon button-primary" href="/versions/7.6.1/concepts/labels">
-  Labels<span class="material-icons icon-after" aria-hidden="true">arrow_forward</span>
-</a>
+information, refer to the [`package_group` documentation](/versions/7.6.1/reference/be/functions#package_group).

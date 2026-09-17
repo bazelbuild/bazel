@@ -166,8 +166,8 @@ public class ModExecutorTest {
             .buildOrThrow();
 
     ModOptions options = ModOptions.getDefaultOptions();
-    options.cycles = true;
-    options.depth = 1;
+    options.setCycles(true);
+    options.setDepth(1);
     ModExecutor executor = new ModExecutor(depGraph, options, outputStream);
     ImmutableSet<ModuleKey> targets =
         ImmutableSet.of(createModuleKey("eee", "1.0"), createModuleKey("hhh", "1.0"));
@@ -242,8 +242,8 @@ public class ModExecutorTest {
             .buildOrThrow();
 
     ModOptions options = ModOptions.getDefaultOptions();
-    options.cycles = true;
-    options.depth = 1;
+    options.setCycles(true);
+    options.setDepth(1);
     ModExecutor executor = new ModExecutor(depGraph, options, outputStream);
     ImmutableSet<ModuleKey> targets = ImmutableSet.of(createModuleKey("eee", "1.0"));
 
@@ -304,8 +304,8 @@ public class ModExecutorTest {
             .buildOrThrow();
 
     ModOptions options = ModOptions.getDefaultOptions();
-    options.verbose = true;
-    options.includeUnused = true;
+    options.setVerbose(true);
+    options.setIncludeUnused(true);
 
     OutputFormatter formatter = OutputFormatters.getFormatter(OutputFormat.TEXT);
     assertThat(formatter.getExtraResolutionExplanation(ModuleKey.ROOT, null, depGraph, options))
@@ -454,11 +454,11 @@ public class ModExecutorTest {
             ResultNode.builder().setTarget(true).build());
 
     ModOptions options = ModOptions.getDefaultOptions();
-    options.cycles = true;
-    options.includeUnused = true;
-    options.verbose = true;
-    options.depth = 1;
-    options.outputFormat = OutputFormat.TEXT;
+    options.setCycles(true);
+    options.setIncludeUnused(true);
+    options.setVerbose(true);
+    options.setDepth(1);
+    options.setOutputFormat(OutputFormat.TEXT);
 
     File file = File.createTempFile("output_text", "txt");
     file.deleteOnExit();
@@ -500,7 +500,7 @@ public class ModExecutorTest {
             "")
         .inOrder();
 
-    options.outputFormat = OutputFormat.GRAPH;
+    options.setOutputFormat(OutputFormat.GRAPH);
     File fileGraph = File.createTempFile("output_graph", "txt");
     fileGraph.deleteOnExit();
     try (var outputStream = new FileOutputStream(fileGraph)) {
@@ -672,8 +672,8 @@ public class ModExecutorTest {
             .build();
 
     ModOptions options = ModOptions.getDefaultOptions();
-    options.outputFormat = OutputFormat.TEXT;
-    options.extensionInfo = ExtensionShow.ALL;
+    options.setOutputFormat(OutputFormat.TEXT);
+    options.setExtensionInfo(ExtensionShow.ALL);
 
     try (var outputStream = new FileOutputStream(file)) {
       ModExecutor executor =
@@ -712,7 +712,7 @@ public class ModExecutorTest {
             "")
         .inOrder();
 
-    options.outputFormat = OutputFormat.GRAPH;
+    options.setOutputFormat(OutputFormat.GRAPH);
     File fileGraph = File.createTempFile("output_graph", "txt");
     fileGraph.deleteOnExit();
 
@@ -762,8 +762,8 @@ public class ModExecutorTest {
             "}")
         .inOrder();
 
-    options.outputFormat = OutputFormat.TEXT;
-    options.depth = 1;
+    options.setOutputFormat(OutputFormat.TEXT);
+    options.setDepth(1);
     File fileText2 = File.createTempFile("output_text2", "txt");
     fileText2.deleteOnExit();
     try (var outputStream = new FileOutputStream(fileText2)) {
@@ -886,7 +886,7 @@ public class ModExecutorTest {
             .buildOrThrow();
 
     ModOptions options = ModOptions.getDefaultOptions();
-    options.outputFormat = OutputFormat.TEXT;
+    options.setOutputFormat(OutputFormat.TEXT);
 
     File file = File.createTempFile("output_text", "txt");
     file.deleteOnExit();
@@ -1010,8 +1010,8 @@ public class ModExecutorTest {
             .buildOrThrow();
 
     ModOptions options = ModOptions.getDefaultOptions();
-    options.outputFormat = OutputFormat.TEXT;
-    options.cycles = true;
+    options.setOutputFormat(OutputFormat.TEXT);
+    options.setCycles(true);
 
     File file = File.createTempFile("output_text_cycle", "txt");
     file.deleteOnExit();
@@ -1063,8 +1063,8 @@ public class ModExecutorTest {
             .build();
 
     ModOptions options = ModOptions.getDefaultOptions();
-    options.outputFormat = OutputFormat.TEXT;
-    options.extensionInfo = ExtensionShow.ALL;
+    options.setOutputFormat(OutputFormat.TEXT);
+    options.setExtensionInfo(ExtensionShow.ALL);
 
     File file = File.createTempFile("output_text_repro", "txt");
     file.deleteOnExit();
@@ -1154,9 +1154,9 @@ public class ModExecutorTest {
             .build();
 
     ModOptions options = ModOptions.getDefaultOptions();
-    options.outputFormat = OutputFormat.TEXT;
-    options.extensionInfo = ExtensionShow.ALL;
-    options.cycles = true;
+    options.setOutputFormat(OutputFormat.TEXT);
+    options.setExtensionInfo(ExtensionShow.ALL);
+    options.setCycles(true);
 
     File file = File.createTempFile("output_text_cycle_ext", "txt");
     file.deleteOnExit();

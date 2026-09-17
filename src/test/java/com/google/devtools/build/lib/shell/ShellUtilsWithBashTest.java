@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.shell.ShellUtils.tokenize;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -51,7 +50,7 @@ public class ShellUtilsWithBashTest {
     }
     // We can't use stdout.split("\n") here,
     // because String.split() ignores trailing empty strings.
-    ArrayList<String> words = Lists.newArrayList();
+    ArrayList<String> words = new ArrayList<>();
     int index;
     while ((index = stdout.indexOf('\n')) >= 0) {
       words.add(stdout.substring(0, index));

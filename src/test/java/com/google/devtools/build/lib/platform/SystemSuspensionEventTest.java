@@ -52,7 +52,8 @@ public final class SystemSuspensionEventTest extends BuildIntegrationTestCase {
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     return super.getRuntimeBuilder()
         .addBlazeModule(eventListener)
-        .addBlazeModule(new SystemSuspensionModule());
+        .addBlazeModule(new SystemSuspensionModule())
+        .addBlazeService(new PlatformNativeDepsServiceImpl());
   }
 
   @Test

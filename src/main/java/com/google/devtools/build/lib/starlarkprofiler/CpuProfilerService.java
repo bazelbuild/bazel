@@ -14,11 +14,13 @@
 package com.google.devtools.build.lib.starlarkprofiler;
 
 import com.google.devtools.build.lib.runtime.BlazeService;
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.CpuProfilerNativeSupport;
 
 /** A {@link BlazeService} that provides access to {@link CpuProfilerNativeSupport}. */
 @SuppressWarnings("GoodTime")
+@SkybridgeInterface
 public interface CpuProfilerService extends BlazeService {
   /**
    * Returns the {@link CpuProfilerNativeSupport} implementation, or null if one isn't available for

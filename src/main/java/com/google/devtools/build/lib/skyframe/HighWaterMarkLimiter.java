@@ -19,6 +19,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.cmdline.LabelNameDeduper;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetInterner;
 import com.google.devtools.build.lib.runtime.MemoryPressure.MemoryPressureStats;
 import com.google.devtools.build.lib.runtime.MemoryPressureEvent;
 import com.google.devtools.build.lib.runtime.MemoryPressureOptions;
@@ -54,14 +56,14 @@ public final class HighWaterMarkLimiter {
     this.skyframeExecutor = checkNotNull(skyframeExecutor);
     this.syscallCache = checkNotNull(syscallCache);
     this.options = checkNotNull(options);
-    this.minorGcDropsRemaining = options.skyframeHighWaterMarkMinorGcDropsPerInvocation;
-    this.fullGcDropsRemaining = options.skyframeHighWaterMarkFullGcDropsPerInvocation;
+    this.minorGcDropsRemaining = options.getSkyframeHighWaterMarkMinorGcDropsPerInvocation();
+    this.fullGcDropsRemaining = options.getSkyframeHighWaterMarkFullGcDropsPerInvocation();
   }
 
   @Subscribe
   void handle(MemoryPressureEvent event) {
     int actual = (int) ((event.tenuredSpaceUsedBytes() * 100L) / event.tenuredSpaceMaxBytes());
-    int threshold = options.skyframeHighWaterMarkMemoryThreshold;
+    int threshold = options.getSkyframeHighWaterMarkMemoryThreshold();
     if (actual < threshold) {
       return;
     }
@@ -94,16 +96,29 @@ public final class HighWaterMarkLimiter {
           actual, threshold, remainingStat);
     }
 
+    // These caches trade temporary memory for CPU savings. Therefore if we're under memory
+    // pressure, clearing them is definitely a good idea.
     skyframeExecutor.dropUnnecessaryTemporarySkyframeState();
     syscallCache.clear();
+
+    // These caches trade temporary memory for [non-deterministically hopeful!] retained memory
+    // savings. If we're under memory pressure, clearing them could either be a good idea or a bad
+    // idea. If they happen to be currently dominating a lot of memory, then clearing them is
+    // probably good. But if they happen to currently reference a lot of memory retained by popular
+    // objects, then clearing them is bad because it means that future creations of equivalent
+    // objects won't get deduped to the original instance.
+    // TODO(bazel-team): Consider being fancy here and instead removing just the entries for
+    // low-frequency objects.
+    NestedSetInterner.clear();
+    LabelNameDeduper.clear();
   }
 
   /** Populate fields about cache drops. */
   public void populateStats(MemoryPressureStats.Builder memoryPressureStatsBuilder) {
     memoryPressureStatsBuilder
         .setMinorGcDrops(
-            options.skyframeHighWaterMarkMinorGcDropsPerInvocation - minorGcDropsRemaining)
+            options.getSkyframeHighWaterMarkMinorGcDropsPerInvocation() - minorGcDropsRemaining)
         .setFullGcDrops(
-            options.skyframeHighWaterMarkFullGcDropsPerInvocation - fullGcDropsRemaining);
+            options.getSkyframeHighWaterMarkFullGcDropsPerInvocation() - fullGcDropsRemaining);
   }
 }

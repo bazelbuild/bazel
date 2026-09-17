@@ -338,7 +338,11 @@ public final class TargetCompleteEvent
    */
   public static BuildEventStreamProtos.File newFile(
       Artifact artifact, FileArtifactValue metadata, @Nullable String uri) {
-    return newFile(artifact.getRoot(), artifact.getRootRelativePath(), metadata, uri);
+    return newFile(
+        artifact.getRoot(),
+        artifact.getExecPath().relativeTo(artifact.getRoot().getExecPath()),
+        metadata,
+        uri);
   }
 
   /**
@@ -455,7 +459,7 @@ public final class TargetCompleteEvent
       }
     }
     // TODO(aehlig): remove direct reporting of artifacts as soon as clients no longer need it.
-    if (converters.getOptions().legacyImportantOutputs) {
+    if (converters.getOptions().getLegacyImportantOutputs()) {
       addFilesDirectlyToProtoField(
           completionContext, builder, converters, filteredImportantArtifacts);
     }

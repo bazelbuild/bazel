@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getGeneratedName;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.matchesType;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.sanitizeTypeParameter;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.writeGeneratedClassToFile;
 
@@ -77,6 +78,14 @@ public class SerializationConstantProcessor extends AbstractProcessor {
           symbol,
           "Field must be static and final to be annotated with @SerializationConstant or"
               + " @AutoCodec");
+    }
+    if (matchesType(symbol.asType(), String.class, env)) {
+      // See b/515386220. Ideally we'd prohibit any types that can have value-equal but not
+      // reference-equal instances, but that's hard to do, so the check is limited to String.
+      throw new SerializationProcessingException(
+          symbol,
+          "Strings cannot be serialization constants, as there is no guarantee that they are"
+              + " globally interned");
     }
     return TypeSpec.classBuilder(
             getGeneratedName(symbol, CodecScanningConstants.REGISTERED_SINGLETON_SUFFIX))

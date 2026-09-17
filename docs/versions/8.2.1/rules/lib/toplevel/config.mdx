@@ -36,7 +36,7 @@ A bool-typed build setting
 
 | Parameter | Description |
 | --- | --- |
-| `flag` | [bool](../core/bool); default is `False` |
+| `flag` | [bool](/versions/8.2.1/rules/lib/core/bool); default is `False` |
 
 ## exec
 
@@ -50,7 +50,7 @@ Creates an execution transition.
 
 | Parameter | Description |
 | --- | --- |
-| `exec_group` | [string](../core/string); or `None`; default is `None`  The name of the exec group whose execution platform this transition will use. If not provided, this exec transition will use the target's default execution platform. |
+| `exec_group` | [string](/versions/8.2.1/rules/lib/core/string); or `None`; default is `None`  The name of the exec group whose execution platform this transition will use. If not provided, this exec transition will use the target's default execution platform. |
 
 ## int
 
@@ -64,7 +64,7 @@ An integer-typed build setting
 
 | Parameter | Description |
 | --- | --- |
-| `flag` | [bool](../core/bool); default is `False`  Whether or not this build setting is callable on the command line. |
+| `flag` | [bool](/versions/8.2.1/rules/lib/core/bool); default is `False`  Whether or not this build setting is callable on the command line. |
 
 ## none
 
@@ -86,8 +86,8 @@ A string-typed build setting
 
 | Parameter | Description |
 | --- | --- |
-| `flag` | [bool](../core/bool); default is `False`  Whether or not this build setting is callable on the command line. |
-| `allow_multiple` | [bool](../core/bool); default is `False`  Deprecated, use a `string_list` setting with `repeatable = True` instead. If set, this flag is allowed to be set multiple times on the command line. The Value of the flag as accessed in transitions and build setting implementation function will be a list of strings. Insertion order and repeated values are both maintained. This list can be post-processed in the build setting implementation function if different behavior is desired. |
+| `flag` | [bool](/versions/8.2.1/rules/lib/core/bool); default is `False`  Whether or not this build setting is callable on the command line. |
+| `allow_multiple` | [bool](/versions/8.2.1/rules/lib/core/bool); default is `False`  Deprecated, use a `string_list` setting with `repeatable = True` instead. If set, this flag is allowed to be set multiple times on the command line. The Value of the flag as accessed in transitions and build setting implementation function will be a list of strings. Insertion order and repeated values are both maintained. This list can be post-processed in the build setting implementation function if different behavior is desired. |
 
 ## string\_list
 
@@ -101,8 +101,8 @@ A string list-typed build setting. On the command line pass a list using comma-s
 
 | Parameter | Description |
 | --- | --- |
-| `flag` | [bool](../core/bool); default is `False`  Whether or not this build setting is callable on the command line. |
-| `repeatable` | [bool](../core/bool); default is `False`  If set, instead of expecting a comma-separated value, this flag is allowed to be set multiple times on the command line with each individual value treated as a single string to add to the list value. Insertion order and repeated values are both maintained. This list can be post-processed in the build setting implementation function if different behavior is desired. |
+| `flag` | [bool](/versions/8.2.1/rules/lib/core/bool); default is `False`  Whether or not this build setting is callable on the command line. |
+| `repeatable` | [bool](/versions/8.2.1/rules/lib/core/bool); default is `False`  If set, instead of expecting a comma-separated value, this flag is allowed to be set multiple times on the command line with each individual value treated as a single string to add to the list value. Insertion order and repeated values are both maintained. This list can be post-processed in the build setting implementation function if different behavior is desired. |
 
 ## target
 

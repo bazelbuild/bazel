@@ -59,6 +59,11 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     return getInputs().contains(STAMP_SETTING);
   }
 
+  /** Whether this transition has {@code //command_line_option:stamp} on its outputs. */
+  public boolean setsStampSetting() {
+    return getOutputs().contains(STAMP_SETTING);
+  }
+
   /** Returns true if the transition is an exec transition. */
   public abstract boolean isExecTransition();
 

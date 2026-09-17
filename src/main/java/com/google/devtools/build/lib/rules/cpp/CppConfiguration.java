@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -47,6 +48,7 @@ import net.starlark.java.eval.StarlarkThread;
  */
 @Immutable
 @RequiresOptions(options = {CppOptions.class})
+@StarlarkBuiltin(name = "cpp", documented = false)
 public final class CppConfiguration extends Fragment
     implements CppConfigurationApi<InvalidConfigurationException> {
   private static final String BAZEL_TOOLS_REPO = "@bazel_tools";
@@ -176,37 +178,7 @@ public final class CppConfiguration extends Fragment
       linkoptsBuilder.add("-Wl,--eh-frame-hdr");
     }
 
-    PathFragment fdoPath = null;
-    Label fdoProfileLabel = null;
-    if (cppOptions.getFdoOptimize() != null) {
-      if (cppOptions.getFdoOptimize().startsWith("//")) {
-        try {
-          fdoProfileLabel = Label.parseCanonical(cppOptions.getFdoOptimize());
-        } catch (LabelSyntaxException e) {
-          throw new InvalidConfigurationException(e);
-        }
-      } else {
-        if (!cppOptions.getEnableFdoProfileAbsolutePath()) {
-          throw new InvalidConfigurationException(
-              "Please use --fdo_profile instead of an absolute path set with --fdo_optimize. Using"
-                  + " absolute paths may be temporary reenabled with"
-                  + " --enable_fdo_profile_absolute_path");
-        }
-        fdoPath = PathFragment.create(cppOptions.getFdoOptimize());
-        if (!fdoPath.isAbsolute()) {
-          throw new InvalidConfigurationException(
-              "Path of '"
-                  + fdoPath.getPathString()
-                  + "' in --fdo_optimize has to be either an absolute path or a label.");
-        }
-        try {
-          // We don't check for file existence, but at least the filename should be well-formed.
-          FileSystemUtils.checkBaseName(fdoPath.getBaseName());
-        } catch (IllegalArgumentException e) {
-          throw new InvalidConfigurationException(e);
-        }
-      }
-    }
+    FdoPathData fdoPathData = FdoPathData.get(cppOptions);
 
     PathFragment csFdoAbsolutePath = null;
     if (cppOptions.getCsFdoAbsolutePathForBuild() != null) {
@@ -276,8 +248,8 @@ public final class CppConfiguration extends Fragment
       }
     }
 
-    this.fdoPath = fdoPath == null ? null : fdoPath.getPathString();
-    this.fdoOptimizeLabel = fdoProfileLabel;
+    this.fdoPath = fdoPathData.fdoPath() == null ? null : fdoPathData.fdoPath().getPathString();
+    this.fdoOptimizeLabel = fdoPathData.fdoProfileLabel();
     this.csFdoAbsolutePath = csFdoAbsolutePath == null ? null : csFdoAbsolutePath.getPathString();
     this.propellerOptimizeAbsoluteCCProfile =
         propellerOptimizeAbsoluteCCProfile == null
@@ -302,6 +274,45 @@ public final class CppConfiguration extends Fragment
     this.compilationMode = compilationMode;
     this.collectCodeCoverage = commonOptions.getCollectCodeCoverage();
     this.appleGenerateDsym = cppOptions.getAppleGenerateDsym();
+  }
+
+  private record FdoPathData(PathFragment fdoPath, Label fdoProfileLabel) {
+    private static FdoPathData get(CppOptions cppOptions) throws InvalidConfigurationException {
+      PathFragment fdoPath = null;
+      Label fdoProfileLabel = null;
+
+      if (cppOptions.getFdoOptimize() != null) {
+        try {
+          fdoProfileLabel = Label.parseCanonical(cppOptions.getFdoOptimize());
+          return new FdoPathData(fdoPath, fdoProfileLabel);
+        } catch (LabelSyntaxException ignored) {
+          // This isn't a Label, so just continue trying other flags.
+        }
+
+        if (!cppOptions.getEnableFdoProfileAbsolutePath()) {
+          throw new InvalidConfigurationException(
+              "Please use --fdo_profile instead of an absolute path set with --fdo_optimize. Using"
+                  + " absolute paths may be temporary reenabled with"
+                  + " --enable_fdo_profile_absolute_path");
+        }
+
+        // Try to process the flag value as a path.
+        fdoPath = PathFragment.create(cppOptions.getFdoOptimize());
+        if (!fdoPath.isAbsolute()) {
+          throw new InvalidConfigurationException(
+              "Path of '"
+                  + fdoPath.getPathString()
+                  + "' in --fdo_optimize has to be either an absolute path or a label.");
+        }
+        try {
+          // We don't check for file existence, but at least the filename should be well-formed.
+          FileSystemUtils.checkBaseName(fdoPath.getBaseName());
+        } catch (IllegalArgumentException e) {
+          throw new InvalidConfigurationException(e);
+        }
+      }
+      return new FdoPathData(fdoPath, fdoProfileLabel);
+    }
   }
 
   @Nullable
@@ -577,11 +588,6 @@ public final class CppConfiguration extends Fragment
                 "Cannot instrument and optimize for FDO at the same time. Remove one of the "
                     + "'--fdo_instrument' and '--fdo_optimize/--fdo_profile' options"));
       }
-      if (!cppOptions.getCoptList().contains("-Wno-error")) {
-        // This is effectively impossible. --fdo_instrument adds this value, and only invocation
-        // policy could remove it.
-        reporter.handle(Event.error("Cannot instrument FDO without --copt including -Wno-error."));
-      }
     }
 
     // This is an assertion check vs. user error because users can't trigger this state.
@@ -783,21 +789,17 @@ public final class CppConfiguration extends Fragment
     return cppOptions.getSaveFeatureState();
   }
 
-  public boolean useSpecificToolFiles() {
-    return cppOptions.getUseSpecificToolFiles();
-  }
-
   @StarlarkMethod(
       name = "incompatible_use_specific_tool_files",
       documented = false,
       useStarlarkThread = true)
   public boolean useSpecificToolFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return cppOptions.getUseSpecificToolFiles();
+    return true;
   }
 
   public boolean disableNoCopts() {
-    return cppOptions.getDisableNoCopts();
+    return true;
   }
 
   @Override
@@ -880,7 +882,7 @@ public final class CppConfiguration extends Fragment
   }
 
   public boolean experimentalCcImplementationDeps() {
-    return cppOptions.getExperimentalCcImplementationDeps();
+    return true;
   }
 
   public boolean experimentalCppModules() {
@@ -889,11 +891,6 @@ public final class CppConfiguration extends Fragment
 
   public boolean getExperimentalCppCompileResourcesEstimation() {
     return cppOptions.getExperimentalCppCompileResourcesEstimation();
-  }
-
-  @Override
-  public boolean macosSetInstallName() {
-    return true;
   }
 
   private static void checkInExpandedApiAllowlist(StarlarkThread thread, String feature)

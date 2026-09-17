@@ -14,19 +14,17 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseNamesOf;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.truth.IterableSubject;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -34,7 +32,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
@@ -92,84 +89,12 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testEmptyLibrary() throws Exception {
-    ConfiguredTarget emptylib = getConfiguredTarget("//empty:emptylib");
-    // We create .a for empty libraries, for simplicity (in Blaze).
-    // But we avoid creating .so files for empty libraries,
-    // because those have a potentially significant run-time startup cost.
-    assertThat(
-            CcInfo.get(emptylib)
-                .getCcLinkingContext()
-                .getDynamicLibrariesForRuntime(/* linkingStatically= */ false)
-                .isEmpty())
-        .isTrue();
-  }
-
-  @Test
   public void testEmptyBinary() throws Exception {
     ConfiguredTarget emptybin = getConfiguredTarget("//empty:emptybinary");
     assertThat(baseNamesOf(getFilesToBuild(emptybin)))
         .isEqualTo("emptybinary");
   }
 
-  private List<String> getCopts(String target) throws Exception {
-    ConfiguredTarget cLib = getConfiguredTarget(target);
-    Artifact object = getOutputGroup(cLib, OutputGroupInfo.FILES_TO_COMPILE).getSingleton();
-    CppCompileAction compileAction = (CppCompileAction) getGeneratingAction(object);
-    return compileAction.getCompilerOptions();
-  }
-
-  @Test
-  public void testCopts() throws Exception {
-    scratch.file(
-        "copts/BUILD",
-        """
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        cc_library(
-            name = "c_lib",
-            srcs = ["foo.cc"],
-            copts = [
-                "-Wmy-warning",
-                "-frun-faster",
-            ],
-        )
-        """);
-    assertThat(getCopts("//copts:c_lib")).containsAtLeast("-Wmy-warning", "-frun-faster");
-  }
-
-  @Test
-  public void testCoptsTokenization() throws Exception {
-    scratch.file(
-        "copts/BUILD",
-        """
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        cc_library(
-            name = "c_lib",
-            srcs = ["foo.cc"],
-            copts = ["-Wmy-warning -frun-faster"],
-        )
-        """);
-    List<String> copts = getCopts("//copts:c_lib");
-    assertThat(copts).containsAtLeast("-Wmy-warning", "-frun-faster");
-  }
-
-  @Test
-  public void testCoptsNoTokenization() throws Exception {
-    scratch.file(
-        "copts/BUILD",
-        """
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        package(features = ["no_copts_tokenization"])
-
-        cc_library(
-            name = "c_lib",
-            srcs = ["foo.cc"],
-            copts = ["-Wmy-warning -frun-faster"],
-        )
-        """);
-    List<String> copts = getCopts("//copts:c_lib");
-    assertThat(copts).contains("-Wmy-warning -frun-faster");
-  }
 
   /**
    * Test that we handle ".a" files in cc_library srcs correctly when linking dynamically. In
@@ -246,264 +171,6 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testIsolatedDefines() throws Exception {
-    ConfiguredTarget isolatedDefines =
-        scratchConfiguredTarget(
-            "isolated_defines",
-            "defineslib",
-            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-            "cc_library(name = 'defineslib',",
-            "           srcs = ['defines.cc'],",
-            "           defines = ['FOO', 'BAR'])");
-    assertThat(CcInfo.get(isolatedDefines).getCcCompilationContext().getDefines())
-        .containsExactly("FOO", "BAR")
-        .inOrder();
-  }
-
-  @Test
-  public void testExpandedDefinesAgainstDeps() throws Exception {
-    ConfiguredTarget expandedDefines =
-        scratchConfiguredTarget(
-            "expanded_defines",
-            "expand_deps",
-            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-            "cc_library(name = 'expand_deps',",
-            "           srcs = ['defines.cc'],",
-            "           deps = ['//foo'],",
-            "           defines = ['FOO=$(location //foo)'])");
-    assertThat(CcInfo.get(expandedDefines).getCcCompilationContext().getDefines())
-        .containsExactly(
-            String.format("FOO=%s/foo/libfoo.a", getRuleContext(expandedDefines).getBinFragment()));
-  }
-
-  @Test
-  public void testExpandedDefinesAgainstSrcs() throws Exception {
-    ConfiguredTarget expandedDefines =
-        scratchConfiguredTarget(
-            "expanded_defines",
-            "expand_srcs",
-            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-            "cc_library(name = 'expand_srcs',",
-            "           srcs = ['defines.cc'],",
-            "           defines = ['FOO=$(location defines.cc)'])");
-    assertThat(CcInfo.get(expandedDefines).getCcCompilationContext().getDefines())
-        .containsExactly("FOO=expanded_defines/defines.cc");
-  }
-
-  @Test
-  public void testExpandedDefinesAgainstData() throws Exception {
-    scratch.file("data/BUILD", "filegroup(name = 'data', srcs = ['data.txt'])");
-    ConfiguredTarget expandedDefines =
-        scratchConfiguredTarget(
-            "expanded_defines",
-            "expand_srcs",
-            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-            "cc_library(name = 'expand_srcs',",
-            "           srcs = ['defines.cc'],",
-            "           data = ['//data'],",
-            "           defines = ['FOO=$(location //data)'])");
-    assertThat(CcInfo.get(expandedDefines).getCcCompilationContext().getDefines())
-        .containsExactly("FOO=data/data.txt");
-  }
-
-  @Test
-  public void testExpandedDefinesDuplicateTargets() throws Exception {
-    scratch.file(
-        "data/BUILD",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "cc_library(name = 'a', srcs = ['foo.cc'])");
-    ConfiguredTarget expandedDefines =
-        scratchConfiguredTarget(
-            "expanded_defines",
-            "expand_srcs",
-            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-            "cc_library(name = 'expand_srcs',",
-            "           srcs = ['defines.cc'],",
-            "           data = ['//data:a'],",
-            "           deps = ['//data:a'],",
-            "           defines = ['FOO=$(location //data:a)'])");
-    String depPath =
-        getFilesToBuild(getConfiguredTarget("//data:a")).getSingleton().getExecPathString();
-    assertThat(CcInfo.get(expandedDefines).getCcCompilationContext().getDefines())
-        .containsExactly(String.format("FOO=%s", depPath));
-  }
-
-  @Test
-  public void testStartEndLib() throws Exception {
-    getAnalysisMock()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_START_END_LIB));
-    useConfiguration("--start_end_lib");
-    scratch.file(
-        "test/BUILD",
-        """
-        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        cc_library(
-            name = "lib",
-            srcs = ["lib.c"],
-        )
-
-        cc_binary(
-            name = "bin",
-            srcs = ["bin.c"],
-        )
-        """);
-
-    ConfiguredTarget target = getConfiguredTarget("//test:bin");
-    SpawnAction action = (SpawnAction) getGeneratingAction(getExecutable(target));
-    for (Artifact input : action.getInputs().toList()) {
-      String name = input.getFilename();
-      assertThat(!CppFileTypes.ARCHIVE.matches(name) && !CppFileTypes.PIC_ARCHIVE.matches(name))
-          .isTrue();
-    }
-  }
-
-  @Test
-  public void testStartEndLibThroughFeature() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_START_END_LIB));
-    useConfiguration("--start_end_lib");
-    scratch.file(
-        "test/BUILD",
-        """
-        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        cc_library(
-            name = "lib",
-            srcs = ["lib.c"],
-        )
-
-        cc_binary(
-            name = "bin",
-            srcs = ["bin.c"],
-        )
-        """);
-
-    ConfiguredTarget target = getConfiguredTarget("//test:bin");
-    SpawnAction action = (SpawnAction) getGeneratingAction(getExecutable(target));
-    for (Artifact input : action.getInputs().toList()) {
-      String name = input.getFilename();
-      assertWithMessage("Expect '%s' not to be an archive", name)
-          .that(!CppFileTypes.ARCHIVE.matches(name) && !CppFileTypes.PIC_ARCHIVE.matches(name))
-          .isTrue();
-    }
-  }
-
-  @Test
-  public void testTempsWithDifferentExtensions() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
-    invalidatePackages();
-    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL, "--save_temps");
-    scratch.file(
-        "ananas/BUILD",
-        """
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        cc_library(
-            name = "ananas",
-            srcs = [
-                "1.c",
-                "2.cc",
-                "3.cpp",
-                "4.S",
-                "5.h",
-                "6.hpp",
-                "7.inc",
-                "8.inl",
-                "9.tlh",
-                "A.tli",
-            ],
-        )
-        """);
-
-    ConfiguredTarget ananas = getConfiguredTarget("//ananas:ananas");
-    Iterable<String> temps =
-        ActionsTestUtil.baseArtifactNames(getOutputGroup(ananas, OutputGroupInfo.TEMP_FILES));
-    assertThat(temps)
-        .containsExactly(
-            "1.pic.i", "1.pic.s",
-            "2.pic.ii", "2.pic.s",
-            "3.pic.ii", "3.pic.s");
-  }
-
-  /**
-   * Returns the {@link IterableSubject} for the {@link OutputGroupInfo#TEMP_FILES} generated when
-   * {@code testTarget} is built for {@code cpu}.
-   */
-  private IterableSubject assertTempsForTarget(String testTarget) throws Exception {
-    useConfiguration("--save_temps");
-    ConfiguredTarget target = getConfiguredTarget(testTarget);
-    assertThat(target).isNotNull();
-
-    List<String> temps =
-        ActionsTestUtil.baseArtifactNames(getOutputGroup(target, OutputGroupInfo.TEMP_FILES));
-
-    // Return the IterableSubject for the temp files.
-    return assertWithMessage("k8").that(temps);
-  }
-
-  @Test
-  public void testTempsForCcWithPic() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
-    invalidatePackages();
-    assertTempsForTarget("//foo:foo").containsExactly("foo.pic.ii", "foo.pic.s");
-  }
-
-  @Test
-  public void testTempsForCcWithoutPic() throws Exception {
-    assertTempsForTarget("//foo:foo").containsExactly("foo.ii", "foo.s");
-  }
-
-  @Test
-  public void testTempsForCWithPic() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_PIC));
-    invalidatePackages();
-    useConfiguration();
-
-    scratch.file(
-        "csrc/BUILD",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "cc_library(name='csrc', srcs=['foo.c'])");
-    assertTempsForTarget("//csrc:csrc").containsExactly("foo.pic.i", "foo.pic.s");
-  }
-
-  @Test
-  public void testTempsForCWithoutPic() throws Exception {
-    scratch.file(
-        "csrc/BUILD",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "cc_library(name='csrc', srcs=['foo.c'])");
-    assertTempsForTarget("//csrc:csrc").containsExactly("foo.i", "foo.s");
-  }
-
-  @Test
-  public void testAlwaysLinkYieldsLo() throws Exception {
-    ConfiguredTarget alwaysLink =
-        scratchConfiguredTarget(
-            "always_link",
-            "always_link",
-            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-            "cc_library(name = 'always_link',",
-            "           alwayslink = 1,",
-            "           srcs = ['always_link.cc'])");
-    assertThat(baseNamesOf(getFilesToBuild(alwaysLink))).contains("libalways_link.lo");
-  }
-
-  @Test
   public void testPicModeAssembly() throws Exception {
     AnalysisMock.get()
         .ccSupport()
@@ -546,8 +213,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
     useConfiguration("--noincompatible_merge_genfiles_directory");
     ConfiguredTarget foo = getConfiguredTarget("//bang:bang");
-    PathFragment genfilesDir =
-        targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot);
+    PathFragment genfilesDir = targetConfig.getGenfilesFragment().getRelative(includesRoot);
     assertThat(CcInfo.get(foo).getCcCompilationContext().getIncludeDirs()).contains(genfilesDir);
 
     useConfiguration("--incompatible_merge_genfiles_directory");
@@ -591,8 +257,8 @@ public class CcCommonTest extends BuildViewTestCase {
         new ImmutableList.Builder<PathFragment>()
             .addAll(CcInfo.get(noIncludes).getCcCompilationContext().getSystemIncludeDirs())
             .add(PathFragment.create(includesRoot))
-            .add(targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot))
-            .add(targetConfig.getBinFragment(RepositoryName.MAIN).getRelative(includesRoot))
+            .add(targetConfig.getGenfilesFragment().getRelative(includesRoot))
+            .add(targetConfig.getBinFragment().getRelative(includesRoot))
             .build();
     assertThat(CcInfo.get(foo).getCcCompilationContext().getSystemIncludeDirs())
         .containsExactlyElementsIn(expected);
@@ -631,8 +297,8 @@ public class CcCommonTest extends BuildViewTestCase {
         new ImmutableList.Builder<PathFragment>()
             .addAll(CcInfo.get(noIncludes).getCcCompilationContext().getIncludeDirs())
             .add(PathFragment.create(includesRoot))
-            .add(targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot))
-            .add(targetConfig.getBinFragment(RepositoryName.MAIN).getRelative(includesRoot))
+            .add(targetConfig.getGenfilesFragment().getRelative(includesRoot))
+            .add(targetConfig.getBinFragment().getRelative(includesRoot))
             .build();
     assertThat(CcInfo.get(foo).getCcCompilationContext().getIncludeDirs())
         .containsExactlyElementsIn(expected);
@@ -770,23 +436,6 @@ public class CcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = view.getConfiguredTargetForTesting(reporter, label, targetConfig);
     assertThat(view.hasErrors(target)).isFalse();
     assertNoEvents();
-  }
-
-  @Test
-  public void testCcLibraryRootIncludesError() throws Exception {
-    checkError(
-        "third_party/root",
-        "lib",
-        // message:
-        "attribute includes: '../..' resolves to the "
-            + "workspace root, which would allow this rule and all of its transitive dependents to "
-            + "include any file in your workspace. Please include only what you need",
-        // build file:
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "licenses(['unencumbered'])",
-        "cc_library(name = 'lib',",
-        "           srcs = ['foo.cc'],",
-        "           includes = ['../..'])");
   }
 
   @Test
@@ -995,16 +644,6 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLibraryInHdrs() throws Exception {
-    scratchConfiguredTarget(
-        "a",
-        "a",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "cc_library(name='a', srcs=['a.cc'], hdrs=[':b'])",
-        "cc_library(name='b', srcs=['b.cc'])");
-  }
-
-  @Test
   public void testExpandedLinkopts() throws Exception {
     scratch.file(
         "a/BUILD",
@@ -1029,10 +668,7 @@ public class CcCommonTest extends BuildViewTestCase {
         .contains(
             String.format(
                 "-Wl,@%s/a/a.lds",
-                getTargetConfiguration()
-                    .getGenfilesDirectory(RepositoryName.MAIN)
-                    .getExecPath()
-                    .getPathString()));
+                getTargetConfiguration().getGenfilesDirectory().getExecPath().getPathString()));
   }
 
   @Test
@@ -1101,7 +737,7 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(ccCompilationContext.getIncludeDirs())
         .containsExactly(
             getTargetConfiguration()
-                .getBinFragment(RepositoryName.MAIN)
+                .getBinFragment()
                 .getRelative("third_party/a/_virtual_includes/a"));
   }
 
@@ -1132,9 +768,7 @@ public class CcCommonTest extends BuildViewTestCase {
         .containsExactly("_virtual_includes/207132b2/lib/b/c.h", "third_party/a/v1/b/c.h");
     assertThat(ccCompilationContext.getIncludeDirs())
         .containsExactly(
-            getTargetConfiguration()
-                .getBinFragment(RepositoryName.MAIN)
-                .getRelative("_virtual_includes/207132b2"));
+            getTargetConfiguration().getBinFragment().getRelative("_virtual_includes/207132b2"));
   }
 
   @Test
@@ -1502,13 +1136,12 @@ public class CcCommonTest extends BuildViewTestCase {
         "cc_library(name='foo', srcs=['foo.cc'])");
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
         String.format(
             "--experimental_override_name_platform_in_output_dir=%s=k8",
             TestConstants.PLATFORM_LABEL));
     CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
     assertThat(
-            cppCompileAction.getArguments().stream()
+            cppCompileAction.getArgumentsForExecute(PathMapper.NOOP).arguments().stream()
                 .map(x -> removeOutDirectory(x))
                 .collect(ImmutableList.toImmutableList()))
         .containsExactly("/usr/bin/mock-gcc", "@/k8-fastbuild/bin/a/_objs/foo/foo.o.params");
@@ -1527,7 +1160,6 @@ public class CcCommonTest extends BuildViewTestCase {
         "cc_library(name='foo', srcs=['foo.cc'])");
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
         String.format(
             "--experimental_override_name_platform_in_output_dir=%s=k8",
             TestConstants.PLATFORM_LABEL));
@@ -1539,6 +1171,70 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(argv).contains("/usr/bin/mock-gcc");
     assertThat(argv).contains("-o");
     assertThat(argv).contains("/k8-fastbuild/bin/a/_objs/foo/foo.o");
+  }
+
+  @Test
+  public void testCompilationParameterFileOnDemand() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.COMPILER_PARAM_FILE_ON_DEMAND));
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='foo', srcs=['foo.cc'])");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
+    CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
+    // It should NOT use the param file because it's on-demand and command line is short.
+    assertThat(
+            cppCompileAction.getArgumentsForExecute(PathMapper.NOOP).arguments().stream()
+                .map(x -> removeOutDirectory(x)))
+        .containsAtLeast(
+            "/usr/bin/mock-gcc",
+            "--default-compile-flag",
+            "-MD",
+            "-MF",
+            "/k8-fastbuild/bin/a/_objs/foo/foo.d",
+            "-frandom-seed=/k8-fastbuild/bin/a/_objs/foo/foo.o",
+            "-iquote",
+            ".",
+            "-iquote",
+            "/k8-fastbuild/bin",
+            "--sysroot=/usr/grte/v1",
+            "-c",
+            "a/foo.cc",
+            "-o",
+            "/k8-fastbuild/bin/a/_objs/foo/foo.o");
+  }
+
+  @Test
+  public void testCompilationParameterFileOnDemandLongCommandLine() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.COMPILER_PARAM_FILE_ON_DEMAND));
+    scratch.file(
+        "a/BUILD",
+        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+        "cc_library(name='foo', srcs=['foo.cc'])");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL),
+        "--min_param_file_size=0"); // Force max length to be 0
+    CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
+    // With min_param_file_size=0, it should dynamically decide to use the param file
+    assertThat(
+            cppCompileAction.getArgumentsForExecute(PathMapper.NOOP).arguments().stream()
+                .map(x -> removeOutDirectory(x)))
+        .containsExactly("/usr/bin/mock-gcc", "@/k8-fastbuild/bin/a/_objs/foo/foo.o.params");
   }
 
   @Test
@@ -1634,23 +1330,6 @@ public class CcCommonTest extends BuildViewTestCase {
 
   private static String removeOutDirectory(String s) {
     return s.replace("blaze-out", "").replace("bazel-out", "");
-  }
-
-  @Test
-  public void testNoCoptsDisabled() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
-    reporter.removeHandler(failFastHandler);
-    scratch.file(
-        "x/BUILD",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "cc_library(name = 'foo', srcs = ['a.cc'], nocopts = 'abc')");
-    useConfiguration("--incompatible_disable_nocopts");
-    getConfiguredTarget("//x:foo");
-    assertContainsEvent(
-        "This attribute was removed. See https://github.com/bazelbuild/bazel/issues/8706 for"
-            + " details.");
   }
 
   @Test

@@ -34,7 +34,6 @@ import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.ManagedChannel;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /** Fetches the ServerCapabilities of the remote execution/cache server. */
@@ -43,7 +42,6 @@ class RemoteServerCapabilities {
   private final String commandId;
   @Nullable private final String instanceName;
   @Nullable private final CallCredentials callCredentials;
-  private final long callTimeoutSecs;
   private final RemoteRetrier retrier;
 
   public RemoteServerCapabilities(
@@ -51,13 +49,11 @@ class RemoteServerCapabilities {
       String commandId,
       @Nullable String instanceName,
       @Nullable CallCredentials callCredentials,
-      long callTimeoutSecs,
       RemoteRetrier retrier) {
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.instanceName = instanceName;
     this.callCredentials = callCredentials;
-    this.callTimeoutSecs = callTimeoutSecs;
     this.retrier = retrier;
   }
 
@@ -66,13 +62,12 @@ class RemoteServerCapabilities {
     return CapabilitiesGrpc.newFutureStub(channel)
         .withInterceptors(
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
-        .withCallCredentials(callCredentials)
-        .withDeadlineAfter(callTimeoutSecs, TimeUnit.SECONDS);
+        .withCallCredentials(callCredentials);
   }
 
   public ListenableFuture<ServerCapabilities> get(ManagedChannel channel) {
     RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "capabilities", null);
+        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "capabilities");
     RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
     GetCapabilitiesRequest request =
         instanceName == null
@@ -215,7 +210,7 @@ class RemoteServerCapabilities {
 
       // Check execution priority is in the supported range.
       checkPriorityInRange(
-          remoteOptions.remoteExecutionPriority,
+          remoteOptions.getRemoteExecutionPriority(),
           "remote_execution_priority",
           execCap.getExecutionPriorityCapabilities(),
           result);
@@ -232,7 +227,7 @@ class RemoteServerCapabilities {
                 digestFunction, cacheCap.getDigestFunctionsList()));
       }
 
-      if (remoteOptions.remoteUploadLocalResults
+      if (remoteOptions.getRemoteUploadLocalResults()
           && !cacheCap.getActionCacheUpdateCapabilities().getUpdateEnabled()) {
         result.addWarning(
             "--remote_upload_local_results is set, but the remote cache does not support uploading "
@@ -240,13 +235,13 @@ class RemoteServerCapabilities {
                 + "to the remote cache.");
       }
 
-      if (remoteOptions.cacheCompression
+      if (remoteOptions.getCacheCompression()
           && !cacheCap.getSupportedCompressorsList().contains(Compressor.Value.ZSTD)) {
         result.addError(
             "--remote_cache_compression requested but remote does not support compression");
       }
 
-      if (remoteOptions.experimentalRemoteCacheChunking) {
+      if (remoteOptions.getExperimentalRemoteCacheChunking()) {
         if (!cacheCap.getSplitBlobSupport()) {
           result.addError(
               "--experimental_remote_cache_chunking requested but remote does not support"
@@ -257,16 +252,34 @@ class RemoteServerCapabilities {
               "--experimental_remote_cache_chunking requested but remote does not support"
                   + " SpliceBlob");
         }
-        if (!cacheCap.hasFastCdc2020Params()) {
-          result.addError(
-              "--experimental_remote_cache_chunking requested but remote does not support"
-                  + " FastCDC 2020 chunking algorithm");
+        switch (remoteOptions.getExperimentalRemoteCacheChunkingFunction()) {
+          case AUTO -> {
+            if (!cacheCap.hasFastCdc2020Params() && !cacheCap.hasRepMaxCdcParams()) {
+              result.addError(
+                  "--experimental_remote_cache_chunking requested but remote does not support"
+                      + " any chunking algorithm supported by Bazel (FastCDC 2020 or RepMaxCDC)");
+            }
+          }
+          case FAST_CDC_2020 -> {
+            if (!cacheCap.hasFastCdc2020Params()) {
+              result.addError(
+                  "--experimental_remote_cache_chunking requested but remote does not support"
+                      + " FastCDC 2020 chunking algorithm");
+            }
+          }
+          case REP_MAX_CDC -> {
+            if (!cacheCap.hasRepMaxCdcParams()) {
+              result.addError(
+                  "--experimental_remote_cache_chunking requested but remote does not support"
+                      + " RepMaxCDC chunking algorithm");
+            }
+          }
         }
       }
 
       // Check result cache priority is in the supported range.
       checkPriorityInRange(
-          remoteOptions.remoteResultCachePriority,
+          remoteOptions.getRemoteResultCachePriority(),
           "remote_result_cache_priority",
           cacheCap.getCachePriorityCapabilities(),
           result);

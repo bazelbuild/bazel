@@ -98,12 +98,14 @@ public final class TargetSummaryPublisher {
   public void toplevelAspectsIdentified(ToplevelAspectsIdentifiedEvent event) {
     ConfiguredTargetKey targetKey = event.baseConfiguredTargetKey();
     int numTopLevelAspects = event.numTopLevelAspects();
-    aspectCountPerTarget.put(targetKey, numTopLevelAspects);
-    if (aggregators.containsKey(targetKey)) {
-      // We may have already set the expected aspect completions if this method is racing with
-      // #populateTarget(). This is safe because we guarantee that we set the same value, so that
-      // no aspect completions have happened when we double-set the expected aspect completions.
-      aggregators.get(targetKey).setExpectAspectCompletions(numTopLevelAspects);
+    synchronized (aggregators) {
+      aspectCountPerTarget.put(targetKey, numTopLevelAspects);
+      if (aggregators.containsKey(targetKey)) {
+        // We may have already set the expected aspect completions if this method is racing with
+        // #populateTarget(). This is safe because we guarantee that we set the same value, so that
+        // no aspect completions have happened when we double-set the expected aspect completions.
+        aggregators.get(targetKey).setExpectAspectCompletions(numTopLevelAspects);
+      }
     }
   }
 
@@ -126,17 +128,22 @@ public final class TargetSummaryPublisher {
         // BEP.
         continue;
       }
-
       ConfiguredTargetKey configuredTargetKey = asKey(target);
       TargetSummaryAggregator newAggregator =
           createAggregatorForTarget(/* isTest= */ testTargets.contains(target), target);
-      if (aspectCountPerTarget.containsKey(configuredTargetKey)) {
-        newAggregator.setExpectAspectCompletions(aspectCountPerTarget.get(configuredTargetKey));
+      synchronized (aggregators) {
+        if (aspectCountPerTarget.containsKey(configuredTargetKey)) {
+          newAggregator.setExpectAspectCompletions(aspectCountPerTarget.get(configuredTargetKey));
+        }
+        TargetSummaryAggregator oldAggregator =
+            aggregators.putIfAbsent(configuredTargetKey, newAggregator);
+        checkState(
+            oldAggregator == null,
+            "target: %s, values: %s %s",
+            target,
+            oldAggregator,
+            newAggregator);
       }
-      TargetSummaryAggregator oldAggregator =
-          aggregators.putIfAbsent(configuredTargetKey, newAggregator);
-      checkState(
-          oldAggregator == null, "target: %s, values: %s %s", target, oldAggregator, newAggregator);
     }
   }
 

@@ -83,13 +83,15 @@ public final class BlazeDirectories {
   private final Path blazeOutputPath;
   private final Path localOutputPath;
   private final String productName;
+  private final boolean isBlaze;
 
   public BlazeDirectories(ServerDirectories serverDirectories, Path workspace, String productName) {
     this.serverDirectories = serverDirectories;
     this.workspace = workspace;
     this.productName = productName;
+    this.isBlaze = Ascii.equalsIgnoreCase(productName, "blaze");
     Path outputBase = serverDirectories.getOutputBase();
-    if (Ascii.equalsIgnoreCase(productName, "blaze")) {
+    if (isBlaze) {
       boolean useDefaultExecRootName =
           this.workspace == null || this.workspace.getParentDirectory() == null;
       if (useDefaultExecRootName) {
@@ -248,6 +250,11 @@ public final class BlazeDirectories {
 
   public String getProductName() {
     return productName;
+  }
+
+  /** Returns true if this is Google-internal Blaze (as opposed to Bazel). */
+  public boolean isBlaze() {
+    return isBlaze;
   }
 
   /** Convenience method for {@link ServerDirectories#getVirtualSourceRoot}. */

@@ -45,6 +45,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
@@ -66,45 +67,43 @@ import java.util.logging.LogManager;
     inheritsOptionsFrom = {BuildCommand.class})
 public final class CleanCommand implements BlazeCommand {
   /** An interface for special options for the clean command. */
-  public static class Options extends OptionsBase {
+  @OptionsClass
+  public abstract static class Options extends OptionsBase {
     @Option(
-      name = "expunge",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      help =
-          "If true, clean removes the entire working tree for this %{product} instance, "
-              + "which includes all %{product}-created temporary and build output files, "
-              + "and stops the %{product} server if it is running."
-    )
-    public boolean expunge;
+        name = "expunge",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+        help =
+            "If true, clean removes the entire working tree for this %{product} instance, "
+                + "which includes all %{product}-created temporary and build output files, "
+                + "and stops the %{product} server if it is running.")
+    public abstract boolean getExpunge();
 
     @Option(
-      name = "expunge_async",
-      defaultValue = "null",
-      expansion = {"--expunge", "--async"},
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      help =
-          "If specified, clean asynchronously removes the entire working tree for "
-              + "this %{product} instance, which includes all %{product}-created temporary and "
-              + "build output files, and stops the %{product} server if it is running. When "
-              + "this command completes, it will be safe to execute new commands in the same "
-              + "client, even though the deletion may continue in the background."
-    )
-    public Void expungeAsync;
+        name = "expunge_async",
+        defaultValue = "null",
+        expansion = {"--expunge", "--async"},
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+        help =
+            "If specified, clean asynchronously removes the entire working tree for "
+                + "this %{product} instance, which includes all %{product}-created temporary and "
+                + "build output files, and stops the %{product} server if it is running. When "
+                + "this command completes, it will be safe to execute new commands in the same "
+                + "client, even though the deletion may continue in the background.")
+    public abstract Void getExpungeAsync();
 
     @Option(
-      name = "async",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      help =
-          "If true, output cleaning is asynchronous. When this command completes, it will be safe "
-              + "to execute new commands in the same client, even though the deletion may continue "
-              + "in the background."
-    )
-    public boolean async;
+        name = "async",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+        help =
+            "If true, output cleaning is asynchronous. When this command completes, it will be safe"
+                + " to execute new commands in the same client, even though the deletion may"
+                + " continue in the background.")
+    public abstract boolean getAsync();
   }
 
   private final OS os;
@@ -133,7 +132,8 @@ public final class CleanCommand implements BlazeCommand {
 
     env.getEventBus().post(new NoBuildEvent());
     Options cleanOptions = options.getOptions(Options.class);
-    boolean async = canUseAsync(cleanOptions.async, cleanOptions.expunge, os, env.getReporter());
+    boolean async =
+        canUseAsync(cleanOptions.getAsync(), cleanOptions.getExpunge(), os, env.getReporter());
     env.getEventBus().post(new CleanStartingEvent(options));
 
     try {
@@ -141,7 +141,8 @@ public final class CleanCommand implements BlazeCommand {
           options
               .getOptions(BuildRequestOptions.class)
               .getSymlinkPrefix(env.getRuntime().getProductName());
-      return actuallyClean(env, env.getOutputBase(), cleanOptions.expunge, async, symlinkPrefix);
+      return actuallyClean(
+          env, env.getOutputBase(), cleanOptions.getExpunge(), async, symlinkPrefix);
     } catch (CleanException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       return BlazeCommandResult.failureDetail(e.getFailureDetail());
@@ -179,6 +180,10 @@ public final class CleanCommand implements BlazeCommand {
 
   private static void asyncClean(CommandEnvironment env, Path path, String pathItemName)
       throws IOException, CommandException, InterruptedException {
+    if (!path.exists()) {
+      return;
+    }
+
     String tempBaseName =
         path.getBaseName() + "_tmp_" + ProcessHandle.current().pid() + "_" + UUID.randomUUID();
 
@@ -275,22 +280,20 @@ public final class CleanCommand implements BlazeCommand {
       logger.atInfo().log("Output cleaning...");
       env.getBlazeWorkspace().resetEvaluator();
       Path execroot = outputBase.getRelative("execroot");
-      if (execroot.exists()) {
-        logger.atFinest().log("Cleaning %s%s", execroot, async ? " asynchronously..." : "");
-        if (async) {
-          try {
-            asyncClean(env, execroot, "Output tree");
-          } catch (IOException e) {
-            throw new CleanException(Code.EXECROOT_TEMP_MOVE_FAILURE, e);
-          } catch (CommandException e) {
-            throw new CleanException(Code.ASYNC_EXECROOT_DELETE_FAILURE, e);
-          }
-        } else {
-          try {
-            execroot.deleteTreesBelow();
-          } catch (IOException e) {
-            throw new CleanException(Code.EXECROOT_DELETE_FAILURE, e);
-          }
+      logger.atFinest().log("Cleaning %s%s", execroot, async ? " asynchronously..." : "");
+      if (async) {
+        try {
+          asyncClean(env, execroot, "Output tree");
+        } catch (IOException e) {
+          throw new CleanException(Code.EXECROOT_TEMP_MOVE_FAILURE, e);
+        } catch (CommandException e) {
+          throw new CleanException(Code.ASYNC_EXECROOT_DELETE_FAILURE, e);
+        }
+      } else {
+        try {
+          execroot.deleteTreesBelow();
+        } catch (IOException e) {
+          throw new CleanException(Code.EXECROOT_DELETE_FAILURE, e);
         }
       }
     }

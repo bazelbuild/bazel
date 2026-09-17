@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
@@ -123,7 +124,7 @@ final class PackageFunctionWithSingleGlobsDep extends PackageFunction {
     @Override
     public List<String> fetchUnsorted(Token token)
         throws BadGlobException, IOException, InterruptedException {
-      Set<String> matches = Sets.newHashSet();
+      Set<String> matches = new HashSet<>();
       matches.addAll(
           nonSkyframeGlobber.fetchUnsorted(((GlobsToken) token).nonSkyframeGlobberIncludesToken));
 

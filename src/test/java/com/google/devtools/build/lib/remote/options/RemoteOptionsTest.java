@@ -22,15 +22,16 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.SortedMap;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for RemoteOptions. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class RemoteOptionsTest {
 
   @Test
@@ -42,9 +43,9 @@ public class RemoteOptionsTest {
   @Test
   public void testRemoteDefaultExecProperties() throws Exception {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    options.remoteDefaultExecProperties =
+    options.setRemoteDefaultExecPropertiesField(
         Arrays.asList(
-            Maps.immutableEntry("ISA", "x86-64"), Maps.immutableEntry("OSFamily", "linux"));
+            Maps.immutableEntry("ISA", "x86-64"), Maps.immutableEntry("OSFamily", "linux")));
 
     SortedMap<String, String> properties = options.getRemoteDefaultExecProperties();
     assertThat(properties).isEqualTo(ImmutableSortedMap.of("OSFamily", "linux", "ISA", "x86-64"));
@@ -53,11 +54,11 @@ public class RemoteOptionsTest {
   @Test
   public void testRemoteDefaultExecPropertiesWithDuplicates() throws Exception {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    options.remoteDefaultExecProperties =
+    options.setRemoteDefaultExecPropertiesField(
         Arrays.asList(
             Maps.immutableEntry("foo", "bar"),
             Maps.immutableEntry("qux", "quux"),
-            Maps.immutableEntry("foo", "baz"));
+            Maps.immutableEntry("foo", "baz")));
     SortedMap<String, String> properties = options.getRemoteDefaultExecProperties();
     assertThat(properties).isEqualTo(ImmutableSortedMap.of("foo", "baz", "qux", "quux"));
   }
@@ -89,8 +90,17 @@ public class RemoteOptionsTest {
   @Test
   public void testRemoteMaximumOpenFilesDefault() {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    int defaultMax = options.maximumOpenFiles;
+    int defaultMax = options.getMaximumOpenFiles();
     assertThat(defaultMax).isEqualTo(-1);
+  }
+
+  @Test
+  public void remoteGrpcDownloadIdleTimeout_defaultsTo60Seconds() {
+    // Keep gRPC downloads protected by default with the same timeout used by the HTTP remote
+    // cache. Users can still explicitly set the option to zero to disable it.
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+
+    assertThat(options.getRemoteGrpcDownloadIdleTimeout()).isEqualTo(Duration.ofSeconds(60));
   }
 
   @Test
@@ -98,31 +108,23 @@ public class RemoteOptionsTest {
     OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
     parser.parse("--remote_grpc_log=test.log", "--remote_grpc_log=");
     RemoteOptions options = parser.getOptions(RemoteOptions.class);
-    assertThat(options.remoteGrpcLog).isNull();
+    assertThat(options.getRemoteGrpcLog()).isNull();
   }
 
   @Test
-  public void diskCache_flagWithoutValue_usesDefaultLocationMarker() throws Exception {
+  public void diskCache_defaultValue_disables() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse();
+    RemoteOptions options = parser.getOptions(RemoteOptions.class);
+    assertThat(options.getDiskCache()).isNull();
+  }
+
+  @Test
+  public void diskCache_noValue_usesDefaultLocation() throws Exception {
     OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
     parser.parse("--disk_cache");
     RemoteOptions options = parser.getOptions(RemoteOptions.class);
-    assertThat(options.diskCache).isEqualTo(PathFragment.EMPTY_FRAGMENT);
-  }
-
-  @Test
-  public void diskCache_noDiskCache_disables() throws Exception {
-    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
-    parser.parse("--disk_cache", "--nodisk_cache");
-    RemoteOptions options = parser.getOptions(RemoteOptions.class);
-    assertThat(options.diskCache).isNull();
-  }
-
-  @Test
-  public void diskCache_explicitPath() throws Exception {
-    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
-    parser.parse("--disk_cache=custom/cache/dir");
-    RemoteOptions options = parser.getOptions(RemoteOptions.class);
-    assertThat(options.diskCache).isEqualTo(PathFragment.create("custom/cache/dir"));
+    assertThat(options.getDiskCache()).isEqualTo(PathFragment.EMPTY_FRAGMENT);
   }
 
   @Test
@@ -130,6 +132,113 @@ public class RemoteOptionsTest {
     OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
     parser.parse("--disk_cache=");
     RemoteOptions options = parser.getOptions(RemoteOptions.class);
-    assertThat(options.diskCache).isNull();
+    assertThat(options.getDiskCache()).isNull();
+  }
+
+  @Test
+  public void scrubbingConfig_emptyValue_disables() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse("--experimental_remote_scrubbing_config=");
+    RemoteOptions options = parser.getOptions(RemoteOptions.class);
+    assertThat(options.getScrubber()).isNull();
+  }
+
+  @Test
+  public void diskCache_trueValue_usesDefaultLocation(
+      @TestParameter({"true", "1", "yes", "t", "y"}) String arg) throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse("--disk_cache=%s".formatted(arg));
+    RemoteOptions options = parser.getOptions(RemoteOptions.class);
+    assertThat(options.getDiskCache()).isEqualTo(PathFragment.EMPTY_FRAGMENT);
+  }
+
+  @Test
+  public void diskCache_falseValue_disables(
+      @TestParameter({"false", "0", "no", "f", "n"}) String arg) throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse("--disk_cache=%s".formatted(arg));
+    RemoteOptions options = parser.getOptions(RemoteOptions.class);
+    assertThat(options.getDiskCache()).isNull();
+  }
+
+  @Test
+  public void diskCache_negatedForm_disables() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse("--disk_cache", "--nodisk_cache");
+    RemoteOptions options = parser.getOptions(RemoteOptions.class);
+    assertThat(options.getDiskCache()).isNull();
+  }
+
+  @Test
+  public void diskCache_explicitPath_usesExplicitPath() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse("--disk_cache=custom/cache/dir");
+    RemoteOptions options = parser.getOptions(RemoteOptions.class);
+    assertThat(options.getDiskCache()).isEqualTo(PathFragment.create("custom/cache/dir"));
+  }
+
+  private static RemoteOptions parseOptions(String... args) throws OptionsParsingException {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(RemoteOptions.class).build();
+    parser.parse(args);
+    return parser.getOptions(RemoteOptions.class);
+  }
+
+  @Test
+  public void remoteProxy_emptyValue_resetsToNull() throws Exception {
+    assertThat(parseOptions("--remote_proxy=unix:/tmp/socket", "--remote_proxy=").getRemoteProxy())
+        .isNull();
+  }
+
+  @Test
+  public void remoteExecutor_emptyValue_resetsToNull() throws Exception {
+    assertThat(
+            parseOptions("--remote_executor=some.endpoint:1234", "--remote_executor=")
+                .getRemoteExecutor())
+        .isNull();
+  }
+
+  @Test
+  public void remoteCache_emptyValue_resetsToNull() throws Exception {
+    assertThat(
+            parseOptions("--remote_cache=http://cache.endpoint", "--remote_cache=")
+                .getRemoteCache())
+        .isNull();
+  }
+
+  @Test
+  public void remoteDownloader_emptyValue_resetsToNull() throws Exception {
+    assertThat(
+            parseOptions("--remote_downloader=grpcs://downloader.endpoint", "--remote_downloader=")
+                .getRemoteDownloader())
+        .isNull();
+  }
+
+  @Test
+  public void remoteBytestreamUriPrefix_emptyValue_resetsToNull() throws Exception {
+    assertThat(
+            parseOptions("--remote_bytestream_uri_prefix=prefix", "--remote_bytestream_uri_prefix=")
+                .getRemoteBytestreamUriPrefix())
+        .isNull();
+  }
+
+  @Test
+  public void experimentalRemoteOutputService_emptyValue_resetsToNull() throws Exception {
+    assertThat(
+            parseOptions(
+                    "--experimental_remote_output_service=endpoint",
+                    "--experimental_remote_output_service=")
+                .getRemoteOutputService())
+        .isNull();
+  }
+
+  @Test
+  public void experimentalRemoteCaptureCorruptedOutputs_emptyValue_resetsToNull() throws Exception {
+    assertThat(
+            parseOptions(
+                    "--experimental_remote_capture_corrupted_outputs=some/path",
+                    "--experimental_remote_capture_corrupted_outputs=")
+                .getRemoteCaptureCorruptedOutputs())
+        .isNull();
   }
 }
+

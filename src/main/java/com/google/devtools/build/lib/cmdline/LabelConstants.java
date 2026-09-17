@@ -27,16 +27,10 @@ public class LabelConstants {
   public static final PathFragment MODULE_EXTENSION_WORKING_DIRECTORY_LOCATION =
       PathFragment.create("modextwd");
 
-  /**
-   * The name of the package that contains the targets representing external repositories. Only
-   * works if {@code --experimental_disable_external_package} is not in effect.
-   */
+  /** The reserved package name used for legacy external-repository labels and path handling. */
   public static final PathFragment EXTERNAL_PACKAGE_NAME = PathFragment.create("external");
 
-  /**
-   * The identifier of the package that contains the targets representing external repositories.
-   * Only works if {@code --experimental_disable_external_package} is not in effect.
-   */
+  /** The package identifier corresponding to {@link #EXTERNAL_PACKAGE_NAME}. */
   public static final PackageIdentifier EXTERNAL_PACKAGE_IDENTIFIER =
       PackageIdentifier.createInMainRepo(EXTERNAL_PACKAGE_NAME);
 
@@ -52,9 +46,6 @@ public class LabelConstants {
   // With this prefix, non-main repositories are symlinked under
   // $output_base/execution_root/__main__/external
   public static final PathFragment EXTERNAL_PATH_PREFIX = PathFragment.create("external");
-  // With this prefix, non-main repositories are sibling symlinks of
-  // $output_base/execution_root/__main__
-  public static final PathFragment EXPERIMENTAL_EXTERNAL_PATH_PREFIX = PathFragment.create("..");
 
   // The relative path from the runfiles workspace root to external repository runfile top
   // directory.

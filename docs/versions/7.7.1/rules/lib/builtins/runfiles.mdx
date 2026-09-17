@@ -2,7 +2,7 @@
 title: 'runfiles'
 ---
 
-A container of information regarding a set of files required at runtime execution. This object should be passed via [DefaultInfo](../providers/DefaultInfo) in order to tell the build system about the runfiles needed by the outputs produced by the rule.
+A container of information regarding a set of files required at runtime execution. This object should be passed via [DefaultInfo](/versions/7.7.1/rules/lib/providers/DefaultInfo) in order to tell the build system about the runfiles needed by the outputs produced by the rule.
 
 See [runfiles guide](https://bazel.build/versions/7.7.1/extending/rules#runfiles) for details.
 
@@ -59,7 +59,7 @@ Returns a new runfiles object that includes all the contents of this one and of 
 
 | Parameter | Description |
 | --- | --- |
-| `other` | [sequence](../core/list) of [runfiles](../builtins/runfiles)s; required  The sequence of runfiles objects to merge into this. |
+| `other` | [sequence](/versions/7.7.1/rules/lib/core/list) of [runfiles](/versions/7.7.1/rules/lib/builtins/runfiles)s; required  The sequence of runfiles objects to merge into this. |
 
 ## root\_symlinks
 

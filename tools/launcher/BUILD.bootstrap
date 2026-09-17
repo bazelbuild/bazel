@@ -16,6 +16,6 @@ toolchain_type(name = "launcher_maker_toolchain_type")
 
 single_binary_toolchain(
    name = "foo",
-   binary = ":launcher_maker",
+   exec_binary = ":launcher_maker",
    toolchain_type = "launcher_maker_toolchain_type",
 )

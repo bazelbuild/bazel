@@ -35,12 +35,14 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
+import com.google.devtools.build.lib.skyframe.serialization.InMemoryFingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
@@ -68,6 +70,8 @@ import org.junit.runner.RunWith;
 /** Tests for {@link Artifact}. */
 @RunWith(TestParameterInjector.class)
 public final class ArtifactTest {
+
+  private static final CompressionService COMPRESSION_SERVICE = new CompressionServiceImpl();
 
   private final Scratch scratch = new Scratch();
   private Path execDir;
@@ -323,9 +327,10 @@ public final class ArtifactTest {
                 .put(RootCodecDependencies.class, new RootCodecDependencies(artifactRoot.getRoot()))
                 .build());
 
-    FingerprintValueService service = null;
+    FingerprintValueService fingerprintValueService = null;
     if (useSharedValues) {
-      service = FingerprintValueService.createForTesting(FingerprintValueStore.inMemoryStore());
+      fingerprintValueService =
+          FingerprintValueService.createForTesting(new InMemoryFingerprintValueStore());
       for (ObjectCodec<? extends Artifact> codec : ArtifactCodecs.VALUE_SHARING_CODECS) {
         objectCodecs = objectCodecs.withCodecOverridesForTesting(ImmutableList.of(codec));
       }
@@ -341,18 +346,20 @@ public final class ArtifactTest {
       deserialized1 =
           (SourceArtifact)
               objectCodecs.deserializeMemoizedAndBlocking(
-                  service,
+                  COMPRESSION_SERVICE,
+                  fingerprintValueService,
                   objectCodecs
                       .serializeMemoizedAndBlocking(
-                          service, sourceArtifact, /* profileCollector= */ null)
+                          COMPRESSION_SERVICE, fingerprintValueService, sourceArtifact)
                       .getObject());
       deserialized2 =
           (SourceArtifact)
               objectCodecs.deserializeMemoizedAndBlocking(
-                  service,
+                  COMPRESSION_SERVICE,
+                  fingerprintValueService,
                   objectCodecs
                       .serializeMemoizedAndBlocking(
-                          service, sourceArtifact, /* profileCollector= */ null)
+                          COMPRESSION_SERVICE, fingerprintValueService, sourceArtifact)
                       .getObject());
     } else {
       deserialized1 =
@@ -369,10 +376,11 @@ public final class ArtifactTest {
       deserialized =
           (Artifact)
               objectCodecs.deserializeMemoizedAndBlocking(
-                  service,
+                  COMPRESSION_SERVICE,
+                  fingerprintValueService,
                   objectCodecs
                       .serializeMemoizedAndBlocking(
-                          service, sourceArtifactFromFactory, /* profileCollector= */ null)
+                          COMPRESSION_SERVICE, fingerprintValueService, sourceArtifactFromFactory)
                       .getObject());
     } else {
       deserialized =
@@ -517,20 +525,10 @@ public final class ArtifactTest {
                     .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION)
                     .getRelative("foo")));
 
-    // --experimental_sibling_repository_layout not set
     assertThat(
             new Artifact.SourceArtifact(
                     externalRoot,
                     LabelConstants.EXTERNAL_PATH_PREFIX.getRelative("foo/bar/baz.cc"),
-                    ArtifactOwner.NULL_OWNER)
-                .getRepositoryRelativePath())
-        .isEqualTo(PathFragment.create("bar/baz.cc"));
-
-    // --experimental_sibling_repository_layout set
-    assertThat(
-            new Artifact.SourceArtifact(
-                    externalRoot,
-                    LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative("foo/bar/baz.cc"),
                     ArtifactOwner.NULL_OWNER)
                 .getRepositoryRelativePath())
         .isEqualTo(PathFragment.create("bar/baz.cc"));

@@ -18,10 +18,14 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;
 
 /**
- * Applied to a field (which must be static and final). The field is stored as a "constant" allowing
- * for trivial serialization of it as an integer tag (see {@code CodecScanner} and {@code
- * ObjectCodecRegistry}). In order to do that, a trivial associated "RegisteredSingleton" class is
- * generated. Tagging such a field is harmless, and can be done conservatively.
+ * Applied to a field (which must be static and final). The field is stored as a "reference
+ * constant" allowing for trivial serialization of it as an integer tag (see {@code CodecScanner}
+ * and {@code ObjectCodecRegistry}). In order to do that, a trivial associated "RegisteredSingleton"
+ * class is generated. Tagging such a field is harmless, and can be done conservatively.
+ *
+ * <p>Should only be applied to instances that are guaranteed to be canonical. Otherwise, a
+ * value-equal but not reference-equal instance will serialize differently, potentially causing
+ * nondeterminism bugs like b/515386220.
  */
 @Target(ElementType.FIELD)
 public @interface SerializationConstant {}

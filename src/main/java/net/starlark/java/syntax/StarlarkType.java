@@ -24,7 +24,7 @@ import javax.annotation.Nullable;
  * <p>Starlark typing is an experimental feature under development. See the tracking issue:
  * https://github.com/bazelbuild/bazel/issues/27370
  */
-public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
+public abstract non-sealed class StarlarkType implements TypeConstructor.Term {
 
   /**
    * Returns the list of supertypes of this type.
@@ -38,7 +38,7 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    */
   // TODO: #27370 - Add getSubtypes(), with the semantics that the actual subtype relation is the
   // union of these two methods.
-  public List<StarlarkType> getSupertypes() {
+  public List<StarlarkType> getSupertypes(TypeContext context) {
     return ImmutableList.of();
   }
 
@@ -48,12 +48,13 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    * not a type one of whose {@link #getSupertypes} is assignable to this type.
    *
    * <p>Subclasses of {@link StarlarkType} should override this method to implement covariance,
-   * contravariance, or consistent-equals-based invariance in type arguments.
+   * contravariance, consistent-equals-based invariance, or rvalue assignability rules in type
+   * arguments.
    *
-   * <p>See {@link #getSupertypes()} for subtype/supertype relation with other subclasses of {@link
-   * StarlarkType}.
+   * <p>See {@link #getSupertypes()} for subtype/supertype relation with other (non-{@link
+   * #toRvalue}) subclasses of {@link StarlarkType}.
    */
-  public boolean assignableFromHook(StarlarkType t) {
+  public boolean assignableFromHook(StarlarkType t, TypeContext context) {
     return this.equals(t);
   }
 
@@ -75,26 +76,30 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    * <p>The Python glossary uses the term "assignable [to/from]" for this relation, and
    * "materialization" to refer to the process of substituting {@code Any}.
    */
-  public static boolean assignableFrom(StarlarkType t1, StarlarkType t2) {
+  public static boolean assignableFrom(StarlarkType t1, StarlarkType t2, TypeContext context) {
     if (t1.equals(Types.ANY) || t2.equals(Types.ANY)) {
       return true;
     }
     if (t1.equals(Types.OBJECT)) {
       return true;
     }
+    if (t2.equals(Types.NEVER)) {
+      return true;
+    }
     if (t1.equals(t2)) {
       return true;
     }
-    if (t1.assignableFromHook(t2)) {
+    if (t1.assignableFromHook(t2, context)) {
       return true;
     }
     if (t2 instanceof Types.UnionType union2) {
-      return union2.getTypes().stream().allMatch(sub2 -> assignableFrom(t1, sub2));
+      return union2.getTypes().stream().allMatch(sub2 -> assignableFrom(t1, sub2, context));
     }
     if (t1 instanceof Types.UnionType union1) {
-      return union1.getTypes().stream().anyMatch(sub1 -> assignableFrom(sub1, t2));
+      return union1.getTypes().stream().anyMatch(sub1 -> assignableFrom(sub1, t2, context));
     }
-    if (t2.getSupertypes().stream().anyMatch(super2 -> assignableFrom(t1, super2))) {
+    if (t2.getSupertypes(context).stream()
+        .anyMatch(super2 -> assignableFrom(t1, super2, context))) {
       return true;
     }
     return false;
@@ -111,8 +116,70 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    * {@code list[int]} is consistent-equals to {@code list[Any]} because {@code int} is
    * consistent-equals to {@code Any}.
    */
-  public static boolean consistentEquals(StarlarkType t1, StarlarkType t2) {
-    return assignableFrom(t1, t2) && assignableFrom(t2, t1);
+  public static boolean consistentEquals(StarlarkType t1, StarlarkType t2, TypeContext context) {
+    return assignableFrom(t1, t2, context) && assignableFrom(t2, t1, context);
+  }
+
+  /**
+   * If this is (or contains, in the case of a composite type) an "Rvalue type", returns the
+   * corresponding non-Rvalue type to use when this type is propagated to a variable, parameter, or
+   * function return. Otherwise, if this is a non-Rvalue type, returns this type itself.
+   *
+   * <p>We use Rvalue types for expressions that evaluate to a new, unaliased value. For instance,
+   * the Rvalue list type is used for list literal expressions and for the list concatenation /
+   * multiplication binary operations. (In type theory it seems like this is a <a
+   * href="https://en.wikipedia.org/wiki/Uniqueness_type">Uniqueness Type</a>.) When a Rvalue-typed
+   * expression is aliased by assigning to a variable, or passing it to or returning it from a
+   * function, is is replaced by the corresponding non-Rvalue type (list in this example).
+   *
+   * <p>The point of an Rvalue type is that, since it cannot be aliased, it allows a mutable type to
+   * safely have covariance/contravariance, whereas the non-Rvalue type must be invariant. To see
+   * why mutable types cannot be covariant, consider the code:
+   *
+   * {@snippet :
+   *     x : list[int] = ...
+   *     y : list[object] = x  # allowed if lists were covariant
+   *     y.append("abc")       # modifies x
+   *     print(sum(x))         # dynamic error due to violating type safety
+   * }
+   *
+   * <p>Yet if all lists were invariant, that would prohibit obviously safe assignments such as:
+   *
+   * {@snippet :
+   *     x : list[int] = []               # can't convert from list[Never]
+   *     y : list[int|float] = [1, 2, 3]  # can't convert from list[int]
+   * }
+   *
+   * <p>This problem is solved, without the need for casts, by inferring the list literals to have
+   * an rvalue-list type, covariantly promoting it to the rvalue version of the LHS's list type, and
+   * finally changing it to non-Rvalue type as returned by this method.
+   *
+   * <p>Invariant: for any {@code T} which is assignable to {@code U}, {@code T} is also assignable
+   * to {@code U.toLvalue()}.
+   *
+   * <p>Composite types (e.g. collections and unions) must override this method and implement it
+   * recursively.
+   */
+  // TODO: #27370 - when we have generics and type deconstruction, we should have a static method
+  // performing recursive deconstruction and lvalue-ification rather than relying on StarlarkType
+  // subclasses' overrides.
+  public StarlarkType toLvalue() {
+    return this;
+  }
+
+  /**
+   * Returns the type that should be inferred for a new, unaliased value of this type; for example,
+   * a literal, the result of a binary operation, or the return value of a constructor function.
+   *
+   * <p>See {@link #toLvalue} for further discussion.
+   *
+   * <p>Invariant: for any {@code U} which is assignable from {@code T}, {@code U} is also
+   * assignable from {@code T.toRvalue()}.
+   *
+   * <p>Implementations generally should not be recursive, unlike {@link #toLvalue}.
+   */
+  public StarlarkType toRvalue() {
+    return this;
   }
 
   /**
@@ -123,8 +190,8 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    *     not a truthiness, equality, or ordering comparison operator (in other words, not {@link
    *     TokenKind#AND}, {@link TokenKind#OR}, {@link TokenKind#EQUALS}, {@link
    *     TokenKind#NOT_EQUALS}, {@link TokenKind#LESS}, {@link TokenKind#LESS_EQUALS}, {@link
-   *     TokenKind#GREATER}, or {@link TokenKind#GREATER_EQUALS}); those are handled specially by
-   *     {@link TypeChecker#infer}.
+   *     TokenKind#GREATER}, or {@link TokenKind#GREATER_EQUALS}), and not tuple multiplication;
+   *     those are handled specially by {@link TypeChecker#inferBinaryOperator}.
    * @param that a non-union, non-Never type of the other operand
    * @param thisLeft true iff this type is the type of the LHS operand.
    * @return the inferred type of the operation, or {@code null} to indicate that we could not infer
@@ -133,16 +200,36 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    *     operators on certain built-in types (e.g. tuple multiplication).
    */
   @Nullable
-  StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
+  public StarlarkType inferBinaryOperator(TokenKind operator, StarlarkType that, boolean thisLeft) {
     return null;
+  }
+
+  /**
+   * Infers the return type of some binary operations. Intended for use by {@link TypeChecker}.
+   *
+   * @param operator a binary operator (one of {@link BinaryOperatorExpression#operators}) which is
+   *     not a truthiness, equality, or ordering comparison operator (in other words, not {@link
+   *     TokenKind#AND}, {@link TokenKind#OR}, {@link TokenKind#EQUALS}, {@link
+   *     TokenKind#NOT_EQUALS}, {@link TokenKind#LESS}, {@link TokenKind#LESS_EQUALS}, {@link
+   *     TokenKind#GREATER}, or {@link TokenKind#GREATER_EQUALS}), and not tuple multiplication;
+   *     those are handled specially by {@link TypeChecker#inferBinaryOperator}.
+   */
+  @Nullable
+  public static StarlarkType inferBinaryOperator(
+      StarlarkType lhs, TokenKind operator, StarlarkType rhs) {
+    StarlarkType result = lhs.inferBinaryOperator(operator, rhs, true);
+    if (result == null) {
+      result = rhs.inferBinaryOperator(operator, lhs, false);
+    }
+    return result;
   }
 
   /**
    * Returns true iff the values of the two arbitrary (possibly union) types can be ordering
    * compared.
    */
-  public static boolean comparable(StarlarkType x, StarlarkType y) {
-    return x.isComparable(y) || y.isComparable(x);
+  public static boolean comparable(StarlarkType x, StarlarkType y, TypeContext context) {
+    return x.isComparable(y, context) || y.isComparable(x, context);
   }
 
   /**
@@ -152,7 +239,7 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    *
    * <p>Do not call this method directly; instead, use {@link #comparable}.
    */
-  protected boolean isComparable(StarlarkType that) {
+  protected boolean isComparable(StarlarkType that, TypeContext context) {
     return false;
   }
 
@@ -170,5 +257,10 @@ public abstract non-sealed class StarlarkType implements TypeConstructor.Arg {
    */
   public boolean hasSetField() {
     return false;
+  }
+
+  @Override
+  public boolean isOrEvaluatesToStarlarkType() {
+    return true;
   }
 }

@@ -18,15 +18,18 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /** This example options class should fail to compile. */
-public class IncorrectConverterType extends OptionsBase {
+@OptionsClass
+public abstract class IncorrectConverterType extends OptionsBase {
   @Option(
-    name = "option_has_incorrect_converter_for_type",
-    defaultValue = "strings are strings, not integers",
-    converter = IntegerConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP}
-  )
-  public String badOption;
+      name = "option_has_incorrect_converter_for_type",
+      defaultValue = "strings are strings, not integers",
+      converter = IntegerConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
+  public abstract String getBadOption();
+
+  public abstract void setBadOption(String value);
 }

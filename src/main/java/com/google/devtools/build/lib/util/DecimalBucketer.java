@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.util;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 
@@ -25,8 +26,6 @@ import java.util.ArrayList;
  * #getBuckets} to get the buckets.
  */
 public class DecimalBucketer {
-  /** A bucket of values. min is inclusive, max is exclusive. */
-  public record Bucket(long minInclusive, long maxExclusive, long count) {}
 
   private final ArrayList<Long> counts = new ArrayList<>();
 
@@ -63,7 +62,7 @@ public class DecimalBucketer {
       if (count > 0) {
         long min = base * leadingDigit;
         long max = Long.MAX_VALUE - base < min ? Long.MAX_VALUE : min + base;
-        builder.add(new Bucket(min, max, count));
+        builder.add(new BucketImpl(min, max, count));
       }
 
       leadingDigit += 1;
@@ -74,4 +73,7 @@ public class DecimalBucketer {
     }
     return builder.build();
   }
+
+  @VisibleForTesting
+  record BucketImpl(long minInclusive, long maxExclusive, long count) implements Bucket {}
 }

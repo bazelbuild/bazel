@@ -18,12 +18,14 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /**
  * Additional startup options provided by the {@link
  * com.google.devtools.build.lib.remote.RemoteModule}.
  */
-public final class RemoteStartupOptions extends OptionsBase {
+@OptionsClass
+public abstract class RemoteStartupOptions extends OptionsBase {
   @Option(
       name = "experimental_remote_repo_contents_cache",
       defaultValue = "false",
@@ -36,5 +38,5 @@ public final class RemoteStartupOptions extends OptionsBase {
           cache, the contents of the repository will be kept in an in-memory file system and are
           only downloaded when needed, either by Bazel itself or an action that runs locally.
           """)
-  public boolean useRemoteRepoContentsCache;
+  public abstract boolean getUseRemoteRepoContentsCache();
 }

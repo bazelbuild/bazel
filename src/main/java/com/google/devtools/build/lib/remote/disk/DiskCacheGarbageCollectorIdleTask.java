@@ -62,14 +62,14 @@ public final class DiskCacheGarbageCollectorIdleTask implements IdleTask {
       return null;
     }
     Optional<Long> maxSizeBytes = Optional.empty();
-    if (remoteOptions.diskCacheGcMaxSize > 0) {
-      maxSizeBytes = Optional.of(remoteOptions.diskCacheGcMaxSize);
+    if (remoteOptions.getDiskCacheGcMaxSize() > 0) {
+      maxSizeBytes = Optional.of(remoteOptions.getDiskCacheGcMaxSize());
     }
     Optional<Duration> maxAge = Optional.empty();
-    if (!remoteOptions.diskCacheGcMaxAge.isZero()) {
-      maxAge = Optional.of(remoteOptions.diskCacheGcMaxAge);
+    if (!remoteOptions.getDiskCacheGcMaxAge().isZero()) {
+      maxAge = Optional.of(remoteOptions.getDiskCacheGcMaxAge());
     }
-    Duration delay = remoteOptions.diskCacheGcIdleDelay;
+    Duration delay = remoteOptions.getDiskCacheGcIdleDelay();
     if (maxSizeBytes.isEmpty() && maxAge.isEmpty()) {
       return null;
     }

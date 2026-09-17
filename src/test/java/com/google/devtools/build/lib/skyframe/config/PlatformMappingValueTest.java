@@ -29,6 +29,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
@@ -54,7 +55,8 @@ public final class PlatformMappingValueTest {
       Label.parseCanonicalUnchecked("@bazel_tools//tools:host_platform");
 
   /** Extra options for this test. */
-  public static class DummyTestOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class DummyTestOptions extends FragmentOptions {
     public DummyTestOptions() {}
 
     @Option(
@@ -62,14 +64,14 @@ public final class PlatformMappingValueTest {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "defVal")
-    public String strOption;
+    public abstract String getStrOption();
 
     @Option(
         name = "other_str_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "defVal")
-    public String otherStrOption;
+    public abstract String getOtherStrOption();
   }
 
   private static final ImmutableSet<Class<? extends FragmentOptions>> BUILD_CONFIG_OPTIONS =
@@ -149,7 +151,7 @@ public final class PlatformMappingValueTest {
 
     BuildOptions mapped = mappingValue.map(createBuildOptions()).getOptions();
 
-    assertThat(mapped.get(PlatformOptions.class).platforms)
+    assertThat(mapped.get(PlatformOptions.class).getPlatforms())
         .containsExactly(DEFAULT_TARGET_PLATFORM);
   }
 
@@ -162,7 +164,7 @@ public final class PlatformMappingValueTest {
 
     BuildOptions mapped = mappingValue.map(modifiedOptions).getOptions();
 
-    assertThat(mapped.get(DummyTestOptions.class).strOption).isEqualTo("one");
+    assertThat(mapped.get(DummyTestOptions.class).getStrOption()).isEqualTo("one");
   }
 
   @Test
@@ -173,7 +175,7 @@ public final class PlatformMappingValueTest {
     BuildOptions modifiedOptions = createBuildOptions("--str_option=one", "--other_str_option=dbg");
     BuildOptions mapped = mappingValue.map(modifiedOptions).getOptions();
 
-    assertThat(mapped.get(PlatformOptions.class).platforms).containsExactly(PLATFORM_ONE);
+    assertThat(mapped.get(PlatformOptions.class).getPlatforms()).containsExactly(PLATFORM_ONE);
   }
 
   @Test
@@ -188,7 +190,7 @@ public final class PlatformMappingValueTest {
 
     BuildOptions mapped = mappingValue.map(modifiedOptions).getOptions();
 
-    assertThat(mapped.get(PlatformOptions.class).platforms).containsExactly(PLATFORM_TWO);
+    assertThat(mapped.get(PlatformOptions.class).getPlatforms()).containsExactly(PLATFORM_TWO);
   }
 
   @Test
@@ -200,7 +202,7 @@ public final class PlatformMappingValueTest {
 
     BuildOptions mapped = mappingValue.map(modifiedOptions).getOptions();
 
-    assertThat(mapped.get(PlatformOptions.class).platforms)
+    assertThat(mapped.get(PlatformOptions.class).getPlatforms())
         .containsExactly(DEFAULT_TARGET_PLATFORM);
   }
 

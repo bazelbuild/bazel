@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -237,6 +238,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
         orderedResults,
         universeScope,
         /* loadingPhaseThreads= */ 1,
+        /* trackIncrementalState= */ true,
         /* labelFilter= */ ALL_LABELS,
         getReporter(),
         this.settings,
@@ -323,38 +325,38 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     skyframeExecutor = createSkyframeExecutor(ruleClassProvider);
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
 
-    packageOptions.defaultVisibility = RuleVisibility.PRIVATE;
-    packageOptions.showLoadingProgress = true;
-    packageOptions.globbingThreads = 7;
-    packageOptions.packagePath = ImmutableList.of(rootDirectory.getPathString());
-    packageOptions.lazyMacroExpansionPackages = lazyMacroExpansionPackages;
+    packageOptions.setDefaultVisibility(RuleVisibility.PRIVATE);
+    packageOptions.setShowLoadingProgress(true);
+    packageOptions.setGlobbingThreads(7);
+    packageOptions.setPackagePath(ImmutableList.of(rootDirectory.getPathString()));
+    packageOptions.setLazyMacroExpansionPackages(lazyMacroExpansionPackages);
 
     BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
-    buildLanguageOptions.experimentalGoogleLegacyApi = !analysisMock.isThisBazel();
-    // TODO(b/256127926): Delete once flipped.
-    buildLanguageOptions.experimentalEnableSclDialect = true;
-    buildLanguageOptions.experimentalDormantDeps = true;
+    buildLanguageOptions.setExperimentalGoogleLegacyApi(!analysisMock.isThisBazel());
+    buildLanguageOptions.setExperimentalDormantDeps(true);
 
     ImmutableList<BuildFileName> buildFilesByPriority = skyframeExecutor.getBuildFilesByPriority();
-    PathPackageLocator packageLocator =
-        useVirtualSourceRoot()
-            ? PathPackageLocator.createWithoutExistenceCheck(
-                /* outputBase= */ null,
-                ImmutableList.of(directories.getVirtualSourceRoot()),
-                buildFilesByPriority)
-            : PathPackageLocator.create(
-                directories.getOutputBase(),
-                packageOptions.packagePath,
-                getReporter(),
-                directories.getWorkspace().asFragment(),
-                rootDirectory,
-                buildFilesByPriority);
+    PathPackageLocator packageLocator;
     try {
+      packageLocator =
+          useVirtualSourceRoot()
+              ? PathPackageLocator.createWithoutExistenceCheck(
+                  /* outputBase= */ null,
+                  ImmutableList.of(directories.getVirtualSourceRoot()),
+                  buildFilesByPriority)
+              : PathPackageLocator.create(
+                  directories.getOutputBase(),
+                  packageOptions.getPackagePath(),
+                  getReporter(),
+                  directories.getWorkspace().asFragment(),
+                  rootDirectory,
+                  buildFilesByPriority);
       skyframeExecutor.sync(
           getReporter(),
           packageLocator,
           UUID.randomUUID(),
-          ImmutableMap.of(),
+          /* clientEnv= */ ImmutableMap.of(),
+          /* repoEnv= */ ImmutableMap.of(),
           new TimestampGranularityMonitor(BlazeClock.instance()),
           QuiescingExecutorsImpl.forTesting(),
           FakeOptions.builder().put(packageOptions).put(buildLanguageOptions).build(),
@@ -402,6 +404,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             .setActionKeyContext(actionKeyContext)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setSyscallCache(delegatingSyscallCache)
+            .setCompressionService(new CompressionServiceImpl())
             .build();
     skyframeExecutor.injectExtraPrecomputedValues(extraPrecomputedValues);
     SkyframeExecutorTestHelper.process(skyframeExecutor);

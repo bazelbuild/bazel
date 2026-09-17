@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.util.StringUtil;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -69,21 +70,27 @@ public class AnalysisProgressReceiver {
     StringBuilder sb = new StringBuilder();
 
     long targets = configuredTargetsCompleted.get();
-    sb.append(targets).append(targets == 1 ? " target" : " targets").append(" configured");
+    sb.append(StringUtil.formatCount(targets))
+        .append(targets == 1 ? " target" : " targets")
+        .append(" configured");
 
     long downloadedTargets = configuredTargetsDownloaded.get();
     if (downloadedTargets > 0) {
-      sb.append(" (").append(downloadedTargets).append(" remote cache hits)");
+      sb.append(" (")
+          .append(StringUtil.formatCount(downloadedTargets))
+          .append(" remote cache hits)");
     }
 
     long aspects = configuredAspectsCompleted.get();
     if (aspects > 0) {
       sb.append(", ")
-          .append(aspects)
+          .append(StringUtil.formatCount(aspects))
           .append(aspects == 1 ? " aspect application" : " aspect applications");
       long downloadedAspects = configuredAspectsDownloaded.get();
       if (downloadedAspects > 0) {
-        sb.append(" (").append(downloadedAspects).append(" remote cache hits)");
+        sb.append(" (")
+            .append(StringUtil.formatCount(downloadedAspects))
+            .append(" remote cache hits)");
       }
     }
 

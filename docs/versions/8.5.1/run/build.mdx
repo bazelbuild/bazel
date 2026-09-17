@@ -179,7 +179,8 @@ current _working directory_. These examples assume a working directory of `foo`:
 </tr>
 <tr>
   <td><code>bar/wiz</code></td>
-  <td>Equivalent to:
+  <td>
+    Equivalent to:
     <ul>
       <li><code>//foo/bar/wiz:wiz</code> if <code>foo/bar/wiz</code> is a package</li>
       <li><code>//foo/bar:wiz</code> if <code>foo/bar</code> is a package</li>
@@ -632,8 +633,7 @@ Note: Hermeticity means that the action only uses its declared input
 files and no other files in the filesystem, and it only produces its declared
 output files. See [Hermeticity](/versions/8.5.1/basics/hermeticity) for more details.
 
-On some platforms such as [Google Kubernetes
-Engine](https://cloud.google.com/kubernetes-engine/) cluster nodes or Debian,
+On some platforms such as [Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine/) cluster nodes or Debian,
 user namespaces are deactivated by default due to security
 concerns. This can be checked by looking at the file
 `/proc/sys/kernel/unprivileged_userns_clone`: if it exists and contains a 0,

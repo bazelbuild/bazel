@@ -439,7 +439,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   private void setGeneratingActions()
       throws InterruptedException,
           ActionConflictException,
-          Actions.ArtifactGeneratedByOtherRuleException {
+          Actions.ArtifactGeneratedByOtherRuleException,
+          Actions.SourceArtifactUsedAsOutputException {
     if (evaluator.getExistingValue(ALL_OWNER) == null) {
       ImmutableList<ActionAnalysisMetadata> generatingActions = ImmutableList.copyOf(actions);
       Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
@@ -452,7 +453,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   private <E extends SkyValue> EvaluationResult<E> evaluate(SkyKey... keys)
       throws InterruptedException,
           ActionConflictException,
-          Actions.ArtifactGeneratedByOtherRuleException {
+          Actions.ArtifactGeneratedByOtherRuleException,
+          Actions.SourceArtifactUsedAsOutputException {
     setGeneratingActions();
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()

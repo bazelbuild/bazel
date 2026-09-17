@@ -14,11 +14,14 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.test;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Contains information about instrumented files sources and instrumentation metadata. */
 @StarlarkBuiltin(
@@ -61,4 +64,11 @@ public interface InstrumentedFilesInfoApi extends StructApi {
               + " <code>gcc</code> is run with <code>-ftest-coverage</code>.",
       structField = true)
   Depset getInstrumentationMetadataFilesForStarlark();
+
+  @StarlarkMethod(name = "get_coverage_environment", documented = false, useStarlarkThread = true)
+  ImmutableMap<String, String> getCoverageEnvironmentForStarlark(StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(name = "get_coverage_support_files", documented = false, useStarlarkThread = true)
+  Depset getCoverageSupportFilesForStarlark(StarlarkThread thread) throws EvalException;
 }

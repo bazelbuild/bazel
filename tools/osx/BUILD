@@ -1,3 +1,7 @@
+load("@apple_support//rules:universal_binary.bzl", "universal_binary")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:objc_library.bzl", "objc_library")
 load(
     "//tools/osx:xcode_version_flag.bzl",
     "ios_sdk_version_flag",
@@ -26,24 +30,37 @@ exports_files([
     "xcode_configure.bzl",
 ])
 
-DARWIN_XCODE_LOCATOR_COMPILE_COMMAND = """
-  /usr/bin/xcrun --sdk macosx clang -mmacosx-version-min=10.13 -fobjc-arc -framework CoreServices \
-      -framework Foundation -arch arm64 -arch x86_64 -o $@ $<
-"""
+objc_library(
+    name = "xcode-locator-lib",
+    srcs = ["xcode_locator.m"],
+    sdk_frameworks = [
+        "CoreServices",
+        "Foundation",
+    ],
+    target_compatible_with = ["@platforms//os:macos"],
+)
 
-genrule(
-    name = "xcode-locator-genrule",
-    srcs = select({
-        "//src/conditions:darwin": ["xcode_locator.m"],
-        "//conditions:default": ["xcode_locator_stub.sh"],
+cc_binary(
+    name = "xcode-locator-native",
+    target_compatible_with = ["@platforms//os:macos"],
+    deps = [":xcode-locator-lib"],
+)
+
+universal_binary(
+    name = "xcode-locator-universal",
+    binary = ":xcode-locator-native",
+    target_compatible_with = ["@platforms//os:macos"],
+)
+
+copy_file(
+    name = "xcode-locator-copy",
+    src = select({
+        "//src/conditions:darwin": ":xcode-locator-universal",
+        "//conditions:default": "xcode_locator_stub.sh",
     }),
-    outs = ["xcode-locator"],
-    cmd = select({
-        "//src/conditions:darwin": DARWIN_XCODE_LOCATOR_COMPILE_COMMAND,
-        "//conditions:default": "cp $< $@",
-    }),
-    local = 1,
-    output_to_bindir = 1,
+    out = "xcode-locator",
+    allow_symlink = True,
+    is_executable = True,
 )
 
 # TODO(cparsons): Consolidate with config_settings under //src

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.vfs;
 
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
+import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
@@ -24,7 +25,7 @@ import java.io.IOException;
  * An {@link IOException} that includes {@link DetailedExitCode} and {@link Transience}. Currently
  * only used for {@link Filesystem} exceptions.
  */
-public class DetailedIOException extends IOException {
+public final class DetailedIOException extends IOException implements DetailedException {
 
   private final DetailedExitCode detailedExitCode;
   private final Transience transience;
@@ -41,6 +42,7 @@ public class DetailedIOException extends IOException {
     this.transience = transience;
   }
 
+  @Override
   public DetailedExitCode getDetailedExitCode() {
     return detailedExitCode;
   }

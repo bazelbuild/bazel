@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import build.bazel.remote.execution.v2.Digest;
@@ -86,7 +86,7 @@ public class RemoteLeaseExtension implements LeaseExtension {
     this.combinedCache = combinedCache;
     this.remoteCacheTtl = remoteCacheTtl;
     RequestMetadata requestMetadata =
-        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "lease-extension", null);
+        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "lease-extension");
     this.context = RemoteActionExecutionContext.create(requestMetadata);
   }
 

@@ -13,12 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
+import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** This class is used to insert metadata about threads into the JSON trace profile. */
+@ScOnly
 class ThreadMetadata implements TraceData {
   private final String readableName;
   private final long threadId;

@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -37,7 +36,6 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
@@ -230,7 +228,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
         String.format(
             "--experimental_override_name_platform_in_output_dir=%s=k8",
             TestConstants.PLATFORM_LABEL));
@@ -279,7 +276,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
         String.format(
             "--experimental_override_name_platform_in_output_dir=%s=k8",
             TestConstants.PLATFORM_LABEL));
@@ -1232,9 +1228,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         """);
     ConfiguredTarget target = getConfiguredTarget("//foo");
     CppCompileAction action = getCppCompileAction(target);
-    String genfilesDir =
-        getConfiguration(target).getGenfilesFragment(RepositoryName.MAIN).toString();
-    String binDir = getConfiguration(target).getBinFragment(RepositoryName.MAIN).toString();
+    String genfilesDir = getConfiguration(target).getGenfilesFragment().toString();
+    String binDir = getConfiguration(target).getBinFragment().toString();
     // Local include paths come first.
     assertContainsSublist(
         action.getCompilerOptions(),
@@ -1367,7 +1362,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-Id/../../somewhere'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), false);
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()
@@ -1385,7 +1380,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-I/somewhere'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), false);
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()
@@ -1403,7 +1398,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-isystem../system'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), false);
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()
@@ -1421,7 +1416,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-isystem/system'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), false);
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()
@@ -1462,12 +1457,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
             "cc_library(name = 'b', srcs = ['libb.so'])");
 
-    if (!analysisMock.isThisBazel()) {
-      assertThat(artifactsToStrings(getFilesToBuild(target.getConfiguredTarget())))
-          .containsExactly("bin a/libb.a");
-    } else {
-      assertThat(artifactsToStrings(getFilesToBuild(target.getConfiguredTarget()))).isEmpty();
-    }
+    assertThat(artifactsToStrings(getFilesToBuild(target.getConfiguredTarget()))).isEmpty();
   }
 
   // Returns the libraries to link from the CcLinkingContext of the given target, excluding
@@ -1775,36 +1765,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         )
         """);
     checkError("//foo", "Trying to link twice");
-  }
-
-  @Test
-  public void testImplicitOutputsWhitelistOnWhitelist() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
-    scratch.overwriteFile(
-        "tools/build_defs/cc/whitelists/cc_lib_implicit_outputs/BUILD",
-        """
-        package_group(
-            name = 'allowed_cc_lib_implicit_outputs',
-            packages = ['//bar'])
-        """);
-
-    scratch.file(
-        "bar/BUILD",
-        """
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        filegroup(
-            name = 'allowed',
-            srcs = [':liballowed_cc_lib.a'],
-        )
-        cc_library(
-            name = 'allowed_cc_lib',
-            srcs = ['allowed_cc_lib.cc'],
-        )
-        """);
-    getConfiguredTarget("//bar:allowed");
-    assertNoEvents();
   }
 
   private void prepareCustomTransition() throws Exception {
@@ -2230,12 +2190,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         """);
 
     assertThat(getExecConfiguredTarget("//foo:public_dep")).isNotNull();
-    ;
-    assertDoesNotContainEvent("requires --experimental_cc_implementation_deps");
   }
 
   @Test
-  public void testImplementationDepsSucceedsWithoutFlag() throws Exception {
+  public void testImplementationDepsSucceeds() throws Exception {
     if (!analysisMock.isThisBazel()) {
       return;
     }
@@ -2255,8 +2213,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         )
         """);
     assertThat(getConfiguredTarget("//foo:lib")).isNotNull();
-    ;
-    assertDoesNotContainEvent("requires --experimental_cc_implementation_deps");
   }
 
   @Test
@@ -2293,22 +2249,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertContainsEvent("Only targets in the following allowlist");
   }
 
-  @Test
-  public void testCcLibraryProducesEmptyArchive() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
-    scratch.file(
-        "foo/BUILD",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "cc_library(name = 'foo')");
-    assertThat(
-            getConfiguredTarget("//foo:foo")
-                .getProvider(FileProvider.class)
-                .getFilesToBuild()
-                .toList())
-        .isNotEmpty();
-  }
 
   @Test
   public void testRpathIsNotAddedWhenThereAreNoSoDeps() throws Exception {
@@ -2356,7 +2296,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
         "--compilation_mode=fastbuild",
-        "--experimental_platform_in_output_dir",
         String.format(
             "--experimental_override_name_platform_in_output_dir=%s=k8",
             TestConstants.PLATFORM_LABEL));
@@ -2416,7 +2355,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
         "--compilation_mode=fastbuild",
-        "--experimental_platform_in_output_dir",
         String.format(
             "--experimental_override_name_platform_in_output_dir=%s=k8",
             TestConstants.PLATFORM_LABEL));

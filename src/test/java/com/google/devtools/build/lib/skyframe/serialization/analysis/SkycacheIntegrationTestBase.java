@@ -66,12 +66,6 @@ import org.junit.rules.TestName;
 public abstract class SkycacheIntegrationTestBase extends BuildIntegrationTestCase
     implements SkycacheIntegrationTestHelpers {
 
-  protected static final String UPLOAD_MODE_OPTION =
-      "--experimental_remote_analysis_cache_mode=upload";
-  protected static final String DOWNLOAD_MODE_OPTION =
-      "--experimental_remote_analysis_cache_mode=download";
-  protected static final String DUMP_MANIFEST_MODE_OPTION =
-      "--experimental_remote_analysis_cache_mode=dump_upload_manifest_only";
 
   @Rule public TestName testName = new TestName();
 
@@ -333,6 +327,8 @@ project = project_pb2.Project.create(project_directories = []) # empty
         proto.getSampleList().stream()
             .filter(sample -> sample.getLocationIdCount() == 1)
             .map(sample -> classNames.get((int) sample.getLocationId(0)))
+            // Skips entries that do not have class names (invalidation data).
+            .filter(name -> name != null)
             .collect(toImmutableList());
 
     // These top-level class names should be relatively stable.
@@ -341,7 +337,6 @@ project = project_pb2.Project.create(project_directories = []) # empty
             "com.google.devtools.build.lib.actions.Artifact.DerivedArtifact",
             "com.google.devtools.build.lib.actions.Artifact.SourceArtifact",
             "com.google.devtools.build.lib.analysis.ConfiguredTargetValue",
-            "com.google.devtools.build.lib.skyframe.ConfiguredTargetKey",
             "com.google.devtools.build.lib.cmdline.Label",
             "java.lang.Object[]");
 

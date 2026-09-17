@@ -126,8 +126,8 @@ public final class PlatformMappingValue implements SkyValue {
         platformOptions != null,
         "When using platform mappings, all configurations must contain platform options");
 
-    if (!platformOptions.platforms.isEmpty()) {
-      List<Label> platforms = platformOptions.platforms;
+    if (!platformOptions.getPlatforms().isEmpty()) {
+      List<Label> platforms = platformOptions.getPlatforms();
 
       // Platform mapping only supports a single target platform, others are ignored.
       Label targetPlatform = Iterables.getFirst(platforms, null);
@@ -146,7 +146,7 @@ public final class PlatformMappingValue implements SkyValue {
       Label platformLabel = flagsToPlatform.getValue();
       if (originalOptions.matches(parsedFlags.parsingResult())) {
         BuildOptions modifiedOptions = originalOptions.clone();
-        modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(platformLabel);
+        modifiedOptions.get(PlatformOptions.class).setPlatforms(ImmutableList.of(platformLabel));
         return BuildConfigurationKey.create(modifiedOptions);
       }
     }
@@ -154,7 +154,7 @@ public final class PlatformMappingValue implements SkyValue {
     // No mapping found.
     Label targetPlatform = platformOptions.computeTargetPlatform();
     BuildOptions modifiedOptions = originalOptions.clone();
-    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(targetPlatform);
+    modifiedOptions.get(PlatformOptions.class).setPlatforms(ImmutableList.of(targetPlatform));
     return BuildConfigurationKey.create(modifiedOptions);
   }
 

@@ -77,7 +77,7 @@ final class RepositoryFetcher {
       throws InterruptedException, RepositoryFetcherException {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
-            .setParallelism(threadsOption.threads)
+            .setParallelism(threadsOption.getThreads())
             .setEventHandler(env.getReporter())
             .build();
     ImmutableSet<SkyKey> repoDelegatorKeys =
@@ -86,8 +86,11 @@ final class RepositoryFetcher {
         env.getSkyframeExecutor().prepareAndGet(repoDelegatorKeys, evaluationContext);
     if (evaluationResult.hasError()) {
       Exception e = evaluationResult.getError().getException();
-      throw new RepositoryFetcherException(
-          e != null ? e.getMessage() : "Unexpected error during repository fetching.");
+      String errorMessage =
+          e != null && e.getMessage() != null
+              ? e.getMessage()
+              : "Unexpected error during repository fetching.";
+      throw new RepositoryFetcherException(errorMessage);
     }
     return evaluationResult;
   }
@@ -120,8 +123,8 @@ final class RepositoryFetcher {
       RepositoryMapping repoMapping =
           env.getSkyframeExecutor()
               .getMainRepoMapping(
-                  env.getOptions().getOptions(KeepGoingOption.class).keepGoing,
-                  threadsOption.threads,
+                  env.getOptions().getOptions(KeepGoingOption.class).getKeepGoing(),
+                  threadsOption.getThreads(),
                   env.getReporter());
       return repoMapping.get(repoName.substring(1));
     } else {

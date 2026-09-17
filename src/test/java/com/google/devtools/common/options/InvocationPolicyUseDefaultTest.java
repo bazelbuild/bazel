@@ -41,14 +41,14 @@ public class InvocationPolicyUseDefaultTest extends InvocationPolicyEnforcerTest
 
     // Options should be the user specified value before enforcing policy.
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getTestString()).isEqualTo(TEST_STRING_USER_VALUE);
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // Get the options again after policy enforcement: The flag should now be back to its default
     // value
     testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TestOptions.TEST_STRING_DEFAULT);
+    assertThat(testOptions.getTestString()).isEqualTo(TestOptions.TEST_STRING_DEFAULT);
   }
 
   /**
@@ -65,13 +65,13 @@ public class InvocationPolicyUseDefaultTest extends InvocationPolicyEnforcerTest
 
     // Options should be the default since the user never specified it.
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TestOptions.TEST_STRING_DEFAULT);
+    assertThat(testOptions.getTestString()).isEqualTo(TestOptions.TEST_STRING_DEFAULT);
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // Still the default.
     testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(TestOptions.TEST_STRING_DEFAULT);
+    assertThat(testOptions.getTestString()).isEqualTo(TestOptions.TEST_STRING_DEFAULT);
   }
 
   @Test
@@ -85,20 +85,20 @@ public class InvocationPolicyUseDefaultTest extends InvocationPolicyEnforcerTest
     parser.parse("--test_expansion");
 
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_TEST_EXPANSION);
-    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
-    assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_TEST_EXPANSION);
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedA()).isEqualTo(TestOptions.EXPANDED_A_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedB()).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedC()).isEqualTo(TestOptions.EXPANDED_C_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedD()).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // After policy enforcement, all the flags that --test_expansion expanded into should be back
     // to their default values.
     testOptions = getTestOptions();
-    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_DEFAULT);
-    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
-    assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_DEFAULT);
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
+    assertThat(testOptions.getExpandedA()).isEqualTo(TestOptions.EXPANDED_A_DEFAULT);
+    assertThat(testOptions.getExpandedB()).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
+    assertThat(testOptions.getExpandedC()).isEqualTo(TestOptions.EXPANDED_C_DEFAULT);
+    assertThat(testOptions.getExpandedD()).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
   }
 
   @Test
@@ -118,10 +118,10 @@ public class InvocationPolicyUseDefaultTest extends InvocationPolicyEnforcerTest
     parser.parse("--test_expansion");
 
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_TEST_EXPANSION);
-    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
-    assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_TEST_EXPANSION);
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedA()).isEqualTo(TestOptions.EXPANDED_A_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedB()).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedC()).isEqualTo(TestOptions.EXPANDED_C_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedD()).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
 
     // If the UseDefault is run, then the value of --expanded_b is back to it's default true, which
     // isn't allowed. However, the allowValues in the later policy should wipe the expansion's
@@ -129,10 +129,10 @@ public class InvocationPolicyUseDefaultTest extends InvocationPolicyEnforcerTest
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     testOptions = getTestOptions();
-    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_DEFAULT);
-    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
-    assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_DEFAULT);
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
+    assertThat(testOptions.getExpandedA()).isEqualTo(TestOptions.EXPANDED_A_DEFAULT);
+    assertThat(testOptions.getExpandedB()).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedC()).isEqualTo(TestOptions.EXPANDED_C_DEFAULT);
+    assertThat(testOptions.getExpandedD()).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
   }
 
   @Test
@@ -146,20 +146,24 @@ public class InvocationPolicyUseDefaultTest extends InvocationPolicyEnforcerTest
     parser.parse("--test_recursive_expansion_top_level");
 
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_TEST_RECURSIVE_EXPANSION);
-    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_TEST_RECURSIVE_EXPANSION);
-    assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_TEST_RECURSIVE_EXPANSION);
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_TEST_RECURSIVE_EXPANSION);
+    assertThat(testOptions.getExpandedA())
+        .isEqualTo(TestOptions.EXPANDED_A_TEST_RECURSIVE_EXPANSION);
+    assertThat(testOptions.getExpandedB())
+        .isEqualTo(TestOptions.EXPANDED_B_TEST_RECURSIVE_EXPANSION);
+    assertThat(testOptions.getExpandedC())
+        .isEqualTo(TestOptions.EXPANDED_C_TEST_RECURSIVE_EXPANSION);
+    assertThat(testOptions.getExpandedD())
+        .isEqualTo(TestOptions.EXPANDED_D_TEST_RECURSIVE_EXPANSION);
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // After policy enforcement, all the flags that --test_recursive_expansion_top_level and its
     // recursive expansions set should be back to their default values.
     testOptions = getTestOptions();
-    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_DEFAULT);
-    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
-    assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_DEFAULT);
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
+    assertThat(testOptions.getExpandedA()).isEqualTo(TestOptions.EXPANDED_A_DEFAULT);
+    assertThat(testOptions.getExpandedB()).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
+    assertThat(testOptions.getExpandedC()).isEqualTo(TestOptions.EXPANDED_C_DEFAULT);
+    assertThat(testOptions.getExpandedD()).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
   }
 
   @Test
@@ -175,20 +179,20 @@ public class InvocationPolicyUseDefaultTest extends InvocationPolicyEnforcerTest
 
     // --test_expansion should turn set the values from its expansion
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_TEST_EXPANSION);
-    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
-    assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_TEST_EXPANSION);
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedA()).isEqualTo(TestOptions.EXPANDED_A_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedB()).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedC()).isEqualTo(TestOptions.EXPANDED_C_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedD()).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // After policy enforcement, expanded_b should be back to its default (true), but the
     // rest should remain the same.
     testOptions = getTestOptions();
-    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_TEST_EXPANSION);
-    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
-    assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_TEST_EXPANSION);
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedA()).isEqualTo(TestOptions.EXPANDED_A_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedB()).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
+    assertThat(testOptions.getExpandedC()).isEqualTo(TestOptions.EXPANDED_C_TEST_EXPANSION);
+    assertThat(testOptions.getExpandedD()).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
   }
 
   @Test
@@ -204,17 +208,17 @@ public class InvocationPolicyUseDefaultTest extends InvocationPolicyEnforcerTest
     // test_implicit_requirement sets implicit_requirement_a to "foo", which ignores the user's
     // value because the parser processes implicit values last.
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testImplicitRequirement).isEqualTo(TEST_STRING_USER_VALUE);
-    assertThat(testOptions.implicitRequirementA)
+    assertThat(testOptions.getTestImplicitRequirement()).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getImplicitRequirementA())
         .isEqualTo(TestOptions.IMPLICIT_REQUIREMENT_A_REQUIRED);
 
     // Then policy puts test_implicit_requirement and its implicit requirements back to its default.
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     testOptions = getTestOptions();
-    assertThat(testOptions.testImplicitRequirement)
+    assertThat(testOptions.getTestImplicitRequirement())
         .isEqualTo(TestOptions.TEST_IMPLICIT_REQUIREMENT_DEFAULT);
-    assertThat(testOptions.implicitRequirementA)
+    assertThat(testOptions.getImplicitRequirementA())
         .isEqualTo(TestOptions.IMPLICIT_REQUIREMENT_A_DEFAULT);
   }
 
@@ -234,8 +238,8 @@ public class InvocationPolicyUseDefaultTest extends InvocationPolicyEnforcerTest
     // test_implicit_requirement sets implicit_requirement_a to "foo", but it gets overwritten
     // by the user value.
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testImplicitRequirement).isEqualTo(TEST_STRING_USER_VALUE);
-    assertThat(testOptions.implicitRequirementA).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getTestImplicitRequirement()).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getImplicitRequirementA()).isEqualTo(TEST_STRING_USER_VALUE);
 
     // Then policy puts implicit_requirement_a back to its default. This is "broken" since it wipes
     // the user value, but this is the behavior that was agreed on and is documented for expansion
@@ -243,8 +247,8 @@ public class InvocationPolicyUseDefaultTest extends InvocationPolicyEnforcerTest
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     testOptions = getTestOptions();
-    assertThat(testOptions.testImplicitRequirement).isEqualTo(TEST_STRING_USER_VALUE);
-    assertThat(testOptions.implicitRequirementA)
+    assertThat(testOptions.getTestImplicitRequirement()).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getImplicitRequirementA())
         .isEqualTo(TestOptions.IMPLICIT_REQUIREMENT_A_DEFAULT);
   }
 
@@ -262,21 +266,21 @@ public class InvocationPolicyUseDefaultTest extends InvocationPolicyEnforcerTest
     // test_implicit_requirement gets its value from test_recursive_implicit_requirement, and
     // implicit_requirement_a gets its value from test_implicit_requirement.
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testRecursiveImplicitRequirement).isEqualTo(TEST_STRING_USER_VALUE);
-    assertThat(testOptions.testImplicitRequirement)
+    assertThat(testOptions.getTestRecursiveImplicitRequirement()).isEqualTo(TEST_STRING_USER_VALUE);
+    assertThat(testOptions.getTestImplicitRequirement())
         .isEqualTo(TestOptions.TEST_IMPLICIT_REQUIREMENT_REQUIRED);
-    assertThat(testOptions.implicitRequirementA)
+    assertThat(testOptions.getImplicitRequirementA())
         .isEqualTo(TestOptions.IMPLICIT_REQUIREMENT_A_REQUIRED);
 
     enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // Policy enforcement should set everything back to its default value.
     testOptions = getTestOptions();
-    assertThat(testOptions.testRecursiveImplicitRequirement)
+    assertThat(testOptions.getTestRecursiveImplicitRequirement())
         .isEqualTo(TestOptions.TEST_RECURSIVE_IMPLICIT_REQUIREMENT_DEFAULT);
-    assertThat(testOptions.testImplicitRequirement)
+    assertThat(testOptions.getTestImplicitRequirement())
         .isEqualTo(TestOptions.TEST_IMPLICIT_REQUIREMENT_DEFAULT);
-    assertThat(testOptions.implicitRequirementA)
+    assertThat(testOptions.getImplicitRequirementA())
         .isEqualTo(TestOptions.IMPLICIT_REQUIREMENT_A_DEFAULT);
   }
 }

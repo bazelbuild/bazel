@@ -4,7 +4,7 @@ title: 'File'
 
 This object is created during the analysis phase to represent a file or directory that will be read or written during the execution phase. It is not an open file handle, and cannot be used to directly read or write file contents. Rather, you use it to construct the action graph in a rule implementation function by passing it to action-creating functions. See the [Rules page](https://bazel.build/versions/8.1.1/extending/rules#files) for more information.
 
-When a `File` is passed to an [`Args`](../builtins/Args) object without using a `map_each` function, it is converted to a string by taking the value of its `path` field.
+When a `File` is passed to an [`Args`](/versions/8.1.1/rules/lib/builtins/Args) object without using a `map_each` function, it is converted to a string by taking the value of its `path` field.
 
 ## Members
 
@@ -83,7 +83,7 @@ May return `None`.
 string File.path
 ```
 
-The execution path of this file, relative to the workspace's execution directory. It consists of two parts, an optional first part called the *root* (see also the [root](../builtins/root) module), and the second part which is the `short_path`. The root may be empty, which it usually is for non-generated files. For generated files it usually contains a configuration-specific path fragment that encodes things like the target CPU architecture that was used while building said file. Use the `short_path` for the path under which the file is mapped if it's in the runfiles of a binary.
+The execution path of this file, relative to the workspace's execution directory. It consists of two parts, an optional first part called the *root* (see also the [root](/versions/8.1.1/rules/lib/builtins/root) module), and the second part which is the `short_path`. The root may be empty, which it usually is for non-generated files. For generated files it usually contains a configuration-specific path fragment that encodes things like the target CPU architecture that was used while building said file. Use the `short_path` for the path under which the file is mapped if it's in the runfiles of a binary.
 
 ## root
 
@@ -107,4 +107,4 @@ The path of this file relative to its root. This excludes the aforementioned *ro
 string File.tree_relative_path
 ```
 
-The path of this file relative to the root of the ancestor's tree, if the ancestor's [is\_directory](#is_directory) field is true. `tree_relative_path` is only available for expanded files of a directory in an action command, i.e. [Args.add\_all()](../builtins/Args#add_all). For other types of files, it is an error to access this field.
+The path of this file relative to the root of the ancestor's tree, if the ancestor's [is\_directory](#is_directory) field is true. `tree_relative_path` is only available for expanded files of a directory in an action command, i.e. [Args.add\_all()](/versions/8.1.1/rules/lib/builtins/Args#add_all). For other types of files, it is an error to access this field.

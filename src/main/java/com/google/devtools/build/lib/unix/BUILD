@@ -2,19 +2,21 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
+    ],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
     name = "unix_file_system",
     srcs = [
-        "InvalidArgumentIOException.java",
         "UnixFileStatus.java",
         "UnixFileSystem.java",
     ],
@@ -28,8 +30,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -44,43 +47,46 @@ java_library(
 java_library(
     name = "native_posix_files_service",
     srcs = [
-        "InvalidArgumentIOException.java",
+        "NativePosixFilesException.java",
         "NativePosixFilesService.java",
     ],
-    deps = ["//src/main/java/com/google/devtools/build/lib/runtime:blaze_service"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+        "//third_party/java/jsr305_annotations",
+    ],
 )
 
 java_library(
     name = "native_posix_files_service_impl",
-    srcs = ["NativePosixFilesServiceImpl.java"],
+    srcs = [
+        "NativePosixFilesServiceImpl.java",
+    ],
     deps = [
         ":native_posix_files_service",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/jni",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
 java_library(
     name = "procmeminfo_parser",
     srcs = ["ProcMeminfoParser.java"],
-    deps = ["//third_party:guava"],
-)
-
-java_library(
-    name = "process_utils_service",
-    srcs = ["ProcessUtilsService.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:io",
     ],
 )
 
 java_library(
-    name = "process_utils_service_impl",
-    srcs = ["ProcessUtilsServiceImpl.java"],
+    name = "process_utils",
+    srcs = ["ProcessUtils.java"],
     deps = [
-        ":process_utils_service",
-        "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/common/options",
+        "//third_party/java/jsr305_annotations",
     ],
 )

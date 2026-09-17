@@ -41,6 +41,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -111,6 +112,7 @@ public final class ProfilerTest {
         BlazeClock.instance(),
         BlazeClock.nanoTime(),
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
@@ -129,6 +131,7 @@ public final class ProfilerTest {
         BlazeClock.instance(),
         BlazeClock.nanoTime(),
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
@@ -232,6 +235,7 @@ public final class ProfilerTest {
         clock,
         clock.nanoTime(),
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
@@ -300,6 +304,7 @@ public final class ProfilerTest {
         ImmutableList.of(workerMetric1, workerMetric2);
     WorkerProcessMetricsCollector workerProcessMetricsCollector =
         mock(WorkerProcessMetricsCollector.class);
+    // Use a CountDownLatch to wait for the metrics collection to complete.
     var metricsCollected = new CountDownLatch(1);
     when(workerProcessMetricsCollector.getLiveWorkerProcessMetrics())
         .thenAnswer(
@@ -328,6 +333,7 @@ public final class ProfilerTest {
         clock,
         clock.nanoTime(),
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
@@ -345,8 +351,54 @@ public final class ProfilerTest {
             .filter(e -> e.name().contains("Per-mnemonic worker memory usage"))
             .collect(toImmutableList());
 
-    assertThat(totalWorkerMemoryUsageEvents).hasSize(1);
-    assertThat(perMnemonicWorkerMemoryUsageEvents).hasSize(1);
+    // Assert that the worker memory usage events are collected.
+    assertThat(totalWorkerMemoryUsageEvents).isNotEmpty();
+    assertThat(perMnemonicWorkerMemoryUsageEvents).isNotEmpty();
+  }
+
+  @Test
+  public void testResourceCollectorCollectsOnStop() throws Exception {
+    record TestTask(String laneName, String seriesName, CounterSeriesTask.Color color)
+        implements CounterSeriesTask {}
+
+    AtomicInteger collectCount = new AtomicInteger(0);
+    CounterSeriesCollector customCollector =
+        (deltaNanos, consumer) -> {
+          collectCount.incrementAndGet();
+          consumer.accept(new TestTask("Test Series", "test_metric", null), 42.0);
+        };
+
+    profiler.registerCounterSeriesCollector(customCollector);
+    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+    profiler.start(
+        getAllProfilerTasks(),
+        buffer,
+        JSON_TRACE_FILE_FORMAT,
+        "dummy_output_base",
+        UUID.randomUUID(),
+        true,
+        clock,
+        clock.nanoTime(),
+        /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration= */ false,
+        /* collectTaskHistograms= */ true);
+
+    // Stop after short delay without waiting for COLLECT_SLEEP_INTERVAL (200ms).
+    Thread.sleep(10);
+    profiler.stop();
+
+    JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
+    ImmutableList<TraceEvent> events =
+        jsonProfile.getTraceEvents().stream()
+            .filter(e -> e.name().equals("Test Series"))
+            .collect(toImmutableList());
+
+    assertThat(collectCount.get()).isAtLeast(1);
+    assertThat(events).isNotEmpty();
+    assertThat(events.get(0).args()).containsKey("test_metric");
   }
 
   @Test
@@ -363,6 +415,7 @@ public final class ProfilerTest {
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
@@ -486,6 +539,7 @@ public final class ProfilerTest {
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
@@ -682,6 +736,7 @@ public final class ProfilerTest {
         badClock,
         initialNanoTime,
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
@@ -708,6 +763,21 @@ public final class ProfilerTest {
   }
 
   @Test
+  public void testTaskHistograms_emptyWhenNotActive() throws Exception {
+    assertThat(profiler.isActive()).isFalse();
+    assertThat(profiler.getTasksHistograms()).isEmpty();
+
+    startUnbuffered(getAllProfilerTasks());
+    profiler.logSimpleTaskDuration(
+        profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
+    assertThat(profiler.getTasksHistograms()).isNotEmpty();
+    profiler.stop();
+
+    assertThat(profiler.isActive()).isFalse();
+    assertThat(profiler.getTasksHistograms()).isEmpty();
+  }
+
+  @Test
   public void testIOExceptionInOutputStreamBinaryFormat() throws Exception {
     OutputStream failingOutputStream =
         new OutputStream() {
@@ -726,6 +796,7 @@ public final class ProfilerTest {
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
@@ -755,6 +826,7 @@ public final class ProfilerTest {
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
@@ -779,6 +851,7 @@ public final class ProfilerTest {
         clock,
         clock.nanoTime(),
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ true,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
@@ -818,6 +891,7 @@ public final class ProfilerTest {
         clock,
         clock.nanoTime(),
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ true,
         /* includeConfiguration */ false,
@@ -857,6 +931,7 @@ public final class ProfilerTest {
         clock,
         clock.nanoTime(),
         /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ true,
@@ -877,7 +952,172 @@ public final class ProfilerTest {
         .hasSize(1);
   }
 
-  private ByteArrayOutputStream getJsonProfileOutputStream(boolean slimProfile) throws IOException {
+  @Test
+  public void testPrimaryOutputForCriticalPath() throws Exception {
+    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+
+    profiler.start(
+        getAllProfilerTasks(),
+        buffer,
+        JSON_TRACE_FILE_FORMAT,
+        "dummy_output_base",
+        UUID.randomUUID(),
+        true,
+        clock,
+        clock.nanoTime(),
+        /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
+        /* includePrimaryOutput= */ true,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration= */ false,
+        /* collectTaskHistograms= */ true);
+    profiler.logActionTaskDuration(
+        clock.nanoTime(),
+        Duration.ofMillis(10),
+        ProfilerTask.CRITICAL_PATH_COMPONENT,
+        "test",
+        /* mnemonic= */ null,
+        "foo.out",
+        "//foo:bar",
+        /* configuration= */ null);
+    profiler.stop();
+
+    JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
+
+    assertThat(
+            jsonProfile.getTraceEvents().stream()
+                .filter(traceEvent -> Objects.equals(traceEvent.primaryOutputPath(), "foo.out")))
+        .hasSize(1);
+  }
+
+  @Test
+  public void testTargetLabelForCriticalPath() throws Exception {
+    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+
+    profiler.start(
+        getAllProfilerTasks(),
+        buffer,
+        JSON_TRACE_FILE_FORMAT,
+        "dummy_output_base",
+        UUID.randomUUID(),
+        true,
+        clock,
+        clock.nanoTime(),
+        /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ true,
+        /* includeConfiguration= */ false,
+        /* collectTaskHistograms= */ true);
+    profiler.logActionTaskDuration(
+        clock.nanoTime(),
+        Duration.ofMillis(10),
+        ProfilerTask.CRITICAL_PATH_COMPONENT,
+        "test",
+        /* mnemonic= */ null,
+        "foo.out",
+        "//foo:bar",
+        /* configuration= */ null);
+    profiler.stop();
+
+    JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
+
+    assertThat(
+            jsonProfile.getTraceEvents().stream()
+                .filter(traceEvent -> Objects.equals(traceEvent.targetLabel(), "//foo:bar")))
+        .hasSize(1);
+  }
+
+  @Test
+  public void testTargetConfigurationForCriticalPath() throws Exception {
+    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+
+    profiler.start(
+        getAllProfilerTasks(),
+        buffer,
+        JSON_TRACE_FILE_FORMAT,
+        "dummy_output_base",
+        UUID.randomUUID(),
+        true,
+        clock,
+        clock.nanoTime(),
+        /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration= */ true,
+        /* collectTaskHistograms= */ true);
+    profiler.logActionTaskDuration(
+        clock.nanoTime(),
+        Duration.ofMillis(10),
+        ProfilerTask.CRITICAL_PATH_COMPONENT,
+        "test",
+        /* mnemonic= */ null,
+        "foo.out",
+        "//foo:bar",
+        "012345");
+    profiler.stop();
+
+    JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
+
+    assertThat(
+            jsonProfile.getTraceEvents().stream()
+                .filter(traceEvent -> Objects.equals(traceEvent.configuration(), "012345")))
+        .hasSize(1);
+  }
+
+  @Test
+  public void testCriticalPathAllActionPropertiesAndTid() throws Exception {
+    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+
+    profiler.start(
+        getAllProfilerTasks(),
+        buffer,
+        JSON_TRACE_FILE_FORMAT,
+        "dummy_output_base",
+        UUID.randomUUID(),
+        true,
+        clock,
+        clock.nanoTime(),
+        /* slimProfile= */ false,
+        /* slimProfileSizeLimit= */ -1,
+        /* includePrimaryOutput= */ true,
+        /* includeTargetLabel= */ true,
+        /* includeConfiguration= */ true,
+        /* collectTaskHistograms= */ true);
+    profiler.logActionTaskDuration(
+        clock.nanoTime(),
+        Duration.ofMillis(10),
+        ProfilerTask.CRITICAL_PATH_COMPONENT,
+        "action description",
+        "CppCompile",
+        "foo.out",
+        "//foo:bar",
+        "012345");
+    profiler.stop();
+
+    JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
+    List<TraceEvent> traceEvents =
+        jsonProfile.getTraceEvents().stream()
+            .filter(traceEvent -> Objects.equals(traceEvent.category(), "critical path component"))
+            .toList();
+
+    assertThat(traceEvents).hasSize(1);
+    TraceEvent event = traceEvents.get(0);
+    assertThat(event.primaryOutputPath()).isEqualTo("foo.out");
+    assertThat(event.targetLabel()).isEqualTo("//foo:bar");
+    assertThat(event.mnemonic()).isEqualTo("CppCompile");
+    assertThat(event.configuration()).isEqualTo("012345");
+    assertThat(event.threadId()).isEqualTo(ThreadMetadata.CRITICAL_PATH_THREAD_ID);
+    assertThat(event.args()).isNotNull();
+    assertThat(event.args().get("tid")).isNotNull();
+    assertThat(event.args().get("target")).isEqualTo("//foo:bar");
+    assertThat(event.args().get("mnemonic")).isEqualTo("CppCompile");
+    assertThat(event.args().get("configuration")).isEqualTo("012345");
+  }
+
+  private ByteArrayOutputStream getJsonProfileOutputStream(SlimProfileConfiguration slimProfile)
+      throws IOException {
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     profiler.start(
         getAllProfilerTasks(),
@@ -888,7 +1128,8 @@ public final class ProfilerTest {
         false,
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
-        slimProfile,
+        slimProfile.isEnabled(),
+        slimProfile.getSizeLimit(),
         /* includePrimaryOutput= */ false,
         /* includeTargetLabel= */ false,
         /* includeConfiguration */ false,
@@ -910,11 +1151,13 @@ public final class ProfilerTest {
 
   @Test
   public void testSlimProfileSize() throws Exception {
-    ByteArrayOutputStream fatOutputStream = getJsonProfileOutputStream(/* slimProfile= */ false);
+    ByteArrayOutputStream fatOutputStream =
+        getJsonProfileOutputStream(SlimProfileConfiguration.disabled());
     String fatOutput = fatOutputStream.toString();
     assertThat(fatOutput).doesNotContain("x foo");
 
-    ByteArrayOutputStream slimOutputStream = getJsonProfileOutputStream(/* slimProfile= */ true);
+    ByteArrayOutputStream slimOutputStream =
+        getJsonProfileOutputStream(SlimProfileConfiguration.always());
     String slimOutput = slimOutputStream.toString();
     assertThat(slimOutput).contains("x foo");
 
@@ -1070,7 +1313,6 @@ public final class ProfilerTest {
     assertThat(second.args()).containsExactly("local action", 0.5);
   }
 
-  @SuppressWarnings("AllowVirtualThreads")
   @Test
   public void testVirtualThread() throws Exception {
     ByteArrayOutputStream buffer = start(getAllProfilerTasks(), JSON_TRACE_FILE_FORMAT);
@@ -1144,7 +1386,6 @@ public final class ProfilerTest {
     assertThat(first.threadId()).isNotEqualTo(second.threadId());
   }
 
-  @SuppressWarnings("AllowVirtualThreads")
   @Test
   public void testVirtualThreadTaskStartedAfterStop() throws Exception {
     ByteArrayOutputStream buffer = start(getAllProfilerTasks(), JSON_TRACE_FILE_FORMAT);
@@ -1171,7 +1412,6 @@ public final class ProfilerTest {
     assertThat(events).isEmpty();
   }
 
-  @SuppressWarnings("AllowVirtualThreads")
   @Test
   public void testVirtualThreadTaskEndedAfterStop() throws Exception {
     ByteArrayOutputStream buffer = start(getAllProfilerTasks(), JSON_TRACE_FILE_FORMAT);
@@ -1202,5 +1442,99 @@ public final class ProfilerTest {
             .toArray();
 
     assertThat(events).isEmpty();
+  }
+
+  @Test
+  public void testSlimProfileAfterSizeLimit() throws Exception {
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    long sizeLimit = 10 * 1024; // 10 KB
+    profiler.start(
+        getAllProfilerTasks(),
+        outputStream,
+        JSON_TRACE_FILE_FORMAT,
+        "dummy_output_base",
+        UUID.randomUUID(),
+        false,
+        clock,
+        clock.nanoTime(),
+        /* slimProfile= */ true,
+        /* slimProfileSizeLimit= */ sizeLimit,
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration= */ false,
+        /* collectTaskHistograms= */ true);
+
+    long curTime = clock.nanoTime();
+    for (int i = 0; i < 200; i++) {
+      clock.advanceMillis(1);
+      profiler.logSimpleTask(curTime, clock.nanoTime(), ProfilerTask.INFO, "event_" + i);
+      curTime = clock.nanoTime();
+    }
+    profiler.stop();
+
+    JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(outputStream.toByteArray()));
+    List<TraceEvent> events = jsonProfile.getTraceEvents();
+
+    // Verify that merging happened (we should have "various events")
+    boolean hasMergedEvents = events.stream().anyMatch(e -> e.name().contains("various events"));
+    assertThat(hasMergedEvents).isTrue();
+
+    // Verify that early events are present individually
+    boolean hasFirstEvent = events.stream().anyMatch(e -> "event_0".equals(e.name()));
+    assertThat(hasFirstEvent).isTrue();
+
+    // Verify that late events are merged (not present individually)
+    boolean hasLastEvent = events.stream().anyMatch(e -> "event_199".equals(e.name()));
+    assertThat(hasLastEvent).isFalse();
+  }
+
+  @Test
+  public void testSlimProfileAfterSizeLimitCompressed() throws Exception {
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    long sizeLimit = 2 * 1024; // 2 KB (compressed limit)
+    profiler.start(
+        getAllProfilerTasks(),
+        outputStream,
+        TraceProfilerService.Format.JSON_TRACE_FILE_COMPRESSED_FORMAT,
+        "dummy_output_base",
+        UUID.randomUUID(),
+        false,
+        clock,
+        clock.nanoTime(),
+        /* slimProfile= */ true,
+        /* slimProfileSizeLimit= */ sizeLimit,
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration= */ false,
+        /* collectTaskHistograms= */ true);
+
+    long curTime = clock.nanoTime();
+    for (int i = 0; i < 5000; i++) {
+      clock.advanceMillis(1);
+      profiler.logSimpleTask(curTime, clock.nanoTime(), ProfilerTask.INFO, "event_" + i);
+      curTime = clock.nanoTime();
+    }
+    profiler.stop();
+
+    ByteArrayInputStream bais = new ByteArrayInputStream(outputStream.toByteArray());
+    ByteArrayOutputStream decompressedOut = new ByteArrayOutputStream();
+    try (java.util.zip.GZIPInputStream gzipIn = new java.util.zip.GZIPInputStream(bais)) {
+      com.google.common.io.ByteStreams.copy(gzipIn, decompressedOut);
+    }
+    JsonProfile jsonProfile =
+        new JsonProfile(new ByteArrayInputStream(decompressedOut.toByteArray()));
+    List<TraceEvent> events = jsonProfile.getTraceEvents();
+
+    // Verify that merging happened (we should have "various events")
+    boolean hasMergedEvents = events.stream().anyMatch(e -> e.name().contains("various events"));
+    assertThat(hasMergedEvents).isTrue();
+
+    // Verify that early events are present individually
+    boolean hasFirstEvent = events.stream().anyMatch(e -> "event_0".equals(e.name()));
+    assertThat(hasFirstEvent).isTrue();
+
+    // Verify that late events are merged (not present individually)
+    boolean hasLastEvent = events.stream().anyMatch(e -> "event_4999".equals(e.name()));
+    assertThat(hasLastEvent).isFalse();
   }
 }

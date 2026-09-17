@@ -26,16 +26,16 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.regex.Pattern;
 
 /**
  * Blaze module implementing output filtering.
  */
 public final class OutputFilteringModule extends BlazeModule {
-  /**
-   * Options controlling output filtering.
-   */
-  public static class Options extends OptionsBase {
+  /** Options controlling output filtering. */
+  @OptionsClass
+  public abstract static class Options extends OptionsBase {
     @Option(
         name = "auto_output_filter",
         converter = AutoOutputFilter.Converter.class,
@@ -50,7 +50,7 @@ public final class OutputFilteringModule extends BlazeModule {
                 + "and 'subpackages' (like 'packages', but also include subpackages). For the "
                 + "'packages' and 'subpackages' values //java/foo and //javatests/foo are treated "
                 + "as one package)'.")
-    public AutoOutputFilter autoOutputFilter;
+    public abstract AutoOutputFilter getAutoOutputFilter();
   }
 
   private CommandEnvironment env;
@@ -89,7 +89,7 @@ public final class OutputFilteringModule extends BlazeModule {
       // the command line (which are included by all auto output filters).
       env.getReporter().setOutputFilter(RegexOutputFilter.forPattern(outputFilter));
     } else {
-      this.autoOutputFilter = env.getOptions().getOptions(Options.class).autoOutputFilter;
+      this.autoOutputFilter = env.getOptions().getOptions(Options.class).getAutoOutputFilter();
     }
   }
 

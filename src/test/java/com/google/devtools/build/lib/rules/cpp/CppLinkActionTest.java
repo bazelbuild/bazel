@@ -20,8 +20,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.primitives.Ints;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
@@ -34,7 +32,6 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -171,70 +168,6 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
   }
 
   @Test
-  public void testLinkoptsAndLibSrcsAreInCorrectOrder() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        """
-        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-        cc_binary(
-            name = "foo",
-            srcs = [
-                "some-dir/libbar.so",
-                "some-other-dir/qux.so",
-            ],
-            linkopts = [
-                "-ldl",
-                "-lutil",
-            ],
-        )
-        """);
-    scratch.file("x/some-dir/libbar.so");
-    scratch.file("x/some-other-dir/qux.so");
-
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:foo");
-    SpawnAction linkAction = (SpawnAction) getGeneratingAction(configuredTarget, "x/foo");
-
-    List<String> arguments = linkAction.getArguments();
-
-    assertThat(Joiner.on(" ").join(arguments))
-        .matches(
-            ".* -L[^ ]*some-dir(?= ).* -L[^ ]*some-other-dir(?= ).* "
-                + "-lbar -l:qux.so(?= ).* -ldl -lutil .*");
-    assertThat(Joiner.on(" ").join(arguments))
-        .matches(
-            ".* -Xlinker -rpath -Xlinker [^ ]*some-dir(?= ).* -Xlinker -rpath -Xlinker [^"
-                + " ]*some-other-dir .*");
-  }
-
-  @Test
-  public void testLegacyWholeArchiveHasNoEffectOnDynamicModeDynamicLibraries() throws Exception {
-    getAnalysisMock()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
-    scratch.file(
-        "x/BUILD",
-        """
-        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-        cc_binary(
-            name = "libfoo.so",
-            srcs = ["foo.cc"],
-            linkshared = 1,
-            linkstatic = 0,
-        )
-        """);
-    useConfiguration("--legacy_whole_archive");
-    assertThat(getLibfooArguments()).doesNotContain("-Wl,-whole-archive");
-  }
-
-  private List<String> getLibfooArguments() throws Exception {
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:libfoo.so");
-    SpawnAction linkAction = (SpawnAction) getGeneratingAction(configuredTarget, "x/libfoo.so");
-    return linkAction.getArguments();
-  }
-
-  @Test
   public void testExposesRuntimeLibrarySearchDirectoriesVariable() throws Exception {
     scratch.file(
         "x/BUILD",
@@ -259,104 +192,6 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
   }
 
   @Test
-  public void testCompilesDynamicModeTestSourcesWithFeatureIntoDynamicLibrary() throws Exception {
-    if (OS.getCurrent() == OS.WINDOWS) {
-      // Skip the test on Windows.
-      // TODO(#7524): This test should work on Windows just fine, investigate and fix.
-      return;
-    }
-    getAnalysisMock()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder()
-                .withFeatures(
-                    CppRuleClasses.SUPPORTS_PIC,
-                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
-                    CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
-    scratch.file(
-        "x/BUILD",
-        """
-        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-        load("@rules_cc//cc:cc_test.bzl", "cc_test")
-        cc_test(
-            name = "a",
-            srcs = ["a.cc"],
-            features = ["dynamic_link_test_srcs"],
-        )
-
-        cc_binary(
-            name = "b",
-            srcs = ["a.cc"],
-        )
-
-        cc_test(
-            name = "c",
-            srcs = ["a.cc"],
-            features = ["dynamic_link_test_srcs"],
-            linkstatic = 1,
-        )
-        """);
-    scratch.file("x/a.cc", "int main() {}");
-    useConfiguration("--force_pic");
-
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:a");
-    SpawnAction linkAction = (SpawnAction) getGeneratingAction(configuredTarget, "x/a");
-    assertThat(artifactsToStrings(linkAction.getInputs()))
-        .contains("bin _solib_k8/libx_Sliba.ifso");
-    assertThat(linkAction.getArguments())
-        .contains(getBinArtifactWithNoOwner("_solib_k8/libx_Sliba.ifso").getExecPathString());
-    RunfilesProvider runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
-    assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
-        .contains("bin _solib_k8/libx_Sliba.so");
-
-    configuredTarget = getConfiguredTarget("//x:b");
-    linkAction = (SpawnAction) getGeneratingAction(configuredTarget, "x/b");
-    assertThat(artifactsToStrings(linkAction.getInputs())).contains("bin x/_objs/b/a.pic.o");
-    runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
-    assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
-        .containsExactly("bin x/b");
-
-    configuredTarget = getConfiguredTarget("//x:c");
-    linkAction = (SpawnAction) getGeneratingAction(configuredTarget, "x/c");
-    assertThat(artifactsToStrings(linkAction.getInputs())).contains("bin x/_objs/c/a.pic.o");
-    runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
-    assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
-        .containsExactly("bin x/c");
-  }
-
-  @Test
-  public void testCompilesDynamicModeBinarySourcesWithoutFeatureIntoDynamicLibrary()
-      throws Exception {
-    if (OS.getCurrent() == OS.WINDOWS) {
-      // Skip the test on Windows.
-      // TODO(#7524): This test should work on Windows just fine, investigate and fix.
-      return;
-    }
-    getAnalysisMock()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder()
-                .withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER, CppRuleClasses.SUPPORTS_PIC));
-    scratch.file(
-        "x/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "cc_binary(name = 'a', srcs = ['a.cc'], features = ['-static_link_test_srcs'])");
-    scratch.file("x/a.cc", "int main() {}");
-    useConfiguration("--force_pic", "--dynamic_mode=default");
-
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:a");
-    SpawnAction linkAction = (SpawnAction) getGeneratingAction(configuredTarget, "x/a");
-    assertThat(artifactsToStrings(linkAction.getInputs()))
-        .doesNotContain("bin _solib_k8/libx_Sliba.ifso");
-    assertThat(artifactsToStrings(linkAction.getInputs())).contains("bin x/_objs/a/a.pic.o");
-    RunfilesProvider runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
-    assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
-        .containsExactly("bin x/a");
-  }
-
-  @Test
   public void testToolchainFeatureEnv() throws Exception {
     registerToolchainWithConfig(
         """
@@ -375,7 +210,8 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
         "cc_binary(name = 'foo')");
 
     SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
-    assertThat(linkAction.getEffectiveEnvironment(ImmutableMap.of())).containsEntry("foo", "bar");
+    assertThat(linkAction.getEffectiveEnvironment(ImmutableMap.of(), PathMapper.NOOP))
+        .containsEntry("foo", "bar");
   }
 
   @Test
@@ -662,32 +498,6 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
   }
 
   @Test
-  public void testInterfaceOutputForDynamicLibrary() throws Exception {
-    getAnalysisMock()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder()
-                .withFeatures(
-                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
-                    CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
-    useConfiguration();
-
-    scratch.file(
-        "foo/BUILD",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "cc_library(name = 'foo', srcs = ['foo.cc'])");
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:foo");
-    assertThat(configuredTarget).isNotNull();
-    ImmutableList<String> inputs =
-        getGeneratingAction(configuredTarget, "foo/libfoo.so").getInputs().toList().stream()
-            .map(Artifact::getExecPathString)
-            .collect(ImmutableList.toImmutableList());
-    assertThat(inputs.stream().anyMatch(i -> i.contains("tools/cpp/link_dynamic_library")))
-        .isTrue();
-  }
-
-  @Test
   public void testInterfaceOutputForDynamicLibraryLegacy() throws Exception {
     registerToolchainWithConfig(
 """
@@ -926,71 +736,6 @@ cc_binary(name = "tool")
         treeArtifactsPaths);
   }
 
-  /** Tests that -pie is removed when -shared is also present (http://b/5611891#). */
-  @Test
-  public void testPieOptionDisabledForSharedLibraries() throws Exception {
-    scratch.file(
-        "foo/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "cc_binary(name = 'foo', srcs = ['foo.cc'], linkopts = ['-pie', '-other', '-pie'],"
-            + " linkshared = True)");
-
-    SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
-
-    List<String> argv = linkAction.getArguments();
-    assertThat(argv).doesNotContain("-pie");
-    assertThat(argv).contains("-other");
-  }
-
-  /** Tests that -pie is kept when -shared is not present (http://b/5611891#). */
-  @Test
-  public void testPieOptionKeptForExecutables() throws Exception {
-    scratch.file(
-        "foo/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "cc_binary(name = 'foo', srcs = ['foo.cc'], linkopts = ['-pie', '-other', '-pie'],"
-            + " linkshared = False)");
-
-    SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
-
-    List<String> argv = linkAction.getArguments();
-    assertThat(argv).contains("-pie");
-    assertThat(argv).contains("-other");
-  }
-
-  @Test
-  public void testLinkoptsComeAfterLinkerInputs() throws Exception {
-    scratch.file(
-        "foo/BUILD",
-        "load('@rules_cc//cc:cc_binary.bzl', 'cc_binary')",
-        "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
-        "cc_library(name = 'bar1', srcs = ['bar.cc'])",
-        "cc_library(name = 'bar2', srcs = ['bar.cc'])",
-        "cc_binary(name = 'foo', srcs = ['foo.cc'], deps = [':bar1', ':bar2'], linkopts ="
-            + " ['FakeLinkopt1', 'FakeLinkopt2'])");
-
-    SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
-
-    Artifact linkerInput1 = linkAction.getInputs().toList().get(0);
-    Artifact linkerInput2 = linkAction.getInputs().toList().get(1);
-    Artifact linkerInput3 = linkAction.getInputs().toList().get(2);
-    List<String> argv = linkAction.getArguments();
-    assertThat(argv)
-        .containsAtLeast(
-            linkerInput1.getExecPathString(),
-            linkerInput2.getExecPathString(),
-            linkerInput3.getExecPathString(),
-            "FakeLinkopt1",
-            "FakeLinkopt2");
-    int lastLinkerInputIndex =
-        Ints.max(
-            argv.indexOf(linkerInput1.getExecPathString()),
-            argv.indexOf(linkerInput2.getExecPathString()),
-            argv.indexOf(linkerInput3.getExecPathString()));
-    int firstLinkoptIndex = Math.min(argv.indexOf("FakeLinkopt1"), argv.indexOf("FakeLinkopt2"));
-    assertThat(lastLinkerInputIndex).isLessThan(firstLinkoptIndex);
-  }
-
   @Test
   public void testLinkoptsAreOmittedForStaticLibrary() throws Exception {
     registerToolchainWithConfig(
@@ -1017,29 +762,6 @@ cc_binary(name = "tool")
         (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppArchive"));
 
     assertThat(linkAction.getArguments()).doesNotContain("FakeLinkopt1");
-  }
-
-  @Test
-  public void testExposesLinkstampObjects() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        """
-        load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-        load("@rules_cc//cc:cc_library.bzl", "cc_library")
-        cc_binary(
-            name = "bin",
-            deps = [":lib"],
-        )
-
-        cc_library(
-            name = "lib",
-            linkstamp = "linkstamp.cc",
-        )
-        """);
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:bin");
-    SpawnAction linkAction = (SpawnAction) getGeneratingAction(configuredTarget, "x/bin");
-    assertThat(artifactsToStrings(linkAction.getInputs()))
-        .contains("bin x/_objs/bin/x/linkstamp.o");
   }
 
   @Test

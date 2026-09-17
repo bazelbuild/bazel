@@ -14,17 +14,9 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
-import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
-import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.Optional;
 import java.util.Set;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -55,40 +47,6 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
   boolean shouldMinimizeMemory();
 
-  /** Various bits of data and functionality serialization needs. */
-  interface SerializationDependenciesProvider {
-    RemoteAnalysisCacheMode mode();
-
-    /**
-     * Returns the string distinguisher to invalidate SkyValues, in addition to the corresponding
-     * SkyKey.
-     */
-    FrontierNodeVersion getSkyValueVersion() throws InterruptedException;
-
-    /**
-     * Returns the {@link ObjectCodecs} supplier for remote analysis caching.
-     *
-     * <p>Calling this can be an expensive process as the codec registry will be initialized.
-     */
-    ObjectCodecs getObjectCodecs() throws InterruptedException;
-
-    /** Returns the {@link FingerprintValueService} implementation. */
-    FingerprintValueService getFingerprintValueService() throws InterruptedException;
-
-    /** Returns the JSON log writer or null if this log is not enabled. */
-    @Nullable
-    RemoteAnalysisJsonLogWriter getJsonLogWriter();
-
-    String getSerializedFrontierProfile();
-
-    Optional<Predicate<PackageIdentifier>> getActiveDirectoriesMatcher();
-
-    /** Returns the destination for file invalidation data when uploading. */
-    @Nullable
-    KeyValueWriter getFileInvalidationWriter() throws InterruptedException;
-
-    @Nullable
-    RemoteAnalysisMetadataWriter getMetadataWriter() throws InterruptedException;
-  }
-
+  @Nullable
+  SettablePlatformConfigurationProvider getPlatformConfigurationProvider();
 }

@@ -12,10 +12,10 @@ filegroup(
 )
 
 java_test(
-    name = "JacocoLCOVFormatterUninstrumentedTest",
+    name = "JacocoLCOVFormatterTest",
     size = "small",
     srcs = [
-        "JacocoLCOVFormatterUninstrumentedTest.java",
+        "JacocoLCOVFormatterTest.java",
     ],
     deps = [
         "//src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverageLib",

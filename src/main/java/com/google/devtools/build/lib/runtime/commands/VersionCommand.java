@@ -30,6 +30,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.Optional;
@@ -45,17 +46,17 @@ import java.util.Optional;
     shortDescription = "Prints version information for %{product}.")
 public final class VersionCommand implements BlazeCommand {
   /** Options for the "version" command. */
-  public static class VersionOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class VersionOptions extends OptionsBase {
     @Option(
-      name = "gnu_format",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.EXECUTION},
-      help =
-          "If set, write the version to stdout using the conventions described in the GNU"
-          + " standards."
-    )
-    public boolean gnuFormat;
+        name = "gnu_format",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.EXECUTION},
+        help =
+            "If set, write the version to stdout using the conventions described in the GNU"
+                + " standards.")
+    public abstract boolean getGnuFormat();
   }
 
   @Override
@@ -69,7 +70,7 @@ public final class VersionCommand implements BlazeCommand {
         getInfo(
             env.getRuntime().getProductName(),
             BlazeVersionInfo.instance(),
-            options.getOptions(VersionOptions.class).gnuFormat);
+            options.getOptions(VersionOptions.class).getGnuFormat());
     if (info.isPresent()) {
       env.getReporter().getOutErr().printOutLn(info.get());
       return BlazeCommandResult.success();

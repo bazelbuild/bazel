@@ -21,6 +21,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.build.skyframe.Version;
+import java.util.Set;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -142,8 +143,13 @@ final class StateInformingSkyFunctionEnvironment implements SkyFunction.Environm
   }
 
   @Override
-  public void injectVersionForNonHermeticFunction(Version version) {
-    delegate.injectVersionForNonHermeticFunction(version);
+  public Set<SkyKey> getNewlyRequestedDeps() {
+    return delegate.getNewlyRequestedDeps();
+  }
+
+  @Override
+  public void injectVersion(Version version) {
+    delegate.injectVersion(version);
   }
 
   @Override

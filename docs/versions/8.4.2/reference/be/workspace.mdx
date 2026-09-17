@@ -25,8 +25,7 @@ bind(name, actual, compatible_with, deprecation, distribs, features, licenses, r
 
 *Warning: use of `bind()` is not recommended. See "[Consider removing bind](https://github.com/bazelbuild/bazel/issues/1952)" for a long
 discussion of its issues and alternatives. In particular, consider the use of
-[`repo_mapping`
-repository attributes](https://bazel.build/versions/8.4.2/rules/repository_rules#attributes).*
+[`repo_mapping` repository attributes](https://bazel.build/versions/8.4.2/rules/repository_rules#attributes).*
 
 *Warning: `select()` cannot be used in `bind()`. See the [Configurable Attributes FAQ](/versions/8.4.2/docs/configurable-attributes#bind-select) for
 details.*
@@ -114,8 +113,7 @@ local_repository(name, path, repo_mapping)
 ```
 
 Allows targets from a local directory to be bound. This means that the current repository can
-use targets defined in this other directory. See the [bind
-section](/versions/8.4.2/reference/be/workspace#bind_examples) for more details.
+use targets defined in this other directory. See the [bind section](/versions/8.4.2/reference/be/workspace#bind_examples) for more details.
 
 #### Examples
 

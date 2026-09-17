@@ -100,7 +100,8 @@ public final class FeatureFlagValueTest extends BuildViewTestCase {
                 Label.parseCanonicalUnchecked("//label:c"),
                 Label.parseCanonicalUnchecked("//label:d")));
     options = FeatureFlagValue.replaceFlagValues(options, originalMap);
-    assertThat(options.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent).isTrue();
+    assertThat(options.get(ConfigFeatureFlagOptions.class).getAllFeatureFlagValuesArePresent())
+        .isTrue();
   }
 
   @Test
@@ -130,7 +131,7 @@ public final class FeatureFlagValueTest extends BuildViewTestCase {
     options = FeatureFlagValue.trimFlagValues(options, ImmutableSet.of());
 
     assertThat(options.getStarlarkOptions()).isEmpty();
-    assertThat(options.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent)
+    assertThat(options.get(ConfigFeatureFlagOptions.class).getAllFeatureFlagValuesArePresent())
         .isFalse();
     assertThat(getKnownDefaultFlags(options)).isEmpty();
   }
@@ -152,7 +153,7 @@ public final class FeatureFlagValueTest extends BuildViewTestCase {
             Label.parseCanonicalUnchecked("//label:a"), FeatureFlagValue.DefaultValue.INSTANCE,
             Label.parseCanonicalUnchecked("//label:b"), FeatureFlagValue.DefaultValue.INSTANCE,
             Label.parseCanonicalUnchecked("//label:c"), FeatureFlagValue.DefaultValue.INSTANCE);
-    assertThat(options.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent)
+    assertThat(options.get(ConfigFeatureFlagOptions.class).getAllFeatureFlagValuesArePresent())
         .isFalse();
     assertThat(getKnownDefaultFlags(options))
         .containsExactly(
@@ -176,7 +177,7 @@ public final class FeatureFlagValueTest extends BuildViewTestCase {
     options = FeatureFlagValue.trimFlagValues(options, ImmutableSet.of());
 
     assertThat(options.getStarlarkOptions()).isEmpty();
-    assertThat(options.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent)
+    assertThat(options.get(ConfigFeatureFlagOptions.class).getAllFeatureFlagValuesArePresent())
         .isFalse();
     assertThat(getKnownDefaultFlags(options)).isEmpty();
   }
@@ -207,7 +208,7 @@ public final class FeatureFlagValueTest extends BuildViewTestCase {
             Label.parseCanonicalUnchecked("//label:a"), FeatureFlagValue.SetValue.of("value"),
             Label.parseCanonicalUnchecked("//label:b"), FeatureFlagValue.DefaultValue.INSTANCE,
             Label.parseCanonicalUnchecked("//label:c"), FeatureFlagValue.DefaultValue.INSTANCE);
-    assertThat(options.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent)
+    assertThat(options.get(ConfigFeatureFlagOptions.class).getAllFeatureFlagValuesArePresent())
         .isFalse();
     assertThat(getKnownDefaultFlags(options))
         .containsExactly(
@@ -235,7 +236,7 @@ public final class FeatureFlagValueTest extends BuildViewTestCase {
     options = FeatureFlagValue.trimFlagValues(options, ImmutableSet.of());
 
     assertThat(options.getStarlarkOptions()).isEmpty();
-    assertThat(options.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent)
+    assertThat(options.get(ConfigFeatureFlagOptions.class).getAllFeatureFlagValuesArePresent())
         .isFalse();
     assertThat(getKnownDefaultFlags(options)).isEmpty();
   }

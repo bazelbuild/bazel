@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.events;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.PrintStream;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -30,8 +29,7 @@ import net.starlark.java.syntax.Location;
  * <p>The reporter instance is consumed by the build system, and passes events using {@link
  * #handle(Event)} or {@link #post(Postable)} to {@link EventHandler} instances. The latter only
  * occurs to the {@link EventHandler} instances that are also {@link ExtendedEventHandler}
- * instances. Additionally, when events are passed using {@link #post(Postable)} they are also
- * posted to the {@link EventBus} registered in this reporter.
+ * instances.
  *
  * <p>The reporter's main use is in the blaze runtime and its lifetime is the lifetime of the blaze
  * server.
@@ -45,23 +43,17 @@ public final class Reporter implements ExtendedEventHandler {
   private final ConcurrentLinkedQueue<EventHandler> eventHandlers = new ConcurrentLinkedQueue<>();
 
   /**
-   * {@link EventBus} registered in this reporter. Calls to {@link #post(Postable)} will propagate
-   * events to the event bus.
-   */
-  private EventBus eventBus;
-
-  /** An OutErr that sends all of its output to this Reporter.
-   * Each write will (when flushed) get mapped to an EventKind.STDOUT or EventKind.STDERR event.
+   * An OutErr that sends all of its output to this Reporter. Each write will (when flushed) get
+   * mapped to an EventKind.STDOUT or EventKind.STDERR event.
    */
   private final OutErr outErrToReporter = outErrForReporter(this);
+
   private volatile OutputFilter outputFilter = OutputFilter.OUTPUT_EVERYTHING;
   private EventHandler ansiAllowingHandler;
   private EventHandler ansiStrippingHandler;
   private boolean ansiAllowingHandlerRegistered;
 
-  public Reporter(EventBus eventBus) {
-    this.eventBus = eventBus;
-  }
+  public Reporter() {}
 
   /**
    * A copy constructor, to make it convenient to replicate a reporter config for temporary
@@ -69,12 +61,10 @@ public final class Reporter implements ExtendedEventHandler {
    */
   public Reporter(Reporter template) {
     eventHandlers.addAll(template.eventHandlers);
-    this.eventBus = template.eventBus;
   }
 
   /** Constructor which configures a reporter with the specified handlers. */
-  public Reporter(EventBus eventBus, EventHandler... handlers) {
-    this.eventBus = eventBus;
+  public Reporter(EventHandler... handlers) {
     for (EventHandler handler : handlers) {
       addHandler(handler);
     }
@@ -130,49 +120,51 @@ public final class Reporter implements ExtendedEventHandler {
 
   /**
    * Post the provided {@link com.google.devtools.build.lib.events.ExtendedEventHandler.Postable} to
-   * the {@link EventBus} and all the {@link ExtendedEventHandler} registered in this reporter.
+   * all the {@link ExtendedEventHandler} registered in this reporter.
    */
   @Override
   public void post(ExtendedEventHandler.Postable obj) {
-    if (eventBus != null) {
-      eventBus.post(obj);
-    }
-
     for (EventHandler eventHandler : eventHandlers) {
-      if (eventHandler instanceof ExtendedEventHandler) {
-        ((ExtendedEventHandler) eventHandler).post(obj);
+      if (eventHandler instanceof ExtendedEventHandler extendedEventHandler) {
+        extendedEventHandler.post(obj);
       }
     }
   }
 
-  public void clearEventBus() {
-    eventBus = null;
+  /**
+   * Triggers the cleanup from each {@link ExtendedEventHandler} registered in this reporter.
+   *
+   * <p>This method is called when the reporter is no longer needed.
+   */
+  @Override
+  public void cleanup() {
+    for (EventHandler eventHandler : eventHandlers) {
+      if (eventHandler instanceof ExtendedEventHandler extendedEventHandler) {
+        extendedEventHandler.cleanup();
+      }
+    }
   }
 
   /**
-   * Reports the start of a particular task.
-   * Is a wrapper around report() with event kind START.
-   * Should always be matched by a corresponding call to finishTask()
-   * with the same message, except that the leading percentage
-   * progress indicator (if any) in the message may differ.
+   * Reports the start of a particular task. Is a wrapper around report() with event kind START.
+   * Should always be matched by a corresponding call to finishTask() with the same message, except
+   * that the leading percentage progress indicator (if any) in the message may differ.
    */
   public void startTask(Location location, String message) {
     handle(Event.of(EventKind.START, location, message));
   }
 
   /**
-   * Reports the end of a particular task.
-   * Is a wrapper around report() with event kind FINISH.
-   * Should always be matched by a corresponding call to startTask()
-   * with the same message, except that the leading percentage
-   * progress indicator (if any) in the message may differ.
+   * Reports the end of a particular task. Is a wrapper around report() with event kind FINISH.
+   * Should always be matched by a corresponding call to startTask() with the same message, except
+   * that the leading percentage progress indicator (if any) in the message may differ.
    */
   public void finishTask(Location location, String message) {
     handle(Event.of(EventKind.FINISH, location, message));
   }
 
   public void error(Location location, String message) {
-    error(location, message, /*error=*/ null);
+    error(location, message, /* error= */ null);
   }
 
   public void error(Location location, String message, @Nullable Throwable error) {
@@ -182,9 +174,7 @@ public final class Reporter implements ExtendedEventHandler {
     }
   }
 
-  /**
-   * Returns true iff the given tag matches the output filter.
-   */
+  /** Returns true iff the given tag matches the output filter. */
   public boolean showOutput(String tag) {
     return outputFilter.showOutput(tag);
   }
@@ -194,23 +184,21 @@ public final class Reporter implements ExtendedEventHandler {
   }
 
   /**
-   * Registers an ANSI-control-code-allowing EventHandler with an ANSI-stripping EventHandler
-   * that is already registered with the reporter.  The ANSI-stripping handler can then be replaced
-   * with the ANSI-allowing handler by calling {@code #switchToAnsiAllowingHandler} which
-   * calls {@code removeHandler} for the ANSI-stripping handler and then {@code addHandler} for the
-   * ANSI-allowing handler.
+   * Registers an ANSI-control-code-allowing EventHandler with an ANSI-stripping EventHandler that
+   * is already registered with the reporter. The ANSI-stripping handler can then be replaced with
+   * the ANSI-allowing handler by calling {@code #switchToAnsiAllowingHandler} which calls {@code
+   * removeHandler} for the ANSI-stripping handler and then {@code addHandler} for the ANSI-allowing
+   * handler.
    */
   public synchronized void registerAnsiAllowingHandler(
-      EventHandler ansiStrippingHandler,
-      EventHandler ansiAllowingHandler) {
+      EventHandler ansiStrippingHandler, EventHandler ansiAllowingHandler) {
     this.ansiAllowingHandler = ansiAllowingHandler;
     this.ansiStrippingHandler = ansiStrippingHandler;
     ansiAllowingHandlerRegistered = true;
   }
 
   /**
-   * Restores the ANSI-allowing EventHandler registered using
-   * {@link #registerAnsiAllowingHandler}.
+   * Restores the ANSI-allowing EventHandler registered using {@link #registerAnsiAllowingHandler}.
    */
   public synchronized void switchToAnsiAllowingHandler() {
     if (ansiAllowingHandlerRegistered) {

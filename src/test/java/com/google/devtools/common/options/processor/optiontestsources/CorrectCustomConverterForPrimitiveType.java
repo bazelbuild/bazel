@@ -18,15 +18,18 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /** This example options specifies a custom converter that passes the compile-time checks. */
-public class CorrectCustomConverterForPrimitiveType extends OptionsBase {
+@OptionsClass
+public abstract class CorrectCustomConverterForPrimitiveType extends OptionsBase {
   @Option(
-    name = "option_with_primitive_type_and_correct_converter",
-    defaultValue = "5",
-    converter = Converters.RangeConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP}
-  )
-  public int intInARange;
+      name = "option_with_primitive_type_and_correct_converter",
+      defaultValue = "5",
+      converter = Converters.RangeConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
+  public abstract int getIntInARange();
+
+  public abstract void setIntInARange(int value);
 }

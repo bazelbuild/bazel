@@ -94,12 +94,33 @@ public final class HeapOffsetHelperTest extends BuildIntegrationTestCase {
             .getCommandEnvironment()
             .getOptions()
             .getOptions(MemoryPressureOptions.class)
-            .jvmHeapHistogramInternalObjectPattern
+            .getJvmHeapHistogramInternalObjectPattern()
             .regexPattern();
 
     long offset = HeapOffsetHelper.getSizeOfFillerArrayOnHeap(defaultOptionPattern, bugReporter);
     bugReporter.assertNoExceptions();
 
     assertThat(offset).isGreaterThan(0);
+  }
+
+  @Test
+  public void getSizeOfFillerArrayOnHeap_parsesHistogramWithFourDigitLineNumbers()
+      throws Exception {
+    String histogram =
+        """
+         num     #instances         #bytes  class name (module)
+        -------------------------------------------------------
+           1:        123456      172193632  jdk.internal.vm.FillerArray (java.base@21.0.8)
+           2:         50000        4000000  [B (java.base@21.0.8)
+        1234:             5             80  jdk.internal.vm.FillerObject (java.base@21.0.8)
+        Total        173461      176193712
+        """;
+    RecordingBugReporter bugReporter = recordBugReportsAndReinitialize();
+    Pattern pattern = Pattern.compile("jdk\\.internal\\.vm\\.Filler.+");
+
+    long offset = HeapOffsetHelper.getSizeOfFillerArrayOnHeap(histogram, pattern, bugReporter);
+
+    bugReporter.assertNoExceptions();
+    assertThat(offset).isEqualTo(172193632L + 80L);
   }
 }

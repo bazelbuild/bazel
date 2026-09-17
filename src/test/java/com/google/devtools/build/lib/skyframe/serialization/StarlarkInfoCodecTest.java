@@ -38,9 +38,9 @@ public final class StarlarkInfoCodecTest {
         ImmutableMap.of("a", StarlarkInt.of(1), "b", StarlarkInt.of(2), "c", StarlarkInt.of(3));
     StarlarkProvider provider = makeProvider();
     new SerializationTester(
-            StarlarkInfo.create(provider, map, /* loc= */ null),
+            StarlarkInfo.create(provider, map),
             // empty
-            StarlarkInfo.create(provider, ImmutableMap.of(), /* loc= */ null),
+            StarlarkInfo.create(provider, ImmutableMap.of()),
             // with an error message
             StarlarkInfoWithMessage.createWithCustomMessage(provider, map, "Dummy error: %s"),
             StarlarkInfoWithMessage.createWithCustomMessage(

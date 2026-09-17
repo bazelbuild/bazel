@@ -21,7 +21,7 @@ Information about attributes of a rule an aspect is applied to.
 struct rule_attributes.attr
 ```
 
-A struct to access the values of the [attributes](https://bazel.build/versions/9.0.0/extending/rules#attributes). The values are provided by the user (if not, a default value is used). The attributes of the struct and the types of their values correspond to the keys and values of the [`attrs` dict](../globals/bzl#rule.attrs) provided to the [`rule` function](../globals/bzl#rule). [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/attributes/printer.bzl).
+A struct to access the values of the [attributes](https://bazel.build/versions/9.0.0/extending/rules#attributes). The values are provided by the user (if not, a default value is used). The attributes of the struct and the types of their values correspond to the keys and values of the [`attrs` dict](/versions/9.0.0/rules/lib/globals/bzl#rule.attrs) provided to the [`rule` function](/versions/9.0.0/rules/lib/globals/bzl#rule). [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/attributes/printer.bzl).
 
 ## exec\_groups
 
@@ -37,7 +37,7 @@ A collection of the execution groups available for the rule the aspect is applie
 struct rule_attributes.executable
 ```
 
-A `struct` containing executable files defined in [label type attributes](../toplevel/attr#label) marked as [`executable=True`](../toplevel/attr#label.executable). The struct fields correspond to the attribute names. Each value in the struct is either a [`File`](../builtins/File) or `None`. If an optional attribute is not specified in the rule then the corresponding struct value is `None`. If a label type is not marked as `executable=True`, no corresponding struct field is generated. [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/actions_run/execute.bzl).
+A `struct` containing executable files defined in [label type attributes](/versions/9.0.0/rules/lib/toplevel/attr#label) marked as [`executable=True`](/versions/9.0.0/rules/lib/toplevel/attr#label.executable). The struct fields correspond to the attribute names. Each value in the struct is either a [`File`](/versions/9.0.0/rules/lib/builtins/File) or `None`. If an optional attribute is not specified in the rule then the corresponding struct value is `None`. If a label type is not marked as `executable=True`, no corresponding struct field is generated. [See example of use](https://github.com/bazelbuild/examples/blob/main/rules/actions_run/execute.bzl).
 
 ## file
 
@@ -45,7 +45,7 @@ A `struct` containing executable files defined in [label type attributes](../top
 struct rule_attributes.file
 ```
 
-A `struct` containing files defined in [label type attributes](../toplevel/attr#label) marked as [`allow_single_file`](../toplevel/attr#label.allow_single_file). The struct fields correspond to the attribute names. The struct value is always a [`File`](../builtins/File) or `None`. If an optional attribute is not specified in the rule then the corresponding struct value is `None`. If a label type is not marked as `allow_single_file`, no corresponding struct field is generated. It is a shortcut for:
+A `struct` containing files defined in [label type attributes](/versions/9.0.0/rules/lib/toplevel/attr#label) marked as [`allow_single_file`](/versions/9.0.0/rules/lib/toplevel/attr#label.allow_single_file). The struct fields correspond to the attribute names. The struct value is always a [`File`](/versions/9.0.0/rules/lib/builtins/File) or `None`. If an optional attribute is not specified in the rule then the corresponding struct value is `None`. If a label type is not marked as `allow_single_file`, no corresponding struct field is generated. It is a shortcut for:
 
 ```
 list(ctx.attr.<ATTR>.files)[0]
@@ -59,7 +59,7 @@ In other words, use `file` to access the (singular) [default output](https://baz
 struct rule_attributes.files
 ```
 
-A `struct` containing files defined in [label](../toplevel/attr#label) or [label list](../toplevel/attr#label_list) type attributes. The struct fields correspond to the attribute names. The struct values are `list` of [`File`](../builtins/File)s. It is a shortcut for:
+A `struct` containing files defined in [label](/versions/9.0.0/rules/lib/toplevel/attr#label) or [label list](/versions/9.0.0/rules/lib/toplevel/attr#label_list) type attributes. The struct fields correspond to the attribute names. The struct values are `list` of [`File`](/versions/9.0.0/rules/lib/builtins/File)s. It is a shortcut for:
 
 ```
 [f for t in ctx.attr.<ATTR> for f in t.files]

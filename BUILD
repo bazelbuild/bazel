@@ -1,11 +1,13 @@
 # Bazel - Google's Build System
 
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
-load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//java:defs.bzl", "java_package_configuration")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "DEFAULT_TOOLCHAIN_CONFIGURATION", "default_java_toolchain")
 load("@rules_license//rules:license.bzl", "license")
 load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//src:release_archive.bzl", "MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION", "MINIMUM_JAVA_RUNTIME_VERSION")
 load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
@@ -42,10 +44,7 @@ filegroup(
         "//docs:srcs",
         "//examples:srcs",
         "//scripts:srcs",
-        "//site:srcs",
         "//src:srcs",
-        "//src/main/java/com/google/devtools/build/docgen/release:srcs",
-        "//src/main/starlark/tests/builtins_bzl:srcs",
         "//third_party:srcs",
         "//tools:srcs",
     ] + glob(
@@ -101,6 +100,26 @@ genrule(
     ]),
     tags = ["requires-network"],
     tools = ["//src:bazel"],
+)
+
+sh_test(
+    name = "verify_module_bazel_lock",
+    timeout = "long",
+    srcs = ["verify_module_bazel_lock.sh"],
+    data = [
+        ".bazelversion",
+        "MODULE.bazel",
+        "MODULE.bazel.lock",
+        "//third_party:patches",
+        "//third_party:remoteapis/MODULE.bazel",
+    ],
+    env_inherit = [
+        "BUILDKITE_PIPELINE_SLUG",
+        "UPDATE_BAZEL_LOCK_FILE",
+    ],
+    tags = ["requires-network"],
+    visibility = ["//visibility:private"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
 pkg_tar(
@@ -162,7 +181,6 @@ pkg_files(
     excludes = [
         "MODULE.bazel.lock",  # Use MODULE.bazel.lock.dist instead
         "//examples:srcs",
-        "//site:srcs",
         "//docs:srcs",
         "//src:srcs-to-exclude-in-distfile",
     ] + glob(
@@ -275,10 +293,20 @@ constraint_value(
     visibility = ["//visibility:public"],
 )
 
+constraint_setting(name = "mount_support")
+
+# A machine that permits privileged mount operations.
+constraint_value(
+    name = "mount_capable",
+    constraint_setting = ":mount_support",
+    visibility = ["//visibility:public"],
+)
+
 platform(
     name = "default_host_platform",
     constraint_values = [
         ":highcpu_machine",
+        ":mount_capable",
     ],
     parents = ["@platforms//host"],
 )
@@ -291,11 +319,14 @@ platform(
     ],
 )
 
-REMOTE_PLATFORMS = ("rbe_ubuntu2004",)
+REMOTE_PLATFORMS = ("rbe_ubuntu2404",)
 
 [
     platform(
         name = platform_name + "_platform",
+        constraint_values = [
+            "//:mount_capable",
+        ],
         exec_properties = {
             "dockerNetwork": "standard",
             "dockerPrivileged": "true",
@@ -322,6 +353,33 @@ REMOTE_PLATFORMS = ("rbe_ubuntu2004",)
     for platform_name in REMOTE_PLATFORMS
 ]
 
+# Bazel's own Java sources. External modules built as dependencies are
+# deliberately not covered, since we do not control their code.
+package_group(
+    name = "bazel_java_packages",
+    packages = ["//src/..."],
+)
+
+# Error Prone checks that are already enforced when Bazel is built inside
+# Google. Enabling them here surfaces the errors on pull requests instead of
+# after a change has been imported.
+#
+# These are attached to the Java toolchain rather than passed with --javacopt
+# because --javacopt also reaches rules that invoke javac directly, such as the
+# bootstrap Java rules in //tools/build_rules:java_rules_skylark.bzl, and plain
+# javac rejects -Xep: flags outright.
+java_package_configuration(
+    name = "bazel_error_prone_checks",
+    javacopts = [
+        "-Xep:ClassName:ERROR",
+        "-Xep:EqualsIncompatibleType:ERROR",
+        "-Xep:FutureReturnValueIgnored:ERROR",
+        "-Xep:TruthIncompatibleType:ERROR",
+        "-Xep:UnnecessaryBreakInSwitch:ERROR",
+    ],
+    packages = [":bazel_java_packages"],
+)
+
 # LINT.IfChange
 [
     default_java_toolchain(
@@ -329,13 +387,24 @@ REMOTE_PLATFORMS = ("rbe_ubuntu2004",)
         java_runtime = "@rules_java//toolchains:remotejdk_25",
         oneversion_allowlist = ":oneversion_allowlist.csv",
         oneversion_allowlist_for_tests = ":oneversion_allowlist_for_tests.csv",
+        package_configuration = [":bazel_error_prone_checks"],
         source_version = str(language_version),
         target_version = str(language_version),
+        turbine_jvm_opts = DEFAULT_TOOLCHAIN_CONFIGURATION["jvm_opts"] + [
+            # Silence a warning about unsafe memory access by Protobuf running as part of Turbine:
+            #
+            # WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+            # WARNING: sun.misc.Unsafe::arrayBaseOffset has been called by com.google.protobuf.UnsafeUtil$MemoryAccessor (file:/.../java_tools/turbine_direct_binary_deploy.jar)
+            # WARNING: Please consider reporting this to the maintainers of class com.google.protobuf.UnsafeUtil$MemoryAccessor
+            #
+            # https://github.com/protocolbuffers/protobuf/issues/20760
+            "--sun-misc-unsafe-memory-access=allow",
+        ],
     )
     for language_version in set([
         MINIMUM_JAVA_COMPILATION_RUNTIME_VERSION,
         MINIMUM_JAVA_RUNTIME_VERSION,
-        21,
+        25,
     ])
 ]
 # LINT.ThenChange(//.bazelrc)

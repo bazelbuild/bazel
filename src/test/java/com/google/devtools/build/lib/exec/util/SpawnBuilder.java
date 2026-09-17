@@ -24,8 +24,10 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -41,7 +43,7 @@ import javax.annotation.Nullable;
 public final class SpawnBuilder {
   private String mnemonic = "Mnemonic";
   private String progressMessage = "progress message";
-  private String ownerLabel = "//dummy:label";
+  @Nullable private String ownerLabel = "//dummy:label";
   private String ownerRuleKind = "dummy-target-kind";
   @Nullable private Artifact ownerPrimaryOutput;
   @Nullable private PlatformInfo platform;
@@ -54,7 +56,7 @@ public final class SpawnBuilder {
   @Nullable private Set<? extends ActionInput> mandatoryOutputs;
   private final NestedSetBuilder<ActionInput> tools = NestedSetBuilder.stableOrder();
 
-  private ResourceSet resourceSet = ResourceSet.ZERO;
+  private ResourceSetOrBuilder localResources = ResourceSet.ZERO;
   private PathMapper pathMapper = PathMapper.NOOP;
   private boolean builtForToolConfiguration;
 
@@ -78,11 +80,11 @@ public final class SpawnBuilder {
         ImmutableList.copyOf(args),
         ImmutableMap.copyOf(environment),
         ImmutableMap.copyOf(executionInfo),
-        inputs.build(),
+        SpawnInputs.of(inputs.build()),
         tools.build(),
         ImmutableSet.copyOf(outputs),
         mandatoryOutputs,
-        resourceSet,
+        localResources,
         pathMapper);
   }
 
@@ -107,6 +109,13 @@ public final class SpawnBuilder {
   @CanIgnoreReturnValue
   public SpawnBuilder withOwnerLabel(String ownerLabel) {
     this.ownerLabel = checkNotNull(ownerLabel);
+    return this;
+  }
+
+  /** Sets the owner to have no label, simulating synthetic actions (e.g. coverage aggregation). */
+  @CanIgnoreReturnValue
+  public SpawnBuilder withNullOwnerLabel() {
+    this.ownerLabel = null;
     return this;
   }
 
@@ -235,8 +244,8 @@ public final class SpawnBuilder {
   }
 
   @CanIgnoreReturnValue
-  public SpawnBuilder withLocalResources(ResourceSet resourceSet) {
-    this.resourceSet = resourceSet;
+  public SpawnBuilder withLocalResources(ResourceSetOrBuilder localResources) {
+    this.localResources = localResources;
     return this;
   }
 

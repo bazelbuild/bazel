@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModul
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.includescanning.IncludeScanningModule;
 import com.google.devtools.build.lib.remote.RemoteModule;
+import com.google.devtools.build.lib.remote.options.RemoteStartupOptions;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils.WorkerInstance;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.testutil.ActionEventRecorder;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.common.options.OptionsBase;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -60,6 +62,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   @TestParameter private boolean trackIncrementalState;
   @TestParameter private boolean keepGoing;
   @TestParameter private boolean skymeld;
+  @TestParameter private boolean precise;
 
   @ClassRule @Rule public static final WorkerInstance worker = IntegrationTestUtils.createWorker();
 
@@ -100,6 +103,14 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Override
+  protected ImmutableList<Class<? extends OptionsBase>> getStartupOptionClasses() {
+    return ImmutableList.<Class<? extends OptionsBase>>builder()
+        .addAll(super.getStartupOptionClasses())
+        .add(RemoteStartupOptions.class)
+        .build();
+  }
+
+  @Override
   protected void setupOptions() throws Exception {
     super.setupOptions();
     addOptions(
@@ -115,7 +126,8 @@ public final class RewindingTest extends BuildIntegrationTestCase {
         "--experimental_remote_cache_eviction_retries=0",
         "--track_incremental_state=" + trackIncrementalState,
         "--keep_going=" + keepGoing,
-        "--experimental_merged_skyframe_analysis_execution=" + skymeld);
+        "--experimental_merged_skyframe_analysis_execution=" + skymeld,
+        "--experimental_precise_rewinding=" + precise);
     runtimeWrapper.registerSubscriber(actionEventRecorder);
     runtimeWrapper.registerSubscriber(this);
   }
@@ -187,8 +199,9 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void ineffectiveRewindingResultsInLostInputTooManyTimes() throws Exception {
-    helper.runIneffectiveRewindingResultsInLostInputTooManyTimes();
+  public void ineffectiveRewindingResultsInLostInputTooManyTimes(
+      @TestParameter({"2", "20"}) int maxRepeatedLostInputs) throws Exception {
+    helper.runIneffectiveRewindingResultsInLostInputTooManyTimes(maxRepeatedLostInputs);
     assertOutputForRule2NotCreated();
   }
 
@@ -251,6 +264,28 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   public void treeArtifactRewound_oneFileLost() throws Exception {
     skipIfNotLinux();
     helper.runTreeArtifactRewound_oneFileLost_spawnFailed();
+  }
+
+  @Test
+  public void actionTemplateExpansionRewound_notConcurrentWithTreeConsumers() throws Exception {
+    helper.runActionTemplateExpansionRewound_notConcurrentWithTreeConsumers();
+  }
+
+  @Test
+  public void actionTemplateExpansionRewound_fileUnderSubtreeArtifactLost() throws Exception {
+    helper.runActionTemplateExpansionRewound_fileUnderSubtreeArtifactLost();
+  }
+
+  @Test
+  public void actionTemplateExpansionRewound_fileUnderSubtreeArtifactInRunfilesLost()
+      throws Exception {
+    helper.runActionTemplateExpansionRewound_fileUnderSubtreeArtifactInRunfilesLost();
+  }
+
+  @Test
+  public void actionTemplateExpansionRewound_siblingActionsReExecuteConcurrently()
+      throws Exception {
+    helper.runActionTemplateExpansionRewound_siblingActionsReExecuteConcurrently();
   }
 
   @Test

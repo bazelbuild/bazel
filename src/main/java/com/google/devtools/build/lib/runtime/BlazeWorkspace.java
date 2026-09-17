@@ -41,8 +41,10 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.server.IdleTaskException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.serialization.Fingerprinter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -88,6 +90,8 @@ public final class BlazeWorkspace {
    */
   @Nullable
   private final RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier;
+
+  private final Fingerprinter fingerprinterForAnalysisCaching;
 
   /**
    * The action cache, or null if it hasn't been loaded yet.
@@ -164,6 +168,7 @@ public final class BlazeWorkspace {
       SyscallCache syscallCache,
       Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier,
       @Nullable RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier,
+      Fingerprinter fingerprinterForAnalysisCaching,
       boolean allowExternalRepositories) {
     this.runtime = runtime;
     this.eventBusExceptionHandler = Preconditions.checkNotNull(eventBusExceptionHandler);
@@ -179,6 +184,7 @@ public final class BlazeWorkspace {
     this.virtualPackageLocator = createPackageLocatorIfVirtual(directories, skyframeExecutor);
     this.analysisCodecRegistrySupplier = analysisCodecRegistrySupplier;
     this.remoteAnalysisCachingServicesSupplier = remoteAnalysisCachingServicesSupplier;
+    this.fingerprinterForAnalysisCaching = fingerprinterForAnalysisCaching;
 
     if (directories.inWorkspace()) {
       writeOutputBaseReadmeFile();
@@ -194,9 +200,7 @@ public final class BlazeWorkspace {
     return runtime;
   }
 
-  /**
-   * Returns the Blaze directories object for this runtime.
-   */
+  /** Returns the Blaze directories object for this runtime. */
   public BlazeDirectories getDirectories() {
     return directories;
   }
@@ -216,17 +220,16 @@ public final class BlazeWorkspace {
   /**
    * Returns the working directory of the server.
    *
-   * <p>This is often the first entry on the {@code --package_path}, but not always.
-   * Callers should certainly not make this assumption. The Path returned may be null.
+   * <p>This is often the first entry on the {@code --package_path}, but not always. Callers should
+   * certainly not make this assumption. The Path returned may be null.
    */
   public Path getWorkspace() {
     return directories.getWorkingDirectory();
   }
 
   /**
-   * Returns the output base directory associated with this Blaze server
-   * process. This is the base directory for shared Blaze state as well as tool
-   * and strategy specific subdirectories.
+   * Returns the output base directory associated with this Blaze server process. This is the base
+   * directory for shared Blaze state as well as tool and strategy specific subdirectories.
    */
   public Path getOutputBase() {
     return directories.getOutputBase();
@@ -288,9 +291,7 @@ public final class BlazeWorkspace {
             : null;
   }
 
-  /**
-   * Range that represents the last execution time of a build in millis since epoch.
-   */
+  /** Range that represents the last execution time of a build in millis since epoch. */
   @Nullable
   public Range<Long> getLastExecutionTimeRange() {
     return lastExecutionRange;
@@ -319,7 +320,8 @@ public final class BlazeWorkspace {
       CommandExtensionReporter commandExtensionReporter,
       int attemptNumber,
       @Nullable String buildRequestIdOverride,
-      ConfigFlagDefinitions configFlagDefinitions) {
+      ConfigFlagDefinitions configFlagDefinitions)
+      throws AbruptExitException {
     quiescingExecutors.resetParameters(options);
     CommandEnvironment env =
         new CommandEnvironment(
@@ -354,15 +356,7 @@ public final class BlazeWorkspace {
     return env;
   }
 
-  void clearEventBus() {
-    // EventBus does not have an unregister() method, so this is how we release memory associated
-    // with handlers.
-    skyframeExecutor.setEventBus(null);
-  }
-
-  /**
-   * Reinitializes the Skyframe evaluator.
-   */
+  /** Reinitializes the Skyframe evaluator. */
   public void resetEvaluator() {
     skyframeExecutor.resetEvaluator();
   }
@@ -411,9 +405,9 @@ public final class BlazeWorkspace {
   }
 
   /**
-   * Generates a README file in the output base directory. This README file
-   * contains the name of the workspace directory, so that users can figure out
-   * which output base directory corresponds to which workspace.
+   * Generates a README file in the output base directory. This README file contains the name of the
+   * workspace directory, so that users can figure out which output base directory corresponds to
+   * which workspace.
    */
   private void writeOutputBaseReadmeFile() {
     Preconditions.checkNotNull(getWorkspace());
@@ -475,6 +469,10 @@ public final class BlazeWorkspace {
     return remoteAnalysisCachingServicesSupplier;
   }
 
+  public Fingerprinter getFingerprinterForAnalysisCaching() {
+    return fingerprinterForAnalysisCaching;
+  }
+
   @Nullable
   private static PathPackageLocator createPackageLocatorIfVirtual(
       BlazeDirectories directories, SkyframeExecutor skyframeExecutor) {
@@ -489,7 +487,8 @@ public final class BlazeWorkspace {
   }
 
   @Nullable // Null for commands that don't have PackageOptions (version, help, shutdown, etc).
-  private PathPackageLocator getOrCreatePackageLocatorForCommand(OptionsParsingResult options) {
+  private PathPackageLocator getOrCreatePackageLocatorForCommand(OptionsParsingResult options)
+      throws AbruptExitException {
     var packageOptions = options.getOptions(PackageOptions.class);
     Path workspace = directories.getWorkspace();
     if (packageOptions == null || workspace == null) {
@@ -500,7 +499,7 @@ public final class BlazeWorkspace {
     }
     return PathPackageLocator.create(
         directories.getOutputBase(),
-        packageOptions.packagePath,
+        packageOptions.getPackagePath(),
         NullEventHandler.INSTANCE,
         workspace.asFragment(),
         workspace,

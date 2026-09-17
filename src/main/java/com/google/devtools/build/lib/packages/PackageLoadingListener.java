@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.List;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -68,4 +69,10 @@ public interface PackageLoadingListener {
       StarlarkSemantics starlarkSemantics,
       LazyMacroExpansionPackages lazyMacroExpansionPackages,
       Metrics metrics);
+
+  /**
+   * Called after {@link com.google.devtools.build.lib.skyframe.BzlCompileFunction} has successfully
+   * parsed the file denoted by the given {@link RootedPath}.
+   */
+  default void onBzlCompileCompleteAndSuccessful(RootedPath path, long fileSize) {}
 }

@@ -17,7 +17,9 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.google.devtools.build.lib.profiler.MemoryProfiler.MemoryProfileStableHeapParameters;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SlimProfileConfiguration;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.ToolCommandLineEvent;
+import com.google.devtools.build.lib.util.EnvVar;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
@@ -69,7 +71,7 @@ public abstract class CommonCommandOptions extends OptionsBase {
       help =
           "Selects additional config sections from the rc files; for every <command>, it "
               + "also pulls in the options from <command>:<config> if such a section exists; "
-              + "if this section doesn't exist in any .rc file, Blaze fails with an error. "
+              + "if this section doesn't exist in any .rc file, Bazel fails with an error. "
               + "The config sections and flag combinations they are equivalent to are "
               + "located in the tools/*.blazerc config files.")
   public abstract List<String> getConfigs();
@@ -275,10 +277,15 @@ public abstract class CommonCommandOptions extends OptionsBase {
       name = "build_request_id",
       defaultValue = "",
       converter = PrefixedUUIDConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.BAZEL_MONITORING, OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      metadataTags = {OptionMetadataTag.HIDDEN},
-      help = "Unique string identifier for the build being run.")
+      help =
+          """
+          Unique string identifier that groups together a set of invocations that are conceptually
+          part of the same overall build request. The value is sent over the BES transport envelope
+          (as `StreamId.build_id`) and remote execution protocol (as
+          `RequestMetadata.correlated_invocations_id`).
+          """)
   public abstract String getBuildRequestId();
 
   @Option(
@@ -326,12 +333,14 @@ public abstract class CommonCommandOptions extends OptionsBase {
       name = "slim_profile",
       oldName = "experimental_slim_json_profile",
       defaultValue = "true",
+      converter = SlimProfileConfiguration.SlimProfileConverter.class,
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
           "Slims down the size of the JSON profile by merging events if the profile gets "
-              + "too large.")
-  public abstract boolean getSlimProfile();
+              + "too large. Supports boolean values or a size in bytes (e.g. 5M) to start "
+              + "slimming after the profile exceeds that size.")
+  public abstract SlimProfileConfiguration getSlimProfile();
 
   @Option(
       name = "experimental_profile_include_primary_output",
@@ -340,8 +349,8 @@ public abstract class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
-          "Includes the extra \"out\" attribute in action events that contains the exec path "
-              + "to the action's primary output.")
+          "Includes the extra \"out\" attribute in action and critical-path events that contains"
+              + " the exec path to the action's primary output.")
   public abstract boolean getIncludePrimaryOutput();
 
   @Option(
@@ -349,7 +358,7 @@ public abstract class CommonCommandOptions extends OptionsBase {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
-      help = "Includes target label in action events' JSON profile data.")
+      help = "Includes target label in action and critical-path events' JSON profile data.")
   public abstract boolean getProfileIncludeTargetLabel();
 
   @Option(
@@ -357,7 +366,9 @@ public abstract class CommonCommandOptions extends OptionsBase {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
-      help = "Includes target configuration hash in action events' JSON profile data.")
+      help =
+          "Includes target configuration hash in action and critical-path events' JSON profile"
+              + " data.")
   public abstract boolean getProfileIncludeTargetConfiguration();
 
   @Option(
@@ -600,7 +611,7 @@ public abstract class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
       help =
-          "If false, Blaze will not persist data that allows for invalidation and re-evaluation "
+          "If false, Bazel will not persist data that allows for invalidation and re-evaluation "
               + "on incremental builds in order to save memory on this build. Subsequent builds "
               + "will not have any incrementality with respect to this one. Usually you will want "
               + "to specify --batch when setting this to false.")
@@ -608,7 +619,7 @@ public abstract class CommonCommandOptions extends OptionsBase {
 
   @Option(
       name = "repo_env",
-      converter = Converters.EnvVarsConverter.class,
+      converter = EnvVar.Converter.class,
       allowMultiple = true,
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -617,12 +628,12 @@ public abstract class CommonCommandOptions extends OptionsBase {
           """
           Specifies additional environment variables to be available only for repository rules. \
           Note that repository rules see the full environment anyway, but in this way \
-          variables can be set via command-line flags and <code>.bazelrc</code> entries. \
-          The special syntax <code>=NAME</code> can be used to explicitly unset a variable. \
-          The string <code>%bazel_workspace%</code> in a value will be replaced with the absolute \
-          path of the workspace as printed by <code>bazel info workspace</code>.
+          variables can be set via command-line flags and `.bazelrc` entries. \
+          The special syntax `=NAME` can be used to explicitly unset a variable. \
+          The string `%bazel_workspace%` in a value will be replaced with the absolute \
+          path of the workspace as printed by `bazel info workspace`.
           """)
-  public abstract List<Converters.EnvVar> getRepositoryEnvironment();
+  public abstract List<EnvVar> getRepositoryEnvironment();
 
   @Option(
       name = "incompatible_repo_env_ignores_action_env",
@@ -632,7 +643,7 @@ public abstract class CommonCommandOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           """
-          If true, <code>--action_env=NAME=VALUE</code> will no longer affect repository rule \
+          If true, `--action_env=NAME=VALUE` will no longer affect repository rule \
           and module extension environments.
           """)
   public abstract boolean getRepoEnvIgnoresActionEnv();
@@ -661,7 +672,7 @@ public abstract class CommonCommandOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
       help =
-          "If true, Blaze will remove FileState and DirectoryListingState nodes after related File"
+          "If true, Bazel will remove FileState and DirectoryListingState nodes after related File"
               + " and DirectoryListing node is done to save memory. We expect that it is less"
               + " likely that these nodes will be needed again. If so, the program will re-evaluate"
               + " them.")
@@ -725,4 +736,15 @@ public abstract class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Whether or not to write the command.log file")
   public abstract boolean getWriteCommandLog();
+
+  @Option(
+      name = "experimental_non_deterministic_memory_optimizations",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "Whether to enable memory optimizations that may be non-deterministic with respect to"
+              + " their efficacy. Enable this to use less memory; disable this for more consistent"
+              + " memory measurements")
+  public abstract boolean getExperimentalNonDeterministicMemoryOptimizations();
 }

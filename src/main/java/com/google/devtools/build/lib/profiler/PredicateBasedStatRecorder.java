@@ -13,16 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
-import com.google.common.base.Predicate;
+import com.google.devtools.build.lib.skybridge.ScOnly;
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * A stat recorder that is able to look at the kind of object added and delegate to the appropriate
  * {@link StatRecorder} based on a predicate.
  *
- * <p> Note that the predicates are evaluated in order and delegated only to the first one. That
+ * <p>Note that the predicates are evaluated in order and delegated only to the first one. That
  * means that the most specific and cheapest predicates should be passed first.
  */
+@ScOnly
 public class PredicateBasedStatRecorder implements StatRecorder {
 
   private final Predicate<? super String>[] predicates;
@@ -43,7 +45,7 @@ public class PredicateBasedStatRecorder implements StatRecorder {
   public void addStat(int duration, Object obj) {
     String description = obj.toString();
     for (int i = 0; i < predicates.length; i++) {
-      if (predicates[i].apply(description)) {
+      if (predicates[i].test(description)) {
         recorders[i].addStat(duration, obj);
         return;
       }

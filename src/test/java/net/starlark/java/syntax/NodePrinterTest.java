@@ -231,7 +231,7 @@ public final class NodePrinterTest {
   public void unaryOperatorExpression() throws SyntaxError.Exception {
     assertExprPrettyMatches("not True", "not (True)");
     assertExprTostringMatches("not True", "not True");
-    assertExprPrettyMatches("-5", "-(5)");
+    assertExprPrettyMatches("-(5 + 3)", "-((5 + 3))");
     assertExprTostringMatches("-5", "-5");
   }
 

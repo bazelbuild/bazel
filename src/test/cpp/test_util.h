@@ -14,6 +14,9 @@
 #ifndef BAZEL_SRC_TEST_CPP_TEST_UTIL_H
 #define BAZEL_SRC_TEST_CPP_TEST_UTIL_H
 
+#include <string>
+#include <vector>
+
 #include "src/main/cpp/startup_options.h"
 #include "googletest/include/gtest/gtest.h"
 

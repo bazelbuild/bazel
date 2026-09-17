@@ -22,6 +22,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.syntax.Types;
 
 /**
  * A sequence returned by the {@code range} function invocation.
@@ -91,6 +92,16 @@ final class RangeList extends AbstractList<StarlarkInt> implements Sequence<Star
       }
       this.size = (int) size;
     }
+  }
+
+  @Override
+  public boolean isAcyclic() {
+    return true;
+  }
+
+  @Override
+  public boolean containsKey(StarlarkSemantics semantics, Object key) {
+    return contains(key);
   }
 
   @Override
@@ -211,5 +222,10 @@ final class RangeList extends AbstractList<StarlarkInt> implements Sequence<Star
     } else {
       printer.append(String.format("range(%d, %d, %d)", start, stop, step));
     }
+  }
+
+  @Override
+  public Types.SequenceType getStarlarkType(StarlarkSemantics semantics) {
+    return Types.sequence(Types.INT);
   }
 }

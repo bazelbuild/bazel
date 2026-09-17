@@ -335,17 +335,6 @@ public abstract class JavaOptions extends FragmentOptions {
   public abstract boolean getEnforceOneVersionOnJavaTests();
 
   @Option(
-      name = "experimental_add_test_support_to_compile_time_deps",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "Flag to help transition away from adding test support libraries to the compile-time"
-              + " deps of Java test rules.")
-  public abstract boolean getAddTestSupportToCompileTimeDeps();
-
-  @Option(
       name = "experimental_run_android_lint_on_java_rules",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -375,6 +364,14 @@ public abstract class JavaOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If enabled, turbine is used for all annotation processing")
   public abstract boolean getExperimentalTurbineAnnotationProcessing();
+
+  @Option(
+      name = "experimental_turbine_cpu_reservation",
+      defaultValue = "1",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The number of CPUs to reserve for Turbine.")
+  public abstract int getTurbineCpuReservation();
 
   @Option(
       name = "java_runtime_version",
@@ -409,15 +406,6 @@ public abstract class JavaOptions extends FragmentOptions {
   public abstract String getHostJavaLanguageVersion();
 
   @Option(
-      name = "incompatible_multi_release_deploy_jars",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "When enabled, java_binary creates Multi-Release deploy jars.")
-  public abstract boolean getMultiReleaseDeployJars();
-
-  @Option(
       name = "incompatible_disallow_java_import_exports",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -434,13 +422,4 @@ public abstract class JavaOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Enable experimental jspecify integration.")
   public abstract boolean getExperimentalEnableJspecify();
-
-  @Option(
-      name = "experimental_java_test_auto_create_deploy_jar",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "DO NOT USE")
-  public abstract boolean getAutoCreateDeployJarForJavaTests();
 }

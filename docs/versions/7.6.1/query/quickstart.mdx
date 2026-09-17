@@ -205,7 +205,7 @@ dot -Tpng < graph.in > graph.png
 ```
 If you open up `graph.png`, you should see something like this. The graph below has been simplified to make the essential path details clearer in this guide.
 
-![Diagram showing a relationship from cafe to chef to the dishes: pizza and mac and cheese which diverges into the separate ingredients: cheese, tomatoes, dough, and macaroni.](images/query_graph1.png "Dependency graph")
+![Diagram showing a relationship from cafe to chef to the dishes: pizza and mac and cheese which diverges into the separate ingredients: cheese, tomatoes, dough, and macaroni.](/versions/7.6.1/query/images/query_graph1.png "Dependency graph")
 
 This helps when you want to see the outputs of the different query functions throughout this guide.
 
@@ -421,7 +421,7 @@ bazel query --noimplicit_deps 'deps(:runner)' --output graph > graph2.in
 dot -Tpng < graph2.in > graph2.png
 ```
 
-[![The same graph as the first one except now there is a spoke stemming from the chef target with smoothie which leads to banana and strawberry](images/query_graph2.png "Updated dependency graph")](images/query_graph2.png)
+[![The same graph as the first one except now there is a spoke stemming from the chef target with smoothie which leads to banana and strawberry](/versions/7.6.1/query/images/query_graph2.png "Updated dependency graph")](/query/images/query_graph2.png)
 
 Looking at `graph2.png`, you can see that `Smoothie` has no shared dependencies with other dishes but is just another target that the `Chef` relies on.
 
@@ -465,7 +465,7 @@ bazel query "allpaths(//src/main/java/com/example/restaurant/..., //src/main/jav
 //src/main/java/com/example/restaurant:chef
 ```
 
-![Output path of cafe to chef to pizza,mac and cheese to cheese](images/query_graph3.png "Output path for dependency")
+![Output path of cafe to chef to pizza,mac and cheese to cheese](/versions/7.6.1/query/images/query_graph3.png "Output path for dependency")
 
 The output of `allpaths()` is a little harder to read as it is a flattened list of the dependencies. Visualizing this graph using Graphviz makes the relationship clearer to understand.
 

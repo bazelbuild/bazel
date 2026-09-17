@@ -2,8 +2,7 @@
 title: 'Using the Android Native Development Kit with Bazel'
 ---
 
-_If you're new to Bazel, please start with the [Building Android with
-Bazel](/versions/8.3.1/start/android-app ) tutorial._
+_If you're new to Bazel, please start with the [Building Android with Bazel](/versions/8.3.1/start/android-app) tutorial._
 
 ## Overview {#overview}
 
@@ -31,8 +30,7 @@ android_ndk_repository(
 )
 ```
 
-For more information about the `android_ndk_repository` rule, see the [Build
-Encyclopedia entry](/versions/8.3.1/reference/be/android#android_ndk_repository).
+For more information about the `android_ndk_repository` rule, see the [Build Encyclopedia entry](/versions/8.3.1/reference/be/android#android_ndk_repository).
 
 If you're using a recent version of the Android NDK (r22 and beyond), use the
 Starlark implementation of `android_ndk_repository`.
@@ -101,13 +99,11 @@ META-INF/MANIFEST.MF
 
 Bazel compiles all of the cc_libraries into a single shared object (`.so`) file,
 targeted for the `armeabi-v7a` ABI by default. To change this or build for
-multiple ABIs at the same time, see the section on [configuring the target
-ABI](#configuring-target-abi).
+multiple ABIs at the same time, see the section on [configuring the target ABI](#configuring-target-abi).
 
 ## Example setup {#example-setup}
 
-This example is available in the [Bazel examples
-repository](https://github.com/bazelbuild/examples/tree/master/android/ndk).
+This example is available in the [Bazel examples repository](https://github.com/bazelbuild/examples/tree/master/android/ndk).
 
 In the `BUILD.bazel` file, three targets are defined with the `android_binary`,
 `android_library`, and `cc_library` rules.

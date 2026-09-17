@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.devtools.common.options.OptionsBase;
 
 /** A supplier of command-line options. */
+@SkybridgeInterface
 public interface OptionsSupplier {
 
   /**

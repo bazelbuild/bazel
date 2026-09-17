@@ -35,17 +35,17 @@ public final class StarlarkDocumentationProcessor {
   /** Generates the Starlark documentation to the given output directory. */
   public static void generateDocumentation(String outputDir, StarlarkDocumentationOptions options)
       throws IOException, ClassPathException {
-    if (options.starlarkDocsRoot != null) {
-      DocgenConsts.starlarkDocsRoot = options.starlarkDocsRoot;
+    if (options.getStarlarkDocsRoot() != null) {
+      DocgenConsts.starlarkDocsRoot = options.getStarlarkDocsRoot();
     }
 
-    DocLinkMap linkMap = DocLinkMap.createFromFile(checkNotNull(options.linkMapPath));
+    DocLinkMap linkMap = DocLinkMap.createFromFile(checkNotNull(options.getLinkMapPath()));
     StarlarkDocExpander expander =
         new StarlarkDocExpander(new RuleLinkExpander(/* singlePage= */ false, linkMap));
 
     ImmutableMap<Category, ImmutableList<StarlarkDocPage>> allPages =
         StarlarkDocumentationCollector.getAllDocPages(
-            expander, ImmutableList.copyOf(options.apiStardocProtos));
+            expander, ImmutableList.copyOf(options.getApiStardocProtos()));
 
     for (var categoryAndPages : allPages.entrySet()) {
       writeCategoryPage(
@@ -56,7 +56,7 @@ public final class StarlarkDocumentationProcessor {
     }
 
     writeOverviewPage(outputDir, allPages);
-    if (options.createToc) {
+    if (options.getCreateToc()) {
       writeTableOfContents(outputDir, allPages);
     }
   }

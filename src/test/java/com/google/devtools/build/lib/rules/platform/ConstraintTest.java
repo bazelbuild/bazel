@@ -223,6 +223,168 @@ public class ConstraintTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testConstraint_refinesConstraintValue() throws Exception {
+    scratch.file(
+        "libc/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = ":libc",
+        )
+        """);
+    scratch.file(
+        "libc/glibc/BUILD",
+        """
+        constraint_setting(
+            name = "version",
+            refines_constraint_value = "//libc:glibc",
+        )
+
+        constraint_value(
+            name = "2.42",
+            constraint_setting = ":version",
+        )
+        """);
+
+    ConfiguredTarget setting = getConfiguredTarget("//libc/glibc:version");
+    assertThat(setting).isNotNull();
+    ConstraintSettingInfo settingInfo = PlatformProviderUtils.constraintSetting(setting);
+    assertThat(settingInfo).isNotNull();
+    assertThat(settingInfo.refinedConstraintValue().label())
+        .isEqualTo(Label.parseCanonical("//libc:glibc"));
+    assertThat(settingInfo.refinementChain()).containsExactly(Label.parseCanonical("//libc:glibc"));
+  }
+
+  @Test
+  public void testConstraint_refinesConstraintValue_alias() throws Exception {
+    scratch.file(
+        "libc/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = ":libc",
+        )
+
+        alias(
+            name = "glibc_alias",
+            actual = ":glibc",
+        )
+        """);
+    scratch.file(
+        "libc/glibc/BUILD",
+        """
+        constraint_setting(
+            name = "version",
+            refines_constraint_value = "//libc:glibc_alias",
+        )
+
+        constraint_value(
+            name = "2.42",
+            constraint_setting = ":version",
+        )
+        """);
+
+    ConfiguredTarget setting = getConfiguredTarget("//libc/glibc:version");
+    ConstraintSettingInfo settingInfo = PlatformProviderUtils.constraintSetting(setting);
+    assertThat(settingInfo).isNotNull();
+    // The alias is resolved to the underlying constraint_value.
+    assertThat(settingInfo.refinedConstraintValue().label())
+        .isEqualTo(Label.parseCanonical("//libc:glibc"));
+    assertThat(settingInfo.refinementChain()).containsExactly(Label.parseCanonical("//libc:glibc"));
+  }
+
+  @Test
+  public void testConstraint_refinesConstraintValue_chain() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        """
+        constraint_setting(name = "a")
+
+        constraint_value(
+            name = "a1",
+            constraint_setting = ":a",
+        )
+        """);
+    scratch.file(
+        "b/BUILD",
+        """
+        constraint_setting(
+            name = "b",
+            refines_constraint_value = "//a:a1",
+        )
+
+        constraint_value(
+            name = "b1",
+            constraint_setting = ":b",
+        )
+        """);
+    scratch.file(
+        "c/BUILD",
+        """
+        constraint_setting(
+            name = "c",
+            refines_constraint_value = "//b:b1",
+        )
+
+        constraint_value(
+            name = "c1",
+            constraint_setting = ":c",
+        )
+        """);
+
+    ConfiguredTarget setting = getConfiguredTarget("//c:c");
+    ConstraintSettingInfo settingInfo = PlatformProviderUtils.constraintSetting(setting);
+    assertThat(settingInfo).isNotNull();
+    assertThat(settingInfo.refinementChain())
+        .containsExactly(Label.parseCanonical("//b:b1"), Label.parseCanonical("//a:a1"))
+        .inOrder();
+  }
+
+  @Test
+  public void testConstraint_refinesConstraintValue_withDefault() throws Exception {
+    scratch.file(
+        "libc/BUILD",
+        """
+        constraint_setting(name = "libc")
+
+        constraint_value(
+            name = "glibc",
+            constraint_setting = ":libc",
+        )
+        """);
+    scratch.file(
+        "libc/glibc/BUILD",
+        """
+        constraint_setting(
+            name = "version",
+            default_constraint_value = ":unknown",
+            refines_constraint_value = "//libc:glibc",
+        )
+
+        constraint_value(
+            name = "unknown",
+            constraint_setting = ":version",
+        )
+
+        constraint_value(
+            name = "2.42",
+            constraint_setting = ":version",
+        )
+        """);
+
+    ConfiguredTarget setting = getConfiguredTarget("//libc/glibc:version");
+    ConstraintSettingInfo settingInfo = PlatformProviderUtils.constraintSetting(setting);
+    assertThat(settingInfo).isNotNull();
+    assertThat(settingInfo.hasDefaultConstraintValue()).isTrue();
+    assertThat(settingInfo.refinedConstraintValue().label())
+        .isEqualTo(Label.parseCanonical("//libc:glibc"));
+  }
+
+  @Test
   public void testConstraint_defaultValue_notSet_starlark() throws Exception {
     setBuildLanguageOptions("--experimental_platforms_api=true");
     scratch.file("constraint_default/BUILD", "constraint_setting(name = 'basic')");

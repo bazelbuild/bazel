@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -57,12 +57,6 @@ public class StarlarkBazelModule implements StarlarkValue {
           object has a field for each tag class of the extension, and the value of the field is a \
           list containing an object for each tag instance. This "tag instance" object in turn has \
           a field for each attribute of the tag class.
-          <p>Tag instance objects have a <code>_sort_key</code> field that returns an opaque value \
-          that can be compared with other sort keys to determine the relative order of tags, even \
-          across tag classes. Tags are ordered by their position within a module file and by the \
-          BFS ordering of modules in the dependency graph. This can be used with \
-          <code>sorted()</code> to recover the original order of tags: \
-          <code>sorted(tags, key=lambda tag: tag._sort_key)</code>.
           <p>When passed as positional arguments to <code>print()</code> or <code>fail()</code>, \
           tag instance objects turn into a meaningful string representation of the form "'install' \
           tag at /home/user/workspace/MODULE.bazel:3:4". This can be used to construct error \
@@ -126,7 +120,7 @@ public class StarlarkBazelModule implements StarlarkValue {
             repoMapping,
             repoMappingRecorder);
     ImmutableList<Tag> tags = usage == null ? ImmutableList.of() : usage.getTags();
-    HashMap<String, ArrayList<TypeCheckedTag>> typeCheckedTags = new HashMap<>();
+    LinkedHashMap<String, ArrayList<TypeCheckedTag>> typeCheckedTags = new LinkedHashMap<>();
     for (String tagClassName : extension.tagClasses().keySet()) {
       typeCheckedTags.put(tagClassName, new ArrayList<>());
     }

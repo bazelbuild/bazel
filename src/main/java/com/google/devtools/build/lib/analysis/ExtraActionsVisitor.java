@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -23,6 +22,7 @@ import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionGraphVisitor;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.extra.ExtraActionSpec;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -41,7 +41,7 @@ final class ExtraActionsVisitor extends ActionGraphVisitor {
     super(getActionGraph(ruleContext));
     this.ruleContext = ruleContext;
     this.mnemonicToExtraActionMap = mnemonicToExtraActionMap;
-    extraArtifacts = Lists.newArrayList();
+    extraArtifacts = new ArrayList<>();
   }
 
   void maybeAddExtraAction(ActionAnalysisMetadata original) throws InterruptedException {

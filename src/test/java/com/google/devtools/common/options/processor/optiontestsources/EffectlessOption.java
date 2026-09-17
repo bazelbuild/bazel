@@ -16,14 +16,17 @@ package com.google.devtools.common.options.processor.optiontestsources;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /** This example options class should fail to compile. */
-public class EffectlessOption extends OptionsBase {
+@OptionsClass
+public abstract class EffectlessOption extends OptionsBase {
   @Option(
-    name = "bad_option",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {}
-  )
-  public boolean badOption;
+      name = "bad_option",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {})
+  public abstract boolean getBadOption();
+
+  public abstract void setBadOption(boolean value);
 }

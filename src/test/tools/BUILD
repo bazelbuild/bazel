@@ -3,13 +3,15 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+    ],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src:__pkg__"],
 )
 
 cc_test(
@@ -20,6 +22,7 @@ cc_test(
     }),
     deps = [
         "//src/main/tools:process-tools",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -27,7 +30,28 @@ cc_test(
 sh_test(
     name = "daemonize_test",
     srcs = ["daemonize_test.sh"],
-    data = ["//src/main/tools:daemonize"],
+    data = [
+        "//src/main/tools:daemonize",
+    ],
+    deps = [
+        "//src/test/shell:bashunit",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "linux-sandbox_test",
+    srcs = ["linux-sandbox_test.sh"],
+    data = [
+        "//src/main/tools:linux-sandbox",
+    ],
+    exec_group_compatible_with = {
+        "test": ["//:mount_capable"],
+    },
+    tags = [
+        "no_macos",
+        "no_windows",
+    ],
     deps = [
         "//src/test/shell:bashunit",
         "@bazel_tools//tools/bash/runfiles",

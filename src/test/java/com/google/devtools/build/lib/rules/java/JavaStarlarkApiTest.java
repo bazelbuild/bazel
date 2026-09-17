@@ -39,13 +39,10 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     "{module: java_config, api: reduce_java_classpath}",
   })
   public void testNoArgsPrivateAPIsAreIndeedPrivate(String module, String api) throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+java_import");
-    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/custom_rule.bzl",
         "def _impl(ctx):",
         "  java_config = ctx.fragments.java",
-        "  java_toolchain = ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'].java",
         "  " + module + "." + api + "()",
         "  return []",
         "java_custom_library = rule(",

@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages.metrics;
 
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BzlMetrics.BzlFileMetrics;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.protobuf.util.Durations;
 import javax.annotation.concurrent.GuardedBy;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -23,8 +25,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 /** Tracks per-invocation extreme package loading events. */
 public class PackageMetricsPackageLoadingListener implements PackageLoadingListener {
 
-  @GuardedBy("this")
-  private PackageMetricsRecorder recorder;
+  private volatile PackageMetricsRecorder recorder;
 
   private boolean publishPackageMetricsInBep = false;
 
@@ -43,12 +44,13 @@ public class PackageMetricsPackageLoadingListener implements PackageLoadingListe
   }
 
   @Override
-  public synchronized void onLoadingCompleteAndSuccessful(
+  public void onLoadingCompleteAndSuccessful(
       Package pkg,
       StarlarkSemantics starlarkSemantics,
       LazyMacroExpansionPackages lazyMacroExpansionPackages,
       Metrics metrics) {
-    if (recorder == null) {
+    PackageMetricsRecorder currentRecorder = recorder;
+    if (currentRecorder == null) {
       // Micro-optimization - no need to track.
       return;
     }
@@ -65,11 +67,25 @@ public class PackageMetricsPackageLoadingListener implements PackageLoadingListe
       builder.setPackageOverhead(pkg.getPackageOverhead().getAsLong());
     }
 
-    recorder.recordMetrics(pkg.getPackageIdentifier(), builder.build());
+    currentRecorder.recordMetrics(pkg.getPackageIdentifier(), builder.build());
+  }
+
+  @Override
+  public void onBzlCompileCompleteAndSuccessful(RootedPath path, long fileSize) {
+    PackageMetricsRecorder currentRecorder = recorder;
+    if (currentRecorder == null) {
+      return;
+    }
+
+    currentRecorder.recordBzlMetrics(
+        BzlFileMetrics.newBuilder()
+            .setPath(path.getRootRelativePath().getPathString())
+            .setSize(fileSize)
+            .build());
   }
 
   /** Set the PackageMetricsRecorder for this listener. */
-  public synchronized void setPackageMetricsRecorder(PackageMetricsRecorder recorder) {
+  public void setPackageMetricsRecorder(PackageMetricsRecorder recorder) {
     this.recorder = recorder;
   }
 
@@ -82,7 +98,7 @@ public class PackageMetricsPackageLoadingListener implements PackageLoadingListe
   }
 
   /** Returns the PackageMetricsRecorder, if any, for the PackageLoadingListener. */
-  public synchronized PackageMetricsRecorder getPackageMetricsRecorder() {
+  public PackageMetricsRecorder getPackageMetricsRecorder() {
     return recorder;
   }
 }

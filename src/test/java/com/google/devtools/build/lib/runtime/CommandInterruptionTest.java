@@ -41,6 +41,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -92,7 +93,8 @@ public final class CommandInterruptionTest {
               .build());
 
   /** Options class to pass configuration to our dummy wait command. */
-  public static class WaitOptions extends OptionsBase {
+  @OptionsClass
+  public abstract static class WaitOptions extends OptionsBase {
     public WaitOptions() {}
 
     @Option(
@@ -100,7 +102,7 @@ public final class CommandInterruptionTest {
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "false")
-    public boolean expectInterruption;
+    public abstract boolean getExpectInterruption();
   }
 
   /**
@@ -125,7 +127,9 @@ public final class CommandInterruptionTest {
     public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
       CommandState commandState =
           new CommandState(
-              env, options.getOptions(WaitOptions.class).expectInterruption, isTestShuttingDown);
+              env,
+              options.getOptions(WaitOptions.class).getExpectInterruption(),
+              isTestShuttingDown);
       commandStateHandoff.getAndSet(null).set(commandState);
       return BlazeCommandResult.detailedExitCode(commandState.waitForDetailedCodeFromTest());
     }
@@ -383,7 +387,7 @@ public final class CommandInterruptionTest {
     OptionsParsingResult startupOptionsProvider =
         OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
     for (var service : BAZEL_SERVICES) {
-      service.globalInit(startupOptionsProvider);
+      service.globalInit(startupOptionsProvider, BAZEL_SERVICES);
     }
     Scratch scratch = new Scratch();
     isTestShuttingDown = new AtomicBoolean(false);
@@ -391,7 +395,7 @@ public final class CommandInterruptionTest {
     ServerDirectories serverDirectories =
         new ServerDirectories(
             scratch.dir("install"), scratch.dir("output"), scratch.dir("user_root"));
-    BlazeRuntime runtime =
+    BlazeRuntime.Builder runtimeBuilder =
         new BlazeRuntime.Builder()
             .setFileSystem(scratch.getFileSystem())
             .setProductName(productName)
@@ -407,8 +411,11 @@ public final class CommandInterruptionTest {
                     builder.addConfigurationOptions(CoreOptions.class);
                     builder.addConfigurationOptions(TestConfiguration.TestOptions.class);
                   }
-                })
-            .build();
+                });
+    for (var service : BAZEL_SERVICES) {
+      runtimeBuilder.addBlazeService(service);
+    }
+    BlazeRuntime runtime = runtimeBuilder.build();
     snooze = new WaitForCompletionCommand(isTestShuttingDown);
     runtime.overrideCommands(ImmutableList.of(snooze));
     dispatcher = new BlazeCommandDispatcher(runtime);

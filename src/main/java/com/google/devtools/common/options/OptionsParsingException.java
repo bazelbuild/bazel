@@ -14,11 +14,14 @@
 
 package com.google.devtools.common.options;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
+
 /**
  * An exception that's thrown when the {@link OptionsParser} fails.
  *
  * @see OptionsParser#parse(OptionPriority.PriorityCategory,String,java.util.List)
  */
+@SkybridgeInterface
 public class OptionsParsingException extends Exception {
   private final String invalidArgument;
 

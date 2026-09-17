@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.util;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Ints;
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
+import com.google.devtools.build.lib.actions.LocalHostComputeResources;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -49,9 +49,9 @@ public abstract class ResourceConverter<T extends Number & Comparable<T>>
   public static final String HOST_RAM_KEYWORD = "HOST_RAM";
 
   public static final Supplier<Integer> HOST_CPUS_SUPPLIER =
-      () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage());
+      () -> (int) Math.ceil(LocalHostComputeResources.getCpuUsage());
   public static final Supplier<Integer> HOST_RAM_SUPPLIER =
-      () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getMemoryMb());
+      () -> (int) Math.ceil(LocalHostComputeResources.getMemoryMb());
 
   /** Resource converter for assignments. */
   public static class AssignmentConverter extends Converter.Contextless<Map.Entry<String, Double>> {

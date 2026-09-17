@@ -50,6 +50,7 @@ public interface StarlarkAspectPropagationContextApi extends StarlarkValue {
   StarlarkAspectPropagationRuleApi getRule() throws EvalException;
 
   /** Interface for the rule details provided to the aspect propagation functions. */
+  @StarlarkBuiltin(name = "starlark_aspect_propagation_rule", documented = false)
   static interface StarlarkAspectPropagationRuleApi extends StarlarkValue {
     @StarlarkMethod(name = "label", structField = true, doc = "The label of the target.")
     Label getLabel() throws EvalException;
@@ -76,6 +77,7 @@ public interface StarlarkAspectPropagationContextApi extends StarlarkValue {
   }
 
   /** Interface for the qualified rule kind of the target. */
+  @StarlarkBuiltin(name = "qualified_rule_kind", documented = false)
   static interface QualifiedRuleKindApi extends StarlarkValue {
     @StarlarkMethod(
         name = "file_label",
@@ -93,6 +95,7 @@ public interface StarlarkAspectPropagationContextApi extends StarlarkValue {
    * Interface for the target's attribute. It can be extended to include more metadata about the
    * attribute like its annotations.
    */
+  @StarlarkBuiltin(name = "rule_attribute", documented = false)
   static interface RuleAttributeApi extends StarlarkValue {
     @StarlarkMethod(name = "value", structField = true, doc = "The value of the attribute.")
     Object getValue() throws EvalException;

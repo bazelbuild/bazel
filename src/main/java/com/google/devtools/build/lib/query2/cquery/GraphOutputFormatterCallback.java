@@ -119,11 +119,11 @@ class GraphOutputFormatterCallback extends CqueryThreadsafeCallback {
             nodeReader,
             options.getLineTerminator(),
             /* sortLabels= */ true,
-            options.graphNodeStringLimit,
+            options.getGraphNodeStringLimit(),
             // select() conditions don't matter for cquery because cquery operates post-analysis
             // phase, when select()s have been resolved and removed from the graph.
             /* maxConditionalEdges= */ 0,
-            options.graphFactored,
+            options.getGraphFactored(),
             labelPrinter);
     graphWriter.write(graph, /*conditionalEdges=*/ null, outputStream);
   }

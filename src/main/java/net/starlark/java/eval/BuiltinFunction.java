@@ -27,6 +27,8 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TypeConstructor;
+import net.starlark.java.syntax.TypeContext;
+import net.starlark.java.syntax.Types;
 
 /**
  * A BuiltinFunction is a callable Starlark value that reflectively invokes a {@link
@@ -67,7 +69,8 @@ public sealed class BuiltinFunction implements StarlarkCallable
   }
 
   @Override
-  public StarlarkType getStarlarkType() {
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+    // desc.manager embeds a semantics (which should be the same as the arg)
     return desc.getStarlarkType();
   }
 
@@ -524,22 +527,27 @@ public sealed class BuiltinFunction implements StarlarkCallable
   }
 
   /**
-   * A {@link BuiltinFunction} whose symbol is also a type constructor; for example, {@code list} is
-   * used both as a function that returns list values ({@code l = list((1, 2, 3))}) and a
-   * constructor for list types ({@code type T = list[int]}).
+   * A {@link BuiltinFunction} whose symbol is also a type constructor (and therefore also a reified
+   * type); for example, {@code list} is used both as a function that returns list values ({@code l
+   * = list((1, 2, 3))}), as a constructor for list types ({@code type T = list[int]}), and as a
+   * reified type value denoting {@code list[Any]}.
+   *
+   * <p>For the Starlark type system, it means that a {@link BuiltinTypeFunction} symbol is both a
+   * {@code Callable} and a {@code Type}.
    */
-  // Non-private due to what appears to be a javac bug (present at least in JDK 21) causing
-  // scripts/bootstrap/compile.sh and bazel_bootstrap_distfile_tar_test to spuriously fail with
-  // "error: BuiltinTypeFunction has private access in BuiltinFunction".
-  // TODO(bazel-team): check if we can make this class private once Bazel starts using JDK 25 or
-  // newer to bootstrap
+  // TODO: b/536902188 - Make private once we no longer have to worry about OpenJDK 21 in the bazel
+  // bootstrap test (https://bugs.openjdk.org/browse/JDK-8284011).
   static final class BuiltinTypeFunction extends BuiltinFunction implements TypeConstructor {
+    private final BuiltinTypeFunctionType type;
+
     private BuiltinTypeFunction(Object obj, MethodDescriptor desc) {
       super(obj, desc);
+      this.type = new BuiltinTypeFunctionType(desc.getStarlarkType());
     }
 
     @Override
-    public StarlarkType createStarlarkType(ImmutableList<Arg> argsTuple) throws Failure {
+    public StarlarkType createStarlarkType(ImmutableList<TypeConstructor.Term> argsTuple)
+        throws Failure {
       // The Preconditions checks could morally be done in the constructor for eagerness.
       // However, this causes the MethodDescriptors of the proxy class to be materialized
       // while initializing a Module environment using Starlark#addMethods. That's inconvenient
@@ -550,6 +558,33 @@ public sealed class BuiltinFunction implements StarlarkCallable
       TypeConstructor tc = desc.getManager().getTypeConstructor(tcProxy);
       Preconditions.checkArgument(tc != null, "invalid type constructor proxy: %s", tcProxy);
       return tc.createStarlarkType(argsTuple);
+    }
+
+    @Override
+    public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+      return type;
+    }
+
+    /**
+     * The {@link StarlarkType} of a {@link BuiltinTypeFunction} symbol. At evaluation time, such a
+     * symbol can be used both as a callable value and as (reified) type.
+     */
+    private static final class BuiltinTypeFunctionType extends StarlarkType {
+      private final StarlarkType callableType;
+
+      private BuiltinTypeFunctionType(StarlarkType callableType) {
+        this.callableType = callableType;
+      }
+
+      @Override
+      public String toString() {
+        return String.format("<builtin constructor %s>", callableType);
+      }
+
+      @Override
+      public ImmutableList<StarlarkType> getSupertypes(TypeContext context) {
+        return ImmutableList.of(callableType, Types.TYPE);
+      }
     }
   }
 }

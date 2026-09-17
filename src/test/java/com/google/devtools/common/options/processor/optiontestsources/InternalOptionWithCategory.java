@@ -18,15 +18,18 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /** This example options class should fail to compile. */
-public class InternalOptionWithCategory extends OptionsBase {
+@OptionsClass
+public abstract class InternalOptionWithCategory extends OptionsBase {
   @Option(
-    name = "internal_option_wants_to_be_documented",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = OptionEffectTag.NO_OP,
-    metadataTags = OptionMetadataTag.INTERNAL
-  )
-  public boolean internalOptionWithDocumentation;
+      name = "internal_option_wants_to_be_documented",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = OptionEffectTag.AFFECTS_OUTPUTS,
+      metadataTags = OptionMetadataTag.INTERNAL)
+  public abstract boolean getInternalOptionWithDocumentation();
+
+  public abstract void setInternalOptionWithDocumentation(boolean value);
 }

@@ -46,7 +46,6 @@ public class ArtifactFactory implements ArtifactResolver {
   private final Path execRootParent;
   private final Path externalSourceBase;
   private final PathFragment derivedPathPrefix;
-  private boolean siblingRepositoryLayout = false;
 
   /** Cache of source artifacts. */
   private final SourceArtifactCache sourceArtifactCache = new SourceArtifactCache();
@@ -112,7 +111,6 @@ public class ArtifactFactory implements ArtifactResolver {
       return unwrapCacheObject(execPath, pathToSourceArtifact.get(execPath));
     }
 
-    @SuppressWarnings("unchecked")
     private Entry computeEntry(
         PathFragment execPath, BiFunction<PathFragment, Entry, Entry> computeFunction) {
       return unwrapCacheObject(
@@ -135,12 +133,13 @@ public class ArtifactFactory implements ArtifactResolver {
                         new Entry[] {entry, computeFunction.apply(execPath, null)});
             case CopyOnWriteArrayList<?> rawEntries -> {
               var entries = (CopyOnWriteArrayList<Entry>) rawEntries;
-              for (Entry entry : entries) {
+              for (int i = 0; i < entries.size(); i++) {
                 // Update the existing entry for this exact casing if it exists.
+                Entry entry = entries.get(i);
                 if (entry.artifact().getExecPath().equals(execPath)) {
                   Entry newEntry = computeFunction.apply(execPath, entry);
                   if (newEntry != entry) {
-                    entries.set(entries.indexOf(entry), newEntry);
+                    entries.set(i, newEntry);
                   }
                   yield entries;
                 }
@@ -257,10 +256,6 @@ public class ArtifactFactory implements ArtifactResolver {
   public synchronized void clear() {
     packageRoots = null;
     sourceArtifactCache.clear();
-  }
-
-  public void setSiblingRepositoryLayout(boolean siblingRepositoryLayout) {
-    this.siblingRepositoryLayout = siblingRepositoryLayout;
   }
 
   /**
@@ -470,19 +465,9 @@ public class ArtifactFactory implements ArtifactResolver {
     }
   }
 
-  private boolean isDefinitelyNotSourceExecPath(PathFragment execPath) {
+  private static boolean isDefinitelyNotSourceExecPath(PathFragment execPath) {
     // Source exec paths cannot escape the source root.
-    if (siblingRepositoryLayout) {
-      // The exec path may start with .. if using --experimental_sibling_repository_layout, so test
-      // the subfragment from index 1 onwards.
-      if (execPath.subFragment(1).containsUplevelReferences()) {
-        return true;
-      }
-    } else if (execPath.containsUplevelReferences()) {
-      return true;
-    }
-
-    return false;
+    return execPath.containsUplevelReferences();
   }
 
   /**
@@ -547,8 +532,7 @@ public class ArtifactFactory implements ArtifactResolver {
       return null;
     }
 
-    Pair<RepositoryName, PathFragment> repo =
-        RepositoryName.fromPathFragment(dir, siblingRepositoryLayout);
+    Pair<RepositoryName, PathFragment> repo = RepositoryName.fromPathFragment(dir);
     if (repo != null) {
       repositoryName = repo.getFirst();
       dir = repo.getSecond();
@@ -660,10 +644,26 @@ public class ArtifactFactory implements ArtifactResolver {
   public Path getPathFromSourceExecPath(Path execRoot, PathFragment execPath) {
     Preconditions.checkState(
         !execPath.startsWith(derivedPathPrefix), "%s is derived: %s", execPath, derivedPathPrefix);
+
+    Pair<RepositoryName, PathFragment> repo = RepositoryName.fromPathFragment(execPath);
+    RepositoryName repositoryName = RepositoryName.MAIN;
+    PathFragment repositoryRelativePath = execPath;
+    if (repo != null) {
+      repositoryName = repo.getFirst();
+      repositoryRelativePath = repo.getSecond();
+    }
+
     Root sourceRoot =
-        packageRoots.getRootForPackage(PackageIdentifier.create(RepositoryName.MAIN, execPath));
+        packageRoots.getRootForPackage(
+            PackageIdentifier.create(repositoryName, repositoryRelativePath));
+    if (sourceRoot == null) {
+      sourceRoot =
+          findSourceRoot(
+              execPath, /* baseExecPath= */ null, /* baseRoot= */ null, RepositoryName.MAIN);
+    }
+
     if (sourceRoot != null) {
-      return sourceRoot.getRelative(execPath);
+      return sourceRoot.getRelative(repositoryRelativePath);
     }
     return execRoot.getRelative(execPath);
   }

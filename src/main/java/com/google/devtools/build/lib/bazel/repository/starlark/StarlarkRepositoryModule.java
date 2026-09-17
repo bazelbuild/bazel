@@ -43,6 +43,7 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
@@ -162,7 +163,8 @@ instantiate and return a repository rule. Created by \
     public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
       if (!args.isEmpty()) {
-        throw new EvalException("unexpected positional arguments");
+        throw Starlark.errorf(
+            "%s() does not accept positional arguments, but got %d", getName(), args.size());
       }
       ModuleExtensionEvalStarlarkThreadContext extensionEvalContext =
           ModuleExtensionEvalStarlarkThreadContext.fromOrNull(thread);
@@ -193,21 +195,6 @@ instantiate and return a repository rule. Created by \
   }
 
   @Override
-  public void failWithIncompatibleUseCcConfigureFromRulesCc(StarlarkThread thread)
-      throws EvalException {
-    if (thread
-        .getSemantics()
-        .getBool(BuildLanguageOptions.INCOMPATIBLE_USE_CC_CONFIGURE_FROM_RULES_CC)) {
-      throw Starlark.errorf(
-          "Incompatible flag "
-              + "--incompatible_use_cc_configure_from_rules_cc has been flipped. Please use "
-              + "cc_configure and related logic from https://github.com/bazelbuild/rules_cc. "
-              + "See https://github.com/bazelbuild/bazel/issues/10134 for details and migration "
-              + "instructions.");
-    }
-  }
-
-  @Override
   public Object moduleExtension(
       StarlarkCallable implementation,
       Dict<?, ?> tagClasses, // Dict<String, TagClass>
@@ -215,8 +202,13 @@ instantiate and return a repository rule. Created by \
       Sequence<?> environ, // <String>
       boolean osDependent,
       boolean archDependent,
+      StarlarkInt factsVersion,
       StarlarkThread thread)
       throws EvalException {
+    int factsVersionInt = factsVersion.toInt("facts_version");
+    if (factsVersionInt < 0) {
+      throw Starlark.errorf("facts_version must be non-negative, got %d", factsVersionInt);
+    }
     return ModuleExtension.builder()
         .setImplementation(implementation)
         .setTagClasses(
@@ -228,6 +220,7 @@ instantiate and return a repository rule. Created by \
         .setLocation(thread.getCallerLocation())
         .setOsDependent(osDependent)
         .setArchDependent(archDependent)
+        .setFactsVersion(factsVersionInt)
         .build();
   }
 

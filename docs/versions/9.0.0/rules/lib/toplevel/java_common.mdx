@@ -35,32 +35,32 @@ Compiles Java source files/jars from the implementation of a Starlark rule and r
 
 | Parameter | Description |
 | --- | --- |
-| `ctx` | [ctx](../builtins/ctx); required  The rule context. |
-| `source_jars` | [sequence](../core/list) of [File](../builtins/File)s; default is `[]`  A list of the jars to be compiled. At least one of source\_jars or source\_files should be specified. |
-| `source_files` | [sequence](../core/list) of [File](../builtins/File)s; default is `[]`  A list of the Java source files to be compiled. At least one of source\_jars or source\_files should be specified. |
-| `output` | [File](../builtins/File); required |
-| `output_source_jar` | [File](../builtins/File); or `None`; default is `None`  The output source jar. Defaults to `{output\_jar}-src.jar` if unset. |
-| `javac_opts` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  A list of the desired javac options. |
-| `deps` | [sequence](../core/list) of [struct](../builtins/struct)s; default is `[]`  A list of dependencies. |
-| `runtime_deps` | [sequence](../core/list) of [struct](../builtins/struct)s; default is `[]`  A list of runtime dependencies. |
-| `exports` | [sequence](../core/list) of [struct](../builtins/struct)s; default is `[]`  A list of exports. |
-| `plugins` | [sequence](../core/list) of [struct](../builtins/struct)s; or [sequence](../core/list) of [struct](../builtins/struct)s; default is `[]`  A list of plugins. |
-| `exported_plugins` | [sequence](../core/list) of [struct](../builtins/struct)s; or [sequence](../core/list) of [struct](../builtins/struct)s; default is `[]`  A list of exported plugins. |
-| `native_libraries` | [sequence](../core/list) of [CcInfo](../providers/CcInfo)s; default is `[]`  CC native library dependencies that are needed for this library. |
-| `annotation_processor_additional_inputs` | [sequence](../core/list) of [File](../builtins/File)s; default is `[]`  A list of inputs that the Java compilation action will take in addition to the Java sources for annotation processing. |
-| `annotation_processor_additional_outputs` | [sequence](../core/list) of [File](../builtins/File)s; default is `[]`  A list of outputs that the Java compilation action will output in addition to the class jar from annotation processing. |
-| `strict_deps` | [string](../core/string); default is `'ERROR'`  A string that specifies how to handle strict deps. Possible values: 'OFF', 'ERROR', 'WARN' and 'DEFAULT'. For more details see [`--strict_java_deps flag`](/versions/9.0.0/docs/user-manual#flag--strict_java_deps). By default 'ERROR'. |
+| `ctx` | [ctx](/versions/9.0.0/rules/lib/builtins/ctx); required  The rule context. |
+| `source_jars` | [sequence](/versions/9.0.0/rules/lib/core/list) of [File](/versions/9.0.0/rules/lib/builtins/File)s; default is `[]`  A list of the jars to be compiled. At least one of source\_jars or source\_files should be specified. |
+| `source_files` | [sequence](/versions/9.0.0/rules/lib/core/list) of [File](/versions/9.0.0/rules/lib/builtins/File)s; default is `[]`  A list of the Java source files to be compiled. At least one of source\_jars or source\_files should be specified. |
+| `output` | [File](/versions/9.0.0/rules/lib/builtins/File); required |
+| `output_source_jar` | [File](/versions/9.0.0/rules/lib/builtins/File); or `None`; default is `None`  The output source jar. Defaults to `{output\_jar}-src.jar` if unset. |
+| `javac_opts` | [sequence](/versions/9.0.0/rules/lib/core/list) of [string](/versions/9.0.0/rules/lib/core/string)s; default is `[]`  A list of the desired javac options. |
+| `deps` | [sequence](/versions/9.0.0/rules/lib/core/list) of [struct](/versions/9.0.0/rules/lib/builtins/struct)s; default is `[]`  A list of dependencies. |
+| `runtime_deps` | [sequence](/versions/9.0.0/rules/lib/core/list) of [struct](/versions/9.0.0/rules/lib/builtins/struct)s; default is `[]`  A list of runtime dependencies. |
+| `exports` | [sequence](/versions/9.0.0/rules/lib/core/list) of [struct](/versions/9.0.0/rules/lib/builtins/struct)s; default is `[]`  A list of exports. |
+| `plugins` | [sequence](/versions/9.0.0/rules/lib/core/list) of [struct](/versions/9.0.0/rules/lib/builtins/struct)s; or [sequence](/versions/9.0.0/rules/lib/core/list) of [struct](/versions/9.0.0/rules/lib/builtins/struct)s; default is `[]`  A list of plugins. |
+| `exported_plugins` | [sequence](/versions/9.0.0/rules/lib/core/list) of [struct](/versions/9.0.0/rules/lib/builtins/struct)s; or [sequence](/versions/9.0.0/rules/lib/core/list) of [struct](/versions/9.0.0/rules/lib/builtins/struct)s; default is `[]`  A list of exported plugins. |
+| `native_libraries` | [sequence](/versions/9.0.0/rules/lib/core/list) of [CcInfo](/versions/9.0.0/rules/lib/providers/CcInfo)s; default is `[]`  CC native library dependencies that are needed for this library. |
+| `annotation_processor_additional_inputs` | [sequence](/versions/9.0.0/rules/lib/core/list) of [File](/versions/9.0.0/rules/lib/builtins/File)s; default is `[]`  A list of inputs that the Java compilation action will take in addition to the Java sources for annotation processing. |
+| `annotation_processor_additional_outputs` | [sequence](/versions/9.0.0/rules/lib/core/list) of [File](/versions/9.0.0/rules/lib/builtins/File)s; default is `[]`  A list of outputs that the Java compilation action will output in addition to the class jar from annotation processing. |
+| `strict_deps` | [string](/versions/9.0.0/rules/lib/core/string); default is `'ERROR'`  A string that specifies how to handle strict deps. Possible values: 'OFF', 'ERROR', 'WARN' and 'DEFAULT'. For more details see [`--strict_java_deps flag`](/versions/9.0.0/docs/user-manual#flag--strict_java_deps). By default 'ERROR'. |
 | `java_toolchain` | Info; required  A JavaToolchainInfo to be used for this compilation. Mandatory. |
 | `bootclasspath` | default is `None`  A BootClassPathInfo to be used for this compilation. If present, overrides the bootclasspath associated with the provided java\_toolchain. |
-| `sourcepath` | [sequence](../core/list) of [File](../builtins/File)s; default is `[]` |
-| `resources` | [sequence](../core/list) of [File](../builtins/File)s; default is `[]` |
-| `resource_jars` | [sequence](../core/list) of [File](../builtins/File)s; default is `[]` |
-| `classpath_resources` | [sequence](../core/list) of [File](../builtins/File)s; default is `[]` |
-| `neverlink` | [bool](../core/bool); default is `False` |
-| `enable_annotation_processing` | [bool](../core/bool); default is `True`  Disables annotation processing in this compilation, causing any annotation processors provided in plugins or in exported\_plugins of deps to be ignored. |
-| `enable_compile_jar_action` | [bool](../core/bool); default is `True`  Enables header compilation or ijar creation. If set to False, it forces use of the full class jar in the compilation classpaths of any dependants. Doing so is intended for use by non-library targets such as binaries that do not have dependants. |
-| `add_exports` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  Allow this library to access the given /. |
-| `add_opens` | [sequence](../core/list) of [string](../core/string)s; default is `[]`  Allow this library to reflectively access the given /. |
+| `sourcepath` | [sequence](/versions/9.0.0/rules/lib/core/list) of [File](/versions/9.0.0/rules/lib/builtins/File)s; default is `[]` |
+| `resources` | [sequence](/versions/9.0.0/rules/lib/core/list) of [File](/versions/9.0.0/rules/lib/builtins/File)s; default is `[]` |
+| `resource_jars` | [sequence](/versions/9.0.0/rules/lib/core/list) of [File](/versions/9.0.0/rules/lib/builtins/File)s; default is `[]` |
+| `classpath_resources` | [sequence](/versions/9.0.0/rules/lib/core/list) of [File](/versions/9.0.0/rules/lib/builtins/File)s; default is `[]` |
+| `neverlink` | [bool](/versions/9.0.0/rules/lib/core/bool); default is `False` |
+| `enable_annotation_processing` | [bool](/versions/9.0.0/rules/lib/core/bool); default is `True`  Disables annotation processing in this compilation, causing any annotation processors provided in plugins or in exported\_plugins of deps to be ignored. |
+| `enable_compile_jar_action` | [bool](/versions/9.0.0/rules/lib/core/bool); default is `True`  Enables header compilation or ijar creation. If set to False, it forces use of the full class jar in the compilation classpaths of any dependants. Doing so is intended for use by non-library targets such as binaries that do not have dependants. |
+| `add_exports` | [sequence](/versions/9.0.0/rules/lib/core/list) of [string](/versions/9.0.0/rules/lib/core/string)s; default is `[]`  Allow this library to access the given /. |
+| `add_opens` | [sequence](/versions/9.0.0/rules/lib/core/list) of [string](/versions/9.0.0/rules/lib/core/string)s; default is `[]`  Allow this library to reflectively access the given /. |
 
 ## JavaRuntimeInfo
 
@@ -90,7 +90,7 @@ Merges the given providers into a single JavaInfo.
 
 | Parameter | Description |
 | --- | --- |
-| `providers` | [sequence](../core/list) of [struct](../builtins/struct)s; required  The list of providers to merge. |
+| `providers` | [sequence](/versions/9.0.0/rules/lib/core/list) of [struct](/versions/9.0.0/rules/lib/builtins/struct)s; required  The list of providers to merge. |
 
 ## pack\_sources
 
@@ -108,10 +108,10 @@ Packs sources and source jars into a single source jar file. The return value is
 
 | Parameter | Description |
 | --- | --- |
-| `actions` | [actions](../builtins/actions); required  ctx.actions |
-| `output_source_jar` | [File](../builtins/File); or `None`; default is `None`  The output source jar. |
-| `sources` | [sequence](../core/list) of [File](../builtins/File)s; default is `[]`  A list of Java source files to be packed into the source jar. |
-| `source_jars` | [sequence](../core/list) of [File](../builtins/File)s; default is `[]`  A list of source jars to be packed into the source jar. |
+| `actions` | [actions](/versions/9.0.0/rules/lib/builtins/actions); required  ctx.actions |
+| `output_source_jar` | [File](/versions/9.0.0/rules/lib/builtins/File); or `None`; default is `None`  The output source jar. |
+| `sources` | [sequence](/versions/9.0.0/rules/lib/core/list) of [File](/versions/9.0.0/rules/lib/builtins/File)s; default is `[]`  A list of Java source files to be packed into the source jar. |
+| `source_jars` | [sequence](/versions/9.0.0/rules/lib/core/list) of [File](/versions/9.0.0/rules/lib/builtins/File)s; default is `[]`  A list of source jars to be packed into the source jar. |
 | `java_toolchain` | Info; required  A JavaToolchainInfo to used to find the ijar tool. |
 
 ## run\_ijar
@@ -126,9 +126,9 @@ Runs ijar on a jar, stripping it of its method bodies. This helps reduce rebuild
 
 | Parameter | Description |
 | --- | --- |
-| `actions` | [actions](../builtins/actions); required  ctx.actions |
-| `jar` | [File](../builtins/File); required  The jar to run ijar on. |
-| `target_label` | [Label](../builtins/Label); or `None`; default is `None`  A target label to stamp the jar with. Used for `add_dep` support. Typically, you would pass `ctx.label` to stamp the jar with the current rule's label. |
+| `actions` | [actions](/versions/9.0.0/rules/lib/builtins/actions); required  ctx.actions |
+| `jar` | [File](/versions/9.0.0/rules/lib/builtins/File); required  The jar to run ijar on. |
+| `target_label` | [Label](/versions/9.0.0/rules/lib/builtins/Label); or `None`; default is `None`  A target label to stamp the jar with. Used for `add_dep` support. Typically, you would pass `ctx.label` to stamp the jar with the current rule's label. |
 | `java_toolchain` | Info; required  A JavaToolchainInfo to used to find the ijar tool. |
 
 ## stamp\_jar
@@ -143,7 +143,7 @@ Stamps a jar with a target label for `add_dep` support. The return value is typi
 
 | Parameter | Description |
 | --- | --- |
-| `actions` | [actions](../builtins/actions); required  ctx.actions |
-| `jar` | [File](../builtins/File); required  The jar to run stamp\_jar on. |
-| `target_label` | [Label](../builtins/Label); required  A target label to stamp the jar with. Used for `add_dep` support. Typically, you would pass `ctx.label` to stamp the jar with the current rule's label. |
+| `actions` | [actions](/versions/9.0.0/rules/lib/builtins/actions); required  ctx.actions |
+| `jar` | [File](/versions/9.0.0/rules/lib/builtins/File); required  The jar to run stamp\_jar on. |
+| `target_label` | [Label](/versions/9.0.0/rules/lib/builtins/Label); required  A target label to stamp the jar with. Used for `add_dep` support. Typically, you would pass `ctx.label` to stamp the jar with the current rule's label. |
 | `java_toolchain` | Info; required  A JavaToolchainInfo to used to find the stamp\_jar tool. |

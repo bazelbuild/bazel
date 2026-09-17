@@ -16,9 +16,11 @@ package com.google.devtools.build.docgen;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsClass;
 
 /** Command line options for the Starlark docgen. */
-public class StarlarkDocumentationOptions extends CommonOptions {
+@OptionsClass
+public abstract class StarlarkDocumentationOptions extends CommonOptions {
   @Option(
       name = "starlark_docs_root",
       defaultValue = "null",
@@ -27,5 +29,5 @@ public class StarlarkDocumentationOptions extends CommonOptions {
       help =
           "Root URL of narrative Starlark documentation, for example rules.md; replaces"
               + " $STARLARK_DOCS_ROOT expansion variable in docs.")
-  public String starlarkDocsRoot;
+  public abstract String getStarlarkDocsRoot();
 }

@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FileOpMatchResultOrFuture;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileSystemDependencies.FileOpDependency;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.NestedMatchResultTypes.NestedMatchResultOrFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
 
 /**
  * Matches a set of changed files (represented by {@link VersionedChanges}) against the file system
@@ -82,11 +82,17 @@ final class VersionedChangesValidator {
   private final FileOpMatchMemoizingLookup fileOpMatches;
   private final NestedMatchMemoizingLookup nestedMatches;
 
-  VersionedChangesValidator(Executor executor, VersionedChanges changes) {
-    this.fileOpMatches =
-        new FileOpMatchMemoizingLookup(executor, changes, new ConcurrentHashMap<>());
-    this.nestedMatches =
-        new NestedMatchMemoizingLookup(executor, fileOpMatches, new ConcurrentHashMap<>());
+  VersionedChangesValidator(
+      SafeExecutor executor,
+      VersionedChanges changes,
+      ConcurrentHashMap<FileOpDependency, FileOpMatchResultOrFuture> fileOpMatchesMap,
+      ConcurrentHashMap<NestedDependencies, NestedMatchResultOrFuture> nestedMatchesMap) {
+    this.fileOpMatches = new FileOpMatchMemoizingLookup(executor, changes, fileOpMatchesMap);
+    this.nestedMatches = new NestedMatchMemoizingLookup(executor, fileOpMatches, nestedMatchesMap);
+  }
+
+  VersionedChangesValidator(SafeExecutor executor, VersionedChanges changes) {
+    this(executor, changes, new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
   }
 
   /** Changes in the cache reader used for invalidation. */

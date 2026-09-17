@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.StringUtil;
 import java.util.LinkedHashSet;
 
 /**
@@ -53,14 +54,17 @@ public class PackageProgressReceiver {
    * running activities. The later always include the oldest loading package not finished loading.
    */
   public synchronized Pair<String, String> progressState() {
-    String progress = "" + packagesCompleted + " packages loaded";
+    String progress = StringUtil.formatCount(packagesCompleted) + " packages loaded";
     StringBuffer activity = new StringBuffer();
     if (pendingSet.size() > 0) {
       activity
           .append("currently loading: ")
           .append(Iterables.getFirst(pendingSet, null).toString());
       if (pendingSet.size() > 1) {
-        activity.append(" ... (" + pendingSet.size() + " packages)");
+        activity
+            .append(" ... (")
+            .append(StringUtil.formatCount(pendingSet.size()))
+            .append(" packages)");
       }
     }
     return new Pair<String, String>(progress, activity.toString());

@@ -28,7 +28,7 @@ public class MethodOptionDefinitionTest {
     @Option(
         name = "foo",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.NO_OP},
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         defaultValue = "42")
     public abstract int getFoo();
 
@@ -47,14 +47,14 @@ public class MethodOptionDefinitionTest {
 
   @Test
   public void testGeneratedClassGettersAndSetters() {
-    MethodOptionsTest options = new MethodOptionsTestImpl();
+    MethodOptionsTest options = new MethodOptionDefinitionTest_MethodOptionsTestImpl();
     options.setFoo(123);
     assertThat(options.getFoo()).isEqualTo(123);
   }
 
   @Test
   public void testMethodOptionDefinitionAccess() throws Exception {
-    MethodOptionsTest options = new MethodOptionsTestImpl();
+    MethodOptionsTest options = new MethodOptionDefinitionTest_MethodOptionsTestImpl();
     OptionDefinition fooDefinition = MethodOptionDefinition.get(MethodOptionsTest.class, "getFoo");
 
     fooDefinition.setValue(options, 456);

@@ -24,9 +24,9 @@ import javax.annotation.Nullable;
 
 /**
  * Writes the JUnit test nodes and their results into Ant-JUnit XML. Ant-JUnit XML is not a
- * standardized format. For this implementation the
- * <a href="http://windyroad.com.au/dl/Open%20Source/JUnit.xsd">XML schema</a> that is generally
- * referred to as the best available source was used as a reference.
+ * standardized format. For this implementation the <a
+ * href="https://github.com/windyroad/JUnit-Schema/blob/1.0.0/JUnit.xsd">XML schema</a> that is
+ * generally referred to as the best available source was used as a reference.
  */
 public final class AntXmlResultWriter implements XmlResultWriter {
   private static final String JUNIT_ELEMENT_TESTSUITES = "testsuites";

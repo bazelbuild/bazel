@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <IOKit/pwr_mgt/IOPMLib.h>
+#include <mach/mach_error.h>
 
 // Linting disabled for this line because for google code we could use
 // absl::Mutex but we cannot yet because Bazel doesn't depend on absl.
@@ -41,7 +42,11 @@ int portable_push_disable_sleep() {
     IOReturn success = IOPMAssertionCreateWithName(
         kIOPMAssertionTypeNoIdleSleep, kIOPMAssertionLevelOn, reasonForActivity,
         &g_sleep_state_assertion);
-    BAZEL_CHECK_EQ(success, kIOReturnSuccess);
+    if (success != kIOReturnSuccess) {
+      BAZEL_LOG(ERROR) << "IOPMAssertionCreateWithName failed: "
+                       << mach_error_string(success) << " (" << success << ")";
+      g_sleep_state_assertion = kIOPMNullAssertionID;
+    }
   }
   g_sleep_state_stack += 1;
   return 0;
@@ -51,10 +56,13 @@ int portable_pop_disable_sleep() {
   std::lock_guard<std::mutex> lock(g_sleep_state_mutex);
   BAZEL_CHECK_GT(g_sleep_state_stack, 0);
   g_sleep_state_stack -= 1;
-  if (g_sleep_state_stack == 0) {
-    BAZEL_CHECK_NE(g_sleep_state_assertion, kIOPMNullAssertionID);
+  if (g_sleep_state_stack == 0 &&
+      g_sleep_state_assertion != kIOPMNullAssertionID) {
     IOReturn success = IOPMAssertionRelease(g_sleep_state_assertion);
-    BAZEL_CHECK_EQ(success, kIOReturnSuccess);
+    if (success != kIOReturnSuccess) {
+      BAZEL_LOG(ERROR) << "IOPMAssertionRelease failed: "
+                       << mach_error_string(success) << " (" << success << ")";
+    }
     g_sleep_state_assertion = kIOPMNullAssertionID;
   }
   return 0;

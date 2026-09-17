@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternUtil;
 import com.google.devtools.build.lib.skyframe.TargetPatternUtil.InvalidTargetPatternException;
+import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -257,7 +258,8 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     }
 
     private static String formatMessage(String invalidPattern, String reason) {
-      return String.format("invalid registered toolchain '%s': %s", invalidPattern, reason);
+      return StringUtil.formatNested(
+          String.format("invalid registered toolchain '%s'", invalidPattern), reason);
     }
   }
 

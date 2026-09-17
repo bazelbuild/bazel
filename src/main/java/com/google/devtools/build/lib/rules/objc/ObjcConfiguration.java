@@ -58,12 +58,13 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
 
     this.compilationMode =
         Preconditions.checkNotNull(options.getCompilationMode(), "compilationMode");
-    this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
-    this.disallowSdkFrameworksAttributes = objcOptions.incompatibleDisallowSdkFrameworksAttributes;
-    this.alwayslinkByDefault = objcOptions.incompatibleObjcAlwayslinkByDefault;
-    this.stripExecutableSafely = objcOptions.incompatibleStripExecutableSafely;
-    this.builtinObjcStripAction = objcOptions.incompatibleBuiltinObjcStripAction;
-    this.disableObjcFragment = objcOptions.disableObjcFragment;
+    this.deviceDebugEntitlements = objcOptions.getDeviceDebugEntitlements();
+    this.disallowSdkFrameworksAttributes =
+        objcOptions.getIncompatibleDisallowSdkFrameworksAttributes();
+    this.alwayslinkByDefault = objcOptions.getIncompatibleObjcAlwayslinkByDefault();
+    this.stripExecutableSafely = objcOptions.getIncompatibleStripExecutableSafely();
+    this.builtinObjcStripAction = objcOptions.getIncompatibleBuiltinObjcStripAction();
+    this.disableObjcFragment = objcOptions.getDisableObjcFragment();
   }
 
   @Override
@@ -80,15 +81,11 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi 
 
   @Override
   public ImmutableList<String> getCoptsForCompilationMode() {
-    switch (compilationMode) {
-      case DBG, OPT -> {
-        return ImmutableList.of();
-      }
-      case FASTBUILD -> {
-        return ImmutableList.of("-O0", "-DDEBUG=1");
-      }
+    return switch (compilationMode) {
+      case DBG, OPT -> ImmutableList.of();
+      case FASTBUILD -> ImmutableList.of("-O0", "-DDEBUG=1");
       default -> throw new AssertionError();
-    }
+    };
   }
 
   /**

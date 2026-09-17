@@ -16,10 +16,12 @@ package com.google.devtools.build.docgen;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 
 /** Command line options for the Build Encyclopedia docgen. */
-public class BuildEncyclopediaOptions extends CommonOptions {
+@OptionsClass
+public abstract class BuildEncyclopediaOptions extends CommonOptions {
   @Option(
       name = "input_dir",
       abbrev = 'i',
@@ -28,7 +30,7 @@ public class BuildEncyclopediaOptions extends CommonOptions {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "An input directory to read Java source files")
-  public List<String> inputJavaDirs;
+  public abstract List<String> getInputJavaDirs();
 
   // The source tree root must be passed on the command line, instead of in link_map_path json
   // content, because its schema varies wildly depending on execution platform (e.g. RBE vs. local).
@@ -39,7 +41,7 @@ public class BuildEncyclopediaOptions extends CommonOptions {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Directory of the source tree root")
-  public String inputRoot;
+  public abstract String getInputRoot();
 
   @Option(
       name = "be_stardoc_proto",
@@ -52,17 +54,16 @@ public class BuildEncyclopediaOptions extends CommonOptions {
           "A stardoc_output.ModuleInfo binary proto file generated from a Build Encyclopedia entry"
               + " point .bzl file; documentation from rule_stardoc_proto takes precedence over"
               + " documentation from input_dir")
-  public List<String> buildEncyclopediaStardocProtos;
+  public abstract List<String> getBuildEncyclopediaStardocProtos();
 
   @Option(
-    name = "provider",
-    abbrev = 'p',
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "The name of the rule class provider"
-  )
-  public String provider;
+      name = "provider",
+      abbrev = 'p',
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The name of the rule class provider")
+  public abstract String getProvider();
 
   @Option(
       name = "output_file",
@@ -71,17 +72,16 @@ public class BuildEncyclopediaOptions extends CommonOptions {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "An output file.")
-  public String outputFile;
+  public abstract String getOutputFile();
 
   @Option(
-    name = "output_dir",
-    abbrev = 'o',
-    defaultValue = ".",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "An output directory."
-  )
-  public String outputDir;
+      name = "output_dir",
+      abbrev = 'o',
+      defaultValue = ".",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "An output directory.")
+  public abstract String getOutputDir();
 
   @Option(
       name = "denylist",
@@ -91,7 +91,7 @@ public class BuildEncyclopediaOptions extends CommonOptions {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "A path to a file listing rules not to document.")
-  public String denylist;
+  public abstract String getDenylist();
 
   @Option(
       name = "single_page",
@@ -102,5 +102,5 @@ public class BuildEncyclopediaOptions extends CommonOptions {
       help =
           "Whether to generate the BE as a single HTML page or one page per rule family. Mutually"
               + " exclusive with --create_toc.")
-  public boolean singlePage;
+  public abstract boolean getSinglePage();
 }

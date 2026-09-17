@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.analysis.config;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.common.options.Converters;
+import com.google.devtools.build.lib.util.EnvVar;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
@@ -78,6 +78,11 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
     return this;
   }
 
+  /** Converts the options to a string-keyed map. */
+  public Map<String, Object> asMap() {
+    return Options.toMap(this);
+  }
+
   /**
    * Helper method for subclasses to normalize set valued options. In addition to removing
    * duplicates, it picks a deterministic ordering. The fact that the deterministic ordering is
@@ -119,11 +124,11 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
   }
 
   /**
-   * Helper method for subclasses to normalize list of {@link Converters.EnvVar}s by keeping only
-   * the last entry for each key. The order of the entries is preserved.
+   * Helper method for subclasses to normalize list of {@link EnvVar}s by keeping only the last
+   * entry for each key. The order of the entries is preserved.
    */
-  protected static List<Converters.EnvVar> normalizeEnvVars(List<Converters.EnvVar> entries) {
-    LinkedHashMap<String, Converters.EnvVar> normalizedEntries = new LinkedHashMap<>();
+  protected static List<EnvVar> normalizeEnvVars(List<EnvVar> entries) {
+    LinkedHashMap<String, EnvVar> normalizedEntries = new LinkedHashMap<>();
     for (var entry : entries) {
       normalizedEntries.put(entry.name(), entry);
     }

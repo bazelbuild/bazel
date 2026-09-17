@@ -17,10 +17,12 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.AvailableFileDependencies;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.MissingFileDependencies;
 import java.util.Arrays;
 import java.util.Collection;
+import javax.annotation.Nullable;
 
 /**
  * A representation of a recursively composable set of {@link FileSystemDependencies}.
@@ -33,12 +35,23 @@ abstract sealed class NestedDependencies
     implements FileSystemDependencies, FileDependencyDeserializer.NestedDependenciesOrFuture
     permits NestedDependencies.AvailableNestedDependencies,
         NestedDependencies.MissingNestedDependencies {
+
+  @Nullable
+  public abstract PackedFingerprint fingerprint();
+
   // While formally possible, we don't anticipate analysisDependencies being empty often.
   // `sources` could be frequently empty.
   static final FileDependencies[] EMPTY_SOURCES = new FileDependencies[0];
 
   static NestedDependencies from(
       FileSystemDependencies[] analysisDependencies, FileDependencies[] sources) {
+    return from(null, analysisDependencies, sources);
+  }
+
+  static NestedDependencies from(
+      @Nullable PackedFingerprint fingerprint,
+      FileSystemDependencies[] analysisDependencies,
+      FileDependencies[] sources) {
     for (FileSystemDependencies dep : analysisDependencies) {
       if (dep.isMissingData()) {
         return new MissingNestedDependencies();
@@ -48,14 +61,13 @@ abstract sealed class NestedDependencies
     var availableSources = new AvailableFileDependencies[size];
     for (int i = 0; i < size; i++) {
       switch (sources[i]) {
-        case AvailableFileDependencies available:
-          availableSources[i] = available;
-          break;
-        case MissingFileDependencies unused:
+        case AvailableFileDependencies available -> availableSources[i] = available;
+        case MissingFileDependencies unused -> {
           return new MissingNestedDependencies();
+        }
       }
     }
-    return new AvailableNestedDependencies(analysisDependencies, availableSources);
+    return new AvailableNestedDependencies(fingerprint, analysisDependencies, availableSources);
   }
 
   @VisibleForTesting
@@ -63,6 +75,18 @@ abstract sealed class NestedDependencies
       Collection<? extends FileSystemDependencies> analysisDependencies,
       Collection<FileDependencies> sources) {
     return from(
+        null,
+        analysisDependencies.toArray(FileSystemDependencies[]::new),
+        sources.toArray(FileDependencies[]::new));
+  }
+
+  @VisibleForTesting
+  static NestedDependencies from(
+      @Nullable PackedFingerprint fingerprint,
+      Collection<? extends FileSystemDependencies> analysisDependencies,
+      Collection<FileDependencies> sources) {
+    return from(
+        fingerprint,
         analysisDependencies.toArray(FileSystemDependencies[]::new),
         sources.toArray(FileDependencies[]::new));
   }
@@ -71,15 +95,20 @@ abstract sealed class NestedDependencies
     return new MissingNestedDependencies();
   }
 
-  static final class AvailableNestedDependencies extends NestedDependencies {
+  public static final class AvailableNestedDependencies extends NestedDependencies {
+    // Null when the dependencies are missing and sometimes in testing
+    @Nullable private final PackedFingerprint fingerprint;
     private final FileSystemDependencies[] analysisDependencies;
     private final AvailableFileDependencies[] sources;
 
     private AvailableNestedDependencies(
-        FileSystemDependencies[] analysisDependencies, AvailableFileDependencies[] sources) {
+        @Nullable PackedFingerprint fingerprint,
+        FileSystemDependencies[] analysisDependencies,
+        AvailableFileDependencies[] sources) {
       checkArgument(
           analysisDependencies.length >= 1 || sources.length >= 1,
           "analysisDependencies and sources both empty");
+      this.fingerprint = fingerprint;
       this.analysisDependencies = analysisDependencies;
       this.sources = sources;
     }
@@ -87,6 +116,12 @@ abstract sealed class NestedDependencies
     @Override
     public boolean isMissingData() {
       return false;
+    }
+
+    @Nullable
+    @Override
+    public PackedFingerprint fingerprint() {
+      return fingerprint;
     }
 
     int analysisDependenciesCount() {
@@ -108,6 +143,7 @@ abstract sealed class NestedDependencies
     @Override
     public String toString() {
       return toStringHelper(this)
+          .add("fingerprint", fingerprint)
           .add("analysisDependencies", Arrays.asList(analysisDependencies))
           .add("sources", Arrays.asList(sources))
           .toString();
@@ -126,6 +162,12 @@ abstract sealed class NestedDependencies
     @Override
     public boolean isMissingData() {
       return true;
+    }
+
+    @Nullable
+    @Override
+    public PackedFingerprint fingerprint() {
+      return null;
     }
   }
 }

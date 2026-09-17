@@ -13,14 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import java.util.List;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.BuiltinFunction;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -30,7 +28,6 @@ import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.Structure;
 import net.starlark.java.lib.MapWrapperStructure;
 import net.starlark.java.lib.StarlarkEncodable;
-import net.starlark.java.syntax.Location;
 
 /**
  * Abstract base class for implementations of {@link Info} that expose StarlarkCallable-annotated
@@ -40,22 +37,6 @@ import net.starlark.java.syntax.Location;
 // (Info is to object as Provider is to class.)
 @Immutable
 public abstract class NativeInfo implements Info, StarlarkEncodable {
-  private final Location location;
-
-  protected NativeInfo() {
-    this(Location.BUILTIN);
-  }
-
-  // TODO(adonovan): most subclasses pass Location.BUILTIN most of the time.
-  // Make only those classes that pass a real location pay for it.
-  protected NativeInfo(@Nullable Location location) {
-    this.location = firstNonNull(location, Location.BUILTIN);
-  }
-
-  @Override
-  public final Location getCreationLocation() {
-    return location;
-  }
 
   @Override
   public boolean isImmutable() {

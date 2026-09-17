@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalPhase;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.skyframe.SkyKey;
 import javax.annotation.Nullable;
 
@@ -41,18 +43,29 @@ public interface RemoteAnalysisCacheReaderDepsProvider {
   ObjectCodecs getObjectCodecs() throws InterruptedException;
 
   /** Returns the {@link FingerprintValueService} implementation. */
+  @Nullable
   FingerprintValueService getFingerprintValueService() throws InterruptedException;
 
+  @Nullable
   RemoteAnalysisCacheClient getAnalysisCacheClient() throws InterruptedException;
 
-  /** Returns the JSON log writer or null if this log is not enabled. */
   @Nullable
-  RemoteAnalysisJsonLogWriter getJsonLogWriter();
+  SkyValueRetriever getSkyValueRetriever() throws InterruptedException;
 
-  void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key);
+  @Nullable
+  SkycacheUploadClient getSkycacheUploadClient() throws InterruptedException;
 
-  void recordSerializationException(SerializationException e, SkyKey key);
+  void recordRetrievalResult(
+      RetrievalResult retrievalResult,
+      SkyKey key,
+      ImmutableMap<RetrievalPhase, Long> phaseDurationMicros);
+
+  void recordSerializationException(
+      SerializationException e, SkyKey key, ImmutableMap<RetrievalPhase, Long> phaseDurationMicros);
 
   /** Returns true if bailing out on the first missing fingerprint is enabled. */
   boolean shouldBailOutOnMissingFingerprint();
+
+  /** Returns true if Skycache is only used for analysis phase. */
+  boolean getSkycacheAnalysisOnly();
 }

@@ -136,7 +136,7 @@ final class ProgressInputStream extends InputStream {
       return;
     }
     String via = "";
-    if (!url.getHost().equals(originalUrl.getHost())) {
+    if (url.getHost() != null && !url.getHost().equals(originalUrl.getHost())) {
       via = " via " + url.getHost();
     }
     eventHandler.post(new DownloadProgressEvent(originalUrl, url, bytesRead, totalBytes, false));

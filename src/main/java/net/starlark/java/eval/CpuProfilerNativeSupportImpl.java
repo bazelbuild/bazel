@@ -13,9 +13,11 @@
 // limitations under the License.
 package net.starlark.java.eval;
 
+import com.google.devtools.build.lib.skybridge.ScOnly;
 import java.io.FileDescriptor;
 
 /** Implementation of {@link CpuProfilerNativeSupport}. */
+@ScOnly
 public final class CpuProfilerNativeSupportImpl implements CpuProfilerNativeSupport {
 
   static {

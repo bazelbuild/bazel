@@ -19,6 +19,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkBaseExternalContext.ShouldWatch;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -62,6 +63,11 @@ public final class StarlarkPath implements StarlarkValue {
   @Override
   public boolean isImmutable() {
     return true; // immutable and Starlark-hashable
+  }
+
+  @Override
+  public boolean isAcyclic() {
+    return true;
   }
 
   @Override
@@ -165,8 +171,15 @@ public final class StarlarkPath implements StarlarkValue {
           like the repo rule or module extension to be sensitive to the path's existence, \
           use the <code>watch()</code> method on the context object.
           """)
-  public boolean exists() {
-    return path.exists();
+  public boolean exists() throws RepositoryFunctionException {
+    try {
+      return path.exists();
+    } catch (FileSymlinkLoopException _) {
+      // Treat looping symlink as non-existent.
+      return false;
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
   }
 
   @StarlarkMethod(
@@ -179,8 +192,15 @@ public final class StarlarkPath implements StarlarkValue {
           extension to be sensitive to whether the path is a directory or a file, use the \
           <code>watch()</code> method on the context object.
           """)
-  public boolean isDir() {
-    return path.isDirectory();
+  public boolean isDir() throws RepositoryFunctionException {
+    try {
+      return path.isDirectory();
+    } catch (FileSymlinkLoopException _) {
+      // Treat looping symlink as not a directory.
+      return false;
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
   }
 
   @StarlarkMethod(

@@ -499,11 +499,11 @@ public class BuildEventStreamer {
 
       // We only split if the max number of entries is at least 2 (it must be at least a binary
       // tree). The method throws for smaller values.
-      if (besOptions.maxNamedSetEntries >= 2) {
+      if (besOptions.getMaxNamedSetEntries() >= 2) {
         // We only split the event after naming it to avoid splitting the same node multiple times.
         // Note that the artifactGroupNames keeps references to the individual pieces, so this can
         // double the memory consumption of large nested sets.
-        set = set.splitIfExceedsMaximumSize(besOptions.maxNamedSetEntries);
+        set = set.splitIfExceedsMaximumSize(besOptions.getMaxNamedSetEntries());
       }
 
       for (NestedSet<?> succ : set.getNonLeaves()) {
@@ -932,7 +932,7 @@ public class BuildEventStreamer {
 
   /** Returns whether an {@link ActionExecutedEvent} should be published. */
   private boolean shouldPublishActionExecutedEvent(ActionExecutedEvent event) {
-    if (besOptions.publishAllActions) {
+    if (besOptions.getPublishAllActions()) {
       return true;
     }
     if (event.getException() != null) {

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.runtime.commands;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.ANALYZES;
 
 import com.google.common.base.Predicate;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
@@ -60,9 +59,10 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.TextFormat;
-import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -79,10 +79,9 @@ import java.util.Set;
     allowResidue = true)
 public final class PrintActionCommand implements BlazeCommand {
 
-  /**
-   * Options for print_action, used to parse command-line arguments.
-   */
-  public static class PrintActionOptions extends OptionsBase {
+  /** Options for print_action, used to parse command-line arguments. */
+  @OptionsClass
+  public abstract static class PrintActionOptions extends OptionsBase {
     @Option(
         name = "print_action_mnemonics",
         allowMultiple = true,
@@ -92,7 +91,7 @@ public final class PrintActionCommand implements BlazeCommand {
         help =
             "Lists which mnemonics to filter print_action data by, no filtering takes place "
                 + "when left empty.")
-    public List<String> printActionMnemonics = new ArrayList<>();
+    public abstract List<String> getPrintActionMnemonics();
   }
 
   @Override
@@ -101,9 +100,13 @@ public final class PrintActionCommand implements BlazeCommand {
         options.getOptions(LoadingOptions.class);
 
     PrintActionOptions printActionOptions = options.getOptions(PrintActionOptions.class);
-    PrintActionRunner runner = new PrintActionRunner(loadingOptions.compileOneDependency, options,
-        env.getReporter().getOutErr(),
-        options.getResidue(), Sets.newHashSet(printActionOptions.printActionMnemonics));
+    PrintActionRunner runner =
+        new PrintActionRunner(
+            loadingOptions.getCompileOneDependency(),
+            options,
+            env.getReporter().getOutErr(),
+            options.getResidue(),
+            new HashSet<>(printActionOptions.getPrintActionMnemonics()));
     return BlazeCommandResult.detailedExitCode(runner.printActionsForTargets(env));
   }
 
@@ -130,7 +133,7 @@ public final class PrintActionCommand implements BlazeCommand {
       this.options = options;
       this.outErr = outErr;
       this.requestedTargets = requestedTargets;
-      keepGoing = options.getOptions(KeepGoingOption.class).keepGoing;
+      keepGoing = options.getOptions(KeepGoingOption.class).getKeepGoing();
       summaryBuilder = ExtraActionSummary.newBuilder();
       actionMnemonicMatcher = new Predicate<ActionAnalysisMetadata>() {
         @Override
@@ -344,7 +347,7 @@ public final class PrintActionCommand implements BlazeCommand {
         return false;
       }
       // Check all the inputs for the configured target against the file we want argv for.
-      LinkedHashSet<Artifact> artifacts = Sets.newLinkedHashSet();
+      LinkedHashSet<Artifact> artifacts = new LinkedHashSet<>();
       artifacts.addAll(action.getInputs().toList());
       artifacts.addAll(action.getSchedulingDependencies().toList());
 

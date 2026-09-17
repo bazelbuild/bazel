@@ -18,10 +18,12 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 
 /** Options for workspace log parser. */
-public class WorkspaceLogParserOptions extends OptionsBase {
+@OptionsClass
+public abstract class WorkspaceLogParserOptions extends OptionsBase {
   @Option(
       name = "log_path",
       defaultValue = "null",
@@ -29,7 +31,7 @@ public class WorkspaceLogParserOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Location of the workspace rules log file to parse.")
-  public String logPath;
+  public abstract String getLogPath();
 
   @Option(
       name = "output_path",
@@ -38,7 +40,7 @@ public class WorkspaceLogParserOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Location where to put the output. If left empty, the log will be output to stdout.")
-  public String outputPath;
+  public abstract String getOutputPath();
 
   @Option(
       name = "exclude_rule",
@@ -48,5 +50,5 @@ public class WorkspaceLogParserOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       allowMultiple = true,
       help = "Rule(s) to filter out while parsing.")
-  public List<String> excludeRule;
+  public abstract List<String> getExcludeRule();
 }

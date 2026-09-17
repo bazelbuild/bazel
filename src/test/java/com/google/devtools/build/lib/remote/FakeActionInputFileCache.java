@@ -42,6 +42,7 @@ import javax.annotation.Nullable;
 final class FakeActionInputFileCache implements InputMetadataProvider {
   private final Path execRoot;
   private final Map<PathFragment, FileArtifactValue> cas = new HashMap<>();
+  private final Map<PathFragment, ActionInput> inputs = new HashMap<>();
   private final Map<ActionInput, RunfilesArtifactValue> runfilesMap = new HashMap<>();
   private final Map<ActionInput, TreeArtifactValue> trees = new HashMap<>();
   private final List<RunfilesTree> runfilesTrees = new ArrayList<>();
@@ -97,14 +98,20 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
   }
 
   @Override
+  @Nullable
   public ActionInput getInput(PathFragment execPath) {
-    throw new UnsupportedOperationException();
+    return inputs.get(execPath);
   }
 
   private void setMetadata(ActionInput input, FileArtifactValue metadata) {
     cas.put(input.getExecPath(), metadata);
+    inputs.put(input.getExecPath(), input);
   }
 
+  /**
+   * This test-only implementation does *not* support looking up tree artifact children via {@link
+   * #getInput}.
+   */
   public void addTreeArtifact(ActionInput treeArtifact, TreeArtifactValue value) {
     trees.put(treeArtifact, value);
   }

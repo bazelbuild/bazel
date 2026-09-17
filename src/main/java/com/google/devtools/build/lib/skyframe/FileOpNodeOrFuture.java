@@ -15,7 +15,10 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.concurrent.SettableFutureKeyedValue;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.protobuf.ByteString;
+import java.util.Objects;
 import java.util.function.BiConsumer;
+import javax.annotation.Nullable;
 
 /**
  * A possibly empty nested set of file system operations.
@@ -33,11 +36,55 @@ public sealed interface FileOpNodeOrFuture
 
   /** A non-empty set of filesystem operations. */
   sealed interface FileOpNode extends FileOpNodeOrEmpty
-      permits FileKey, DirectoryListingKey, AbstractNestedFileOpNodes {}
+      permits FileKey, DirectoryListingKey, AbstractNestedFileOpNodes, RemoteFileOpNode {}
 
   /** Empty set of filesystem dependencies. */
   enum EmptyFileOpNode implements FileOpNodeOrEmpty {
     EMPTY_FILE_OP_NODE;
+  }
+
+  /** Represents the invalidation data of a downloaded node. */
+  public static final class RemoteFileOpNode implements FileOpNode {
+    private final ByteString fingerprint;
+    private volatile Object serializationScratch;
+
+    public RemoteFileOpNode(ByteString fingerprint) {
+      this.fingerprint = fingerprint;
+    }
+
+    public ByteString fingerprint() {
+      return fingerprint;
+    }
+
+    @Nullable
+    public Object getSerializationScratch() {
+      return serializationScratch;
+    }
+
+    public void setSerializationScratch(Object value) {
+      this.serializationScratch = value;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (!(obj instanceof RemoteFileOpNode other)) {
+        return false;
+      }
+      return Objects.equals(this.fingerprint, other.fingerprint);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(fingerprint);
+    }
+
+    @Override
+    public String toString() {
+      return "RemoteFileOpNode[fingerprint=" + fingerprint + "]";
+    }
   }
 
   /** The in-flight computation of a {@link FileOpNodeOrEmpty}. */

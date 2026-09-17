@@ -15,7 +15,7 @@
 from typing import Tuple
 
 import tools.ctexplain.bazel_api as bazel_api
-from tools.ctexplain.types import ConfiguredTarget
+from tools.ctexplain.ctexplain_types import ConfiguredTarget
 
 
 def analyze_build(bazel: bazel_api.BazelApi, labels: Tuple[str, ...],

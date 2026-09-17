@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.OptionDefinition;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -88,9 +89,10 @@ public final class BuildOptions implements Cloneable {
 
   /**
    * Converts the map containing String representation of scopes attributes to a map of {@link
-   * Label} of Starlark options to their corresponding {@link Scope.ScopeType}.
+   * Label} of Starlark options to their corresponding {@link Scope.ScopeType}, keeping only entries
+   * for flags present in {@code starlarkOptions}.
    */
-  private static ImmutableMap<Label, Scope.ScopeType> convertScopesAttributes(
+  public static ImmutableMap<Label, Scope.ScopeType> convertScopesAttributes(
       Map<String, String> scopesAttributes, Map<String, Object> starlarkOptions) {
     return scopesAttributes.entrySet().stream()
         .filter(e -> starlarkOptions.containsKey(e.getKey()))
@@ -209,7 +211,7 @@ public final class BuildOptions implements Cloneable {
   /** Returns a string that uniquely identifies the options. */
   public static String optionsToCacheKey(OptionsBase options) {
     StringBuilder result = new StringBuilder(options.getOptionsClass().getName()).append("{");
-    result.append(mapToCacheKey(options.asMap()));
+    result.append(mapToCacheKey(Options.toMap(options)));
     return result.append("}").toString();
   }
 

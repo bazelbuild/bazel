@@ -156,11 +156,9 @@ final class GraphTraverser<SinkT extends GraphDataCollector.Sink> {
     SinkT subSink = collector.initAggregate(label, descriptor, obj, sink);
     for (FieldInfo info : fieldInfo) {
       switch (info) {
-        case PrimitiveInfo primitiveInfo:
-          collector.outputPrimitive(primitiveInfo, obj, subSink);
-          break;
-        case ObjectInfo objectInfo:
-          traverseObject(objectInfo.name() + "=", objectInfo.getFieldValue(obj), subSink);
+        case PrimitiveInfo primitiveInfo -> collector.outputPrimitive(primitiveInfo, obj, subSink);
+        case ObjectInfo objectInfo ->
+            traverseObject(objectInfo.name() + "=", objectInfo.getFieldValue(obj), subSink);
       }
     }
     subSink.completeAggregate();

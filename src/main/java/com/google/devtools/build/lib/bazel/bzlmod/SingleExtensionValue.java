@@ -50,7 +50,8 @@ public record SingleExtensionValue(
     ImmutableBiMap<RepositoryName, String> canonicalRepoNameToInternalNames,
     Optional<LockFileModuleExtension.WithFactors> lockFileInfo,
     Optional<RootModuleFileFixup> fixup,
-    Facts facts)
+    Facts facts,
+    int factsVersion)
     implements SkyValue {
   public SingleExtensionValue {
     requireNonNull(generatedRepoSpecs, "generatedRepoSpecs");

@@ -18,14 +18,17 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
@@ -39,11 +42,13 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
+import javax.annotation.Nullable;
 
 /** Default output callback for aquery, prints proto output. */
 public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCallback {
@@ -66,19 +71,22 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
       OutputStream out,
       TargetAccessor<ConfiguredTargetValue> accessor,
       OutputType outputType,
-      AqueryActionFilter actionFilters) {
-    super(eventHandler, options, out, accessor);
+      AqueryActionFilter actionFilters,
+      TopLevelConfigurations topLevelConfigurations,
+      @Nullable TopLevelArtifactContext topLevelArtifactContext) {
+    super(eventHandler, options, out, accessor, topLevelConfigurations, topLevelArtifactContext);
     this.outputType = outputType;
+
     this.actionFilters = actionFilters;
     this.aqueryOutputHandler = constructAqueryOutputHandler(outputType, out, printStream);
     this.actionGraphDump =
         new ActionGraphDump(
-            options.includeCommandline,
-            options.includeArtifacts,
-            options.includePrunedInputs,
+            options.getIncludeCommandline(),
+            options.getIncludeArtifacts(),
+            options.getIncludePrunedInputs(),
             this.actionFilters,
-            options.includeParamFiles,
-            options.includeFileWriteContents,
+            options.getIncludeParamFiles(),
+            options.getIncludeFileWriteContents(),
             aqueryOutputHandler,
             eventHandler);
   }
@@ -114,14 +122,19 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
   @Override
   public void processOutput(Iterable<ConfiguredTargetValue> partialResult)
       throws IOException, InterruptedException {
+    Set<ActionAnalysisMetadata> reachableActions = getReachableActions(partialResult);
+    actionGraphDump.setReachableActions(reachableActions);
+
     if (aqueryOutputHandler instanceof AqueryConsumingOutputHandler) {
+
       processOutputInParallel(partialResult);
       return;
     }
 
     try (SilentCloseable c = Profiler.instance().profile("process partial result")) {
       // Enabling includeParamFiles should enable includeCommandline by default.
-      options.includeCommandline |= options.includeParamFiles;
+      options.setIncludeCommandline(
+          options.getIncludeCommandline() || options.getIncludeParamFiles());
 
       for (ConfiguredTargetValue configuredTargetValue : partialResult) {
         processSingleEntry(configuredTargetValue);
@@ -142,7 +155,7 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
       return;
     }
     actionGraphDump.dumpConfiguredTarget((RuleConfiguredTargetValue) configuredTargetValue);
-    if (options.useAspects) {
+    if (options.getUseAspects()) {
       for (AspectValue aspectValue : accessor.getAspectValues(configuredTargetValue)) {
         actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
       }
@@ -155,7 +168,8 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
         (AqueryConsumingOutputHandler) aqueryOutputHandler;
     try (SilentCloseable c = Profiler.instance().profile("process partial result")) {
       // Enabling includeParamFiles should enable includeCommandline by default.
-      options.includeCommandline |= options.includeParamFiles;
+      options.setIncludeCommandline(
+          options.getIncludeCommandline() || options.getIncludeParamFiles());
       ForkJoinPool executor =
           NamedForkJoinPool.newNamedPool("aquery", Runtime.getRuntime().availableProcessors());
 

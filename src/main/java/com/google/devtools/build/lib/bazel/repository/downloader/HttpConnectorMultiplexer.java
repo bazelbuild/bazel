@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URLConnection;
 import java.util.List;
@@ -109,8 +110,8 @@ final class HttpConnectorMultiplexer {
     // REQUEST_HEADERS should not be overridable by user provided headers
     baseHeaders.putAll(REQUEST_HEADERS);
 
-    Function<URI, ImmutableMap<String, List<String>>> headerFunction =
-        getHeaderFunction(baseHeaders.buildKeepingLast(), credentials, eventHandler);
+    HttpConnector.RequestHeadersProvider headerFunction =
+        getHeaderFunction(url, baseHeaders.buildKeepingLast(), credentials);
     URLConnection connection = connector.connect(url, headerFunction);
     return httpStreamFactory.create(
         connection,
@@ -123,7 +124,7 @@ final class HttpConnectorMultiplexer {
               HttpUtils.toUri(connection),
               newUrl ->
                   new ImmutableMap.Builder<String, List<String>>()
-                      .putAll(headerFunction.apply(newUrl))
+                      .putAll(headerFunction.get(newUrl))
                       .putAll(extraHeaders)
                       .buildOrThrow());
         },
@@ -131,23 +132,45 @@ final class HttpConnectorMultiplexer {
   }
 
   @VisibleForTesting
-  static Function<URI, ImmutableMap<String, List<String>>> getHeaderFunction(
-      Map<String, List<String>> baseHeaders, Credentials credentials, EventHandler eventHandler) {
+  static HttpConnector.RequestHeadersProvider getHeaderFunction(
+      URI originalUrl, Map<String, List<String>> baseHeaders, Credentials credentials) {
+    Preconditions.checkNotNull(originalUrl);
     Preconditions.checkNotNull(baseHeaders);
     Preconditions.checkNotNull(credentials);
 
     return url -> {
       ImmutableMap.Builder<String, List<String>> headers = new ImmutableMap.Builder<>();
-      headers.putAll(baseHeaders);
-      try {
-        headers.putAll(credentials.getRequestMetadata(url));
-      } catch (IOException e) {
-        // If fetching credentials fails for any reason, still try to do the connection, not adding
-        // authentication information as we cannot look it up.
-        eventHandler.handle(
-            Event.warn("Error retrieving auth headers, continuing without: " + e.getMessage()));
+      boolean sameOrigin =
+          Ascii.equalsIgnoreCase(originalUrl.getScheme(), url.getScheme())
+              && Ascii.equalsIgnoreCase(originalUrl.getHost(), url.getHost())
+              && getEffectivePort(originalUrl) == getEffectivePort(url);
+      if (sameOrigin) {
+        headers.putAll(baseHeaders);
+      } else {
+        for (Map.Entry<String, List<String>> entry : baseHeaders.entrySet()) {
+          String key = entry.getKey();
+          if (!Ascii.equalsIgnoreCase(key, "Authorization")
+              && !Ascii.equalsIgnoreCase(key, "Proxy-Authorization")
+              && !Ascii.equalsIgnoreCase(key, "Cookie")
+              && !Ascii.equalsIgnoreCase(key, "Cookie2")) {
+            headers.put(entry);
+          }
+        }
       }
+      headers.putAll(credentials.getRequestMetadata(url));
       return headers.buildKeepingLast();
     };
+  }
+
+  private static int getEffectivePort(URI uri) {
+    int port = uri.getPort();
+    if (port != -1) {
+      return port;
+    }
+    try {
+      return uri.toURL().getDefaultPort();
+    } catch (MalformedURLException | IllegalArgumentException e) {
+      return -1;
+    }
   }
 }

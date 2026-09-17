@@ -20,16 +20,14 @@ Before learning the more advanced concepts, first:
 ## Macros and rules {#macros-and-rules}
 
 A macro is a function that instantiates rules. Macros come in two flavors:
-[symbolic macros](/versions/8.5.1/extending/macros) (new in Bazel 8) and [legacy
-macros](/versions/8.5.1/extending/legacy-macros). The two flavors of macros are defined
+[symbolic macros](/versions/8.5.1/extending/macros) (new in Bazel 8) and [legacy macros](/versions/8.5.1/extending/legacy-macros). The two flavors of macros are defined
 differently, but behave almost the same from the point of view of a user. A
 macro is useful when a `BUILD` file is getting too repetitive or too complex, as
 it lets you reuse some code. The function is evaluated as soon as the `BUILD`
 file is read. After the evaluation of the `BUILD` file, Bazel has little
 information about macros. If your macro generates a `genrule`, Bazel will
 behave *almost* as if you declared that `genrule` in the `BUILD` file. (The one
-exception is that targets declared in a symbolic macro have [special visibility
-semantics](/versions/8.5.1/extending/macros#visibility): a symbolic macro can hide its internal
+exception is that targets declared in a symbolic macro have [special visibility semantics](/versions/8.5.1/extending/macros#visibility): a symbolic macro can hide its internal
 targets from the rest of the package.)
 
 A [rule](/versions/8.5.1/extending/rules) is more powerful than a macro. It can access Bazel
@@ -76,8 +74,7 @@ they will not be executed.
 ## Creating extensions
 
 * [Create your first macro](/versions/8.5.1/rules/macro-tutorial) in order to reuse some code.
-  Then [learn more about macros](/versions/8.5.1/extending/macros) and [using them to create
-  "custom verbs"](/versions/8.5.1/rules/verbs-tutorial).
+  Then [learn more about macros](/versions/8.5.1/extending/macros) and [using them to create "custom verbs"](/versions/8.5.1/rules/verbs-tutorial).
 
 * [Follow the rules tutorial](/versions/8.5.1/rules/rules-tutorial) to get started with rules.
   Next, you can read more about the [rules concepts](/versions/8.5.1/extending/rules).
@@ -92,8 +89,7 @@ them within reach:
 ## Going further
 
 In addition to [macros](/versions/8.5.1/extending/macros) and [rules](/versions/8.5.1/extending/rules), you
-may want to write [aspects](/versions/8.5.1/extending/aspects) and [repository
-rules](/versions/8.5.1/extending/repo).
+may want to write [aspects](/versions/8.5.1/extending/aspects) and [repository rules](/versions/8.5.1/extending/repo).
 
 * Use [Buildifier](https://github.com/bazelbuild/buildtools)
   consistently to format and lint your code.

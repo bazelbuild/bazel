@@ -53,6 +53,7 @@ public class QueryEnvironmentFactory {
       boolean orderedResults,
       UniverseScope universeScope,
       int loadingPhaseThreads,
+      boolean trackIncrementalState,
       Predicate<Label> labelFilter,
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
@@ -65,6 +66,7 @@ public class QueryEnvironmentFactory {
       return new SkyQueryEnvironment(
           keepGoing,
           loadingPhaseThreads,
+          trackIncrementalState,
           eventHandler,
           settings,
           extraFunctions,

@@ -151,7 +151,7 @@ class LocalBranch extends Branch {
       }
       if (delayLocalExecution.get()) {
         try (SilentCloseable c = Profiler.instance().profile("delay local branch")) {
-          Thread.sleep(options.localExecutionDelay);
+          Thread.sleep(options.getLocalExecutionDelay());
         }
       }
       return runLocally(
@@ -166,7 +166,7 @@ class LocalBranch extends Branch {
           },
           getExtraSpawnForLocalExecution);
     } catch (DynamicInterruptedException e) {
-      if (options.debugSpawnScheduler) {
+      if (options.getDebugSpawnScheduler()) {
         logger.atInfo().log(
             "Local branch of %s self-cancelling with %s: '%s'",
             spawn.getResourceOwner().prettyPrint(), e.getClass().getSimpleName(), e.getMessage());
@@ -179,7 +179,7 @@ class LocalBranch extends Branch {
     } catch (
         @SuppressWarnings("InterruptedExceptionSwallowed")
         Throwable e) {
-      if (options.debugSpawnScheduler) {
+      if (options.getDebugSpawnScheduler()) {
         logger.atInfo().log(
             "Local branch of %s failed with %s: '%s'",
             spawn.getResourceOwner().prettyPrint(), e.getClass().getSimpleName(), e.getMessage());

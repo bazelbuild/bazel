@@ -299,7 +299,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         getConfiguration(Iterables.getOnlyElement(ruleClass))
             .getOptions()
             .get(DummyTestOptions.class);
-    assertThat(testOptions.foo).isEqualTo("SET BY PATCH");
+    assertThat(testOptions.getFoo()).isEqualTo("SET BY PATCH");
   }
 
   private void createConfigRulesAndBuild() throws Exception {

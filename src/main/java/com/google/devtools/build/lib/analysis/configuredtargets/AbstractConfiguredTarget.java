@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import java.util.Objects;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -100,6 +101,12 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   @Override
   public boolean isImmutable() {
     return true; // all Targets are immutable and Starlark-hashable
+  }
+
+  @Override
+  public int hashCode() {
+    // getLookupKey().hashCode() won't do because MergedConfiguredTarget does not have a lookup key
+    return Objects.hash(getLabel(), getConfigurationKey());
   }
 
   @Override

@@ -288,6 +288,7 @@ public class CppRuleClasses {
 
 
   public static final String COMPILER_PARAM_FILE = "compiler_param_file";
+  public static final String COMPILER_PARAM_FILE_ON_DEMAND = "compiler_param_file_on_demand";
 
   /**
    * A feature to control whether to use param files for archiving commands. This can be applied to

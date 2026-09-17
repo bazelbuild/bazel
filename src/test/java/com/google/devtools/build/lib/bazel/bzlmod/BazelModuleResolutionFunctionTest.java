@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCom
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
-import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -59,7 +58,7 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
         "module(name='mod', version='1.0', bazel_compatibility=['>5.1.0', '<5.1.4'])");
     invalidatePackages(false);
 
-    embedBazelVersion("5.1.4");
+    setBlazeVersion("5.1.4");
     EvaluationResult<BazelModuleResolutionValue> result =
         SkyframeExecutorTestUtils.evaluate(
             skyframeExecutor, BazelModuleResolutionValue.KEY, false, reporter);
@@ -82,7 +81,7 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
                 BazelCompatibilityMode.WARNING)));
     invalidatePackages(false);
 
-    embedBazelVersion("5.1.4");
+    setBlazeVersion("5.1.4");
     EvaluationResult<BazelModuleResolutionValue> result =
         SkyframeExecutorTestUtils.evaluate(
             skyframeExecutor, BazelModuleResolutionValue.KEY, false, reporter);
@@ -105,7 +104,7 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
                 BazelCompatibilityMode.OFF)));
     invalidatePackages(false);
 
-    embedBazelVersion("5.1.4");
+    setBlazeVersion("5.1.4");
     EvaluationResult<BazelModuleResolutionValue> result =
         SkyframeExecutorTestUtils.evaluate(
             skyframeExecutor, BazelModuleResolutionValue.KEY, false, reporter);
@@ -120,7 +119,7 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
   public void testBazelCompatibilitySuccess() throws Exception {
     setupModulesForCompatibility();
 
-    embedBazelVersion("5.1.4-pre.20220421.3");
+    setBlazeVersion("5.1.4-pre.20220421.3");
     EvaluationResult<BazelModuleResolutionValue> result =
         SkyframeExecutorTestUtils.evaluate(
             skyframeExecutor, BazelModuleResolutionValue.KEY, false, reporter);
@@ -131,7 +130,7 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
   public void testBazelCompatibilityFailure() throws Exception {
     setupModulesForCompatibility();
 
-    embedBazelVersion("5.1.5rc444");
+    setBlazeVersion("5.1.5rc444");
     reporter.removeHandler(failFastHandler);
     EvaluationResult<BazelModuleResolutionValue> result =
         SkyframeExecutorTestUtils.evaluate(
@@ -149,7 +148,7 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
         "MODULE.bazel", "module(name='mod', version='1.0', bazel_compatibility=['>=6.4.0'])");
     invalidatePackages(false);
 
-    embedBazelVersion("6.4.0rc1");
+    setBlazeVersion("6.4.0rc1");
     EvaluationResult<BazelModuleResolutionValue> result =
         SkyframeExecutorTestUtils.evaluate(
             skyframeExecutor, BazelModuleResolutionValue.KEY, false, reporter);
@@ -164,7 +163,7 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
         "MODULE.bazel", "module(name='mod', version='1.0', bazel_compatibility=['>=6.4.0'])");
     invalidatePackages(false);
 
-    embedBazelVersion("6.4.0-pre-1");
+    setBlazeVersion("6.4.0-pre-1");
     EvaluationResult<BazelModuleResolutionValue> result =
         SkyframeExecutorTestUtils.evaluate(
             skyframeExecutor, BazelModuleResolutionValue.KEY, false, reporter);
@@ -175,19 +174,8 @@ public class BazelModuleResolutionFunctionTest extends BuildViewTestCase {
             + " [>=6.4.0])");
   }
 
-  private void embedBazelVersion(String version) {
-    // Double-get version-info to determine if it's the cached instance or not, and if not cache it.
-    BlazeVersionInfo blazeInfo1 = BlazeVersionInfo.instance();
-    BlazeVersionInfo blazeInfo2 = BlazeVersionInfo.instance();
-    if (blazeInfo1 != blazeInfo2) {
-      BlazeVersionInfo.setBuildInfo(ImmutableMap.of());
-      blazeInfo1 = BlazeVersionInfo.instance();
-    }
-
-    // embed new version
-    Map<String, String> blazeInfo = blazeInfo1.getBuildData();
-    blazeInfo.remove(BlazeVersionInfo.BUILD_LABEL);
-    blazeInfo.put(BlazeVersionInfo.BUILD_LABEL, version);
+  private void setBlazeVersion(String version) {
+    BlazeVersionInfo.setBuildInfoForTesting(ImmutableMap.of(BlazeVersionInfo.BUILD_LABEL, version));
   }
 
   private void setupModulesForCompatibility() throws Exception {

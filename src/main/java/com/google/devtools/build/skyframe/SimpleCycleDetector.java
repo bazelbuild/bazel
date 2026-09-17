@@ -471,7 +471,7 @@ public class SimpleCycleDetector implements CycleDetector {
       ParallelEvaluatorContext evaluatorContext)
       throws InterruptedException {
     GroupedDeps directDeps = entry.getTemporaryDirectDeps();
-    Set<SkyKey> unvisitedDeps = Sets.newHashSet(directDeps.getAllElementsAsIterable());
+    Set<SkyKey> unvisitedDeps = new HashSet<>(directDeps.getAllElementsAsIterable());
     unvisitedDeps.remove(cycleChild);
     // Remove any children from this node that are not part of the cycle we just found. They are
     // irrelevant to the node as it stands, and if they are deleted from the graph because they are

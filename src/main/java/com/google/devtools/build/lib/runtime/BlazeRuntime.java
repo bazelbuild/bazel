@@ -49,6 +49,8 @@ import com.google.devtools.build.lib.buildtool.CommandPrecompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.cmdline.LabelNameDeduper;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetInterner;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
@@ -58,7 +60,6 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
-import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.LocalResourceUsageCollectors;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
@@ -102,6 +103,7 @@ import com.google.devtools.build.lib.util.FileSystemLock.LockMode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.SerializedAbruptExitException;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.ThreadUtils;
@@ -166,6 +168,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final FileSystem fileSystem;
+  private final UUID instanceId;
   private final ImmutableList<BlazeModule> blazeModules;
   private final ImmutableList<BlazeService> blazeServices;
   private final Map<String, BlazeCommand> commandMap = new LinkedHashMap<>();
@@ -214,6 +217,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   private BlazeRuntime(
       FileSystem fileSystem,
+      UUID instanceId,
       QueryEnvironmentFactory queryEnvironmentFactory,
       ImmutableList<QueryFunction> queryFunctions,
       ImmutableList<OutputFormatter> queryOutputFormatters,
@@ -239,6 +243,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       FileSystemLock installBaseLock) {
     // Server state
     this.fileSystem = fileSystem;
+    this.instanceId = instanceId;
     this.blazeModules = blazeModules;
     this.blazeServices = blazeServices;
     overrideCommands(commands);
@@ -379,10 +384,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         if (commandOptions.getProfilePath() == null) {
           String profileName = "command.profile.gz";
           format = Format.JSON_TRACE_FILE_COMPRESSED_FORMAT;
-          if (bepOptions != null && bepOptions.streamingLogFileUploads) {
+          if (bepOptions != null && bepOptions.getStreamingLogFileUploads()) {
             profile =
                 instrumentationOutputFactory.createBuildEventArtifactInstrumentationOutput(
-                    profileName, newUploader(env, bepOptions.buildEventUploadStrategy));
+                    profileName, newUploader(env, bepOptions.getBuildEventUploadStrategy()));
           } else if (commandOptions.getRedirectLocalInstrumentationOutputWrites()) {
             profile =
                 instrumentationOutputFactory.createInstrumentationOutput(
@@ -444,7 +449,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       }
       ImmutableSet<ProfilerTask> profiledTasks = profiledTasksBuilder.build();
       if (!profiledTasks.isEmpty()) {
-        if (commandOptions.getSlimProfile() && commandOptions.getIncludePrimaryOutput()) {
+        if (commandOptions.getSlimProfile().isEnabled()
+            && commandOptions.getIncludePrimaryOutput()) {
           eventHandler.handle(
               Event.warn(
                   "Enabling both --slim_profile and"
@@ -474,6 +480,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                 .getCollectPressureStallIndicators(),
             /* collectSkyframeCounts= */ commandOptions.getCollectSkyframeCounts());
 
+        // Instead of logEvent() we're calling the low level function to pass the timings we took in
+        // the launcher. We're setting the INIT phase marker so that it follows immediately the
+        // LAUNCH phase.
+        long startupTimeNanos = commandOptions.getStartupTime() * 1000000L;
+        long waitTimeNanos = waitTimeInMs * 1000000L;
+        long clientStartTimeNanos = execStartTimeNanos - startupTimeNanos - waitTimeNanos;
+
         // TODO(b/457644247): Encapsulate the start params into a config object.
         Profiler.instance()
             .start(
@@ -484,19 +497,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                 env.getCommandId(),
                 recordFullProfilerData,
                 clock,
-                execStartTimeNanos,
-                /* slimProfile= */ commandOptions.getSlimProfile(),
+                clientStartTimeNanos,
+                /* slimProfile= */ commandOptions.getSlimProfile().isEnabled(),
+                /* slimProfileSizeLimit= */ commandOptions.getSlimProfile().getSizeLimit(),
                 /* includePrimaryOutput= */ commandOptions.getIncludePrimaryOutput(),
                 /* includeTargetLabel= */ commandOptions.getProfileIncludeTargetLabel(),
                 /* includeConfiguration= */ commandOptions.getProfileIncludeTargetConfiguration(),
                 /* collectTaskHistograms= */ commandOptions.getAlwaysProfileSlowOperations());
-
-        // Instead of logEvent() we're calling the low level function to pass the timings we took in
-        // the launcher. We're setting the INIT phase marker so that it follows immediately the
-        // LAUNCH phase.
-        long startupTimeNanos = commandOptions.getStartupTime() * 1000000L;
-        long waitTimeNanos = waitTimeInMs * 1000000L;
-        long clientStartTimeNanos = execStartTimeNanos - startupTimeNanos - waitTimeNanos;
         Profiler.instance()
             .logSimpleTaskDuration(
                 clientStartTimeNanos,
@@ -543,6 +550,14 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   public FileSystem getFileSystem() {
     return fileSystem;
+  }
+
+  /**
+   * Returns the ID of this Bazel server instance. It is stable for the lifetime of the server and
+   * changes when the server restarts.
+   */
+  public UUID getInstanceId() {
+    return instanceId;
   }
 
   public BlazeWorkspace getWorkspace() {
@@ -661,7 +676,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               options.getMemoryProfileStableHeapParameters(),
               env.getOptions()
                   .getOptions(MemoryPressureOptions.class)
-                  .jvmHeapHistogramInternalObjectPattern
+                  .getJvmHeapHistogramInternalObjectPattern()
                   .regexPattern());
       try {
         MemoryProfiler.instance().start(memoryProfilePath.getOutputStream());
@@ -673,7 +688,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
     boolean stateKeptAfterBuild =
         !env.getCommandName().equals("clean")
-            && env.getOptions().getOptions(KeepStateAfterBuildOption.class).keepStateAfterBuild;
+            && env.getOptions()
+                .getOptions(KeepStateAfterBuildOption.class)
+                .getKeepStateAfterBuild();
     env.addIdleTask(new GcAndInternerShrinkingIdleTask(stateKeptAfterBuild));
 
     if (options.getInstallBaseGcMaxAge() != null && !options.getInstallBaseGcMaxAge().isZero()) {
@@ -808,7 +825,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     // next build anyway.
     KeepStateAfterBuildOption keepStateAfterBuildOption =
         env.getOptions().getOptions(KeepStateAfterBuildOption.class);
-    if (!keepStateAfterBuildOption.keepStateAfterBuild && !forceKeepStateForTesting) {
+    if (!keepStateAfterBuildOption.getKeepStateAfterBuild() && !forceKeepStateForTesting) {
       workspace.getSkyframeExecutor().resetEvaluator();
     }
 
@@ -828,7 +845,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     if (otherThreadWonExitCode != null) {
       finalCommandResult = BlazeCommandResult.detailedExitCode(otherThreadWonExitCode);
     }
-    env.getBlazeWorkspace().clearEventBus();
+    env.getSkyframeExecutor().setEventBus(null);
+    env.getSkyframeExecutor().setOutputService(null);
+    NestedSetInterner.clear();
+    LabelNameDeduper.clear();
 
     // Some module's commandComplete() relies on the stoppage of profiler. And it is impossible the
     // profiler is needed after all `BlazeModule.afterCommand`s are executed.
@@ -850,7 +870,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       finalCommandResult = BlazeCommandResult.withIdleTasks(finalCommandResult, idleTasks);
     }
 
-    env.getReporter().clearEventBus();
+    env.getReporter().cleanup();
     actionKeyContext.clear();
     DebugLoggerConfigurator.flushServerLog();
     storedExitCode.set(null);
@@ -1014,10 +1034,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   static CommandLineOptions splitStartupOptions(
       Iterable<OptionsSupplier> suppliers, String... args) {
     List<String> prefixes = new ArrayList<>();
-    List<OptionDefinition> startupOptions = Lists.newArrayList();
+    List<OptionDefinition> startupOptions = new ArrayList<>();
     for (Class<? extends OptionsBase> defaultOptions :
         BlazeCommandUtils.getStartupOptions(suppliers)) {
-      startupOptions.addAll(OptionsParser.getOptionDefinitions(defaultOptions));
+      startupOptions.addAll(OptionDefinition.getOptionDefinitions(defaultOptions));
     }
 
     for (OptionDefinition optionDefinition : startupOptions) {
@@ -1379,7 +1399,11 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     CustomFailureDetailPublisher.setFailureDetailFilePath(failureDetailOut.getPathString());
 
     for (BlazeService service : blazeServices) {
-      service.globalInit(options);
+      try {
+        service.globalInit(options, blazeServices);
+      } catch (SerializedAbruptExitException e) {
+        throw AbruptExitException.fromSerialized(e);
+      }
     }
 
     for (BlazeModule module : blazeModules) {
@@ -1797,6 +1821,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       BlazeRuntime runtime =
           new BlazeRuntime(
               fileSystem,
+              instanceId,
               serverBuilder.getQueryEnvironmentFactory(),
               serverBuilder.getQueryFunctions(),
               serverBuilder.getQueryOutputFormatters(),
@@ -1820,7 +1845,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               serverBuilder.getRepositoryHelpersFactory(),
               serverBuilder.createInstrumentationOutputFactory(),
               installBaseLock);
-      AutoProfiler.setClock(runtime.getClock());
       BugReport.setRuntime(runtime);
       return runtime;
     }
@@ -1861,16 +1885,28 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       return this;
     }
 
+    public OptionsParsingResult getStartupOptionsProvider() {
+      return startupOptionsProvider;
+    }
+
     @CanIgnoreReturnValue
     public Builder addBlazeModule(BlazeModule blazeModule) {
       blazeModules.add(blazeModule);
       return this;
     }
 
+    public ImmutableList<BlazeModule> getBlazeModules() {
+      return ImmutableList.copyOf(blazeModules);
+    }
+
     @CanIgnoreReturnValue
     public Builder addBlazeService(BlazeService blazeService) {
       blazeServices.add(blazeService);
       return this;
+    }
+
+    public ImmutableList<BlazeService> getBlazeServices() {
+      return ImmutableList.copyOf(blazeServices);
     }
 
     @CanIgnoreReturnValue

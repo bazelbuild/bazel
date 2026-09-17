@@ -18,9 +18,59 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.Locale;
+import javax.annotation.Nullable;
 
 /** Various utility methods operating on strings. */
 public class StringUtil {
+
+  /**
+   * Formats a hierarchical error message by indenting {@code childMessage} under {@code prefix}.
+   *
+   * <p>If {@code childMessage} is null or blank, returns {@code prefix}. Otherwise, returns:
+   *
+   * <pre>
+   * prefix:
+   *   [childMessage indented by 2 spaces per line]
+   * </pre>
+   */
+  public static String formatNested(String prefix, @Nullable String childMessage) {
+    if (childMessage == null || childMessage.isBlank()) {
+      return prefix;
+    }
+    String normalizedPrefix = prefix.stripTrailing();
+    if (normalizedPrefix.endsWith(":")) {
+      normalizedPrefix = normalizedPrefix.substring(0, normalizedPrefix.length() - 1);
+    }
+    return normalizedPrefix + ":\n" + childMessage.strip().indent(2).stripTrailing();
+  }
+
+  /**
+   * IEEE-style threshold for using thousands separators. Numbers with 5+ digits (>= 10,000) get
+   * comma formatting for readability.
+   */
+  private static final int IEEE_THOUSANDS_SEPARATOR_THRESHOLD = 10000;
+
+  /**
+   * Formats a count using IEEE-style thousands separators. Numbers >= 10,000 (5+ digits) are
+   * formatted with commas; smaller numbers are returned as plain strings.
+   *
+   * <p>Examples:
+   *
+   * <ul>
+   *   <li>999 → "999"
+   *   <li>9999 → "9999"
+   *   <li>10000 → "10,000"
+   *   <li>12345 → "12,345"
+   * </ul>
+   */
+  public static String formatCount(long count) {
+    if (count >= IEEE_THOUSANDS_SEPARATOR_THRESHOLD) {
+      return String.format(Locale.ENGLISH, "%,d", count);
+    }
+    return String.valueOf(count);
+  }
+
   /**
    * Creates a comma-separated list of words as in English.
    *

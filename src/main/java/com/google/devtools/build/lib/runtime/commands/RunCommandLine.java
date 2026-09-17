@@ -218,7 +218,7 @@ class RunCommandLine {
       result.append("  exec env \\\n");
       result.append("    ").append(unsetEnv).append(" \\\n");
       result.append("    ").append(setEnv).append(" \\\n");
-      result.append("  ").append(commandLine).append(" \"$@\"");
+      result.append("  ").append(commandLine).append(" \"$@\"\n");
 
       return result.toString();
     }
@@ -301,7 +301,7 @@ class RunCommandLine {
       result.append("cd /d ").append(workingDir).append("\n");
       result.append("  ").append(unsetEnv).append("\n");
       result.append("  ").append(setEnv).append("\n");
-      result.append("  ").append(commandLine).append(" %*");
+      result.append("  ").append(commandLine).append(" %*\n");
       return result.toString();
     }
 

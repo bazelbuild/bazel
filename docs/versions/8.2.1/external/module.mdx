@@ -122,8 +122,7 @@ serves multiple purposes:
     version, regardless of which versions of the dependency are requested in the
     dependency graph.
 *   With the `registry` attribute, you can force this dependency to come from a
-    specific registry, instead of following the normal [registry
-    selection](/versions/8.2.1/external/registry#selecting_registries) process.
+    specific registry, instead of following the normal [registry selection](/versions/8.2.1/external/registry#selecting_registries) process.
 *   With the `patch*` attributes, you can specify a set of patches to apply to
     the downloaded module.
 
@@ -176,13 +175,11 @@ With `bazel_dep`, you can define repos that represent other Bazel modules.
 Sometimes there is a need to define a repo that does _not_ represent a Bazel
 module; for example, one that contains a plain JSON file to be read as data.
 
-In this case, you could use the [`use_repo_rule`
-directive](/versions/8.2.1/rules/lib/globals/module#use_repo_rule) to directly define a repo
+In this case, you could use the [`use_repo_rule` directive](/versions/8.2.1/rules/lib/globals/module#use_repo_rule) to directly define a repo
 by invoking a repo rule. This repo will only be visible to the module it's
 defined in.
 
-Under the hood, this is implemented using the same mechanism as [module
-extensions](/versions/8.2.1/external/extension), which lets you define repos with more
+Under the hood, this is implemented using the same mechanism as [module extensions](/versions/8.2.1/external/extension), which lets you define repos with more
 flexibility.
 
 ## Repository names and strict deps

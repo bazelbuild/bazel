@@ -169,7 +169,7 @@ public final class OutputPathMnemonicComputer {
    * different between buildOptions and baselineOptions but were also not excluded from the output
    * path by a call to {@link Fragment.OutputDirectoriesContext.markAsExplicitInOutputPathFor}
    */
-  static final String computeMnemonic(
+  public static final String computeMnemonic(
       BuildOptions buildOptions,
       @Nullable BuildOptions baselineOptions,
       ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments)
@@ -236,7 +236,7 @@ public final class OutputPathMnemonicComputer {
       return;
     }
 
-    if (platformOptions.platforms != null && platformOptions.platforms.size() > 1) {
+    if (platformOptions.getPlatforms() != null && platformOptions.getPlatforms().size() > 1) {
       ctx.checkedAddToMnemonic("multi-platform", "CPU/Platform descriptor");
       // Intentionally not marking anything as explicit in output path so ST-hash used if needed.
       return;

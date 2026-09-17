@@ -22,24 +22,24 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
-class LocationPrinter {
+/** Converts {@link Location} objects to a human-friendly string. */
+public final class LocationPrinter {
   private final boolean attemptToPrintRelativePaths;
   @Nullable private final PathFragment workspacePathFragment;
   private final AtomicReference<ImmutableList<Root>> packagePathRootsRef =
       new AtomicReference<>(ImmutableList.of());
 
-  LocationPrinter(
-      boolean attemptToPrintRelativePaths,
-      @Nullable PathFragment workspacePathFragment) {
+  public LocationPrinter(
+      boolean attemptToPrintRelativePaths, @Nullable PathFragment workspacePathFragment) {
     this.attemptToPrintRelativePaths = attemptToPrintRelativePaths;
     this.workspacePathFragment = workspacePathFragment;
   }
 
-  void packageLocatorCreated(PathPackageLocator packageLocator) {
+  public void packageLocatorCreated(PathPackageLocator packageLocator) {
     packagePathRootsRef.set(packageLocator.getPathEntries());
   }
 
-  String getLocationString(Location location) {
+  public String getLocationString(Location location) {
     return attemptToPrintRelativePaths
         ? getRelativeLocationString(location, workspacePathFragment, packagePathRootsRef.get())
         : location.toString();

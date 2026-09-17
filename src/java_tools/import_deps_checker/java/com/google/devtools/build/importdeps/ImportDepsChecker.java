@@ -63,7 +63,7 @@ public final class ImportDepsChecker implements Closeable {
             directClasspath,
             classpath,
             inputJars,
-            /*populateMembers=*/ checkMissingMembers);
+            /* populateMembers= */ checkMissingMembers);
     this.resultCollector = new ResultCollector(checkMissingMembers);
     this.inputJars = inputJars;
   }

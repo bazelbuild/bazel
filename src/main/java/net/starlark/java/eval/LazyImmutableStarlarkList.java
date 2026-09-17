@@ -17,7 +17,8 @@ package net.starlark.java.eval;
 import com.google.common.base.Preconditions;
 
 /** An immutable {@link StarlarkList} that lazily invokes a supplier to obtain its elements. */
-public final class LazyImmutableStarlarkList<E> extends ImmutableStarlarkList<E> {
+public final class LazyImmutableStarlarkList<E> extends ImmutableStarlarkList<E>
+    implements Compactable {
   private SerializableListSupplier<E> supplier;
   private volatile Object[] elems;
 

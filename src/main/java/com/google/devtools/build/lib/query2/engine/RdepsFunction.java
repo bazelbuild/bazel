@@ -42,6 +42,11 @@ public final class RdepsFunction extends AllRdepsFunction {
   }
 
   @Override
+  public boolean requiresEdges() {
+    return true;
+  }
+
+  @Override
   public int getMandatoryArguments() {
     return super.getMandatoryArguments() + 1;  // +1 for the universe.
   }

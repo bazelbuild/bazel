@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.worker;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
@@ -86,7 +87,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
    * The verbosity level implied by `--worker_verbose`. This value allows for manually setting some
    * only-slightly-verbose levels.
    */
-  private static final int VERBOSE_LEVEL = 10;
+  static final int VERBOSE_LEVEL = 10;
 
   /**
    * The next work request ID to use. This field is static so we don't reuse work request IDs across
@@ -137,9 +138,9 @@ final class WorkerSpawnRunner implements SpawnRunner {
       return false;
     }
     // Note: `allowlist` is sorted, we could binary search.
-    if (workerOptions.allowlist != null
-        && !workerOptions.allowlist.isEmpty()
-        && !workerOptions.allowlist.contains(Spawns.getWorkerKeyMnemonic(spawn))) {
+    if (workerOptions.getAllowlist() != null
+        && !workerOptions.getAllowlist().isEmpty()
+        && !workerOptions.getAllowlist().contains(Spawns.getWorkerKeyMnemonic(spawn))) {
       return false;
     }
     if (spawn.getToolFiles().isEmpty()) {
@@ -159,7 +160,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     context.report(
         SpawnSchedulingEvent.create(
             WorkerKey.makeWorkerTypeName(
-                Spawns.supportsMultiplexWorkers(spawn) && workerOptions.workerMultiplex,
+                Spawns.supportsMultiplexWorkers(spawn) && workerOptions.getWorkerMultiplex(),
                 context.speculating())));
     if (spawn.getToolFiles().isEmpty()) {
       throw createUserExecException(
@@ -195,9 +196,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
           Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Setting up inputs")) {
         inputFiles =
             SandboxHelpers.processInputFiles(
-                context.getInputMapping(
-                    PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
-                execRoot);
+                context.getInputMapping(/* willAccessRepeatedly= */ true), execRoot);
       }
       SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
@@ -255,7 +254,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     List<ActionInput> inputs =
         InputMetadataProvider.expandArtifacts(
             context.getInputMetadataProvider(),
-            spawn.getInputFiles(),
+            spawn.getInputFiles().flatten(),
             /* keepEmptyTreeArtifacts= */ false,
             /* keepRunfilesTrees= */ false);
 
@@ -281,13 +280,23 @@ final class WorkerSpawnRunner implements SpawnRunner {
           .setPath(StringEncoding.internalToUnicode(input.getExecPathString()))
           .setDigest(digest);
     }
-    if (workerOptions.workerVerbose) {
+    if (workerOptions.getWorkerVerbose()) {
       requestBuilder.setVerbosity(VERBOSE_LEVEL);
     }
     if (key.isMultiplex()) {
       requestBuilder.setRequestId(requestIdCounter.getAndIncrement());
     }
     return requestBuilder.build();
+  }
+
+  @VisibleForTesting
+  WorkRequest createCancelRequest(int requestId) {
+    WorkRequest.Builder cancelRequestBuilder =
+        WorkRequest.newBuilder().setRequestId(requestId).setCancel(true);
+    if (workerOptions.getWorkerVerbose()) {
+      cancelRequestBuilder.setVerbosity(VERBOSE_LEVEL);
+    }
+    return cancelRequestBuilder.build();
   }
 
   /**
@@ -411,7 +420,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
               resourceSet,
               context.speculating() ? ResourcePriority.DYNAMIC_WORKER : ResourcePriority.LOCAL);
       workerOwner = new WorkerOwner(handle.getWorker());
-      workerOwner.getWorker().setReporter(workerOptions.workerVerbose ? reporter : null);
+      workerOwner.getWorker().setReporter(workerOptions.getWorkerVerbose() ? reporter : null);
       request =
           createWorkRequest(
               spawn, context, inputFiles, flagFiles, virtualInputDigests, inputFileCache, key);
@@ -580,7 +589,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         finishWorkAsync(
             worker,
             request,
-            workerOptions.workerCancellation && Spawns.supportsWorkerCancellation(spawn),
+            workerOptions.getWorkerCancellation() && Spawns.supportsWorkerCancellation(spawn),
             handle);
         workerOwner.setWorker(null);
         resourceManager.releaseResourceOwnership();
@@ -633,11 +642,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
               Worker w = worker;
               try {
                 if (canCancel) {
-                  WorkRequest cancelRequest =
-                      WorkRequest.newBuilder()
-                          .setRequestId(request.getRequestId())
-                          .setCancel(true)
-                          .build();
+                  WorkRequest cancelRequest = createCancelRequest(request.getRequestId());
                   w.putRequest(cancelRequest);
                 }
                 w.getResponse(request.getRequestId());
@@ -652,17 +657,14 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
                   w = null;
 
-                } catch (IOException | InterruptedException | UserExecException e2) {
+                } catch (IOException | InterruptedException e2) {
                   // The reaper thread can't do anything useful about this.
                 }
               } finally {
                 if (w != null) {
                   try {
                     resourceHandle.close();
-                  } catch (IOException
-                      | InterruptedException
-                      | IllegalStateException
-                      | UserExecException e) {
+                  } catch (IOException | InterruptedException | IllegalStateException e) {
                     // Error while returning worker to the pool. Could not do anything.
                   }
                 }

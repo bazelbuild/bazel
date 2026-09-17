@@ -85,6 +85,10 @@ public class DecompressorValueTest {
     assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(ArFunction.class);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.7z");
     assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(SevenZDecompressor.class);
+    path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.br");
+    assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(BrFunction.class);
+    path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.tar.br");
+    assertThat(DecompressorValue.getDecompressor(path)).isInstanceOf(TarBrFunction.class);
   }
 
   @Test

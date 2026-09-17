@@ -40,15 +40,15 @@ public final class QueryOptionHelper {
       throws QueryException {
     String query = "";
     if (!options.getResidue().isEmpty()) {
-      if (!queryOptions.queryFile.isEmpty()) {
+      if (!queryOptions.getQueryFile().isEmpty()) {
         throw new QueryException(
             "Command-line query and --query_file cannot both be specified",
             Query.Code.QUERY_FILE_WITH_COMMAND_LINE_EXPRESSION);
       }
       query = Joiner.on(' ').join(options.getResidue());
-    } else if (!queryOptions.queryFile.isEmpty()) {
+    } else if (!queryOptions.getQueryFile().isEmpty()) {
       // Works for absolute or relative query file.
-      Path residuePath = env.getWorkingDirectory().getRelative(queryOptions.queryFile);
+      Path residuePath = env.getWorkingDirectory().getRelative(queryOptions.getQueryFile());
       try {
         env.getEventBus()
             .post(InputFileEvent.create(/* type= */ "query_file", residuePath.getFileSize()));

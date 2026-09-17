@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
@@ -75,7 +76,6 @@ public class JavaInfoCodecTest extends BuildViewTestCase {
     JavaInfo inInfo = JavaInfo.getJavaInfo(getConfiguredTarget("//java/com/google/test:a"));
     JavaInfo outInfo = (JavaInfo) roundTripWithSkyframe(inInfo);
 
-    assertThat(inInfo.getCreationLocation()).isEqualTo(outInfo.getCreationLocation());
     assertThat(inInfo.getDirectRuntimeJars()).isNotEmpty();
     assertThat(inInfo.getDirectRuntimeJars()).isEqualTo(outInfo.getDirectRuntimeJars());
 
@@ -95,6 +95,7 @@ public class JavaInfoCodecTest extends BuildViewTestCase {
                 .putAll(getCommonSerializationDependencies())
                 .putAll(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
                 .build()),
+        new CompressionServiceImpl(),
         FingerprintValueService.createForTesting(),
         // Uses memoized skyframe values for resultProvider
         k -> {

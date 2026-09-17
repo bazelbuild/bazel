@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.collect.nestedset;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.graph.MutableGraph;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.skyframe.ExecutionPhaseSkyKey;
@@ -103,16 +103,18 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
    */
   public ImmutableList<Artifact> expandToArtifacts() {
     // Depth is not accurate, but doesn't matter.
-    return new NestedSet<Artifact>(Order.STABLE_ORDER, /* depth= */ 3, children).toList();
+    return NestedSet.<Artifact>create(Order.STABLE_ORDER, /* depth= */ 3, children).toList();
   }
 
   /**
-   * Augments the given rewind graph with all chains of {@link ArtifactNestedSetKey} nodes reachable
-   * from {@code failedKeyDeps} and non source artifacts in them.
+   * Augments the given rewind graph with the entire nested set structure reachable from {@code
+   * key}, including all child {@link ArtifactNestedSetKey} nodes and non-source artifacts.
    *
-   * <p>The walk is terminated when a node is already in the rewind graph.
+   * <p>This is used in the imprecise/legacy rewinding case where any lost input in a nested set
+   * results in rewinding all artifacts within it. The walk is terminated when a node is already in
+   * the rewind graph.
    */
-  public static void addNestedSetChainsToRewindGraph(
+  public static void addEntireNestedSetToRewindGraph(
       MutableGraph<SkyKey> rewindGraph, ArtifactNestedSetKey key) {
     if (rewindGraph.nodes().contains(key)) {
       return;
@@ -124,36 +126,60 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
         }
       } else {
         ArtifactNestedSetKey nextNode = createInternal((Object[]) child);
-        addNestedSetChainsToRewindGraph(rewindGraph, nextNode);
+        addEntireNestedSetToRewindGraph(rewindGraph, nextNode);
         rewindGraph.putEdge(key, nextNode);
       }
     }
   }
 
   /**
-   * Augments the given rewind graph with paths from {@code failedKey} to {@code lostArtifacts}
-   * discoverable by following the {@link ArtifactNestedSetKey} nodes in {@code failedKeyDeps}.
+   * Augments the given rewind graph only with the specific paths from {@code failedKey} to {@code
+   * lostArtifacts} discoverable by following the {@link ArtifactNestedSetKey} nodes in {@code
+   * failedKeyDeps}. This avoids dirtying unrelated inputs in the nested set.
    *
-   * <p>{@code rewindGraph} must not contain any {@link ArtifactNestedSetKey} nodes prior to calling
-   * this method.
+   * <p>If {@code rewindGraph} already contains {@link ArtifactNestedSetKey} nodes prior to calling
+   * this method, those nodes are assumed to contain lost artifacts. Paths between {@code failedKey}
+   * and such nodes are also added to the rewind graph.
    */
   public static void addNestedSetPathsToRewindGraph(
       MutableGraph<SkyKey> rewindGraph,
       SkyKey failedKey,
-      Set<SkyKey> failedKeyDeps,
-      Set<? extends Artifact> lostArtifacts) {
-    var seen = new HashSet<ArtifactNestedSetKey>();
-    for (var nestedSetDep : Iterables.filter(failedKeyDeps, ArtifactNestedSetKey.class)) {
-      if (searchForLostArtifacts(nestedSetDep, rewindGraph, lostArtifacts, seen)) {
-        rewindGraph.putEdge(failedKey, nestedSetDep);
+      Iterable<? extends SkyKey> failedKeyDeps,
+      Set<? extends ActionInput> lostArtifacts) {
+    Set<ArtifactNestedSetKey> seen = new HashSet<>();
+    for (SkyKey dep : failedKeyDeps) {
+      if (dep instanceof ArtifactNestedSetKey nestedSetKey) {
+        addNestedSetPathsToRewindGraph(rewindGraph, failedKey, nestedSetKey, lostArtifacts, seen);
       }
+    }
+  }
+
+  /**
+   * Augments the given rewind graph only with the specific paths from {@code failedKey} to {@code
+   * lostArtifacts} discoverable by following {@code nestedSetKey}.
+   *
+   * <p>{@code seen} is used to cache traversals of shared nested set nodes across multiple calls,
+   * which is useful when processing multiple root nested sets for propagating actions.
+   *
+   * <p>If {@code rewindGraph} already contains {@link ArtifactNestedSetKey} nodes prior to calling
+   * this method, those nodes are assumed to contain lost artifacts. Paths between {@code failedKey}
+   * and such nodes are also added to the rewind graph.
+   */
+  public static void addNestedSetPathsToRewindGraph(
+      MutableGraph<SkyKey> rewindGraph,
+      SkyKey failedKey,
+      ArtifactNestedSetKey nestedSetKey,
+      Set<? extends ActionInput> lostArtifacts,
+      Set<ArtifactNestedSetKey> seen) {
+    if (searchForLostArtifacts(nestedSetKey, rewindGraph, lostArtifacts, seen)) {
+      rewindGraph.putEdge(failedKey, nestedSetKey);
     }
   }
 
   private static boolean searchForLostArtifacts(
       ArtifactNestedSetKey node,
       MutableGraph<SkyKey> rewindGraph,
-      Set<? extends Artifact> lostArtifacts,
+      Set<? extends ActionInput> lostArtifacts,
       Set<ArtifactNestedSetKey> seen) {
     if (rewindGraph.nodes().contains(node)) {
       return true;

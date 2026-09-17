@@ -16,17 +16,25 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.test.AnalysisTestResultInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.util.List;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -65,6 +73,25 @@ public final class MaterializerRulesTest extends AnalysisTestCase {
         """
             .formatted(
                 materializerRuleAllowed ? "\"public\"" : "", allowRealDeps ? "\"public\"" : ""));
+  }
+
+  @Test
+  public void materializedDepsInfo_basicFunctionality() throws Exception {
+    ConfiguredTarget mockTarget = mock(ConfiguredTarget.class);
+    doAnswer(inv -> inv.getArgument(0, Printer.class).append("<target //test:target>"))
+        .when(mockTarget)
+        .repr(any(), any());
+    MaterializedDepsInfo info =
+        MaterializedDepsInfo.PROVIDER.materializedDepsInfo(
+            StarlarkList.immutableOf(
+                mockTarget,
+                new DormantDependency(Label.parseCanonicalUnchecked("//test:dormant"))));
+    assertThat(info.getDeps()).hasSize(2);
+    assertThat(info.getDepsForStarlark()).hasSize(2);
+    assertThat(Starlark.repr(info, StarlarkSemantics.DEFAULT))
+        .isEqualTo(
+            "struct(deps = [<target //test:target>, <dormant dependency"
+                + " label='@@//test:dormant'>])");
   }
 
   /** Tests materializing dormant deps through materializer rules. */

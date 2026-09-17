@@ -13,6 +13,8 @@
 // limitations under the License.
 package net.starlark.java.eval;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
 import java.util.IllegalFormatException;
@@ -31,15 +33,23 @@ public class Printer {
 
   private final StringBuilder buffer;
 
+  private final int maxChars;
+  private final int maxDepth;
+  private final int maxElements;
+  private boolean truncated;
+
   // Stack of values in the middle of being printed.
   // Each renders as "..." if recursively encountered,
   // indicating a cycle.
   private Object[] stack;
   private int depth;
 
+  private static final char Q1 = '\'';
+  private static final char Q2 = '"';
+
   /** Creates a printer that writes to the given buffer. */
   public Printer(StringBuilder buffer) {
-    this.buffer = buffer;
+    this(buffer, Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE);
   }
 
   /** Creates a printer that uses a fresh buffer. */
@@ -47,9 +57,49 @@ public class Printer {
     this(new StringBuilder());
   }
 
+  /**
+   * Creates a printer that writes to the given buffer, with limits on maximum character count,
+   * recursion depth, and elements per collection.
+   */
+  public Printer(StringBuilder buffer, int maxChars, int maxDepth, int maxElements) {
+    this.buffer = buffer;
+    this.maxChars = maxChars;
+    this.maxDepth = maxDepth;
+    this.maxElements = maxElements;
+  }
+
+  /** Returns the maximum number of elements to print per collection. */
+  public int getMaxElements() {
+    return maxElements;
+  }
+
+  /** Returns the maximum recursion depth for compound values. */
+  public int getMaxDepth() {
+    return maxDepth;
+  }
+
+  /** Returns the maximum character length for the output. */
+  public int getMaxChars() {
+    return maxChars;
+  }
+
+  private void markTruncated() {
+    if (!truncated) {
+      buffer.append("...");
+      truncated = true;
+    }
+  }
+
   /** Appends a char to the printer's buffer */
   @CanIgnoreReturnValue
   public final Printer append(char c) {
+    if (truncated) {
+      return this;
+    }
+    if (buffer.length() >= maxChars) {
+      markTruncated();
+      return this;
+    }
     buffer.append(c);
     return this;
   }
@@ -57,13 +107,22 @@ public class Printer {
   /** Appends a char sequence to the printer's buffer */
   @CanIgnoreReturnValue
   public final Printer append(CharSequence s) {
-    buffer.append(s);
-    return this;
+    return append(s, 0, s.length());
   }
 
   /** Appends a char subsequence to the printer's buffer */
   @CanIgnoreReturnValue
   public final Printer append(CharSequence s, int start, int end) {
+    if (truncated) {
+      return this;
+    }
+    int len = end - start;
+    if (buffer.length() + len > maxChars) {
+      int remaining = Math.max(0, maxChars - buffer.length());
+      buffer.append(s, start, start + remaining);
+      markTruncated();
+      return this;
+    }
     buffer.append(s, start, end);
     return this;
   }
@@ -71,15 +130,13 @@ public class Printer {
   /** Appends an integer to the printer's buffer */
   @CanIgnoreReturnValue
   public final Printer append(int i) {
-    buffer.append(i);
-    return this;
+    return append(Integer.toString(i));
   }
 
   /** Appends a long integer to the printer's buffer */
   @CanIgnoreReturnValue
   public final Printer append(long l) {
-    buffer.append(l);
-    return this;
+    return append(Long.toString(l));
   }
 
   /**
@@ -99,9 +156,21 @@ public class Printer {
       String separator,
       String after,
       StarlarkSemantics semantics) {
+    if (truncated) {
+      return this;
+    }
     this.append(before);
     String sep = "";
+    int count = 0;
     for (Object elem : list) {
+      if (truncated) {
+        break;
+      }
+      if (count >= maxElements) {
+        this.append(sep).append("...");
+        break;
+      }
+      count++;
       this.append(sep);
       sep = separator;
       this.repr(elem, semantics);
@@ -122,6 +191,9 @@ public class Printer {
    */
   @CanIgnoreReturnValue
   public Printer debugPrint(Object o, StarlarkThread thread) {
+    if (truncated) {
+      return this;
+    }
     if (o instanceof StarlarkValue) {
       ((StarlarkValue) o).debugPrint(this, thread);
       return this;
@@ -139,6 +211,9 @@ public class Printer {
    */
   @CanIgnoreReturnValue
   public Printer str(Object o, StarlarkSemantics semantics) {
+    if (truncated) {
+      return this;
+    }
     if (o instanceof String) {
       return this.append((String) o);
 
@@ -167,6 +242,9 @@ public class Printer {
    */
   @CanIgnoreReturnValue
   public Printer repr(Object o, StarlarkSemantics semantics) {
+    if (truncated) {
+      return this;
+    }
     // atomic values (leaves of the object graph)
     switch (o) {
       case null -> {
@@ -194,6 +272,10 @@ public class Printer {
     }
 
     // compound values (may form cycles in the object graph)
+
+    if (depth >= maxDepth) {
+      return append("...");
+    }
 
     if (!push(o)) {
       return append("..."); // elided cycle
@@ -224,10 +306,84 @@ public class Printer {
     this.append('"');
     int len = s.length();
     for (int i = 0; i < len; i++) {
+      if (truncated) {
+        return this;
+      }
       char c = s.charAt(i);
       escapeCharacter(c);
     }
     return this.append('"');
+  }
+
+  @CanIgnoreReturnValue
+  private Printer appendTripleQuoted(String s, char quoteChar) {
+    checkArgument(quoteChar == Q1 || quoteChar == Q2, "quoteChar must be ' or \"");
+    String delimiter = String.valueOf(quoteChar).repeat(3);
+    this.append(delimiter);
+    char otherQuote = (quoteChar == Q2 ? Q1 : Q2);
+    for (int i = 0; i < s.length(); i++) {
+      if (truncated) {
+        return this;
+      }
+      char c = s.charAt(i);
+      if (c == otherQuote || c == '\n') {
+        this.append(c);
+      } else if (c == quoteChar) {
+        // Escape quoteChar only if it would otherwise be interpreted as the start of the closing
+        // delimiter:
+        if (i + 1 == s.length()) {
+          // ... if it immediately precedes the closing delimiter
+          this.append('\\').append(c);
+        } else if (i + 3 <= s.length() && s.substring(i, i + 3).equals(delimiter)) {
+          // ... or if it's part of an embedded triple-quote substring.
+          this.append('\\').append(c);
+        } else {
+          this.append(c);
+        }
+      } else {
+        escapeCharacter(c);
+      }
+    }
+    return this.append(delimiter);
+  }
+
+  /**
+   * Appends a "pretty" quoted string representation of {@code s} to the printer's buffer.
+   *
+   * <p>It heuristically chooses between single-line double quotes, and triple quotes (either ''' or
+   * """) based on the content of the string to minimize escaping.
+   */
+  @CanIgnoreReturnValue
+  public final Printer appendPrettyQuoted(String s) {
+    if (!s.contains("\n")) {
+      return appendQuoted(s);
+    }
+    return appendTripleQuoted(s, determineQuoteChar(s));
+  }
+
+  private static char determineQuoteChar(String s) {
+    int doubleQuotes = 0;
+    int singleQuotes = 0;
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      if (c == Q2) {
+        doubleQuotes++;
+      } else if (c == Q1) {
+        singleQuotes++;
+      }
+    }
+
+    char quoteChar = Q2;
+    boolean startsOrEndsWithDouble = s.startsWith("\"") || s.endsWith("\"");
+    boolean startsOrEndsWithSingle = s.startsWith("'") || s.endsWith("'");
+
+    if (doubleQuotes > singleQuotes) {
+      quoteChar = Q1;
+    } else if (startsOrEndsWithDouble && !startsOrEndsWithSingle) {
+      quoteChar = Q1;
+    }
+
+    return quoteChar;
   }
 
   @CanIgnoreReturnValue

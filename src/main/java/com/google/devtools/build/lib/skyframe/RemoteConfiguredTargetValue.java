@@ -89,6 +89,11 @@ public sealed class RemoteConfiguredTargetValue
   }
 
   @Override
+  public final boolean isCleared() {
+    return configuredTarget == null;
+  }
+
+  @Override
   public final String toString() {
     return toStringHelper(this)
         .add("configuredTarget", configuredTarget)
@@ -159,8 +164,9 @@ public sealed class RemoteConfiguredTargetValue
               "tried to serialize a cleared ConfiguredTargetValue? %s",
               obj);
       context.serialize(configuredTarget, codedOut);
-      if (obj instanceof RemoteConfiguredTargetValue value) {
-        context.serialize(value.targetData, codedOut);
+      TargetData targetData = obj.getTargetData();
+      if (targetData != null) {
+        context.serialize(targetData, codedOut);
         return;
       }
 

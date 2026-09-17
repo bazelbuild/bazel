@@ -26,8 +26,6 @@ import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
@@ -42,13 +40,12 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
-import com.google.devtools.common.options.ParsedOptionDescription;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -184,6 +181,7 @@ public class BuildRequest implements OptionsProvider {
   private final UUID id;
   private final LoadingCache<Class<? extends OptionsBase>, Optional<OptionsBase>> optionsCache;
   private final Map<String, Object> starlarkOptions;
+  private final Set<String> starlarkOptionsAllowingMultiple;
   private final Map<String, String> scopesAttributes;
   private final Map<String, Object> onLeaveScopeValues;
 
@@ -224,7 +222,9 @@ public class BuildRequest implements OptionsProvider {
     this.id = id;
     this.startTimeMillis = startTimeMillis;
     this.userOptions =
-        options.getUserOptions() == null ? ImmutableMap.of() : options.getUserOptions();
+        options.getUserOptions() == null
+            ? ImmutableMap.of()
+            : ImmutableMap.copyOf(options.getUserOptions());
     this.optionsCache =
         Caffeine.newBuilder()
             .build(
@@ -237,6 +237,7 @@ public class BuildRequest implements OptionsProvider {
                   return Optional.fromNullable(result);
                 });
     this.starlarkOptions = options.getStarlarkOptions();
+    this.starlarkOptionsAllowingMultiple = options.getStarlarkOptionsAllowingMultiple();
     this.scopesAttributes = options.getScopesAttributes();
     this.onLeaveScopeValues = options.getOnLeaveScopeValues();
     this.needsInstrumentationFilter = needsInstrumentationFilter;
@@ -249,7 +250,7 @@ public class BuildRequest implements OptionsProvider {
     }
 
     // All this, just to pass a global boolean from the client to the server. :(
-    this.runningInEmacs = options.getOptions(UiOptions.class).runningInEmacs;
+    this.runningInEmacs = options.getOptions(UiOptions.class).getRunningInEmacs();
   }
 
   /**
@@ -285,9 +286,13 @@ public class BuildRequest implements OptionsProvider {
   }
 
   @Override
-  public Map<String, Object> getExplicitStarlarkOptions(
-      Predicate<? super ParsedOptionDescription> filter) {
+  public Map<String, Object> getExplicitCommandLineStarlarkOptions() {
     throw new UnsupportedOperationException("No known callers to this implementation");
+  }
+
+  @Override
+  public Set<String> getStarlarkOptionsAllowingMultiple() {
+    return starlarkOptionsAllowingMultiple;
   }
 
   /**
@@ -359,12 +364,12 @@ public class BuildRequest implements OptionsProvider {
 
   /** Returns the value of the --keep_going option. */
   public boolean getKeepGoing() {
-    return getOptions(KeepGoingOption.class).keepGoing;
+    return getOptions(KeepGoingOption.class).getKeepGoing();
   }
 
   /** Returns the value of the --loading_phase_threads option. */
   int getLoadingPhaseThreadCount() {
-    return getOptions(LoadingPhaseThreadsOption.class).threads;
+    return getOptions(LoadingPhaseThreadsOption.class).getThreads();
   }
 
   /** Returns the set of execution options specified for this request. */
@@ -418,11 +423,12 @@ public class BuildRequest implements OptionsProvider {
     BuildRequestOptions buildOptions = getBuildOptions();
     return new TopLevelArtifactContext(
         getOptions(ExecutionOptions.class).getTestStrategy().equals("exclusive"),
-        getOptions(BuildEventProtocolOptions.class).expandFilesets,
         OutputGroupInfo.determineOutputGroups(
             buildOptions.getOutputGroups(),
             validationMode(),
-            /* shouldRunTests= */ shouldRunTests()));
+            /* shouldRunTests= */ shouldRunTests()),
+        buildOptions.getIncompatibleFailOnUnknownOutputGroups(),
+        /* forRunCommand= */ commandName.equals("run"));
   }
 
   public ImmutableList<String> getAspects() {

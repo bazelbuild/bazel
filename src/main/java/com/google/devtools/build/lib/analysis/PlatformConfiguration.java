@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformConfigurationApi;
 import com.google.devtools.build.lib.util.RegexFilter;
 import java.util.Collection;
+import java.util.regex.Pattern;
 
 /** A configuration fragment describing the current platform configuration. */
 @ThreadSafety.Immutable
@@ -41,18 +42,19 @@ public class PlatformConfiguration extends Fragment implements PlatformConfigura
   }
 
   public PlatformConfiguration(PlatformOptions platformOptions) {
-    this.hostPlatform = platformOptions.hostPlatform;
-    this.extraExecutionPlatforms = ImmutableList.copyOf(platformOptions.extraExecutionPlatforms);
+    this.hostPlatform = platformOptions.getHostPlatform();
+    this.extraExecutionPlatforms =
+        ImmutableList.copyOf(platformOptions.getExtraExecutionPlatforms());
     this.targetPlatform = platformOptions.computeTargetPlatform();
-    this.extraToolchains = ImmutableList.copyOf(platformOptions.extraToolchains);
-    this.toolchainResolutionDebugRegexFilter = platformOptions.toolchainResolutionDebug;
+    this.extraToolchains = ImmutableList.copyOf(platformOptions.getExtraToolchains());
+    this.toolchainResolutionDebugRegexFilter = platformOptions.getToolchainResolutionDebug();
   }
 
   @Override
   public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
     PlatformOptions platformOptions = buildOptions.get(PlatformOptions.class);
     // TODO(https://github.com/bazelbuild/bazel/issues/6519): Implement true multiplatform builds.
-    if (platformOptions.platforms.size() > 1) {
+    if (platformOptions.getPlatforms().size() > 1) {
       reporter.handle(
           Event.warn(
               String.format(
@@ -117,5 +119,26 @@ public class PlatformConfiguration extends Fragment implements PlatformConfigura
     return labels.stream()
         .map(Label::getCanonicalForm)
         .anyMatch(this.toolchainResolutionDebugRegexFilter);
+  }
+
+  // All characters with special meaning anywhere in a regex (':' for example is only special
+  // within brackets).
+  private static final char[] REGEX_SPECIAL_CHARS = "+.|([{^$?\\*".toCharArray();
+
+  /**
+   * Returns a value for {@code --toolchain_resolution_debug} that matches exactly the given label,
+   * for use in error messages.
+   *
+   * <p>The filter is matched against {@link Label#getCanonicalForm}, so the canonical form is used
+   * even if the label has a shorter display form.
+   */
+  public static String toolchainResolutionDebugFilter(Label label) {
+    String canonicalForm = label.getCanonicalForm();
+    for (char c : REGEX_SPECIAL_CHARS) {
+      if (canonicalForm.indexOf(c) >= 0) {
+        return Pattern.quote(canonicalForm);
+      }
+    }
+    return canonicalForm;
   }
 }

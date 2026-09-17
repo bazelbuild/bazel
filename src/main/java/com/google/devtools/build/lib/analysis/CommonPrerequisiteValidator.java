@@ -69,6 +69,8 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
 
   protected abstract boolean checkVisibilityForExperimental(RuleContext.Builder context);
 
+  protected abstract boolean checkVisibilityForPrototypes(RuleContext.Builder context);
+
   protected abstract boolean allowExperimentalDeps(RuleContext.Builder context);
 
   /**
@@ -177,6 +179,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     }
 
     boolean checkExperimental = checkVisibilityForExperimental(context);
+    boolean checkPrototypes = checkVisibilityForPrototypes(context);
 
     // Normally visibility is validated with respect to the location of the consuming target. But
     // implicit attributes of Starlark-defined rules and aspects get validated primarily with
@@ -213,10 +216,11 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       }
 
       if (!isVisibleToLocation(
-          prerequisite, state.getOwnerDefinitionLocation(), checkExperimental)) {
+          prerequisite, state.getOwnerDefinitionLocation(), checkExperimental, checkPrototypes)) {
         // Failed. Validate with respect to the target anyway, for backwards compatibility.
         // TODO(bazel-team): When can this fallback be removed?
-        if (!isVisibleToConsumer(prerequisite, rule, checkExperimental, state.delegatedThrough)) {
+        if (!isVisibleToConsumer(
+            prerequisite, rule, checkExperimental, checkPrototypes, state.delegatedThrough)) {
           // True failure. In the error message, always suggest making the prerequisite visible from
           // the definition, not the target.
           context.ruleError(generateVisibilityConflictMessage(state));
@@ -224,7 +228,8 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       }
     } else {
       // Normal case: Validate with respect to the target, only.
-      if (!isVisibleToConsumer(prerequisite, rule, checkExperimental, state.delegatedThrough)) {
+      if (!isVisibleToConsumer(
+          prerequisite, rule, checkExperimental, checkPrototypes, state.delegatedThrough)) {
         context.ruleError(generateVisibilityConflictMessage(state));
       }
     }
@@ -253,6 +258,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       ConfiguredTargetAndData prerequisite,
       RuleOrMacroInstance consumer,
       boolean checkExperimental,
+      boolean checkPrototypes,
       List<MacroInstance> delegatedThrough) {
     @Nullable MacroInstance declaringMacro = consumer.getDeclaringMacro();
 
@@ -268,7 +274,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       if (declaringMacroWasGivenPrereqByCaller[0]) {
         delegatedThrough.add(declaringMacro);
         return isVisibleToConsumer(
-            prerequisite, declaringMacro, checkExperimental, delegatedThrough);
+            prerequisite, declaringMacro, checkExperimental, checkPrototypes, delegatedThrough);
       }
     }
 
@@ -278,14 +284,15 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     // Finalizers, in addition to their normal visibility privileges, also get the privileges of the
     // BUILD file of the package they live in.
     if (declaringMacro != null && declaringMacro.getMacroClass().isFinalizer()) {
-      if (isVisibleToLocation(prerequisite, packageOfConsumer, checkExperimental)) {
+      if (isVisibleToLocation(
+          prerequisite, packageOfConsumer, checkExperimental, checkPrototypes)) {
         return true;
       }
     }
 
     PackageIdentifier declaringLocation =
         declaringMacro != null ? declaringMacro.getDefinitionPackage() : packageOfConsumer;
-    return isVisibleToLocation(prerequisite, declaringLocation, checkExperimental);
+    return isVisibleToLocation(prerequisite, declaringLocation, checkExperimental, checkPrototypes);
   }
 
   /**
@@ -293,8 +300,20 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
    * prerequisite}'s visibility provider and the same-logical-package condition.
    */
   private boolean isVisibleToLocation(
-      ConfiguredTargetAndData prerequisite, PackageIdentifier location, boolean checkExperimental) {
+      ConfiguredTargetAndData prerequisite,
+      PackageIdentifier location,
+      boolean checkExperimental,
+      boolean checkPrototypes) {
     if (packageUnderExperimental(location) && !checkExperimental) {
+      return true;
+    }
+
+    // Consider all non-prototypes prerequisites to be visible to the prototypes package.
+    // Prototypes prerequisites go through the normal visibility checks.
+    if (packageUnderPrototypes(location)
+        && !packageUnderPrototypes(
+            prerequisite.getConfiguredTarget().getLabel().getPackageIdentifier())
+        && !checkPrototypes) {
       return true;
     }
 
@@ -397,7 +416,9 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
               consumerOrOwnerLocation.getCanonicalForm());
       if (state.prerequisite.getTargetKind().equals(InputFile.targetKind())) {
         errorMessage +=
-            ". To set the visibility of that source file target, use the exports_files() function";
+            ". To depend on that source file target, either add it to a filegroup() and depend"
+                + " on that filegroup, or else use the exports_files() function to change the"
+                + " source file's visibility";
       }
     } else {
       String dependencyDesc = state.prerequisite.getTargetLabel().getCanonicalForm();
@@ -573,7 +594,8 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
           state.prerequisite,
           m.getDefinitionPackage(),
           // Don't make suggestions based on the experimental loophole.
-          /* checkExperimental= */ true)) {
+          /* checkExperimental= */ true,
+          /* checkPrototypes= */ true)) {
         bullets.add(
             String.format(
                 """
@@ -595,7 +617,8 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     if (isVisibleToLocation(
         state.prerequisite,
         state.consumer.getPackageMetadata().packageIdentifier(),
-        /* checkExperimental= */ true)) {
+        /* checkExperimental= */ true,
+        /* checkPrototypes= */ true)) {
       bullets.add(
           String.format(
               """
@@ -614,11 +637,16 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     bullets.add(
         String.format(
             """
-            If you think the dependency%s is legitimate, consider updating its visibility \
-            declaration%s. For more info see https://bazel.build/concepts/visibility.\
+            If you think the dependency%s is legitimate, consider %s. For more info see \
+            https://bazel.build/concepts/visibility.\
             """,
             isSourceFile ? " on this source file" : "",
-            isSourceFile ? " using exports_files()" : ""));
+            isSourceFile
+                ? """
+                either depending on the file via an appropriate filegroup() target, or updating \
+                the file's visibility using exports_files()\
+                """
+                : "updating its visibility declaration"));
   }
 
   private void validateTransitiveVisibility(
@@ -636,10 +664,10 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       return;
     }
 
-    for (PackageSpecificationProvider transitiveVisibilityDeclaration :
+    for (TransitiveVisibilityProvider.Requirement requirement :
         tvProvider.getTransitiveVisibility()) {
       if (!Allowlist.isAvailableFor(
-          transitiveVisibilityDeclaration.getPackageSpecifications(),
+          requirement.getAllowedPackages().getPackageSpecifications(),
           contextBuilder.getRule().getLabel())) {
         contextBuilder.attributeError(
             attribute.getName(),

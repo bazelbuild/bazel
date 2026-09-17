@@ -17,7 +17,6 @@
 # Test of client/server SIGINT handling.  This test proves that the server
 # gracefully handles SIGINT.
 
-NO_SIGNAL_OVERRIDE=1
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \

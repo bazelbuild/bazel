@@ -123,24 +123,38 @@ public class SharedConnectionFactory implements ConnectionPool {
    */
   @Override
   public Single<SharedConnection> create() {
-    return tokenBucket
-        .acquireToken()
-        .flatMap(
-            token ->
-                acquireConnection()
-                    .doOnError(ignored -> tokenBucket.addToken(token))
-                    .doOnDispose(() -> tokenBucket.addToken(token))
-                    .map(
-                        conn ->
-                            new SharedConnection(
-                                conn,
-                                /* onClose= */ () -> tokenBucket.addToken(token),
-                                fatalErrorPredicate,
-                                /* onFatalError= */ () -> {
-                                  synchronized (this) {
-                                    connectionAsyncSubject = null;
-                                  }
-                                })));
+    return tokenBucket.acquireToken().flatMap(this::createWithToken);
+  }
+
+  /**
+   * Non-blocking variant of {@link #create()} that eagerly reserves a permit, returning {@code
+   * null} if the connection is at capacity. The returned {@link Single} must be subscribed, or the
+   * reserved permit leaks.
+   */
+  @Nullable
+  Single<SharedConnection> tryCreate() {
+    Integer token = tokenBucket.tryAcquireToken();
+    if (token == null) {
+      return null;
+    }
+    return Single.defer(() -> createWithToken(token));
+  }
+
+  private Single<SharedConnection> createWithToken(int token) {
+    return acquireConnection()
+        .doOnError(ignored -> tokenBucket.addToken(token))
+        .doOnDispose(() -> tokenBucket.addToken(token))
+        .map(
+            conn ->
+                new SharedConnection(
+                    conn,
+                    /* onClose= */ () -> tokenBucket.addToken(token),
+                    fatalErrorPredicate,
+                    /* onFatalError= */ () -> {
+                      synchronized (this) {
+                        connectionAsyncSubject = null;
+                      }
+                    }));
   }
 
   /** Returns current number of available connections. */

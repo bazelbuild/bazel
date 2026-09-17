@@ -80,7 +80,7 @@ public final class CqueryCommand implements BlazeCommand {
   public void editOptions(OptionsParser optionsParser) {
     CqueryOptions cqueryOptions = optionsParser.getOptions(CqueryOptions.class);
     try {
-      if (!cqueryOptions.transitions.equals(CqueryOptions.Transitions.NONE)) {
+      if (!cqueryOptions.getTransitions().equals(CqueryOptions.Transitions.NONE)) {
         optionsParser.parse(
             PriorityCategory.COMPUTED_DEFAULT,
             "Option required by setting the --transitions flag",
@@ -99,13 +99,13 @@ public final class CqueryCommand implements BlazeCommand {
           // https://github.com/bazelbuild/bazel/issues/11078
           "cquery should not exclude test_suite rules",
           ImmutableList.of("--noexpand_test_suites"));
-      if (cqueryOptions.showRequiredConfigFragments != IncludeConfigFragmentsEnum.OFF) {
+      if (cqueryOptions.getShowRequiredConfigFragments() != IncludeConfigFragmentsEnum.OFF) {
         optionsParser.parse(
             PriorityCategory.COMPUTED_DEFAULT,
             "Options required by cquery's --show_config_fragments flag",
             ImmutableList.of(
                 "--include_config_fragments_provider="
-                    + cqueryOptions.showRequiredConfigFragments));
+                    + cqueryOptions.getShowRequiredConfigFragments()));
       }
       optionsParser.parse(
           PriorityCategory.SOFTWARE_REQUIREMENT,
@@ -123,8 +123,8 @@ public final class CqueryCommand implements BlazeCommand {
       RepositoryMapping repoMapping =
           env.getSkyframeExecutor()
               .getMainRepoMapping(
-                  env.getOptions().getOptions(KeepGoingOption.class).keepGoing,
-                  env.getOptions().getOptions(LoadingPhaseThreadsOption.class).threads,
+                  env.getOptions().getOptions(KeepGoingOption.class).getKeepGoing(),
+                  env.getOptions().getOptions(LoadingPhaseThreadsOption.class).getThreads(),
                   env.getReporter());
       mainRepoTargetParser =
           new Parser(env.getRelativeWorkingDirectory(), RepositoryName.MAIN, repoMapping);
@@ -165,7 +165,7 @@ public final class CqueryCommand implements BlazeCommand {
       return createFailureResult(message, Code.EXPRESSION_PARSE_FAILURE);
     }
 
-    List<String> topLevelTargets = options.getOptions(CqueryOptions.class).universeScope;
+    List<String> topLevelTargets = options.getOptions(CqueryOptions.class).getUniverseScope();
     LinkedHashSet<String> targetPatternSet = new LinkedHashSet<>();
     ImmutableList<String> targetsForProjectResolution = null;
     if (topLevelTargets.isEmpty()) {

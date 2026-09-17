@@ -20,10 +20,12 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
 
 /** Defines the --loading_phase_threads option which is used by multiple commands. */
-public class LoadingPhaseThreadsOption extends OptionsBase {
+@OptionsClass
+public abstract class LoadingPhaseThreadsOption extends OptionsBase {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -39,7 +41,7 @@ public class LoadingPhaseThreadsOption extends OptionsBase {
               + ResourceConverter.FLAG_SYNTAX
               + ". \"auto\" sets a reasonable default based on "
               + "host resources. Must be at least 1.")
-  public int threads;
+  public abstract int getThreads();
 
   /**
    * A converter for loading phase thread count. Takes {@value FLAG_SYNTAX}. Caps at 20 for tests.

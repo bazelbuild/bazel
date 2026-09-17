@@ -72,6 +72,11 @@ public class FunctionExpression extends QueryExpression {
   }
 
   @Override
+  public boolean isSomePathFunction() {
+    return function.getName().equals("somepath");
+  }
+
+  @Override
   public String toString() {
     return function.getName()
         + "("

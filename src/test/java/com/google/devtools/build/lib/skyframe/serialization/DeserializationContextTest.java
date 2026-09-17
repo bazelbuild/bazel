@@ -18,13 +18,14 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationStrategy;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationTiming;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -32,6 +33,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mockito;
 
 /** Tests for {@link DeserializationContext}. */
 @RunWith(TestParameterInjector.class)
@@ -41,7 +43,7 @@ public final class DeserializationContextTest {
   public void nullDeserialize(@TestParameter boolean useLeaf) throws Exception {
     ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);
     CodedInputStream codedInputStream = mock(CodedInputStream.class);
-    when(codedInputStream.readSInt32()).thenReturn(0);
+    when(codedInputStream.readRawVarint32()).thenReturn(0);
     DeserializationContext deserializationContext =
         new ImmutableDeserializationContext(registry, ImmutableClassToInstanceMap.of());
     if (useLeaf) {
@@ -52,7 +54,7 @@ public final class DeserializationContextTest {
     } else {
       assertThat((Object) deserializationContext.deserialize(codedInputStream)).isNull();
     }
-    verify(codedInputStream).readSInt32();
+    verify(codedInputStream).readRawVarint32();
     verifyNoInteractions(registry);
   }
 
@@ -60,9 +62,11 @@ public final class DeserializationContextTest {
   public void constantDeserialize(@TestParameter boolean useLeaf) throws Exception {
     ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);
     String constant = "abcdef";
-    when(registry.maybeGetConstantByTag(1)).thenReturn(constant);
+    when(registry.maybeGetConstantByTag(WireType.CodecWireType.UNSTABLE.getTypedTagNumber(1)))
+        .thenReturn(constant);
     CodedInputStream codedInputStream = mock(CodedInputStream.class);
-    when(codedInputStream.readSInt32()).thenReturn(1);
+    when(codedInputStream.readRawVarint32())
+        .thenReturn(WireType.CodecWireType.UNSTABLE.getTypedTagNumber(1));
     DeserializationContext deserializationContext =
         new ImmutableDeserializationContext(registry, ImmutableClassToInstanceMap.of());
     if (useLeaf) {
@@ -74,8 +78,8 @@ public final class DeserializationContextTest {
       assertThat((Object) deserializationContext.deserialize(codedInputStream))
           .isSameInstanceAs(constant);
     }
-    verify(codedInputStream).readSInt32();
-    verify(registry).maybeGetConstantByTag(1);
+    verify(codedInputStream).readRawVarint32();
+    verify(registry).maybeGetConstantByTag(WireType.CodecWireType.UNSTABLE.getTypedTagNumber(1));
   }
 
   private static final class LeafCodecForCastingOnly extends LeafObjectCodec<String> {
@@ -108,12 +112,12 @@ public final class DeserializationContextTest {
     ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);
     CodedInputStream codedInputStream = mock(CodedInputStream.class);
     ObjectCodecs codecs = new ObjectCodecs(registry, ImmutableClassToInstanceMap.of());
-    when(codedInputStream.readSInt32()).thenReturn(0);
+    when(codedInputStream.readRawVarint32()).thenReturn(0);
     assertThat(
             (Object)
                 codecs.getMemoizingDeserializationContextForTesting().deserialize(codedInputStream))
         .isEqualTo(null);
-    verify(codedInputStream).readSInt32();
+    verify(codedInputStream).readRawVarint32();
     verifyNoInteractions(registry);
   }
 
@@ -121,40 +125,45 @@ public final class DeserializationContextTest {
   public void memoizingDeserialize_constant() throws SerializationException, IOException {
     Object constant = new Object();
     ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);
-    when(registry.maybeGetConstantByTag(1)).thenReturn(constant);
+    when(registry.maybeGetConstantByTag(WireType.CodecWireType.UNSTABLE.getTypedTagNumber(1)))
+        .thenReturn(constant);
     CodedInputStream codedInputStream = mock(CodedInputStream.class);
     ObjectCodecs codecs = new ObjectCodecs(registry, ImmutableClassToInstanceMap.of());
-    when(codedInputStream.readSInt32()).thenReturn(1);
+    when(codedInputStream.readRawVarint32())
+        .thenReturn(WireType.CodecWireType.UNSTABLE.getTypedTagNumber(1));
     assertThat(
             (Object)
                 codecs.getMemoizingDeserializationContextForTesting().deserialize(codedInputStream))
         .isEqualTo(constant);
-    verify(codedInputStream).readSInt32();
-    verify(registry).maybeGetConstantByTag(1);
+    verify(codedInputStream).readRawVarint32();
+    verify(registry).maybeGetConstantByTag(WireType.CodecWireType.UNSTABLE.getTypedTagNumber(1));
   }
 
   @Test
   public void memoizingDeserialize_codec() throws SerializationException, IOException {
     Object returned = new Object();
-    @SuppressWarnings("unchecked")
-    ObjectCodec<Object> codec = mock(ObjectCodec.class);
-    when(codec.getStrategy()).thenReturn(MemoizationStrategy.MEMOIZE_AFTER);
+    ObjectCodec<Object> codec = Mockito.<ObjectCodec<Object>>mock();
+    when(codec.getMemoizationTiming()).thenReturn(MemoizationTiming.AFTER);
     when(codec.getEncodedClass()).thenAnswer(unused -> Object.class);
     when(codec.additionalEncodedClasses()).thenReturn(ImmutableSet.of());
     when(codec.safeCast(any())).thenAnswer(invocation -> invocation.getArgument(0));
     ObjectCodecRegistry.CodecDescriptor codecDescriptor =
-        new ObjectCodecRegistry.CodecDescriptor(/* tag= */ 1, codec);
+        new ObjectCodecRegistry.CodecDescriptor(
+            WireType.CodecWireType.UNSTABLE, /* tag= */ 1, codec);
     ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);
-    when(registry.getCodecDescriptorByTag(1)).thenReturn(codecDescriptor);
+    when(registry.getCodecDescriptorByTag(WireType.CodecWireType.UNSTABLE.getTypedTagNumber(1)))
+        .thenReturn(codecDescriptor);
     CodedInputStream codedInputStream = mock(CodedInputStream.class);
     DeserializationContext deserializationContext =
         new ObjectCodecs(registry).getMemoizingDeserializationContextForTesting();
     when(codec.deserialize(deserializationContext, codedInputStream)).thenReturn(returned);
-    when(codedInputStream.readSInt32()).thenReturn(1);
+    when(codedInputStream.readRawVarint32())
+        .thenReturn(WireType.CodecWireType.UNSTABLE.getTypedTagNumber(1))
+        .thenReturn(WireType.Backreference.INSTANCE.getTypedTagNumber(2));
     assertThat((Object) deserializationContext.deserialize(codedInputStream)).isEqualTo(returned);
-    verify(codedInputStream).readSInt32();
-    verify(registry).maybeGetConstantByTag(1);
-    verify(registry).getCodecDescriptorByTag(1);
+    verify(codedInputStream, times(2)).readRawVarint32();
+    verify(registry).maybeGetConstantByTag(WireType.CodecWireType.UNSTABLE.getTypedTagNumber(1));
+    verify(registry).getCodecDescriptorByTag(WireType.CodecWireType.UNSTABLE.getTypedTagNumber(1));
     verify(codec).deserialize(deserializationContext, codedInputStream);
   }
 
@@ -210,5 +219,162 @@ public final class DeserializationContextTest {
             .withDependencyOverridesForTesting(ImmutableClassToInstanceMap.of(Integer.class, 1))
             .getDeserializationContextForTesting();
     assertThat(overridden.getDependency(String.class)).isEqualTo("abc");
+  }
+
+  @Test
+  public void constantDeserialize_stablePublic(@TestParameter boolean useLeaf) throws Exception {
+    ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);
+    String constant = "abcdef";
+    when(registry.maybeGetConstantByTag(
+            WireType.ConstantWireType.STABLE_PUBLIC.getTypedTagNumber(1)))
+        .thenReturn(constant);
+    CodedInputStream codedInputStream = mock(CodedInputStream.class);
+    when(codedInputStream.readRawVarint32())
+        .thenReturn(WireType.ConstantWireType.STABLE_PUBLIC.getTypedTagNumber(1));
+    DeserializationContext deserializationContext =
+        new ImmutableDeserializationContext(registry, ImmutableClassToInstanceMap.of());
+    if (useLeaf) {
+      assertThat(
+              deserializationContext.deserializeLeaf(
+                  codedInputStream, LeafCodecForCastingOnly.INSTANCE))
+          .isSameInstanceAs(constant);
+    } else {
+      assertThat((Object) deserializationContext.deserialize(codedInputStream))
+          .isSameInstanceAs(constant);
+    }
+    verify(codedInputStream).readRawVarint32();
+    verify(registry)
+        .maybeGetConstantByTag(WireType.ConstantWireType.STABLE_PUBLIC.getTypedTagNumber(1));
+  }
+
+  @Test
+  public void constantDeserialize_stablePrivate(@TestParameter boolean useLeaf) throws Exception {
+    ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);
+    String constant = "abcdef";
+    when(registry.maybeGetConstantByTag(
+            WireType.ConstantWireType.STABLE_PRIVATE.getTypedTagNumber(1)))
+        .thenReturn(constant);
+    CodedInputStream codedInputStream = mock(CodedInputStream.class);
+    when(codedInputStream.readRawVarint32())
+        .thenReturn(WireType.ConstantWireType.STABLE_PRIVATE.getTypedTagNumber(1));
+    DeserializationContext deserializationContext =
+        new ImmutableDeserializationContext(registry, ImmutableClassToInstanceMap.of());
+    if (useLeaf) {
+      assertThat(
+              deserializationContext.deserializeLeaf(
+                  codedInputStream, LeafCodecForCastingOnly.INSTANCE))
+          .isSameInstanceAs(constant);
+    } else {
+      assertThat((Object) deserializationContext.deserialize(codedInputStream))
+          .isSameInstanceAs(constant);
+    }
+    verify(codedInputStream).readRawVarint32();
+    verify(registry)
+        .maybeGetConstantByTag(WireType.ConstantWireType.STABLE_PRIVATE.getTypedTagNumber(1));
+  }
+
+  @Test
+  public void memoizingDeserialize_constant_stablePublic()
+      throws SerializationException, IOException {
+    Object constant = new Object();
+    ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);
+    when(registry.maybeGetConstantByTag(
+            WireType.ConstantWireType.STABLE_PUBLIC.getTypedTagNumber(1)))
+        .thenReturn(constant);
+    CodedInputStream codedInputStream = mock(CodedInputStream.class);
+    ObjectCodecs codecs = new ObjectCodecs(registry, ImmutableClassToInstanceMap.of());
+    when(codedInputStream.readRawVarint32())
+        .thenReturn(WireType.ConstantWireType.STABLE_PUBLIC.getTypedTagNumber(1));
+    assertThat(
+            (Object)
+                codecs.getMemoizingDeserializationContextForTesting().deserialize(codedInputStream))
+        .isEqualTo(constant);
+    verify(codedInputStream).readRawVarint32();
+    verify(registry)
+        .maybeGetConstantByTag(WireType.ConstantWireType.STABLE_PUBLIC.getTypedTagNumber(1));
+  }
+
+  @Test
+  public void memoizingDeserialize_constant_stablePrivate()
+      throws SerializationException, IOException {
+    Object constant = new Object();
+    ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);
+    when(registry.maybeGetConstantByTag(
+            WireType.ConstantWireType.STABLE_PRIVATE.getTypedTagNumber(1)))
+        .thenReturn(constant);
+    CodedInputStream codedInputStream = mock(CodedInputStream.class);
+    ObjectCodecs codecs = new ObjectCodecs(registry, ImmutableClassToInstanceMap.of());
+    when(codedInputStream.readRawVarint32())
+        .thenReturn(WireType.ConstantWireType.STABLE_PRIVATE.getTypedTagNumber(1));
+    assertThat(
+            (Object)
+                codecs.getMemoizingDeserializationContextForTesting().deserialize(codedInputStream))
+        .isEqualTo(constant);
+    verify(codedInputStream).readRawVarint32();
+    verify(registry)
+        .maybeGetConstantByTag(WireType.ConstantWireType.STABLE_PRIVATE.getTypedTagNumber(1));
+  }
+
+  @Test
+  public void memoizingDeserialize_codec_stablePublic() throws SerializationException, IOException {
+    Object returned = new Object();
+    ObjectCodec<Object> codec = Mockito.<ObjectCodec<Object>>mock();
+    when(codec.getMemoizationTiming()).thenReturn(MemoizationTiming.AFTER);
+    when(codec.getEncodedClass()).thenAnswer(unused -> Object.class);
+    when(codec.additionalEncodedClasses()).thenReturn(ImmutableSet.of());
+    when(codec.safeCast(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    ObjectCodecRegistry.CodecDescriptor codecDescriptor =
+        new ObjectCodecRegistry.CodecDescriptor(
+            WireType.CodecWireType.STABLE_PUBLIC, /* tag= */ 1, codec);
+    ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);
+    when(registry.getCodecDescriptorByTag(
+            WireType.CodecWireType.STABLE_PUBLIC.getTypedTagNumber(1)))
+        .thenReturn(codecDescriptor);
+    CodedInputStream codedInputStream = mock(CodedInputStream.class);
+    DeserializationContext deserializationContext =
+        new ObjectCodecs(registry).getMemoizingDeserializationContextForTesting();
+    when(codec.deserialize(deserializationContext, codedInputStream)).thenReturn(returned);
+    when(codedInputStream.readRawVarint32())
+        .thenReturn(WireType.CodecWireType.STABLE_PUBLIC.getTypedTagNumber(1))
+        .thenReturn(WireType.Backreference.INSTANCE.getTypedTagNumber(2));
+    assertThat((Object) deserializationContext.deserialize(codedInputStream)).isEqualTo(returned);
+    verify(codedInputStream, times(2)).readRawVarint32();
+    verify(registry)
+        .maybeGetConstantByTag(WireType.CodecWireType.STABLE_PUBLIC.getTypedTagNumber(1));
+    verify(registry)
+        .getCodecDescriptorByTag(WireType.CodecWireType.STABLE_PUBLIC.getTypedTagNumber(1));
+    verify(codec).deserialize(deserializationContext, codedInputStream);
+  }
+
+  @Test
+  public void memoizingDeserialize_codec_stablePrivate()
+      throws SerializationException, IOException {
+    Object returned = new Object();
+    ObjectCodec<Object> codec = Mockito.<ObjectCodec<Object>>mock();
+    when(codec.getMemoizationTiming()).thenReturn(MemoizationTiming.AFTER);
+    when(codec.getEncodedClass()).thenAnswer(unused -> Object.class);
+    when(codec.additionalEncodedClasses()).thenReturn(ImmutableSet.of());
+    when(codec.safeCast(any())).thenAnswer(invocation -> invocation.getArgument(0));
+    ObjectCodecRegistry.CodecDescriptor codecDescriptor =
+        new ObjectCodecRegistry.CodecDescriptor(
+            WireType.CodecWireType.STABLE_PRIVATE, /* tag= */ 1, codec);
+    ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);
+    when(registry.getCodecDescriptorByTag(
+            WireType.CodecWireType.STABLE_PRIVATE.getTypedTagNumber(1)))
+        .thenReturn(codecDescriptor);
+    CodedInputStream codedInputStream = mock(CodedInputStream.class);
+    DeserializationContext deserializationContext =
+        new ObjectCodecs(registry).getMemoizingDeserializationContextForTesting();
+    when(codec.deserialize(deserializationContext, codedInputStream)).thenReturn(returned);
+    when(codedInputStream.readRawVarint32())
+        .thenReturn(WireType.CodecWireType.STABLE_PRIVATE.getTypedTagNumber(1))
+        .thenReturn(WireType.Backreference.INSTANCE.getTypedTagNumber(2));
+    assertThat((Object) deserializationContext.deserialize(codedInputStream)).isEqualTo(returned);
+    verify(codedInputStream, times(2)).readRawVarint32();
+    verify(registry)
+        .maybeGetConstantByTag(WireType.CodecWireType.STABLE_PRIVATE.getTypedTagNumber(1));
+    verify(registry)
+        .getCodecDescriptorByTag(WireType.CodecWireType.STABLE_PRIVATE.getTypedTagNumber(1));
+    verify(codec).deserialize(deserializationContext, codedInputStream);
   }
 }

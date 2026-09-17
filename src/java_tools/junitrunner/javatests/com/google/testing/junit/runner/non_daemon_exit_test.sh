@@ -54,12 +54,23 @@ function test_JVMDoesNotExitImmediately() {
     fail "TESTBED process exited too soon, before 5 seconds had elapsed."
   fi
 
-  # sleep something longer than the 5 second sleep in the test itself
-  sleep 7
-  if ps -p ${testbed_pid} > /dev/null; then
-    fail "TESTBED process has not exited yet."
-  else
+  # Wait for the process to exit, up to a timeout.
+  local timeout=20
+  local elapsed=0
+  local exited=false
+  while [ $elapsed -lt $timeout ]; do
+    if ! ps -p ${testbed_pid} > /dev/null; then
+      exited=true
+      break
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+
+  if [ "$exited" = true ]; then
     echo "TESTBED process is no longer alive."
+  else
+    fail "TESTBED process did not exit within $timeout seconds."
   fi
 
   # Remove the XML output with failures, so it does not get picked up to

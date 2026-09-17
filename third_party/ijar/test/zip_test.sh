@@ -240,11 +240,38 @@ function test_unzipper_zip64_archive() {
   "${ZIPPER}" x zip.zip -d unzipped
 
   diff -r unzipped source
+  rm -rf "${test_dir}"
 }
 
 function test_zipper_file_large_than_2G() {
-  dd if=/dev/zero of=${TEST_TMPDIR}/file_2064M.bin bs=16M count=129
-  $ZIPPER c ${TEST_TMPDIR}/output.zip ${TEST_TMPDIR}/file_2064M.bin
+  local -r test_dir="${TEST_TMPDIR}/${FUNCNAME[0]}"
+  mkdir -p "${test_dir}"
+  (
+    cd "${test_dir}"
+    local -r mb=$((2 ** 20))
+    /bin/dd if=/dev/zero of=file_2064M.bin bs="${mb}" count=2064 conv=sparse \
+        >& "${TEST_log}"
+    "${ZIPPER}" c output.zip file_2064M.bin
+    "${ZIPPER}" x output.zip -d unzipped
+    diff -r unzipped/file_2064M.bin file_2064M.bin
+  )
+  rm -rf "${test_dir}"
+}
+
+function test_zipper_output_larger_than_4G() {
+  local -r test_dir="${TEST_TMPDIR}/${FUNCNAME[0]}"
+  mkdir -p "${test_dir}"
+  (
+    cd "${test_dir}"
+    local -r mb=$((2 ** 20))
+    /bin/dd if=/dev/zero of=file_4097M.bin bs="${mb}" count=4097 conv=sparse \
+        >& "${TEST_log}"
+    ! "${ZIPPER}" c output.zip file_4097M.bin >& "${TEST_log}" \
+        || fail "zipper should fail when output exceeds 4GB"
+    grep -q "exceeds the maximum supported output size" "${TEST_log}" \
+        || fail "expected 'exceeds the maximum supported output size' message"
+  )
+  rm -rf "${test_dir}"
 }
 
 function test_no_path_traversal() {

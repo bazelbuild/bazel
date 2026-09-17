@@ -10,7 +10,7 @@ Macros are mainly used for encapsulation and code reuse of existing rules and
 other macros.
 
 Macros come in two flavors: symbolic macros, which are described on this page,
-and [legacy macros](legacy-macros.md). Where possible, we recommend using
+and [legacy macros](/versions/8.3.1/extending/legacy-macros). Where possible, we recommend using
 symbolic macros for code clarity.
 
 Symbolic macros offer typed arguments (string to label conversion, relative to
@@ -31,8 +31,7 @@ two required parameters: `attrs` and `implementation`.
 
 ### Attributes {#attributes}
 
-`attrs` accepts a dictionary of attribute name to [attribute
-types](https://bazel.build/rules/lib/toplevel/attr#members), which represents
+`attrs` accepts a dictionary of attribute name to [attribute types](https://bazel.build/versions/8.3.1/rules/lib/toplevel/attr#members), which represents
 the arguments to the macro. Two common attributes – `name` and `visibility` –
 are implicitly added to all macros and are not included in the dictionary passed
 to `attrs`.
@@ -66,9 +65,7 @@ To support this pattern, a macro can *inherit attributes* from a rule or another
 macro by passing the [rule](https://bazel.build/versions/8.3.1/rules/lib/builtins/rule) or
 [macro symbol](https://bazel.build/versions/8.3.1/rules/lib/builtins/macro) to `macro()`'s
 `inherit_attrs` argument. (You can also use the special string `"common"`
-instead of a rule or macro symbol to inherit the [common attributes defined for
-all Starlark build
-rules](https://bazel.build/reference/be/common-definitions#common-attributes).)
+instead of a rule or macro symbol to inherit the [common attributes defined for all Starlark build rules](https://bazel.build/versions/8.3.1/reference/be/common-definitions#common-attributes).)
 Only public attributes get inherited, and the attributes in the macro's own
 `attrs` dictionary override inherited attributes with the same name. You can
 also *remove* inherited attributes by using `None` as a value in the `attrs`

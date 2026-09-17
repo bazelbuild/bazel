@@ -27,12 +27,15 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.TriState;
 import java.util.HashSet;
 import java.util.List;
 
 /** Command-line UI options. */
-public class UiOptions extends OptionsBase {
+@OptionsClass
+public abstract class UiOptions extends OptionsBase {
 
   /** Enum to select whether color output is enabled or not. */
   public enum UseColor {
@@ -135,7 +138,9 @@ public class UiOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Display progress messages during a build.")
-  public boolean showProgress;
+  public abstract boolean getShowProgress();
+
+  public abstract void setShowProgress(boolean value);
 
   @Option(
       name = "show_progress_rate_limit",
@@ -143,7 +148,9 @@ public class UiOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Minimum number of seconds between progress messages in the output.")
-  public double showProgressRateLimit;
+  public abstract double getShowProgressRateLimit();
+
+  public abstract void setShowProgressRateLimit(double value);
 
   @Option(
       name = "color",
@@ -152,7 +159,9 @@ public class UiOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Use terminal controls to colorize output.")
-  public UseColor useColorEnum;
+  public abstract UseColor getUseColorEnum();
+
+  public abstract void setUseColorEnum(UseColor value);
 
   @Option(
       name = "curses",
@@ -161,7 +170,9 @@ public class UiOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Use terminal cursor controls to minimize scrolling output.")
-  public UseCurses useCursesEnum;
+  public abstract UseCurses getUseCursesEnum();
+
+  public abstract void setUseCursesEnum(UseCurses value);
 
   @Option(
       name = "terminal_columns",
@@ -170,7 +181,7 @@ public class UiOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "A system-generated parameter which specifies the terminal width in columns.")
-  public int terminalColumns;
+  public abstract int getTerminalColumns();
 
   @Option(
       name = "isatty",
@@ -183,7 +194,9 @@ public class UiOptions extends OptionsBase {
               + "server whether this client is running in a terminal. "
               + "If this is set to false, then '--color=auto' will be treated as '--color=no'. "
               + "If this is set to true, then '--color=auto' will be treated as '--color=yes'.")
-  public boolean isATty;
+  public abstract boolean getIsATty();
+
+  public abstract void setIsATty(boolean value);
 
   // This lives here (as opposed to the more logical BuildRequest.Options)
   // because the client passes it to the server *always*.  We don't want the
@@ -197,7 +210,7 @@ public class UiOptions extends OptionsBase {
           "A system-generated parameter which is true iff EMACS=t or INSIDE_EMACS is set "
               + "in the environment of the client.  This option controls certain display "
               + "features.")
-  public boolean runningInEmacs;
+  public abstract boolean getRunningInEmacs();
 
   @Option(
       name = "show_timestamps",
@@ -205,7 +218,7 @@ public class UiOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Include timestamps in messages")
-  public boolean showTimestamp;
+  public abstract boolean getShowTimestamp();
 
   @Option(
       name = "progress_in_terminal_title",
@@ -215,7 +228,7 @@ public class UiOptions extends OptionsBase {
       help =
           "Show the command progress in the terminal title. "
               + "Useful to see what bazel is doing when having multiple terminal tabs.")
-  public boolean progressInTermTitle;
+  public abstract boolean getProgressInTermTitle();
 
   @Option(
       name = "attempt_to_print_relative_paths",
@@ -226,7 +239,7 @@ public class UiOptions extends OptionsBase {
       help =
           "When printing the location part of messages, attempt to use a path relative to the "
               + "workspace directory or one of the directories specified by --package_path.")
-  public boolean attemptToPrintRelativePaths;
+  public abstract boolean getAttemptToPrintRelativePaths();
 
   @Option(
       name = "experimental_ui_debug_all_events",
@@ -235,7 +248,7 @@ public class UiOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Report all events known to the Bazel UI.")
-  public boolean experimentalUiDebugAllEvents;
+  public abstract boolean getExperimentalUiDebugAllEvents();
 
   @Option(
       name = "ui_event_filters",
@@ -249,7 +262,9 @@ public class UiOptions extends OptionsBase {
               + "set completely with direct assignment. The set of supported event kinds "
               + "include INFO, DEBUG, ERROR and more.",
       allowMultiple = true)
-  public List<EventFiltersConverter.EventKindFilters> eventKindFilters;
+  public abstract List<EventFiltersConverter.EventKindFilters> getEventKindFilters();
+
+  public abstract void setEventKindFilters(List<EventFiltersConverter.EventKindFilters> value);
 
   @Option(
       name = "ui_actions_shown",
@@ -261,7 +276,9 @@ public class UiOptions extends OptionsBase {
           "Number of concurrent actions shown in the detailed progress bar; each "
               + "action is shown on a separate line. The progress bar always shows "
               + "at least one one, all numbers less than 1 are mapped to 1.")
-  public int uiActionsShown;
+  public abstract int getUiActionsShown();
+
+  public abstract void setUiActionsShown(int value);
 
   @Option(
       name = "experimental_ui_max_stdouterr_bytes",
@@ -272,19 +289,37 @@ public class UiOptions extends OptionsBase {
       help =
           "The maximum size of the stdout / stderr files that will be printed to the console. "
               + "-1 implies no limit.")
-  public int maxStdoutErrBytes;
+  public abstract int getMaxStdoutErrBytes();
+
+  @Option(
+      name = "terminal_hyperlinks",
+      defaultValue = "no",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "If true (or auto with color enabled and a tty), format terminal file paths, test"
+              + " logs, and build results URLs as clickable OSC 8 hyperlinks.")
+  public abstract TriState getTerminalHyperlinks();
+
+  public abstract void setTerminalHyperlinks(TriState value);
+
+  public boolean useHyperlinks() {
+    return getTerminalHyperlinks() == TriState.YES
+        || (getTerminalHyperlinks() == TriState.AUTO && useColor() && getIsATty());
+  }
 
   public boolean useColor() {
-    return useColorEnum == UseColor.YES || (useColorEnum == UseColor.AUTO && isATty);
+    return getUseColorEnum() == UseColor.YES || (getUseColorEnum() == UseColor.AUTO && getIsATty());
   }
 
   public boolean useCursorControl() {
-    return useCursesEnum == UseCurses.YES || (useCursesEnum == UseCurses.AUTO && isATty);
+    return getUseCursesEnum() == UseCurses.YES
+        || (getUseCursesEnum() == UseCurses.AUTO && getIsATty());
   }
 
   public ImmutableSet<EventKind> getFilteredEventKinds() {
     HashSet<EventKind> filtered = new HashSet<>();
-    for (EventFiltersConverter.EventKindFilters filters : eventKindFilters) {
+    for (EventFiltersConverter.EventKindFilters filters : getEventKindFilters()) {
       filtered.addAll(filters.filteredEventKinds());
       filtered.removeAll(filters.unfilteredEventKinds());
     }

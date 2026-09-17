@@ -36,10 +36,13 @@ public final class DumpCommandTest extends BuildIntegrationTestCase {
   private RecordingOutErr recordingOutErr;
 
   @Before
-  public void createDispatcher() {
+  public void createDispatcher() throws Exception {
     BlazeRuntime runtime = getRuntime();
     runtime.getCommandMap().put("dump", new DumpCommand());
     dispatcher = new BlazeCommandDispatcher(runtime);
+    write("foo/BUILD", "genrule(name = 'foo', outs = ['out'], cmd = 'touch $@')");
+    addOptions("--nobuild");
+    buildTarget("//foo:foo");
   }
 
   @Before
@@ -62,9 +65,6 @@ public final class DumpCommandTest extends BuildIntegrationTestCase {
 
   @Test
   public void multiOptionSmoke() throws Exception {
-    write("foo/BUILD", "genrule(name = 'foo', outs = ['out'], cmd = 'touch $@')");
-    addOptions("--nobuild");
-    buildTarget("//foo:foo");
     assertThat(dump("--rule_classes", "--rules", "--skyframe", "summary").isSuccess()).isTrue();
     assertThat(recordingOutErr.outAsLatin1()).contains("filegroup");
     assertThat(recordingOutErr.outAsLatin1()).contains("RULE");

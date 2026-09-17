@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -68,7 +69,8 @@ public class ShellConfiguration extends Fragment {
   }
 
   /** An option that tells Bazel where the shell is. */
-  public static class Options extends FragmentOptions {
+  @OptionsClass
+  public abstract static class Options extends FragmentOptions {
     @Option(
         name = "shell_executable",
         converter = PathFragmentConverter.class,
@@ -82,12 +84,14 @@ public class ShellConfiguration extends Fragment {
             up a Bazel server), Bazel uses that. If neither is set, Bazel uses a hard-coded
             default path depending on the operating system it runs on;
             - Windows: `c:/msys64/usr/bin/bash.exe`
-            - FreeBSD: `/usr/local/bin/bash`
+            - FreeBSD and OpenBSD: `/usr/local/bin/bash`
             - All others: `/bin/bash`.
 
             Note that using a shell that is not compatible with `bash` may lead
             to build failures or runtime failures of the generated binaries.
             """)
-    public PathFragment shellExecutable;
+    public abstract PathFragment getShellExecutable();
+
+    public abstract void setShellExecutable(PathFragment value);
   }
 }

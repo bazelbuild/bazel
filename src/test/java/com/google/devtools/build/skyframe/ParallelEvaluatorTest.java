@@ -24,12 +24,14 @@ import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.
 import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -40,9 +42,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.EventBus;
 import com.google.common.testing.GcFinalization;
 import com.google.common.util.concurrent.AtomicLongMap;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Reportable;
@@ -64,7 +65,6 @@ import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporaryStateDropper;
 import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporaryStateDropperReceiver;
-import com.google.devtools.build.skyframe.GraphTester.SkipBatchPrefetchKey;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
@@ -2580,7 +2580,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(grandparentKey).addDependency(parentKey2);
 
     ErrorInfo errorInfo = evalValueInError(grandparentKey);
-    List<ImmutableList<SkyKey>> cycles = Lists.newArrayList();
+    List<ImmutableList<SkyKey>> cycles = new ArrayList<>();
     for (CycleInfo cycleInfo : errorInfo.getCycleInfo()) {
       cycles.add(cycleInfo.getCycle());
     }
@@ -2620,7 +2620,7 @@ public class ParallelEvaluatorTest {
 
     ExtendedEventHandler reporter =
         new Reporter(
-            new EventBus(),
+            EventBusEventHandler.createWithNewEventBus(),
             e -> {
               throw new IllegalStateException();
             });
@@ -2674,6 +2674,7 @@ public class ParallelEvaluatorTest {
     assertThat(evaluatedValues)
         .containsExactlyElementsIn(GraphTester.toSkyKeys(useSkipBatchPrefetchKey, "top1"));
   }
+
 
   @Test
   public void runDepOnErrorHaltsNoKeepGoingBuildEagerly(
@@ -4316,5 +4317,114 @@ public class ParallelEvaluatorTest {
 
     assertThat(result.hasError()).isTrue();
     assertThat(evaluatedValues).hasSize(2); // errorKey and midKey
+  }
+
+  @Test
+  public void injectVersion_errorBubbling_doesNotCrash() throws Exception {
+    SkyKey key = () -> SkyFunctionName.createSemiHermetic("SEMI_HERMETIC_FN");
+    GroupedDeps previouslyRequestedDeps = new GroupedDeps();
+    ParallelEvaluatorContext evaluatorContext = mock(ParallelEvaluatorContext.class);
+    Version version = mock(Version.class);
+    when(evaluatorContext.getMinimalVersion()).thenReturn(version);
+    when(evaluatorContext.getGraphVersion()).thenReturn(version);
+
+    QueryableGraph graph = mock(QueryableGraph.class);
+    NodeBatch batch = mock(NodeBatch.class);
+    when(graph.getBatch(any(), any(), any())).thenReturn(batch);
+    when(evaluatorContext.getGraph()).thenReturn(graph);
+
+    SkyFunctionEnvironment env =
+        SkyFunctionEnvironment.createForError(
+            key, previouslyRequestedDeps, ImmutableMap.of(), ImmutableSet.of(), evaluatorContext);
+
+    // This should not crash on any precondition violation.
+    env.injectVersion(version);
+  }
+
+  @Test
+  public void nonCatastrophicError_withKeepGoingKey_doesNotThrowIllegalStateException()
+      throws Exception {
+    graph = new InMemoryGraphImpl();
+    SkyKey parentKey = skyKey("parent");
+    SkyKey errorKey = skyKey("error");
+    tester.getOrCreate(errorKey).setHasError(true);
+    tester.getOrCreate(parentKey).addDependency(errorKey).setComputedValue(CONCATENATE);
+
+    Predicate<SkyKey> forceKeepGoingOnErrorKeyPredicate = key -> key.equals(errorKey);
+    ParallelEvaluator evaluator =
+        makeEvaluator(
+            graph,
+            tester.getSkyFunctionMap(),
+            EventFilter.FULL_STORAGE,
+            Version.constant(),
+            forceKeepGoingOnErrorKeyPredicate);
+
+    EvaluationResult<StringValue> result = evaluator.eval(ImmutableList.of(parentKey));
+
+    assertThat(result.hasError()).isTrue();
+  }
+
+  @Test
+  public void topLevelKeyBuiltAsDepOfAnotherTopLevelKey_reportedToProgressReceiverOnce()
+      throws InterruptedException {
+    SkyKey parentKey = skyKey("parent");
+    SkyKey childKey = skyKey("child");
+    tester.getOrCreate(childKey).setConstantValue(new StringValue("child"));
+    tester.getOrCreate(parentKey).addDependency(childKey).setComputedValue(CONCATENATE);
+
+    AtomicLongMap<SkyKey> evaluatedCounts = AtomicLongMap.create();
+    revalidationReceiver =
+        new DirtyAndInflightTrackingProgressReceiver(
+            new EvaluationProgressReceiver() {
+              @Override
+              public void evaluated(
+                  SkyKey skyKey,
+                  EvaluationState state,
+                  @Nullable SkyValue newValue,
+                  @Nullable ErrorInfo newError,
+                  @Nullable GroupedDeps directDeps) {
+                evaluatedCounts.incrementAndGet(skyKey);
+              }
+            });
+
+    graph = new InMemoryGraphImpl();
+
+    // The direct executor evaluates parentKey inline, so childKey is deterministically built by the
+    // time the loop reaches it. With a real thread pool this is a race.
+    EvaluationResult<StringValue> result =
+        makeDirectExecutorEvaluator().eval(ImmutableList.of(parentKey, childKey));
+
+    assertThat(result.hasError()).isFalse();
+    assertThat(evaluatedCounts.get(childKey)).isEqualTo(1);
+    assertThat(evaluatedCounts.get(parentKey)).isEqualTo(1);
+
+    // Nodes that were done before the evaluation began are still reported.
+    EvaluationResult<StringValue> secondResult =
+        makeDirectExecutorEvaluator().eval(ImmutableList.of(parentKey, childKey));
+
+    assertThat(secondResult.hasError()).isFalse();
+    assertThat(evaluatedCounts.get(childKey)).isEqualTo(2);
+    assertThat(evaluatedCounts.get(parentKey)).isEqualTo(2);
+  }
+
+  private ParallelEvaluator makeDirectExecutorEvaluator() {
+    return new ParallelEvaluator(
+        graph,
+        graphVersion,
+        Version.minimal(),
+        tester.getSkyFunctionMap(),
+        reportedEvents,
+        new EmittedEventState(),
+        EventFilter.FULL_STORAGE,
+        ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
+        revalidationReceiver,
+        GraphInconsistencyReceiver.THROWING,
+        AbstractQueueVisitor.createWithExecutorService(
+            MoreExecutors.newDirectExecutorService(),
+            AbstractQueueVisitor.ExceptionHandlingMode.KEEP_GOING,
+            ParallelEvaluatorErrorClassifier.instance()),
+        new SimpleCycleDetector(/* storeExactCycles= */ true),
+        UnnecessaryTemporaryStateDropperReceiver.NULL,
+        /* keepGoing= */ Predicates.alwaysFalse());
   }
 }

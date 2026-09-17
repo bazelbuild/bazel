@@ -32,7 +32,7 @@ public final class StarlarkFloat implements StarlarkValue, Comparable<StarlarkFl
   }
 
   @Override
-  public StarlarkType getStarlarkType() {
+  public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
     return Types.FLOAT;
   }
 
@@ -64,6 +64,11 @@ public final class StarlarkFloat implements StarlarkValue, Comparable<StarlarkFl
 
   @Override
   public boolean isImmutable() {
+    return true;
+  }
+
+  @Override
+  public boolean isAcyclic() {
     return true;
   }
 

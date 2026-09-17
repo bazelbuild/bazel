@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.analysis.constraints.ConstraintConst
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
 
-import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -28,11 +27,11 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
+import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
@@ -40,10 +39,12 @@ import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfTupleAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.platform.PlatformConstants;
+import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions.CancelConcurrentTests;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams.CoverageParams;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -143,21 +144,58 @@ public final class TestActionBuilder {
     return this;
   }
 
-  private ActionOwner getTestActionOwner(boolean useTargetPlatformForTests) {
-    if (useTargetPlatformForTests && this.executionRequirements == null) {
-      return ruleContext.getTestActionOwner();
-    }
-    var execGroup =
-        this.executionRequirements != null
-            ? this.executionRequirements.getExecGroup()
-            : DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
-    var owner = ruleContext.getActionOwner(execGroup);
+  private String getTestExecGroupName() {
+    return this.executionRequirements != null
+        ? this.executionRequirements.getExecGroup()
+        : DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
+  }
+
+  private ActionOwner getTestActionOwner() {
+    var owner = ruleContext.getActionOwner(getTestExecGroupName());
     if (owner != null) {
       return owner;
     }
-    return useTargetPlatformForTests
-        ? ruleContext.getTestActionOwner()
-        : ruleContext.getActionOwner();
+    return ruleContext.getActionOwner();
+  }
+
+  /**
+   * Returns the reason why the test can't be run in this build, or {@code null} if it can be run.
+   *
+   * <p>The toolchain type of the default test exec group is optional so that test targets can be
+   * built even if no execution platform matches all constraints of the target platform, e.g. when
+   * cross-compiling a test for a platform that isn't available for execution. Since the test can't
+   * be run in that situation, the test action is created, but fails when executed.
+   */
+  @Nullable
+  private String getUnrunnableReason() {
+    var toolchainContexts = ruleContext.getToolchainContexts();
+    if (toolchainContexts == null
+        || !toolchainContexts.hasToolchainContext(getTestExecGroupName())) {
+      return null;
+    }
+    ResolvedToolchainContext toolchainContext =
+        toolchainContexts.getToolchainContext(getTestExecGroupName());
+    ToolchainTypeInfo testToolchainType =
+        toolchainContext
+            .requestedToolchainTypeLabels()
+            .get(PlatformConstants.DEFAULT_TEST_TOOLCHAIN_TYPE);
+    if (testToolchainType == null || toolchainContext.forToolchainType(testToolchainType) != null) {
+      return null;
+    }
+    RepositoryMapping mainRepoMapping =
+        ruleContext.getLabel().getRepository().isMain()
+            ? ruleContext.getRule().getPackageMetadata().repositoryMapping()
+            : null;
+    return String.format(
+        """
+        No matching toolchain found for type %s, which is required to run tests for target \
+        platform %s.%s
+        To debug, rerun with --toolchain_resolution_debug='%s'\
+        """,
+        testToolchainType.typeLabel().getDisplayForm(mainRepoMapping),
+        toolchainContext.targetPlatform().label().getDisplayForm(mainRepoMapping),
+        testToolchainType.noneFoundError() != null ? " " + testToolchainType.noneFoundError() : "",
+        PlatformConfiguration.toolchainResolutionDebugFilter(testToolchainType.typeLabel()));
   }
 
   public static int getShardCount(RuleContext ruleContext) {
@@ -199,9 +237,8 @@ public final class TestActionBuilder {
     TestConfiguration testConfiguration = config.getFragment(TestConfiguration.class);
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     ArtifactRoot root = ruleContext.getTestLogsDirectory();
-    ActionOwner actionOwner =
-        getTestActionOwner(
-            config.getOptions().get(CoreOptions.class).getUseTargetPlatformForTests());
+    ActionOwner actionOwner = getTestActionOwner();
+    String unrunnableReason = getUnrunnableReason();
     boolean isExecutedOnWindows =
         getOsFromConstraintsOrHost(actionOwner.getExecutionPlatform()) == OS.WINDOWS;
 
@@ -215,8 +252,10 @@ public final class TestActionBuilder {
               ruleContext.getRulePrerequisitesCollection(), "$test_runtime");
       inputsBuilder.addTransitive(testRuntime);
     }
+
     TestTargetProperties testProperties =
-        new TestTargetProperties(ruleContext, executionRequirements);
+        new TestTargetProperties(
+            ruleContext, executionRequirements, actionOwner.getExecProperties());
 
     // If the test rule does not provide InstrumentedFilesProvider, there's not much that we can do.
     final boolean collectCodeCoverage = config.isCodeCoverageEnabled() && instrumentedFiles != null;
@@ -428,12 +467,7 @@ public final class TestActionBuilder {
                 cancelConcurrentTests,
                 splitCoveragePostProcessing,
                 lcovMergerFilesToRun,
-                // Network allowlist only makes sense in workspaces which explicitly add it, use an
-                // empty one as a fallback.
-                MoreObjects.firstNonNull(
-                    Allowlist.fetchPackageSpecificationProviderOrNull(
-                        ruleContext, "external_network"),
-                    PackageSpecificationProvider.EMPTY));
+                unrunnableReason);
 
         testOutputs.addAll(testRunnerAction.getSpawnOutputs());
         testOutputs.addAll(testRunnerAction.getOutputs());

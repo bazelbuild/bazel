@@ -17,6 +17,7 @@
 
 #define PRINTF_ATTRIBUTE(string_index, first_to_check)
 
+#include <cstddef>
 #include <string>
 
 namespace bazel {

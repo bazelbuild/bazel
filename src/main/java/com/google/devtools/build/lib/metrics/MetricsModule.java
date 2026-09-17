@@ -20,6 +20,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -29,7 +30,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class MetricsModule extends BlazeModule {
 
   /** Metrics options. */
-  public static final class Options extends OptionsBase {
+  @OptionsClass
+  public abstract static class Options extends OptionsBase {
     @Option(
         name = "experimental_record_metrics_for_all_mnemonics",
         defaultValue = "false",
@@ -42,7 +44,7 @@ public class MetricsModule extends BlazeModule {
                 + " limited to the top 20, by number of executed actions for ActionData, and"
                 + " instances for RuleClass and Asepcts. Setting this option will write statistics"
                 + " for all mnemonics, rule classes and aspects.")
-    public boolean recordMetricsForAllMnemonics;
+    public abstract boolean getRecordMetricsForAllMnemonics();
 
     @Option(
         name = "experimental_record_skyframe_metrics",
@@ -50,11 +52,11 @@ public class MetricsModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.LOGGING,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
-            "Controls the output of BEP BuildGraphMetrics, including expensive"
-                + "to compute skyframe metrics about Skykeys, RuleClasses and Aspects."
-                + "With this flag set to false BuildGraphMetrics.rule_count and aspect"
+            "Controls the output of BEP BuildGraphMetrics, including expensive "
+                + "to compute skyframe metrics about Skykeys, RuleClasses and Aspects. "
+                + "With this flag set to false BuildGraphMetrics.rule_count and aspect "
                 + "fields will not be populated in the BEP.")
-    public boolean recordSkyframeMetrics;
+    public abstract boolean getRecordSkyframeMetrics();
   }
 
   private final AtomicInteger numAnalyses = new AtomicInteger();

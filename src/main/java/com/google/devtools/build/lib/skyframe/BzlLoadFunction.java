@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.BzlVisibility;
+import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -61,6 +62,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -77,13 +79,13 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.LoadStatement;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.Statement;
 import net.starlark.java.syntax.StringLiteral;
+import net.starlark.java.syntax.SyntaxError;
 
 /**
  * A Skyframe function to look up and load a single .bzl (or .scl) module.
@@ -141,6 +143,7 @@ public class BzlLoadFunction implements SkyFunction {
       RuleClassProvider ruleClassProvider,
       BlazeDirectories directories,
       HashFunction hashFunction,
+      PackageLoadingListener packageLoadingListener,
       Cache<BzlCompileValue.Key, BzlCompileValue> bzlCompileCache) {
     return new BzlLoadFunction(
         ruleClassProvider,
@@ -169,7 +172,8 @@ public class BzlLoadFunction implements SkyFunction {
         // just a temporary thing for bzl execution. Retaining it forever is pure waste.
         // (b) The memory overhead of the extra Skyframe node and edge per bzl file is pure
         // waste.
-        new InliningAndCachingGetter(ruleClassProvider, hashFunction, bzlCompileCache),
+        new InliningAndCachingGetter(
+            ruleClassProvider, hashFunction, packageLoadingListener, bzlCompileCache),
         /* inlineCacheManager= */ null);
   }
 
@@ -371,13 +375,18 @@ public class BzlLoadFunction implements SkyFunction {
 
   /** Re-initializes the bzl inlining cache, if this instance uses one. No-op otherwise. */
   public void resetInliningCache() {
-    inlineCacheManager.reset(/* resetBuiltins= */ false);
+    if (inlineCacheManager != null) {
+      inlineCacheManager.reset(/* resetBuiltins= */ false);
+    }
   }
 
-  /** Re-initializes the bzl inlining cache, if this instance uses one. No-op otherwise. */
-  @VisibleForTesting
-  public void resetInliningCacheAndBuiltinsForTesting() {
-    inlineCacheManager.reset(/* resetBuiltins= */ true);
+  /**
+   * Re-initializes the bzl inlining cache and builtins, if this instance uses one. No-op otherwise.
+   */
+  public void resetInliningCacheAndBuiltins() {
+    if (inlineCacheManager != null) {
+      inlineCacheManager.reset(/* resetBuiltins= */ true);
+    }
   }
 
   /**
@@ -761,14 +770,6 @@ public class BzlLoadFunction implements SkyFunction {
     Label label = key.getLabel();
     PackageIdentifier pkg = label.getPackageIdentifier();
 
-    boolean isSclFlagEnabled =
-        builtins.starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_ENABLE_SCL_DIALECT);
-    if (key.isSclDialect() && !isSclFlagEnabled) {
-      throw new BzlLoadFailedException(
-          "loading .scl files requires setting --experimental_enable_scl_dialect",
-          Code.PARSE_ERROR);
-    }
-
     // Determine dependency BzlLoadValue keys for the load statements in this bzl.
     // Labels are resolved relative to the current repo mapping.
     RepositoryMapping repoMapping = getRepositoryMapping(key, env);
@@ -787,10 +788,11 @@ public class BzlLoadFunction implements SkyFunction {
             programLoads,
             pkg,
             ruleClassProvider::isPackageUnderExperimental,
+            ruleClassProvider::isPackageUnderPrototypes,
+            ruleClassProvider::mayPackageDependOnPrototypes,
             builtins.starlarkSemantics.getBool(BuildLanguageOptions.ALLOW_EXPERIMENTAL_LOADS),
             repoMapping,
             key.isSclDialect(),
-            isSclFlagEnabled,
             repoMappingRecorder);
     if (loadLabels == null) {
       throw new BzlLoadFailedException(
@@ -828,6 +830,8 @@ public class BzlLoadFunction implements SkyFunction {
         programLoads,
         /* demoteErrorsToWarnings= */ !builtins.starlarkSemantics.getBool(
             BuildLanguageOptions.CHECK_BZL_VISIBILITY),
+        ruleClassProvider::isPackageUnderExperimental,
+        ruleClassProvider::isPackageUnderPrototypes,
         env.getListener());
 
     // Accumulate a transitive digest of the bzl file, the digests of its direct loads, and the
@@ -846,8 +850,9 @@ public class BzlLoadFunction implements SkyFunction {
     }
 
     // Retrieve predeclared symbols and complete the digest computation.
+    BzlCompileValue.TypeOptions typeOptions = compileValue.getTypeOptions();
     ImmutableMap<String, Object> predeclared =
-        getAndDigestPredeclaredEnvironment(key, builtins, fp);
+        getAndDigestPredeclaredEnvironment(key, builtins, fp, typeOptions);
     if (predeclared == null) {
       return null;
     }
@@ -871,6 +876,17 @@ public class BzlLoadFunction implements SkyFunction {
     Module module =
         Module.withPredeclaredAndData(builtins.starlarkSemantics, predeclared, bazelModuleContext);
 
+    // Type-tag and type-check the program
+    if (typeOptions.wantStaticTypeChecking() || typeOptions.wantDynamicTypeChecking()) {
+      try {
+        prog =
+            Starlark.withTypeInfo(prog, module, typeOptions.wantStaticTypeChecking(), loadMap::get);
+      } catch (SyntaxError.Exception e) {
+        Event.replayEventsOn(env.getListener(), e.errors());
+        throw typingFailed(label);
+      }
+    }
+
     // The BzlInitThreadContext holds Starlark thread-local state to be read and updated during
     // evaluation.
     BzlInitThreadContext context =
@@ -879,6 +895,7 @@ public class BzlLoadFunction implements SkyFunction {
             transitiveDigest,
             ruleClassProvider.getToolsRepository(),
             ruleClassProvider.getNetworkAllowlistForTests(),
+            ruleClassProvider.getNoExplicitMnemonicAllowlist(),
             ruleClassProvider.getConfigurationFragmentMap(),
             mainRepoMapping);
 
@@ -970,15 +987,9 @@ public class BzlLoadFunction implements SkyFunction {
    * @param label the label to validate
    * @param fromBuiltinsRepo true if the file containing the load is within {@code @_builtins}
    * @param withinSclDialect true if the file containing the load is a .scl file
-   * @param mentionSclInErrorMessage true if ".scl" should be advertised as a possible extension in
-   *     error messaging
    */
   private static void checkValidLoadLabel(
-      Label label,
-      boolean fromBuiltinsRepo,
-      boolean withinSclDialect,
-      boolean mentionSclInErrorMessage)
-      throws LabelSyntaxException {
+      Label label, boolean fromBuiltinsRepo, boolean withinSclDialect) throws LabelSyntaxException {
     // Check file extension.
     String baseName = label.getName();
     if (withinSclDialect) {
@@ -991,11 +1002,8 @@ public class BzlLoadFunction implements SkyFunction {
       }
     } else {
       if (!(baseName.endsWith(".scl") || baseName.endsWith(".bzl"))) {
-        String msg = "The label must reference a file with extension \".bzl\"";
-        if (mentionSclInErrorMessage) {
-          msg += " or \".scl\"";
-        }
-        throw new LabelSyntaxException(msg);
+        throw new LabelSyntaxException(
+            "The label must reference a file with extension \".bzl\" or \".scl\"");
       }
     }
 
@@ -1018,12 +1026,7 @@ public class BzlLoadFunction implements SkyFunction {
    */
   public static void checkValidLoadLabel(Label label, StarlarkSemantics starlarkSemantics)
       throws LabelSyntaxException {
-    checkValidLoadLabel(
-        label,
-        /* fromBuiltinsRepo= */ false,
-        /* withinSclDialect= */ false,
-        /* mentionSclInErrorMessage= */ starlarkSemantics.getBool(
-            BuildLanguageOptions.EXPERIMENTAL_ENABLE_SCL_DIALECT));
+    checkValidLoadLabel(label, /* fromBuiltinsRepo= */ false, /* withinSclDialect= */ false);
   }
 
   /**
@@ -1038,8 +1041,7 @@ public class BzlLoadFunction implements SkyFunction {
    *
    * <p>If {@code withinSclDialect} is true, the labels are validated according to the rules of the
    * .scl dialect: Only strings beginning with {@code //} are allowed (no repo syntax, no relative
-   * labels), and only .scl files may be loaded (not .bzl). If {@code isSclFlagEnabled} is true,
-   * then ".scl" is mentioned as a possible file extension in error messages.
+   * labels), and only .scl files may be loaded (not .bzl).
    */
   @Nullable
   @VisibleForTesting
@@ -1048,13 +1050,13 @@ public class BzlLoadFunction implements SkyFunction {
       ImmutableList<Pair<String, Location>> loads,
       PackageIdentifier base,
       Predicate<PackageIdentifier> isUnderExperimental,
+      Predicate<PackageIdentifier> isUnderPrototypes,
+      Predicate<PackageIdentifier> mayDependOnPrototypes,
       boolean allowExperimentalLoads,
       RepositoryMapping repoMapping,
       boolean withinSclDialect,
-      boolean isSclFlagEnabled,
       @Nullable Label.RepoMappingRecorder repoMappingRecorder) {
     boolean ok = true;
-    boolean baseWithinExperimental = isUnderExperimental.test(base);
 
     ImmutableList.Builder<Label> loadLabels = ImmutableList.builderWithExpectedSize(loads.size());
     for (Pair<String, Location> load : loads) {
@@ -1079,17 +1081,22 @@ public class BzlLoadFunction implements SkyFunction {
         checkValidLoadLabel(
             label,
             /* fromBuiltinsRepo= */ StarlarkBuiltinsValue.isBuiltinsRepo(base.getRepository()),
-            /* withinSclDialect= */ withinSclDialect,
-            /* mentionSclInErrorMessage= */ isSclFlagEnabled);
+            /* withinSclDialect= */ withinSclDialect);
         if (!allowExperimentalLoads
-            && !baseWithinExperimental
-            && isUnderExperimental.test(label.getPackageIdentifier())) {
+            && isUnderExperimental.test(label.getPackageIdentifier())
+            && !isUnderExperimental.test(base)) {
           throw new LabelSyntaxException(
               """
               Cannot load an experimental Starlark file from a non-experimental package.
               Consider moving the loaded file to a non-experimental package.
               To temporarily bypass this error, use --allow_experimental_loads.
               """);
+        }
+        if (isUnderPrototypes.test(label.getPackageIdentifier())
+            && !mayDependOnPrototypes.test(base)) {
+          throw new LabelSyntaxException(
+              "Cannot load a Starlark file under prototypes from a non-experimental, non-prototypes"
+                  + " package. Consider moving the loaded file to a non-prototype package.");
         }
         loadLabels.add(label);
       } catch (LabelSyntaxException ex) {
@@ -1112,6 +1119,8 @@ public class BzlLoadFunction implements SkyFunction {
       ImmutableList<Pair<String, Location>> loads,
       PackageIdentifier base,
       Predicate<PackageIdentifier> isUnderExperimental,
+      Predicate<PackageIdentifier> isUnderPrototypes,
+      Predicate<PackageIdentifier> mayDependOnPrototypes,
       RepositoryMapping repoMapping,
       StarlarkSemantics starlarkSemantics) {
     return getLoadLabels(
@@ -1119,12 +1128,12 @@ public class BzlLoadFunction implements SkyFunction {
         loads,
         base,
         isUnderExperimental,
+        isUnderPrototypes,
+        mayDependOnPrototypes,
         /* allowExperimentalLoads= */ starlarkSemantics.getBool(
             BuildLanguageOptions.ALLOW_EXPERIMENTAL_LOADS),
         repoMapping,
         /* withinSclDialect= */ false,
-        /* isSclFlagEnabled= */ starlarkSemantics.getBool(
-            BuildLanguageOptions.EXPERIMENTAL_ENABLE_SCL_DIALECT),
         /* repoMappingRecorder= */ null);
   }
 
@@ -1261,13 +1270,28 @@ public class BzlLoadFunction implements SkyFunction {
       List<BzlLoadValue.Key> loadKeys,
       List<Pair<String, Location>> programLoads,
       boolean demoteErrorsToWarnings,
+      Predicate<PackageIdentifier> isUnderExperimental,
+      Predicate<PackageIdentifier> isUnderPrototype,
       EventHandler handler)
       throws BzlLoadFailedException {
+    if (isUnderExperimental.test(requestingPackage)) {
+      // Experimental code is exempted from load visibility.
+      return;
+    }
+    boolean requestingIsPrototype = isUnderPrototype.test(requestingPackage);
+
     boolean foundViolation = false;
     for (int i = 0; i < loadValues.size(); i++) {
-      BzlVisibility loadVisibility = loadValues.get(i).getBzlVisibility();
       Label loadLabel = loadKeys.get(i).getLabel();
       PackageIdentifier loadPackage = loadLabel.getPackageIdentifier();
+      if (requestingIsPrototype && !isUnderPrototype.test(loadPackage)) {
+        // Prototypes can always load from normal packages; there's no load-visibility equivalent
+        // flag for --check_visibility_for_prototypes. But load visibility is still enforced between
+        // two prototypes packages (possibly demoted to a warning, below).
+        continue;
+      }
+
+      BzlVisibility loadVisibility = loadValues.get(i).getBzlVisibility();
       if (!(requestingPackage.equals(loadPackage)
           || loadVisibility.allowsPackage(requestingPackage))) {
         Location loc = programLoads.get(i).second;
@@ -1304,8 +1328,13 @@ public class BzlLoadFunction implements SkyFunction {
    */
   @Nullable
   private ImmutableMap<String, Object> getAndDigestPredeclaredEnvironment(
-      BzlLoadValue.Key key, StarlarkBuiltinsValue builtins, Fingerprint fp) {
+      BzlLoadValue.Key key,
+      StarlarkBuiltinsValue builtins,
+      Fingerprint fp,
+      BzlCompileValue.TypeOptions typeOptions) {
     BazelStarlarkEnvironment starlarkEnv = ruleClassProvider.getBazelStarlarkEnvironment();
+    boolean resolveTypeSyntax =
+        typeOptions.wantStaticTypeChecking() || typeOptions.wantDynamicTypeChecking();
     if (key.isSclDialect()) {
       // .scl doesn't use injection and doesn't care what kind of key it is.
       return starlarkEnv.getStarlarkGlobals().getSclToplevels();
@@ -1318,10 +1347,14 @@ public class BzlLoadFunction implements SkyFunction {
               .isEmpty();
       if (key instanceof BzlLoadValue.KeyForBuild) {
         if (injectionDisabled) {
-          return starlarkEnv.getUninjectedBuildBzlEnv();
+          return resolveTypeSyntax
+              ? starlarkEnv.getUninjectedBuildBzlEnvWithExtraTypeConstructors()
+              : starlarkEnv.getUninjectedBuildBzlEnv();
         }
         fp.addBytes(builtins.transitiveDigest);
-        return builtins.predeclaredForBuildBzl;
+        return resolveTypeSyntax
+            ? builtins.predeclaredForBuildBzlWithExtraTypeConstructors
+            : builtins.predeclaredForBuildBzl;
       } else if (key instanceof BzlLoadValue.KeyForBzlmod) {
         // TODO(#11954): We should converge all .bzl dialects regardless of whether they're loaded
         //  by BUILD or MODULE.
@@ -1339,7 +1372,9 @@ public class BzlLoadFunction implements SkyFunction {
         // should just live in @bazel_tools instead.
         return builtins.predeclaredForModuleBzl;
       } else if (key instanceof BzlLoadValue.KeyForBuiltins) {
-        return starlarkEnv.getBuiltinsBzlEnv();
+        return resolveTypeSyntax
+            ? starlarkEnv.getBuiltinsBzlEnvWithExtraTypeConstructors()
+            : starlarkEnv.getBuiltinsBzlEnv();
       } else {
         throw new AssertionError("Unknown key type: " + key.getClass());
       }
@@ -1358,10 +1393,16 @@ public class BzlLoadFunction implements SkyFunction {
       Label.RepoMappingRecorder repoMappingRecorder)
       throws BzlLoadFailedException, InterruptedException {
     Label label = key.getLabel();
-    try (Mutability mu = Mutability.create("loading", label)) {
+    try (Mutability mu =
+        prog.isMutationFreeAtTopLevel()
+            ? Mutability.IMMUTABLE
+            : Mutability.create("loading", label)) {
       StarlarkThread thread =
           StarlarkThread.create(
-              mu, starlarkSemantics, /* contextDescription= */ "", SymbolGenerator.create(key));
+              mu,
+              starlarkSemantics,
+              /* contextDescription= */ "",
+              BzlLoadThreadOwner.createGenerator(key, module));
       thread.setLoader(loadedModules::get);
       // This is needed so that any calls to `Label()` will have its used repo mapping entries
       // recorded. See #20721 for more details.
@@ -1446,6 +1487,7 @@ public class BzlLoadFunction implements SkyFunction {
   private static class InliningAndCachingGetter implements ValueGetter {
     private final RuleClassProvider ruleClassProvider;
     private final HashFunction hashFunction;
+    private final PackageLoadingListener packageLoadingListener;
     // We keep a cache of BzlCompileValues that have been computed but whose corresponding
     // BzlLoadValue has not yet completed. This avoids repeating the BzlCompileValue work in case
     // of Skyframe restarts. (If we weren't inlining, Skyframe would cache this for us.)
@@ -1454,9 +1496,11 @@ public class BzlLoadFunction implements SkyFunction {
     private InliningAndCachingGetter(
         RuleClassProvider ruleClassProvider,
         HashFunction hashFunction,
+        PackageLoadingListener packageLoadingListener,
         Cache<BzlCompileValue.Key, BzlCompileValue> bzlCompileCache) {
       this.ruleClassProvider = ruleClassProvider;
       this.hashFunction = hashFunction;
+      this.packageLoadingListener = packageLoadingListener;
       this.bzlCompileCache = bzlCompileCache;
     }
 
@@ -1468,9 +1512,26 @@ public class BzlLoadFunction implements SkyFunction {
       if (value == null) {
         value =
             BzlCompileFunction.computeInline(
-                key, env, ruleClassProvider.getBazelStarlarkEnvironment(), hashFunction);
+                key,
+                env,
+                ruleClassProvider.getBazelStarlarkEnvironment(),
+                hashFunction,
+                packageLoadingListener);
         if (value != null) {
           bzlCompileCache.put(key, value);
+        }
+      } else {
+        // The cache hit may have been populated on behalf of a different BzlLoadValue node with
+        // the same compile key; make sure this node depends on the .bzl file too.
+        var bzlFileKey = key.getBzlFileKey();
+        if (bzlFileKey != null) {
+          try {
+            if (env.getValueOrThrow(bzlFileKey, IOException.class) == null) {
+              return null;
+            }
+          } catch (IOException e) {
+            throw new BzlCompileFunction.FailedIOException(e, Transience.PERSISTENT);
+          }
         }
       }
       return value;
@@ -1539,7 +1600,17 @@ public class BzlLoadFunction implements SkyFunction {
     // TODO(bazel-team): This exception should hold a Location of the requesting file's load
     // statement, and code that catches it should use the location in the Event they create.
     return new BzlLoadFailedException(
-        "at " + loc + ": " + cause.getMessage(), cause.getDetailedExitCode());
+        "at " + loc + ":\n" + cause.getMessage(), cause.getDetailedExitCode());
+  }
+
+  static BzlLoadFailedException typingFailed(Label label) {
+    return new BzlLoadFailedException(
+        String.format(
+            "initialization of module '%s'%s failed",
+            // TODO(brandjon): This error message drops the repo part of the label.
+            label.toPathFragment(),
+            StarlarkBuiltinsValue.isBuiltinsRepo(label.getRepository()) ? " (internal)" : ""),
+        Code.TYPING_ERROR);
   }
 
   static BzlLoadFailedException executionFailed(Label label) {

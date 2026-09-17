@@ -24,11 +24,19 @@ public interface StarlarkValue {
    * Returns the type of this Starlark value, or null if no information is provided.
    *
    * <p>This method should not be called directly in client code. The canonical way to obtain the
-   * type of a value is {@link Starlark#getStarlarkType}, which may inject information obtained in
-   * other ways.
+   * type of a value is {@link Starlark#getStarlarkType}, which injects information obtained in
+   * other ways (e.g. from annotations).
+   *
+   * <p>Overrides of this method should not return null: if this method is overridden, it indicates
+   * to the machinery processing {@link net.starlark.java.annot.StarlarkBuiltin} annotations that
+   * the annotated class doesn't need an auto-generated {@link StarlarkType} implementation.
+   * Therefore, a null return in an override will cause {@link Starlark#getStarlarkType} to fall
+   * back to reporting the type as {@code Any}.
    */
+  // LINT.IfChange // Callutils#buildClassDescriptor looks for this specific method signature.
   @Nullable
-  default StarlarkType getStarlarkType() {
+  default StarlarkType getStarlarkType(StarlarkSemantics semantics) {
+    // LINT.ThenChange(//src/main/java/net/starlark/java/eval/CallUtils.java)
     return null;
   }
 
@@ -93,7 +101,12 @@ public interface StarlarkValue {
    * <p>(A StarlarkValue implementation may define hashCode and equals and thus be a valid
    * java.util.Map key without being hashable by Starlark code.)
    *
-   * @throws EvalException otherwise.
+   * <p>This method is not intended to be called directly; use {@link Starlark#checkHashable}.
+   *
+   * @throws StackOverflowError if calling {@link Object#hashCode} on this value would throw a
+   *     {@link StackOverflowError} (for example, if the value contains a self-referential cycle).
+   * @throws EvalException if the value is unsuitable for use as a dict key for reasons other than a
+   *     stack overflow (for example, if the value is not deeply immutable).
    */
   default void checkHashable() throws EvalException {
     // Bazel makes widespread assumptions that all Starlark values can be hashed
@@ -113,5 +126,35 @@ public interface StarlarkValue {
     if (!this.isImmutable()) {
       throw Starlark.errorf("unhashable type: '%s'", Starlark.type(this));
     }
+  }
+
+  /**
+   * Returns true if this value is acyclic (i.e. its object graph contains no reference cycles). The
+   * converse is not necessarily true; this method might return false for a value that doesn't
+   * contain a reference cycle. The purpose of this method is to optimize hashability checks: when a
+   * value is known to be acyclic, we can avoid checking whether its {@link Object#hashCode} throws
+   * a {@link StackOverflowError}.
+   *
+   * <p>This method is not intended to be called directly; use {@link Starlark#isAcyclic}.
+   *
+   * <p>Some examples of acyclic values:
+   *
+   * <ul>
+   *   <li>Leaf values such as {@link StarlarkInt} or {@link StarlarkFloat}.
+   *   <li>An application-defined subclass of {@link Structure} whose fields are guaranteed to be
+   *       acyclic.
+   *   <li>{@link StarlarkSet}, because it invokes {@link Object#hashCode} on its elements, ensuring
+   *       that they aren't self-referential.
+   * </ul>
+   *
+   * <p>Some examples of values that could contain a reference cycle:
+   *
+   * <ul>
+   *   <li>Non-empty lists and dicts, since they might transitively reference themselves.
+   *   <li>Arbitrary tuples or structs, since they might contain a self-referential list or dict.
+   * </ul>
+   */
+  default boolean isAcyclic() {
+    return false;
   }
 }

@@ -42,7 +42,9 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -61,6 +63,7 @@ import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.EnvVar;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -73,7 +76,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.XattrProvider;
-import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.OptionAndRawValue;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
@@ -169,6 +171,11 @@ public class CommandEnvironment {
   @GuardedBy("outputDirectoryHelperLock")
   private ActionOutputDirectoryHelper outputDirectoryHelper;
 
+  private final Object runfilesTreeUpdaterLock = new Object();
+
+  @GuardedBy("runfilesTreeUpdaterLock")
+  private RunfilesTreeUpdater runfilesTreeUpdater;
+
   // List of flags and their values that were added by invocation policy. May contain multiple
   // occurrences of the same flag.
   private ImmutableList<OptionAndRawValue> invocationPolicyFlags = ImmutableList.of();
@@ -247,7 +254,7 @@ public class CommandEnvironment {
     this.runtime = runtime;
     this.workspace = workspace;
     this.directories = workspace.getDirectories();
-    this.reporter = new Reporter(eventBus);
+    this.reporter = new Reporter(new EventBusEventHandler(eventBus));
     this.eventBus = eventBus;
     this.commandThread = commandThread;
     this.command = command;
@@ -327,7 +334,7 @@ public class CommandEnvironment {
             options.getOptions(ClientOptions.class),
             "CommandEnvironment needs its options provider to have ClientOptions loaded.");
 
-    this.clientEnv = makeMapFromMapEntries(clientOptions.clientEnv);
+    this.clientEnv = makeMapFromMapEntries(clientOptions.getClientEnv());
     this.commandId = computeCommandId(commandOptions.getInvocationId(), warnings, attemptNumber);
     this.buildRequestId =
         commandOptions.getBuildRequestId() != null
@@ -351,17 +358,17 @@ public class CommandEnvironment {
       // for inheritance.
       for (var envVar : options.getOptions(CoreOptions.class).getActionEnvironment()) {
         switch (envVar) {
-          case Converters.EnvVar.Set(String name, String value) -> {
+          case EnvVar.Set(String name, String value) -> {
             visibleActionEnv.remove(name);
             if (!options.getOptions(CommonCommandOptions.class).getRepoEnvIgnoresActionEnv()) {
               repoEnvBuilder.put(name, value);
               nonstrictRepoEnvBuilder.put(name, value);
             }
           }
-          case Converters.EnvVar.Inherit(String name) -> {
+          case EnvVar.Inherit(String name) -> {
             visibleActionEnv.add(name);
           }
-          case Converters.EnvVar.Unset(String name) -> {
+          case EnvVar.Unset(String name) -> {
             visibleActionEnv.remove(name);
             if (!options.getOptions(CommonCommandOptions.class).getRepoEnvIgnoresActionEnv()) {
               repoEnvBuilder.remove(name);
@@ -372,8 +379,8 @@ public class CommandEnvironment {
       }
     }
     if (command.buildPhase().analyzes() || command.name().equals("info")) {
-      for (Converters.EnvVar envVar : options.getOptions(TestOptions.class).testEnvironment) {
-        if (envVar instanceof Converters.EnvVar.Inherit(String name)) {
+      for (EnvVar envVar : options.getOptions(TestOptions.class).getTestEnvironment()) {
+        if (envVar instanceof EnvVar.Inherit(String name)) {
           visibleTestEnv.add(name);
         }
       }
@@ -389,21 +396,21 @@ public class CommandEnvironment {
     }
     for (var envVar : commandOptions.getRepositoryEnvironment()) {
       switch (envVar) {
-        case Converters.EnvVar.Set(String name, String value) -> {
+        case EnvVar.Set(String name, String value) -> {
           if (bazelWorkspace != null) {
             value = value.replace("%bazel_workspace%", bazelWorkspace);
           }
           repoEnvBuilder.put(name, value);
           nonstrictRepoEnvBuilder.put(name, value);
         }
-        case Converters.EnvVar.Inherit(String name) -> {
+        case EnvVar.Inherit(String name) -> {
           String value = clientEnv.get(name);
           if (value != null) {
             repoEnvBuilder.put(name, value);
             nonstrictRepoEnvBuilder.put(name, value);
           }
         }
-        case Converters.EnvVar.Unset(String name) -> {
+        case EnvVar.Unset(String name) -> {
           repoEnvBuilder.remove(name);
           nonstrictRepoEnvBuilder.remove(name);
         }
@@ -679,6 +686,15 @@ public class CommandEnvironment {
     return workspace.getSkyframeExecutor();
   }
 
+  /**
+   * Returns the path of the repo contents cache directory, or {@code null} if the repo contents
+   * cache is disabled.
+   */
+  @Nullable
+  public Path getRepoContentsCachePath() {
+    return getSkyframeExecutor().getRepoContentsCachePath();
+  }
+
   public SkyframeBuildView getSkyframeBuildView() {
     return getSkyframeExecutor().getSkyframeBuildView();
   }
@@ -721,6 +737,30 @@ public class CommandEnvironment {
    */
   public Path getActionTempsDirectory() {
     return directories.getActionTempsDirectory(getExecRoot());
+  }
+
+  /**
+   * Returns the {@link RunfilesTreeUpdater} for this command, lazily creating it on first use.
+   *
+   * <p>All spawn strategies (local, sandboxed, worker) share this one instance so that staging of a
+   * runfiles tree under {@code --nobuild_runfile_links} is serialized across strategies via the
+   * updater's dedup map. Per-strategy instances would let two strategies reconcile the same tree
+   * concurrently and race on {@code createSymbolicLink} ({@code EEXIST}). This is reachable under
+   * dynamic execution: the local branch stages a tree via the {@code worker} strategy while the
+   * remote branch fails over to the {@code local} strategy ({@code --remote_local_fallback}) and
+   * stages the same tree into the same execroot path at the same time.
+   *
+   * <p>Scoped to the command, not static: the dedup map caches completed futures and never evicts,
+   * which is correct within a build (a tree's contents are fixed) but would wrongly skip a tree
+   * that changed in a later build.
+   */
+  public RunfilesTreeUpdater getRunfilesTreeUpdater() {
+    synchronized (runfilesTreeUpdaterLock) {
+      if (runfilesTreeUpdater == null) {
+        runfilesTreeUpdater = new RunfilesTreeUpdater(getExecRoot(), getXattrProvider());
+      }
+      return runfilesTreeUpdater;
+    }
   }
 
   /**
@@ -843,6 +883,7 @@ public class CommandEnvironment {
                 packageLocator,
                 commandId,
                 clientEnv,
+                repoEnv,
                 timestampGranularityMonitor,
                 quiescingExecutors,
                 options,
@@ -877,10 +918,10 @@ public class CommandEnvironment {
     var analysisOptions = options.getOptions(AnalysisOptions.class);
     skyframeExecutor.decideKeepIncrementalState(
         runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).getBatch(),
-        keepStateAfterBuildOption.keepStateAfterBuild,
+        keepStateAfterBuildOption.getKeepStateAfterBuild(),
         commonOptions.getTrackIncrementalState(),
         commonOptions.getHeuristicallyDropNodes(),
-        analysisOptions != null && analysisOptions.discardAnalysisCache,
+        analysisOptions != null && analysisOptions.getDiscardAnalysisCache(),
         reporter);
   }
 

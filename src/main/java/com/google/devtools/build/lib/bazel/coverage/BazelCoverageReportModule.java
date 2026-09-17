@@ -34,6 +34,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.Collection;
 import javax.annotation.Nullable;
@@ -42,7 +43,8 @@ import javax.annotation.Nullable;
 public class BazelCoverageReportModule extends BlazeModule {
 
   /** Options that affect coverage report generation. */
-  public static class Options extends OptionsBase {
+  @OptionsClass
+  public abstract static class Options extends OptionsBase {
 
     @Option(
         name = "combined_report",
@@ -53,7 +55,7 @@ public class BazelCoverageReportModule extends BlazeModule {
         help =
             "Specifies desired cumulative coverage report type. At this point only LCOV "
                 + "is supported.")
-    public ReportType combinedReport;
+    public abstract ReportType getCombinedReport();
   }
 
   /** Possible values for the --combined_report option. */
@@ -91,10 +93,10 @@ public class BazelCoverageReportModule extends BlazeModule {
           ActionLookupKey actionLookupKey,
           String workspaceName)
           throws InterruptedException {
-        if (options == null || options.combinedReport == ReportType.NONE) {
+        if (options == null || options.getCombinedReport() == ReportType.NONE) {
           return null;
         }
-        Preconditions.checkArgument(options.combinedReport == ReportType.LCOV);
+        Preconditions.checkArgument(options.getCombinedReport() == ReportType.LCOV);
         CoverageReportActionBuilder builder = new CoverageReportActionBuilder();
         CoverageReportActionsWrapper wrapper =
             builder.createCoverageActionsWrapper(

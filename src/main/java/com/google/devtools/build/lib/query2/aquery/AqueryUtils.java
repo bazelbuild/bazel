@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import java.io.IOException;
+import java.util.Set;
+import javax.annotation.Nullable;
 
 /** Utility class for Aquery */
 public class AqueryUtils {
@@ -47,16 +49,13 @@ public class AqueryUtils {
     if (includePrunedInputs
         || (action instanceof ActionExecutionMetadata actionExecutionMetadata
             && !actionExecutionMetadata.inputsKnown())) {
-      // getInputs() is potentially missing inputs that will be added by discovery (if the action
-      // hasn't yet executed) and inputs that have been removed by discovery (if the action has
-      // already executed). Instead, assemble the inputs from getOriginalInputs() and
-      // getSchedulingDependencies(), which also include those added or removed by discovery. This
-      // comment is not applicable for Starlark unused_input_list actions, which are always returned
-      // to a pre-input-discovery state after execution.
-      return NestedSetBuilder.<Artifact>stableOrder()
-          .addTransitive(action.getOriginalInputs())
-          .addTransitive(action.getSchedulingDependencies())
-          .build();
+      NestedSet<Artifact> originalInputs = action.getOriginalInputs();
+      if (!originalInputs.isEmpty()) {
+        return NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(originalInputs)
+            .addTransitive(action.getSchedulingDependencies())
+            .build();
+      }
     }
     return action.getInputs();
   }
@@ -71,8 +70,26 @@ public class AqueryUtils {
    */
   public static boolean matchesAqueryFilters(
       ActionAnalysisMetadata action,
-      AqueryActionFilter actionFilters,
+      @Nullable AqueryActionFilter actionFilters,
       boolean includePrunedInputs) {
+    return matchesAqueryFilters(action, actionFilters, includePrunedInputs, null);
+  }
+
+  /**
+   * Return true if the given {@code action} matches the filters specified in {@code actionFilters}
+   * and is contained in {@code reachableActions} (if present).
+   */
+  public static boolean matchesAqueryFilters(
+      ActionAnalysisMetadata action,
+      @Nullable AqueryActionFilter actionFilters,
+      boolean includePrunedInputs,
+      @Nullable Set<ActionAnalysisMetadata> reachableActions) {
+    if (reachableActions != null && !reachableActions.contains(action)) {
+      return false;
+    }
+    if (actionFilters == null) {
+      return true;
+    }
     NestedSet<Artifact> inputs = getActionInputs(action, includePrunedInputs);
     Iterable<Artifact> outputs = action.getOutputs();
     String mnemonic = action.getMnemonic();
@@ -111,6 +128,7 @@ public class AqueryUtils {
   }
 
   public static String getTemplateContent(TemplateExpansionAction action) throws IOException {
+
     // If the template artifact is a DerivedArtifact, it is only available during the execution
     // phase. It's therefore not possible to read its content from the FileSystem at this moment.
     if (action.getTemplate().getTemplateArtifact() instanceof DerivedArtifact) {

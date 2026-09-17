@@ -22,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -102,8 +103,7 @@ public abstract class FoundationTestCase {
   public void initializeLogging() throws Exception {
     eventCollector = new EventCollector(EventKind.ERRORS_WARNINGS_AND_INFO);
     eventBus = new EventBus();
-    reporter = new Reporter(eventBus, eventCollector);
-    reporter.addHandler(failFastHandler);
+    reporter = new Reporter(new EventBusEventHandler(eventBus), eventCollector, failFastHandler);
   }
 
   @After

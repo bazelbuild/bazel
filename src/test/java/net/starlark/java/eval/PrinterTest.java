@@ -28,8 +28,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- *  Test properties of the evaluator's datatypes and utility functions
- *  without actually creating any parse trees.
+ * Test properties of the evaluator's datatypes and utility functions without actually creating any
+ * parse trees.
  */
 @RunWith(JUnit4.class)
 public class PrinterTest {
@@ -74,6 +74,36 @@ public class PrinterTest {
     assertThat(str(dict)).isEqualTo("{1: (\"foo\", \"bar\"), 2: [\"foo\", \"bar\"], \"foo\": []}");
     assertThat(Starlark.repr(dict, DEFAULT))
         .isEqualTo("{1: (\"foo\", \"bar\"), 2: [\"foo\", \"bar\"], \"foo\": []}");
+
+    Mutability mu = Mutability.create();
+    StarlarkList<Object> selfRefList = StarlarkList.newList(mu);
+    selfRefList.append(selfRefList);
+    assertThat(str(selfRefList)).isEqualTo("[[...]]");
+    assertThat(Starlark.repr(selfRefList, DEFAULT)).isEqualTo("[...]");
+
+    Dict<String, Object> selfRefDict = Dict.of(mu);
+    selfRefDict.putEntry("self", selfRefDict);
+    assertThat(str(selfRefDict)).isEqualTo("{\"self\": {\"self\": ...}}");
+    assertThat(Starlark.repr(selfRefDict, DEFAULT)).isEqualTo("{\"self\": ...}");
+
+    StarlarkList<Object> overlyNestedList = makeOverlyNestedList(mu, 10_000); // chosen empirically
+    assertThat(Starlark.reprForErrors(overlyNestedList)).isEqualTo("<overly nested list>");
+
+    // TODO(bazel-team): can we reproducibly detect a nesting depth over some fixed limit?
+    assertThrows(StackOverflowError.class, () -> str(overlyNestedList));
+    assertThrows(StackOverflowError.class, () -> Starlark.repr(overlyNestedList, DEFAULT));
+  }
+
+  private static StarlarkList<Object> makeOverlyNestedList(Mutability mu, int depth)
+      throws EvalException {
+    StarlarkList<Object> overlyNestedList = StarlarkList.newList(mu);
+    StarlarkList<Object> current = overlyNestedList;
+    for (int i = 0; i < depth; i++) {
+      StarlarkList<Object> next = StarlarkList.newList(mu);
+      current.addElement(next);
+      current = next;
+    }
+    return overlyNestedList;
   }
 
   private static String format(String fmt, Object... args) {
@@ -117,13 +147,13 @@ public class PrinterTest {
     assertThat(formatWithList("", Tuple.of())).isEmpty();
     assertThat(format("%s", "foo")).isEqualTo("foo");
     assertThat(format("%s", 3.14159)).isEqualTo("3.14159");
-    checkFormatPositionalFails("not all arguments converted during string formatting",
-        "%s", 1, 2, 3);
+    checkFormatPositionalFails(
+        "not all arguments converted during string formatting", "%s", 1, 2, 3);
     assertThat(format("%%%s", "foo")).isEqualTo("%foo");
-    checkFormatPositionalFails("not all arguments converted during string formatting",
-        "%%s", "foo");
-    checkFormatPositionalFails("unsupported format character \" \" at index 1 in \"% %s\"",
-        "% %s", "foo");
+    checkFormatPositionalFails(
+        "not all arguments converted during string formatting", "%%s", "foo");
+    checkFormatPositionalFails(
+        "unsupported format character \" \" at index 1 in \"% %s\"", "% %s", "foo");
     assertThat(
             format(
                 "%s",
@@ -138,11 +168,92 @@ public class PrinterTest {
     checkFormatPositionalFails("got string for '%d' format, want int or float", "%d", "1");
     checkFormatPositionalFails(
         "unsupported format character \".\" at index 1 in \"%.3g\"", "%.3g", 1);
-    checkFormatPositionalFails("unsupported format character \".\" at index 1 in \"%.3g\"",
-        "%.3g", 1, 2);
+    checkFormatPositionalFails(
+        "unsupported format character \".\" at index 1 in \"%.3g\"", "%.3g", 1, 2);
     checkFormatPositionalFails(
         "unsupported format character \".\" at index 1 in \"%.s\"", "%.s", 1);
     checkFormatPositionalFails("not enough arguments for format pattern \"%.s\": ()", "%.s");
+  }
+
+  private static String prettyQuoted(String s) {
+    StringBuilder sb = new StringBuilder();
+    new Printer(sb).appendPrettyQuoted(s);
+    return sb.toString();
+  }
+
+  @Test
+  public void testPrettyQuoted() throws Exception {
+    // Single-line strings should use ordinary double quotes.
+    assertThat(prettyQuoted("foo")).isEqualTo("\"foo\"");
+    assertThat(prettyQuoted("foo\"bar")).isEqualTo("\"foo\\\"bar\"");
+    assertThat(prettyQuoted("foo\\bar")).isEqualTo("\"foo\\\\bar\"");
+
+    // Multiline default is triple double quotes
+    assertThat(prettyQuoted("one\ntwo"))
+        .isEqualTo(
+            """
+            \"\"\"one
+            two\"\"\"\
+            """);
+
+    // Escaping inside triple double quotes
+    // Double quotes should be escaped (force """ by having more single quotes)
+    assertThat(prettyQuoted("one\"two 'three' 'four'\nfive"))
+        .isEqualTo(
+            """
+            \"\"\"one"two 'three' 'four'
+            five\"\"\"\
+            """);
+    // Backslashes should be escaped
+    // Escaping inside triple double quotes (backslashes, control characters, hex escapes)
+    assertThat(prettyQuoted("one\\two\none\rtwo\ntabs\tthree\none\u0001two\nthree"))
+        .isEqualTo(
+            """
+            \"\"\"one\\\\two
+            one\\rtwo
+            tabs\\tthree
+            one\\x01two
+            three\"\"\"\
+            """);
+
+    // Heuristic: switch to triple single quotes (''') if double quotes are dominant
+    assertThat(prettyQuoted("one\"two\"three\nfour"))
+        .isEqualTo(
+            """
+            '''one"two"three
+            four'''\
+            """);
+
+    // Escaping inside triple single quotes (''')
+    // Single quotes should be escaped
+    assertThat(prettyQuoted("one\"two\" 'three\nfour"))
+        .isEqualTo(
+            """
+            '''one"two" 'three
+            four'''\
+            """);
+
+    // Heuristic: switch to ''' if starting/ending with double quote (boundary issue)
+    assertThat(prettyQuoted("\"one\ntwo"))
+        .isEqualTo(
+            """
+            '''"one
+            two'''\
+            """);
+    assertThat(prettyQuoted("one\ntwo\""))
+        .isEqualTo(
+            """
+            '''one
+            two"'''\
+            """);
+
+    // Boundary with single quote: keep triple double quotes
+    assertThat(prettyQuoted("'one\ntwo"))
+        .isEqualTo(
+            """
+            \"\"\"'one
+            two\"\"\"\
+            """);
   }
 
   private StarlarkValue createObjWithStr() {
@@ -157,5 +268,41 @@ public class PrinterTest {
         printer.append("<str marker>");
       }
     };
+  }
+
+  @Test
+  public void testBudgetedPrinter() throws Exception {
+    // Character limit test
+    Printer charLimited =
+        new Printer(new StringBuilder(), 10, Integer.MAX_VALUE, Integer.MAX_VALUE);
+    charLimited.repr("hello world this is long", DEFAULT);
+    assertThat(charLimited.toString()).isEqualTo("\"hello wor...");
+
+    // Element limit test
+    Printer elementLimited =
+        new Printer(new StringBuilder(), Integer.MAX_VALUE, Integer.MAX_VALUE, 3);
+    elementLimited.repr(StarlarkList.of(null, "a", "b", "c", "d", "e"), DEFAULT);
+    assertThat(elementLimited.toString()).isEqualTo("[\"a\", \"b\", \"c\", ...]");
+
+    // Depth limit test
+    Mutability mu = Mutability.create();
+    StarlarkList<Object> nested = StarlarkList.newList(mu);
+    StarlarkList<Object> current = nested;
+    for (int i = 0; i < 5; i++) {
+      StarlarkList<Object> next = StarlarkList.newList(mu);
+      current.append(next);
+      current = next;
+    }
+    Printer depthLimited =
+        new Printer(new StringBuilder(), Integer.MAX_VALUE, 3, Integer.MAX_VALUE);
+    depthLimited.repr(nested, DEFAULT);
+    assertThat(depthLimited.toString()).isEqualTo("[[[...]]]");
+
+    // Truncated printList short-circuit test
+    Printer truncatedPrinter =
+        new Printer(new StringBuilder(), 5, Integer.MAX_VALUE, Integer.MAX_VALUE);
+    truncatedPrinter.append("123456"); // exceeds maxChars
+    truncatedPrinter.printList(StarlarkList.of(null, "a", "b"), "[", ", ", "]", DEFAULT);
+    assertThat(truncatedPrinter.toString()).isEqualTo("12345...");
   }
 }

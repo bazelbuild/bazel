@@ -28,8 +28,10 @@ import java.net.PasswordAuthentication;
 import java.net.Proxy;
 import java.net.URI;
 import java.net.URLDecoder;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -44,6 +46,12 @@ public class ProxyHelper {
   private static final Object AUTHENTICATOR_LOCK = new Object();
   private static volatile boolean authenticatorSet = false;
 
+  // Maps "host:port" to credentials for that proxy endpoint. This allows the global
+  // Authenticator to return the correct credentials for each distinct proxy endpoint,
+  // preventing credential bleed across proxy boundaries.
+  private static final ConcurrentHashMap<String, PasswordAuthentication> proxyCredentials =
+      new ConcurrentHashMap<>();
+
   private final Map<String, String> env;
 
   /** Resets the static authenticator state. This is intended for testing only. */
@@ -51,6 +59,7 @@ public class ProxyHelper {
     synchronized (AUTHENTICATOR_LOCK) {
       Authenticator.setDefault(null);
       authenticatorSet = false;
+      proxyCredentials.clear();
     }
   }
 
@@ -231,9 +240,8 @@ public class ProxyHelper {
     }
 
     // Here there be dragons.
-    Pattern urlPattern =
-        Pattern.compile("^(https?://)?(([^:@]+?)(?::([^@]+?))?@)?([^:]+)(?::(\\d+))?/?$");
-    Matcher matcher = urlPattern.matcher(proxyAddress);
+    // Supports http://, https://, socks://, socks4://, socks5:// or no protocol (defaults to HTTP)
+    Matcher matcher = URL_PATTERN.matcher(proxyAddress);
     if (!matcher.matches()) {
       throw new IOException("Proxy address " + proxyAddress + " is not a valid URL");
     }
@@ -251,19 +259,31 @@ public class ProxyHelper {
           proxyAddress.replace(idAndPassword, ""); // Used to remove id+pwd from logging
     }
 
-    boolean https;
-    if (protocol == null) {
-      https = false;
+    Proxy.Type proxyType;
+    int defaultPort;
+
+    if (protocol != null) {
+      switch (protocol) {
+        case "https://" -> {
+          proxyType = Proxy.Type.HTTP;
+          defaultPort = 443;
+        }
+        case "http://" -> {
+          proxyType = Proxy.Type.HTTP;
+          defaultPort = 80;
+        }
+        case "socks://", "socks4://", "socks5://" -> {
+          proxyType = Proxy.Type.SOCKS;
+          defaultPort = 1080;
+        }
+        default -> throw new IOException("Invalid proxy protocol for " + cleanProxyAddress);
+      }
     } else {
-      https =
-          switch (protocol) {
-            case "https://" -> true;
-            case "http://" -> false;
-            default -> throw new IOException("Invalid proxy protocol for " + cleanProxyAddress);
-          };
+      proxyType = Proxy.Type.HTTP;
+      defaultPort = 80;
     }
 
-    int port = https ? 443 : 80; // Default port numbers
+    int port = defaultPort;
 
     if (portRaw != null) {
       try {
@@ -273,7 +293,7 @@ public class ProxyHelper {
       }
     }
 
-    Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(hostname, port));
+    Proxy proxy = new Proxy(proxyType, new InetSocketAddress(hostname, port));
 
     // Determine credentials: URL credentials take precedence over system properties
     String username = urlUsername;
@@ -299,14 +319,21 @@ public class ProxyHelper {
     // Instead, it uses the Authenticator mechanism. We also enable Basic auth tunneling by
     // clearing the disabled schemes (by default, Basic auth is disabled for HTTPS tunneling).
     if (username != null && password != null) {
+      // Register credentials for this specific proxy endpoint.
+      // Multiple proxy endpoints can each have different credentials; the Authenticator
+      // looks up credentials by the requesting host and port.
+      String proxyKey = credentialKey(hostname, port);
+      proxyCredentials.put(
+          proxyKey,
+          new PasswordAuthentication(
+              internalToUnicode(username), internalToUnicode(password).toCharArray()));
+
       // Use double-checked locking to ensure thread-safe, one-time setup of the global
-      // Authenticator. The first caller with credentials wins. This is safe because Bazel
-      // typically uses a single proxy configuration for all downloads.
+      // Authenticator. The Authenticator is set once and then reused for all proxy auth
+      // challenges, looking up credentials from the proxyCredentials map.
       if (!authenticatorSet) {
         synchronized (AUTHENTICATOR_LOCK) {
           if (!authenticatorSet) {
-            final String finalUsername = username;
-            final String finalPassword = password;
             // Capture the previous authenticator to delegate non-proxy auth requests to it.
             // This preserves existing behavior for server authentication (e.g., .netrc).
             final Authenticator previousAuthenticator = Authenticator.getDefault();
@@ -315,13 +342,22 @@ public class ProxyHelper {
                   @Nullable
                   @Override
                   public PasswordAuthentication getPasswordAuthentication() {
-                    // Only provide credentials for proxy authentication.
                     if (getRequestorType() == RequestorType.PROXY) {
-                      return new PasswordAuthentication(
-                          internalToUnicode(finalUsername),
-                          internalToUnicode(finalPassword).toCharArray());
+                      String requestingHost = getRequestingHost();
+                      int requestingPort = getRequestingPort();
+                      if (requestingHost != null) {
+                        // Look up credentials for the specific proxy endpoint.
+                        // This prevents credential bleed across proxy boundaries by ensuring
+                        // that credentials configured for proxy-A are never sent to proxy-B.
+                        String key = credentialKey(requestingHost, requestingPort);
+                        PasswordAuthentication auth = proxyCredentials.get(key);
+                        if (auth != null) {
+                          return auth;
+                        }
+                      }
                     }
-                    // Delegate non-proxy auth to previous authenticator (if any).
+                    // Delegate non-proxy or unhandled proxy auth to previous authenticator (if
+                    // any).
                     // This preserves existing behavior for server authentication.
                     if (previousAuthenticator != null) {
                       return previousAuthenticator.requestPasswordAuthenticationInstance(
@@ -349,6 +385,17 @@ public class ProxyHelper {
 
     return new ProxyInfo(proxy, username, password);
   }
+
+  private static String credentialKey(@Nullable String host, int port) {
+    if (host == null) {
+      return "";
+    }
+    return host.toLowerCase(Locale.ROOT) + ":" + port;
+  }
+
+  private static final Pattern URL_PATTERN =
+      Pattern.compile(
+          "^(https?://|socks[45]?://)?(([^:@]+?)(?::([^@]+?))?@)?([^:]+)(?::(\\d+))?/?$");
 
   /**
    * Enables Basic authentication for HTTPS tunneling through HTTP proxies.

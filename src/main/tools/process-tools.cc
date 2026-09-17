@@ -30,6 +30,7 @@
 #include <unistd.h>
 
 #include <memory>
+#include <string>
 
 #include "src/main/protobuf/execution_statistics.pb.h"
 #include "src/main/tools/logging.h"

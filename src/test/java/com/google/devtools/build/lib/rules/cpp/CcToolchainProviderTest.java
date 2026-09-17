@@ -199,13 +199,30 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
   private ImmutableMap<String, String> getMakeVariables(CcToolchainProvider ccToolchainProvider)
       throws Exception {
     scratch.overwriteFile(
+        "test/BUILD",
+        """
+        load("@rules_cc//cc/toolchains:cc_toolchain_alias.bzl", "cc_toolchain_alias")
+        cc_toolchain_alias(name = "toolchain")
+        """);
+    scratch.overwriteFile(
         "bazel_testing/fake_test_utils/util.bzl",
         """
+        load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
         load("@rules_cc//cc/common:cc_helper.bzl", "cc_helper")
         FuncInfo = provider()
         def _impl(ctx):
-          return [FuncInfo(func = cc_helper.get_toolchain_global_make_variables)]
-        func_exporting_rule = rule(_impl)
+          feature_configuration = cc_common.configure_features(
+              ctx = ctx,
+              cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo],
+          )
+          def func(cc_toolchain):
+            return cc_helper.get_toolchain_global_make_variables(cc_toolchain, feature_configuration)
+          return [FuncInfo(func = func)]
+        func_exporting_rule = rule(
+            _impl,
+            attrs = {"_cc_toolchain": attr.label(default = Label("//test:toolchain"))},
+            fragments = ["cpp"],
+        )
         """);
     scratch.overwriteFile(
         "bazel_testing/fake_test_utils/BUILD",
@@ -233,6 +250,11 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
    */
   @Test
   public void testGcovToolNotDefined() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      // TODO(b/507033784): Remove once https://github.com/bazelbuild/rules_cc/pull/699 is in a
+      // released rules_cc used by BazelCI.
+      return;
+    }
     // Crosstool with gcov-tool
     scratch.file(
         "a/BUILD",
@@ -278,6 +300,11 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
   @Test
   public void testGcovToolDefined() throws Exception {
     // Crosstool with gcov-tool
+    if (analysisMock.isThisBazel()) {
+      // TODO(b/507033784): Remove once https://github.com/bazelbuild/rules_cc/pull/699 is in a
+      // released rules_cc used by BazelCI.
+      return;
+    }
     scratch.file(
         "a/BUILD",
         "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
@@ -572,50 +599,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
 
     assertThat(instrumentedFilesInfo.getCoverageSupportFiles().toList()).isEmpty();
-  }
-
-  @Test
-  public void testConfigWithMissingToolDefs() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "load('@rules_cc//cc/toolchains:cc_toolchain.bzl', 'cc_toolchain')",
-        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
-        "filegroup(",
-        "   name='empty')",
-        "cc_toolchain(",
-        "    name = 'b',",
-        "    all_files = ':empty',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    toolchain_identifier = 'banana',",
-        "    toolchain_config = ':k8-compiler_config',",
-        ")",
-        CcToolchainConfig.builder()
-            .withToolPaths(
-                Pair.of("gcc", "path-to-gcc-tool"),
-                Pair.of("ar", "ar"),
-                Pair.of("cpp", "cpp"),
-                Pair.of("gcov", "gcov"),
-                Pair.of("ld", "ld"),
-                Pair.of("nm", "nm"),
-                Pair.of("objdump", "objdump")
-                // Pair.of("strip", "strip")
-                )
-            .build()
-            .getCcToolchainConfigRule());
-    analysisMock.ccSupport().setupCcToolchainConfig(mockToolsConfig, CcToolchainConfig.builder());
-    mockToolsConfig.create(
-        "a/cc_toolchain_config.bzl",
-        ResourceLoader.readFromResources(
-            "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:b");
-    assertContainsEvent("Tool path for 'strip' is missing");
   }
 
   @Test

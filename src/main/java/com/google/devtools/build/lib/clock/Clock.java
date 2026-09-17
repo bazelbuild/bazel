@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.clock;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.time.Instant;
 
 /** Provides an interface for a pluggable clock. */
+@SkybridgeInterface
 public interface Clock {
 
   /**

@@ -73,4 +73,49 @@ public class PackageProgressReceiverTest {
     assertThat(progress.progressState().getFirst()).isEqualTo(defaultState);
     assertThat(progress.progressState().getSecond()).isEqualTo(defaultActivity);
   }
+
+  @Test
+  public void testLargeNumbersFormattedWithCommas() {
+    // Verify that large package counts (>= 10,000) are formatted with comma separators.
+    PackageProgressReceiver progress = new PackageProgressReceiver();
+
+    for (int i = 0; i < 11234; i++) {
+      PackageIdentifier id = PackageIdentifier.createInMainRepo("pkg" + i);
+      progress.startReadPackage(id);
+      progress.doneReadPackage(id);
+    }
+
+    String state = progress.progressState().getFirst();
+    assertThat(state).contains("11,234 packages loaded");
+  }
+
+  @Test
+  public void testLargePendingSetFormattedWithCommas() {
+    // Verify that large pending package counts (>= 10,000) are formatted with comma separators.
+    PackageProgressReceiver progress = new PackageProgressReceiver();
+
+    for (int i = 0; i < 11500; i++) {
+      PackageIdentifier id = PackageIdentifier.createInMainRepo("pending/pkg" + i);
+      progress.startReadPackage(id);
+    }
+
+    String activity = progress.progressState().getSecond();
+    assertThat(activity).contains("(11,500 packages)");
+  }
+
+  @Test
+  public void testSmallNumbersNotFormattedWithCommas() {
+    // Verify that counts below 10,000 (IEEE style threshold) are NOT formatted with commas.
+    PackageProgressReceiver progress = new PackageProgressReceiver();
+
+    for (int i = 0; i < 1234; i++) {
+      PackageIdentifier id = PackageIdentifier.createInMainRepo("pkg" + i);
+      progress.startReadPackage(id);
+      progress.doneReadPackage(id);
+    }
+
+    String state = progress.progressState().getFirst();
+    assertThat(state).contains("1234 packages loaded");
+    assertThat(state).doesNotContain("1,234");
+  }
 }

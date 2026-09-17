@@ -2,24 +2,49 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+)
+
+java_library(
+    name = "command_context",
+    srcs = ["CommandContext.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "lifecycle_event",
+    srcs = ["LifecycleEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+    ],
+)
+
+java_library(
+    name = "stream_event",
+    srcs = ["StreamEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+    ],
 )
 
 java_library(
     name = "build_event_service_client",
     srcs = ["BuildEventServiceClient.java"],
     deps = [
-        "//third_party:auto_value",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/grpc-java:grpc-jar",
+        ":command_context",
+        ":lifecycle_event",
+        ":stream_event",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -28,17 +53,25 @@ java_library(
     srcs = ["BuildEventServiceGrpcClient.java"],
     runtime_deps = [
         # This is required for client TLS.
-        "//third_party:netty_tcnative",
+        "//third_party/java/netty_tcnative",
     ],
     deps = [
         ":build_event_service_client",
         ":build_event_service_proto_util",
-        "//src/main/java/com/google/devtools/build/lib/remote/util",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/grpc-java:grpc-jar",
-        "@googleapis//google/devtools/build/v1:build_java_grpc",
-        "@googleapis//google/devtools/build/v1:build_java_proto",
+        ":command_context",
+        ":lifecycle_event",
+        ":stream_event",
+        "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
+        "//third_party/google/devtools/build/v1:publish_build_event_java_proto",
+        "//third_party/google/devtools/build/v1:publish_build_event_proto_grpc",
+        "//third_party/java/grpc:core",
+        "//third_party/java/grpc:stub",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -46,10 +79,17 @@ java_library(
     name = "build_event_service_proto_util",
     srcs = ["BuildEventServiceProtoUtil.java"],
     deps = [
-        ":build_event_service_client",
+        ":command_context",
+        ":lifecycle_event",
+        ":stream_event",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
-        "//third_party:guava",
-        "@com_google_protobuf//:protobuf_java",
-        "@googleapis//google/devtools/build/v1:build_java_proto",
+        "//third_party/google/devtools/build/v1:build_events_java_proto",
+        "//third_party/google/devtools/build/v1:build_status_java_proto",
+        "//third_party/google/devtools/build/v1:publish_build_event_java_proto",
+        "//third_party/google/protobuf:any_java_proto",
+        "//third_party/google/protobuf:timestamp_java_proto",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )

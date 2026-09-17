@@ -157,7 +157,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
             ruleContext.getLabel(),
             settings.nativeFlagSettings,
             userDefinedFlags.getSpecifiedFlagValues(),
-            ImmutableSet.copyOf(getSpecifiedConstraintValues(ruleContext)),
+            getSpecifiedConstraintValues(ruleContext),
             Stream.of(userDefinedFlags.result(), nativeFlagsResult, constraintValuesResult)
                 .reduce(MatchResult::combine)
                 .get());
@@ -847,9 +847,16 @@ Either remove one of these settings or ensure they match the same value.
    *
    * @param ruleContext this rule's RuleContext
    */
-  private static List<Label> getSpecifiedConstraintValues(RuleContext ruleContext) {
-    return ruleContext.getPrerequisites(ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE).stream()
-        .map(TransitiveInfoCollection::getLabel)
-        .collect(Collectors.toList());
+  private static ImmutableSet<Label> getSpecifiedConstraintValues(RuleContext ruleContext) {
+    var result = ImmutableSet.<Label>builder();
+    for (TransitiveInfoCollection dep :
+        ruleContext.getPrerequisites(ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE)) {
+      result.add(dep.getLabel());
+      ConstraintValueInfo constraintValue = PlatformProviderUtils.constraintValue(dep);
+      if (constraintValue != null) {
+        result.addAll(constraintValue.constraint().refinementChain());
+      }
+    }
+    return result.build();
   }
 }

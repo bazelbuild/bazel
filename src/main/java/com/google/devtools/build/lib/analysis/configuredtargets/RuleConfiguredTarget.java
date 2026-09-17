@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
@@ -332,5 +333,13 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   @Override
   public Dict<String, Object> getProvidersDictForQuery() {
     return toProvidersDictForQuery(providers);
+  }
+
+  /**
+   * Returns the providers map. Should only be used for metrics, as it is missing {@link
+   * DefaultInfo}.
+   */
+  public TransitiveInfoProviderMap getProvidersForMetrics() {
+    return providers;
   }
 }

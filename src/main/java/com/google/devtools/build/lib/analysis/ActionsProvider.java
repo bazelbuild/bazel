@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.ActionsInfoProviderApi;
 import java.util.HashMap;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
-import net.starlark.java.syntax.Location;
 
 /**
  * This provides a view over the actions that were created during the analysis of a rule
@@ -35,7 +34,7 @@ public final class ActionsProvider extends BuiltinProvider<StructImpl>
   /** The ActionsProvider singleton instance. */
   public static final ActionsProvider INSTANCE = new ActionsProvider();
 
-  public ActionsProvider() {
+  private ActionsProvider() {
     super("Actions", StructImpl.class);
   }
 
@@ -49,8 +48,7 @@ public final class ActionsProvider extends BuiltinProvider<StructImpl>
         map.putIfAbsent(artifact, action);
       }
     }
-    ImmutableMap<String, Object> fields =
-        ImmutableMap.<String, Object>of("by_file", Dict.immutableCopyOf(map));
-    return StarlarkInfo.create(INSTANCE, fields, Location.BUILTIN);
+    ImmutableMap<String, Object> fields = ImmutableMap.of("by_file", Dict.immutableCopyOf(map));
+    return StarlarkInfo.create(INSTANCE, fields);
   }
 }

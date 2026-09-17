@@ -29,8 +29,6 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.rules.LateBoundAlias.AbstractAliasRule;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import net.starlark.java.eval.Starlark;
 
 /**
@@ -52,12 +50,11 @@ import net.starlark.java.eval.Starlark;
  * possible today and could easily introduce large performance issues.
  */
 public final class LabelBuildSettings {
-  @SerializationConstant @VisibleForSerialization
-  static final String NONCONFIGURABLE_ATTRIBUTE_REASON =
+  private static final String NONCONFIGURABLE_ATTRIBUTE_REASON =
       "part of a rule class that *triggers* configurable behavior";
 
   // TODO(b/65746853): find a way to do this without passing the entire BuildConfigurationValue
-  static final LabelLateBoundDefault<BuildConfigurationValue> ACTUAL =
+  private static final LabelLateBoundDefault<BuildConfigurationValue> ACTUAL =
       LabelLateBoundDefault.fromTargetConfigurationWithRuleBasedDefault(
           BuildConfigurationValue.class,
           (rule) ->
@@ -89,7 +86,7 @@ public final class LabelBuildSettings {
         .add(attr(":alias", LABEL).value(ACTUAL))
         .add(
             attr("scope", STRING)
-                .value("universal")
+                .value("default")
                 .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
         .add(attr("on_leave_scope", NODEP_LABEL).nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
         .setBuildSetting(BuildSetting.create(flag, NODEP_LABEL))

@@ -18,7 +18,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 import static com.google.devtools.build.lib.rules.cpp.CcModule.nullIfNone;
 
-import com.google.common.base.Strings;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext.HeaderInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.MapVariables;
@@ -63,9 +62,8 @@ import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionCo
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.IdentityHashMap;
 import java.util.Objects;
-import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -89,6 +87,26 @@ import net.starlark.java.eval.Tuple;
 public class CcStarlarkInternal implements StarlarkValue {
 
   public static final String NAME = "cc_internal";
+
+  private static final int ALLOWLIST_CACHE_MAX_SIZE = 32;
+  private static final Object ALLOWLIST_CACHE_LOCK = new Object();
+
+  /**
+   * Caches the conversion from a Starlark {@link Sequence} to a {@link
+   * BuiltinRestriction.Allowlist}.
+   *
+   * <p>{@link #checkPrivateApi} is called on every private API usage, making it a hot path.
+   * However, it is typically called with only a handful of unique {@link Sequence} instances
+   * defined in Starlark files.
+   *
+   * <p>To maximize performance, we use a copy-on-write {@link IdentityHashMap}. This avoids the
+   * cost of hashing sequences and keeps reads (the common case) lock-free. Updates are rare and are
+   * synchronized. If the cache exceeds {@link #ALLOWLIST_CACHE_MAX_SIZE}, we start fresh with an
+   * empty cache. This approach performs better than a Caffeine cache with maximum size and/or weak
+   * keys, which both have per-read maintenance operations.
+   */
+  private static volatile IdentityHashMap<Sequence<Tuple>, BuiltinRestriction.Allowlist>
+      allowlistCache = new IdentityHashMap<>();
 
   @StarlarkMethod(
       name = "check_private_api",
@@ -122,14 +140,56 @@ public class CcStarlarkInternal implements StarlarkValue {
       // phase
       return;
     }
+
     BazelModuleContext bazelModuleContext = (BazelModuleContext) module.getClientData();
-    ImmutableList<BuiltinRestriction.AllowlistEntry> allowlist =
-        Sequence.cast(allowlistObject, Tuple.class, "allowlist").stream()
+    BuiltinRestriction.Allowlist allowlist = allowlistFromStarlark(allowlistObject);
+    BuiltinRestriction.failIfModuleOutsideAllowlist(bazelModuleContext, allowlist);
+  }
+
+  private static BuiltinRestriction.Allowlist allowlistFromStarlark(Object allowlistObject)
+      throws EvalException {
+    // Fast path: lock-free read.
+    BuiltinRestriction.Allowlist allowlist = allowlistCache.get(allowlistObject);
+    if (allowlist != null) {
+      return allowlist;
+    }
+
+    Sequence<Tuple> seq = Sequence.cast(allowlistObject, Tuple.class, "allowlist");
+    if (!seq.isImmutable()) {
+      return createAllowlist(seq);
+    }
+
+    // Cache miss: check again under lock.
+    synchronized (ALLOWLIST_CACHE_LOCK) {
+      allowlist = allowlistCache.get(seq);
+      if (allowlist == null) {
+        // Copy on write.
+        IdentityHashMap<Sequence<Tuple>, BuiltinRestriction.Allowlist> newCache =
+            allowlistCache.size() < ALLOWLIST_CACHE_MAX_SIZE
+                ? new IdentityHashMap<>(allowlistCache)
+                : new IdentityHashMap<>();
+        allowlist = createAllowlist(seq);
+        newCache.put(seq, allowlist);
+        allowlistCache = newCache;
+      }
+    }
+    return allowlist;
+  }
+
+  private static BuiltinRestriction.Allowlist createAllowlist(Sequence<Tuple> seq) {
+    return BuiltinRestriction.Allowlist.create(
+        seq.stream()
             // TODO(bazel-team): Avoid unchecked indexing and casts on values obtained from
             // Starlark, even though it is allowlisted.
-            .map(p -> BuiltinRestriction.allowlistEntry((String) p.get(0), (String) p.get(1)))
-            .collect(toImmutableList());
-    BuiltinRestriction.failIfModuleOutsideAllowlist(bazelModuleContext, allowlist);
+            .map(
+                p -> {
+                  String repo = (String) p.get(0);
+                  String packagePrefix = (String) p.get(1);
+                  return repo.isEmpty()
+                      ? BuiltinRestriction.mainRepoAllowlistEntry(packagePrefix)
+                      : BuiltinRestriction.externalRepoAllowlistEntry(repo, packagePrefix);
+                })
+            .collect(toImmutableList()));
   }
 
   /** Wraps a dictionary of build variables into CcToolchainVariables. */
@@ -399,6 +459,14 @@ public class CcStarlarkInternal implements StarlarkValue {
   private static final Interner<Object> interner = BlazeInterners.newWeakInterner();
 
   @StarlarkMethod(
+      name = "maybe_hash_preserve_extension",
+      documented = false,
+      parameters = {@Param(name = "filename")})
+  public String maybeHashPreserveExtension(String filename) {
+    return SolibSymlinkAction.maybeHashPreserveExtension(filename);
+  }
+
+  @StarlarkMethod(
       name = "intern_seq",
       documented = false,
       parameters = {@Param(name = "seq")})
@@ -418,12 +486,19 @@ public class CcStarlarkInternal implements StarlarkValue {
             positional = false,
             named = true,
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)}),
+        @Param(
+            name = "param_file_name",
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)}),
       })
   public Args getArgs(
       String actionName,
       FeatureConfigurationForStarlark featureConfiguration,
       CcToolchainVariables buildVariables,
-      Object paramFileType)
+      Object paramFileType,
+      Object paramFileName)
       throws EvalException {
     LinkCommandLine.Builder linkCommandLineBuilder =
         new LinkCommandLine.Builder()
@@ -435,12 +510,16 @@ public class CcStarlarkInternal implements StarlarkValue {
           .setParameterFileType(ParameterFileType.valueOf((String) paramFileType))
           .setSplitCommandLine(true);
     }
+    if (paramFileName instanceof String string) {
+      linkCommandLineBuilder.setParamFileName(string);
+    }
     LinkCommandLine linkCommandLine = linkCommandLineBuilder.build();
     return Args.forRegisteredAction(
         new CommandLineAndParamFileInfo(linkCommandLine, linkCommandLine.getParamFileInfo()),
         ImmutableSet.of());
   }
 
+  @StarlarkBuiltin(name = "WrappedStarlarkActionFactory", documented = false)
   static class WrappedStarlarkActionFactory extends StarlarkActionFactory {
     final LinkActionConstruction construction;
 
@@ -524,7 +603,7 @@ public class CcStarlarkInternal implements StarlarkValue {
     String aspectName = ctx.getAspectDescriptor().getAspectClass().getName();
     // Starlark aspects names are of the form //my/aspect.bzl%aspect
     if (aspectName.contains("%")) {
-      aspectName = aspectName.split("%", -1)[1];
+      aspectName = Splitter.on('%').splitToList(aspectName).get(1);
     }
     return aspectName;
   }
@@ -661,6 +740,12 @@ public class CcStarlarkInternal implements StarlarkValue {
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             defaultValue = "None"),
         @Param(
+            name = "progress_message_prefix",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None"),
+        @Param(
             name = "should_scan_includes",
             positional = false,
             named = true,
@@ -706,6 +791,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       Object buildInfoHeaderArtifacts,
       Object additionalPrunableHeaders,
       Object actionName,
+      Object progressMessagePrefix,
       Object shouldScanIncludes,
       Object shareable,
       Object moduleFiles,
@@ -726,16 +812,13 @@ public class CcStarlarkInternal implements StarlarkValue {
           "action_construction_context must be either StarlarkRuleContext or"
               + " StarlarkTemplateContext");
     }
-    CoptsFilter coptsFilter =
-        createCoptsFilter(
-            Starlark.isNullOrNone(coptsFilterObject) ? null : (String) coptsFilterObject);
+
     CppCompileActionBuilder builder =
         createCppCompileActionBuilder(
             ccActionContext.getActionOwner(),
             CcCompilationContext.of(ccCompilationContext),
             ccToolchain,
             configuration,
-            coptsFilter,
             featureConfigurationForStarlark,
             sourceArtifact,
             additionalCompilationInputs,
@@ -763,6 +846,9 @@ public class CcStarlarkInternal implements StarlarkValue {
     }
     if (actionName instanceof String actionNameString) {
       builder.setActionName(actionNameString);
+    }
+    if (progressMessagePrefix instanceof String progressMessagePrefixString) {
+      builder.setProgressMessagePrefix(progressMessagePrefixString);
     }
     if (shouldScanIncludes instanceof Boolean bool) {
       builder.setShouldScanIncludes(bool);
@@ -853,19 +939,6 @@ public class CcStarlarkInternal implements StarlarkValue {
     }
   }
 
-  private CoptsFilter createCoptsFilter(String coptsFilterString) throws EvalException {
-    if (Strings.isNullOrEmpty(coptsFilterString)) {
-      return CoptsFilter.alwaysPasses();
-    } else {
-      try {
-        return CoptsFilter.fromRegex(Pattern.compile(coptsFilterString));
-      } catch (PatternSyntaxException e) {
-        throw Starlark.errorf(
-            "invalid regular expression '%s': %s", coptsFilterString, e.getMessage());
-      }
-    }
-  }
-
   @StarlarkMethod(
       name = "create_cc_compile_action_template",
       documented = false,
@@ -925,9 +998,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       boolean needsIncludeValidation,
       String toolchainType)
       throws RuleErrorException, EvalException {
-    CoptsFilter coptsFilter =
-        createCoptsFilter(
-            Starlark.isNullOrNone(coptsFilterObject) ? null : (String) coptsFilterObject);
+
     ImmutableList.Builder<ArtifactCategory> outputCategories = ImmutableList.builder();
     for (Object outputCategoryObject : outputCategoriesUnchecked) {
       if (outputCategoryObject instanceof String outputCategoryString) {
@@ -958,7 +1029,6 @@ public class CcStarlarkInternal implements StarlarkValue {
             CcCompilationContext.of(ccCompilationContext),
             ccToolchain,
             configuration,
-            coptsFilter,
             featureConfigurationForStarlark,
             source,
             additionalCompilationInputs,
@@ -998,7 +1068,6 @@ public class CcStarlarkInternal implements StarlarkValue {
       CcCompilationContext ccCompilationContext,
       StarlarkInfo ccToolchain,
       BuildConfigurationValue configuration,
-      CoptsFilter coptsFilter,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
       Artifact sourceArtifact,
       Sequence<?> additionalCompilationInputs,
@@ -1017,7 +1086,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         new CppCompileActionBuilder(owner, CcToolchainProvider.create(ccToolchain), configuration)
             .setSourceFile(sourceArtifact)
             .setCcCompilationContext(ccCompilationContext)
-            .setCoptsFilter(coptsFilter)
             .setFeatureConfiguration(featureConfigurationForStarlark.getFeatureConfiguration())
             .addExecutionInfo(executionInfo);
     if (additionalCompilationInputs.size() > 0) {
@@ -1060,7 +1128,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       documented = false,
       parameters = {@Param(name = "fn")})
   public void checkToplevel(StarlarkFunction fn) throws EvalException {
-    if (fn.getModule().getGlobal(fn.getName()) != fn) {
+    if (!Objects.equals(fn.getModule().getGlobal(fn.getName()), fn)) {
       throw Starlark.errorf("Passed function must be top-level functions.");
     }
   }
@@ -1117,7 +1185,7 @@ public class CcStarlarkInternal implements StarlarkValue {
     RuleContext ruleContext = starlarkRuleContext.getRuleContext();
     return ruleContext.getDerivedArtifact(
         objectFile.getRootRelativePath().getParentDirectory().getRelative(outputName),
-        ruleContext.getConfiguration().getBinDirectory(ruleContext.getLabel().getRepository()));
+        ruleContext.getConfiguration().getBinDirectory());
   }
 
   @StarlarkMethod(

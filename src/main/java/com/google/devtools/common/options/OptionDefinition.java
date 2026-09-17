@@ -16,10 +16,7 @@ package com.google.devtools.common.options;
 import static java.util.Comparator.comparing;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.Member;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Arrays;
@@ -37,17 +34,6 @@ public abstract class OptionDefinition implements Comparable<OptionDefinition> {
    */
   public static final String SPECIAL_NULL_DEFAULT_VALUE = "null";
 
-  /** Exception used when trying to create an {@link OptionDefinition} for an invalid member. */
-  // TODO(b/65049598) make ConstructionException checked, which will make this checked as well.
-  public static class NotAnOptionException extends ConstructionException {
-    public NotAnOptionException(Member member) {
-      super(
-          String.format(
-              "The %s %s does not have the right annotation to be considered an option.",
-              member instanceof Field ? "field" : "method", member.getName()));
-    }
-  }
-
   /** An ordering relation for options that orders by the option name. */
   public static final Comparator<OptionDefinition> BY_OPTION_NAME =
       Comparator.comparing(OptionDefinition::getOptionName);
@@ -58,6 +44,49 @@ public abstract class OptionDefinition implements Comparable<OptionDefinition> {
    */
   public static final Comparator<OptionDefinition> BY_CATEGORY =
       comparing(OptionDefinition::getOptionCategory).thenComparing(BY_OPTION_NAME);
+
+  /** Returns all options fields of the given options class, in alphabetic order. */
+  public static ImmutableList<? extends OptionDefinition> getOptionDefinitions(
+      Class<? extends OptionsBase> optionsClass) {
+    return OptionsData.getAllOptionDefinitionsForClass(optionsClass);
+  }
+
+  /**
+   * Two option definitions are considered equivalent for parsing if they result in the same control
+   * flow through {@link OptionsParserImpl#identifyOptionAndPossibleArgument}. This is crucial to
+   * ensure that the beginning of the next option can be determined unambiguously when parsing with
+   * fallback data.
+   *
+   * <p>Examples:
+   *
+   * <ul>
+   *   <li>Both {@code query} and {@code cquery} have a {@code --output} option, but the options
+   *       accept different sets of values (e.g. {@code cquery} has {@code --output=files}, but
+   *       {@code query} doesn't. However, since both options accept a string value, they parse
+   *       equivalently as far as {@link OptionsParserImpl#identifyOptionAndPossibleArgument} is
+   *       concerned - potential failures due to unsupported values occur after parsing, during
+   *       value conversion. There is no ambiguity in how many command-line arguments are consumed
+   *       depending on which option definition is used.
+   *   <li>If the hypothetical {@code foo} command also had a {@code --output} option, but it were
+   *       boolean-valued, then the two option definitions would <b>not</b> be equivalent for
+   *       parsing: The command line {@code --output --copt=foo} would parse as {@code {"output":
+   *       "--copt=foo"}} for the {@code cquery} command, but as {@code {"output": true, "copt":
+   *       "foo"}} for the {@code foo} command, thus resulting in parsing ambiguities between the
+   *       two commands.
+   * </ul>
+   */
+  public static boolean equivalentForParsing(
+      OptionDefinition definition, OptionDefinition otherDefinition) {
+    if (definition.equals(otherDefinition)) {
+      return true;
+    }
+    return (definition.usesBooleanValueSyntax() == otherDefinition.usesBooleanValueSyntax())
+        && (definition.getType().equals(Void.class) == otherDefinition.getType().equals(Void.class))
+        && (ImmutableList.copyOf(definition.getOptionMetadataTags())
+                .contains(OptionMetadataTag.INTERNAL)
+            == ImmutableList.copyOf(otherDefinition.getOptionMetadataTags())
+                .contains(OptionMetadataTag.INTERNAL));
+  }
 
   protected final Option optionAnnotation;
   private volatile Converter<?> converter = null;

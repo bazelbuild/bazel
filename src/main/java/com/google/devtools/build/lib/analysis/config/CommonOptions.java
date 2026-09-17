@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.common.options.Options;
 
 /** Common sets of option objects for use in core processing. */
@@ -29,7 +30,7 @@ public final class CommonOptions {
   // FragmentOptions and propagate them to this configuration. Those flags should also be
   // ineligible outputs for other transitions because they're not meant for rule logic.  That
   // would guarantee consistency of flags like --check_visibility while still preventing forking.
-  public static final BuildOptions EMPTY_OPTIONS = createEmptyOptions();
+  @SerializationConstant public static final BuildOptions EMPTY_OPTIONS = createEmptyOptions();
 
   private static BuildOptions createEmptyOptions() {
     BuildOptions options =

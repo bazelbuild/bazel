@@ -2,27 +2,46 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
     name = "execution_requirements",
     srcs = ["ExecutionRequirements.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+    ],
     deps = [
-        "//third_party:guava",
-        "//third_party:jsr305",
+        ":exec_exception",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
 java_library(
     name = "resource_estimator",
     srcs = ["ResourceEstimator.java"],
+)
+
+java_library(
+    name = "action_key_context",
+    srcs = [
+        "ActionKeyContext.java",
+    ],
+    deps = [
+        ":commandline_item",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:fingerprint_cache",
+        "//src/main/java/com/google/devtools/build/lib/util",
+    ],
 )
 
 # Action graph and cache.
@@ -38,14 +57,11 @@ java_library(
         "ActionConcurrencyMeter.java",
         "ActionConflictException.java",
         "ActionContextMarker.java",
-        "ActionEnvironment.java",
         "ActionExecutedEvent.java",
-        "ActionExecutionStatusReporter.java",
         "ActionGraph.java",
         "ActionGraphVisitor.java",
         "ActionInputMap.java",
         "ActionKeyComputer.java",
-        "ActionKeyContext.java",
         "ActionLogBufferPathGenerator.java",
         "ActionLookupValue.java",
         "ActionProgressEvent.java",
@@ -56,19 +72,18 @@ java_library(
         "ActionTemplate.java",
         "ActionUploadFinishedEvent.java",
         "ActionUploadStartedEvent.java",
+        "ActionWithDiscoveredInputsState.java",
         "Actions.java",
         "AlreadyReportedActionExecutionException.java",
         "BaseSpawn.java",
         "BasicActionLookupValue.java",
         "BipartiteVisitor.java",
-        "BuildConfigurationEvent.java",
         "BuildFailedException.java",
         "CachedActionEvent.java",
         "CachingActionEvent.java",
         "ChangedFilesMessage.java",
         "CommandAction.java",
         "CommandLine.java",
-        "CommandLineLimits.java",
         "CommandLines.java",
         "CompletionContext.java",
         "DigestOfDirectoryException.java",
@@ -76,18 +91,13 @@ java_library(
         "DynamicStrategyRegistry.java",
         "EnvironmentalExecException.java",
         "EventReportingArtifacts.java",
-        "ExecException.java",
         "FailAction.java",
-        "HasDigest.java",
         "InjectedActionExecutionEvent.java",
         "InputFileErrorException.java",
         "MapBasedActionGraph.java",
         "MissingInputFileException.java",
         "MutableActionGraph.java",
         "NotifyOnActionCacheHit.java",
-        "OutputChecker.java",
-        "ParamFileInfo.java",
-        "ParameterFile.java",
         "ProxyMetadataFactory.java",
         "ResourceEstimator.java",
         "RichDataProducingAction.java",
@@ -105,15 +115,29 @@ java_library(
         "StoppedScanningActionEvent.java",
         "TestExecException.java",
         "TopLevelOutputException.java",
-        "TotalAndConfiguredTargetOnlyMetric.java",
-        "UserExecException.java",
+        "UploadingActionEvent.java",
         "cache/ActionCache.java",
         "cache/CompactPersistentActionCache.java",
         "cache/PersistentStringIndexer.java",
         "cache/PostableActionCacheStats.java",
     ],
-    exports = [":action_input_prefetcher"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
+    ],
+    exports = [
+        ":action_environment",
+        ":action_input_prefetcher",
+        ":action_key_context",
+        ":build_configuration_event",
+        ":commandline_limits",
+        ":exec_exception",
+        ":has_digest",
+        ":output_checker",
+        ":total_and_configured_target_only_metric",
+    ],
     deps = [
+        ":action_environment",
         ":action_input",
         ":action_input_prefetcher",
         ":action_lookup_data",
@@ -121,70 +145,82 @@ java_library(
         ":artifact_owner",
         ":artifacts",
         ":commandline_item",
+        ":commandline_limits",
+        ":exec_exception",
         ":execution_requirements",
         ":file_metadata",
         ":fileset_output_symlink",
         ":fileset_output_tree",
         ":localhost_capacity",
+        ":output_checker",
         ":package_roots",
+        ":param_file_action_input",
+        ":param_file_info",
+        ":parameter_file",
         ":runfiles_metadata",
         ":runfiles_tree",
-        ":thread_state_receiver",
-        ":virtual_action_input",
-        "//src/main/java/com/google/devtools/build/lib/analysis:symlink_entry",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform:constants",
-        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
-        "//src/main/java/com/google/devtools/build/lib/causes",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashmap",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:fingerprint_cache",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/remote:store",
-        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:command_failure_utils",
-        "//src/main/java/com/google/devtools/build/lib/util:describable_execution_unit",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",
         "//src/main/java/com/google/devtools/build/lib/util:var_int",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:action_cache_java_proto",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
-        "//src/main/protobuf:spawn_java_proto",
-        "//third_party:auto_value",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/google/protobuf:timestamp_java_proto",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:escape",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
+
+java_library(
+    name = "action_execution_status_reporter",
+    srcs = ["ActionExecutionStatusReporter.java"],
+    deps = [
+        ":action_input_prefetcher",
+        ":actions",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -194,7 +230,8 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/util",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -207,7 +244,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/skyframe:execution_phase_skykey",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -219,7 +256,8 @@ java_library(
         ":artifacts",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -227,13 +265,14 @@ java_library(
     name = "action_lookup_key",
     srcs = [
         "ActionLookupKey.java",
+        "ActionLookupSummaryKey.java",
     ],
     deps = [
         ":artifact_owner",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/skyframe:cpu_heavy_skykey",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -244,8 +283,10 @@ java_library(
         ":artifacts",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:caffeine",
-        "//third_party:guava",
+        "//third_party/java/caffeine",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
     ],
 )
 
@@ -255,6 +296,16 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_value",
+    ],
+)
+
+java_library(
+    name = "action_template_output_event",
+    srcs = ["ActionTemplateOutputEvent.java"],
+    deps = [
+        ":artifacts",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
     ],
 )
 
@@ -276,14 +327,13 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
 java_library(
     name = "artifacts",
     srcs = [
-        "ActionKeyContext.java",
         "ArgChunk.java",
         "Artifact.java",
         "ArtifactCodecs.java",
@@ -295,6 +345,7 @@ java_library(
         "PathMapper.java",
         "PathMapperConstants.java",
     ],
+    exports = [":action_key_context"],
     deps = [
         ":action_input",
         ":action_lookup_data",
@@ -306,7 +357,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:fingerprint_cache",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
@@ -325,11 +375,13 @@ java_library(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/lib",
-        "//third_party:caffeine",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/caffeine",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
@@ -339,7 +391,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -349,7 +401,7 @@ java_library(
         "CommandLineExpansionException.java",
         "CommandLineItem.java",
     ],
-    deps = ["//third_party:jsr305"],
+    deps = ["//third_party/java/jsr305_annotations"],
 )
 
 java_library(
@@ -365,7 +417,7 @@ java_library(
     ],
     deps = [
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -378,7 +430,9 @@ java_library(
         ":fileset_output_symlink",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/util",
-        "//third_party:guava",
+        "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -390,8 +444,7 @@ java_library(
         ":file_metadata",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -407,7 +460,25 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "output_checker",
+    srcs = ["OutputChecker.java"],
+    deps = [
+        ":action_input",
+        ":file_metadata",
+    ],
+)
+
+java_library(
+    name = "file_artifact_metadata",
+    srcs = ["FileArtifactMetadata.java"],
+    deps = [
+        ":has_digest",
     ],
 )
 
@@ -420,13 +491,12 @@ java_library(
         "FileStateValue.java",
         "FileStatusWithMetadata.java",
         "FileValue.java",
-        "OutputChecker.java",
         "RichArtifactData.java",
         "cache/MetadataDigestUtils.java",
     ],
     deps = [
-        ":action_input",
         ":artifacts",
+        ":file_artifact_metadata",
         ":has_digest",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
@@ -442,17 +512,21 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:hash",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
 java_library(
     name = "has_digest",
     srcs = ["HasDigest.java"],
-    deps = ["@com_google_protobuf//:protobuf_java"],
+    deps = ["//third_party/java/protobuf:protobuf_lite"],
 )
 
 java_library(
@@ -462,12 +536,23 @@ java_library(
         ":action_input",
         ":actions",
         ":artifacts",
+        ":param_file_action_input",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
+    name = "localhost_compute_resources",
+    srcs = ["LocalHostComputeResources.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
     ],
 )
 
@@ -479,16 +564,23 @@ java_library(
         "ResourceSet.java",
         "ResourceSetOrBuilder.java",
     ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
+    ],
     deps = [
         ":exec_exception",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        ":execution_requirements",
+        ":localhost_compute_resources",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_key",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -507,8 +599,49 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "param_file_action_input",
+    srcs = ["ParamFileActionInput.java"],
+    deps = [
+        ":parameter_file",
+        ":virtual_action_input",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "param_file_info",
+    srcs = ["ParamFileInfo.java"],
+    deps = [
+        ":parameter_file",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "parameter_file",
+    srcs = ["ParameterFile.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
+        "//src/main/java/com/google/devtools/build/lib/util:filetype",
+        "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -518,21 +651,29 @@ java_library(
         "MachineLoadProvider.java",
         "ResourceManager.java",
     ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
+    ],
     deps = [
         ":actions",
         ":localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/clock",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/profiler:auto_profiler",
+        "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/worker",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_key",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_pool",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_status",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -546,7 +687,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -556,7 +697,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_value",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
     ],
 )
 
@@ -565,7 +706,7 @@ java_library(
     srcs = ["ThreadStateReceiver.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//third_party:error_prone_annotations",
+        "//third_party/java/error_prone:annotations",
     ],
 )
 
@@ -589,9 +730,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:hash",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
@@ -612,31 +753,34 @@ java_library(
         "DelegatingPairInputMetadataProvider.java",
         "DiscoveredModulesPruner.java",
         "Executor.java",
-        "FullSpawnMetrics.java",
         "InputMetadataProvider.java",
         "LostInputsActionExecutionException.java",
         "LostInputsExecException.java",
         "MissingDepExecException.java",
         "Spawn.java",
+        "SpawnInputs.java",
         "SpawnMetrics.java",
         "SpawnResult.java",
         "StaticInputMetadataProvider.java",
         "cache/OutputMetadataStore.java",
+    ],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
     ],
     deps = [
         ":action_input",
         ":action_lookup_data",
         ":artifacts",
         ":build_configuration_event",
-        ":commandline_limits",
         ":exec_exception",
         ":file_metadata",
         ":fileset_output_tree",
         ":localhost_capacity",
+        ":param_file_action_input",
         ":runfiles_metadata",
         ":runfiles_tree",
         ":thread_state_receiver",
-        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:symlink_entry",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration_info",
@@ -664,17 +808,19 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/syntax",
-        "//src/main/protobuf:execution_statistics_java_proto",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:spawn_java_proto",
-        "//third_party:auto_value",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:primitives",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )

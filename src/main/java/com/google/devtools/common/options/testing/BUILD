@@ -5,14 +5,16 @@ load("@rules_java//java:defs.bzl", "java_library")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = True,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/test/java/com/google/devtools/common/options:__subpackages__",
+    ],
 )
 
 filegroup(
     name = "srcs",
     testonly = False,
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/common/options:__pkg__"],
 )
 
 java_library(
@@ -20,8 +22,8 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:testing",
+        "//third_party/java/truth",
     ],
 )

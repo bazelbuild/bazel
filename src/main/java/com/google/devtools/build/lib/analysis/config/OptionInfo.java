@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.devtools.common.options.OptionsParser;
 
 /** Stores information about a build option gathered via reflection. */
 public final class OptionInfo {
@@ -57,7 +56,7 @@ public final class OptionInfo {
 
     for (Class<? extends FragmentOptions> optionClass : optionClasses) {
       ImmutableList<? extends OptionDefinition> optionDefinitions =
-          OptionsParser.getOptionDefinitions(optionClass);
+          OptionDefinition.getOptionDefinitions(optionClass);
       for (OptionDefinition def : optionDefinitions) {
         String optionName = def.getOptionName();
         builder.put(optionName, new OptionInfo(optionClass, def));

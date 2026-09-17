@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
-import com.google.common.util.concurrent.Runnables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -291,9 +290,7 @@ public final class FilesystemValueCheckerTest {
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     BlazeDirectories directories =
         new BlazeDirectories(
-            new ServerDirectories(pkgRoot, pkgRoot, pkgRoot),
-            pkgRoot,
-            TestConstants.PRODUCT_NAME);
+            new ServerDirectories(pkgRoot, pkgRoot, pkgRoot), pkgRoot, TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper =
         ExternalFilesHelper.createForTesting(
             pkgLocator,
@@ -775,14 +772,14 @@ public final class FilesystemValueCheckerTest {
                 Delta.justNew(
                     actionValue(
                         new TestAction(
-                            Runnables.doNothing(),
+                            () -> {},
                             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
                             ImmutableSet.of(out1)))),
             actionKey2,
                 Delta.justNew(
                     actionValue(
                         new TestAction(
-                            Runnables.doNothing(),
+                            () -> {},
                             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
                             ImmutableSet.of(out2))))));
     assertThat(evaluator.evaluate(ImmutableList.of(), evaluationContext).hasError()).isFalse();
@@ -1340,8 +1337,57 @@ public final class FilesystemValueCheckerTest {
         });
   }
 
-  // TODO(bazel-team): Add some tests for FileSystemValueChecker#changedKeys*() methods.
-  // Presently these appear to be untested.
+  @Test
+  public void testChangedKeysWithAndWithoutNewValues() throws Exception {
+    FilesystemValueChecker checker =
+        new FilesystemValueChecker(
+            /* tsgm= */ null,
+            SyscallCache.NO_CACHE,
+            XattrProviderOverrider.NO_OVERRIDE,
+            FSVC_THREADS_FOR_TEST);
+
+    Path path1 = fs.getPath("/foo");
+    FileSystemUtils.createEmptyFile(path1);
+    SkyKey key1 =
+        FileStateValue.key(
+            RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/foo")));
+
+    Path path2 = fs.getPath("/bar");
+    FileSystemUtils.createEmptyFile(path2);
+    SkyKey key2 =
+        FileStateValue.key(
+            RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/bar")));
+
+    evaluator.evaluate(ImmutableList.of(key1, key2), EVALUATION_OPTIONS);
+
+    // Modify /foo so key1 is dirty with new value
+    FileSystemUtils.writeContentAsLatin1(path1, "hello");
+
+    SkyValueDirtinessChecker customChecker =
+        new SkyValueDirtinessChecker() {
+          @Override
+          public boolean applies(SkyKey key) {
+            return key.equals(key1) || key.equals(key2);
+          }
+
+          @Override
+          public SkyValue createNewValue(
+              SkyKey key, SyscallCache syscallCache, @Nullable TimestampGranularityMonitor tsgm)
+              throws IOException {
+            if (key.equals(key1)) {
+              return FileStateValue.create((RootedPath) key.argument(), syscallCache, tsgm);
+            } else {
+              throw new IOException("simulated error for key2");
+            }
+          }
+        };
+
+    FilesystemValueChecker.ImmutableBatchDirtyResult result =
+        checker.getDirtyKeys(evaluator.getValues(), customChecker);
+
+    assertThat(result.changedKeysWithNewValues().keySet()).containsExactly(key1);
+    assertThat(result.changedKeysWithoutNewValues()).containsExactly(key2);
+  }
 
   private static ActionExecutionValue actionValue(Action action) {
     Map<Artifact, FileArtifactValue> artifactData = new HashMap<>();
@@ -1384,7 +1430,7 @@ public final class FilesystemValueCheckerTest {
     DigestHashFunction hashFn = fs.getDigestFunction();
     HashCode hash = hashFn.getHashFunction().hashBytes(data);
     return FileArtifactValue.createForRemoteFileWithMaterializationData(
-        hash.asBytes(), data.length, -1, expirationTime);
+        hash.asBytes(), data.length, -1, expirationTime, /* inMemoryOutput= */ false);
   }
 
   @Test
@@ -1518,6 +1564,63 @@ public final class FilesystemValueCheckerTest {
     } else {
       assertThat(dirtyActionKeys).containsExactly(actionKey1);
     }
+  }
+
+  @Test
+  public void testRemoteArtifactMaterializedAsToplevelOutputThenDeleted() throws Exception {
+    // Test that a remote artifact recorded as materialized in the local filesystem as a top-level
+    // output invalidates the generating action when the local file is deleted, even if remote
+    // metadata is otherwise trusted - but only once: the record is cleared so that a reevaluation
+    // that doesn't rematerialize the file isn't invalidated again.
+    SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
+
+    Artifact out = createDerivedArtifact("foo");
+    var outMetadata = createRemoteMetadata("foo-content");
+    differencer.inject(ImmutableMap.of(actionKey, actionValueWithMetadata(out, outMetadata)));
+
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setParallelism(1)
+            .setEventHandler(NullEventHandler.INSTANCE)
+            .build();
+    assertThat(evaluator.evaluate(ImmutableList.of(actionKey), evaluationContext).hasError())
+        .isFalse();
+
+    // Materialize the file without reexecuting the action, then delete it.
+    FileSystemUtils.writeContentAsLatin1(out.getPath(), "foo-content");
+    outMetadata.setContentsProxy(FileContentsProxy.create(out.getPath().stat()));
+    outMetadata.setMaterializedAsToplevelOutput(true);
+    out.getPath().delete();
+
+    assertThat(
+            new FilesystemValueChecker(
+                    /* tsgm= */ null,
+                    SyscallCache.NO_CACHE,
+                    XattrProviderOverrider.NO_OVERRIDE,
+                    FSVC_THREADS_FOR_TEST)
+                .getDirtyActionValues(
+                    evaluator.getValues(),
+                    /* batchStatter= */ null,
+                    ModifiedFileSet.EVERYTHING_MODIFIED,
+                    OutputChecker.TRUST_ALL,
+                    (ignored, ignored2) -> {}))
+        .containsExactly(actionKey);
+
+    // The materialization record has been cleared, so the still-missing file is trusted again.
+    assertThat(
+            new FilesystemValueChecker(
+                    /* tsgm= */ null,
+                    SyscallCache.NO_CACHE,
+                    XattrProviderOverrider.NO_OVERRIDE,
+                    FSVC_THREADS_FOR_TEST)
+                .getDirtyActionValues(
+                    evaluator.getValues(),
+                    /* batchStatter= */ null,
+                    ModifiedFileSet.EVERYTHING_MODIFIED,
+                    OutputChecker.TRUST_ALL,
+                    (ignored, ignored2) -> {}))
+        .isEmpty();
   }
 
   @Test

@@ -239,8 +239,8 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
   }
 
   @Override
-  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
-      throws CommandLineExpansionException {
+  public ImmutableMap<String, String> getEffectiveEnvironment(
+      Map<String, String> clientEnv, PathMapper pathMapper) throws CommandLineExpansionException {
     ActionEnvironment env = getEnvironment();
     Map<String, String> effectiveEnvironment =
         Maps.newLinkedHashMapWithExpectedSize(env.estimatedSize());
@@ -471,7 +471,7 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
     }
 
     for (PathFragment path : additionalPathOutputsToDelete) {
-      deleteOutput(execRoot.getRelative(path), /*root=*/ null);
+      deleteOutput(execRoot.getRelative(path), /* root= */ null);
     }
 
     for (PathFragment path : directoryOutputsToDelete) {

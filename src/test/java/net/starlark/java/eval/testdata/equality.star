@@ -71,3 +71,32 @@ assert_eq([[1, 1]] < [[1, 1], []], True)
 assert_eq(tuple(), ())
 assert_eq(list(), [])
 assert_eq(bool(), False)
+
+# self-referential equality and comparison
+self_ref_list1 = []
+self_ref_list1.append(self_ref_list1)
+self_ref_list2 = []
+self_ref_list2.append(self_ref_list2)
+assert_fails(lambda: self_ref_list1 == self_ref_list2, r"cannot compare self-referential or overly nested data structures \[...\] and \[...\]")
+assert_fails(lambda: self_ref_list1 != self_ref_list2, r"cannot compare self-referential or overly nested data structures \[...\] and \[...\]")
+assert_fails(lambda: self_ref_list1 > self_ref_list2, r"cannot compare self-referential or overly nested data structures \[...\] and \[...\]")
+
+self_ref_tuple1 = (self_ref_list1,)
+self_ref_tuple2 = (self_ref_list2,)
+assert_fails(lambda: self_ref_tuple1 == self_ref_tuple2, r"cannot compare self-referential or overly nested data structures \(\[...\],\) and \(\[...\],\)")
+assert_fails(lambda: self_ref_tuple1 < self_ref_tuple2, r"cannot compare self-referential or overly nested data structures \(\[...\],\) and \(\[...\],\)")
+
+self_ref_dict1 = {}
+self_ref_dict1["self"] = self_ref_dict1
+self_ref_dict2 = {}
+self_ref_dict2["self"] = self_ref_dict2
+assert_fails(lambda: self_ref_dict1 == self_ref_dict2, r"""cannot compare self-referential or overly nested data structures \{"self": ...\} and \{"self": ...\}""")
+assert_fails(lambda: self_ref_dict1 != self_ref_dict2, r"""cannot compare self-referential or overly nested data structures \{"self": ...\} and \{"self": ...\}""")
+
+# Comparison of a self-referential value and a non-self-referential value works as expected
+assert_eq(self_ref_dict1 == {"self": {}}, False)
+assert_eq({"self": {}} != self_ref_dict2, True)
+assert_eq(self_ref_list1 == [1, 2], False)
+assert_eq(self_ref_list1 != [1, 2], True)
+assert_eq(self_ref_list1 > [[]], True)
+assert_eq(self_ref_list1 < [[]], False)

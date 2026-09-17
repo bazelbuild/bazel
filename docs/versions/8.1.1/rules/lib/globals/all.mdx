@@ -50,7 +50,7 @@ abs(-2.3) == 2.3
 
 | Parameter | Description |
 | --- | --- |
-| `x` | [int](../core/int); or [float](../core/float); required  A number (int or float) |
+| `x` | [int](/versions/8.1.1/rules/lib/core/int); or [float](/versions/8.1.1/rules/lib/core/float); required  A number (int or float) |
 
 ## all
 
@@ -110,7 +110,7 @@ Constructor for the bool type. It returns `False` if the object is `None`, `Fals
 dict dict(pairs=[], **kwargs)
 ```
 
-Creates a [dictionary](../core/dict) from an optional positional argument and an optional set of keyword arguments. In the case where the same key is given multiple times, the last value will be used. Entries supplied via keyword arguments are considered to come after entries supplied via the positional argument.
+Creates a [dictionary](/versions/8.1.1/rules/lib/core/dict) from an optional positional argument and an optional set of keyword arguments. In the case where the same key is given multiple times, the last value will be used. Entries supplied via keyword arguments are considered to come after entries supplied via the positional argument.
 
 ### Parameters
 
@@ -150,7 +150,7 @@ enumerate([24, 21, 84]) == [(0, 24), (1, 21), (2, 84)]
 | Parameter | Description |
 | --- | --- |
 | `list` | required  input sequence. |
-| `start` | [int](../core/int); default is `0`  start index. |
+| `start` | [int](/versions/8.1.1/rules/lib/core/int); default is `0`  start index. |
 
 ## fail
 
@@ -165,8 +165,8 @@ Causes execution to fail with an error.
 | Parameter | Description |
 | --- | --- |
 | `msg` | default is `None`  Deprecated: use positional arguments instead. This argument acts like an implicit leading positional argument. |
-| `attr` | [string](../core/string); or `None`; default is `None`  Deprecated. Causes an optional prefix containing this string to be added to the error message. |
-| `sep` | [string](../core/string); default is `" "`  The separator string between the objects, default is space (" "). |
+| `attr` | [string](/versions/8.1.1/rules/lib/core/string); or `None`; default is `None`  Deprecated. Causes an optional prefix containing this string to be added to the error message. |
+| `sep` | [string](/versions/8.1.1/rules/lib/core/string); default is `" "`  The separator string between the objects, default is space (" "). |
 | `args` | required  A list of values, formatted with debugPrint (which is equivalent to str by default) and joined with sep (defaults to " "), that appear in the error message. |
 
 ## float
@@ -205,7 +205,7 @@ getattr(ctx.attr, "myattr", "mydefault")
 | Parameter | Description |
 | --- | --- |
 | `x` | required  The struct whose attribute is accessed. |
-| `name` | [string](../core/string); required  The name of the struct attribute. |
+| `name` | [string](/versions/8.1.1/rules/lib/core/string); required  The name of the struct attribute. |
 | `default` | default is `unbound`  The default value to return in case the struct doesn't have an attribute of the given name. |
 
 ## hasattr
@@ -225,7 +225,7 @@ hasattr(ctx.attr, "myattr")
 | Parameter | Description |
 | --- | --- |
 | `x` | required |
-| `name` | [string](../core/string); required  The name of the attribute. |
+| `name` | [string](/versions/8.1.1/rules/lib/core/string); required  The name of the attribute. |
 
 ## hash
 
@@ -245,7 +245,7 @@ Hashing of values besides strings is not currently supported.
 
 | Parameter | Description |
 | --- | --- |
-| `value` | [string](../core/string); required  String value to hash. |
+| `value` | [string](/versions/8.1.1/rules/lib/core/string); required  String value to hash. |
 
 ## int
 
@@ -372,7 +372,7 @@ Using `print` in production code is discouraged due to the spam it creates for u
 
 | Parameter | Description |
 | --- | --- |
-| `sep` | [string](../core/string); default is `" "`  The separator string between the objects, default is space (" "). |
+| `sep` | [string](/versions/8.1.1/rules/lib/core/string); default is `" "`  The separator string between the objects, default is space (" "). |
 | `args` | required  The objects to print. |
 
 ## range
@@ -393,9 +393,9 @@ range(3, 0, -1) == [3, 2, 1]
 
 | Parameter | Description |
 | --- | --- |
-| `start_or_stop` | [int](../core/int); required  Value of the start element if stop is provided, otherwise value of stop and the actual start is 0 |
-| `stop_or_none` | [int](../core/int); or `None`; default is `None`  optional index of the first item *not* to be included in the resulting list; generation of the list stops before `stop` is reached. |
-| `step` | [int](../core/int); default is `1`  The increment (default is 1). It may be negative. |
+| `start_or_stop` | [int](/versions/8.1.1/rules/lib/core/int); required  Value of the start element if stop is provided, otherwise value of stop and the actual start is 0 |
+| `stop_or_none` | [int](/versions/8.1.1/rules/lib/core/int); or `None`; default is `None`  optional index of the first item *not* to be included in the resulting list; generation of the list stops before `stop` is reached. |
+| `step` | [int](/versions/8.1.1/rules/lib/core/int); default is `1`  The increment (default is 1). It may be negative. |
 
 ## repr
 
@@ -439,7 +439,7 @@ reversed([3, 5, 4]) == [4, 5, 3]
 set set(elements=[])
 ```
 
-Creates a new [set](../core/set) containing the unique elements of a given
+Creates a new [set](/versions/8.1.1/rules/lib/core/set) containing the unique elements of a given
 iterable, preserving iteration order.
 
 If called with no argument, `set()` returns a new empty set.
@@ -479,7 +479,7 @@ sorted(["two", "three", "four"], key = len) == ["two", "four", "three"]  # sort 
 | --- | --- |
 | `iterable` | iterable; required  The iterable sequence to sort. |
 | `key` | callable; or `None`; default is `None`  An optional function applied to each element before comparison. |
-| `reverse` | [bool](../core/bool); default is `False`  Return results in descending order. |
+| `reverse` | [bool](/versions/8.1.1/rules/lib/core/bool); default is `False`  Return results in descending order. |
 
 ## str
 

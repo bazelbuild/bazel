@@ -128,8 +128,7 @@ for all build targets inside the repo.
 
 The syntax of a `REPO.bazel` file is similar to `BUILD` files, except that no
 `load` statements are supported, and only a single function, `repo()`, is
-available. `repo()` takes the same arguments as the [`package()`
-function](/versions/7.7.1/reference/be/functions#package) in `BUILD` files; whereas `package()`
+available. `repo()` takes the same arguments as the [`package()` function](/versions/7.7.1/reference/be/functions#package) in `BUILD` files; whereas `package()`
 specifies common attributes for all build targets inside the package, `repo()`
 analogously does so for all build targets inside the repo.
 
@@ -163,8 +162,7 @@ bazel_dep(name = "protobuf", version = "3.19.0")
 ```
 
 A module must only list its direct dependencies, which Bzlmod looks up in a
-[Bazel registry](/versions/7.7.1/external/registry) — by default, the [Bazel Central
-Registry](https://bcr.bazel.build/). The registry provides the
+[Bazel registry](/versions/7.7.1/external/registry) — by default, the [Bazel Central Registry](https://bcr.bazel.build/). The registry provides the
 dependencies' `MODULE.bazel` files, which allows Bazel to discover the entire
 transitive dependency graph before performing version resolution.
 
@@ -235,5 +233,4 @@ many pain points, including:
         `B` and `C`; `B` and `C` both depend on different versions of `D`).
 
 Due to the shortcomings of WORKSPACE, Bzlmod is going to replace the legacy
-WORKSPACE system in future Bazel releases. Please read the [Bzlmod migration
-guide](/versions/7.7.1/external/migration) on how to migrate to Bzlmod.
+WORKSPACE system in future Bazel releases. Please read the [Bzlmod migration guide](/versions/7.7.1/external/migration) on how to migrate to Bzlmod.

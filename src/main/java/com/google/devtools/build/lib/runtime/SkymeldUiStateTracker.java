@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.PositionAwareAnsiTerminalWriter;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -139,22 +140,30 @@ final class SkymeldUiStateTracker extends UiStateTracker {
       throws IOException {
     writeBaseProgress(status, message, terminalWriter);
 
+    String analysisProgress = "";
+    String activity = "";
     if (packageProgressReceiver != null) {
       Pair<String, String> progress = packageProgressReceiver.progressState();
-      String analysisProgress = progress.getFirst();
+      analysisProgress = progress.getFirst();
+      activity = progress.getSecond();
+    }
 
-      if (analysisProgressReceiver != null) {
-        analysisProgress += ", " + analysisProgressReceiver.getProgressString();
+    if (analysisProgressReceiver != null) {
+      if (!analysisProgress.isEmpty()) {
+        analysisProgress += ", ";
       }
+      analysisProgress += analysisProgressReceiver.getProgressString();
+    }
 
+    if (!analysisProgress.isEmpty()) {
       if (message.isEmpty()) {
         terminalWriter.append(analysisProgress);
       } else {
         terminalWriter.append(" (" + analysisProgress + ")");
       }
-      if (!progress.getSecond().isEmpty() && !shortVersion) {
-        terminalWriter.newline().append("    " + progress.getSecond());
-      }
+    }
+    if (!activity.isEmpty() && !shortVersion) {
+      terminalWriter.newline().append("    " + activity);
     }
   }
 
@@ -181,7 +190,7 @@ final class SkymeldUiStateTracker extends UiStateTracker {
     if (labelsCount == 1) {
       additionalMessage = "target " + Iterables.getOnlyElement(event.getLabels());
     } else {
-      additionalMessage = labelsCount + " targets";
+      additionalMessage = StringUtil.formatCount(labelsCount) + " targets";
     }
     mainRepositoryMapping = event.getMainRepositoryMapping();
   }

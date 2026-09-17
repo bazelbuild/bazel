@@ -199,6 +199,30 @@ public final class PatchUtilTest {
   }
 
   @Test
+  public void testTruncatedNewFileModeRaisesPatchFailed() throws IOException {
+    // Regression test: a "new file mode" line shorter than 18 characters
+    // (the index PatchUtil.applyInternal reaches with charAt(17)) must
+    // produce a declared PatchFailedException, not an uncaught
+    // StringIndexOutOfBoundsException.
+    Path patchFile = scratch.file("/root/patchfile", "diff --git a/foo b/foo", "new file mode 1");
+    PatchFailedException expected =
+        assertThrows(PatchFailedException.class, () -> PatchUtil.apply(patchFile, 1, root));
+    assertThat(expected).hasMessageThat().contains("Truncated file mode");
+  }
+
+  @Test
+  public void testTruncatedNewModeRaisesPatchFailed() throws IOException {
+    // Regression test: a "new mode" line shorter than 13 characters
+    // (the index PatchUtil.applyInternal reaches with charAt(12)) must
+    // produce a declared PatchFailedException, not an uncaught
+    // StringIndexOutOfBoundsException.
+    Path patchFile = scratch.file("/root/patchfile", "diff --git a/foo b/foo", "new mode 1");
+    PatchFailedException expected =
+        assertThrows(PatchFailedException.class, () -> PatchUtil.apply(patchFile, 1, root));
+    assertThat(expected).hasMessageThat().contains("Truncated file mode");
+  }
+
+  @Test
   public void testGitFormatPatching() throws IOException, PatchFailedException {
     Path foo =
         scratch.file(
@@ -552,7 +576,7 @@ public final class PatchUtilTest {
   @Test
   public void testChunkDoesNotMatch() throws IOException {
     scratch.file(
-        "/root/foo.cc", "#include <stdio.h>", "", "void main(){", "  printf(\"Hello foo\");", "}");
+        "/root/foo.cc", "line1", "line2", "line3", "line4", "line5", "line6", "line7", "line8");
     Path patchFile =
         scratch.file(
             "/root/patchfile",
@@ -560,12 +584,16 @@ public final class PatchUtilTest {
             "index f3008f9..ec4aaa0 100644",
             "--- a/foo.cc",
             "+++ b/foo.cc",
-            "@@ -2,4 +2,5 @@",
-            " ",
-            " void main(){",
-            "   printf(\"Hello bar\");", // Should be "Hello foo"
-            "+  printf(\"Hello from patch\");",
-            " }");
+            "@@ -1,8 +1,9 @@",
+            " line1",
+            " line2",
+            " line3",
+            " WRONG", // Should be "line4", in the middle so fuzz can't help
+            " ALSO WRONG", // Should be "line5"
+            " line6",
+            "+inserted",
+            " line7",
+            " line8");
     PatchFailedException expected =
         assertThrows(PatchFailedException.class, () -> PatchUtil.apply(patchFile, 1, root));
     assertThat(expected)
@@ -599,6 +627,41 @@ public final class PatchUtilTest {
     assertThat(expected)
         .hasMessageThat()
         .contains("Wrong chunk detected near line 11:  }, does not expect a context line here.");
+  }
+
+  @Test
+  public void testMatchWithFuzz() throws IOException, PatchFailedException {
+    Path foo =
+        scratch.file(
+            "/root/foo.cc",
+            "#include <stdio.h>",
+            "",
+            "void main(){",
+            "  printf(\"Hello foo\");",
+            "}");
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "diff --git a/foo.cc b/foo.cc",
+            "index f3008f9..ec4aaa0 100644",
+            "--- a/foo.cc",
+            "+++ b/foo.cc",
+            "@@ -2,4 +2,5 @@",
+            " ",
+            " void main(){",
+            "   printf(\"Hello foo\");",
+            "+  printf(\"Hello from patch\");",
+            " WRONG CONTEXT LINE"); // Last context line doesn't match, but fuzz can drop it
+    PatchUtil.apply(patchFile, 1, root);
+    ImmutableList<String> newFoo =
+        ImmutableList.of(
+            "#include <stdio.h>",
+            "",
+            "void main(){",
+            "  printf(\"Hello foo\");",
+            "  printf(\"Hello from patch\");",
+            "}");
+    assertThat(FileSystemUtils.readLines(foo, UTF_8)).isEqualTo(newFoo);
   }
 
   @Test
@@ -666,5 +729,143 @@ public final class PatchUtilTest {
     assertThat(expected)
         .hasMessageThat()
         .contains("The patch content must start with ---/+++ prelude lines at line 3");
+  }
+
+  @Test
+  public void testApplyPatchWithNoNewlineAtEndOfFile_addNewline()
+      throws IOException, PatchFailedException {
+    // Regression test for https://github.com/bazelbuild/bazel/issues/17376
+    Path foo =
+        scratch.file(
+            "/root/FormatTokenSource.h",
+            "class IndexedTokenSource : public FormatTokenSource {",
+            "",
+            "#undef DEBUG_TYPE",
+            "",
+            "#endif");
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "--- FormatTokenSource.h",
+            "+++ FormatTokenSource.h",
+            "@@ -1,5 +1,5 @@",
+            "-class IndexedTokenSource : public FormatTokenSource {",
+            "+class LLVM_GSL_POINTER IndexedTokenSource : public FormatTokenSource {",
+            " ",
+            " #undef DEBUG_TYPE",
+            " ",
+            "-#endif",
+            "\\ No newline at end of file",
+            "+#endif");
+    PatchUtil.apply(patchFile, 0, root);
+    ImmutableList<String> expected =
+        ImmutableList.of(
+            "class LLVM_GSL_POINTER IndexedTokenSource : public FormatTokenSource {",
+            "",
+            "#undef DEBUG_TYPE",
+            "",
+            "#endif");
+    assertThat(FileSystemUtils.readLines(foo, UTF_8)).isEqualTo(expected);
+  }
+
+  @Test
+  public void testApplyPatchWithNoNewlineAtEndOfFile_stillNoNewline()
+      throws IOException, PatchFailedException {
+    Path foo = scratch.file("/root/foo.txt", "line1", "line2", "#endif");
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "--- a/foo.txt",
+            "+++ b/foo.txt",
+            "@@ -1,3 +1,3 @@",
+            " line1",
+            " line2",
+            "-#endif",
+            "\\ No newline at end of file",
+            "+#endif_modified",
+            "\\ No newline at end of file");
+    PatchUtil.apply(patchFile, 1, root);
+    ImmutableList<String> expected = ImmutableList.of("line1", "line2", "#endif_modified");
+    assertThat(FileSystemUtils.readLines(foo, UTF_8)).isEqualTo(expected);
+  }
+
+  @Test
+  public void testApplyPatchWithNoNewlineAtEndOfFile_contextLine()
+      throws IOException, PatchFailedException {
+    Path foo = scratch.file("/root/foo.txt", "old", "tail");
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "--- a/foo.txt",
+            "+++ b/foo.txt",
+            "@@ -1,2 +1,2 @@",
+            "-old",
+            "+new",
+            " tail",
+            "\\ No newline at end of file");
+    PatchUtil.apply(patchFile, 1, root);
+    ImmutableList<String> expected = ImmutableList.of("new", "tail");
+    assertThat(FileSystemUtils.readLines(foo, UTF_8)).isEqualTo(expected);
+  }
+
+  @Test
+  public void testApplyPatchWithNoNewlineAtEndOfFile_addFile()
+      throws IOException, PatchFailedException {
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "diff --git a/newfile b/newfile",
+            "new file mode 100644",
+            "--- /dev/null",
+            "+++ b/newfile",
+            "@@ -0,0 +1 @@",
+            "+hello, world",
+            "\\ No newline at end of file");
+    PatchUtil.apply(patchFile, 1, root);
+    Path newFile = root.getRelative("newfile");
+    assertThat(FileSystemUtils.readLines(newFile, UTF_8)).containsExactly("hello, world");
+  }
+
+  @Test
+  public void testApplyPatchWithNoNewlineAtEndOfFile_deleteFile()
+      throws IOException, PatchFailedException {
+    Path oldFile = scratch.file("/root/oldfile", "bye, world");
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "--- a/oldfile",
+            "+++ /dev/null",
+            "@@ -1 +0,0 @@",
+            "-bye, world",
+            "\\ No newline at end of file");
+    PatchUtil.apply(patchFile, 1, root);
+    assertThat(oldFile.exists()).isFalse();
+  }
+
+  @Test
+  public void testApplyPatchWithNoNewlineAtEndOfFile_multipleFiles()
+      throws IOException, PatchFailedException {
+    Path foo = scratch.file("/root/foo.txt", "foo_old");
+    Path bar = scratch.file("/root/bar.txt", "bar_old");
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "diff --git a/foo.txt b/foo.txt",
+            "--- a/foo.txt",
+            "+++ b/foo.txt",
+            "@@ -1 +1 @@",
+            "-foo_old",
+            "\\ No newline at end of file",
+            "+foo_new",
+            "diff --git a/bar.txt b/bar.txt",
+            "--- a/bar.txt",
+            "+++ b/bar.txt",
+            "@@ -1 +1 @@",
+            "-bar_old",
+            "+bar_new",
+            "\\ No newline at end of file");
+    PatchUtil.apply(patchFile, 1, root);
+    assertThat(FileSystemUtils.readLines(foo, UTF_8)).containsExactly("foo_new");
+    assertThat(FileSystemUtils.readLines(bar, UTF_8)).containsExactly("bar_new");
   }
 }

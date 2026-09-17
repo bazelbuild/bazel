@@ -72,6 +72,11 @@ public final class AqueryCommand implements BlazeCommand {
           PriorityCategory.COMPUTED_DEFAULT,
           "Option required by aquery",
           ImmutableList.of("--nobuild"));
+      optionsParser.parse(
+          PriorityCategory.SOFTWARE_REQUIREMENT,
+          // https://github.com/bazelbuild/bazel/issues/15460
+          "aquery should not exclude test_suite rules",
+          ImmutableList.of("--noexpand_test_suites"));
     } catch (OptionsParsingException e) {
       throw new IllegalStateException("Aquery's known options failed to parse", e);
     }
@@ -82,15 +87,15 @@ public final class AqueryCommand implements BlazeCommand {
     // TODO(twerth): Reduce overlap with CqueryCommand.
     AqueryOptions aqueryOptions = options.getOptions(AqueryOptions.class);
     QueryCommandUtils.resetDeserializedKeysFromRemoteAnalysisCache(env);
-    boolean queryCurrentSkyframeState = aqueryOptions.queryCurrentSkyframeState;
+    boolean queryCurrentSkyframeState = aqueryOptions.getQueryCurrentSkyframeState();
 
     TargetPattern.Parser mainRepoTargetParser;
     try {
       RepositoryMapping repoMapping =
           env.getSkyframeExecutor()
               .getMainRepoMapping(
-                  env.getOptions().getOptions(KeepGoingOption.class).keepGoing,
-                  env.getOptions().getOptions(LoadingPhaseThreadsOption.class).threads,
+                  env.getOptions().getOptions(KeepGoingOption.class).getKeepGoing(),
+                  env.getOptions().getOptions(LoadingPhaseThreadsOption.class).getThreads(),
                   env.getReporter());
       mainRepoTargetParser =
           new Parser(env.getRelativeWorkingDirectory(), RepositoryName.MAIN, repoMapping);
@@ -129,7 +134,7 @@ public final class AqueryCommand implements BlazeCommand {
     try {
       topLevelTargets =
           QueryCommandUtils.getTopLevelTargets(
-              aqueryOptions.universeScope, expr, queryCurrentSkyframeState);
+              aqueryOptions.getUniverseScope(), expr, queryCurrentSkyframeState);
     } catch (QueryException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       return createFailureResult(

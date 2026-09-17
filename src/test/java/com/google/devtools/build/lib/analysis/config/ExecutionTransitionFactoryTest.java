@@ -70,7 +70,8 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
     assertThat(result).isNotSameInstanceAs(options);
 
     assertThat(result.get(CoreOptions.class).getIsExec()).isTrue();
-    assertThat(result.get(PlatformOptions.class).platforms).containsExactly(EXECUTION_PLATFORM);
+    assertThat(result.get(PlatformOptions.class).getPlatforms())
+        .containsExactly(EXECUTION_PLATFORM);
   }
 
   @Test
@@ -316,7 +317,6 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
         """);
 
     useConfiguration(
-        "--experimental_platform_in_output_dir",
         "--extra_execution_platforms=//platforms:mock_platform",
         "--experimental_override_name_platform_in_output_dir=//platforms:mock_platform=mock_platform_path_string");
     BuildConfigurationValue execConfig =

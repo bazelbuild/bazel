@@ -36,6 +36,11 @@ public class SiblingsFunction implements QueryFunction {
   }
 
   @Override
+  public boolean requiresEdges() {
+    return true;
+  }
+
+  @Override
   public int getMandatoryArguments() {
     return 1;
   }

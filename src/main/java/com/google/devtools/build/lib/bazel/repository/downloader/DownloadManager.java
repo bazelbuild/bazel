@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.auth.Credentials;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
@@ -25,6 +26,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
@@ -40,6 +42,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.net.ConnectException;
 import java.net.SocketException;
 import java.net.URI;
 import java.net.UnknownHostException;
@@ -50,7 +53,6 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.Phaser;
 import javax.annotation.Nullable;
 
 /**
@@ -131,14 +133,9 @@ public class DownloadManager {
       Path output,
       Map<String, String> clientEnv,
       String context,
-      Phaser downloadPhaser,
       boolean mayHardlink) {
     return executorService.submit(
         () -> {
-          if (downloadPhaser.register() != 0) {
-            // Not in download phase, must already have been cancelled.
-            throw new InterruptedException();
-          }
           try (SilentCloseable c = Profiler.instance().profile("fetching: " + context)) {
             return downloadInExecutor(
                 originalUrls,
@@ -151,8 +148,6 @@ public class DownloadManager {
                 clientEnv,
                 context,
                 mayHardlink);
-          } finally {
-            downloadPhaser.arrive();
           }
         });
   }
@@ -219,18 +214,24 @@ public class DownloadManager {
           rewriter.updateAuthHeaders(rewrittenUrlMappings, authHeaders, netrcCreds);
     }
 
-    URI mainUrl; // The "main" URL for this request
-    // Used for reporting only and determining the file name only.
+    URI mainUrl; // The "main" URL for this request, used for reporting.
+    // The URL used to derive the download's file name. When the rewriter blocks all URLs, this
+    // falls back to the first original URL so that its extension (used, e.g., by
+    // download_and_extract to infer the archive type) is preserved instead of being lost to the
+    // "cacheprobe" placeholder.
+    URI fileNameUrl;
     if (rewrittenUrls.isEmpty()) {
       if (type.isPresent() && !Strings.isNullOrEmpty(type.get())) {
         mainUrl = URI.create("http://nonexistent.example.org/cacheprobe." + type.get());
       } else {
         mainUrl = URI.create("http://nonexistent.example.org/cacheprobe");
       }
+      fileNameUrl = Iterables.getFirst(originalUrls, mainUrl);
     } else {
       mainUrl = rewrittenUrls.get(0);
+      fileNameUrl = mainUrl;
     }
-    Path destination = getDownloadDestination(mainUrl, type, output);
+    Path destination = getDownloadDestination(fileNameUrl, type, output);
     ImmutableSet<String> candidateFileNames = getCandidateFileNames(mainUrl, destination);
 
     // Is set to true if the value should be cached by the checksum value provided
@@ -380,8 +381,10 @@ public class DownloadManager {
   }
 
   private boolean isRetryableException(Throwable e) {
+    // HttpConnector already retries connection attempts. Retrying a final ConnectException here
+    // repeats its entire backoff sequence.
     return e instanceof ContentLengthMismatchException
-        || e instanceof SocketException
+        || (e instanceof SocketException && !(e instanceof ConnectException))
         || e instanceof UnknownHostException;
   }
 
@@ -459,8 +462,8 @@ public class DownloadManager {
     for (int attempt = 0; ; ++attempt) {
       try {
         content =
-            bzlmodHttpDownloader.downloadAndReadOneUrl(
-                rewrittenUrls.get(0),
+            bzlmodHttpDownloader.downloadAndRead(
+                rewrittenUrls,
                 credentialFactory.create(authHeaders),
                 checksum,
                 eventHandler,
@@ -515,9 +518,7 @@ public class DownloadManager {
     if (!type.isPresent()) {
       return output;
     }
-    String basename =
-        MoreObjects.firstNonNull(
-            Strings.emptyToNull(PathFragment.create(url.getPath()).getBaseName()), "temp");
+    String basename = MoreObjects.firstNonNull(Strings.emptyToNull(getUrlBaseName(url)), "temp");
     if (!type.get().isEmpty()) {
       String suffix = "." + type.get();
       if (!basename.endsWith(suffix)) {
@@ -530,17 +531,35 @@ public class DownloadManager {
   }
 
   /**
-   * Deterimine the list of filenames to look for in the distdirs. Note that an output name may be
-   * specified that is unrelated to the primary URL. This happens, e.g., when the paramter output is
-   * specified in ctx.download.
+   * Determine the list of filenames to look for in the distdirs. Note that an output name may be
+   * specified that is unrelated to the primary URL. This happens, e.g., when the parameter output
+   * is specified in ctx.download.
    */
-  private static ImmutableSet<String> getCandidateFileNames(URI url, Path destination) {
-    String urlBaseName = PathFragment.create(url.getPath()).getBaseName();
+  @VisibleForTesting
+  static ImmutableSet<String> getCandidateFileNames(URI url, Path destination) {
+    String urlBaseName = getUrlBaseName(url);
     if (!Strings.isNullOrEmpty(urlBaseName) && !urlBaseName.equals(destination.getBaseName())) {
       return ImmutableSet.of(urlBaseName, destination.getBaseName());
     } else {
       return ImmutableSet.of(destination.getBaseName());
     }
+  }
+
+  private static String getUrlBaseName(URI url) {
+    String path = url.getPath();
+    if (path == null && url.isOpaque()) {
+      // Match URL#getPath() behavior for opaque file URIs such as file:../archive.tgz.
+      String rawPath = url.getRawSchemeSpecificPart();
+      int queryStart = rawPath.indexOf('?');
+      if (queryStart != -1) {
+        rawPath = rawPath.substring(0, queryStart);
+      }
+      path =
+          rawPath.isEmpty()
+              ? ""
+              : URI.create(url.getScheme() + ":" + rawPath).getSchemeSpecificPart();
+    }
+    return path == null ? "" : PathFragment.create(path).getBaseName();
   }
 
   private static class CacheProgress implements ExtendedEventHandler.FetchProgress {

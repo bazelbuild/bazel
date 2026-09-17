@@ -14,9 +14,11 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.runtime.BlazeService;
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.util.concurrent.CountDownLatch;
 
 /** Service interface for Skyframe native dependencies. */
+@SkybridgeInterface
 public interface FsEventsNativeDepsService extends BlazeService {
   /**
    * Helper function to start the watch of <code>paths</code>, which is expected to be an array of

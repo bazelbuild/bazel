@@ -127,8 +127,11 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
     } else if (statNoFollow.isSymbolicLink()) {
       return new SymlinkFileStateValue(path.readSymbolicLinkUnchecked());
     }
-    throw new InconsistentFilesystemException("according to stat, existing path " + path + " is "
-        + "neither a file nor directory nor symlink.");
+    throw new InconsistentFilesystemException(
+        "according to stat, existing path "
+            + path
+            + " is "
+            + "neither a file nor directory nor symlink.");
   }
 
   /**
@@ -146,7 +149,7 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
       FileStatusWithDigest stat,
       XattrProvider xattrProvider,
       @Nullable TimestampGranularityMonitor tsgm)
-      throws InconsistentFilesystemException {
+      throws IOException {
     checkState(stat.isFile(), path);
 
     if (stat instanceof FileStatusWithMetadata fileStatusWithMetadata) {
@@ -222,6 +225,62 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
 
   @Nullable
   public abstract FileContentsProxy getContentsProxy();
+
+  /** The result of {@link #compareContents}. */
+  public enum ContentsComparisonResult {
+    /**
+     * Both values describe the same file contents and can be used interchangeably, even if not
+     * equal.
+     */
+    SAME,
+    /**
+     * Both values have identical metadata except for ctime, which may have changed due to
+     * hardlinks.
+     */
+    SAME_EXCEPT_CHANGE_TIME,
+    /** The values may describe different contents. */
+    DIFFERENT
+  }
+
+  /**
+   * Compares the file contents described by this value and {@code other} regardless of how each
+   * value represents them, using either a digest or a proxy.
+   */
+  public ContentsComparisonResult compareContents(FileStateValue other) {
+    if (this.equals(other)) {
+      return ContentsComparisonResult.SAME;
+    }
+    if (getType() != other.getType()) {
+      return ContentsComparisonResult.DIFFERENT;
+    }
+    return switch (getType()) {
+      case REGULAR_FILE, SPECIAL_FILE -> {
+        if (getSize() != other.getSize()) {
+          yield ContentsComparisonResult.DIFFERENT;
+        }
+        // Prefer comparing digests, the most robust signal, when both values have one.
+        var thisDigest = getDigest();
+        var otherDigest = other.getDigest();
+        if (thisDigest != null && otherDigest != null) {
+          yield Arrays.equals(thisDigest, otherDigest)
+              ? ContentsComparisonResult.SAME
+              : ContentsComparisonResult.DIFFERENT;
+        }
+        var thisProxy = getContentsProxy();
+        var otherProxy = other.getContentsProxy();
+        if (thisProxy == null || otherProxy == null) {
+          yield ContentsComparisonResult.DIFFERENT;
+        }
+        if (thisProxy.equals(otherProxy)) {
+          yield ContentsComparisonResult.SAME;
+        }
+        yield thisProxy.isModified(otherProxy)
+            ? ContentsComparisonResult.DIFFERENT
+            : ContentsComparisonResult.SAME_EXCEPT_CHANGE_TIME;
+      }
+      default -> ContentsComparisonResult.DIFFERENT;
+    };
+  }
 
   @Nullable
   @Override

@@ -21,9 +21,11 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsClass;
 
 /** Options used to configure BuildEventStreamer and its BuildEventTransports. */
-public class BuildEventStreamOptions extends OptionsBase {
+@OptionsClass
+public abstract class BuildEventStreamOptions extends OptionsBase {
 
   @Option(
       name = "build_event_text_file",
@@ -32,7 +34,7 @@ public class BuildEventStreamOptions extends OptionsBase {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "If non-empty, write a textual representation of the build event protocol to that file")
-  public String buildEventTextFile;
+  public abstract String getBuildEventTextFile();
 
   @Option(
       name = "keep_backend_build_event_connections_alive",
@@ -41,7 +43,7 @@ public class BuildEventStreamOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "If enabled, keep connections to build event backend connections alive across builds.")
-  public boolean keepBackendConnections;
+  public abstract boolean getKeepBackendConnections();
 
   @Option(
       name = "build_event_binary_file",
@@ -54,7 +56,7 @@ public class BuildEventStreamOptions extends OptionsBase {
           build event protocol to that file. This option implies
           `--bes_upload_mode=wait_for_upload_complete`.
           """)
-  public String buildEventBinaryFile;
+  public abstract String getBuildEventBinaryFile();
 
   @Option(
       name = "build_event_json_file",
@@ -66,7 +68,7 @@ public class BuildEventStreamOptions extends OptionsBase {
           If non-empty, write a JSON serialisation of the build event protocol to that file.
           This option implies `--bes_upload_mode=wait_for_upload_complete`.
           """)
-  public String buildEventJsonFile;
+  public abstract String getBuildEventJsonFile();
 
   @Option(
       name = "build_event_text_file_upload_mode",
@@ -81,7 +83,7 @@ public class BuildEventStreamOptions extends OptionsBase {
           the upload in the background. Either `wait_for_upload_complete` (default),
           `nowait_for_upload_complete`, or `fully_async`.
           """)
-  public BesUploadMode buildEventTextFileUploadMode;
+  public abstract BesUploadMode getBuildEventTextFileUploadMode();
 
   @Option(
       name = "build_event_binary_file_upload_mode",
@@ -96,7 +98,7 @@ public class BuildEventStreamOptions extends OptionsBase {
           the upload in the background. Either `wait_for_upload_complete` (default),
           `nowait_for_upload_complete`, or `fully_async`.
           """)
-  public BesUploadMode buildEventBinaryFileUploadMode;
+  public abstract BesUploadMode getBuildEventBinaryFileUploadMode();
 
   @Option(
       name = "build_event_json_file_upload_mode",
@@ -111,7 +113,7 @@ public class BuildEventStreamOptions extends OptionsBase {
           the upload in the background. Either `wait_for_upload_complete` (default),
           `nowait_for_upload_complete`, or `fully_async`.
           """)
-  public BesUploadMode buildEventJsonFileUploadMode;
+  public abstract BesUploadMode getBuildEventJsonFileUploadMode();
 
   @Option(
       name = "build_event_text_file_path_conversion",
@@ -125,7 +127,7 @@ public class BuildEventStreamOptions extends OptionsBase {
           globally valid URIs whenever possible; if disabled, the `file://` uri scheme will
           always be used
           """)
-  public boolean buildEventTextFilePathConversion;
+  public abstract boolean getBuildEventTextFilePathConversion();
 
   @Option(
       name = "build_event_binary_file_path_conversion",
@@ -139,7 +141,7 @@ public class BuildEventStreamOptions extends OptionsBase {
           globally valid URIs whenever possible; if disabled, the `file://` uri scheme will
           always be used
           """)
-  public boolean buildEventBinaryFilePathConversion;
+  public abstract boolean getBuildEventBinaryFilePathConversion();
 
   @Option(
       name = "build_event_json_file_path_conversion",
@@ -153,7 +155,7 @@ public class BuildEventStreamOptions extends OptionsBase {
           globally valid URIs whenever possible; if disabled, the `file://` uri scheme will
           always be used
           """)
-  public boolean buildEventJsonFilePathConversion;
+  public abstract boolean getBuildEventJsonFilePathConversion();
 
   @Option(
       name = "build_event_publish_all_actions",
@@ -161,7 +163,9 @@ public class BuildEventStreamOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Whether all actions should be published.")
-  public boolean publishAllActions;
+  public abstract boolean getPublishAllActions();
+
+  public abstract void setPublishAllActions(boolean value);
 
   @Option(
       name = "build_event_max_named_set_of_file_entries",
@@ -177,5 +181,5 @@ public class BuildEventStreamOptions extends OptionsBase {
           of the set as well as the file and uri lengths, which may in turn depend on the
           hash function.
           """)
-  public int maxNamedSetEntries;
+  public abstract int getMaxNamedSetEntries();
 }

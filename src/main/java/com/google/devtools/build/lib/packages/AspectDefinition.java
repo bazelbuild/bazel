@@ -61,6 +61,7 @@ public final class AspectDefinition {
   private final AdvertisedProviderSet advertisedProviders;
   private final RequiredProviders requiredProviders;
   private final RequiredProviders requiredProvidersForAspects;
+  private final RequiredProviders requiredAspectHintsProviders;
   private final ImmutableMap<String, Attribute> attributes;
   private final ImmutableSet<ToolchainTypeRequirement> toolchainTypes;
 
@@ -94,6 +95,7 @@ public final class AspectDefinition {
       AdvertisedProviderSet advertisedProviders,
       RequiredProviders requiredProviders,
       RequiredProviders requiredProvidersForAspects,
+      RequiredProviders requiredAspectHintsProviders,
       ImmutableMap<String, Attribute> attributes,
       ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
       AspectPropagationEdgesSupplier<String> restrictToAttributes,
@@ -110,6 +112,7 @@ public final class AspectDefinition {
     this.advertisedProviders = advertisedProviders;
     this.requiredProviders = requiredProviders;
     this.requiredProvidersForAspects = requiredProvidersForAspects;
+    this.requiredAspectHintsProviders = requiredAspectHintsProviders;
     this.attributes = attributes;
     this.toolchainTypes = toolchainTypes;
     this.restrictToAttributes = restrictToAttributes;
@@ -176,6 +179,10 @@ public final class AspectDefinition {
    */
   public RequiredProviders getRequiredProvidersForAspects() {
     return requiredProvidersForAspects;
+  }
+
+  public RequiredProviders getRequiredAspectHintsProviders() {
+    return requiredAspectHintsProviders;
   }
 
   /** Returns the supplier of the attributes to which the aspect will propagate. */
@@ -275,6 +282,8 @@ public final class AspectDefinition {
         RequiredProviders.acceptAnyBuilder();
     private final RequiredProviders.Builder requiredAspectProviders =
         RequiredProviders.acceptNoneBuilder();
+    private final RequiredProviders.Builder requiredAspectHintsProviders =
+        RequiredProviders.acceptNoneBuilder();
     private AspectPropagationEdgesSupplier<String> propagateAlongAttributes =
         AspectPropagationEdgesSupplier.DEFAULT_ATTR_ASPECTS_SUPPLIER;
     private AspectPropagationEdgesSupplier<Label> propagateToToolchainsTypes =
@@ -347,6 +356,17 @@ public final class AspectDefinition {
       for (ImmutableSet<StarlarkProviderIdentifier> providerSet : providerSets) {
         if (!providerSet.isEmpty()) {
           requiredAspectProviders.addStarlarkSet(providerSet);
+        }
+      }
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder requireAspectHintsProviders(
+        Iterable<ImmutableSet<StarlarkProviderIdentifier>> providerSets) {
+      for (ImmutableSet<StarlarkProviderIdentifier> providerSet : providerSets) {
+        if (!providerSet.isEmpty()) {
+          requiredAspectHintsProviders.addStarlarkSet(providerSet);
         }
       }
       return this;
@@ -576,6 +596,7 @@ public final class AspectDefinition {
           advertisedProviders.build(),
           requiredProviders,
           requiredAspectProviders.build(),
+          requiredAspectHintsProviders.build(),
           ImmutableMap.copyOf(attributes),
           ImmutableSet.copyOf(toolchainTypes),
           propagateAlongAttributes,

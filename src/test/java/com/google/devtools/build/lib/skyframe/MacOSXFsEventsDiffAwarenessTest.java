@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.testing.common.FakeOptions;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
@@ -84,8 +85,9 @@ public class MacOSXFsEventsDiffAwarenessTest {
     underTest =
         new MacOSXFsEventsDiffAwareness(
             watchedPath, IgnoredSubdirectories.EMPTY, new FsEventsNativeDepsServiceImpl());
-    LocalDiffAwareness.Options localDiffOptions = new LocalDiffAwareness.Options();
-    localDiffOptions.watchFS = true;
+    LocalDiffAwareness.Options localDiffOptions =
+        Options.getDefaults(LocalDiffAwareness.Options.class);
+    localDiffOptions.setWatchFS(true);
     watchFsEnabledProvider = FakeOptions.of(localDiffOptions);
   }
 

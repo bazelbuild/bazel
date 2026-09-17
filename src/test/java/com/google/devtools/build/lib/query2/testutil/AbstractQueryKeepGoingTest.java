@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelper.ResultAndTargets;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.ExitCode;
 import java.util.Set;
 import org.junit.Before;
@@ -180,8 +179,8 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
     writeFile(
         "missingdep/BUILD",
         """
-        load('@rules_cc//cc:cc_library.bzl', 'cc_library')
-        cc_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "missingdep",
             deps = ["//i/do/not/exist"],
         )
@@ -198,8 +197,7 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
     helper.clearEvents();
     helper.setKeepGoing(true);
     // partial results
-    ResultAndTargets<Target> failResult =
-        evalFail("deps(//missingdep)" + TestConstants.CC_DEPENDENCY_CORRECTION);
+    ResultAndTargets<Target> failResult = evalFail("deps(//missingdep)");
     assertThat(failResult.getResultSet()).isEqualTo(eval("//missingdep"));
     assertContainsEvent("Evaluation of query \"deps(//missingdep)\" failed: " + keepGoingErrorMsg);
     if (checkFailureDetail) {

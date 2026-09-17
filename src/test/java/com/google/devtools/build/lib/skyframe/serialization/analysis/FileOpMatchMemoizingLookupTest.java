@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.analysis.Alwa
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.NoMatch.NO_MATCH_RESULT;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencies.AvailableFileDependencies;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FileOpMatch;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FileOpMatchResult;
@@ -26,7 +27,6 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.FileSystemD
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,7 +34,7 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public final class FileOpMatchMemoizingLookupTest {
   private static final int THREAD_COUNT = 10;
-  private final Executor executor = new ForkJoinPool(THREAD_COUNT);
+  private final SafeExecutorOwner executor = new SafeExecutorOwner(new ForkJoinPool(THREAD_COUNT));
   private final VersionedChanges changes = new VersionedChanges(ImmutableList.of());
   private final FileOpMatchMemoizingLookup lookup =
       new FileOpMatchMemoizingLookup(executor, changes, new ConcurrentHashMap<>());

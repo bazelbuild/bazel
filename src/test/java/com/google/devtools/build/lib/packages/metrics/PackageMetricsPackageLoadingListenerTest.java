@@ -19,7 +19,6 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Package;
@@ -27,6 +26,7 @@ import com.google.devtools.build.lib.packages.PackageLoadingListener.Metrics;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
 import com.google.protobuf.util.Durations;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.OptionalLong;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -607,6 +607,10 @@ public class PackageMetricsPackageLoadingListenerTest {
 
   private static Package mockPackage(
       String pkgIdString, Map<String, Target> targets, int transitivelyLoadedStarlarkFiles) {
+    targets.forEach((name, t) -> when(t.getName()).thenReturn(name));
+    ImmutableList<Target> sortedTargets =
+        ImmutableList.sortedCopyOf(Comparator.comparing(Target::getName), targets.values());
+
     ImmutableList.Builder<Label> fakeLoads = ImmutableList.builder();
     for (int i = 0; i < transitivelyLoadedStarlarkFiles; i++) {
       fakeLoads.add(Label.parseCanonicalUnchecked(String.format("//:%d.bzl", i)));
@@ -616,7 +620,7 @@ public class PackageMetricsPackageLoadingListenerTest {
     Package mockPackage = mock(Package.class);
     when(mockPackage.getPackageIdentifier())
         .thenReturn(PackageIdentifier.createInMainRepo(pkgIdString));
-    when(mockPackage.getTargets()).thenReturn(ImmutableSortedMap.copyOf(targets));
+    when(mockPackage.getTargets()).thenReturn(sortedTargets);
     when(mockPackage.getDeclarations()).thenReturn(fakeDeclarations);
     return mockPackage;
   }

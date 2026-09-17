@@ -539,7 +539,7 @@ public final class CanonizerTest {
             fingerprintString(
                 "com.google.common.collect.ImmutableList,"
                     + " java.lang.String[SERIALIZATION_CONSTANT:1], java.lang.String:a,"
-                    + " java.lang.Integer[SERIALIZATION_CONSTANT:2],"
+                    + " java.lang.Integer[SERIALIZATION_CONSTANT:9],"
                     + " java.lang.String[SERIALIZATION_CONSTANT:1]"));
   }
 

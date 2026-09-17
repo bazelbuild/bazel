@@ -18,13 +18,13 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.common.options.Options;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -55,9 +56,12 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
 
   @Before
   public final void setUpCqueryOptions() {
-    this.options = new CqueryOptions();
+    this.options = Options.getDefaults(CqueryOptions.class);
+    options.setIncludeToolDeps(false);
+    options.setIncludeImplicitDeps(false);
+    options.setIncludeNoDepDeps(false);
     helper.setQuerySettings(Setting.INCLUDE_ASPECTS);
-    this.reporter = new Reporter(new EventBus(), events::add);
+    this.reporter = new Reporter(EventBusEventHandler.createWithNewEventBus(), events::add);
   }
 
   @Test
@@ -175,9 +179,7 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
   @Test
   public void testTransitions_noTransitions() throws Exception {
     setUpRules();
-    writeFile(
-        "test/BUILD",
-        "simple_rule(name = 'foo')");
+    writeFile("test/BUILD", "simple_rule(name = 'foo')");
 
     List<String> result = getOutput("//test:foo", Transitions.NONE);
     assertThat(result).isEmpty();
@@ -263,8 +265,7 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
             MockRule.define(
                 "simple_rule",
                 (builder, env) ->
-                    builder
-                        .add(attr("deps", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)));
+                    builder.add(attr("deps", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)));
 
     this.ruleClassProvider =
         setRuleClassProviders(ruleWithTransitions, simpleRule)
@@ -281,7 +282,7 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     PostAnalysisQueryEnvironment<CqueryNode> env =
         ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(targetPatternSet);
-    options.transitions = verbosity;
+    options.setTransitions(verbosity);
     // TODO(blaze-configurability): Test late-bound attributes.
     TransitionsOutputFormatterCallback callback =
         new TransitionsOutputFormatterCallback(

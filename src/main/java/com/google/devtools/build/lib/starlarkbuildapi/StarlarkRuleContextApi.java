@@ -40,7 +40,9 @@ import net.starlark.java.eval.Tuple;
 
 /** Interface for a context object given to rule implementation functions. */
 @StarlarkBuiltin(
+    // TODO: #27370 - make capitalization consistent
     name = "ctx",
+    starlarkTypeName = "Ctx",
     category = DocCategory.BUILTIN,
     doc =
         "A context object that is passed to the implementation function for a rule or aspect. It"

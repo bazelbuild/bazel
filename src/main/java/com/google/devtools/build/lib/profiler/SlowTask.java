@@ -13,12 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
-/** A task that was very slow. */
-public record SlowTask(long durationNanos, String description, ProfilerTask type)
-    implements Comparable<SlowTask> {
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 
-  @Override
-  public int compareTo(SlowTask other) {
-    return Long.compare(durationNanos(), other.durationNanos());
-  }
+/** A task that was very slow. */
+@SkybridgeInterface
+@SuppressWarnings("GoodTime")
+public interface SlowTask extends Comparable<SlowTask> {
+  long durationNanos();
+
+  String description();
+
+  ProfilerTask type();
 }

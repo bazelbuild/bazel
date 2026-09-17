@@ -21,8 +21,8 @@ Add a String value
 
 | Parameter | Description |
 | --- | --- |
-| `key` | [string](../core/string); required  A String key |
-| `value` | [string](../core/string); required  A String value |
+| `key` | [string](/versions/8.1.1/rules/lib/core/string); required  A String key |
+| `value` | [string](/versions/8.1.1/rules/lib/core/string); required  A String value |
 
 ## add\_joined
 
@@ -36,10 +36,10 @@ Add depset of values
 
 | Parameter | Description |
 | --- | --- |
-| `key` | [string](../core/string); required  A String key |
-| `values` | [depset](../builtins/depset); required  The depset whose items will be joined. |
-| `join_with` | [string](../core/string); required  A delimiter string used to join together the strings obtained from applying `map_each`, in the same manner as [`string.join()`](../core/string#join). |
+| `key` | [string](/versions/8.1.1/rules/lib/core/string); required  A String key |
+| `values` | [depset](/versions/8.1.1/rules/lib/builtins/depset); required  The depset whose items will be joined. |
+| `join_with` | [string](/versions/8.1.1/rules/lib/core/string); required  A delimiter string used to join together the strings obtained from applying `map_each`, in the same manner as [`string.join()`](/versions/8.1.1/rules/lib/core/string#join). |
 | `map_each` | callable; required  A Starlark function accepting a single argument and returning either a string, `None`, or a list of strings. This function is applied to each item of the depset specified in the `values` parameter |
-| `uniquify` | [bool](../core/bool); default is `False`  If true, duplicate strings derived from `values` will be omitted. Only the first occurrence of each string will remain. Usually this feature is not needed because depsets already omit duplicates, but it can be useful if `map_each` emits the same string for multiple items. |
-| `format_joined` | [string](../core/string); or `None`; default is `None`  An optional format string pattern applied to the joined string. The format string must have exactly one '%s' placeholder. |
-| `allow_closure` | [bool](../core/bool); default is `False`  If true, allows the use of closures in function parameters like `map_each`. Usually this isn't necessary and it risks retaining large analysis-phase data structures into the execution phase. |
+| `uniquify` | [bool](/versions/8.1.1/rules/lib/core/bool); default is `False`  If true, duplicate strings derived from `values` will be omitted. Only the first occurrence of each string will remain. Usually this feature is not needed because depsets already omit duplicates, but it can be useful if `map_each` emits the same string for multiple items. |
+| `format_joined` | [string](/versions/8.1.1/rules/lib/core/string); or `None`; default is `None`  An optional format string pattern applied to the joined string. The format string must have exactly one '%s' placeholder. |
+| `allow_closure` | [bool](/versions/8.1.1/rules/lib/core/bool); default is `False`  If true, allows the use of closures in function parameters like `map_each`. Usually this isn't necessary and it risks retaining large analysis-phase data structures into the execution phase. |

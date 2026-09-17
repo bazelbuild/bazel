@@ -34,8 +34,10 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnInputs;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
@@ -124,8 +126,8 @@ public class StandaloneTestStrategy extends TestStrategy {
     executionInfo.put(
         ExecutionRequirements.TIMEOUT, Long.toString(action.getTimeout().toSeconds()));
 
-    SimpleSpawn.LocalResourcesSupplier localResourcesSupplier =
-        () ->
+    ResourceSetOrBuilder localResources =
+        (os, inputsSize) ->
             action
                 .getTestProperties()
                 .getLocalResourceUsage(
@@ -137,11 +139,11 @@ public class StandaloneTestStrategy extends TestStrategy {
             getArgs(action),
             ImmutableMap.copyOf(testEnvironment),
             ImmutableMap.copyOf(executionInfo),
-            /* inputs= */ action.getInputs(),
+            SpawnInputs.of(action.getInputs()),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             ImmutableSet.copyOf(action.getSpawnOutputs()),
             /* mandatoryOutputs= */ ImmutableSet.of(),
-            localResourcesSupplier);
+            localResources);
     Path execRoot = actionExecutionContext.getExecRoot();
     ArtifactPathResolver pathResolver = actionExecutionContext.getPathResolver();
     Path tmpDir = pathResolver.convertPath(tmpDirRoot.getChild(TestStrategy.getTmpDirName(action)));
@@ -345,7 +347,7 @@ public class StandaloneTestStrategy extends TestStrategy {
   }
 
   private static void writeOutFile(Path inFilePath, Path outFilePath) throws IOException {
-    FileStatus stat = inFilePath.statNullable();
+    FileStatus stat = inFilePath.statIfFound();
     if (stat != null) {
       try {
         if (stat.getSize() > 0) {
@@ -474,15 +476,21 @@ public class StandaloneTestStrategy extends TestStrategy {
         action,
         args,
         envBuilder.buildOrThrow(),
-        // Pass the execution info of the action which is identical to the supported tags set on the
-        // test target. In particular, this does not set the test timeout on the spawn.
+        // Pass the execution info of the action which is identical to the supported tags set on
+        // the test target. In particular, this does not set the test timeout on the spawn.
         action.getExecutionInfo(),
-        /* inputs= */ NestedSetBuilder.create(
-            Order.STABLE_ORDER, action.getTestXmlGeneratorScript(), action.getTestLog()),
+        SpawnInputs.of(
+            NestedSetBuilder.create(
+                Order.STABLE_ORDER, action.getTestXmlGeneratorScript(), action.getTestLog())),
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* outputs= */ ImmutableSet.of(action.getTestXml()),
         /* mandatoryOutputs= */ null,
-        SpawnAction.DEFAULT_RESOURCE_SET);
+        // The resources are fixed because the execution info above carries the test target's
+        // `resources:` tags (and, via TestTargetProperties, its exec_properties), which
+        // describe the test process, not this script. Letting them override the default would
+        // make a log-to-XML conversion book the whole test's CPU/memory/custom resources and
+        // queue behind unrelated actions.
+        ResourceSetOrBuilder.ignoringOverrides(SpawnAction.DEFAULT_RESOURCE_SET));
   }
 
   private static Spawn createCoveragePostProcessingSpawn(
@@ -512,15 +520,18 @@ public class StandaloneTestStrategy extends TestStrategy {
         args,
         ImmutableMap.copyOf(testEnvironment),
         action.getExecutionInfo(),
-        /* inputs= */ NestedSetBuilder.<ActionInput>compileOrder()
-            .addTransitive(action.getInputs())
-            .addAll(expandedCoverageDir)
-            .add(action.getCoverageManifest())
-            .build(),
+        SpawnInputs.of(
+            action.getInputs(),
+            ImmutableList.<ActionInput>builderWithExpectedSize(expandedCoverageDir.size() + 1)
+                .addAll(expandedCoverageDir)
+                .add(action.getCoverageManifest())
+                .build()),
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* outputs= */ ImmutableSet.of(action.getCoverageData()),
         /* mandatoryOutputs= */ null,
-        SpawnAction.DEFAULT_RESOURCE_SET);
+        // As in createXmlGeneratingSpawn: the test target's `resources:` entries describe the
+        // test process, not this post-processing step.
+        ResourceSetOrBuilder.ignoringOverrides(SpawnAction.DEFAULT_RESOURCE_SET));
   }
 
   private static Map<String, String> createEnvironment(
@@ -798,11 +809,13 @@ public class StandaloneTestStrategy extends TestStrategy {
           if (e.isCatastrophic()) {
             closeSuppressed(e, streamed);
             closeSuppressed(e, fileOutErr);
+            closeSuppressed(e, coverageOutErr);
             throw e;
           }
           if (!e.getSpawnResult().setupSuccess()) {
             closeSuppressed(e, streamed);
             closeSuppressed(e, fileOutErr);
+            closeSuppressed(e, coverageOutErr);
             // Rethrow as the test could not be run and thus there's no point in retrying.
             throw e;
           }
@@ -813,10 +826,12 @@ public class StandaloneTestStrategy extends TestStrategy {
         } catch (ExecException | InterruptedException e) {
           closeSuppressed(e, streamed);
           closeSuppressed(e, fileOutErr);
+          closeSuppressed(e, coverageOutErr);
           throw e;
         }
 
         // Append all output from the coverage spawn to the test log.
+        coverageOutErr.close();
         appendCoverageLog(coverageOutErr, fileOutErr);
       } else {
         Artifact coverageData = testAction.getCoverageData();

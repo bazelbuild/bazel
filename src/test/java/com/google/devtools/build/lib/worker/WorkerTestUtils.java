@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Maps;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.Options;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
@@ -68,9 +70,9 @@ public class WorkerTestUtils {
       boolean sandboxed,
       boolean dynamic,
       String... args) {
-    WorkerOptions workerOptions = new WorkerOptions();
-    workerOptions.workerMultiplex = multiplex;
-    workerOptions.workerSandboxing = sandboxed;
+    WorkerOptions workerOptions = Options.getDefaults(WorkerOptions.class);
+    workerOptions.setWorkerMultiplex(multiplex);
+    workerOptions.setWorkerSandboxing(ImmutableList.of(Maps.immutableEntry("", sandboxed)));
 
     return createWorkerKeyFromOptions(
         protocolFormat,

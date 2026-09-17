@@ -1,7 +1,9 @@
+load("@rules_java//java:defs.bzl", "java_test")
+
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
@@ -13,5 +15,15 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/bazel/repository:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/rules:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+)
+
+java_test(
+    name = "BazelWorkspaceStatusModuleTest",
+    srcs = ["BazelWorkspaceStatusModuleTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/bazel:modules",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
 )

@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.server;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import java.io.IOException;
 import java.net.SocketAddress;
 
 /** The gRPC command server interface. */
+@SkybridgeInterface
 public interface GrpcCommandServer {
   /** The interface for responding to an RPC. */
   public interface Responder {
@@ -59,6 +61,15 @@ public interface GrpcCommandServer {
      *     com.google.devtools.build.lib.server.CancelResponse}
      */
     void cancel(byte[] request, Responder responder);
+
+    /**
+     * Handles an UpdateTerminalSize RPC.
+     *
+     * @param request a serialized {@link com.google.devtools.build.lib.server.TerminalSizeRequest}
+     * @param responder a responder accepting serialized {@link
+     *     com.google.devtools.build.lib.server.TerminalSizeResponse}
+     */
+    void updateTerminalSize(byte[] request, Responder responder);
 
     /**
      * Handles a Ping RPC.

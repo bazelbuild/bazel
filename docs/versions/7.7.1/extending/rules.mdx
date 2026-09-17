@@ -462,8 +462,7 @@ def _example_library_impl(ctx):
 
 If `DefaultInfo` is not returned by a rule implementation or the `files`
 parameter is not specified, `DefaultInfo.files` defaults to all
-*predeclared outputs* (generally, those created by [output
-attributes](#output_attributes)).
+*predeclared outputs* (generally, those created by [output attributes](#output_attributes)).
 
 Rules that perform actions should provide default outputs, even if those outputs
 are not expected to be directly used. Actions that are not in the graph of the

@@ -22,6 +22,8 @@
 #   COVERAGE_DIR - optional, location of the coverage temp directory
 #   COVERAGE_OUTPUT_FILE - optional, location of the final lcov file
 #   VERBOSE_COVERAGE - optional, print debug info from the coverage scripts
+#   BAZEL_LLVM_PROFILE_FILE - optional, custom LLVM profile filename pattern
+#     (defaults to "%h-%p-%m.profraw" if not set)
 #
 # Script expects that it will be started in the execution root directory and
 # not in the test's runfiles directory.
@@ -102,7 +104,7 @@ if [[ -z "$GCOV_PREFIX_STRIP" ]]; then
   export GCOV_PREFIX_STRIP=3
 fi
 export GCOV_PREFIX="${COVERAGE_DIR}"
-export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
+export LLVM_PROFILE_FILE="${COVERAGE_DIR}/${BAZEL_LLVM_PROFILE_FILE:-%h-%p-%m.profraw}"
 if [[ -n "$LLVM_PROFILE_CONTINUOUS_MODE" ]]; then
   # %c enables continuous mode but expands out to nothing, so the position
   # within LLVM_PROFILE_FILE does not matter.
@@ -146,7 +148,7 @@ if [[ ! -z "${JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE}" ]]; then
   # Append the runfiles prefix to all the relative paths found in
   # JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE, to invoke SingleJar with the
   # absolute paths.
-  RUNFILES_PREFIX="$TEST_SRCDIR/"
+  RUNFILES_PREFIX="$TEST_SRCDIR/$TEST_WORKSPACE/"
   cat "$JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE" | sed "s@^@$RUNFILES_PREFIX@" >> "$single_jar_params_file"
 
   # Invoke SingleJar. This will create JACOCO_METADATA_JAR.

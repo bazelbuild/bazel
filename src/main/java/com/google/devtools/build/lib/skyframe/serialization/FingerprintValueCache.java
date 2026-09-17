@@ -23,7 +23,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.skyframe.serialization.FutureHelpers.FutureStatusCallback;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.MissingSharedValueBytesException;
+import java.io.IOException;
+import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 
 /**
@@ -226,9 +229,9 @@ public final class FingerprintValueCache {
 
             Futures.addCallback(
                 operation.writeStatus(),
-                new FutureCallback<Void>() {
+                new FutureStatusCallback() {
                   @Override
-                  public void onSuccess(Void unused) {
+                  public void onSuccess() {
                     // The object has been successfully written to remote storage. Discards all the
                     // wrappers.
                     serializationCache.put(obj, operation.fingerprint());

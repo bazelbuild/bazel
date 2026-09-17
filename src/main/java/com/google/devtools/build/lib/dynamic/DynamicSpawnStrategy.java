@@ -135,7 +135,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     this.getExtraSpawnForLocalExecution = getPostProcessingSpawnForLocalExecution;
     this.threadLimiter =
         new ShrinkableSemaphore(
-            options.localLoadFactor > 0 ? numCpus : jobs, jobs, options.localLoadFactor);
+            options.getLocalLoadFactor() > 0 ? numCpus : jobs, jobs, options.getLocalLoadFactor());
     this.ignoreFailureCheck = ignoreFailureCheck;
   }
 
@@ -246,7 +246,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       return results;
     } finally {
       checkState(localBranch.isDone());
-      checkState(remoteBranch.isDone());
+      if (options.getCancelRemoteBranchOnLocalWin() || strategyThatCancelled.get() == REMOTE) {
+        checkState(remoteBranch.isDone());
+      }
 
       if (results != null && !results.isEmpty()) {
         updateStrategyWinner(actionExecutionContext, spawn, results.get(0), strategyThatCancelled);
@@ -262,7 +264,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
           "Dynamic execution of %s ended with local %s, remote %s%n",
           getSpawnReadableId(spawn),
           localBranch.isCancelled() ? "cancelled" : "done",
-          remoteBranch.isCancelled() ? "cancelled" : "done");
+          remoteBranch.isCancelled() ? "cancelled" : (remoteBranch.isDone() ? "done" : "running"));
     }
   }
 
@@ -324,9 +326,9 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       while (!waitingLocalJobs.isEmpty() && threadLimiter.tryAcquire()) {
         LocalBranch job;
         // TODO(b/120910324): Prioritize jobs where the remote branch has already failed.
-        if (options.slowRemoteTime != null
-            && options.slowRemoteTime.compareTo(Duration.ZERO) > 0
-            && waitingLocalJobs.peekFirst().getAge().compareTo(options.slowRemoteTime) > 0) {
+        if (options.getSlowRemoteTime() != null
+            && options.getSlowRemoteTime().compareTo(Duration.ZERO) > 0
+            && waitingLocalJobs.peekFirst().getAge().compareTo(options.getSlowRemoteTime()) > 0) {
           job = waitingLocalJobs.pollFirst();
         } else {
           job = waitingLocalJobs.pollLast();
@@ -428,7 +430,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
           dynamicStrategyRegistry.getDynamicSpawnActionContexts(spawn, REMOTE));
       return LocalBranch.runLocally(
           spawn, actionExecutionContext, null, getExtraSpawnForLocalExecution);
-    } else if (options.excludeTools) {
+    } else if (options.getExcludeTools()) {
       if (spawn.getResourceOwner().getOwner().isBuildConfigurationForTool()) {
         return RemoteBranch.runRemotely(spawn, actionExecutionContext, null, delayLocalExecution);
       }
@@ -525,7 +527,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     try {
       localResult = waitBranch(localBranch, options, context);
     } catch (ExecException | InterruptedException | RuntimeException e) {
-      if (options.debugSpawnScheduler) {
+      if (options.getDebugSpawnScheduler()) {
         context
             .getEventHandler()
             .handle(
@@ -536,6 +538,10 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       }
       remoteBranch.cancel();
       throw e;
+    }
+
+    if (localResult != null && !options.getCancelRemoteBranchOnLocalWin()) {
+      return localResult;
     }
 
     ImmutableList<SpawnResult> remoteResult = waitBranch(remoteBranch, options, context);
@@ -577,7 +583,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     DynamicMode mode = branch.getMode();
     try {
       ImmutableList<SpawnResult> spawnResults = branch.getResults();
-      if (spawnResults == null && options.debugSpawnScheduler) {
+      if (spawnResults == null && options.getDebugSpawnScheduler()) {
         context
             .getEventHandler()
             .handle(
@@ -588,7 +594,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       }
       return spawnResults;
     } catch (CancellationException e) {
-      if (options.debugSpawnScheduler) {
+      if (options.getDebugSpawnScheduler()) {
         context
             .getEventHandler()
             .handle(
@@ -607,7 +613,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
         // for cancellation. Assume the latter here because if this was actually a user interrupt,
         // our own get() would have been interrupted as well. It makes no sense to propagate the
         // interrupt status across threads.
-        if (options.debugSpawnScheduler) {
+        if (options.getDebugSpawnScheduler()) {
           context
               .getEventHandler()
               .handle(
@@ -677,7 +683,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       // reference to its own identifier wins and is allowed to issue the cancellation; the other
       // branch just has to give up execution.
       if (strategyThatCancelled.compareAndSet(null, cancellingStrategy)) {
-        if (options.debugSpawnScheduler) {
+        if (options.getDebugSpawnScheduler()) {
           context
               .getEventHandler()
               .handle(
@@ -689,28 +695,33 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
                           cancellingBranch.isCancelled() ? "cancelled" : "not cancelled")));
         }
 
-        try (SilentCloseable c =
-            Profiler.instance()
-                .profile(
-                    ProfilerTask.DYNAMIC_LOCK,
-                    () ->
-                        String.format(
-                            "Cancelling %s branch of %s",
-                            cancellingStrategy.other(),
-                            getSpawnReadableId(cancellingBranch.getSpawn())))) {
+        boolean shouldCancelOther =
+            cancellingStrategy == REMOTE || options.getCancelRemoteBranchOnLocalWin();
+        if (shouldCancelOther) {
+          try (SilentCloseable c =
+              Profiler.instance()
+                  .profile(
+                      ProfilerTask.DYNAMIC_LOCK,
+                      () ->
+                          String.format(
+                              "Cancelling %s branch of %s",
+                              cancellingStrategy.other(),
+                              getSpawnReadableId(cancellingBranch.getSpawn())))) {
 
-          if (!otherBranch.cancel()) {
-            // This can happen if the other branch is local under local_lockfree and has returned
-            // its result but not yet cancelled this branch, or if the other branch was already
-            // cancelled for other reasons. In the latter case, we are good to continue.
-            if (otherBranch.future.state() == State.SUCCESS) {
-              throw new DynamicInterruptedException(
-                  String.format(
-                      "Execution of %s strategy stopped because %s strategy could not be cancelled",
-                      cancellingStrategy, cancellingStrategy.other()));
+            if (!otherBranch.cancel()) {
+              // This can happen if the other branch is local under local_lockfree and has returned
+              // its result but not yet cancelled this branch, or if the other branch was already
+              // cancelled for other reasons. In the latter case, we are good to continue.
+              if (otherBranch.future.state() == State.SUCCESS) {
+                throw new DynamicInterruptedException(
+                    String.format(
+                        "Execution of %s strategy stopped because %s strategy could not be"
+                            + " cancelled",
+                        cancellingStrategy, cancellingStrategy.other()));
+              }
             }
+            otherBranch.getDoneSemaphore().acquire();
           }
-          otherBranch.getDoneSemaphore().acquire();
         }
       } else {
         throw new DynamicInterruptedException(
@@ -729,7 +740,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
 
   @FormatMethod
   private void debugLog(String fmt, Object... args) {
-    if (options.debugSpawnScheduler) {
+    if (options.getDebugSpawnScheduler()) {
       stepLog(Level.FINE, null, fmt, args);
     }
   }

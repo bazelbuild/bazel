@@ -327,6 +327,7 @@ py_test(
     name = "bazel_overrides_test",
     size = "large",
     srcs = ["bzlmod/bazel_overrides_test.py"],
+    shard_count = 4,
     tags = [
         "requires-network",
     ],

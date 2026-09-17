@@ -119,6 +119,15 @@ public class ExternalFilesHelper {
   }
 
   /**
+   * Returns the path of the repo contents cache directory, or {@code null} if the repo contents
+   * cache is disabled. Fetched repos may be materialized as symlinks into this directory.
+   */
+  @Nullable
+  public Path getRepoContentsCachePath() {
+    return repoContentsCachePathSupplier.get();
+  }
+
+  /**
    * The action to take when an external path is encountered. See {@link FileType} for the
    * definition of "external".
    */

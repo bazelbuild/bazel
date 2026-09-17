@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.io.ProcessPackageDirectoryException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.AbstractRecursivePackageProvider.MissingDepException;
 import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
@@ -77,15 +76,6 @@ public class TargetPatternFunction implements SkyFunction {
       SafeBatchCallback<Target> callback =
           partialResult -> {
             for (Target target : partialResult) {
-              // TODO(b/156899726): This will go away as soon as we remove implicit outputs from
-              //  cc_library completely. The only downside to doing this is that implicit outputs
-              //  won't be listed when doing somepackage:* for the handful of cases still on the
-              //  allowlist. This is only a Google-internal problem and the scale of it is
-              //  acceptable in the short term while cleaning up the allowlist.
-              if (target instanceof OutputFile outputFile
-                  && outputFile.getGeneratingRule().getRuleClass().equals("cc_library")) {
-                continue;
-              }
               resolvedTargetsBuilder.add(target);
             }
           };

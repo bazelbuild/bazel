@@ -13,10 +13,13 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
+import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
+
 /**
  * On top of categorizing options by their intended purpose, these tags should identify options that
  * are either not supported or are intended to break old behavior.
  */
+@SkybridgeInterface
 public enum OptionMetadataTag {
   /**
    * This option triggers an experimental feature with no guarantees of functionality.
@@ -65,7 +68,13 @@ public enum OptionMetadataTag {
    * Options which are NON_CONFIGURABLE cannot be changed in (non-exec) Starlark transitions and
    * cannot be used in select().
    */
-  NON_CONFIGURABLE(8);
+  NON_CONFIGURABLE(8),
+
+  /**
+   * Options which are FULLY_REDACTED_IN_LOGS contain sensitive credentials and should be redacted
+   * in logs.
+   */
+  FULLY_REDACTED_IN_LOGS(9);
 
   private final int value;
 

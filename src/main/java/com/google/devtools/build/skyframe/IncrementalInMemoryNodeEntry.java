@@ -20,6 +20,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializedSkyValue;
 import com.google.devtools.build.skyframe.KeyToConsolidate.Op;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
@@ -166,11 +167,21 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
         value);
 
     if (dirtyBuildingState.unchangedFromLastBuild(value)) {
-      // If the value is the same as before, just use the old value. Note that we don't use the new
-      // value, because preserving == equality is even better than .equals() equality.
+      // If the value is the same as before, prefer the old value. Note that we don't prefer the new
+      // value, because preserving == equality is even better than .equals() equality. The exception
+      // is when comparing a regular SkyValue vs an otherwise equal DeserializedSkyValue:
+      //  - If old computed -> new deserialized, we need the deserialized value for proper
+      //    invalidation on subsequent evaluations, since we don't have proper deps. See
+      //    SkyframeExecutor#invalidateWithExternalService.
+      //  - If old deserialized -> new computed, we prefer the computed value since we do have
+      //    proper deps and can therefore rely on the more precise classic bottom-up invalidation.
       Version lastChanged = version.lastChanged();
-      version = NodeVersion.of(lastChanged, graphVersion);
-      this.value = dirtyBuildingState.getLastBuildValue();
+      version = NodeVersionGetter.get(lastChanged, graphVersion);
+      SkyValue oldValue = dirtyBuildingState.getLastBuildValue();
+      this.value =
+          value instanceof DeserializedSkyValue != oldValue instanceof DeserializedSkyValue
+              ? value
+              : oldValue;
     } else {
       // If this is a new value, or it has changed since the last build, set the version to the
       // current graph version.
@@ -368,6 +379,32 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   @Override
   public Version getVersion() {
     return version.lastChanged();
+  }
+
+  /**
+   * Returns this node's direct deps from the last evaluation if the node may be resurrected by
+   * change pruning; otherwise returns {@code null}. The node may be kept iff every returned dep is
+   * still present and was not changed more recently than {@link #lastEvaluatedVersion}.
+   */
+  @Nullable
+  final Iterable<SkyKey> lastBuildDepsIfChangePrunable() {
+    var localDirtyBuildingState = dirtyBuildingState;
+    if (localDirtyBuildingState == null
+        || !localDirtyBuildingState.isIncremental()
+        || isChanged()) {
+      return null;
+    }
+    try {
+      return localDirtyBuildingState.getLastBuildDirectDeps().getAllElementsAsIterable();
+    } catch (InterruptedException e) {
+      // An incremental dirty state returns its stored deps without blocking.
+      throw new IllegalStateException(e);
+    }
+  }
+
+  /** Returns the version at which this node was last evaluated; see {@link NodeVersion}. */
+  final Version lastEvaluatedVersion() {
+    return version.lastEvaluated();
   }
 
   @Override

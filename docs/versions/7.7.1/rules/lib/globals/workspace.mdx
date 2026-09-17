@@ -26,7 +26,7 @@ Gives a target an alias in the `//external` package.
 | Parameter | Description |
 | --- | --- |
 | `name` | required  The label under '//external' to serve as the alias name |
-| `actual` | [string](../core/string); or `None`; default is `None`  The real label to be aliased |
+| `actual` | [string](/versions/7.7.1/rules/lib/core/string); or `None`; default is `None`  The real label to be aliased |
 
 ## register\_execution\_platforms
 
@@ -40,7 +40,7 @@ Register an already-defined platform so that Bazel can use it as an [execution p
 
 | Parameter | Description |
 | --- | --- |
-| `platform_labels` | [sequence](../core/list) of [string](../core/string)s; required  The labels of the platforms to register. |
+| `platform_labels` | [sequence](/versions/7.7.1/rules/lib/core/list) of [string](/versions/7.7.1/rules/lib/core/string)s; required  The labels of the platforms to register. |
 
 ## register\_toolchains
 
@@ -54,7 +54,7 @@ Register an already-defined toolchain so that Bazel can use it during [toolchain
 
 | Parameter | Description |
 | --- | --- |
-| `toolchain_labels` | [sequence](../core/list) of [string](../core/string)s; required  The labels of the toolchains to register. Labels can include `:all`, in which case, all toolchain-providing targets in the package will be registered in lexicographical order by name. |
+| `toolchain_labels` | [sequence](/versions/7.7.1/rules/lib/core/list) of [string](/versions/7.7.1/rules/lib/core/string)s; required  The labels of the toolchains to register. Labels can include `:all`, in which case, all toolchain-providing targets in the package will be registered in lexicographical order by name. |
 
 ## workspace
 

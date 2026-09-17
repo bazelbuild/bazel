@@ -26,12 +26,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
+import com.google.common.collect.Multisets;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupSummaryKey;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
@@ -39,14 +41,17 @@ import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.PooledInterner;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
@@ -59,6 +64,8 @@ import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassId;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -172,6 +179,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile,
       boolean shouldUseRepoDotBazel,
       SkyKeyStateReceiver skyKeyStateReceiver,
+      CompressionService compressionService,
       BugReporter bugReporter,
       boolean globUnderSingleDep,
       Optional<DiffCheckNotificationOptions> diffCheckNotificationOptions) {
@@ -195,6 +203,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         new PackageProgressReceiver(),
         new AnalysisProgressReceiver(),
         skyKeyStateReceiver,
+        compressionService,
         bugReporter,
         diffAwarenessFactories,
         workspaceInfoFromDiffReceiver,
@@ -260,6 +269,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       PathPackageLocator packageLocator,
       UUID commandId,
       Map<String, String> clientEnv,
+      Map<String, String> repoEnv,
       TimestampGranularityMonitor tsgm,
       QuiescingExecutors executors,
       OptionsProvider options,
@@ -306,12 +316,28 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         }
         needGcAfterResettingEvaluator = false;
       }
+    } else {
+      var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
+      if (buildRequestOptions != null) {
+        Label target = buildRequestOptions.getBustActionCachesTarget();
+        if (target != null) {
+          invalidate(
+              key ->
+                  switch (key) {
+                    case ActionLookupData lookupData -> target.equals(lookupData.getLabel());
+                    case ActionLookupSummaryKey summaryKey ->
+                        target.equals(summaryKey.argument().getLabel());
+                    default -> false;
+                  });
+        }
+      }
     }
     super.sync(
         eventHandler,
         packageLocator,
         commandId,
         clientEnv,
+        repoEnv,
         tsgm,
         executors,
         options,
@@ -330,7 +356,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       OptionsProvider options) {
     var someNodeDroppingExpected =
         (options.getOptions(AnalysisOptions.class) != null
-                && options.getOptions(AnalysisOptions.class).discardAnalysisCache)
+                && options.getOptions(AnalysisOptions.class).getDiscardAnalysisCache())
             || !trackIncrementalState
             || heuristicallyDropNodes;
     var skymeldInconsistenciesExpected =
@@ -371,8 +397,17 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     invalidate(SkyFunctionName.functionIsIn(PACKAGE_LOCATOR_DEPENDENT_VALUES));
   }
 
-  void invalidate(Predicate<SkyKey> pred) {
-    recordingDiffer.invalidate(Iterables.filter(memoizingEvaluator.getValues().keySet(), pred));
+  private void invalidate(Predicate<SkyKey> pred) {
+    Set<SkyKey> keysToInvalidate = Sets.newConcurrentHashSet();
+    memoizingEvaluator
+        .getInMemoryGraph()
+        .parallelForEach(
+            e -> {
+              if (pred.apply(e.getKey())) {
+                keysToInvalidate.add(e.getKey());
+              }
+            });
+    recordingDiffer.invalidate(keysToInvalidate);
   }
 
   /** Sets the packages that should be treated as deleted and ignored. */
@@ -527,10 +562,10 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   @Override
   @Nullable
-  public SkyframeStats getSkyframeStats(ExtendedEventHandler eventHandler) {
+  public SkyframeStats getSkyframeStats() {
     Map<String, SkyKeyStats> ruleStats = new HashMap<>();
     Map<String, SkyKeyStats> aspectStats = new HashMap<>();
-    Multiset<SkyFunctionName> functionCount = HashMultiset.create();
+    Multiset<StarlarkProvider> starlarkProviders = HashMultiset.create();
     for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
         memoizingEvaluator.getDoneValues().entrySet()) {
       SkyValue value = skyKeyAndValue.getValue();
@@ -544,6 +579,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
               ruleStats.computeIfAbsent(
                   ruleClassId.key(), k -> new SkyKeyStats(k, ruleClassId.name()));
           ruleStat.countWithActions(ctValue.getActions().size());
+          addStarlarkProviders(ruleCfgTarget.getProvidersForMetrics(), starlarkProviders);
         }
       } else if (functionName.equals(SkyFunctions.ASPECT)) {
         AspectValue aspectValue = (AspectValue) value;
@@ -557,16 +593,25 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
             aspectStats.computeIfAbsent(
                 aspectClass.getKey(), k -> new SkyKeyStats(k, aspectClass.getName()));
         aspectStat.countWithActions(aspectValue.getActions().size());
+        addStarlarkProviders(aspectValue.getProviders(), starlarkProviders);
       }
-
-      // We record rules and aspects again here so function count is correct.
-      functionCount.add(functionName);
     }
     return new SkyframeStats(
         /* ruleStats= */ ImmutableList.sortedCopyOf(SkyKeyStats.BY_COUNT_DESC, ruleStats.values()),
         /* aspectStats= */ ImmutableList.sortedCopyOf(
             SkyKeyStats.BY_COUNT_DESC, aspectStats.values()),
-        functionCount);
+        Multisets.copyHighestCountFirst(starlarkProviders));
+  }
+
+  private static void addStarlarkProviders(
+      TransitiveInfoProviderMap providers, Multiset<StarlarkProvider> starlarkProviders) {
+    for (int i = 0; i < providers.getProviderCount(); i++) {
+      if (providers.getProviderInstanceAt(i) instanceof StarlarkInfo info
+          && info.getProvider() instanceof StarlarkProvider provider
+          && !provider.getLocation().file().startsWith("/virtual_builtins_bzl/")) {
+        starlarkProviders.add(provider);
+      }
+    }
   }
 
   public void dumpSkyframeStateInParallel(
@@ -784,11 +829,11 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public void deleteOldNodes(long versionWindowForDirtyGc) {
+  public void deleteOldNodes(long versionWindowForDirtyGc, boolean keepChangePrunableNodes) {
     // TODO(bazel-team): perhaps we should come up with a separate GC class dedicated to maintaining
     // value garbage. If we ever do so, this logic should be moved there.
     if (trackIncrementalState) {
-      memoizingEvaluator.deleteDirty(versionWindowForDirtyGc);
+      memoizingEvaluator.deleteDirty(versionWindowForDirtyGc, keepChangePrunableNodes);
     }
   }
 
@@ -843,6 +888,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     private Supplier<Path> repoContentsCachePathSupplier = () -> null;
     private Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit = skyframeExecutor -> {};
     private SkyFunction ignoredSubdirectoriesFunction;
+    private CompressionService compressionService;
     private BugReporter bugReporter = BugReporter.defaultInstance();
     private SkyKeyStateReceiver skyKeyStateReceiver = SkyKeyStateReceiver.NULL_INSTANCE;
     private SyscallCache syscallCache = null;
@@ -884,6 +930,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
               actionOnFilesystemErrorCodeLoadingBzlFile,
               shouldUseRepoDotBazel,
               skyKeyStateReceiver,
+              compressionService,
               bugReporter,
               globUnderSingleDep,
               Optional.ofNullable(diffCheckNotificationOptions));
@@ -918,6 +965,12 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     @CanIgnoreReturnValue
     public Builder setIgnoredSubdirectories(SkyFunction ignoredSubdirectoriesFunction) {
       this.ignoredSubdirectoriesFunction = ignoredSubdirectoriesFunction;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setCompressionService(CompressionService compressionService) {
+      this.compressionService = compressionService;
       return this;
     }
 

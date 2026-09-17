@@ -22,6 +22,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
@@ -34,6 +36,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.Types;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -41,6 +44,9 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link ModuleCodec}. */
 @RunWith(JUnit4.class)
 public class ModuleCodecTest extends BuildViewTestCase {
+
+  private static final CompressionService COMPRESSION_SERVICE = new CompressionServiceImpl();
+
   @Test
   public void testDynamicCodec() throws Exception {
     Module subject1 = Module.create();
@@ -51,7 +57,13 @@ public class ModuleCodecTest extends BuildViewTestCase {
     subject2.setGlobal("x", 1);
     subject2.setGlobal("y", 2);
 
-    new SerializationTester(subject1, subject2)
+    Module subject3 =
+        Module.withPredeclaredAndData(
+            StarlarkSemantics.DEFAULT, ImmutableMap.of(), Label.parseCanonical("//foo:bar"));
+    subject3.setGlobal("x", 1, Types.INT);
+    subject3.setGlobal("y", 2, Types.ANY);
+
+    new SerializationTester(subject1, subject2, subject3)
         .makeMemoizing()
         .setVerificationFunction(ModuleCodecTest::verifyDeserialization)
         .runTestsWithoutStableSerializationCheck();
@@ -93,6 +105,7 @@ public class ModuleCodecTest extends BuildViewTestCase {
     var deserialized =
         RoundTripping.roundTripWithSkyframe(
             new ObjectCodecs().withCodecOverridesForTesting(ImmutableList.of(moduleCodec())),
+            COMPRESSION_SERVICE,
             FingerprintValueService.createForTesting(),
             this::getDoneValue,
             module);

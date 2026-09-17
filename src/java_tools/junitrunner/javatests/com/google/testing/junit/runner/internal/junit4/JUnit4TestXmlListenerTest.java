@@ -26,12 +26,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.google.common.collect.Lists;
 import com.google.testing.junit.runner.internal.SignalHandlers;
 import com.google.testing.junit.runner.model.TestSuiteModel;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 import org.junit.Before;
@@ -272,7 +272,7 @@ public class JUnit4TestXmlListenerTest {
   }
 
   private static class FakeSignalHandlers extends SignalHandlers {
-    public List<SignalHandler> handlers = Lists.newArrayList();
+    public List<SignalHandler> handlers = new ArrayList<>();
 
     public FakeSignalHandlers() {
       super(null);

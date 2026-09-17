@@ -156,7 +156,7 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
         assertThat(artifactOwningExtraAction).isNotNull();
 
         Set<Artifact> extraActionInputs = artifactOwningExtraAction.getInputs().toSet();
-        Set<Artifact> actionOutputs = Sets.newHashSet(action.getOutputs());
+        Set<Artifact> actionOutputs = new HashSet<>(action.getOutputs());
         if (shouldDependOnOutput) {
           // If the extra_action has require_action_output set, all of the outputs of the
           // shadowed action should be part of the extra_action's inputs.

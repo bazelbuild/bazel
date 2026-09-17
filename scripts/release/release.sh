@@ -191,15 +191,41 @@ function __cleanup_branches() {
 # destroying the release branch, updating the master's CHANGELOG.md
 # and pushing everything to GitHub.
 function __do_release() {
-  local branch=$(get_release_branch)
+  local current_branch=$(get_release_branch)
   local tag_name=$(get_release_name)
   local candidate=$(get_release_candidate)
+  local release_branch="release-${tag_name}"
+  if [ "$(is_rolling_release)" -eq 1 ]; then
+    # For rolling releases, we only have an rc1 branch and no "normal" release
+    # branch.
+    release_branch="${current_branch}"
+  else
+    # For non-rolling releases, we have a release branch (release-X.Y.Z), and
+    # a current branch (which should be the last RC branch -- release-X.Y.ZrcN).
+    # These need to be at exactly the same commit.
+    local current_commit="$(__git_commit_hash "${current_branch}")"
+    local release_commit="$(__git_commit_hash "${release_branch}" 2>/dev/null || true)"
+    if [ -z "${candidate}" ] || [ -z "${release_commit}" ] || [ "${current_commit}" != "${release_commit}" ]; then
+      echo "The current branch ${current_branch} must be the latest release candidate (release-X.Y.ZrcN) and at the same commit as branch ${release_branch}." >&2
+      exit 1
+    fi
+  fi
 
-  echo -n "You are about to release branch ${branch} in tag ${tag_name}, confirm? [y/N] "
+  echo -n "You are about to release branch ${release_branch} in tag ${tag_name}, confirm? [y/N] "
   read answer
   if [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
+    if [ "$(is_rolling_release)" -eq 0 ]; then
+      echo "Switching to the release branch"
+      git checkout "${release_branch}"
+    fi
+
     echo "Creating the release commit"
     __create_release_commit "${tag_name}"
+
+    if [ "$(is_rolling_release)" -eq 0 ]; then
+      echo "Pushing the release branch"
+      __push_ref "${release_branch}"
+    fi
 
     echo "Creating the tag"
     git tag ${tag_name}
@@ -213,10 +239,10 @@ function __do_release() {
     # We do not cherry-pick because we might have conflict if the baseline
     # does not contains the latest CHANGELOG.md file, so trick it.
     local changelog_path="$PWD/CHANGELOG.md"
-    git show "${branch}:CHANGELOG.md" > "${changelog_path}"
+    git show "${release_branch}:CHANGELOG.md" > "${changelog_path}"
     local tmpfile=$(mktemp --tmpdir relnotes-XXXXXXXX)
     trap 'rm -f ${tmpfile}' EXIT
-    git_commit_msg "${branch}" > "${tmpfile}"
+    git_commit_msg "${release_branch}" > "${tmpfile}"
     git add "${changelog_path}"
     git commit --no-verify -F "${tmpfile}" --no-edit --author "${RELEASE_AUTHOR}"
     rm -f "${tmpfile}"

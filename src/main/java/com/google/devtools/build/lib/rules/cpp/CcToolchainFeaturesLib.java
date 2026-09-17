@@ -55,10 +55,7 @@ public class CcToolchainFeaturesLib {
   @FormatMethod
   private static EvalException infoError(Info info, String format, Object... args) {
     return Starlark.errorf(
-        "in %s instantiated at %s: %s",
-        info.getProvider().getPrintableName(),
-        info.getCreationLocation(),
-        String.format(format, args));
+        "in %s: %s", info.getProvider().getPrintableName(), String.format(format, args));
   }
 
   /** Checks whether the {@link StarlarkInfo} is of the required type. */

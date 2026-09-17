@@ -29,7 +29,7 @@ import java.util.SortedSet;
  * {@link ObjectCodec} for {@link ImmutableSortedSet}. Comparator must be serializable, ideally a
  * registered constant.
  */
-class ImmutableSortedSetCodec<E> extends DeferredObjectCodec<ImmutableSortedSet<E>> {
+public class ImmutableSortedSetCodec<E> extends DeferredObjectCodec<ImmutableSortedSet<E>> {
   @SuppressWarnings("unchecked")
   @Override
   public Class<ImmutableSortedSet<E>> getEncodedClass() {

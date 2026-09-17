@@ -37,6 +37,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsClass;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -53,7 +54,8 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
   private static final Label PLATFORM1 = Label.parseCanonicalUnchecked("//platforms:one");
 
   /** Extra options for this test. */
-  public static class DummyTestOptions extends FragmentOptions {
+  @OptionsClass
+  public abstract static class DummyTestOptions extends FragmentOptions {
     public DummyTestOptions() {}
 
     @Option(
@@ -61,7 +63,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "defVal")
-    public String strOption;
+    public abstract String getStrOption();
 
     @Option(
         name = "internal_option",
@@ -69,7 +71,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "super secret",
         metadataTags = {OptionMetadataTag.INTERNAL})
-    public String internalOption;
+    public abstract String getInternalOption();
 
     @Option(
         name = "list",
@@ -77,7 +79,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null")
-    public List<String> list;
+    public abstract List<String> getList();
   }
 
   /** Test fragment. */
@@ -123,7 +125,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions mapped = platformMappingValue.map(createBuildOptions()).getOptions();
 
-    assertThat(mapped.get(PlatformOptions.class).platforms)
+    assertThat(mapped.get(PlatformOptions.class).getPlatforms())
         .containsExactly(Label.parseCanonicalUnchecked("@bazel_tools//tools:host_platform"));
   }
 
@@ -159,7 +161,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
-    assertThat(mapped.get(DummyTestOptions.class).strOption).isEqualTo("one");
+    assertThat(mapped.get(DummyTestOptions.class).getStrOption()).isEqualTo("one");
   }
 
   @Test
@@ -183,7 +185,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
-    assertThat(mapped.get(DummyTestOptions.class).strOption).isEqualTo("one");
+    assertThat(mapped.get(DummyTestOptions.class).getStrOption()).isEqualTo("one");
   }
 
   @Test
@@ -211,7 +213,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
-    assertThat(mapped.get(DummyTestOptions.class).strOption).isEqualTo("one");
+    assertThat(mapped.get(DummyTestOptions.class).getStrOption()).isEqualTo("one");
   }
 
   @Test
@@ -234,7 +236,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
-    assertThat(mapped.get(DummyTestOptions.class).strOption).isEqualTo("one");
+    assertThat(mapped.get(DummyTestOptions.class).getStrOption()).isEqualTo("one");
   }
 
   @Test
@@ -264,7 +266,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
-    assertThat(mapped.get(DummyTestOptions.class).strOption).isEqualTo("one");
+    assertThat(mapped.get(DummyTestOptions.class).getStrOption()).isEqualTo("one");
   }
 
   // Internal flags (OptionMetadataTag.INTERNAL) cannot be set from the command-line, but
@@ -287,7 +289,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
-    assertThat(mapped.get(DummyTestOptions.class).internalOption).isEqualTo("something_new");
+    assertThat(mapped.get(DummyTestOptions.class).getInternalOption()).isEqualTo("something_new");
   }
 
   @Test
@@ -333,7 +335,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
     // The mapping should completely replace the list, because it is not accumulating.
-    assertThat(mapped.get(DummyTestOptions.class).list).containsExactly("from_mapping");
+    assertThat(mapped.get(DummyTestOptions.class).getList()).containsExactly("from_mapping");
   }
 
   @Test
@@ -454,7 +456,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
-    assertThat(mapped.get(PlatformOptions.class).platforms).containsExactly(PLATFORM1);
+    assertThat(mapped.get(PlatformOptions.class).getPlatforms()).containsExactly(PLATFORM1);
   }
 
   @Test
@@ -476,7 +478,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
-    assertThat(mapped.get(PlatformOptions.class).platforms).containsExactly(PLATFORM1);
+    assertThat(mapped.get(PlatformOptions.class).getPlatforms()).containsExactly(PLATFORM1);
   }
 
   @Test

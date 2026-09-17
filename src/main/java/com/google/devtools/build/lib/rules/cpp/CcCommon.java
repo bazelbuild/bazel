@@ -19,20 +19,16 @@ import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import java.util.regex.Pattern;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkSemantics;
-import net.starlark.java.eval.StarlarkValue;
 
 /** Common parts of the implementation of cc rules. */
 public final class CcCommon {
-  public static final String PIC_CONFIGURATION_ERROR =
+  private static final String PIC_CONFIGURATION_ERROR =
       "PIC compilation is requested but the toolchain does not support it "
           + "(feature named 'supports_pic' is not enabled)";
 
-  public static final ImmutableSet<String> ALL_COMPILE_ACTIONS =
+  private static final ImmutableSet<String> ALL_COMPILE_ACTIONS =
       ImmutableSet.of(
           CppActionNames.C_COMPILE,
           CppActionNames.CPP_COMPILE,
@@ -50,7 +46,7 @@ public final class CcCommon {
           CppActionNames.LTO_BACKEND,
           CppActionNames.CPP_HEADER_ANALYSIS);
 
-  public static final ImmutableSet<String> ALL_LINK_ACTIONS =
+  private static final ImmutableSet<String> ALL_LINK_ACTIONS =
       ImmutableSet.of(
           CppActionNames.LTO_INDEX_EXECUTABLE,
           CppActionNames.LTO_INDEX_DYNAMIC_LIBRARY,
@@ -59,14 +55,14 @@ public final class CcCommon {
           Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
           Link.LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName());
 
-  public static final ImmutableSet<String> ALL_ARCHIVE_ACTIONS =
+  private static final ImmutableSet<String> ALL_ARCHIVE_ACTIONS =
       ImmutableSet.of(Link.LinkTargetType.STATIC_LIBRARY.getActionName());
 
-  public static final ImmutableSet<String> ALL_OTHER_ACTIONS =
+  private static final ImmutableSet<String> ALL_OTHER_ACTIONS =
       ImmutableSet.of(CppActionNames.STRIP);
 
   /** Action configs we request to enable. */
-  public static final ImmutableSet<String> DEFAULT_ACTION_CONFIGS =
+  private static final ImmutableSet<String> DEFAULT_ACTION_CONFIGS =
       ImmutableSet.<String>builder()
           .addAll(ALL_COMPILE_ACTIONS)
           .addAll(ALL_LINK_ACTIONS)
@@ -74,7 +70,7 @@ public final class CcCommon {
           .addAll(ALL_OTHER_ACTIONS)
           .build();
 
-  public static final ImmutableSet<String> OBJC_ACTIONS =
+  private static final ImmutableSet<String> OBJC_ACTIONS =
       ImmutableSet.of(
           CppActionNames.OBJC_COMPILE,
           CppActionNames.OBJCPP_COMPILE,
@@ -98,54 +94,8 @@ public final class CcCommon {
     }
   }
 
-  /** A filter that removes copts from a c++ compile action according to a nocopts regex. */
-  public static final class CoptsFilter implements StarlarkValue {
-    private final Pattern noCoptsPattern;
-    private final boolean allPasses;
 
-    private CoptsFilter(Pattern noCoptsPattern, boolean allPasses) {
-      this.noCoptsPattern = noCoptsPattern;
-      this.allPasses = allPasses;
-    }
-
-    /** Creates a filter that filters all matches to a regex. */
-    public static CoptsFilter fromRegex(Pattern noCoptsPattern) {
-      return new CoptsFilter(noCoptsPattern, false);
-    }
-
-    /** Creates a filter that passes on all inputs. */
-    public static CoptsFilter alwaysPasses() {
-      return new CoptsFilter(null, true);
-    }
-
-    /**
-     * Returns true if the provided string passes through the filter, or false if it should be
-     * removed.
-     */
-    public boolean passesFilter(String flag) {
-      if (allPasses) {
-        return true;
-      } else {
-        return !noCoptsPattern.matcher(flag).matches();
-      }
-    }
-
-    @Override
-    public boolean isImmutable() {
-      return true;
-    }
-
-    @Override
-    public void repr(Printer printer, StarlarkSemantics semantics) {
-      printer.append("CoptsFilter(noCoptsPattern=");
-      printer.append(noCoptsPattern == null ? "null" : noCoptsPattern.pattern());
-      printer.append(", allPasses=");
-      printer.append(Boolean.toString(allPasses));
-      printer.append(")");
-    }
-  }
-
-  public static ImmutableList<String> getCoverageFeatures(CppConfiguration cppConfiguration) {
+  private static ImmutableList<String> getCoverageFeatures(CppConfiguration cppConfiguration) {
     ImmutableList.Builder<String> coverageFeatures = ImmutableList.builder();
     if (cppConfiguration.collectCodeCoverage()) {
       coverageFeatures.add(CppRuleClasses.COVERAGE);

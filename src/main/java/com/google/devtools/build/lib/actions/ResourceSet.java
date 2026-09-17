@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Doubles;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.worker.WorkerKey;
 import com.google.devtools.common.options.Converter;
@@ -31,33 +31,22 @@ import javax.annotation.Nullable;
  * Action, or the total available resources. We plan to use this to do smarter scheduling of
  * actions, for example making sure that we don't schedule jobs concurrently if they would use so
  * much memory as to cause the machine to thrash.
+ *
+ * @param resources Map of extra resources (for example: GPUs, embedded boards, ...) mapping name of
+ *     the resource to a value.
+ * @param localTestCount The number of local tests.
+ * @param workerKey The workerKey of used worker. Null if no worker is used.
  */
+@AutoCodec
 @Immutable
-public class ResourceSet implements ResourceSetOrBuilder {
+public record ResourceSet(
+    ImmutableMap<String, Double> resources, int localTestCount, @Nullable WorkerKey workerKey)
+    implements ResourceSetOrBuilder {
   public static final String CPU = "cpu";
   public static final String MEMORY = "memory";
 
   /** For actions that consume negligible resources. */
   public static final ResourceSet ZERO = new ResourceSet(ImmutableMap.of(), 0, null);
-
-  /**
-   * Map of extra resources (for example: GPUs, embedded boards, ...) mapping name of the resource
-   * to a value.
-   */
-  private final ImmutableMap<String, Double> resources;
-
-  /** The number of local tests. */
-  private final int localTestCount;
-
-  /** The workerKey of used worker. Null if no worker is used. */
-  @Nullable private final WorkerKey workerKey;
-
-  private ResourceSet(
-      ImmutableMap<String, Double> resources, int localTestCount, @Nullable WorkerKey workerKey) {
-    this.resources = resources;
-    this.localTestCount = localTestCount;
-    this.workerKey = workerKey;
-  }
 
   public static ResourceSet createWithRamCpu(double memoryMb, double cpu) {
     return create(ImmutableMap.of(MEMORY, memoryMb, CPU, cpu));
@@ -82,6 +71,32 @@ public class ResourceSet implements ResourceSetOrBuilder {
   public static ResourceSet create(
       ImmutableMap<String, Double> resources, int localTestCount, @Nullable WorkerKey workerKey) {
     return new ResourceSet(resources, localTestCount, workerKey);
+  }
+
+  /**
+   * Returns a new {@link ResourceSet} with the given overrides merged on top of this one's
+   * resources in order. Entries in later maps replace earlier ones and this set's resources; {@code
+   * localTestCount} and {@code workerKey} are preserved. Returns {@code this} if all override maps
+   * are empty.
+   */
+  @SafeVarargs
+  public final ResourceSet withResourceOverrides(ImmutableMap<String, Double>... overrides) {
+    boolean anyNonEmpty = false;
+    for (ImmutableMap<String, Double> override : overrides) {
+      if (!override.isEmpty()) {
+        anyNonEmpty = true;
+        break;
+      }
+    }
+    if (!anyNonEmpty) {
+      return this;
+    }
+    ImmutableMap.Builder<String, Double> builder =
+        ImmutableMap.<String, Double>builderWithExpectedSize(resources.size()).putAll(resources);
+    for (ImmutableMap<String, Double> override : overrides) {
+      builder.putAll(override);
+    }
+    return create(builder.buildKeepingLast(), localTestCount, workerKey);
   }
 
   public double get(String resource) {
@@ -134,29 +149,6 @@ public class ResourceSet implements ResourceSetOrBuilder {
         + "\n";
   }
 
-  @Override
-  public boolean equals(Object that) {
-    if (that == null) {
-      return false;
-    }
-
-    if (!(that instanceof ResourceSet thatResourceSet)) {
-      return false;
-    }
-
-    return thatResourceSet.getMemoryMb() == getMemoryMb()
-        && thatResourceSet.getCpuUsage() == getCpuUsage()
-        && thatResourceSet.localTestCount == getLocalTestCount();
-  }
-
-  @Override
-  public int hashCode() {
-    int p = 239;
-    return Doubles.hashCode(getMemoryMb())
-        + Doubles.hashCode(getCpuUsage()) * p
-        + getLocalTestCount() * p * p;
-  }
-
   /** Converter for {@link ResourceSet}. */
   public static class ResourceSetConverter extends Converter.Contextless<ResourceSet> {
     private static final Splitter SPLITTER = Splitter.on(',');
@@ -191,7 +183,7 @@ public class ResourceSet implements ResourceSetOrBuilder {
   }
 
   @Override
-  public ResourceSet buildResourceSet(OS os, int inputsSize) throws ExecException {
+  public ResourceSet buildResourceSet(OS os, int inputsSize) {
     return this;
   }
 }

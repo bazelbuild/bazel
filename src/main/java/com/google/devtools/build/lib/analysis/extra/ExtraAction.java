@@ -208,7 +208,6 @@ public final class ExtraAction extends SpawnAction {
     return getSpawn(
         actionExecutionContext,
         actionExecutionContext.getClientEnv(),
-        /* envResolved= */ false,
         /* reportOutputs= */ false);
   }
 

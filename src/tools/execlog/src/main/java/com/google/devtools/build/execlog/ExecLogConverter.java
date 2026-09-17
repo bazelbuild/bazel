@@ -67,25 +67,25 @@ final class ExecLogConverter {
 
     ConverterOptions options = op.getOptions(ConverterOptions.class);
 
-    if (options.input == null) {
+    if (options.getInput() == null) {
       System.err.println("--input must be specified.");
       System.exit(1);
     }
 
-    if (options.output == null) {
+    if (options.getOutput() == null) {
       System.err.println("--output must be specified.");
       System.exit(1);
     }
 
-    if (!Files.isReadable(options.input.path())) {
+    if (!Files.isReadable(options.getInput().path())) {
       System.err.println(
-          "Input path '" + options.input.path() + "' does not exist or is not readable.");
+          "Input path '" + options.getInput().path() + "' does not exist or is not readable.");
       System.exit(1);
     }
 
-    try (MessageInputStream<SpawnExec> in = getMessageInputStream(options.input);
-        MessageOutputStream<SpawnExec> out = getMessageOutputStream(options.output)) {
-      if (options.sort) {
+    try (MessageInputStream<SpawnExec> in = getMessageInputStream(options.getInput());
+        MessageOutputStream<SpawnExec> out = getMessageOutputStream(options.getOutput())) {
+      if (options.getSort()) {
         StableSort.stableSort(in, out);
       } else {
         SpawnExec ex;

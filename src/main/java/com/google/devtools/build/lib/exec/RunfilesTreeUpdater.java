@@ -15,12 +15,12 @@ package com.google.devtools.build.lib.exec;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
+import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
-import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -57,10 +57,6 @@ public class RunfilesTreeUpdater {
    */
   private final ConcurrentHashMap<PathFragment, CompletableFuture<Void>> updatedTrees =
       new ConcurrentHashMap<>();
-
-  public static RunfilesTreeUpdater forCommandEnvironment(CommandEnvironment env) {
-    return new RunfilesTreeUpdater(env.getExecRoot(), env.getXattrProvider());
-  }
 
   public RunfilesTreeUpdater(Path execRoot, XattrProvider xattrProvider) {
     this.execRoot = execRoot;
@@ -110,7 +106,8 @@ public class RunfilesTreeUpdater {
     Path runfilesDir = execRoot.getRelative(tree.getExecPath());
     Path inputManifest =
         execRoot.getRelative(RunfilesSupport.inputManifestExecPath(tree.getExecPath()));
-    if (!inputManifest.exists()) {
+    var inputManifestStat = inputManifest.statIfFound();
+    if (inputManifestStat == null) {
       return;
     }
     Path outputManifest =
@@ -125,14 +122,21 @@ public class RunfilesTreeUpdater {
       // which we must not treat as up to date, but we also don't want to unnecessarily rebuild the
       // runfiles directory all the time. Instead, check for the presence of the first runfile in
       // the manifest. If it is present, we can be certain that the previous mode wasn't SKIP.
-      if (tree.getSymlinksMode() == RunfileSymlinksMode.CREATE
-          && !outputManifest.isSymbolicLink()
-          && Arrays.equals(
-              DigestUtils.getDigestWithManualFallback(outputManifest, xattrProvider),
-              DigestUtils.getDigestWithManualFallback(inputManifest, xattrProvider))
-          && (OS.getCurrent() != OS.WINDOWS
-              || isRunfilesDirectoryPopulated(runfilesDir, outputManifest))) {
-        return;
+      if (tree.getSymlinksMode() == RunfileSymlinksMode.CREATE) {
+        // Not following symlinks means that the stat describes the output manifest itself, which is
+        // only the file we digest below if it isn't a symbolic link - which is checked first.
+        var outputManifestStat = outputManifest.statIfFound(Symlinks.NOFOLLOW);
+        if (outputManifestStat != null
+            && !outputManifestStat.isSymbolicLink()
+            && Arrays.equals(
+                DigestUtils.getDigestWithManualFallback(
+                    outputManifest, xattrProvider, outputManifestStat),
+                DigestUtils.getDigestWithManualFallback(
+                    inputManifest, xattrProvider, inputManifestStat))
+            && (OS.getCurrent() != OS.WINDOWS
+                || isRunfilesDirectoryPopulated(runfilesDir, outputManifest))) {
+          return;
+        }
       }
     } catch (IOException e) {
       // Ignore it - we will just try to create runfiles directory.
@@ -159,12 +163,12 @@ public class RunfilesTreeUpdater {
     try (BufferedReader reader =
         new BufferedReader(new InputStreamReader(outputManifest.getInputStream(), ISO_8859_1))) {
       // If it is created at all, the manifest always contains at least one line.
-      relativeRunfilePath = reader.readLine().split(" ", -1)[0];
+      relativeRunfilePath = Splitter.on(' ').splitToList(reader.readLine()).get(0);
+      // The runfile could be a dangling symlink.
+      return runfilesDir.getRelative(relativeRunfilePath).exists(Symlinks.NOFOLLOW);
     } catch (IOException e) {
       // Instead of failing outright, just assume the runfiles directory is not populated.
       return false;
     }
-    // The runfile could be a dangling symlink.
-    return runfilesDir.getRelative(relativeRunfilePath).exists(Symlinks.NOFOLLOW);
   }
 }

@@ -18,6 +18,8 @@ import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dum
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
@@ -30,6 +32,9 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public final class DeferredNestedSetCodecTest {
+
+  private static final CompressionService COMPRESSION_SERVICE = new CompressionServiceImpl();
+
   @Test
   public void empty() throws Exception {
     new SerializationTester(
@@ -87,16 +92,17 @@ public final class DeferredNestedSetCodecTest {
         new ObjectCodecs(AutoRegistry.get().getBuilder().add(new DeferredNestedSetCodec()).build());
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(
-            fingerprintValueService, top, /* profileCollector= */ null);
-    ListenableFuture<Void> futureToBlockWritesOn = serialized.getFutureToBlockWritesOn();
+        codecs.serializeMemoizedAndBlocking(COMPRESSION_SERVICE, fingerprintValueService, top);
+    ListenableFuture<?> futureToBlockWritesOn = serialized.getFutureToBlockWritesOn();
     if (futureToBlockWritesOn != null) {
       var unused = futureToBlockWritesOn.get();
     }
     ByteString bytes = serialized.getObject();
 
     NestedSet<?> deserialized =
-        (NestedSet<?>) codecs.deserializeMemoizedAndBlocking(fingerprintValueService, bytes);
+        (NestedSet<?>)
+            codecs.deserializeMemoizedAndBlocking(
+                COMPRESSION_SERVICE, fingerprintValueService, bytes);
     // Since dumpStructure doesn't perform equivalence reduction, equivalence here means the diamond
     // reference structure was preserved by deserialization.
     assertThat(dumpStructure(top)).isEqualTo(dumpStructure(deserialized));

@@ -38,11 +38,13 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.runtime.UiOptions.UseCurses;
+import com.google.devtools.build.lib.server.TerminalSizeMonitor;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.Options;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -50,6 +52,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import net.starlark.java.syntax.Location;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
@@ -58,7 +61,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link UiEventHandler}. */
 @RunWith(Enclosed.class)
-public sealed class UiEventHandlerTest {
+public class UiEventHandlerTest {
 
   private static final BuildCompleteEvent BUILD_COMPLETE_EVENT =
       new BuildCompleteEvent(new BuildResult(/* startTimeMillis= */ 0));
@@ -76,14 +79,24 @@ public sealed class UiEventHandlerTest {
 
   @TestParameter private boolean skymeldMode;
 
-  final UiOptions uiOptions = new UiOptions();
+  final UiOptions uiOptions = createUiOptions();
   final FlushCollectingOutputStream output = new FlushCollectingOutputStream();
   final ManualClock clock = new ManualClock();
 
   UiEventHandler uiEventHandler;
 
+  UiOptions createUiOptions() {
+    UiOptions options = Options.getDefaults(UiOptions.class);
+    options.setShowProgress(false);
+    return options;
+  }
+
   void createUiEventHandler(EventKind outputKind) {
-    uiOptions.eventKindFilters = ImmutableList.of();
+    createUiEventHandler(outputKind, TerminalSizeMonitor.NOOP);
+  }
+
+  void createUiEventHandler(EventKind outputKind, TerminalSizeMonitor terminalSizeMonitor) {
+    uiOptions.setEventKindFilters(ImmutableList.of());
     output.flush();
     output.flushed.clear();
 
@@ -103,7 +116,8 @@ public sealed class UiEventHandlerTest {
             new EventBus(),
             /* workspacePathFragment= */ null,
             skymeldMode,
-            /* newStatsSummary= */ false);
+            /* newStatsSummary= */ false,
+            terminalSizeMonitor);
     uiEventHandler.mainRepoMappingComputationStarted(new MainRepoMappingComputationStartingEvent());
     uiEventHandler.buildStarted(
         BuildStartingEvent.create(
@@ -229,12 +243,62 @@ public sealed class UiEventHandlerTest {
       output.assertFlushed("hello there!\n");
     }
 
+    @Test
+    public void handleActionExecutionError_outputsErrorHeaderThenSubprocessStderr() {
+      Event errorEvent =
+          Event.error(
+              Location.fromFileLineColumn("pkg/foo/BUILD.bazel", 10, 5),
+              "Action failed: command failed");
+      Event.ProcessOutput processOutput =
+          new Event.ProcessOutput() {
+            @Override
+            public String getStdOutPath() {
+              return "stdout.log";
+            }
+
+            @Override
+            public long getStdOutSize() {
+              return 0;
+            }
+
+            @Override
+            public byte[] getStdOut() {
+              return new byte[0];
+            }
+
+            @Override
+            public String getStdErrPath() {
+              return "stderr.log";
+            }
+
+            @Override
+            public long getStdErrSize() {
+              return "compiler error: syntax error\n".length();
+            }
+
+            @Override
+            public byte[] getStdErr() {
+              return "compiler error: syntax error\n".getBytes(UTF_8);
+            }
+          };
+
+      uiEventHandler.handle(errorEvent.withProcessOutput(processOutput));
+
+      if (outputKind == EventKind.STDERR) {
+        output.assertFlushed(
+            "\033[31m\033[1mERROR: \033[0mpkg/foo/BUILD.bazel:10:5: Action failed: command"
+                + " failed"
+                + System.lineSeparator(),
+            "compiler error: syntax error\n");
+      }
+    }
+
     // This test only exercises progress bar code when testing stderr output, since we don't make
     // any assertions on stderr (where the progress bar is written) when testing stdout.
     @Test
     public void noChangeOnUnflushedWrite() {
-      uiOptions.showProgress = true;
-      uiOptions.useCursesEnum = UseCurses.YES;
+      uiOptions.setShowProgress(true);
+      uiOptions.setUseCursesEnum(UseCurses.YES);
       createUiEventHandler();
       if (outputKind == EventKind.STDERR) {
         assertThat(output.flushed).hasSize(2);
@@ -279,8 +343,8 @@ public sealed class UiEventHandlerTest {
 
     @Test
     public void buildCompleteMessageDoesntOverrideError() {
-      uiOptions.showProgress = true;
-      uiOptions.useCursesEnum = UseCurses.YES;
+      uiOptions.setShowProgress(true);
+      uiOptions.setUseCursesEnum(UseCurses.YES);
       createUiEventHandler();
 
       uiEventHandler.buildComplete(BUILD_COMPLETE_EVENT);
@@ -294,10 +358,10 @@ public sealed class UiEventHandlerTest {
 
     @Test
     public void temporarilyDisableProgress() throws Exception {
-      uiOptions.showProgress = true;
-      uiOptions.useCursesEnum = UseCurses.YES;
-      uiOptions.showProgressRateLimit = 1;
-      uiOptions.uiActionsShown = 2;
+      uiOptions.setShowProgress(true);
+      uiOptions.setUseCursesEnum(UseCurses.YES);
+      uiOptions.setShowProgressRateLimit(1);
+      uiOptions.setUiActionsShown(2);
       createUiEventHandler();
       NullAction action1 = actionWithProgressMessage("Executing action 1", "action1.out");
       NullAction action2 = actionWithProgressMessage("Executing action 2", "action2.out");
@@ -332,15 +396,33 @@ public sealed class UiEventHandlerTest {
     }
 
     @Test
+    public void terminalSizeChangeRefreshesProgressBarWithNewWidth() {
+      TerminalSizeMonitor terminalSizeMonitor = new TerminalSizeMonitor();
+      uiOptions.setShowProgress(true);
+      uiOptions.setUseCursesEnum(UseCurses.YES);
+      createUiEventHandler(EventKind.STDERR, terminalSizeMonitor);
+      uiEventHandler.mainRepoMappingComputationStarted(
+          new MainRepoMappingComputationStartingEvent());
+      output.flushed.clear();
+
+      terminalSizeMonitor.updateTerminalSize(/* columns= */ 12, /* rows= */ 24);
+      assertThat(output.flushed.getLast()).contains(CLEAR_PROGRESS_BAR);
+      output.flushed.clear();
+
+      terminalSizeMonitor.updateTerminalSize(/* columns= */ 80, /* rows= */ 24);
+      assertThat(countOccurrences(output.flushed.getLast(), CLEAR_PROGRESS_BAR)).isAtLeast(2);
+    }
+
+    @Test
     public void progressOff_disableProgressReturnsFalse() throws Exception {
-      uiOptions.showProgress = false;
+      uiOptions.setShowProgress(false);
       createUiEventHandler();
       assertThat(uiEventHandler.disableProgress()).isFalse();
     }
 
     @Test
     public void progressAlreadyDisabled_disableProgressReturnsFalse() throws Exception {
-      uiOptions.showProgress = true;
+      uiOptions.setShowProgress(true);
       createUiEventHandler();
       assertThat(uiEventHandler.disableProgress()).isTrue();
       assertThat(uiEventHandler.disableProgress()).isFalse();
@@ -355,6 +437,16 @@ public sealed class UiEventHandlerTest {
         }
       };
     }
+  }
+
+  private static int countOccurrences(String haystack, String needle) {
+    int count = 0;
+    int index = 0;
+    while ((index = haystack.indexOf(needle, index)) != -1) {
+      count++;
+      index += needle.length();
+    }
+    return count;
   }
 
   private static final class FlushCollectingOutputStream extends OutputStream {

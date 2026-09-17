@@ -48,12 +48,17 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -300,7 +305,7 @@ public abstract sealed class RepoRecordedInput {
   /**
    * Returns a human-readable description of the change from {@code oldValue} to {@code newValue}.
    */
-  protected abstract String describeChange(String oldValue, String newValue);
+  public abstract String describeChange(@Nullable String oldValue, @Nullable String newValue);
 
   /**
    * Returns the post-colon substring that identifies the specific input: for example, the {@code
@@ -500,11 +505,11 @@ public abstract sealed class RepoRecordedInput {
     public MaybeValue getValue(Environment env, BlazeDirectories directories)
         throws InterruptedException {
       var skyKey = getSkyKey(directories);
+      var fileValue = (FileValue) env.getValue(skyKey);
+      if (fileValue == null) {
+        return MaybeValue.VALUES_MISSING;
+      }
       try {
-        var fileValue = (FileValue) env.getValueOrThrow(skyKey, IOException.class);
-        if (fileValue == null) {
-          return MaybeValue.VALUES_MISSING;
-        }
         return new MaybeValue.Valid(
             fileValueToMarkerValue((RootedPath) skyKey.argument(), fileValue));
       } catch (IOException e) {
@@ -518,7 +523,12 @@ public abstract sealed class RepoRecordedInput {
     }
   }
 
-  /** Represents the list of entries under a directory accessed during the fetch. */
+  /**
+   * Represents the list of entries under a directory accessed during the fetch.
+   *
+   * <p>May only be requested for paths that are known to represent existing directories, so
+   * consumers usually have to request a {@link RepoRecordedInput.File} first.
+   */
   public static final class Dirents extends RepoRecordedInput {
     public static final Parser PARSER =
         new Parser() {
@@ -587,9 +597,9 @@ public abstract sealed class RepoRecordedInput {
 
     @Override
     protected boolean canBeRequestedUnconditionally() {
-      // Requesting directories in external repositories can result in cycles if the external repo
-      // transitively depends on the requesting repo.
-      return !path.inExternalRepo();
+      // If the File input requested before this input has changed its type to non-directory, this
+      // input's DirectoryListingValue must not be requested as it would result in a build error.
+      return false;
     }
 
     @Override
@@ -613,8 +623,32 @@ public abstract sealed class RepoRecordedInput {
    * Represents an entire directory tree accessed during the fetch. Anything under the tree changing
    * (including adding/removing/renaming files or directories and changing file contents) will cause
    * it to go out of date.
+   *
+   * <p>Files can be excluded from the out-of-date check with the given {@code excludes} glob
+   * patterns.
+   *
+   * <p>May only be requested for paths that are known to represent existing directories, so
+   * consumers usually have to request a {@link RepoRecordedInput.File} first.
    */
   public static final class DirTree extends RepoRecordedInput {
+
+    /**
+     * A string sequence to delimit extra metadata on a directory path. This borrows web's query
+     * string to represent the extra options, but instead of a '?' to serve as the separator between
+     * the path and the query string, '?/../' is used instead. This takes advantage of the fact that
+     * the underlying path representation is a {@link PathFragment} which is normalized - meaning
+     * that a '/../' could never appear in the valid path.
+     *
+     * <p>Since there is currently only one parameter (excludes), it is hardcoded with the
+     * delimiter.
+     *
+     * <p>For a DirTree with path '/foo/bar' and an exclude list of 'abc/**' and 'file,with,commas',
+     * the serialized form is:
+     *
+     * <p><code>/foo/bar?/../excludes=abc%2F**,file%2Cwith%2Ccommas</code>
+     */
+    public static final String METADATA_DELIMITER = "?/../excludes=";
+
     public static final Parser PARSER =
         new Parser() {
           @Override
@@ -625,7 +659,21 @@ public abstract sealed class RepoRecordedInput {
           @Override
           public RepoRecordedInput parse(String s) {
             try {
-              return new DirTree(RepoCacheFriendlyPath.parse(s));
+              int metadataIndex = s.indexOf(METADATA_DELIMITER);
+              if (metadataIndex != -1) {
+                // Parse out the query string.
+                String excludesQueryString =
+                    s.substring(metadataIndex + METADATA_DELIMITER.length());
+                String[] excludesArray = excludesQueryString.split(",");
+                ImmutableList<String> excludesList =
+                    Arrays.stream(excludesArray)
+                        .map(exclude -> URLDecoder.decode(exclude, StandardCharsets.UTF_8))
+                        .collect(ImmutableList.toImmutableList());
+                return new DirTree(
+                    RepoCacheFriendlyPath.parse(s.substring(0, metadataIndex)), excludesList);
+              } else {
+                return new DirTree(RepoCacheFriendlyPath.parse(s), ImmutableList.of());
+              }
             } catch (LabelSyntaxException e) {
               // malformed inputs cause refetch
               return NeverUpToDateRepoRecordedInput.PARSE_FAILURE;
@@ -635,8 +683,12 @@ public abstract sealed class RepoRecordedInput {
 
     private final RepoCacheFriendlyPath path;
 
-    public DirTree(RepoCacheFriendlyPath path) {
+    /** The glob patterns to exclude from watch/change detection. */
+    private final ImmutableList<String> excludes;
+
+    public DirTree(RepoCacheFriendlyPath path, ImmutableList<String> excludes) {
       this.path = path;
+      this.excludes = excludes;
     }
 
     @Override
@@ -647,17 +699,32 @@ public abstract sealed class RepoRecordedInput {
       if (!(o instanceof DirTree that)) {
         return false;
       }
-      return Objects.equals(path, that.path);
+      return Objects.equals(path, that.path) && Objects.equals(excludes, that.excludes);
     }
 
     @Override
     public int hashCode() {
-      return path.hashCode();
+      int hash = path.hashCode();
+      if (!excludes.isEmpty()) {
+        return hash + excludes.hashCode();
+      }
+      return hash;
     }
 
     @Override
     public String toStringInternal() {
-      return path.toString();
+      if (this.excludes.isEmpty()) {
+        return path.toString();
+      } else {
+        // Excludes parameters represented as a query string.
+        StringBuilder sb = new StringBuilder(path.toString());
+        sb.append(METADATA_DELIMITER);
+        sb.append(
+            this.excludes.stream()
+                .map(s -> URLEncoder.encode(s, StandardCharsets.UTF_8))
+                .collect(Collectors.joining(",")));
+        return sb.toString();
+      }
     }
 
     @Override
@@ -667,31 +734,26 @@ public abstract sealed class RepoRecordedInput {
 
     @Override
     public SkyKey getSkyKey(BlazeDirectories directories) {
-      return DirectoryTreeDigestValue.key(path.getRootedPath(directories));
+      RootedPath rootedPath = path.getRootedPath(directories);
+      return DirectoryTreeDigestValue.key(rootedPath, rootedPath, excludes);
     }
 
     @Override
     protected boolean canBeRequestedUnconditionally() {
-      // Requesting directory trees in external repositories can result in cycles if the external
-      // repo now transitively depends on the requesting repo.
-      return !path.inExternalRepo();
+      // If the File input requested before this input has changed its type to non-directory, this
+      // input's DirectoryTreeDigestValue must not be requested as it would result in a build error.
+      return false;
     }
 
     @Override
     public MaybeValue getValue(Environment env, BlazeDirectories directories)
         throws InterruptedException {
       var skyKey = getSkyKey(directories);
-      try {
-        var directoryTreeDigestValue =
-            (DirectoryTreeDigestValue) env.getValueOrThrow(skyKey, IOException.class);
-        if (directoryTreeDigestValue == null) {
-          return MaybeValue.VALUES_MISSING;
-        }
-        return new MaybeValue.Valid(directoryTreeDigestValue.hexDigest());
-      } catch (IOException e) {
-        return new MaybeValue.Invalid(
-            "failed to digest directory tree at %s: %s".formatted(path, e.getMessage()));
+      var directoryTreeDigestValue = (DirectoryTreeDigestValue) env.getValue(skyKey);
+      if (directoryTreeDigestValue == null) {
+        return MaybeValue.VALUES_MISSING;
       }
+      return new MaybeValue.Valid(directoryTreeDigestValue.hexDigest());
     }
 
     @Override

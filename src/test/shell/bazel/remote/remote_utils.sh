@@ -24,7 +24,10 @@ function start_worker() {
   pid_file="${TEST_TMPDIR}/remote.pid_file"
   mkdir -p "${work_path}"
   mkdir -p "${cas_path}"
-  worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
+  # Preserve port across restarts so tests simulating cache eviction don't invalidate action execution salt.
+  if [[ -z "${worker_port:-}" ]]; then
+    worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
+  fi
   native_lib="${BAZEL_RUNFILES}/src/main/native/"
   "${REMOTE_WORKER}" \
       --singlejar \

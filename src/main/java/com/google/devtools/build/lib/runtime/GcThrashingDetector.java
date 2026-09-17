@@ -77,13 +77,13 @@ class GcThrashingDetector {
   /** If enabled in {@link MemoryPressureOptions}, creates a {@link GcThrashingDetector}. */
   @Nullable
   static GcThrashingDetector createForCommand(MemoryPressureOptions options) {
-    if (options.gcThrashingLimits.isEmpty() || options.gcThrashingThreshold == 100) {
+    if (options.getGcThrashingLimits().isEmpty() || options.getGcThrashingThreshold() == 100) {
       return null;
     }
 
     return new GcThrashingDetector(
-        options.gcThrashingThreshold,
-        options.gcThrashingLimits,
+        options.getGcThrashingThreshold(),
+        options.getGcThrashingLimits(),
         BlazeClock.instance(),
         BugReporter.defaultInstance());
   }

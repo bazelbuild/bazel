@@ -1,17 +1,13 @@
-licenses(["notice"])  # Apache License 2.0
+package(default_visibility = ["//visibility:public"])
 
-exports_files(["LICENSE"])
+licenses(["notice"])
 
-package(
-    default_visibility = ["//visibility:public"],
+alias(
+    name = "javapoet",
+    actual = "@maven//:com_squareup_javapoet",
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-)
-
-alias(
-    name = "javapoet",
-    actual = "@maven//:com_squareup_javapoet",
 )

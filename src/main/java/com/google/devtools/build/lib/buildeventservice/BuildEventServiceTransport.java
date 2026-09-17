@@ -21,7 +21,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
-import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.CommandContext;
+import com.google.devtools.build.lib.buildeventservice.client.CommandContext;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
@@ -84,6 +84,12 @@ public class BuildEventServiceTransport implements BuildEventTransport {
   @Override
   public BuildEventArtifactUploader getUploader() {
     return besUploader.getBuildEventUploader();
+  }
+
+  @Override
+  @Nullable
+  public String getInvocationId() {
+    return besUploader.getInvocationId();
   }
 
   @Override
@@ -192,14 +198,14 @@ public class BuildEventServiceTransport implements BuildEventTransport {
           checkNotNull(localFileUploader),
           checkNotNull(bepOptions),
           checkNotNull(clock),
-          besOptions.besLifecycleEvents,
+          besOptions.getBesLifecycleEvents(),
           checkNotNull(artifactGroupNamer),
           checkNotNull(eventBus),
-          (besOptions.besTimeout != null) ? besOptions.besTimeout : Duration.ZERO,
+          (besOptions.getBesTimeout() != null) ? besOptions.getBesTimeout() : Duration.ZERO,
           sleeper != null ? sleeper : new JavaSleeper(),
           checkNotNull(commandContext),
           checkNotNull(commandStartTime),
-          besOptions.besUploadMode);
+          besOptions.getBesUploadMode());
     }
   }
 }

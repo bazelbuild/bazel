@@ -13,13 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
+import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
+import com.google.devtools.build.lib.causes.Cause;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
@@ -28,9 +33,11 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedE
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetBuiltEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.annotation.Nullable;
 
 /**
  * Listens to the various status events of the top level targets/aspects.
@@ -43,12 +50,23 @@ public class BuildResultListener {
   // Also includes test targets.
   private final Set<ConfiguredTarget> analyzedTargets = ConcurrentHashMap.newKeySet();
   private final Set<ConfiguredTarget> analyzedTests = ConcurrentHashMap.newKeySet();
-  private final Map<AspectKey, ConfiguredAspect> analyzedAspects = Maps.newConcurrentMap();
+  private final Map<AspectKey, ConfiguredAspect> analyzedAspects = new ConcurrentHashMap<>();
   // Also includes test targets.
   private final Set<ConfiguredTarget> skippedTargets = ConcurrentHashMap.newKeySet();
   // Also includes test targets.
   private final Set<ConfiguredTargetKey> builtTargets = ConcurrentHashMap.newKeySet();
   private final Set<AspectKey> builtAspects = ConcurrentHashMap.newKeySet();
+  private final Map<ConfiguredTargetKey, NestedSet<Cause>> targetRootCauses =
+      new ConcurrentHashMap<>();
+  private final Map<AspectKey, NestedSet<Cause>> aspectRootCauses = new ConcurrentHashMap<>();
+
+  @GuardedBy("this")
+  @Nullable
+  private Stopwatch analysisTimer;
+
+  @GuardedBy("this")
+  @Nullable
+  private Stopwatch executionTimer;
 
   @Subscribe
   @AllowConcurrentEvents
@@ -108,5 +126,69 @@ public class BuildResultListener {
 
   public ImmutableSet<AspectKey> getBuiltAspects() {
     return ImmutableSet.copyOf(builtAspects);
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void targetComplete(TargetCompleteEvent event) {
+    if (event.failed()) {
+      targetRootCauses.put(event.getConfiguredTargetKey(), event.getRootCauses());
+    }
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void aspectComplete(AspectCompleteEvent event) {
+    if (event.failed()) {
+      aspectRootCauses.put(event.getAspectKey(), event.getRootCauses());
+    }
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void analysisFailure(AnalysisFailureEvent event) {
+    if (event.getFailedAspect() != null) {
+      aspectRootCauses.put(event.getFailedAspect(), event.getRootCauses());
+    } else {
+      targetRootCauses.put(event.getFailedTarget(), event.getRootCauses());
+    }
+  }
+
+  public ImmutableMap<ConfiguredTargetKey, NestedSet<Cause>> getTargetRootCauses() {
+    return ImmutableMap.copyOf(targetRootCauses);
+  }
+
+  public ImmutableMap<AspectKey, NestedSet<Cause>> getAspectRootCauses() {
+    return ImmutableMap.copyOf(aspectRootCauses);
+  }
+
+  public synchronized void setAnalysisTimer(Stopwatch timer) {
+    this.analysisTimer = timer;
+  }
+
+  public synchronized void stopAnalysisTimer() {
+    if (analysisTimer != null && analysisTimer.isRunning()) {
+      analysisTimer.stop();
+    }
+  }
+
+  @SuppressWarnings("GoodTime") // logged as a long
+  public synchronized long getAnalysisPhaseTimeInMillis() {
+    return analysisTimer != null ? analysisTimer.elapsed().toMillis() : 0;
+  }
+
+  public synchronized void setExecutionTimer(Stopwatch timer) {
+    this.executionTimer = timer;
+  }
+
+  public synchronized void stopExecutionTimer() {
+    if (executionTimer != null && executionTimer.isRunning()) {
+      executionTimer.stop();
+    }
+  }
+
+  @SuppressWarnings("GoodTime") // logged as a long
+  public synchronized long getExecutionPhaseTimeInMillis() {
+    return executionTimer != null ? executionTimer.elapsed().toMillis() : 0;
   }
 }

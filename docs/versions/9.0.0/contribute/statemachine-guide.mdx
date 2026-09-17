@@ -172,8 +172,7 @@ instead, batches[^4] as many lookups as possible before doing so. The value
 might not be immediately available, for example, requiring a Skyframe restart,
 so the caller specifies what to do with the resulting value using a callback.
 
-The `StateMachine` processor ([`Driver`s and bridging to
-SkyFrame](#drivers-and-bridging)) guarantees that the value is available before
+The `StateMachine` processor ([`Driver`s and bridging to SkyFrame](#drivers-and-bridging)) guarantees that the value is available before
 the next state begins. An example follows.
 
 ```
@@ -284,8 +283,7 @@ and solutions to certain control flow problems.
 ### Sequential states
 
 This is the most common and straightforward control flow pattern. An example of
-this is shown in [Stateful computations inside
-`SkyKeyComputeState`](#stateful-computations).
+this is shown in [Stateful computations inside `SkyKeyComputeState`](#stateful-computations).
 
 ### Branching
 
@@ -545,8 +543,7 @@ section describes the propagation of data values.
 
 ### Implementing `Tasks.lookUp` callbacks
 
-There’s an example of implementing a `Tasks.lookUp` callback in [SkyValue
-lookups](#skyvalue-lookups). This section provides rationale and suggests
+There’s an example of implementing a `Tasks.lookUp` callback in [SkyValue lookups](#skyvalue-lookups). This section provides rationale and suggests
 approaches for handling multiple SkyValues.
 
 #### `Tasks.lookUp` callbacks {#tasks-lookup-callbacks}
@@ -710,8 +707,7 @@ class BarProducer implements StateMachine {
 Tip: It would be tempting to use the more concise signature void `accept(Bar
 value)` rather than the stuttery `void acceptBarValue(Bar value)` above.
 However, `Consumer<SkyValue>` is a common overload of `void accept(Bar value)`,
-so doing this often leads to violations of the [Overloads: never
-split](https://google.github.io/styleguide/javaguide.html#s3.4.2-ordering-class-contents)
+so doing this often leads to violations of the [Overloads: never split](https://google.github.io/styleguide/javaguide.html#s3.4.2-ordering-class-contents)
 style-guide rule.
 
 Tip: Using a custom `ResultSink` type instead of a generic one from
@@ -774,14 +770,11 @@ pattern after accepting output from either a subtask or SkyValue lookup.
 Note that the implementation of `acceptBarError` eagerly forwards the result to
 the `Caller.ResultSink`, as required by [Error bubbling](#error-bubbling).
 
-Alternatives for top-level `StateMachine`s are described in [`Driver`s and
-bridging to SkyFunctions](#drivers-and-bridging).
+Alternatives for top-level `StateMachine`s are described in [`Driver`s and bridging to SkyFunctions](#drivers-and-bridging).
 
 ### Error handling {#error-handling}
 
-There's a couple of examples of error handling already in [`Tasks.lookUp`
-callbacks](#tasks-lookup-callbacks) and [Propagating values between
-`StateMachines`](#propagating-values). Exceptions, other than
+There's a couple of examples of error handling already in [`Tasks.lookUp` callbacks](#tasks-lookup-callbacks) and [Propagating values between `StateMachines`](#propagating-values). Exceptions, other than
 `InterruptedException` are not thrown, but instead passed around through
 callbacks as values. Such callbacks often have exclusive-or semantics, with
 exactly one of a value or error being passed.
@@ -1184,8 +1177,7 @@ states. Where it is possible, local stack `step` variables are young generation
 variables and efficiently GC'd.
 
 For `StateMachine` variables, breaking things down into subtasks and following
-the recommended pattern for [Propagating values between
-`StateMachine`s](#propagating-values) is also helpful. Observe that when
+the recommended pattern for [Propagating values between `StateMachine`s](#propagating-values) is also helpful. Observe that when
 following the pattern, only child `StateMachine`s have references to parent
 `StateMachine`s and not vice versa. This means that as children complete and
 update the parents using result callbacks, the children naturally fall out of
@@ -1207,8 +1199,7 @@ potentially reflecting local behavior.
 
 ### Concurrency tree diagram {#concurrency-tree-diagram}
 
-The following is an alternative view of the diagram in [Structured
-concurrency](#structured-concurrency) that better depicts the tree structure.
+The following is an alternative view of the diagram in [Structured concurrency](#structured-concurrency) that better depicts the tree structure.
 The blocks form a small tree.
 
 ![Structured Concurrency 3D](/versions/9.0.0/contribute/images/structured-concurrency-3d.svg)

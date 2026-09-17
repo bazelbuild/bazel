@@ -132,7 +132,10 @@ final class CodecScanner {
   /** Return the {@link ClassInfo}s matching {@code packageFilter}, sorted by name. */
   private static ImmutableList<ClassInfo> getClassInfos(Predicate<String> packageFilter)
       throws IOException {
-    return ClassPath.from(ClassLoader.getSystemClassLoader()).getResources().stream()
+    // Search all classes in the classloader that loaded this class.
+    // This is the system classloader when using a monolithic binary, and a custom classloader for
+    // the Logic Component when using a split binary.
+    return ClassPath.from(CodecScanner.class.getClassLoader()).getResources().stream()
         .filter(ClassInfo.class::isInstance)
         .map(ClassInfo.class::cast)
         .filter(c -> packageFilter.test(c.getPackageName()))

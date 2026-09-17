@@ -12,8 +12,7 @@ form looks like:
 ```
 
 The first part of the label is the repository name, `@@myrepo`. The double-`@`
-syntax signifies that this is a [*canonical* repo
-name](/external/overview#canonical-repo-name), which is unique within
+syntax signifies that this is a [*canonical* repo name](/external/overview#canonical-repo-name), which is unique within
 the workspace. Labels with canonical repo names unambiguously identify a target
 no matter which context they appear in.
 
@@ -241,20 +240,3 @@ the build.
 This directed acyclic graph over targets is called the _target graph_ or
 _build dependency graph_, and is the domain over which the
 [Bazel Query tool](/query/guide) operates.
-
-<table class="columns">
-  <tr>
-    <td>
-      <a class="button button-with-icon button-primary"
-           href="/concepts/build-ref">
-        <span class="material-icons" aria-hidden="true">arrow_back</span>Targets
-      </a>
-    </td>
-    <td>
-      <a class="button button-with-icon button-primary"
-           href="/concepts/build-files">
-        BUILD files<span class="material-icons icon-after" aria-hidden="true">arrow_forward</span>
-      </a>
-    </td>
-  </tr>
-</table>

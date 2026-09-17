@@ -171,25 +171,22 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
             eventHandler.handle(Event.error(collectPackagesValue.getErrorMessage()));
           }
 
-          ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackages =
+          ImmutableList<RootedPath> subdirectoryRootedPaths =
               collectPackagesValue.getSubdirectoryTransitivelyContainsPackagesOrErrors();
-          for (RootedPath subdirectory : subdirectoryTransitivelyContainsPackages.keySet()) {
-            if (subdirectoryTransitivelyContainsPackages.get(subdirectory)) {
-              PathFragment subdirectoryRelativePath = subdirectory.getRootRelativePath();
-              IgnoredSubdirectories forbiddenSubdirectoriesBeneathThisSubdirectory =
-                  info.forbiddenSubdirectories.filterForDirectory(subdirectoryRelativePath);
-              ImmutableSet<PathFragment> excludedSubdirectoriesBeneathThisSubdirectory =
-                  info.excludedSubdirectories.stream()
-                      .filter(pathFragment -> pathFragment.startsWith(subdirectoryRelativePath))
-                      .collect(toImmutableSet());
-              if (!excludedSubdirectoriesBeneathThisSubdirectory.contains(
-                  subdirectoryRelativePath)) {
-                subdirsToCheckForPackages.add(
-                    new TraversalInfo(
-                        subdirectory,
-                        forbiddenSubdirectoriesBeneathThisSubdirectory,
-                        excludedSubdirectoriesBeneathThisSubdirectory));
-              }
+          for (RootedPath subdirectory : subdirectoryRootedPaths) {
+            PathFragment subdirectoryRelativePath = subdirectory.getRootRelativePath();
+            IgnoredSubdirectories forbiddenSubdirectoriesBeneathThisSubdirectory =
+                info.forbiddenSubdirectories.filterForDirectory(subdirectoryRelativePath);
+            ImmutableSet<PathFragment> excludedSubdirectoriesBeneathThisSubdirectory =
+                info.excludedSubdirectories.stream()
+                    .filter(pathFragment -> pathFragment.startsWith(subdirectoryRelativePath))
+                    .collect(toImmutableSet());
+            if (!excludedSubdirectoriesBeneathThisSubdirectory.contains(subdirectoryRelativePath)) {
+              subdirsToCheckForPackages.add(
+                  new TraversalInfo(
+                      subdirectory,
+                      forbiddenSubdirectoriesBeneathThisSubdirectory,
+                      excludedSubdirectoriesBeneathThisSubdirectory));
             }
           }
         }

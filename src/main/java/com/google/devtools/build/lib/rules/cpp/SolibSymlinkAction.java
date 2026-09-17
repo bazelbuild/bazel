@@ -246,7 +246,7 @@ public final class SolibSymlinkAction extends AbstractAction {
 
   @VisibleForTesting public static final int MAX_FILENAME_LENGTH = 255;
 
-  private static String maybeHashPreserveExtension(String filename) {
+  static String maybeHashPreserveExtension(String filename) {
     if (filename.length() <= MAX_FILENAME_LENGTH) {
       return filename;
     } else {

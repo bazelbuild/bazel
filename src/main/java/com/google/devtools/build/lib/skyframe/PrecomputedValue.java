@@ -18,7 +18,6 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.pkgcache.PackageOptions.LazyMacroExpansionPackages;
@@ -93,9 +92,6 @@ public final class PrecomputedValue implements SkyValue {
 
   public static final Precomputed<Map<String, String>> ACTION_ENV = new Precomputed<>("action_env");
 
-  public static final Precomputed<ImmutableMap<String, String>> REPO_ENV =
-      new Precomputed<>("repo_env");
-
   public static final Precomputed<PathPackageLocator> PATH_PACKAGE_LOCATOR =
       new Precomputed<>("path_package_locator");
 
@@ -113,6 +109,8 @@ public final class PrecomputedValue implements SkyValue {
    *
    * <ul>
    *   <li>When a starlark transition reads {@code //command_line_option:stamp} as an input.
+   *   <li>When a starlark transition sets {@code //command_line_option:stamp} as an output (since
+   *       then dependencies may have a different output path in --stamp vs --nostamp).
    *   <li>A {@code config_setting} that matches on the value of {@code --stamp}.
    * </ul>
    *

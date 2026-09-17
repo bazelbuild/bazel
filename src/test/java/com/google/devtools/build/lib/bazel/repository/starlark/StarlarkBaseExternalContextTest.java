@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -48,6 +49,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -213,7 +215,6 @@ public class StarlarkBaseExternalContextTest {
               /* output= */ any(),
               /* clientEnv= */ any(),
               /* context= */ any(),
-              /* downloadPhaser= */ any(),
               /* mayHardlink= */ anyBoolean()))
           .thenReturn(testFuture);
 
@@ -257,7 +258,6 @@ public class StarlarkBaseExternalContextTest {
               /* output= */ any(),
               /* clientEnv= */ any(),
               /* context= */ any(),
-              /* downloadPhaser= */ any(),
               /* mayHardlink= */ anyBoolean()))
           .thenReturn(failingFuture);
       Object failingDownload =
@@ -313,7 +313,6 @@ public class StarlarkBaseExternalContextTest {
             /* output= */ any(),
             /* clientEnv= */ any(),
             /* context= */ any(),
-            /* downloadPhaser= */ any(),
             /* mayHardlink= */ anyBoolean()))
         .thenReturn(new CompletableFuture<>());
 
@@ -346,6 +345,8 @@ public class StarlarkBaseExternalContextTest {
               "sha256-"
                   + Base64.getEncoder()
                       .encodeToString(HexFormat.of().parseHex(SHA256_EMPTY_GZ_FILE)));
+      assertThat(struct.getValue("size_bytes", StarlarkInt.class))
+          .isEqualTo(StarlarkInt.of(emptyTarGzBytes.length));
     }
   }
 
@@ -377,7 +378,6 @@ public class StarlarkBaseExternalContextTest {
             /* output= */ any(),
             /* clientEnv= */ any(),
             /* context= */ any(),
-            /* downloadPhaser= */ any(),
             /* mayHardlink= */ anyBoolean()))
         .thenReturn(new CompletableFuture<>());
     try (StarlarkBaseExternalContext sbec = setupStarlarkContext(testPath)) {
@@ -395,6 +395,7 @@ public class StarlarkBaseExternalContextTest {
               /* integrity= */ "",
               /* renameFiles= */ Dict.<String, String>builder().buildImmutable(),
               /* oldStripPrefix= */ "",
+              /* stripComponentsI= */ StarlarkInt.of(0),
               /* thread= */ starlarkThread);
       Printer p = new Printer();
       struct.repr(p, StarlarkSemantics.DEFAULT);
@@ -406,6 +407,8 @@ public class StarlarkBaseExternalContextTest {
               "sha256-"
                   + Base64.getEncoder()
                       .encodeToString(HexFormat.of().parseHex(SHA256_EMPTY_GZ_FILE)));
+      assertThat(struct.getValue("size_bytes", StarlarkInt.class))
+          .isEqualTo(StarlarkInt.of(emptyTarGzBytes.length));
     }
   }
 
@@ -432,7 +435,6 @@ public class StarlarkBaseExternalContextTest {
             /* output= */ any(),
             /* clientEnv= */ any(),
             /* context= */ any(),
-            /* downloadPhaser= */ any(),
             /* mayHardlink= */ anyBoolean()))
         .thenReturn(new CompletableFuture<>());
     try (StarlarkBaseExternalContext sbec = setupStarlarkContext(testPath)) {
@@ -450,12 +452,73 @@ public class StarlarkBaseExternalContextTest {
               /* integrity= */ "",
               /* renameFiles= */ Dict.<String, String>builder().buildImmutable(),
               /* oldStripPrefix= */ "",
+              /* stripComponentsI= */ StarlarkInt.of(0),
               /* thread= */ starlarkThread);
       Printer p = new Printer();
       struct.repr(p, StarlarkSemantics.DEFAULT);
       assertThat(struct.getValue("success", Boolean.class)).isEqualTo(false);
       assertThat(struct.getValue("error", String.class))
           .isEqualTo("java.io.IOException: test exception");
+    }
+  }
+
+  @Test
+  public void download_localhostHttpWithoutChecksum_isAllowed() throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    Path testPath = fs.getPath("/test");
+    testPath.createDirectory();
+    testPath.getRelative("output").createDirectory();
+
+    Path testFile = fs.getPath("/test/output/file.txt");
+    OutputStream o = testFile.getOutputStream();
+    o.write(getEmptyTarGzBytes());
+    o.close();
+
+    when(environment.getListener()).thenReturn(extendedEventHandler);
+    when(downloadManager.startDownload(
+            /* executorService= */ any(),
+            /* originalUrls= */ any(),
+            /* headers= */ any(),
+            /* authHeaders= */ any(),
+            /* checksum= */ any(),
+            /* canonicalId= */ any(),
+            /* type= */ any(),
+            /* output= */ any(),
+            /* clientEnv= */ any(),
+            /* context= */ any(),
+            /* mayHardlink= */ anyBoolean()))
+        .thenReturn(new CompletableFuture<>());
+
+    // All loopback variants should be allowed without checksum.
+    String[] localhostUrls = {
+      "http://localhost:8080/registry/scope/name/1.0.0",
+      "http://127.0.0.1:9090/packages/test/1.0.0",
+      "http://[::1]:8080/registry/scope/name/1.0.0",
+    };
+
+    try (StarlarkBaseExternalContext sbec = setupStarlarkContext(testPath)) {
+      for (String localhostUrl : localhostUrls) {
+        Object result =
+            sbec.download(
+                /* url= */ localhostUrl,
+                /* output= */ "/test/output",
+                /* sha256= */ "",
+                /* executable= */ false,
+                /* allowFail= */ true,
+                /* canonicalId= */ "",
+                /* authUnchecked= */ Dict.<String, Dict<String, Object>>builder().buildImmutable(),
+                /* headersUnchecked= */ Dict.<String, Dict<String, Object>>builder()
+                    .buildImmutable(),
+                /* integrity= */ "",
+                /* block= */ false,
+                /* thread= */ starlarkThread);
+        // If the localhost URL was incorrectly filtered, download() would return a
+        // StructImpl with success=false. A non-struct result (PendingDownload) means
+        // the URL passed filtering and reached the download manager.
+        assertWithMessage("Expected localhost URL to pass filtering: " + localhostUrl)
+            .that(result)
+            .isNotInstanceOf(StructImpl.class);
+      }
     }
   }
 
@@ -471,13 +534,7 @@ public class StarlarkBaseExternalContextTest {
                 /* wrapLength= */ 80,
                 /* newLineStr= */ " \\\n",
                 /* wrapLongWords= */ false)
-            + "\"\"\";";
-
-    // Delimit the quote at the end of the text block (distinguish from ending three quotes """).
-    copyPasteCode =
-        copyPasteCode.substring(0, copyPasteCode.length() - 5)
-            + "\\"
-            + copyPasteCode.substring(copyPasteCode.length() - 5, copyPasteCode.length());
+            + "\\\n\"\"\";";
 
     if (!observed.equals(expected)) {
       fail(
