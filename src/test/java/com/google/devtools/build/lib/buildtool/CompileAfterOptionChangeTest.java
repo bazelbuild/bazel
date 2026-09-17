@@ -66,6 +66,7 @@ public class CompileAfterOptionChangeTest extends BuildIntegrationTestCase {
             name = "hello",
             srcs = ["hello.cc"],
             defines = ['DEFAULT_GREETING=\\\\\\"Hello\\\\\\"'],
+            malloc = "//base:system_malloc",
         )
         """);
     // Here's why we need so many backslashes:
@@ -96,6 +97,7 @@ public class CompileAfterOptionChangeTest extends BuildIntegrationTestCase {
             name = "hello",
             srcs = ["hello.cc"],
             defines = ['DEFAULT_GREETING=\\'"Hello again"\\''],
+            malloc = "//base:system_malloc",
         )
         """);
     // Here's why we need so many quotes and backslashes:
@@ -122,6 +124,7 @@ public class CompileAfterOptionChangeTest extends BuildIntegrationTestCase {
         cc_binary(
             name = "hello",
             srcs = ["hello.cc"],
+            malloc = "//base:system_malloc",
         )
         """);
 

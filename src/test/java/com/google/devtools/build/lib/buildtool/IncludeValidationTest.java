@@ -37,7 +37,8 @@ public class IncludeValidationTest extends BuildIntegrationTestCase {
         "        outs = ['foo_gen.h'],",
         "        cmd = '/bin/cp $(location foo.h) $(location foo_gen.h)')",
         "cc_binary(name = 'foo', srcs = [ 'foo.cc', ",
-        withDeps ? " ':foo_gen.h'])" : "])");
+        withDeps ? " ':foo_gen.h']," : "],",
+        "  malloc = '//base:system_malloc')");
   }
 
   private void writeFooSource() throws Exception {

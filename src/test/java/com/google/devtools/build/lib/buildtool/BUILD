@@ -90,6 +90,7 @@ java_test(
     name = "CompileAfterOptionChangeTest",
     srcs = ["CompileAfterOptionChangeTest.java"],
     tags = [
+        "manual",
         "no_windows",
     ],
     deps = [
@@ -235,6 +236,7 @@ java_test(
     name = "IncludeValidationTest",
     srcs = ["IncludeValidationTest.java"],
     tags = [
+        "manual",
         "no_windows",
     ],
     deps = [
@@ -596,6 +598,8 @@ build_test(
     targets = [
         ":ActionListenerIntegrationTest",
         ":BuildResultTestCase",
+        ":CompileAfterOptionChangeTest",
+        ":IncludeValidationTest",
         # Disabled in Google.
         "//src/test/java/com/google/devtools/build/lib/bazel/rules/python:PythonTests",
         # Disabled in Google.
