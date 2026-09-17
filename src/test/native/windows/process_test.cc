@@ -329,11 +329,9 @@ TEST(ProcessTest, BatchFileWithLongPathExecutes) {
 
   bazel::windows::WaitableProcess proc;
   std::wstring proc_error;
-  if (!proc.Create(bat_path, L"", nullptr, L".", devnull, pipe_write,
-                   stderr_dup, nullptr, &proc_error)) {
-    GTEST_SKIP() << "WaitableProcess::Create failed: "
-                 << blaze_util::WstringToCstring(proc_error);
-  }
+  ASSERT_TRUE(proc.Create(bat_path, L"", nullptr, L".", devnull, pipe_write,
+                          stderr_dup, nullptr, &proc_error))
+      << blaze_util::WstringToCstring(proc_error);
 
   ASSERT_EQ(proc.WaitFor(3000, nullptr, &proc_error),
             bazel::windows::WaitableProcess::kWaitSuccess)
