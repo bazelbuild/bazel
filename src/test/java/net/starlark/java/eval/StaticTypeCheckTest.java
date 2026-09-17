@@ -523,6 +523,50 @@ public final class StaticTypeCheckTest {
     assertInvalid("cannot assign type 'object' to 'x' of type 'str'", "x: str = unannotated_value");
   }
 
+  private static final class UnannotedStructureSubclass implements Structure {
+    @Override
+    public ImmutableList<String> getFieldNames() {
+      return ImmutableList.of();
+    }
+
+    @Override
+    public Object getValue(String name) {
+      throw new IllegalStateException();
+    }
+
+    @Override
+    public String getErrorMessageForUnknownField(String name) {
+      return "";
+    }
+  }
+
+  @StarlarkBuiltin(name = "TestModule")
+  public static final class TestModule implements StarlarkValue {
+    @StarlarkMethod(name = "get_structure", doc = "...")
+    public Structure getStruct() {
+      return new UnannotedStructureSubclass();
+    }
+
+    @StarlarkMethod(name = "get_unannotated_structure_subclass", doc = "...")
+    public UnannotedStructureSubclass getUnannotatedStructureSubclass() {
+      return new UnannotedStructureSubclass();
+    }
+  }
+
+  // Special case: Structure.class isn't annotated with @StarlarkBuiltin, but gets auto-typed (and
+  // therefore so do its unannotated subclasses).
+  @Test
+  public void structure_isAutoTyped() throws Exception {
+    module =
+        Module.withPredeclared(
+            StarlarkSemantics.DEFAULT, ImmutableMap.of("test_module", new TestModule()));
+    assertInvalid(
+        "cannot assign type 'struct' to 'x' of type 'str'", "x: str = test_module.get_structure()");
+    assertInvalid(
+        "cannot assign type 'struct' to 'y' of type 'bool'",
+        "y: bool = test_module.get_unannotated_structure_subclass()");
+  }
+
   @Test
   public void subclassesShareSameAutoType() throws Exception {
     module =
