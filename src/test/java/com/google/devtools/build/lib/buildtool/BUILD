@@ -703,6 +703,7 @@ java_test(
     srcs = [
         "ConvenienceSymlinkTest.java",
     ],
+    shard_count = 4,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/file_write_action_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
