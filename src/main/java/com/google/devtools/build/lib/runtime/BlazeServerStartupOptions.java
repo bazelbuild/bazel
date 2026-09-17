@@ -260,7 +260,9 @@ public abstract class BlazeServerStartupOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
       help =
           "When --noblock_for_lock is passed, Bazel does not wait for a running command to "
-              + "complete, but instead exits immediately.")
+              + "complete, but instead exits immediately. If a duration is specified (e.g."
+              + " --block_for_lock=30s), Bazel will wait up to that duration for the lock before"
+              + " exiting.")
   public abstract boolean getBlockForLock();
 
   @Option(

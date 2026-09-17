@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "src/main/cpp/startup_options.h"
+#include "src/main/cpp/util/exit_code.h"
 #include "googletest/include/gtest/gtest.h"
 
 namespace blaze {
@@ -98,6 +99,37 @@ void ExpectIsUnaryOption(const StartupOptions* options,
         options->MaybeCheckValidNullary("--no" + flag_name, &result, &error));
     EXPECT_FALSE(result);
   }
+}
+
+void ExpectValidBlockForLockOption(const StartupOptions* options) {
+  bool result;
+  std::string error;
+
+  // Nullary forms are recognized as valid nullary options
+  EXPECT_TRUE(
+      options->MaybeCheckValidNullary("--block_for_lock", &result, &error));
+  EXPECT_TRUE(result);
+  EXPECT_TRUE(
+      options->MaybeCheckValidNullary("--noblock_for_lock", &result, &error));
+  EXPECT_TRUE(result);
+
+  // Without '=', it is not unary
+  EXPECT_FALSE(options->IsUnary("--block_for_lock"));
+  EXPECT_FALSE(options->IsUnary("--noblock_for_lock"));
+
+  // With '=', --block_for_lock is unary and not treated as invalid nullary
+  EXPECT_TRUE(
+      options->MaybeCheckValidNullary("--block_for_lock=30s", &result, &error));
+  EXPECT_FALSE(result);
+  EXPECT_TRUE(options->IsUnary("--block_for_lock=30s"));
+
+  // But --noblock_for_lock does not take a value
+  EXPECT_FALSE(options->MaybeCheckValidNullary("--noblock_for_lock=foo",
+                                               &result, &error));
+  EXPECT_EQ(
+      "In argument '--noblock_for_lock=foo': option '--noblock_for_lock' does "
+      "not take a value.",
+      error);
 }
 
 void ParseStartupOptionsAndExpectWarning(
