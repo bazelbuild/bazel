@@ -598,6 +598,6 @@ public abstract class BlazeServerStartupOptions extends OptionsBase {
               + " consist of a representative workload, such as building and testing the main"
               + " targets of a project. The cache is stored next to the install base and shared"
               + " by all output bases. Requires a server JDK that supports -XX:AOTCache, such as"
-              + " the embedded JDK. Has no effect together with --host_jvm_debug.")
+              + " the embedded JDK. Has no effect in batch mode or together with --host_jvm_debug.")
   public abstract boolean getAotCacheTrainingRun();
 }

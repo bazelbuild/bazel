@@ -305,7 +305,8 @@ class StartupOptions {
   // cache of loaded and linked classes and method profiles (JEP 483) that is
   // used by servers started later for the same install base. The cache is
   // written when the server exits; later invocations without this option keep
-  // using the recording server. Requires a server JDK that supports
+  // using the recording server. Has no effect in batch mode or with
+  // --host_jvm_debug. Requires a server JDK that supports
   // -XX:AOTCache, i.e. JDK 25 or later.
   bool aot_cache_training_run;
 

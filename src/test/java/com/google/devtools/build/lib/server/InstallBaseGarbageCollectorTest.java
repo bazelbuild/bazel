@@ -100,7 +100,11 @@ public final class InstallBaseGarbageCollectorTest {
   }
 
   private static final ImmutableList<String> AOT_CACHE_FILE_SUFFIXES =
-      ImmutableList.of(AOT_CACHE_SUFFIX, AOT_CACHE_SUFFIX + ".disabled");
+      ImmutableList.of(
+          AOT_CACHE_SUFFIX,
+          AOT_CACHE_SUFFIX + ".disabled",
+          AOT_CACHE_SUFFIX + ".pid123.config",
+          AOT_CACHE_SUFFIX + ".pid456.config");
 
   @Test
   public void otherInstallBase_notStale_aotCacheNotCollected() throws Exception {

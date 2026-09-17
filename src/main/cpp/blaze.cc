@@ -250,8 +250,12 @@ class BlazeServer final {
   const ServerProcessInfo &ProcessInfo() const { return process_info_; }
 
  private:
+  // Called only after the server has exited and its AOT assembly has finished.
+  void DeleteAotCacheConfiguration() const;
+
   std::optional<LockHandle> install_base_lock_;
   std::optional<LockHandle> output_base_lock_;
+  const blaze_util::Path aot_cache_;
 
   enum CancelThreadAction {
     NOTHING,
@@ -1041,7 +1045,8 @@ static bool IsVolatileArg(const string &arg) {
       // training run consists of all commands run until the server is shut
       // down. An invocation with the option always restarts the server
       // instead, see KillRunningServerIfDifferentStartupOptions().
-      "-XX:AOTCache=", "-XX:AOTCacheOutput=", "-XX:-AOTClassLinking"};
+      "-XX:AOTCache=", "-XX:AOTCacheOutput=", "-XX:AOTConfiguration=",
+      "-XX:-AOTClassLinking"};
 
   // Split arg based on the first "=" if one exists in arg.
   const string::size_type eq_pos = arg.find_first_of('=');
@@ -1765,7 +1770,8 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
 
 BlazeServer::BlazeServer(const StartupOptions& startup_options,
                          CommandExtensionAdder* command_extension_adder)
-    : process_info_(startup_options.output_base,
+    : aot_cache_(startup_options.GetAotCachePath()),
+      process_info_(startup_options.output_base,
                     startup_options.server_jvm_out),
       connect_timeout_secs_(startup_options.connect_timeout_secs),
       batch_(startup_options.batch),
@@ -2000,6 +2006,13 @@ void BlazeServer::SendTerminalSizeMessage(int columns) {
   }
 }
 
+void BlazeServer::DeleteAotCacheConfiguration() const {
+  // The JVM expands %p in -XX:AOTConfiguration to "pid<PID>".
+  blaze_util::UnlinkPath(blaze_util::Path(
+      aot_cache_.AsNativePath() + ".pid" +
+      blaze_util::ToString(process_info_.server_pid_) + ".config"));
+}
+
 // This will wait indefinitely until the server shuts down
 void BlazeServer::KillRunningServer() {
   assert(Connected());
@@ -2081,6 +2094,8 @@ void BlazeServer::KillRunningServer() {
           << process_info_.jvm_log_file_.AsPrintablePath() << "')";
     }
     KillServerProcess(process_info_.server_pid_, output_base_);
+  } else if (process_info_.server_pid_ > 0) {
+    DeleteAotCacheConfiguration();
   }
 }
 
@@ -2220,6 +2235,8 @@ unsigned int BlazeServer::Communicate(
                                        kPostShutdownGracePeriodSeconds,
                                        TerminationReason::kShutdownRequest)) {
       KillServerProcess(process_info_.server_pid_, output_base_);
+    } else {
+      DeleteAotCacheConfiguration();
     }
   }
 
