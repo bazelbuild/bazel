@@ -171,9 +171,11 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
     public abstract StarlarkType getValueType();
 
     @Override
-    public final String toString() {
+    public final String typeRepr() {
       StarlarkType valueType = getValueType();
-      return valueType.equals(Types.ANY) ? "select" : String.format("select[%s]", valueType);
+      return valueType.equals(Types.ANY)
+          ? "select"
+          : String.format("select[%s]", valueType.typeRepr());
     }
 
     @Override

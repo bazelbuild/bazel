@@ -173,6 +173,11 @@ public class TypesTest {
     public StarlarkType getElementType() {
       return Types.ANY;
     }
+
+    @Override
+    public String typeRepr() {
+      return "CustomSequence";
+    }
   }
 
   // Application-defined Mapping subtype.
@@ -185,6 +190,11 @@ public class TypesTest {
     @Override
     public StarlarkType getValueType() {
       return Types.ANY;
+    }
+
+    @Override
+    public String typeRepr() {
+      return "CustomMapping";
     }
   }
 

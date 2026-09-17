@@ -577,8 +577,8 @@ public sealed class BuiltinFunction implements StarlarkCallable
       }
 
       @Override
-      public String toString() {
-        return String.format("<builtin constructor %s>", callableType);
+      public String typeRepr() {
+        return String.format("<builtin constructor %s>", callableType.typeRepr());
       }
 
       @Override

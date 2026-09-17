@@ -472,8 +472,8 @@ public final class TypeCheckerTest {
     }
 
     @Override
-    public String toString() {
-      return String.format("Foo[%s]", fieldType);
+    public String typeRepr() {
+      return String.format("Foo[%s]", fieldType.typeRepr());
     }
 
     /** Like FooType, but mutable. */
@@ -483,8 +483,8 @@ public final class TypeCheckerTest {
       }
 
       @Override
-      public String toString() {
-        return String.format("MutableFoo[%s]", fieldType);
+      public String typeRepr() {
+        return String.format("MutableFoo[%s]", fieldType.typeRepr());
       }
 
       @Override

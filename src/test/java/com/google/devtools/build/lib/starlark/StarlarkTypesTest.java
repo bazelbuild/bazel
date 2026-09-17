@@ -677,7 +677,7 @@ public class StarlarkTypesTest extends BuildViewTestCase {
     }
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return name;
     }
 

@@ -438,7 +438,7 @@ public final class StaticTypeCheckTest {
     public StarlarkType getStarlarkType(StarlarkSemantics semantics) {
       return new StarlarkType() {
         @Override
-        public String toString() {
+        public String typeRepr() {
           return "ExplicitlyTypedSelfCall";
         }
 

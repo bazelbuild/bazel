@@ -90,8 +90,8 @@ public final class TypeChecker extends NodeVisitor {
         "operator '%s%s' cannot be applied to types '%s' and '%s'%s",
         operator,
         augmentedAssignment ? "=" : "",
-        xType,
-        yType,
+        xType.typeRepr(),
+        yType.typeRepr(),
         extraMessage.isEmpty() ? "" : ": " + extraMessage);
   }
 
@@ -140,8 +140,8 @@ public final class TypeChecker extends NodeVisitor {
           index.getLbracketLocation(),
           "'%s' of type '%s' must be indexed by an integer, but got '%s'",
           index.getObject(),
-          objType,
-          keyType);
+          objType.typeRepr(),
+          keyType.typeRepr());
     }
   }
 
@@ -248,7 +248,7 @@ public final class TypeChecker extends NodeVisitor {
             unop.getStartLocation(),
             "operator '%s' cannot be applied to type '%s'",
             unop.getOperator(),
-            xType);
+            xType.typeRepr());
         yield Types.ANY;
       }
       case COMPREHENSION -> inferComprehension((Comprehension) expr);
@@ -304,7 +304,7 @@ public final class TypeChecker extends NodeVisitor {
             dot.getDotLocation(),
             "'%s' of type '%s' does not have field '%s'",
             dot.getObject(),
-            objType,
+            objType.typeRepr(),
             name);
         return ImmutableList.of(Types.ANY);
       }
@@ -362,7 +362,7 @@ public final class TypeChecker extends NodeVisitor {
                 index.getLbracketLocation(),
                 "'%s' of type '%s' is indexed by integer %s, which is out-of-range",
                 obj,
-                objType,
+                objType.typeRepr(),
                 intKey);
             // Don't complain about uses of the result type when we don't even know what result type
             // the user wanted.
@@ -384,9 +384,9 @@ public final class TypeChecker extends NodeVisitor {
               index.getLbracketLocation(),
               "'%s' of type '%s' requires key type '%s', but got '%s'",
               obj,
-              objType,
+              objType.typeRepr(),
               mappingType.getKeyType(),
-              keyType);
+              keyType.typeRepr());
           // Fall through to returning the value type.
         }
         resultTypes.add(mappingType.getValueType());
@@ -396,7 +396,8 @@ public final class TypeChecker extends NodeVisitor {
         resultTypes.add(Types.STR);
 
       } else {
-        errorf(index.getLbracketLocation(), "cannot index '%s' of type '%s'", obj, objType);
+        errorf(
+            index.getLbracketLocation(), "cannot index '%s' of type '%s'", obj, objType.typeRepr());
         return ImmutableList.of(Types.ANY);
       }
     }
@@ -410,7 +411,7 @@ public final class TypeChecker extends NodeVisitor {
       if (slice.getStep() != null) {
         StarlarkType stepType = infer(slice.getStep());
         if (!StarlarkType.assignableFrom(Types.INT, stepType, typeContext)) {
-          errorf(slice.getStep(), "got '%s' for slice step, want int", stepType);
+          errorf(slice.getStep(), "got '%s' for slice step, want int", stepType.typeRepr());
           return Types.ANY;
         }
       }
@@ -421,14 +422,14 @@ public final class TypeChecker extends NodeVisitor {
     if (slice.getStart() != null) {
       StarlarkType startType = infer(slice.getStart());
       if (!StarlarkType.assignableFrom(Types.INT, startType, typeContext)) {
-        errorf(slice.getStart(), "got '%s' for start index, want int", startType);
+        errorf(slice.getStart(), "got '%s' for start index, want int", startType.typeRepr());
         return Types.ANY;
       }
     }
     if (slice.getStop() != null) {
       StarlarkType stopType = infer(slice.getStop());
       if (!StarlarkType.assignableFrom(Types.INT, stopType, typeContext)) {
-        errorf(slice.getStop(), "got '%s' for stop index, want int", stopType);
+        errorf(slice.getStop(), "got '%s' for stop index, want int", stopType.typeRepr());
         return Types.ANY;
       }
     }
@@ -477,7 +478,7 @@ public final class TypeChecker extends NodeVisitor {
             slice.getLbracketLocation(),
             "invalid slice operand '%s' of type '%s', expected Sequence or str",
             slice.getObject(),
-            objElemType);
+            objElemType.typeRepr());
         resultTypes.add(Types.ANY);
       }
     }
@@ -606,7 +607,7 @@ public final class TypeChecker extends NodeVisitor {
             call.getFunction(),
             "'%s' is not callable; got type '%s'",
             call.getFunction(),
-            callFunctionType);
+            callFunctionType.typeRepr());
         return Types.ANY;
       }
 
@@ -653,8 +654,8 @@ public final class TypeChecker extends NodeVisitor {
               "in call to '%s()', parameter %s got value of type '%s', want '%s'",
               call.getFunction(),
               parameterDescription,
-              argTypes.get(i),
-              parameterType);
+              argTypes.get(i).typeRepr(),
+              parameterType.typeRepr());
           return Types.ANY;
         }
       }
@@ -707,7 +708,8 @@ public final class TypeChecker extends NodeVisitor {
       StarlarkType varargsType = checker.infer(varargs);
       StarlarkType varargsElementType = findElementType(varargsType);
       if (varargsElementType == null) {
-        checker.errorf(varargs, "argument after * must be a sequence, not '%s'", varargsType);
+        checker.errorf(
+            varargs, "argument after * must be a sequence, not '%s'", varargsType.typeRepr());
         return null;
       }
       return new VarargsArgument(varargs, varargsElementType);
@@ -744,7 +746,9 @@ public final class TypeChecker extends NodeVisitor {
       StarlarkType kwargsValueType = findValueType(kwargsType, checker.typeContext);
       if (kwargsValueType == null) {
         checker.errorf(
-            kwargs, "argument after ** must be a dict with string keys, not '%s'", kwargsType);
+            kwargs,
+            "argument after ** must be a dict with string keys, not '%s'",
+            kwargsType.typeRepr());
         return null;
       }
       return new KwargsArgument(kwargs, kwargsValueType);
@@ -975,7 +979,8 @@ public final class TypeChecker extends NodeVisitor {
         } else if (iterableUnionElement instanceof Types.AbstractCollectionType collection) {
           varUnionElements.add(collection.getElementType());
         } else {
-          errorf(iterable, "%s operand must be an iterable, got '%s'", what, iterableType);
+          errorf(
+              iterable, "%s operand must be an iterable, got '%s'", what, iterableType.typeRepr());
         }
       }
       varsRhsType = Types.union(varUnionElements);
@@ -996,8 +1001,8 @@ public final class TypeChecker extends NodeVisitor {
             "in call to '%s()', %s must be '%s', not '%s'",
             call.getFunction(),
             nodeDescription,
-            lhs,
-            rhs);
+            lhs.typeRepr(),
+            rhs.typeRepr());
         return false;
       }
     }
@@ -1055,7 +1060,11 @@ public final class TypeChecker extends NodeVisitor {
     ImmutableList<StarlarkType> lhsMeet = inferIndividualAssignmentTarget(lhs);
     for (StarlarkType lhsType : lhsMeet) {
       if (!StarlarkType.assignableFrom(lhsType, rhsType, typeContext)) {
-        errorf(lhs, "cannot assign type '%s' to %s", rhsType, formatExprWithMeetType(lhs, lhsMeet));
+        errorf(
+            lhs,
+            "cannot assign type '%s' to %s",
+            rhsType.typeRepr(),
+            formatExprWithMeetType(lhs, lhsMeet));
         break;
       }
     }
@@ -1068,13 +1077,13 @@ public final class TypeChecker extends NodeVisitor {
 
   private static String formatExprWithMeetType(Expression expr, ImmutableList<StarlarkType> types) {
     if (types.size() == 1) {
-      return String.format("'%s' of type '%s'", expr, types.getFirst());
+      return String.format("'%s' of type '%s'", expr, types.getFirst().typeRepr());
     } else {
       return String.format(
           "'%s' which expects a value satisfying all of the %d types [%s]",
           expr,
           types.size(),
-          types.stream().map(t -> String.format("'%s'", t)).collect(joining(", ")));
+          types.stream().map(t -> String.format("'%s'", t.typeRepr())).collect(joining(", ")));
     }
   }
 
@@ -1103,7 +1112,7 @@ public final class TypeChecker extends NodeVisitor {
               lhs,
               "%s of type '%s' does not support item assignment",
               indexExpr.getObject(),
-              objectType);
+              objectType.typeRepr());
         }
         yield inferIndexUnfolded(indexExpr, objectType, keyType);
       }
@@ -1115,14 +1124,15 @@ public final class TypeChecker extends NodeVisitor {
               lhs,
               "%s of type '%s' does not support field assignment",
               dotExpr.getObject(),
-              objectType);
+              objectType.typeRepr());
         }
         yield inferDotUnfolded(dotExpr, objectType);
       }
       case Expression.Kind.IDENTIFIER -> ImmutableList.of(infer(lhs));
       default -> {
         StarlarkType lhsType = infer(lhs);
-        errorf(lhs, "%s of type '%s' is not a valid target for assignment", lhs, lhsType);
+        errorf(
+            lhs, "%s of type '%s' is not a valid target for assignment", lhs, lhsType.typeRepr());
         yield ImmutableList.of(Types.ANY);
       }
     };
@@ -1146,14 +1156,14 @@ public final class TypeChecker extends NodeVisitor {
           errorf(
               lhs,
               "cannot assign type '%s' to '%s'; want %d-element sequence",
-              rhsType,
+              rhsType.typeRepr(),
               lhs,
               lhs.getElements().size());
           return;
         }
       } else if (!Types.isCollection(rhsType, typeContext)) {
         // TODO: #28043 - consider checking for an Iterable type (as it is in the eval layer)
-        errorf(lhs, "cannot assign non-iterable type '%s' to '%s'", rhsType, lhs);
+        errorf(lhs, "cannot assign non-iterable type '%s' to '%s'", rhsType.typeRepr(), lhs);
         return;
       }
     }
@@ -1236,7 +1246,7 @@ public final class TypeChecker extends NodeVisitor {
               /* augmentedAssignment= */ true,
               String.format(
                   "cannot update %s with a result value of type '%s'",
-                  formatExprWithMeetType(lhs, lhsMeet), resultType));
+                  formatExprWithMeetType(lhs, lhsMeet), resultType.typeRepr()));
         }
       }
     } else {
@@ -1286,8 +1296,8 @@ public final class TypeChecker extends NodeVisitor {
                 "%s(): parameter '%s' has default value of type '%s', declares '%s'",
                 def.getIdentifier().getName(),
                 param.getName(),
-                defaultValueType,
-                callableType.getParameterTypeByPos(iType));
+                defaultValueType.typeRepr(),
+                callableType.getParameterTypeByPos(iType).typeRepr());
           }
         }
       }
@@ -1311,7 +1321,7 @@ public final class TypeChecker extends NodeVisitor {
             "%s() declares return type '%s' but may return 'None' implicitly by returning to the"
                 + " caller without executing a 'return' statement",
             def.getIdentifier().getName(),
-            callableType.getReturnType());
+            callableType.getReturnType().typeRepr());
       }
     }
   }
@@ -1369,8 +1379,8 @@ public final class TypeChecker extends NodeVisitor {
           ret.getResult().getStartLocation(),
           "%s() declares return type '%s' but may return '%s'",
           function.getName(),
-          callableType.getReturnType(),
-          returnType);
+          callableType.getReturnType().typeRepr(),
+          returnType.typeRepr());
     }
     functionStackEntry.returns().add(ret);
   }

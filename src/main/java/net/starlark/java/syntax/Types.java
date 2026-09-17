@@ -158,7 +158,7 @@ public final class Types {
     private AnyType() {}
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return "Any";
     }
 
@@ -221,7 +221,7 @@ public final class Types {
     private ObjectType() {}
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return "object";
     }
 
@@ -241,7 +241,7 @@ public final class Types {
     private NeverType() {}
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return "Never";
     }
 
@@ -278,7 +278,7 @@ public final class Types {
     private NoneType() {}
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return "None";
     }
 
@@ -303,7 +303,7 @@ public final class Types {
     private BoolType() {}
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return "bool";
     }
 
@@ -328,7 +328,7 @@ public final class Types {
     private IntType() {}
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return "int";
     }
 
@@ -370,7 +370,7 @@ public final class Types {
     private FloatType() {}
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return "float";
     }
 
@@ -406,7 +406,7 @@ public final class Types {
     private StrType() {}
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return "str";
     }
 
@@ -684,9 +684,9 @@ public final class Types {
       for (; i < getNumPositionalOnlyParameters(); i++) {
         StarlarkType type = getParameterTypeByPos(i);
         if (isMandatory(i)) {
-          params.add(type.toString());
+          params.add(type.typeRepr());
         } else {
-          params.add("[" + type + "]");
+          params.add("[" + type.typeRepr() + "]");
         }
       }
 
@@ -698,14 +698,14 @@ public final class Types {
         String name = getParameterNames().get(i);
         StarlarkType type = getParameterTypeByPos(i);
         if (isMandatory(i)) {
-          params.add(name + ": " + type);
+          params.add(name + ": " + type.typeRepr());
         } else {
-          params.add(name + ": [" + type + "]");
+          params.add(name + ": [" + type.typeRepr() + "]");
         }
       }
 
       if (getVarargsType() != null) {
-        params.add("*args: " + getVarargsType());
+        params.add("*args: " + getVarargsType().typeRepr());
       } else if (i < getParameterTypes().size()) { // if there are going to be kwonly params
         params.add("*");
       }
@@ -713,7 +713,7 @@ public final class Types {
       // keyword parameters
       for (; i < getParameterTypes().size(); i++) {
         String name = getParameterNames().get(i);
-        String type = getParameterTypeByPos(i).toString();
+        String type = getParameterTypeByPos(i).typeRepr();
         if (isMandatory(i)) {
           params.add(name + ": " + type);
         } else {
@@ -722,11 +722,11 @@ public final class Types {
       }
 
       if (getKwargsType() != null) {
-        params.add("**kwargs: " + getKwargsType());
+        params.add("**kwargs: " + getKwargsType().typeRepr());
       }
 
       ImmutableList<String> paramList = params.build();
-      return "(" + String.join(", ", paramList) + ") -> " + getReturnType();
+      return "(" + String.join(", ", paramList) + ") -> " + getReturnType().typeRepr();
     }
   }
 
@@ -737,7 +737,7 @@ public final class Types {
     public abstract ImmutableSet<String> getMandatoryParameters();
 
     @Override
-    public final String toString() {
+    public final String typeRepr() {
       // We cannot represent a general callable type as a `Callable[...]` expression, so follow
       // mypy's example and format it as the signature string (with angle brackets to make it
       // composable).
@@ -767,7 +767,7 @@ public final class Types {
     private AnyCallableType() {}
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return "Callable";
     }
 
@@ -838,16 +838,16 @@ public final class Types {
   abstract static class SimpleCallableType extends CallableType {
 
     @Override
-    public final String toString() {
+    public final String typeRepr() {
       StringBuilder sb = new StringBuilder("Callable[");
       if (getParameterTypes().isEmpty() && hasVarargsAndKwargs()) {
         sb.append("..., ");
       } else {
         sb.append("[");
-        sb.append(getParameterTypes().stream().map(StarlarkType::toString).collect(joining(", ")));
+        sb.append(getParameterTypes().stream().map(StarlarkType::typeRepr).collect(joining(", ")));
         sb.append("], ");
       }
-      sb.append(getReturnType()).append("]");
+      sb.append(getReturnType().typeRepr()).append("]");
       return sb.toString();
     }
 
@@ -962,8 +962,8 @@ public final class Types {
     public abstract ImmutableSet<StarlarkType> getTypes();
 
     @Override
-    public final String toString() {
-      return getTypes().stream().map(StarlarkType::toString).collect(joining(" | "));
+    public final String typeRepr() {
+      return getTypes().stream().map(StarlarkType::typeRepr).collect(joining(" | "));
     }
 
     @Override
@@ -1019,8 +1019,8 @@ public final class Types {
   public abstract static sealed class BaseListType extends AbstractSequenceType
       permits ListType, ListRvalueType {
     @Override
-    public final String toString() {
-      return "list[" + getElementType() + "]";
+    public final String typeRepr() {
+      return "list[" + getElementType().typeRepr() + "]";
     }
 
     @Override
@@ -1136,8 +1136,8 @@ public final class Types {
     public abstract StarlarkType getValueType();
 
     @Override
-    public final String toString() {
-      return "dict[" + getKeyType() + ", " + getValueType() + "]";
+    public final String typeRepr() {
+      return "dict[" + getKeyType().typeRepr() + ", " + getValueType().typeRepr() + "]";
     }
 
     @Override
@@ -1230,8 +1230,8 @@ public final class Types {
     }
 
     @Override
-    public final String toString() {
-      return "set[" + getElementType() + "]";
+    public final String typeRepr() {
+      return "set[" + getElementType().typeRepr() + "]";
     }
 
     @Override
@@ -1338,12 +1338,12 @@ public final class Types {
     }
 
     @Override
-    public final String toString() {
+    public final String typeRepr() {
       return String.format(
           "tuple[%s]",
           getElementTypes().isEmpty()
               ? "()"
-              : getElementTypes().stream().map(StarlarkType::toString).collect(joining(", ")));
+              : getElementTypes().stream().map(StarlarkType::typeRepr).collect(joining(", ")));
     }
 
     @Override
@@ -1418,8 +1418,8 @@ public final class Types {
     }
 
     @Override
-    public final String toString() {
-      return "tuple[" + getElementType() + ", ...]";
+    public final String typeRepr() {
+      return "tuple[" + getElementType().typeRepr() + ", ...]";
     }
 
     @Override
@@ -1538,8 +1538,8 @@ public final class Types {
     }
 
     @Override
-    public final String toString() {
-      return "Collection[" + getElementType() + "]";
+    public final String typeRepr() {
+      return "Collection[" + getElementType().typeRepr() + "]";
     }
 
     @Override
@@ -1589,8 +1589,8 @@ public final class Types {
     }
 
     @Override
-    public final String toString() {
-      return "Sequence[" + getElementType() + "]";
+    public final String typeRepr() {
+      return "Sequence[" + getElementType().typeRepr() + "]";
     }
 
     @Override
@@ -1716,8 +1716,8 @@ public final class Types {
     }
 
     @Override
-    public final String toString() {
-      return "Mapping[" + getKeyType() + ", " + getValueType() + "]";
+    public final String typeRepr() {
+      return "Mapping[" + getKeyType().typeRepr() + ", " + getValueType().typeRepr() + "]";
     }
 
     @Override
@@ -1820,7 +1820,7 @@ public final class Types {
     }
 
     @Override
-    public final String toString() {
+    public final String typeRepr() {
       if (this.equals(ANY_STRUCT)) {
         return "struct";
       }
@@ -1857,7 +1857,7 @@ public final class Types {
     private TypeType() {}
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return "Type";
     }
 

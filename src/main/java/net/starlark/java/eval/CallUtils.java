@@ -188,7 +188,7 @@ public final class CallUtils {
     }
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return name;
     }
   }
