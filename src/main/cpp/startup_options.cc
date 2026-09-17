@@ -704,13 +704,15 @@ blaze_util::Path StartupOptions::GetAotCacheDisabledMarkerPath() const {
 bool StartupOptions::IsRecordingAotCache() const {
   // A debugging session isn't a representative training run and the JVM
   // refuses to load an AOT cache with a JDWP agent attached anyway.
-  return aot_cache_training_run && !host_jvm_debug;
+  // Batch mode execs the JVM directly, so its AOT diagnostics would pollute
+  // command output and the client couldn't recover from cache loading errors.
+  return aot_cache_training_run && !host_jvm_debug && !batch;
 }
 
 bool StartupOptions::IsUsingAotCache() const {
   // The JVM refuses to load an AOT cache with a JDWP agent attached
   // (JDK-8349122).
-  return !host_jvm_debug && !aot_cache_training_run &&
+  return !batch && !host_jvm_debug && !aot_cache_training_run &&
          !blaze_util::PathExists(GetAotCacheDisabledMarkerPath()) &&
          IsCompleteAotCache(GetAotCachePath());
 }
@@ -743,6 +745,14 @@ void StartupOptions::AddAotCacheArguments(std::vector<string>* result) const {
     // the server exits, e.g. due to an explicit shutdown, --max_idle_secs or
     // a restart caused by different startup options or another training run.
     result->push_back("-XX:AOTCacheOutput=" + aot_cache.AsJvmArgument());
+    // Otherwise the JVM derives a shared <cache>.config filename. Concurrent
+    // training runs could overwrite or delete each other's configuration.
+    // The JVM expands %p to the training server's PID, including when passing
+    // the filename to its assembly subprocess. Explicit configurations are
+    // removed by the client after shutdown, or by install base GC if the
+    // server exits without a client (e.g. due to --max_idle_secs).
+    result->push_back("-XX:AOTConfiguration=" + aot_cache.AsJvmArgument() +
+                      ".%p.config");
     return;
   }
 

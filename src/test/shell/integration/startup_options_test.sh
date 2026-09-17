@@ -38,6 +38,11 @@ else
 fi
 # --- end runfiles.bash initialization ---
 
+# AOT tests create and corrupt install-base-wide caches. Never use the install
+# base shared by concurrently running tests on CI; let the test harness use
+# its private output user root instead.
+unset TEST_INSTALL_BASE
+
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
@@ -205,6 +210,92 @@ function test_experimental_aot_cache_training_run_disabled_after_crash() {
   [[ -e "$aot_cache.disabled" ]] && fail "AOT cache still disabled"
   bazel shutdown &> $TEST_log || fail "Couldn't shut down the server"
   [[ -s "$aot_cache" ]] || fail "AOT cache not assembled at $aot_cache"
+  rm -f "$aot_cache"
+}
+
+function test_experimental_aot_cache_batch_mode() {
+  local install_base output_base actual
+  install_base=$(bazel info install_base 2> "$TEST_log") \
+    || fail "Couldn't get install base"
+  output_base=$(bazel info output_base 2> "$TEST_log") \
+    || fail "Couldn't get output base"
+  local aot_cache="${install_base}.aot"
+  rm -f "$aot_cache" "$aot_cache".*
+
+  bazel --experimental_aot_cache_training_run info server_pid &> "$TEST_log" \
+    || fail "Couldn't start the training run"
+  bazel shutdown &> "$TEST_log" || fail "Couldn't shut down the server"
+  [[ -s "$aot_cache" ]] || fail "AOT cache not assembled"
+
+  # An incompatible cache must not add JVM diagnostics to batch stdout.
+  actual=$(bazel --batch --host_jvm_args=-XX:-UseCompactObjectHeaders \
+    info output_base 2> "$TEST_log") || fail "Couldn't run in batch mode"
+  assert_equals "$output_base" "$actual"
+
+  # -Xshare:off and -XX:AOTCache cannot be used together. Batch mode must
+  # continue to work without relying on the client/server crash recovery.
+  local attempt
+  for attempt in 1 2; do
+    actual=$(bazel --batch --host_jvm_args=-Xshare:off info output_base \
+      2> "$TEST_log") || fail "Batch invocation $attempt failed"
+    assert_equals "$output_base" "$actual"
+  done
+
+  echo "not an AOT cache" > "$aot_cache"
+  actual=$(bazel --batch info output_base 2> "$TEST_log") \
+    || fail "Couldn't run in batch mode with an unusable cache"
+  assert_equals "$output_base" "$actual"
+  [[ -e "$aot_cache.disabled" ]] && fail "Batch mode disabled the server cache"
+  rm -f "$aot_cache"
+
+  # Training also emits JVM diagnostics on stdout, so it is disabled in
+  # batch mode even when explicitly requested.
+  actual=$(bazel --batch --experimental_aot_cache_training_run info output_base \
+    2> "$TEST_log") || fail "Couldn't run in batch mode with training requested"
+  assert_equals "$output_base" "$actual"
+  [[ ! -e "$aot_cache" ]] || fail "Batch mode recorded a cache"
+}
+
+function test_experimental_aot_cache_concurrent_training_runs() {
+  local install_base
+  install_base=$(bazel info install_base 2> "$TEST_log") \
+    || fail "Couldn't get install base"
+  local aot_cache="${install_base}.aot"
+  rm -f "$aot_cache" "$aot_cache".*
+
+  local output_base1="${TEST_TMPDIR}/aot_output1"
+  local output_base2="${TEST_TMPDIR}/aot_output2"
+  local pid1 pid2
+  pid1=$(bazel --output_base="$output_base1" \
+    --experimental_aot_cache_training_run info server_pid 2> "$TEST_log") \
+    || fail "Couldn't start the first training run"
+  pid2=$(bazel --output_base="$output_base2" \
+    --experimental_aot_cache_training_run info server_pid 2> "$TEST_log") \
+    || fail "Couldn't start the second training run"
+
+  bazel --output_base="$output_base1" shutdown > "${TEST_TMPDIR}/shutdown1.log" 2>&1 &
+  local shutdown1=$!
+  bazel --output_base="$output_base2" shutdown > "${TEST_TMPDIR}/shutdown2.log" 2>&1 &
+  local shutdown2=$!
+  local shutdown1_status=0 shutdown2_status=0
+  wait "$shutdown1" || shutdown1_status=$?
+  wait "$shutdown2" || shutdown2_status=$?
+  assert_equals 0 "$shutdown1_status"
+  assert_equals 0 "$shutdown2_status"
+
+  # Each JVM records a separate intermediate configuration, even though both
+  # produce the same shared cache. Check both assembly processes succeeded.
+  cat "$output_base1/server/jvm.out" > "$TEST_log"
+  expect_log "AOTConfiguration recorded: .*\\.pid${pid1}\\.config"
+  expect_log "AOTCache creation is complete:"
+  expect_not_log "Child process failed"
+  cat "$output_base2/server/jvm.out" > "$TEST_log"
+  expect_log "AOTConfiguration recorded: .*\\.pid${pid2}\\.config"
+  expect_log "AOTCache creation is complete:"
+  expect_not_log "Child process failed"
+  [[ -e "${aot_cache}.pid${pid1}.config" ]] && fail "First configuration not deleted"
+  [[ -e "${aot_cache}.pid${pid2}.config" ]] && fail "Second configuration not deleted"
+  [[ -s "$aot_cache" ]] || fail "AOT cache not assembled"
   rm -f "$aot_cache"
 }
 
