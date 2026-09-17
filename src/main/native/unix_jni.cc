@@ -518,6 +518,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_readdir(
     }
     jobject dirent = NewDirent(env, entry);
     if (dirent == nullptr && env->ExceptionOccurred()) {
+      closedir(dirh);
       return nullptr;
     }
     dirents.push_back(dirent);
