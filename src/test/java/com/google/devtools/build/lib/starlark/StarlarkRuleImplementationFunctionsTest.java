@@ -4338,9 +4338,7 @@ args.add_all(d, map_each = _map_each, uniquify = True)
 
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
 
     ConfiguredTarget target = getConfiguredTarget("//test:foo");
 

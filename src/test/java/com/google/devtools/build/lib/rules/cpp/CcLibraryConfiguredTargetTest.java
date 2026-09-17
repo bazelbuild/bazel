@@ -228,9 +228,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     String cpu = "k8"; // CPU of the platform specified with --platforms
     Artifact archive = getBinArtifact("libhello.a", hello);
@@ -276,9 +274,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     String cpu = "k8"; // CPU of the platform specified with --platforms
     Artifact archive = getBinArtifact("libhello.a", hello);
@@ -2382,9 +2378,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
         "--compilation_mode=fastbuild",
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
 
     scratch.file(
         "no-transition/BUILD",
@@ -2441,9 +2435,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
         "--compilation_mode=fastbuild",
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
 
     scratch.file(
         "transition/BUILD",

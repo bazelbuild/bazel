@@ -392,8 +392,8 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         "--platforms=//platforms:alpha",
         "--platform_mappings=tools/platform_mappings",
         "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
-        "--experimental_override_name_platform_in_output_dir=//platforms:alpha=alpha",
-        "--experimental_override_name_platform_in_output_dir=//platforms:beta=beta");
+        "--override_platform_cpu_name=//platforms:alpha=alpha",
+        "--override_platform_cpu_name=//platforms:beta=beta");
     ConfiguredTarget test = getConfiguredTarget("//test");
 
     assertThat(getMnemonic(test)).contains("alpha-fastbuild");
@@ -493,8 +493,8 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         "--platforms=//platforms:alpha",
         "--platform_mappings=tools/platform_mappings",
         "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
-        "--experimental_override_name_platform_in_output_dir=//platforms:alpha=alpha",
-        "--experimental_override_name_platform_in_output_dir=//platforms:beta=beta");
+        "--override_platform_cpu_name=//platforms:alpha=alpha",
+        "--override_platform_cpu_name=//platforms:beta=beta");
     ConfiguredTarget test = getConfiguredTarget("//test");
 
     assertThat(getMnemonic(test)).contains("alpha-fastbuild");
@@ -559,7 +559,7 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         "--platforms=//platforms:alpha",
         "--host_platform=//platforms:alpha",
         "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
-        "--experimental_override_name_platform_in_output_dir=//platforms:alpha=alpha-override");
+        "--override_platform_cpu_name=//platforms:alpha=alpha-override");
     ConfiguredTarget test = getConfiguredTarget("//test");
 
     assertThat(getMnemonic(test)).contains("alpha-override-fastbuild");
