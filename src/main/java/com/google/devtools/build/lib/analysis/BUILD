@@ -97,7 +97,6 @@ java_library(
         "configuredtargets/OutputFileConfiguredTarget.java",
         "configuredtargets/PackageGroupConfiguredTarget.java",
         "configuredtargets/RuleConfiguredTarget.java",
-        "constraints/RuleContextConstraintSemantics.java",
         "extra/ExtraAction.java",
         "extra/ExtraActionMapProvider.java",
         "extra/ExtraActionSpec.java",
@@ -537,6 +536,7 @@ java_library(
         ":blaze_directories",
         ":configured_target",
         ":constraints/platform_restrictions_result",
+        ":constraints/rule_context_constraint_semantics",
         ":constraints/top_level_constraint_semantics",
         ":extra_action_artifacts_provider",
         ":make_environment_event",
@@ -1653,12 +1653,33 @@ java_library(
 )
 
 java_library(
+    name = "constraints/rule_context_constraint_semantics",
+    srcs = ["constraints/RuleContextConstraintSemantics.java"],
+    deps = [
+        ":analysis_cluster",
+        ":configured_target",
+        ":constraints/constraint_semantics",
+        ":constraints/environment_collection",
+        ":constraints/supported_environments_provider",
+        ":incompatible_platform_provider",
+        ":label_and_location",
+        ":transitive_info_collection",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
     name = "constraints/top_level_constraint_semantics",
     srcs = [
         "constraints/TopLevelConstraintSemantics.java",
     ],
     exports = [
         ":constraints/platform_restrictions_result",
+        ":constraints/rule_context_constraint_semantics",
     ],
     deps = [
         ":analysis_cluster",
@@ -1666,6 +1687,7 @@ java_library(
         ":constraints/constraint_semantics",
         ":constraints/environment_collection",
         ":constraints/platform_restrictions_result",
+        ":constraints/rule_context_constraint_semantics",
         ":constraints/supported_environments_provider",
         ":incompatible_platform_provider",
         ":transitive_info_collection",
@@ -1717,6 +1739,7 @@ java_library(
         ":analysis_cluster",
         ":configured_target",
         ":configured_target_value",
+        ":constraints/rule_context_constraint_semantics",
         ":constraints/supported_environments",
         ":dependency_kind",
         ":file_provider",

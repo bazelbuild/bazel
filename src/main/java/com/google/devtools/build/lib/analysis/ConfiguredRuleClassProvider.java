@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransi
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
-import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -171,8 +170,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     private final Set<String> reservedActionMnemonics = new TreeSet<>();
     private Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider =
         (BuildOptions options) -> ActionEnvironment.EMPTY;
-    private ConstraintSemantics<RuleContext> constraintSemantics =
-        new RuleContextConstraintSemantics();
+    @Nullable private ConstraintSemantics<RuleContext> constraintSemantics;
 
     // TODO(b/192694287): Remove once we migrate all tests from the allowlist
     @Nullable private Label networkAllowlistForTests;
@@ -673,7 +671,7 @@ public /*final*/ class ConfiguredRuleClassProvider
 
   private final ImmutableMap<String, Class<?>> configurationFragmentMap;
 
-  private final ConstraintSemantics<RuleContext> constraintSemantics;
+  @Nullable private final ConstraintSemantics<RuleContext> constraintSemantics;
 
   // TODO(b/192694287): Remove once we migrate all tests from the allowlist
   @Nullable private final Label networkAllowlistForTests;
@@ -700,7 +698,7 @@ public /*final*/ class ConfiguredRuleClassProvider
       ImmutableList<SymlinkDefinition> symlinkDefinitions,
       ImmutableSet<String> reservedActionMnemonics,
       Function<BuildOptions, ActionEnvironment> actionEnvironmentProvider,
-      ConstraintSemantics<RuleContext> constraintSemantics,
+      @Nullable ConstraintSemantics<RuleContext> constraintSemantics,
       @Nullable Label networkAllowlistForTests,
       @Nullable Label noExplicitMnemonicAllowlist) {
     this.preludeLabel = preludeLabel;
@@ -886,6 +884,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     return symlinkDefinitions;
   }
 
+  @Nullable
   public ConstraintSemantics<RuleContext> getConstraintSemantics() {
     return constraintSemantics;
   }

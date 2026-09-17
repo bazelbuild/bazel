@@ -18,6 +18,7 @@ java_library(
     srcs = ["AbstractConstraintsTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:constraints/rule_context_constraint_semantics",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party/java/error_prone:annotations",

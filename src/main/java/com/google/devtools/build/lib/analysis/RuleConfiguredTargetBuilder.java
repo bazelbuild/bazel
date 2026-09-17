@@ -456,6 +456,9 @@ public final class RuleConfiguredTargetBuilder {
     }
     ConstraintSemantics<RuleContext> constraintSemantics =
         ruleContext.getRuleClassProvider().getConstraintSemantics();
+    if (constraintSemantics == null) {
+      return;
+    }
     EnvironmentCollection supportedEnvironments =
         constraintSemantics.getSupportedEnvironments(ruleContext);
     if (supportedEnvironments != null) {
