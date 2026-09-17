@@ -918,6 +918,19 @@ static void ConnectOrDie(const OptionProcessor &option_processor,
             << server->ProcessInfo().jvm_log_file_.AsPrintablePath();
         WriteFileToStderrOrDie(server->ProcessInfo().jvm_log_file_);
       }
+      if (startup_options.IsUsingAotCache()) {
+        // The JVM exits during initialization if the cache can't be loaded
+        // for certain reasons instead of falling back to not using it, which
+        // would otherwise make every subsequent server start fail as well.
+        startup_options.DisableAotCache();
+        BAZEL_LOG(USER)
+            << "The server was started with the AOT cache at "
+            << startup_options.GetAotCachePath().AsPrintablePath()
+            << ", which may have caused the crash. The cache has been deleted "
+               "and no cache will be used for this install base until a new "
+               "one is recorded with --experimental_aot_cache_training_run. "
+               "Please retry the command.";
+      }
       exit(blaze_exit_code::INTERNAL_ERROR);
     }
   }
@@ -1020,7 +1033,15 @@ static bool IsVolatileArg(const string &arg) {
       // environment variable. Since that can change based on the shell, we
       // tolerate changes to it. Note that an explicit setting of
       // -XX:HeapDumpPath via --host_jvm_args *will* trigger a restart.
-      "-XX:HeapDumpPath="};
+      "-XX:HeapDumpPath=",
+      // The AOT cache may appear while a server is running (a training run
+      // for the same install base ended), which must not restart that server.
+      // Conversely, invocations without --experimental_aot_cache_training_run
+      // must keep using a server that is recording the cache so that the
+      // training run consists of all commands run until the server is shut
+      // down. An invocation with the option always restarts the server
+      // instead, see KillRunningServerIfDifferentStartupOptions().
+      "-XX:AOTCache=", "-XX:AOTCacheOutput=", "-XX:-AOTClassLinking"};
 
   // Split arg based on the first "=" if one exists in arg.
   const string::size_type eq_pos = arg.find_first_of('=');
@@ -1043,12 +1064,6 @@ static bool AreStartupOptionsDifferent(
   // this version of Bazel: either the default value is listed explicitly or it
   // is not, but this has nothing to do with the user's command line: it is
   // defined by GetServerExeArgs(). Same applies for argument ordering.
-  bool options_different = false;
-  if (running_server_args.size() != requested_args.size()) {
-    BAZEL_LOG(INFO) << "The new command line has a different length from the "
-                       "running server's.";
-    options_different = true;
-  }
 
   // Facts and implications:
   // (a) We already verified (with EnsureCorrectRunningVersion) that the old and
@@ -1063,6 +1078,9 @@ static bool AreStartupOptionsDifferent(
   // (d) Because of (b), some flags may have repeated values (e.g
   //     --host_jvm_args="foo" twice) so we cannot simply use two sets and take
   //     the set difference, but must consider the occurrences of each flag.
+  // Volatile args may be present on one side only, so the argument lists are
+  // compared only after filtering them out. Any difference in length shows up
+  // as a leftover in one of the multisets.
   std::unordered_multiset<string> old_args, new_args;
   for (const string &a : running_server_args) {
     if (!IsVolatileArg(a)) {
@@ -1097,10 +1115,11 @@ static bool AreStartupOptionsDifferent(
     }
   }
 
-  return options_different || !old_args.empty() || !new_args.empty();
+  return !old_args.empty() || !new_args.empty();
 }
 
-// Kills the running Blaze server, if any, if the startup options do not match.
+// Kills the running Blaze server, if any, if the startup options do not match
+// or the current invocation starts an AOT cache training run.
 // Returns true if the server has been killed.
 static bool KillRunningServerIfDifferentStartupOptions(
     const StartupOptions &startup_options,
@@ -1108,6 +1127,21 @@ static bool KillRunningServerIfDifferentStartupOptions(
     BlazeServer *server) {
   if (!server->Connected()) {
     return false;
+  }
+
+  if (startup_options.IsRecordingAotCache()) {
+    // The JVM only records what the server loads and runs from the moment it
+    // starts and the JVM arguments that control recording are volatile, so a
+    // training run has to start a new server even if the running one has the
+    // same startup options or is already recording. In the latter case, the
+    // cache recorded by the running server is replaced when the new one exits.
+    logging_info->restart_reason = NEW_OPTIONS;
+    BAZEL_LOG(WARNING) << "Running " << startup_options.product_name
+                       << " server needs to be killed, because "
+                          "--experimental_aot_cache_training_run starts a new "
+                          "server to record the AOT cache.";
+    server->KillRunningServer();
+    return true;
   }
 
   blaze_util::Path cmdline_path =

@@ -23,6 +23,7 @@
 
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/exit_code.h"
+#include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/test/cpp/test_util.h"
 #include "googletest/include/gtest/gtest.h"
@@ -294,6 +295,7 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectValidNullaryOption(options, "batch_cpu_scheduling");
   ExpectValidNullaryOption(options, "client_debug");
   ExpectValidNullaryOption(options, "experimental_use_compact_object_headers");
+  ExpectValidNullaryOption(options, "experimental_aot_cache_training_run");
   ExpectValidNullaryOption(options, "fatal_event_bus_exceptions");
   ExpectValidNullaryOption(options, "home_rc");
   ExpectValidNullaryOption(options, "host_jvm_debug");
@@ -601,6 +603,188 @@ TEST_F(BazelStartupOptionsTest, AddJVMArgumentsCompactObjectHeadersDisabled) {
                            "-XX:+UseCompactObjectHeaders") != result.end();
   EXPECT_FALSE(has_unlock);
   EXPECT_FALSE(has_use);
+}
+
+class BazelStartupOptionsAotCacheTest : public BazelStartupOptionsTest {
+ protected:
+  void SetUp() override {
+    BazelStartupOptionsTest::SetUp();
+    blaze_util::Path test_tmpdir(blaze::GetPathEnv("TEST_TMPDIR"));
+    // Use a fresh directory per test since they leave files behind.
+    install_dir_ = test_tmpdir.GetRelative("install_" + std::to_string(rand()));
+    install_base_ = install_dir_.GetRelative("deadbeef");
+    aot_cache_ = install_dir_.GetRelative("deadbeef.aot");
+    disabled_marker_ = install_dir_.GetRelative("deadbeef.aot.disabled");
+    ASSERT_TRUE(blaze_util::MakeDirectories(install_base_, 0755));
+
+    startup_options_->install_base = install_base_;
+    startup_options_->output_base = test_tmpdir.GetRelative("output_base");
+    // Avoid the embedded JDK detection that the default value triggers.
+    startup_options_->use_compact_object_headers_ = false;
+    startup_options_
+        ->option_sources["experimental_use_compact_object_headers"] = "";
+  }
+
+  std::vector<std::string> AddJVMArguments() {
+    std::vector<std::string> result;
+    std::string error;
+    blaze_util::Path test_tmpdir(blaze::GetPathEnv("TEST_TMPDIR"));
+    blaze_util::Path dummy_javabase = test_tmpdir.GetRelative("dummy_javabase");
+    blaze_exit_code::ExitCode ec =
+        startup_options_->AddJVMArguments(dummy_javabase, &result, {}, &error);
+    EXPECT_EQ(blaze_exit_code::SUCCESS, ec)
+        << "AddJVMArguments failed with error " << error;
+    return result;
+  }
+
+  static bool Contains(const std::vector<std::string> &args,
+                       const std::string &arg) {
+    return std::find(args.begin(), args.end(), arg) != args.end();
+  }
+
+  static void ExpectNoAotCacheArguments(const std::vector<std::string> &args) {
+    for (const std::string &arg : args) {
+      EXPECT_EQ(arg.find("AOTC"), std::string::npos) << arg;
+    }
+  }
+
+  // A real cache starts with a magic number; any non-zero header will do.
+  static void WriteCompleteCache(const blaze_util::Path &path) {
+    ASSERT_TRUE(blaze_util::WriteFile(
+        std::string("\xf0\x0b\xab\xa2 some content", 20), path, 0644));
+  }
+
+  // The JVM writes the header last, so an interrupted dump has a zeroed one.
+  static void WriteIncompleteCache(const blaze_util::Path &path) {
+    ASSERT_TRUE(blaze_util::WriteFile(std::string(4096, '\0'), path, 0644));
+  }
+
+  void ExpectRecording(const std::vector<std::string> &args) {
+    EXPECT_TRUE(Contains(args, "-XX:-AOTClassLinking"));
+    EXPECT_TRUE(
+        Contains(args, "-XX:AOTCacheOutput=" + aot_cache_.AsJvmArgument()));
+    EXPECT_FALSE(Contains(args, "-XX:AOTCache=" + aot_cache_.AsJvmArgument()));
+  }
+
+  void ExpectUsingCache(const std::vector<std::string> &args) {
+    EXPECT_TRUE(Contains(args, "-XX:-AOTClassLinking"));
+    EXPECT_TRUE(Contains(args, "-XX:AOTCache=" + aot_cache_.AsJvmArgument()));
+    for (const std::string &arg : args) {
+      EXPECT_EQ(arg.find("-XX:AOTCacheOutput"), std::string::npos) << arg;
+    }
+  }
+
+  blaze_util::Path install_dir_;
+  blaze_util::Path install_base_;
+  blaze_util::Path aot_cache_;
+  blaze_util::Path disabled_marker_;
+};
+
+TEST_F(BazelStartupOptionsTest, AotCacheTrainingRunDefaultFalse) {
+  EXPECT_FALSE(startup_options_->aot_cache_training_run);
+}
+
+TEST_F(BazelStartupOptionsTest, ProcessExplicitAotCacheTrainingRun) {
+  std::string error;
+  const std::vector<RcStartupFlag> flags{
+      RcStartupFlag("somewhere", "--experimental_aot_cache_training_run")};
+
+  const blaze_exit_code::ExitCode ec =
+      startup_options_->ProcessArgs(flags, &error);
+  ASSERT_EQ(blaze_exit_code::SUCCESS, ec)
+      << "ProcessArgs failed with error " << error;
+  EXPECT_TRUE(startup_options_->aot_cache_training_run);
+  EXPECT_TRUE(startup_options_->option_sources.find(
+                  "experimental_aot_cache_training_run") !=
+              startup_options_->option_sources.end());
+}
+
+TEST_F(BazelStartupOptionsAotCacheTest, PathsAreSiblingsOfInstallBase) {
+  EXPECT_EQ(aot_cache_.AsPrintablePath(),
+            startup_options_->GetAotCachePath().AsPrintablePath());
+  EXPECT_EQ(
+      disabled_marker_.AsPrintablePath(),
+      startup_options_->GetAotCacheDisabledMarkerPath().AsPrintablePath());
+}
+
+TEST_F(BazelStartupOptionsAotCacheTest, NoArgumentsWhenCacheIsMissing) {
+  ExpectNoAotCacheArguments(AddJVMArguments());
+  EXPECT_FALSE(startup_options_->IsUsingAotCache());
+}
+
+TEST_F(BazelStartupOptionsAotCacheTest, NoArgumentsWhenCacheIsIncomplete) {
+  WriteIncompleteCache(aot_cache_);
+
+  ExpectNoAotCacheArguments(AddJVMArguments());
+  EXPECT_FALSE(startup_options_->IsUsingAotCache());
+}
+
+TEST_F(BazelStartupOptionsAotCacheTest, UsesCompleteCache) {
+  WriteCompleteCache(aot_cache_);
+
+  ExpectUsingCache(AddJVMArguments());
+  EXPECT_TRUE(startup_options_->IsUsingAotCache());
+}
+
+TEST_F(BazelStartupOptionsAotCacheTest, TrainingRunRecords) {
+  startup_options_->aot_cache_training_run = true;
+
+  ExpectRecording(AddJVMArguments());
+  EXPECT_TRUE(startup_options_->IsRecordingAotCache());
+  EXPECT_FALSE(startup_options_->IsUsingAotCache());
+}
+
+TEST_F(BazelStartupOptionsAotCacheTest, TrainingRunRecordsOverExistingCache) {
+  startup_options_->aot_cache_training_run = true;
+  WriteCompleteCache(aot_cache_);
+
+  ExpectRecording(AddJVMArguments());
+  EXPECT_FALSE(startup_options_->IsUsingAotCache());
+  // The JVM replaces the cache when the server exits.
+  EXPECT_TRUE(blaze_util::PathExists(aot_cache_));
+}
+
+TEST_F(BazelStartupOptionsAotCacheTest, DisabledByMarker) {
+  WriteCompleteCache(aot_cache_);
+  ASSERT_TRUE(blaze_util::WriteFile("", disabled_marker_, 0644));
+
+  ExpectNoAotCacheArguments(AddJVMArguments());
+  EXPECT_FALSE(startup_options_->IsUsingAotCache());
+  EXPECT_TRUE(blaze_util::PathExists(aot_cache_));
+  EXPECT_TRUE(blaze_util::PathExists(disabled_marker_));
+}
+
+TEST_F(BazelStartupOptionsAotCacheTest, TrainingRunRemovesDisabledMarker) {
+  startup_options_->aot_cache_training_run = true;
+  ASSERT_TRUE(blaze_util::WriteFile("", disabled_marker_, 0644));
+
+  ExpectRecording(AddJVMArguments());
+  EXPECT_FALSE(blaze_util::PathExists(disabled_marker_));
+}
+
+TEST_F(BazelStartupOptionsAotCacheTest, DisabledWithHostJvmDebug) {
+  startup_options_->host_jvm_debug = true;
+  WriteCompleteCache(aot_cache_);
+
+  ExpectNoAotCacheArguments(AddJVMArguments());
+  EXPECT_FALSE(startup_options_->IsUsingAotCache());
+
+  startup_options_->aot_cache_training_run = true;
+
+  ExpectNoAotCacheArguments(AddJVMArguments());
+  EXPECT_FALSE(startup_options_->IsRecordingAotCache());
+}
+
+TEST_F(BazelStartupOptionsAotCacheTest, DisableAotCache) {
+  WriteCompleteCache(aot_cache_);
+  ASSERT_TRUE(startup_options_->IsUsingAotCache());
+
+  startup_options_->DisableAotCache();
+
+  EXPECT_FALSE(blaze_util::PathExists(aot_cache_));
+  EXPECT_TRUE(blaze_util::PathExists(disabled_marker_));
+  EXPECT_FALSE(startup_options_->IsUsingAotCache());
+  ExpectNoAotCacheArguments(AddJVMArguments());
 }
 
 }  // namespace blaze

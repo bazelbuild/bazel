@@ -37,6 +37,7 @@ import java.util.UUID;
  */
 public final class InstallBaseGarbageCollector {
   @VisibleForTesting static final String LOCK_SUFFIX = ".lock";
+  @VisibleForTesting static final String AOT_CACHE_SUFFIX = ".aot";
   @VisibleForTesting static final String DELETED_SUFFIX = ".deleted";
 
   private final Path root;
@@ -123,6 +124,9 @@ public final class InstallBaseGarbageCollector {
       // a second time after a first deletion attempt is interrupted.
       pathToDelete = getDeletedPath(installBase);
       installBase.renameTo(pathToDelete);
+      // The AOT cache (see --experimental_aot_cache_training_run) and its marker files are
+      // specific to the install base and thus useless without it.
+      deleteAotCacheFiles(installBase);
       // Now that the install base has been renamed, we can delete the lock file.
       // This is done early to avoid leaving the lock file behind if the deletion is interrupted.
       // It's still possible to get interrupted in between the rename and delete, but we accept it.
@@ -138,6 +142,15 @@ public final class InstallBaseGarbageCollector {
   private static Path getLockPath(Path installBase) {
     Path parent = installBase.getParentDirectory();
     return parent.getChild(installBase.getBaseName() + LOCK_SUFFIX);
+  }
+
+  private void deleteAotCacheFiles(Path installBase) throws IOException {
+    String prefix = installBase.getBaseName() + AOT_CACHE_SUFFIX;
+    for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
+      if (dirent.getName().startsWith(prefix)) {
+        root.getChild(dirent.getName()).delete();
+      }
+    }
   }
 
   private static Path getDeletedPath(Path installBase) {
