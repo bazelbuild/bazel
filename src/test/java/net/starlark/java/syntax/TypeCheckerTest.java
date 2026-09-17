@@ -2134,7 +2134,7 @@ public final class TypeCheckerTest {
         """);
 
     assertInvalid(
-        ":2:5: f() declares return type 'int' but may exit without an explicit 'return'",
+        ":2:5: f() declares return type 'int' but may return 'None' implicitly",
         """
         def f() -> int:
             if 2 + 2 == 4:

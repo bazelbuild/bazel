@@ -52,10 +52,23 @@ public final class Types {
    */
   public static final StarlarkType ANY = new AnyType();
 
-  /** The top type of the type hierarchy. */
+  /**
+   * The top type of the type hierarchy.
+   *
+   * <p>Admits all values, but only supports operations that are valid on every type.
+   */
   public static final StarlarkType OBJECT = new ObjectType();
 
-  /** The bottom type of the type hierarchy. */
+  /**
+   * The bottom type of the type hierarchy.
+   *
+   * <p>Admits no values.
+   *
+   * <p>In practice, an expression whose type is {@code Never} is unreachable, assuming typing is
+   * sound.
+   */
+  // TODO: #27370 - we want to say "Admits no values, but supports every operation", but it's not
+  // true at the moment.
   public static final StarlarkType NEVER = new NeverType();
 
   // Primitive types
@@ -89,6 +102,7 @@ public final class Types {
 
   public static final TypeConstructor ANY_CONSTRUCTOR = wrapType("Any", ANY);
   public static final TypeConstructor OBJECT_CONSTRUCTOR = wrapType("object", OBJECT);
+  public static final TypeConstructor NEVER_CONSTRUCTOR = wrapType("Never", NEVER);
   public static final TypeConstructor NONE_CONSTRUCTOR = wrapType("None", NONE);
   public static final TypeConstructor BOOL_CONSTRUCTOR = wrapType("bool", BOOL);
   public static final TypeConstructor INT_CONSTRUCTOR = wrapType("int", INT);
@@ -119,6 +133,7 @@ public final class Types {
     env //
         .put("Any", ANY_CONSTRUCTOR)
         .put("object", OBJECT_CONSTRUCTOR)
+        .put("Never", NEVER_CONSTRUCTOR)
         .put("None", NONE_CONSTRUCTOR)
         .put("bool", BOOL_CONSTRUCTOR)
         .put("int", INT_CONSTRUCTOR)
@@ -261,7 +276,7 @@ public final class Types {
   private static final class NoneType extends StarlarkType {
     // Singleton.
     private NoneType() {}
-    
+
     @Override
     public String toString() {
       return "None";

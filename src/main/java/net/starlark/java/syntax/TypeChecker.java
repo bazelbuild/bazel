@@ -27,7 +27,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.spelling.SpellChecker;
 
@@ -48,9 +50,20 @@ public final class TypeChecker extends NodeVisitor {
   private final TypeTable typeTable;
   private final TypeContext typeContext;
 
+  private static record FunctionStackEntry(
+      Resolver.Function function,
+      // Explicit return statements
+      HashSet<Statement> returns,
+      // Never-returning calls (e.g. fail()).
+      HashSet<Statement> fails) {
+    private static FunctionStackEntry of(Resolver.Function function) {
+      return new FunctionStackEntry(function, new HashSet<>(), new HashSet<>());
+    }
+  }
+
   // Empty if we were invoked via inferTypeOf() to type-check an expression (since inside
   // an expression, no function definitions are allowed). Populated and mutated by visitation.
-  private final ArrayDeque<Resolver.Function> functionStack = new ArrayDeque<>();
+  private final ArrayDeque<FunctionStackEntry> functionStack = new ArrayDeque<>();
 
   // Formats and reports an error at the start of the specified node.
   @FormatMethod
@@ -1007,8 +1020,8 @@ public final class TypeChecker extends NodeVisitor {
    *
    * @throws SyntaxError.Exception if a static type error is present in the expression.
    */
-  static StarlarkType inferTypeOf(Expression expr, TypeTable typeTable, TypeContext typeContext)
-      throws SyntaxError.Exception {
+  public static StarlarkType inferTypeOf(
+      Expression expr, TypeTable typeTable, TypeContext typeContext) throws SyntaxError.Exception {
     TypeChecker tc = new TypeChecker(typeTable, typeContext);
     StarlarkType result = tc.infer(expr);
     if (!typeTable.ok()) {
@@ -1164,9 +1177,9 @@ public final class TypeChecker extends NodeVisitor {
         functionStack.isEmpty(),
         "When type-checkings a Program, functionStack is expected to be initially empty");
     Resolver.Function toplevel = prog.getResolvedFunction();
-    this.functionStack.push(toplevel);
+    this.functionStack.push(FunctionStackEntry.of(toplevel));
     visitBlock(toplevel.getBody());
-    checkState(functionStack.pop().equals(toplevel));
+    checkState(functionStack.pop().function().equals(toplevel));
   }
 
   @Override
@@ -1175,9 +1188,9 @@ public final class TypeChecker extends NodeVisitor {
         functionStack.isEmpty(),
         "When type-checkings a StarlarkFile, functionStack is expected to be initially empty");
     Resolver.Function toplevel = file.getResolvedFunction();
-    this.functionStack.push(toplevel);
+    this.functionStack.push(FunctionStackEntry.of(toplevel));
     super.visit(file);
-    checkState(functionStack.pop().equals(toplevel));
+    checkState(functionStack.pop().function().equals(toplevel));
   }
 
   // Expressions should only be visited via infer(), not the visit() dispatch mechanism.
@@ -1246,9 +1259,11 @@ public final class TypeChecker extends NodeVisitor {
   @Override
   public void visit(DefStatement def) {
     Resolver.Function function = def.getResolvedFunction();
-    functionStack.push(function);
+    FunctionStackEntry functionStackEntry = FunctionStackEntry.of(function);
+    functionStack.push(functionStackEntry);
+    @Nullable Types.CallableType callableType = null;
     if (typeTable.usesTypeSyntax(function)) {
-      Types.CallableType callableType =
+      callableType =
           checkNotNull(
               typeTable.getType(function),
               "type tagger should have set type for def statement '%s'",
@@ -1276,21 +1291,29 @@ public final class TypeChecker extends NodeVisitor {
           }
         }
       }
+    }
 
-      @Nullable Statement implicitNoneReturn = getImplicitNoneReturn(def.getBody());
+    // Visit body even in untyped code; it may contain nested typed def statements. Visiting the
+    // body populates functionStackEntry.returns() and functionStackEntry.fails(), needed for the
+    // implicit None return check below.
+    visitBlock(def.getBody());
+    checkState(functionStack.poll().function() == function);
+
+    if (callableType != null) {
+      @Nullable
+      Statement implicitNoneReturn =
+          getImplicitNoneReturn(
+              def.getBody(), functionStackEntry.returns(), functionStackEntry.fails());
       if (implicitNoneReturn != null
           && !StarlarkType.assignableFrom(callableType.getReturnType(), Types.NONE, typeContext)) {
         errorf(
             implicitNoneReturn,
-            "%s() declares return type '%s' but may exit without an explicit 'return'",
+            "%s() declares return type '%s' but may return 'None' implicitly by returning to the"
+                + " caller without executing a 'return' statement",
             def.getIdentifier().getName(),
             callableType.getReturnType());
       }
     }
-
-    // Visit body even in untyped code; it may contain nested typed def statements.
-    visitBlock(def.getBody());
-    checkState(functionStack.poll() == function);
   }
 
   @Override
@@ -1311,9 +1334,15 @@ public final class TypeChecker extends NodeVisitor {
     if (!usesTypeSyntax()) {
       return;
     }
-    // Check constraints in the expression, but ignore the resulting type.
-    // Don't dispatch to it via visit().
-    infer(expr.getExpression());
+    // Check constraints in the expression; don't dispatch to it via visit().
+    StarlarkType exprType = infer(expr.getExpression());
+
+    // `Never` indicates an expression with an unreachable value, most commonly a fail() call.
+    if (exprType.equals(Types.NEVER)) {
+      if (!functionStack.isEmpty()) {
+        functionStack.peek().fails().add(expr);
+      }
+    }
   }
 
   // No need to override visit() for FlowStatement.
@@ -1330,7 +1359,8 @@ public final class TypeChecker extends NodeVisitor {
     }
     StarlarkType returnType = ret.getResult() == null ? Types.NONE : infer(ret.getResult());
     checkState(!functionStack.isEmpty());
-    Resolver.Function function = functionStack.peek();
+    FunctionStackEntry functionStackEntry = functionStack.peek();
+    Resolver.Function function = functionStackEntry.function();
     // May be null if function is the toplevel
     @Nullable Types.CallableType callableType = typeTable.getType(function);
     if (callableType != null
@@ -1342,6 +1372,7 @@ public final class TypeChecker extends NodeVisitor {
           callableType.getReturnType(),
           returnType);
     }
+    functionStackEntry.returns().add(ret);
   }
 
   @Override
@@ -1356,8 +1387,8 @@ public final class TypeChecker extends NodeVisitor {
 
   /**
    * Heuristically checks whether a function body ends with an implicit {@code None} return, i.e. a
-   * non-return statement, and if so, retrieves the statement after which the implicit {@code None}
-   * return occurs. Recurses into if statement bodies.
+   * non-return, non-fail() statement, and if so, retrieves the statement after which the implicit
+   * {@code None} return occurs. Recurses into if statement bodies.
    *
    * <p>This check doesn't attempt to detect unreachable code within the body, so e.g.
    *
@@ -1373,9 +1404,10 @@ public final class TypeChecker extends NodeVisitor {
    *     occurs, or {@code null} if none was found
    */
   @Nullable
-  private static Statement getImplicitNoneReturn(ImmutableList<Statement> body) {
+  private static Statement getImplicitNoneReturn(
+      ImmutableList<Statement> body, Set<Statement> returns, Set<Statement> fails) {
     Statement last = body.getLast();
-    if (last instanceof ReturnStatement) {
+    if (returns.contains(last) || fails.contains(last)) {
       return null;
     } else if (last instanceof IfStatement ifStmt) {
       // An if statement is considered to have an explicit return if it has both `then` and `else`
@@ -1383,10 +1415,12 @@ public final class TypeChecker extends NodeVisitor {
       if (ifStmt.getElseBlock() == null) {
         return ifStmt;
       }
-      @Nullable Statement thenImplicitNoneReturn = getImplicitNoneReturn(ifStmt.getThenBlock());
+      @Nullable
+      Statement thenImplicitNoneReturn =
+          getImplicitNoneReturn(ifStmt.getThenBlock(), returns, fails);
       return thenImplicitNoneReturn != null
           ? thenImplicitNoneReturn
-          : getImplicitNoneReturn(ifStmt.getElseBlock());
+          : getImplicitNoneReturn(ifStmt.getElseBlock(), returns, fails);
     }
     return last;
   }
@@ -1396,7 +1430,7 @@ public final class TypeChecker extends NodeVisitor {
    * via {@link #inferTypeOf}. If false, the current node must not be type-checked.
    */
   private boolean usesTypeSyntax() {
-    return functionStack.isEmpty() || typeTable.usesTypeSyntax(functionStack.peek());
+    return functionStack.isEmpty() || typeTable.usesTypeSyntax(functionStack.peek().function());
   }
 
   private static void checkFileOptions(FileOptions options) {

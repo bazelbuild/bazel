@@ -27,7 +27,7 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkLibrary;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.syntax.Expression;
+import net.starlark.java.syntax.ExpressionStatement;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
@@ -77,7 +77,9 @@ public final class StaticTypeCheckTest {
   @Nullable
   private TypeTagger.Loader loader = null;
 
-  private Program compile(String... lines) throws SyntaxError.Exception {
+  private record FileAndProgram(StarlarkFile file, Program program) {}
+
+  private FileAndProgram compile(String... lines) throws SyntaxError.Exception {
     Preconditions.checkArgument(lines.length > 0);
     ParserInput input = ParserInput.fromLines(lines);
     FileOptions builtOptions = options.build();
@@ -91,9 +93,9 @@ public final class StaticTypeCheckTest {
       if (!typeTable.ok()) {
         throw new SyntaxError.Exception(typeTable.errors());
       }
-      return prog.withTypeTable(typeTable);
+      return new FileAndProgram(file, prog.withTypeTable(typeTable));
     } else {
-      return prog;
+      return new FileAndProgram(file, prog);
     }
   }
 
@@ -112,10 +114,10 @@ public final class StaticTypeCheckTest {
 
   @SuppressWarnings("UnusedMethod")
   private StarlarkType inferType(String expr) throws SyntaxError.Exception {
-    ParserInput input = ParserInput.fromLines(expr);
-    Expression expression = Expression.parse(input, options.build());
-    Program program = Program.compileExpr(expression, module, options.build());
-    return program.getTypeTable().getType(program.getResolvedFunction());
+    FileAndProgram fileAndProgram = compile(expr);
+    var endExpr =
+        ((ExpressionStatement) fileAndProgram.file().getStatements().getLast()).getExpression();
+    return TypeChecker.inferTypeOf(endExpr, fileAndProgram.program().getTypeTable(), module);
   }
 
   @Test
@@ -719,6 +721,78 @@ public final class StaticTypeCheckTest {
             return True
 
         type_acceptor(123)
+        """);
+  }
+
+  @Test
+  public void fail_returnsNever() throws Exception {
+    assertThat(inferType("fail('Some error message')")).isEqualTo(Types.NEVER);
+  }
+
+  @Test
+  public void fail_wrapper() throws Exception {
+    // Lambda wrapper around fail()
+    assertThat(inferType("(lambda msg: fail('Error: ' + msg))('message')")).isEqualTo(Types.NEVER);
+
+    assertThat(
+            inferType(
+                """
+                def fail_wrapper(msg: str) -> Never:
+                    fail("Error: " + msg)
+
+                fail_wrapper("message")
+                """))
+        .isEqualTo(Types.NEVER);
+
+    assertThat(
+            inferType(
+                """
+                def fail_wrapper_with_branches(msg: str, exclaim: bool) -> Never:
+                    if exclaim:
+                        fail("Error: " + msg + "!")
+                    else:
+                        fail("Error: " + msg)
+
+                fail_wrapper_with_branches("message", exclaim = True)
+                """))
+        .isEqualTo(Types.NEVER);
+
+    assertThat(
+            inferType(
+                """
+                def fail_wrapper_without_return_type(msg: str):
+                    fail("Error: " + msg)
+
+                fail_wrapper_without_return_type("message")
+                """))
+        .isEqualTo(Types.ANY);
+
+    assertValid(
+        """
+        # Never is assignable to any other type, so the fail wrapper can declare any return type.
+        def fail_wrapper_with_arbitrary_return_type(msg: str) -> int:
+            fail("Error: " + msg)
+        """);
+  }
+
+  @Test
+  public void fail_ignoredByReturnTypeCheck() throws Exception {
+    assertValid(
+        """
+        def f(x: int) -> int:
+            if x < 0:
+                fail("negative input")
+            return x
+        """);
+
+    assertValid(
+        """
+        fail_wrapper = lambda msg: fail("Error: " + msg)
+
+        def f(x: int) -> int:
+            if x >= 0:
+                return x
+            fail_wrapper("negative input")
         """);
   }
 }
