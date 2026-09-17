@@ -20,14 +20,20 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.DelegatingPairInputMetadataProvider;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.FileNode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -191,6 +197,112 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode);
 
     assertThat(tree.numFiles()).isEqualTo(1);
+  }
+
+  @Test
+  public void directoryInputChildrenAreCachedByInputMetadataProvider() throws Exception {
+    // A directory input is walked anew for every action that has it as an input, but the metadata
+    // of the files discovered in this way should be obtained through the input metadata provider,
+    // which caches it for the duration of the build, rather than by hashing the file contents
+    // every time.
+    SortedMap<PathFragment, ActionInput> sortedInputs = new TreeMap<>();
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+
+    Path dirPath = execRoot.getRelative("srcs/dir");
+    dirPath.createDirectoryAndParents();
+    Path barPath = dirPath.getRelative("bar.cc");
+    FileSystemUtils.writeContentAsLatin1(barPath, "bar");
+    Artifact dir = ActionsTestUtil.createArtifact(artifactRoot, dirPath);
+    sortedInputs.put(dirPath.relativeTo(execRoot), dir);
+    metadata.put(dir, FileArtifactValue.createForTesting(dirPath));
+
+    SingleBuildFileCache fileCache =
+        new SingleBuildFileCache(
+            execRoot.getPathString(), execRoot.getFileSystem(), SyscallCache.NO_CACHE);
+    InputMetadataProvider inputMetadataProvider =
+        new DelegatingPairInputMetadataProvider(
+            new StaticInputMetadataProvider(metadata), fileCache);
+
+    DirectoryTree tree =
+        DirectoryTreeBuilder.fromActionInputs(
+            sortedInputs,
+            ImmutableSet.of(),
+            inputMetadataProvider,
+            execRoot,
+            ArtifactPathResolver.forExecRoot(execRoot),
+            /* spawnScrubber= */ null,
+            digestUtil);
+    assertLexicographicalOrder(tree);
+
+    FileNode expectedBarNode = FileNode.create("bar.cc", barPath, digestUtil.computeAsUtf8("bar"));
+    assertThat(fileNodesAtDepth(tree, 2)).containsExactly(expectedBarNode);
+    // The metadata of the discovered file has been recorded in the per-build cache.
+    assertThat(fileCache.getInput("srcs/dir/bar.cc")).isNotNull();
+
+    // Building another tree for the same directory input within the same build reuses the cached
+    // metadata instead of reading the file again.
+    FileSystemUtils.writeContentAsLatin1(barPath, "modified");
+    tree =
+        DirectoryTreeBuilder.fromActionInputs(
+            sortedInputs,
+            ImmutableSet.of(),
+            inputMetadataProvider,
+            execRoot,
+            ArtifactPathResolver.forExecRoot(execRoot),
+            /* spawnScrubber= */ null,
+            digestUtil);
+    assertThat(fileNodesAtDepth(tree, 2)).containsExactly(expectedBarNode);
+  }
+
+  @Test
+  public void directoryInputChildrenNotResolvableViaExecRootAreDigestedAtRealPath()
+      throws Exception {
+    // Files in an external repository backed by the remote repo contents cache may only exist in
+    // an in-memory file system overlaid over the output base, in which case the input metadata
+    // provider fails to resolve them via the exec root. Simulate this with a directory input under
+    // the external source root that has no counterpart under the exec root.
+    SortedMap<PathFragment, ActionInput> sortedInputs = new TreeMap<>();
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+
+    Path repoPath = execRoot.getFileSystem().getPath("/output_base/external/repo");
+    ArtifactRoot externalRoot = ArtifactRoot.asExternalSourceRoot(Root.fromPath(repoPath));
+    Path dirPath = repoPath.getRelative("pkg");
+    dirPath.createDirectoryAndParents();
+    Path dataPath = dirPath.getRelative("data.txt");
+    FileSystemUtils.writeContentAsLatin1(dataPath, "hello");
+    Artifact dir =
+        ActionsTestUtil.createArtifactWithExecPath(
+            externalRoot, PathFragment.create("external/repo/pkg"));
+    assertThat(dir.getPath()).isEqualTo(dirPath);
+    sortedInputs.put(dir.getExecPath(), dir);
+    metadata.put(dir, FileArtifactValue.createForTesting(dirPath));
+
+    SingleBuildFileCache fileCache =
+        new SingleBuildFileCache(
+            execRoot.getPathString(), execRoot.getFileSystem(), SyscallCache.NO_CACHE);
+    InputMetadataProvider inputMetadataProvider =
+        new DelegatingPairInputMetadataProvider(
+            new StaticInputMetadataProvider(metadata), fileCache);
+
+    DirectoryTree tree =
+        DirectoryTreeBuilder.fromActionInputs(
+            sortedInputs,
+            ImmutableSet.of(),
+            inputMetadataProvider,
+            execRoot,
+            ArtifactPathResolver.forExecRoot(execRoot),
+            /* spawnScrubber= */ null,
+            digestUtil);
+    assertLexicographicalOrder(tree);
+
+    assertThat(directoriesAtDepth(0, tree)).containsExactly("external");
+    assertThat(directoriesAtDepth(1, tree)).containsExactly("repo");
+    assertThat(directoriesAtDepth(2, tree)).containsExactly("pkg");
+    assertThat(directoriesAtDepth(3, tree)).isEmpty();
+
+    FileNode expectedDataNode =
+        FileNode.create("data.txt", dataPath, digestUtil.computeAsUtf8("hello"));
+    assertThat(fileNodesAtDepth(tree, 3)).containsExactly(expectedDataNode);
   }
 
   private static VirtualActionInput addVirtualFile(
