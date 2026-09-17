@@ -208,9 +208,6 @@ java_library(
     ],
 )
 
-# TODO(kkress, adonovan) Eliminate this target, it is mostly unnecessary. It
-# depends on lib:build-base for BlazeDirectories, which it uses for a type
-# parameter, but the param is unused.
 java_library(
     name = "builder_factory_for_testing",
     srcs = ["BuilderFactoryForTesting.java"],
