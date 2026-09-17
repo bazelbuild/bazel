@@ -359,9 +359,9 @@ public final class Label
   }
 
   /**
-   * Returns the execution root for the workspace, relative to the execroot (e.g., for label
-   * {@code @repo//pkg:b}, it will returns {@code external/repo/pkg} and for label {@code //pkg:a},
-   * it will returns an empty string.
+   * Returns the execution root for the repository, relative to the execroot (e.g., for label
+   * {@code @repo//pkg:b}, it will return {@code external/repo} and for label {@code //pkg:a}, it
+   * will return an empty string).
    *
    * @deprecated The sole purpose of this method is to implement the workspace_root method. For
    *     other purposes, use {@link RepositoryName#getExecPath} instead.
@@ -370,13 +370,40 @@ public final class Label
       name = "workspace_root",
       structField = true,
       doc =
-          "Returns the execution root for the repository containing the target referred to by this"
-              + " label, relative to the execroot. For instance:<br><pre"
+          "<strong>Deprecated.</strong> The field name \"workspace root\" is a misnomer here; use"
+              + " the identically-behaving <a href=\"#repo_root\"><code>Label.repo_root</code></a>"
+              + " instead.<p>Returns the execution root for the repository containing the target"
+              + " referred to by this label, relative to the execroot. For instance:<br><pre"
               + " class=language-python>Label(\"@repo//pkg/foo:abc\").workspace_root =="
-              + " \"external/repo\"</pre>")
+              + " \"external/repo\"</pre>",
+      enableOnlyWithFlag = BuildLanguageOptions.INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS)
   @Deprecated
   public String getWorkspaceRootForStarlarkOnly() throws EvalException {
     checkRepoVisibilityForStarlark("workspace_root");
+    return packageIdentifier.getRepository().getExecPath().toString();
+  }
+
+  /**
+   * Returns the execution root for the repository, relative to the execroot (e.g., for label
+   * {@code @repo//pkg:b}, it will return {@code external/repo} and for label {@code //pkg:a}, it
+   * will return an empty string).
+   *
+   * @deprecated The sole purpose of this method is to implement the repo_root method. For other
+   *     purposes, use {@link RepositoryName#getExecPath} instead.
+   */
+  @StarlarkMethod(
+      name = "repo_root",
+      structField = true,
+      doc =
+          "The root directory of the repository containing the target referred to by this label,"
+              + " relative to the execution root. This is the empty string for the main repository"
+              + " and <code>external/</code> followed by the canonical repository name for all"
+              + " other repositories. For instance:<br><pre"
+              + " class=language-python>Label(\"@@repo//pkg/foo:abc\").repo_root =="
+              + " \"external/repo\"</pre>")
+  @Deprecated
+  public String getRepoRootForStarlarkOnly() throws EvalException {
+    checkRepoVisibilityForStarlark("repo_root");
     return packageIdentifier.getRepository().getExecPath().toString();
   }
 
