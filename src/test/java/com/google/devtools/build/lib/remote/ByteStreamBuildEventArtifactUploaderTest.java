@@ -81,6 +81,7 @@ import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import io.reactivex.rxjava3.core.Single;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -992,6 +993,260 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         assertThrows(
             IllegalStateException.class, () -> pathConverter.apply(fs.getPath("/undeclared")));
     assertThat(e).hasMessageThat().contains("Illegal file reference: '/undeclared'");
+    artifactUploader.release();
+  }
+
+  @Test
+  public void sameFileAcrossEvents_queriedAndUploadedOnce_sharesUri() throws Exception {
+    // Every TargetCompleteEvent references its full transitive output set, so the same file is
+    // passed to upload() once per depending target. Within a build it only needs handling once.
+    Path file = fs.getPath("/shared-file");
+    FileSystemUtils.writeContent(file, StandardCharsets.UTF_8, "shared contents");
+    Digest digest = DIGEST_UTIL.compute(file);
+    StaticMissingDigestsFinder digestQuerier =
+        Mockito.spy(new StaticMissingDigestsFinder(ImmutableSet.of()));
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = spy(newCombinedCache(refCntChannel, retrier, digestQuerier));
+    doAnswer(invocationOnMock -> Futures.immediateFuture(null))
+        .when(combinedCache)
+        .uploadFile(any(), any(), any());
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
+    ImmutableMap<Path, LocalFile> files =
+        ImmutableMap.of(
+            file, new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null));
+
+    PathConverter first = artifactUploader.upload(files).get();
+    PathConverter second = artifactUploader.upload(files).get();
+
+    verify(digestQuerier, times(1)).findMissingDigests(any(), any());
+    verify(combinedCache, times(1)).uploadFile(any(), eq(digest), any());
+    String uri = first.apply(file);
+    assertThat(uri)
+        .isEqualTo(
+            "bytestream://localhost/instance/blobs/"
+                + digest.getHash()
+                + "/"
+                + digest.getSizeBytes());
+    // All pending events share a single URI string per file.
+    assertThat(second.apply(file)).isSameInstanceAs(uri);
+    assertThat(eventHandler.getEvents()).isEmpty();
+    artifactUploader.release();
+  }
+
+  @Test
+  public void sameFileAcrossEvents_minimalMode_sharesUriWithoutQueryOrUpload() throws Exception {
+    byte[] blob = "contents of a file that is not present locally".getBytes(StandardCharsets.UTF_8);
+    Digest digest = DIGEST_UTIL.compute(blob);
+    Path file = fs.getPath("/file");
+    FileArtifactValue metadata =
+        FileArtifactValue.createForVirtualActionInput(
+            HashCode.fromString(digest.getHash()).asBytes(), digest.getSizeBytes());
+    StaticMissingDigestsFinder digestQuerier =
+        Mockito.spy(new StaticMissingDigestsFinder(ImmutableSet.of()));
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = spy(newCombinedCache(refCntChannel, retrier, digestQuerier));
+    ByteStreamBuildEventArtifactUploader artifactUploader =
+        newArtifactUploader(combinedCache, RemoteBuildEventUploadMode.MINIMAL);
+    ImmutableMap<Path, LocalFile> files =
+        ImmutableMap.of(file, new LocalFile(file, LocalFileType.OUTPUT_FILE, metadata));
+
+    PathConverter first = artifactUploader.upload(files).get();
+    PathConverter second = artifactUploader.upload(files).get();
+
+    verify(digestQuerier, times(0)).findMissingDigests(any(), any());
+    verify(combinedCache, times(0)).uploadFile(any(), any(), any());
+    assertThat(first.apply(file)).contains(digest.getHash());
+    assertThat(second.apply(file)).isSameInstanceAs(first.apply(file));
+    artifactUploader.release();
+  }
+
+  @Test
+  public void sameFileAcrossEvents_differentContent_notShared() throws Exception {
+    Path file = fs.getPath("/file");
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = spy(newCombinedCache(refCntChannel, retrier));
+    doAnswer(invocationOnMock -> Futures.immediateFuture(null))
+        .when(combinedCache)
+        .uploadFile(any(), any(), any());
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
+    ImmutableMap<Path, LocalFile> files =
+        ImmutableMap.of(
+            file, new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null));
+
+    FileSystemUtils.writeContent(file, StandardCharsets.UTF_8, "version 1");
+    Digest digest1 = DIGEST_UTIL.compute(file);
+    PathConverter first = artifactUploader.upload(files).get();
+    FileSystemUtils.writeContent(file, StandardCharsets.UTF_8, "version 2");
+    Digest digest2 = DIGEST_UTIL.compute(file);
+    PathConverter second = artifactUploader.upload(files).get();
+
+    verify(combinedCache, times(1)).uploadFile(any(), eq(digest1), any());
+    verify(combinedCache, times(1)).uploadFile(any(), eq(digest2), any());
+    assertThat(first.apply(file)).contains(digest1.getHash());
+    assertThat(second.apply(file)).contains(digest2.getHash());
+    artifactUploader.release();
+  }
+
+  @Test
+  public void buildToolLogAcrossEvents_notShared() throws Exception {
+    Path log = fs.getPath("/command.log");
+    FileSystemUtils.writeContent(log, StandardCharsets.UTF_8, "log contents");
+    Digest digest = DIGEST_UTIL.compute(log);
+    StaticMissingDigestsFinder digestQuerier =
+        Mockito.spy(new StaticMissingDigestsFinder(ImmutableSet.of()));
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = spy(newCombinedCache(refCntChannel, retrier, digestQuerier));
+    doAnswer(invocationOnMock -> Futures.immediateFuture(null))
+        .when(combinedCache)
+        .uploadFile(any(), any(), any());
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
+    ImmutableMap<Path, LocalFile> files =
+        ImmutableMap.of(log, new LocalFile(log, LocalFileType.LOG, /* artifactMetadata= */ null));
+
+    PathConverter first = artifactUploader.upload(files).get();
+    PathConverter second = artifactUploader.upload(files).get();
+
+    verify(digestQuerier, times(2)).findMissingDigests(any(), any());
+    verify(combinedCache, times(2)).uploadFile(any(), eq(digest), any());
+    assertThat(first.apply(log)).isEqualTo(second.apply(log));
+    artifactUploader.release();
+  }
+
+  @Test
+  public void failedUploadAcrossEvents_notShared_retriedByNextEvent() throws Exception {
+    Path file = fs.getPath("/flaky-file");
+    FileSystemUtils.writeContent(file, StandardCharsets.UTF_8, "contents");
+    Digest digest = DIGEST_UTIL.compute(file);
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = spy(newCombinedCache(refCntChannel, retrier));
+    AtomicInteger uploadAttempts = new AtomicInteger();
+    doAnswer(
+            invocationOnMock ->
+                uploadAttempts.getAndIncrement() == 0
+                    ? Futures.immediateFailedFuture(new IOException("upload failed"))
+                    : Futures.immediateFuture(null))
+        .when(combinedCache)
+        .uploadFile(any(), any(), any());
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
+    ImmutableMap<Path, LocalFile> files =
+        ImmutableMap.of(
+            file, new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null));
+
+    PathConverter first = artifactUploader.upload(files).get();
+    PathConverter second = artifactUploader.upload(files).get();
+
+    verify(combinedCache, times(2)).uploadFile(any(), eq(digest), any());
+    // The failed upload falls back to file:// and is not remembered; the next event retries.
+    assertThat(first.apply(file)).isEqualTo("file://" + file.getPathString());
+    assertThat(second.apply(file)).contains(digest.getHash());
+    assertThat(eventHandler.getEvents()).hasSize(1);
+    artifactUploader.release();
+  }
+
+  @Test
+  public void minimalMode_failedTestLogUpload_retriedByNextEvent() throws Exception {
+    // In MINIMAL mode a file is reported with a bytestream:// URI whether or not its upload
+    // succeeded, so a failed upload must not be remembered as present for later events.
+    Path log = fs.getPath("/execroot/bazel-out/k8-fastbuild/testlogs/foo/test.log");
+    log.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContent(log, StandardCharsets.UTF_8, "test log");
+    Digest digest = DIGEST_UTIL.compute(log);
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = spy(newCombinedCache(refCntChannel, retrier));
+    AtomicInteger uploadAttempts = new AtomicInteger();
+    doAnswer(
+            invocationOnMock ->
+                uploadAttempts.getAndIncrement() == 0
+                    ? Futures.immediateFailedFuture(new IOException("upload failed"))
+                    : Futures.immediateFuture(null))
+        .when(combinedCache)
+        .uploadFile(any(), any(), any());
+    ByteStreamBuildEventArtifactUploader artifactUploader =
+        newArtifactUploader(combinedCache, RemoteBuildEventUploadMode.MINIMAL);
+    ImmutableMap<Path, LocalFile> files =
+        ImmutableMap.of(
+            log,
+            new LocalFile(log, LocalFileType.SUCCESSFUL_TEST_OUTPUT, /* artifactMetadata= */ null));
+
+    PathConverter first = artifactUploader.upload(files).get();
+    PathConverter second = artifactUploader.upload(files).get();
+    PathConverter third = artifactUploader.upload(files).get();
+
+    // The first upload failed and was retried by the second event; the third event then hit the
+    // cache.
+    verify(combinedCache, times(2)).uploadFile(any(), eq(digest), any());
+    assertThat(first.apply(log)).contains(digest.getHash());
+    assertThat(second.apply(log)).contains(digest.getHash());
+    assertThat(third.apply(log)).isSameInstanceAs(second.apply(log));
+    assertThat(eventHandler.getEvents()).hasSize(1);
+    artifactUploader.release();
+  }
+
+  @Test
+  public void pathConvertersAcrossEvents_shareKeysAndUris() throws Exception {
+    // Every event resolves its paths through its own file system, so unless the converters
+    // intern their keys, each pending event retains its own copy of every referenced path.
+    Path file = fs.getPath("/shared-file");
+    FileSystemUtils.writeContent(file, StandardCharsets.UTF_8, "shared contents");
+    Digest digest = DIGEST_UTIL.compute(file);
+    FileSystem otherFs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
+    Path fileOnOtherFs = otherFs.getPath(file.getPathString());
+    FileSystemUtils.writeContent(fileOnOtherFs, StandardCharsets.UTF_8, "shared contents");
+    assertThat(fileOnOtherFs.asFragment()).isNotSameInstanceAs(file.asFragment());
+    StaticMissingDigestsFinder digestQuerier =
+        new StaticMissingDigestsFinder(ImmutableSet.of(digest));
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier, digestQuerier);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
+
+    PathConverter first =
+        artifactUploader
+            .upload(
+                ImmutableMap.of(
+                    file,
+                    new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null)))
+            .get();
+    PathConverter second =
+        artifactUploader
+            .upload(
+                ImmutableMap.of(
+                    fileOnOtherFs,
+                    new LocalFile(
+                        fileOnOtherFs, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null)))
+            .get();
+
+    assertThat(second.apply(fileOnOtherFs)).isSameInstanceAs(first.apply(file));
+    // Both converters together retain a single PathFragment (the key) and two Strings (the path
+    // and the URI).
+    GraphLayout layout = GraphLayout.parseInstance(first, second);
+    long pathFragments =
+        layout.getClasses().stream()
+            .filter(PathFragment.class::isAssignableFrom)
+            .mapToLong(cls -> layout.getClassCounts().count(cls))
+            .sum();
+    assertThat(pathFragments).isEqualTo(1);
+    assertThat(layout.getClassCounts().count(String.class)).isEqualTo(2);
     artifactUploader.release();
   }
 

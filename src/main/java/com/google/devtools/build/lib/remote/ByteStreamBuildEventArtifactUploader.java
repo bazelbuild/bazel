@@ -23,17 +23,21 @@ import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMess
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -59,6 +63,7 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -69,6 +74,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   private static final Pattern TEST_LOG_PATTERN = Pattern.compile(".*/bazel-out/[^/]*/testlogs/.*");
   private static final Pattern BUILD_LOG_PATTERN =
       Pattern.compile(".*/bazel-out/_tmp/actions/std(err|out)-.*");
+  private static final long MAX_URI_CACHE_SIZE = 4_000_000;
 
   private final Executor executor;
   private final ExtendedEventHandler reporter;
@@ -85,6 +91,30 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   private final XattrProvider xattrProvider;
   private final RemoteBuildEventUploadMode remoteBuildEventUploadMode;
   private final int maximumOpenFiles;
+
+  /**
+   * The {@code bytestream://} URIs of files known to be present in the remote cache, keyed by
+   * path and digest.
+   *
+   * <p>Every {@code TargetCompleteEvent} references the complete transitive set of important
+   * outputs of its target, so a file shared by many targets is passed to {@link #upload} once per
+   * target. This cache makes sure such a file is queried and uploaded at most once per command,
+   * and that the {@link PathConverter}s of all pending events share a single URI string for it.
+   *
+   * <p>Values are held weakly: an entry lives exactly as long as some pending event still
+   * references its URI, so the cache retains nothing beyond what the pending events already do.
+   * The size bound only guards against pathological cases.
+   */
+  private final Cache<UriCacheKey, String> uriCache =
+      Caffeine.newBuilder().maximumSize(MAX_URI_CACHE_SIZE).weakValues().build();
+
+  /**
+   * Canonical instances of the path fragments that the {@link PathConverter}s of pending events
+   * use as keys. Every event resolves its paths through its own (possibly per-action) file system,
+   * so without interning each pending event would retain its own copy of the fragment and path
+   * string of every file it references. Weak, so it retains nothing beyond what the converters do.
+   */
+  private final Interner<PathFragment> pathFragmentInterner = BlazeInterners.newWeakInterner();
 
   ByteStreamBuildEventArtifactUploader(
       Executor executor,
@@ -129,6 +159,9 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     private final boolean specialFile;
     private final DigestFunction.Value digestFunction;
 
+    /** The URI an earlier event established for this file, if any. Implies {@link #remote}. */
+    @Nullable private final String uri;
+
     PathMetadata(
         Path path,
         Digest digest,
@@ -138,6 +171,28 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         boolean isBuildToolLog,
         boolean specialFile,
         DigestFunction.Value digestFunction) {
+      this(
+          path,
+          digest,
+          directory,
+          symlink,
+          remote,
+          isBuildToolLog,
+          specialFile,
+          digestFunction,
+          /* uri= */ null);
+    }
+
+    private PathMetadata(
+        Path path,
+        Digest digest,
+        boolean directory,
+        boolean symlink,
+        boolean remote,
+        boolean isBuildToolLog,
+        boolean specialFile,
+        DigestFunction.Value digestFunction,
+        @Nullable String uri) {
       this.path = path;
       this.digest = digest;
       this.directory = directory;
@@ -146,6 +201,21 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       this.isBuildToolLog = isBuildToolLog;
       this.specialFile = specialFile;
       this.digestFunction = digestFunction;
+      this.uri = uri;
+    }
+
+    /** Returns a copy for a file that is known to be present remotely under the given URI. */
+    PathMetadata withRemoteUri(String uri) {
+      return new PathMetadata(
+          path,
+          digest,
+          directory,
+          symlink,
+          /* remote= */ true,
+          isBuildToolLog,
+          specialFile,
+          digestFunction,
+          uri);
     }
 
     public Path getPath() {
@@ -179,6 +249,71 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     public DigestFunction.Value getDigestFunction() {
       return digestFunction;
     }
+
+    @Nullable
+    String getUri() {
+      return uri;
+    }
+  }
+
+  /** Key of {@link #uriCache}: within a command, a file is identified by its path and content. */
+  private record UriCacheKey(PathFragment path, Digest digest) {}
+
+  @Nullable
+  private UriCacheKey uriCacheKey(PathMetadata file) {
+    // Build tool logs are written while the build runs and are not shared between events.
+    if (file.getDigest() == null || file.isBuildToolLog()) {
+      return null;
+    }
+    return new UriCacheKey(
+        pathFragmentInterner.intern(file.getPath().asFragment()), file.getDigest());
+  }
+
+  /**
+   * Returns {@code file} marked as remote if an earlier event already established that it is
+   * present in the remote cache, so that it is neither queried nor uploaded again.
+   */
+  private PathMetadata withCachedUri(PathMetadata file) {
+    UriCacheKey key = uriCacheKey(file);
+    if (key == null) {
+      return file;
+    }
+    String uri = uriCache.getIfPresent(key);
+    return uri != null ? file.withRemoteUri(uri) : file;
+  }
+
+  /**
+   * Returns the {@code bytestream://} URI of a file, sharing a single {@link String} among all
+   * events of this command that reference the file where possible.
+   */
+  private String bytestreamUri(String remoteServerInstanceName, PathMetadata file) {
+    if (file.getUri() != null) {
+      return file.getUri();
+    }
+    // A cached URI marks the file as present remotely for later events, so only remember files
+    // that are known to be present or that this mode never uploads anyway. In particular, a file
+    // whose upload failed (which in MINIMAL mode still gets a bytestream:// URI) must be retried by
+    // the next event that references it.
+    UriCacheKey key = file.isRemote() || !isUploadCandidate(file) ? uriCacheKey(file) : null;
+    if (key == null) {
+      return computeBytestreamUri(
+          remoteServerInstanceName, file.getDigest(), file.getDigestFunction());
+    }
+    return uriCache.get(
+        key,
+        unused ->
+            computeBytestreamUri(
+                remoteServerInstanceName, file.getDigest(), file.getDigestFunction()));
+  }
+
+  private static String computeBytestreamUri(
+      String remoteServerInstanceName, Digest digest, DigestFunction.Value digestFunction) {
+    StringBuilder uri =
+        new StringBuilder("bytestream://").append(remoteServerInstanceName).append("/blobs/");
+    if (!isOldStyleDigestFunction(digestFunction)) {
+      uri.append(Ascii.toLowerCase(digestFunction.getValueDescriptor().getName())).append('/');
+    }
+    return uri.append(digest.getHash()).append('/').append(digest.getSizeBytes()).toString();
   }
 
   /**
@@ -305,9 +440,13 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   }
 
   private boolean shouldUpload(PathMetadata path) {
+    return !path.isRemote() && isUploadCandidate(path);
+  }
+
+  /** Returns whether the file would be uploaded if it were not already present remotely. */
+  private boolean isUploadCandidate(PathMetadata path) {
     boolean result =
         path.getDigest() != null
-            && !path.isRemote()
             && !path.isDirectory()
             && !path.isSymlink()
             && !path.isSpecialFile();
@@ -446,7 +585,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                       Path path = entry.getKey();
                       LocalFile file = entry.getValue();
                       try {
-                        return readPathMetadata(path, file);
+                        return withCachedUri(readPathMetadata(path, file));
                       } catch (IOException e) {
                         reportUploadError(e, path, null);
                         return new PathMetadata(
@@ -469,9 +608,10 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                             .map(
                                 remoteServerInstanceName ->
                                     new PathConverterImpl(
-                                        remoteServerInstanceName,
                                         paths,
-                                        remoteBuildEventUploadMode))),
+                                        remoteBuildEventUploadMode,
+                                        file -> bytestreamUri(remoteServerInstanceName, file),
+                                        pathFragmentInterner))),
         CombinedCache::release);
   }
 
@@ -528,24 +668,23 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     private final ImmutableSet<PathFragment> skippedPaths;
 
     PathConverterImpl(
-        String remoteServerInstanceName,
         List<PathMetadata> uploads,
-        RemoteBuildEventUploadMode remoteBuildEventUploadMode) {
+        RemoteBuildEventUploadMode remoteBuildEventUploadMode,
+        Function<PathMetadata, String> bytestreamUri,
+        Interner<PathFragment> pathFragmentInterner) {
       Preconditions.checkNotNull(uploads);
       ImmutableMap.Builder<PathFragment, String> pathToUri =
           ImmutableMap.builderWithExpectedSize(uploads.size());
       ImmutableSet.Builder<PathFragment> localPaths = ImmutableSet.builder();
       ImmutableSet.Builder<PathFragment> skippedPaths = ImmutableSet.builder();
       for (PathMetadata metadata : uploads) {
-        PathFragment path = metadata.getPath().asFragment();
+        PathFragment path = pathFragmentInterner.intern(metadata.getPath().asFragment());
         Digest digest = metadata.getDigest();
         if (digest != null) {
           // Always use bytestream:// in MINIMAL mode
           if (remoteBuildEventUploadMode == RemoteBuildEventUploadMode.MINIMAL
               || metadata.isRemote()) {
-            pathToUri.put(
-                path,
-                bytestreamUri(remoteServerInstanceName, digest, metadata.getDigestFunction()));
+            pathToUri.put(path, bytestreamUri.apply(metadata));
           } else {
             localPaths.add(path);
           }
@@ -559,16 +698,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       this.pathToUri = pathToUri.buildKeepingLast();
       this.localPaths = localPaths.build();
       this.skippedPaths = skippedPaths.build();
-    }
-
-    private static String bytestreamUri(
-        String remoteServerInstanceName, Digest digest, DigestFunction.Value digestFunction) {
-      StringBuilder uri =
-          new StringBuilder("bytestream://").append(remoteServerInstanceName).append("/blobs/");
-      if (!isOldStyleDigestFunction(digestFunction)) {
-        uri.append(Ascii.toLowerCase(digestFunction.getValueDescriptor().getName())).append('/');
-      }
-      return uri.append(digest.getHash()).append('/').append(digest.getSizeBytes()).toString();
     }
 
     @Override
