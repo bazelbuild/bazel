@@ -63,11 +63,16 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
       IgnoredSubdirectories forbiddenSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException {
+    // Filtering for the directory being traversed is what lets an explicitly named directory be
+    // traversed even when it would be skipped as a subdirectory of some ancestor. See
+    // IgnoredSubdirectories#filterForDirectory.
+    IgnoredSubdirectories filteredForbiddenSubdirectories =
+        forbiddenSubdirectories.filterForDirectory(directory);
     TreeSet<TraversalInfo> dirsToCheckForPackages = new TreeSet<>(TRAVERSAL_INFO_COMPARATOR);
     for (Root root : roots) {
       RootedPath rootedDir = RootedPath.toRootedPath(root, directory);
       dirsToCheckForPackages.add(
-          new TraversalInfo(rootedDir, forbiddenSubdirectories, excludedSubdirectories));
+          new TraversalInfo(rootedDir, filteredForbiddenSubdirectories, excludedSubdirectories));
     }
     PackageCollectingParallelVisitor visitor =
         new PackageCollectingParallelVisitor(

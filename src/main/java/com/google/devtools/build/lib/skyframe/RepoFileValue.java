@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -27,18 +28,24 @@ import com.google.devtools.build.skyframe.SkyValue;
 /** Contains information about the REPO.bazel file at the root of a repo. */
 @AutoCodec
 public record RepoFileValue(
-    ImmutableMap<String, Object> packageArgsMap, ImmutableList<String> ignoredDirectories)
+    ImmutableMap<String, Object> packageArgsMap,
+    ImmutableList<String> ignoredDirectories,
+    ImmutableList<PathFragment> traversalIgnoreDirectories)
     implements SkyValue {
   public RepoFileValue {
     requireNonNull(packageArgsMap, "packageArgsMap");
     requireNonNull(ignoredDirectories, "ignoredDirectories");
+    requireNonNull(traversalIgnoreDirectories, "traversalIgnoreDirectories");
   }
 
-  public static final RepoFileValue EMPTY = of(ImmutableMap.of(), ImmutableList.of());
+  public static final RepoFileValue EMPTY =
+      of(ImmutableMap.of(), ImmutableList.of(), ImmutableList.of());
 
   public static RepoFileValue of(
-      ImmutableMap<String, Object> packageArgsMap, ImmutableList<String> ignoredDirectories) {
-    return new RepoFileValue(packageArgsMap, ignoredDirectories);
+      ImmutableMap<String, Object> packageArgsMap,
+      ImmutableList<String> ignoredDirectories,
+      ImmutableList<PathFragment> traversalIgnoreDirectories) {
+    return new RepoFileValue(packageArgsMap, ignoredDirectories, traversalIgnoreDirectories);
   }
 
   public static Key key(RepositoryName repoName) {
