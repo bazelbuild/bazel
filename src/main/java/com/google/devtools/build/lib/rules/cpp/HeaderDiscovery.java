@@ -36,9 +36,11 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -62,7 +64,7 @@ final class HeaderDiscovery {
    * <p>Artifacts are considered inputs but not "mandatory" inputs.
    *
    * @throws ActionExecutionException iff the .d is missing (when required), malformed, or has
-   *     unresolvable included artifacts.
+   *     unresolvable included artifacts and {@code ignoreUnresolvableDepPaths} is false.
    */
   static NestedSet<Artifact> discoverInputsFromDependencies(
       Action action,
@@ -71,14 +73,19 @@ final class HeaderDiscovery {
       Collection<Path> dependencies,
       List<Path> permittedSystemIncludePrefixes,
       NestedSet<Artifact> allowedDerivedInputs,
+      boolean ignoreUnresolvableDepPaths,
       Path execRoot,
       ArtifactResolver artifactResolver,
       PathMapper pathMapper)
       throws ActionExecutionException {
     Map<PathFragment, Artifact> regularDerivedArtifacts = new HashMap<>();
     Map<PathFragment, SpecialArtifact> treeArtifacts = new HashMap<>();
+    Set<Artifact> allowedSourceInputs = ignoreUnresolvableDepPaths ? new HashSet<>() : null;
     for (Artifact a : allowedDerivedInputs.toList()) {
       if (a.isSourceArtifact()) {
+        if (allowedSourceInputs != null) {
+          allowedSourceInputs.add(a);
+        }
         continue;
       }
       // We may encounter duplicate keys in the derived inputs if two artifacts have different
@@ -107,6 +114,8 @@ final class HeaderDiscovery {
         permittedSystemIncludePrefixes,
         regularDerivedArtifacts,
         treeArtifacts,
+        allowedSourceInputs,
+        ignoreUnresolvableDepPaths,
         execRoot,
         artifactResolver,
         pathMapper);
@@ -120,6 +129,8 @@ final class HeaderDiscovery {
       List<Path> permittedSystemIncludePrefixes,
       Map<PathFragment, Artifact> regularDerivedArtifacts,
       Map<PathFragment, SpecialArtifact> treeArtifacts,
+      @Nullable Set<Artifact> allowedSourceInputs,
+      boolean ignoreUnresolvableDepPaths,
       Path execRoot,
       ArtifactResolver artifactResolver,
       PathMapper pathMapper)
@@ -180,6 +191,15 @@ final class HeaderDiscovery {
       } else {
         resolvedArtifacts = ImmutableList.of(derivedArtifact);
       }
+      if (allowedSourceInputs != null) {
+        // Source resolution can create artifacts for paths that do not exist, including compiler
+        // dependency metadata. Only declared source inputs are discoverable when ignoring such
+        // entries; successfully resolving a source artifact alone does not make it an input.
+        resolvedArtifacts =
+            Collections2.filter(
+                resolvedArtifacts,
+                a -> !a.isSourceArtifact() || allowedSourceInputs.contains(a));
+      }
       if (!resolvedArtifacts.isEmpty()) {
         // We don't need to add the sourceFile itself as it is a mandatory input.
         resolvedArtifacts = Collections2.filter(resolvedArtifacts, a -> !a.equals(sourceFile));
@@ -219,9 +239,12 @@ final class HeaderDiscovery {
           findOwningTreeArtifact(execPathFragment, treeArtifacts, pathMapper);
       if (treeArtifact != null) {
         inputs.add(treeArtifact);
-      } else {
+      } else if (!ignoreUnresolvableDepPaths) {
         // Record a problem if we see files that we can't resolve, likely caused by undeclared
-        // includes or illegal include constructs.
+        // includes or illegal include constructs. Some compilers (notably GCC in C++20 module
+        // builds) also list non-input entries such as Makefile metadata in dependency files;
+        // toolchains for such compilers can request the ignore_unresolvable_dep_paths feature to
+        // skip them.
         unresolvablePathProblems.add(execPathFragment.getPathString());
       }
     }
