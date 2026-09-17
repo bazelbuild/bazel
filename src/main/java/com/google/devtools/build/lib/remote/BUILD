@@ -1253,7 +1253,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:param_file_action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:virtual_action_input",
-        "//src/main/java/com/google/devtools/build/lib/analysis:constraints/constraint_constants",
+        "//src/main/java/com/google/devtools/build/lib/analysis/constraints:constraint_constants",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:platform_utils",
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper",

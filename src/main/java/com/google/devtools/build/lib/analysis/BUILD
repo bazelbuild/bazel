@@ -9,6 +9,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/lib/analysis/config:srcs",
+        "//src/main/java/com/google/devtools/build/lib/analysis/constraints:srcs",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:srcs",
         "//src/main/java/com/google/devtools/build/lib/analysis/producers:srcs",
         "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations:srcs",
@@ -147,11 +148,6 @@ java_library(
         ":blaze_version_info",
         ":build_setting_provider",
         ":configured_target",
-        ":constraints/constraint_constants",
-        ":constraints/constraint_semantics",
-        ":constraints/environment_collection",
-        ":constraints/supported_environments",
-        ":constraints/supported_environments_provider",
         ":dependency_kind",
         ":dormant_dependency",
         ":exec_group_collection",
@@ -160,7 +156,6 @@ java_library(
         ":file_provider",
         ":incompatible_platform_provider",
         ":inconsistent_aspect_order_exception",
-        ":label_and_location",
         ":label_expander",
         ":make_variable_supplier",
         ":options_diff_predicate",
@@ -179,7 +174,6 @@ java_library(
         ":starlark/bazel_build_api_globals",
         ":starlark/function_transition_util",
         ":starlark/starlark_api_provider",
-        ":starlark/starlark_error_reporter",
         ":starlark/starlark_exec_group_collection",
         ":starlark/starlark_late_bound_default",
         ":starlark/starlark_toolchain_context",
@@ -248,6 +242,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:split_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:starlark_exposed_rule_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:transition_factory",
+        "//src/main/java/com/google/devtools/build/lib/analysis/constraints:constraint_constants",
+        "//src/main/java/com/google/devtools/build/lib/analysis/constraints:constraint_semantics",
+        "//src/main/java/com/google/devtools/build/lib/analysis/constraints:environment_collection",
+        "//src/main/java/com/google/devtools/build/lib/analysis/constraints:supported_environments",
+        "//src/main/java/com/google/devtools/build/lib/analysis/constraints:supported_environments_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:constants",
         "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate",
@@ -535,9 +534,6 @@ java_library(
         ":analysis_phase_started_event",
         ":blaze_directories",
         ":configured_target",
-        ":constraints/platform_restrictions_result",
-        ":constraints/rule_context_constraint_semantics",
-        ":constraints/top_level_constraint_semantics",
         ":extra_action_artifacts_provider",
         ":make_environment_event",
         ":platform_options",
@@ -556,6 +552,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:invalid_configuration_exception",
+        "//src/main/java/com/google/devtools/build/lib/analysis/constraints:platform_restrictions_result",
+        "//src/main/java/com/google/devtools/build/lib/analysis/constraints:rule_context_constraint_semantics",
+        "//src/main/java/com/google/devtools/build/lib/analysis/constraints:top_level_constraint_semantics",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -1538,179 +1537,6 @@ java_library(
     ],
 )
 
-# TODO(b/144899336): This should be analysis/constraints/BUILD
-java_library(
-    name = "constraints/constraint_constants",
-    srcs = ["constraints/ConstraintConstants.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//third_party/java/guava:annotations",
-        "//third_party/java/guava:collect",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "constraints/constraint_semantics",
-    srcs = ["constraints/ConstraintSemantics.java"],
-    deps = [
-        ":constraints/constraint_constants",
-        ":constraints/environment_collection",
-        ":constraints/supported_environments_provider",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
-        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "constraints/environment",
-    srcs = ["constraints/Environment.java"],
-    deps = [
-        ":analysis_cluster",
-        ":configured_target",
-        ":constraints/constraint_semantics",
-        ":constraints/environment_collection",
-        ":constraints/supported_environments",
-        ":constraints/supported_environments_provider",
-        ":file_provider",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//third_party/java/guava:collect",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "constraints/environment_collection",
-    srcs = ["constraints/EnvironmentCollection.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
-        "//third_party/java/auto:auto_value",
-        "//third_party/java/guava:base",
-        "//third_party/java/guava:collect",
-    ],
-)
-
-java_library(
-    name = "constraints/environment_rule",
-    srcs = ["constraints/EnvironmentRule.java"],
-    deps = [
-        ":analysis_cluster",
-        ":constraints/constraint_constants",
-        ":constraints/environment",
-        ":rule_definition_environment",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:no_config_transition",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/util:filetype",
-        "//third_party/java/guava:collect",
-    ],
-)
-
-java_library(
-    name = "constraints/supported_environments",
-    srcs = ["constraints/SupportedEnvironments.java"],
-    deps = [
-        ":constraints/environment_collection",
-        ":constraints/supported_environments_provider",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//third_party/java/guava:collect",
-    ],
-)
-
-java_library(
-    name = "constraints/supported_environments_provider",
-    srcs = ["constraints/SupportedEnvironmentsProvider.java"],
-    deps = [
-        ":constraints/environment_collection",
-        ":label_and_location",
-        ":transitive_info_provider",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//third_party/java/auto:auto_value",
-    ],
-)
-
-java_library(
-    name = "constraints/platform_restrictions_result",
-    srcs = ["constraints/PlatformRestrictionsResult.java"],
-    deps = [
-        ":configured_target",
-        "//third_party/java/auto:auto_value",
-        "//third_party/java/guava:collect",
-    ],
-)
-
-java_library(
-    name = "constraints/rule_context_constraint_semantics",
-    srcs = ["constraints/RuleContextConstraintSemantics.java"],
-    deps = [
-        ":analysis_cluster",
-        ":configured_target",
-        ":constraints/constraint_semantics",
-        ":constraints/environment_collection",
-        ":constraints/supported_environments_provider",
-        ":incompatible_platform_provider",
-        ":label_and_location",
-        ":transitive_info_collection",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//third_party/java/guava:base",
-        "//third_party/java/guava:collect",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "constraints/top_level_constraint_semantics",
-    srcs = [
-        "constraints/TopLevelConstraintSemantics.java",
-    ],
-    exports = [
-        ":constraints/platform_restrictions_result",
-        ":constraints/rule_context_constraint_semantics",
-    ],
-    deps = [
-        ":analysis_cluster",
-        ":configured_target",
-        ":constraints/constraint_semantics",
-        ":constraints/environment_collection",
-        ":constraints/platform_restrictions_result",
-        ":constraints/rule_context_constraint_semantics",
-        ":constraints/supported_environments_provider",
-        ":incompatible_platform_provider",
-        ":transitive_info_collection",
-        ":view_creation_failed_exception",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/config",
-        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//third_party/java/auto:auto_value",
-        "//third_party/java/guava:base",
-        "//third_party/java/guava:collect",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
 # TODO(b/144899336): This should be analysis/extra/BUILD
 java_library(
     name = "extra/extra_action_info_file_write_action",
@@ -1728,44 +1554,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:proto_deterministic_writer",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party/java/guava:base",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
-    name = "constraints/incompatible_target_checker",
-    srcs = ["constraints/IncompatibleTargetChecker.java"],
-    deps = [
-        ":analysis_cluster",
-        ":configured_target",
-        ":configured_target_value",
-        ":constraints/rule_context_constraint_semantics",
-        ":constraints/supported_environments",
-        ":dependency_kind",
-        ":file_provider",
-        ":incompatible_platform_provider",
-        ":target_and_configuration",
-        ":test/test_configuration",
-        ":transitive_dependency_state",
-        ":transitive_info_provider_map_builder",
-        ":visibility_provider",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:config_conditions",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:config_matching_provider",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:configured_attribute_mapper",
-        "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:rule_configured_target_value",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
     ],
 )

@@ -18,7 +18,7 @@ java_library(
     name = "bazel_java_semantics",
     srcs = ["BazelJavaSemantics.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:constraints/constraint_constants",
+        "//src/main/java/com/google/devtools/build/lib/analysis/constraints:constraint_constants",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
