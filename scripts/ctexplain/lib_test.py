@@ -16,10 +16,10 @@
 # pylint: disable=g-generic-assert
 import unittest
 from src.test.py.bazel import test_base
-import tools.ctexplain.bazel_api as bazel_api
-from tools.ctexplain.ctexplain_types import Configuration
-from tools.ctexplain.ctexplain_types import NullConfiguration
-import tools.ctexplain.lib as lib
+import scripts.ctexplain.bazel_api as bazel_api
+from scripts.ctexplain.ctexplain_types import Configuration
+from scripts.ctexplain.ctexplain_types import NullConfiguration
+import scripts.ctexplain.lib as lib
 
 
 class LibTest(test_base.TestBase):

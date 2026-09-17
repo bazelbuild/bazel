@@ -125,10 +125,6 @@ def main():
   # Adding contextlib.closing to be python 2.6 (for centos 6.7) compatible
   with contextlib.closing(
       zipfile.ZipFile(output_zip, 'w', zipfile.ZIP_DEFLATED)) as output_zip:
-    zipinfo = zipfile.ZipInfo('WORKSPACE', (1980, 1, 1, 0, 0, 0))
-    zipinfo.external_attr = 0o644 << 16
-    output_zip.writestr(zipinfo, 'workspace(name = "bazel_tools")\n')
-
     # By sorting the file list, the resulting ZIP file will be reproducible and
     # deterministic.
     for archive_file, input_file in sorted(input_files.items()):

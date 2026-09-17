@@ -42,11 +42,11 @@ from typing import Tuple
 from absl import app
 from absl import flags
 
-import tools.ctexplain.analyses.summary as summary
-from tools.ctexplain.bazel_api import BazelApi
-from tools.ctexplain.ctexplain_types import ConfiguredTarget
-import tools.ctexplain.lib as lib
-import tools.ctexplain.util as util
+import scripts.ctexplain.analyses.summary as summary
+from scripts.ctexplain.bazel_api import BazelApi
+from scripts.ctexplain.ctexplain_types import ConfiguredTarget
+import scripts.ctexplain.lib as lib
+import scripts.ctexplain.util as util
 
 FLAGS = flags.FLAGS
 

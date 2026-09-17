@@ -26,7 +26,7 @@ bazel aquery //path/to:target_two --output=textproto > \
     /path/to/output_two.textproto
 
 2. Run the differ from a bazel repo:
-bazel run //tools/aquery_differ:aquery_differ -- \
+bazel run //scripts/aquery_differ:aquery_differ -- \
 --before=/path/to/output_one.textproto \
 --after=/path/to/output_two.textproto \
 --input_type=textproto \
@@ -43,8 +43,8 @@ from absl import flags
 from google.protobuf import proto
 from google.protobuf import text_format
 from src.main.protobuf import analysis_v2_pb2
-from tools.aquery_differ.resolvers.dep_set_resolver import DepSetResolver
-from tools.aquery_differ.resolvers.path_fragment_resolver import PathFragmentResolver
+from scripts.aquery_differ.resolvers.dep_set_resolver import DepSetResolver
+from scripts.aquery_differ.resolvers.path_fragment_resolver import PathFragmentResolver
 # pylint: disable=g-import-not-at-top
 # resource lib isn't available on Windows.
 if os.name != "nt":

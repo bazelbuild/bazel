@@ -84,7 +84,7 @@ import javax.annotation.Nullable;
  * <p>The coverage report generation can have two phases, though they both run in the same action.
  * The source code of the coverage report tool {@code lcov_merger} is in the {@code
  * testing/coverage/lcov_merger} directory. The deployed binaries used by Blaze are under {@code
- * tools/coverage}.
+ * tools/test}.
  *
  * <p>The first phase is merging the individual coverage files into a single report file. The
  * location of this file is reported by Blaze. This phase always happens if the {@code
