@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformConfigurationApi;
 import com.google.devtools.build.lib.util.RegexFilter;
 import java.util.Collection;
+import java.util.regex.Pattern;
 
 /** A configuration fragment describing the current platform configuration. */
 @ThreadSafety.Immutable
@@ -117,5 +118,26 @@ public class PlatformConfiguration extends Fragment implements PlatformConfigura
     return labels.stream()
         .map(Label::getCanonicalForm)
         .anyMatch(this.toolchainResolutionDebugRegexFilter);
+  }
+
+  // All characters with special meaning anywhere in a regex (':' for example is only special
+  // within brackets).
+  private static final char[] REGEX_SPECIAL_CHARS = "+.|([{^$?\\*".toCharArray();
+
+  /**
+   * Returns a value for {@code --toolchain_resolution_debug} that matches exactly the given label,
+   * for use in error messages.
+   *
+   * <p>The filter is matched against {@link Label#getCanonicalForm}, so the canonical form is used
+   * even if the label has a shorter display form.
+   */
+  public static String toolchainResolutionDebugFilter(Label label) {
+    String canonicalForm = label.getCanonicalForm();
+    for (char c : REGEX_SPECIAL_CHARS) {
+      if (canonicalForm.indexOf(c) >= 0) {
+        return Pattern.quote(canonicalForm);
+      }
+    }
+    return canonicalForm;
   }
 }

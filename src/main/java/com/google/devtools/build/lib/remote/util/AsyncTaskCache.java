@@ -314,7 +314,7 @@ public final class AsyncTaskCache<KeyT, ValueT> {
         emitter -> {
           synchronized (lock) {
             if (state != STATE_ACTIVE) {
-              emitter.onError(new CancellationException("already shutdown"));
+              emitter.tryOnError(new CancellationException("already shutdown"));
               return;
             }
 
@@ -357,9 +357,9 @@ public final class AsyncTaskCache<KeyT, ValueT> {
 
                   @Override
                   public void onError(@NonNull Throwable e) {
-                    if (!emitter.isDisposed()) {
-                      emitter.onError(e);
-                    }
+                    // Don't report via RxJava's global error handler if the emitter has been
+                    // disposed.
+                    emitter.tryOnError(e);
                   }
                 });
           }
@@ -541,6 +541,13 @@ public final class AsyncTaskCache<KeyT, ValueT> {
     /** Returns a set of keys for tasks which is finished. */
     public ImmutableSet<KeyT> getFinishedTasks() {
       return cache.getFinishedTasks();
+    }
+
+    /**
+     * @see AsyncTaskCache#invalidate
+     */
+    public void invalidate(KeyT key) {
+      cache.invalidate(key);
     }
 
     /** Returns a set of keys for tasks which is still executing. */

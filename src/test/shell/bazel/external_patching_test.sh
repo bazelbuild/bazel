@@ -848,4 +848,139 @@ EOF
   grep -q 'New version' $foopath || fail "expected patch to be applied"
 }
 
+test_patch_directory() {
+  EXTREPODIR=`pwd`
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
+
+  # Verify that repository_ctx.patch can apply a patch inside a subdirectory
+  # of the repository.
+  mkdir main
+  cd main
+  cat > patch_foo.sh <<'EOF'
+--- a/foo.sh
++++ b/foo.sh
+@@ -1,3 +1,3 @@
+ #!/usr/bin/env sh
+
+-echo Here be dragons...
++echo There are dragons...
+EOF
+  cat > ext.bzl <<'EOF'
+def _impl(ctx):
+  ctx.download_and_extract(
+    url = ctx.attr.url,
+    output = "sub",
+    strip_prefix = "ext-0.1.2",
+  )
+  ctx.patch(ctx.attr.patch, strip = 1, directory = "sub")
+  ctx.file("BUILD", "exports_files([\"sub/foo.sh\"])")
+
+ext = repository_rule(
+  implementation = _impl,
+  attrs = {
+    "url": attr.string(),
+    "patch": attr.label(),
+  },
+)
+EOF
+  cat > $(setup_module_dot_bazel) <<EOF
+ext = use_repo_rule("//:ext.bzl", "ext")
+ext(
+  name="ext",
+  url="${EXTREPOURL}/ext.zip",
+  patch="//:patch_foo.sh",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "foo",
+  outs = ["foo.sh"],
+  srcs = ["@ext//:sub/foo.sh"],
+  cmd = "cp $< $@; chmod u+x $@",
+  executable = True,
+)
+EOF
+  bazel build :foo.sh
+  foopath=`bazel info bazel-genfiles`/foo.sh
+  grep -q 'There are' $foopath || fail "expected patch to be applied"
+}
+
+do_test_utils_patch_directory() {
+  EXTREPODIR=`pwd`
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
+
+  # Verify that the patch() helper in @bazel_tools honors patch_directory.
+  mkdir main
+  cd main
+  cat > patch_foo.sh <<'EOF'
+--- a/foo.sh
++++ b/foo.sh
+@@ -1,3 +1,3 @@
+ #!/usr/bin/env sh
+
+-echo Here be dragons...
++echo There are dragons...
+EOF
+  cat > ext.bzl <<EOF
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch")
+
+def _impl(ctx):
+  ctx.download_and_extract(
+    url = ctx.attr.url,
+    output = "sub",
+    strip_prefix = "ext-0.1.2",
+  )
+  patch(
+    ctx,
+    patch_args = ["-p1"],
+    patch_cmds = ["echo patched >> foo.sh"],
+    $1
+  )
+  ctx.file("BUILD", "exports_files([\"sub/foo.sh\"])")
+
+ext = repository_rule(
+  implementation = _impl,
+  attrs = {
+    "url": attr.string(),
+    "patches": attr.label_list(),
+    "patch_directory": attr.string(),
+  },
+)
+EOF
+  cat > $(setup_module_dot_bazel) <<EOF
+ext = use_repo_rule("//:ext.bzl", "ext")
+ext(
+  name="ext",
+  url="${EXTREPOURL}/ext.zip",
+  patches=["//:patch_foo.sh"],
+  $2
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "foo",
+  outs = ["foo.sh"],
+  srcs = ["@ext//:sub/foo.sh"],
+  cmd = "cp $< $@; chmod u+x $@",
+  executable = True,
+)
+EOF
+  bazel build :foo.sh
+  foopath=`bazel info bazel-genfiles`/foo.sh
+  grep -q 'There are' $foopath || fail "expected patch to be applied"
+  grep -q '^patched$' $foopath || fail "expected patch commands to run in patch_directory"
+}
+
+test_utils_patch_directory() {
+  do_test_utils_patch_directory 'patch_directory = "sub",' ""
+}
+
+test_utils_patch_directory_with_patch_tool() {
+  do_test_utils_patch_directory 'patch_directory = "sub", patch_tool = "patch",' ""
+}
+
+test_utils_patch_directory_from_attr() {
+  do_test_utils_patch_directory "" 'patch_directory="sub",'
+}
+
 run_suite "external patching tests"

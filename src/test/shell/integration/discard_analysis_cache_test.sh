@@ -221,4 +221,135 @@ EOF
   [[ "$ct_count" -le 20 ]] || fail "Too many configured targets: $ct_count"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/30800.
+#
+# Real-world scenario:
+# A C++ toolchain (or system library) is vendored in an external repository,
+# and headers (e.g. Windows SDK headers) are reached dynamically via relative
+# include search paths (e.g. cxx_builtin_include_directories or -isystem)
+# rather than declared target inputs (srcs/hdrs/deps).
+#
+# On a warm server following an analysis cache discard (e.g. build option change),
+# Skymeld re-instantiates IncrementalPackageRoots with an empty map. Because the
+# headers are reached dynamically rather than via declared target dependency edges,
+# the external package root is not re-registered in the second build's
+# TopLevelTargetReadyForSymlinkPlanting event. Post-execution HeaderDiscovery
+# then fails to resolve the relative path, causing spurious "undeclared inclusion(s)".
+#
+# Test setup:
+# Setting up a full custom cc_toolchain in an external repository in a shell test
+# is heavy and fragile across platforms. As noted in issue #30800, this failure
+# affects any header reached via system include paths without a declared target
+# dependency. Here we export system_includes via CcInfo from @other_repo//pkg_tool:tool_lib
+# pointing to @other_repo//pkg_header to test this exact Skyframe state:
+# 1. Build 1 loads @other_repo//pkg_header via target_a, caching PackageValue in Skyframe.
+# 2. Build 2 discards analysis cache (--cxxopt change) and builds target_b.
+# 3. target_b depends on tool_lib (which exports pkg_header as system_includes,
+#    so CppCompileAction validates the inclusion) but does NOT declare a dependency
+#    on pkg_header.
+# 4. In Build 2, IncrementalPackageRoots has an empty map. With standalone spawn
+#    strategy, the compiler finds the header in the execroot. HeaderDiscovery
+#    requires the fallback package root lookup in IncrementalPackageRoots to
+#    resolve the package root. Without the fallback, HeaderDiscovery fails.
+function test_skymeld_external_repo_package_root_preserved_after_discard_analysis_cache() {
+  if [[ "${PRODUCT_NAME}" != "bazel" ]]; then
+    return 0
+  fi
+
+  add_rules_cc MODULE.bazel
+
+  mkdir -p ../other_repo/pkg_header ../other_repo/pkg_tool
+  touch ../other_repo/REPO.bazel
+  cat > ../other_repo/pkg_header/BUILD << 'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+cc_library(
+    name = "header_lib",
+    hdrs = ["header.h"],
+    visibility = ["//visibility:public"],
+)
+EOF
+  cat > ../other_repo/pkg_header/header.h << 'EOF'
+#pragma once
+#define FOO_VALUE 42
+EOF
+
+  cat > ../other_repo/pkg_tool/defs.bzl << 'EOF'
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+
+def _tool_lib_impl(ctx):
+    return [
+        CcInfo(
+            compilation_context = cc_common.create_compilation_context(
+                system_includes = depset([ctx.label.workspace_root + "/pkg_header"]),
+            ),
+        ),
+    ]
+
+tool_lib = rule(
+    implementation = _tool_lib_impl,
+)
+EOF
+
+  cat > ../other_repo/pkg_tool/BUILD << 'EOF'
+load(":defs.bzl", "tool_lib")
+tool_lib(
+    name = "tool_lib",
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  cat >> MODULE.bazel << 'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+    name = "other_repo",
+    path = "../other_repo",
+)
+EOF
+
+  mkdir -p foo
+  cat > foo/BUILD << 'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+cc_library(
+    name = "target_a",
+    srcs = ["a.cc"],
+    deps = ["@other_repo//pkg_header:header_lib"],
+)
+cc_library(
+    name = "target_b",
+    srcs = ["b.cc"],
+    deps = ["@other_repo//pkg_tool:tool_lib"],
+)
+EOF
+
+  cat > foo/a.cc << 'EOF'
+#include "pkg_header/header.h"
+int a() { return FOO_VALUE; }
+EOF
+
+  cat > foo/b.cc << 'EOF'
+#include "header.h"
+int b() { return FOO_VALUE; }
+EOF
+
+  bazel build --experimental_merged_skyframe_analysis_execution \
+      --lockfile_mode=off \
+      //foo:target_a >& "$TEST_log" \
+      || fail "First build of target_a failed"
+
+  # In the second build, target_b depends on @other_repo//pkg_tool:tool_lib (so
+  # the @other_repo symlink is planted in the execroot), but includes header.h
+  # from @other_repo//pkg_header via system_includes.
+  # Following analysis cache discard (--cxxopt change), IncrementalPackageRoots
+  # has an empty map. With standalone spawn strategy, the compiler accesses the
+  # header from the execroot. HeaderDiscovery then requires the fallback
+  # package root lookup in IncrementalPackageRoots to resolve the package root.
+  bazel build --experimental_merged_skyframe_analysis_execution \
+      --lockfile_mode=off \
+      --spawn_strategy=standalone \
+      --cxxopt=-O3 //foo:target_b >& "$TEST_log" \
+      || fail "Second build of target_b failed"
+}
+
 run_suite "test for --discard_analysis_cache"
+

@@ -6,7 +6,9 @@ load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("//src:release_archive.bzl", "minimum_java_compilation_runtime_filegroup", "minimum_java_runtime_filegroup", "release_archive")
+load(":bazel_binary.bzl", "bazel_binary")
 load(":embedded_tools.bzl", "srcsfile")
+load(":package_zip.bzl", "package_zip")
 load(":rule_size_test.bzl", "rule_size_test")
 
 package(default_applicable_licenses = ["@io_bazel//:license"])
@@ -287,20 +289,9 @@ genrule(
     "_nojdk",
 ]]
 
-[genrule(
+[package_zip(
     name = "package-zip" + suffix,
-    # This script assumes the following arg order:
-    #   1) embedded tools zip (if it exists)
-    #   2) the deploy jar
-    #   3) the install base key
-    #   4) the platforms archive
-    #   5) everything else to be bundled
-    # Ensure we haven't forgotten to add all package-zip items as dependencies
-    # of :install_base_key-file, otherwise bazel won't correctly reextract
-    # modified files.
     srcs = ([":embedded_tools" + suffix + ".zip"] if embed else []) + [
-        "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
-        "install_base_key" + suffix,
         "//:platforms-srcs",
         # Non-ordered items follow:
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
@@ -313,14 +304,15 @@ genrule(
             "//src/main/tools:daemonize",
         ],
     }),
-    outs = ["package" + suffix + ".zip"],
-    cmd = "$(location :package_bazel_on_host_platform) $@ " + ("" if embed else "''") + " $(SRCS)",
-    tools = [":package_bazel_on_host_platform"],
-) for suffix, embed in [
-    ("_jdk_allmodules", True),
-    ("_jdk_minimal", True),
-    ("_notools", False),
-    ("_nojdk", True),
+    out = "package" + suffix + ".zip",
+    dev_build = dev_build,
+    install_base_key = "install_base_key" + suffix,
+    server_jar = "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
+) for suffix, embed, dev_build in [
+    ("_jdk_allmodules", True, True),
+    ("_jdk_minimal", True, False),
+    ("_notools", False, False),
+    ("_nojdk", True, False),
 ]]
 
 genrule(
@@ -334,20 +326,11 @@ genrule(
     }),
 )
 
-[genrule(
+[bazel_binary(
     name = "bazel-bin" + suffix,
-    srcs = [
-        "//src/main/cpp:client",
-        "package-zip" + jdk,
-    ],
-    outs = ["bazel" + suffix],
-    # In msys, a file path without .exe suffix(say foo), refers to a file with .exe
-    # suffix(say foo.exe), if foo.exe exists and foo doesn't. So, on windows, we
-    # need to remove bazel.exe first, so that cat to bazel won't fail.
-    cmd = "rm -f $@ $@.unaligned; cat $(location //src/main/cpp:client) $(location :package-zip" + jdk + ") > $@.unaligned && $(location //src/java_tools/singlejar/java/com/google/devtools/build/zip:adjust_sfx) $@.unaligned $@ && rm -f $@.unaligned && chmod a+x $@",
-    executable = 1,
-    output_to_bindir = 1,
-    tools = ["//src/java_tools/singlejar/java/com/google/devtools/build/zip:adjust_sfx"],
+    out = "bazel" + suffix,
+    client = "//src/main/cpp:client",
+    package_zip = "package-zip" + jdk,
     visibility = [
         "//:__pkg__",  # For distribution archive lockfile generation
         "//scripts:__pkg__",  # For bash completion generation
@@ -365,9 +348,8 @@ genrule(
     ("_nojdk", "_nojdk"),
 ]]
 
-# Build an executable named `bazel.exe`.
+# Build an executable named `bazel.exe` (and suffixes).
 # Works on all platforms but only makes sense on Windows.
-# Workaround for non-configurability of genrule's `outs` attribute.
 [genrule(
     name = "bazel-bin" + suffix + ".exe",
     srcs = [":bazel-bin" + suffix],
@@ -432,6 +414,7 @@ filegroup(
         "//src/tools/launcher:srcs",
         "//src/tools/one_version:srcs",
         "//src/tools/remote:srcs",
+        "//src/tools/simple_catter:srcs",
         "//src/tools/singlejar:srcs",
         "//src/tools/starlark/java/com/google/devtools/starlark/common:srcs",
         "//src/tools/workspacelog:srcs",

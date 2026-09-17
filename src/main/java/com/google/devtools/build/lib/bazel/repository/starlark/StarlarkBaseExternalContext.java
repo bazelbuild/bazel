@@ -82,6 +82,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -165,6 +166,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   protected final String identifyingStringForLogging;
   protected final Label.RepoMappingRecorder repoMappingRecorder;
   private final LinkedHashMap<RepoRecordedInput, String> recordedInputs = new LinkedHashMap<>();
+  private final Set<RepoRecordedInput> inputsChangedDuringEvaluation = new HashSet<>();
   private final RepositoryRemoteExecutor remoteExecutor;
   private final List<AsyncTask> asyncTasks;
   private final boolean allowWatchingPathsOutsideWorkspace;
@@ -248,13 +250,32 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     repoMappingRecorder.storeInThread(thread);
   }
 
-  protected void recordInputWithValue(RepoRecordedInput input, @Nullable String value) {
-    if (recordedInputs.containsKey(input) && !Objects.equals(recordedInputs.get(input), value)) {
-      throw new IllegalStateException(
-          "Conflicting values recorded for input %s: '%s' vs. '%s'"
-              .formatted(input, recordedInputs.get(input), value));
+  /**
+   * Records the given value for the given input and returns the recorded value, which is the value
+   * observed first if the input has already been recorded.
+   */
+  @CanIgnoreReturnValue
+  @Nullable
+  protected String recordInputWithValue(RepoRecordedInput input, @Nullable String value) {
+    // Don't use putIfAbsent as null is a legitimate value.
+    if (!recordedInputs.containsKey(input)) {
+      recordedInputs.put(input, value);
+      return value;
     }
-    recordedInputs.put(input, value);
+    String recordedValue = recordedInputs.get(input);
+    if (!Objects.equals(recordedValue, value) && inputsChangedDuringEvaluation.add(input)) {
+      env.getListener()
+          .handle(
+              Event.warn(
+                  """
+                  %s during the evaluation of %s, which will cause it to be re-evaluated the next \
+                  time Bazel is run. Report this issue to its maintainers.\
+                  """
+                      .formatted(
+                          input.describeChange(recordedValue, value),
+                          identifyingStringForLogging)));
+    }
+    return recordedValue;
   }
 
   @CanIgnoreReturnValue
@@ -267,10 +288,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     }
     return switch (maybeValue) {
       case MaybeValue.Invalid(String reason) -> throw new IOException(reason);
-      case MaybeValue.Valid(String value) -> {
-        recordInputWithValue(input, value);
-        yield value;
-      }
+      case MaybeValue.Valid(String value) -> recordInputWithValue(input, value);
     };
   }
 
@@ -541,8 +559,10 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   private StructImpl calculateDownloadResult(Optional<Checksum> checksum, Path downloadedPath)
       throws InterruptedException, RepositoryFunctionException {
     Checksum finalChecksum;
+    long size;
     try {
       finalChecksum = calculateChecksum(checksum, downloadedPath);
+      size = downloadedPath.getFileSize();
     } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException(
@@ -558,6 +578,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     if (finalChecksum.getKeyType() == KeyType.SHA256) {
       out.put("sha256", finalChecksum.toString());
     }
+    out.put("size_bytes", StarlarkInt.of(size));
     return StarlarkInfo.create(StructProvider.STRUCT, out.buildOrThrow(), Location.BUILTIN);
   }
 
@@ -671,7 +692,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 Downloads a file to the output path for the provided url and returns a struct \
 containing <code>success</code>, a flag which is <code>true</code> if the \
 download completed successfully, and if successful, a hash of the file \
-with the fields <code>sha256</code> and <code>integrity</code>. \
+with the fields <code>sha256</code> and <code>integrity</code>, as well as \
+<code>size_bytes</code>, which contains the size of the downloaded file in bytes as an integer. \
 When <code>sha256</code> or <code>integrity</code> is user specified, setting an explicit \
 <code>canonical_id</code> is highly recommended. e.g. \
 <a href='/rules/lib/repo/cache#get_default_canonical_id'><code>get_default_canonical_id</code></a>
@@ -889,7 +911,8 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
 Downloads a file to the output path for the provided url, extracts it, and returns a \
 struct containing <code>success</code>, a flag which is <code>true</code> if the \
 download completed successfully, and if successful, a hash of the file with the \
-fields <code>sha256</code> and <code>integrity</code>. \
+fields <code>sha256</code> and <code>integrity</code>, as well as the <code>size_bytes</code> \
+of the downloaded file in bytes as an integer. \
 When <code>sha256</code> or <code>integrity</code> is user specified, setting an explicit \
 <code>canonical_id</code> is highly recommended. e.g. \
 <a href='/rules/lib/repo/cache#get_default_canonical_id'><code>get_default_canonical_id</code></a>
@@ -1709,6 +1732,11 @@ Strip the given number of leading components from file paths on extraction. Only
     }
   }
 
+  /**
+   * Records a watch on a directory's non-recursive contents.
+   *
+   * <p>Callers must have checked recently that the given path points to a directory.
+   */
   protected void maybeWatchDirents(Path path, ShouldWatch shouldWatch)
       throws EvalException, RepositoryFunctionException, InterruptedException {
     RepoCacheFriendlyPath repoCacheFriendlyPath = toRepoCacheFriendlyPath(path, shouldWatch);
@@ -1716,6 +1744,10 @@ Strip the given number of leading components from file paths on extraction. Only
       return;
     }
     try {
+      // Dirents can only be recorded for directories, so we have to additionally track the type of
+      // the file. When checking for invalidation, the type is verified first and if it doesn't
+      // match, the directory entries are never requested.
+      getValueAndRecordInput(new RepoRecordedInput.File(repoCacheFriendlyPath));
       getValueAndRecordInput(new RepoRecordedInput.Dirents(repoCacheFriendlyPath));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);

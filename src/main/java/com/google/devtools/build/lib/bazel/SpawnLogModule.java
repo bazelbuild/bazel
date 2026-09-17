@@ -37,8 +37,10 @@ import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
@@ -96,6 +98,7 @@ public final class SpawnLogModule extends BlazeModule {
     }
 
     Path outputBase = env.getOutputBase();
+    XattrProvider xattrProvider = getOutputServiceAwareXattrProvider(env);
 
     if (executionOptions.executionLogCompactFile != null) {
       outputPath = getAbsolutePath(executionOptions.executionLogCompactFile, env);
@@ -111,7 +114,7 @@ public final class SpawnLogModule extends BlazeModule {
                     .experimentalSiblingRepositoryLayout,
                 env.getOptions().getOptions(RemoteOptions.class),
                 env.getRuntime().getFileSystem().getDigestFunction(),
-                env.getXattrProvider(),
+                xattrProvider,
                 env.getCommandId(),
                 env.getReporter());
       } catch (InterruptedException e) {
@@ -142,8 +145,14 @@ public final class SpawnLogModule extends BlazeModule {
               env.getExecRoot().asFragment(),
               env.getOptions().getOptions(RemoteOptions.class),
               env.getRuntime().getFileSystem().getDigestFunction(),
-              env.getXattrProvider());
+              xattrProvider);
     }
+  }
+
+  static XattrProvider getOutputServiceAwareXattrProvider(CommandEnvironment env) {
+    XattrProvider xattrProvider = env.getXattrProvider();
+    OutputService outputService = env.getOutputService();
+    return outputService == null ? xattrProvider : outputService.getXattrProvider(xattrProvider);
   }
 
   /**

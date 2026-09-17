@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.skyframe.BzlLoadThreadOwner;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.serialization.AbstractExportedStarlarkSymbolCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
@@ -101,7 +102,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       ImmutableSet<Label> execCompatibleWith,
       ImmutableMap<String, DeclaredExecGroup> execGroups,
       ImmutableSet<? extends StarlarkSubruleApi> subrules,
-      Symbol<BzlLoadValue.Key> identityToken) {
+      Symbol<BzlLoadThreadOwner> identityToken) {
     this.implementation = implementation;
     this.documentation = documentation.orElse(null);
     this.attributeAspects = attributeAspects;
@@ -184,15 +185,15 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       EventHandler handler, Label extensionLabel, String name, Location exportedLocation) {
     Preconditions.checkArgument(!isExported());
     @SuppressWarnings("unchecked")
-    var identityToken = (Symbol<BzlLoadValue.Key>) aspectClassOrIdentityToken;
-    BzlLoadValue.Key owner = identityToken.getOwner();
+    var identityToken = (Symbol<BzlLoadThreadOwner>) aspectClassOrIdentityToken;
+    BzlLoadThreadOwner owner = identityToken.getOwner();
     checkArgument(
-        owner.getLabel().equals(extensionLabel),
+        owner.key().getLabel().equals(extensionLabel),
         "Exporting aspect as (%s, %s) but label did not match owner=%s",
         extensionLabel,
         name,
         owner);
-    this.aspectClassOrIdentityToken = new StarlarkAspectClass(owner, name);
+    this.aspectClassOrIdentityToken = new StarlarkAspectClass(owner.key(), name);
   }
 
   /**
@@ -268,7 +269,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     Object castedValue = attrValue;
 
     if (attrType == Type.INTEGER) {
-      castedValue = StarlarkInt.parse(attrValue, /*base=*/ 0);
+      castedValue = StarlarkInt.parse(attrValue, /* base= */ 0);
       attrBuilder = attr.cloneBuilder(Type.INTEGER).value((StarlarkInt) castedValue);
     } else if (attrType == Type.BOOLEAN) {
       castedValue = Boolean.parseBoolean(attrValue);
@@ -390,7 +391,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
 
   private StarlarkInt parseIntParameter(String name, String value) throws EvalException {
     try {
-      return StarlarkInt.parse(value, /*base=*/ 0);
+      return StarlarkInt.parse(value, /* base= */ 0);
     } catch (NumberFormatException e) {
       throw new EvalException(
           String.format(

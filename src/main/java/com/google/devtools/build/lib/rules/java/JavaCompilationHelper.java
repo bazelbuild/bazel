@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
@@ -73,6 +74,7 @@ public final class JavaCompilationHelper {
   private final ImmutableList<Artifact> additionalInputsForDatabinding;
   private boolean enableJspecify = true;
   private boolean enableDirectClasspath = true;
+  private ImmutableList<CommandLine> extraCommandLineArgs = ImmutableList.of();
   private final String execGroup;
 
   public JavaCompilationHelper(
@@ -102,6 +104,10 @@ public final class JavaCompilationHelper {
 
   public void enableJspecify(boolean enableJspecify) {
     this.enableJspecify = enableJspecify;
+  }
+
+  public void setExtraCommandLineArgs(ImmutableList<CommandLine> extraCommandLineArgs) {
+    this.extraCommandLineArgs = Preconditions.checkNotNull(extraCommandLineArgs);
   }
 
   JavaTargetAttributes getAttributes() {
@@ -296,6 +302,7 @@ public final class JavaCompilationHelper {
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.setFixDepsTool(getJavaConfiguration().getFixDepsTool());
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
+    builder.setExtraCommandLineArgs(extraCommandLineArgs);
     builder.setTargetLabel(
         attributes.getTargetLabel() == null ? label : attributes.getTargetLabel());
     builder.setInjectingRuleKind(attributes.getInjectingRuleKind());

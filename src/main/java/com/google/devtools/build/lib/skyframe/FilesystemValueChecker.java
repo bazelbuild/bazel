@@ -531,11 +531,26 @@ public class FilesystemValueChecker {
       FileArtifactValue fileMetadata =
           ActionOutputMetadataStore.fileArtifactValueFromArtifact(
               file, null, xattrProviderOverrider.getXattrProvider(syscallCache), tsgm);
-      boolean isTrustedRemoteValue =
+      // Remote metadata may record that the file has been materialized in the local filesystem as
+      // a requested top-level output without its generating action having been reexecuted (e.g. by
+      // the completion function after an action cache hit). If the file is missing now, the action
+      // has to be invalidated so that its reevaluation can restore the file in case the current
+      // invocation wants it locally.
+      boolean deletedAfterMaterialization =
           fileMetadata.getType() == FileStateType.NONEXISTENT
+              && lastKnownData.isRemote()
+              && lastKnownData.wasMaterializedAsToplevelOutput();
+      boolean isTrustedRemoteValue =
+          !deletedAfterMaterialization
+              && fileMetadata.getType() == FileStateType.NONEXISTENT
               && lastKnownData.isRemote()
               && outputChecker.shouldTrustMetadata(file, lastKnownData);
       if (!isTrustedRemoteValue && fileMetadata.couldBeModifiedSince(lastKnownData)) {
+        if (deletedAfterMaterialization) {
+          // Clear the record so that a reevaluation that chooses not to rematerialize the file
+          // doesn't invalidate the action again on every subsequent invocation.
+          lastKnownData.setMaterializedAsToplevelOutput(false);
+        }
         modifiedOutputsReceiver.reportModifiedOutputFile(
             fileMetadata.getType() != FileStateType.NONEXISTENT
                 ? file.getPath().getLastModifiedTime(Symlinks.FOLLOW)

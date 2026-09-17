@@ -22,6 +22,14 @@ java_library(
 )
 
 java_library(
+    name = "terminal_size_monitor",
+    srcs = ["TerminalSizeMonitor.java"],
+    deps = [
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "server",
     srcs = [
         "CommandManager.java",
@@ -33,6 +41,7 @@ java_library(
         ":idle_task",
         ":pid_file_watcher",
         ":shutdown_hooks",
+        ":terminal_size_monitor",
         "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
         "//src/main/java/com/google/devtools/build/lib:runtime/command_dispatcher",
         "//src/main/java/com/google/devtools/build/lib:runtime/safe_request_logging",

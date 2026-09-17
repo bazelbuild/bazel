@@ -40,6 +40,8 @@ import com.google.devtools.build.lib.server.CommandProtos.RunRequest;
 import com.google.devtools.build.lib.server.CommandProtos.RunResponse;
 import com.google.devtools.build.lib.server.CommandProtos.ServerInfo;
 import com.google.devtools.build.lib.server.CommandProtos.StartupOption;
+import com.google.devtools.build.lib.server.CommandProtos.TerminalSizeRequest;
+import com.google.devtools.build.lib.server.CommandProtos.TerminalSizeResponse;
 import com.google.devtools.build.lib.server.FailureDetails.Command;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
@@ -616,7 +618,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
                 Optional.of(startupOptions.build()),
                 commandManager::getIdleTaskResults,
                 request.getCommandExtensionsList(),
-                new RpcCommandExtensionReporter(command.getId(), responseCookie, observer));
+                new RpcCommandExtensionReporter(command.getId(), responseCookie, observer),
+                command.getTerminalSizeMonitor());
       } catch (OptionsParsingException e) {
         rpcOutErr.printErrLn(e.getMessage());
         result =
@@ -718,6 +721,33 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
       // There is no one to report the failure to
       logger.atInfo().log(
           "Client cancelled RPC of cancellation request for %s", request.getCommandId());
+    }
+  }
+
+  @Override
+  public void updateTerminalSize(
+      TerminalSizeRequest request, StreamObserver<TerminalSizeResponse> streamObserver) {
+    logger.atInfo().log("Got TerminalSizeRequest for command id %s", request.getCommandId());
+    if (!isValidRequestCookie(request.getCookie())) {
+      streamObserver.onCompleted();
+      return;
+    }
+
+    // Updating the monitor may notify listeners that redraw the UI, so keep it off the gRPC
+    // dispatcher thread just like cancellation handling.
+    commandExecutorPool.execute(() -> doUpdateTerminalSize(request, streamObserver));
+  }
+
+  private void doUpdateTerminalSize(
+      TerminalSizeRequest request, StreamObserver<TerminalSizeResponse> streamObserver) {
+    commandManager.doUpdateTerminalSize(request);
+    try {
+      streamObserver.onNext(
+          TerminalSizeResponse.newBuilder().setCookie(responseCookie).build());
+      streamObserver.onCompleted();
+    } catch (StatusRuntimeException e) {
+      logger.atInfo().withCause(e).log(
+          "Client cancelled terminal size update for command id %s", request.getCommandId());
     }
   }
 

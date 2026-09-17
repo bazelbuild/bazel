@@ -620,7 +620,9 @@ java_library(
     deps = [
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
@@ -847,6 +849,7 @@ java_library(
     name = "bzl_compile_value",
     srcs = ["BzlCompileValue.java"],
     deps = [
+        ":filesystem_keys",
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
@@ -2242,7 +2245,10 @@ java_library(
 java_library(
     name = "progress_suppressing_event_handler",
     srcs = ["ProgressSuppressingEventHandler.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib/events"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/remote/common:lost_inputs_event",
+    ],
 )
 
 java_library(
@@ -2773,13 +2779,18 @@ java_library(
 
 java_library(
     name = "bzl_load_value",
-    srcs = ["BzlLoadValue.java"],
+    srcs = [
+        "BzlLoadThreadOwner.java",
+        "BzlLoadValue.java",
+    ],
     deps = [
         ":bzl_compile_value",
         ":starlark_builtins_value",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/packages:bzl_visibility",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/util:hash_codes",

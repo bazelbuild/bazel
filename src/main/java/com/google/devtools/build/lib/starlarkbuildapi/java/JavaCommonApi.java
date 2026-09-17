@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
@@ -524,6 +525,14 @@ public interface JavaCommonApi<
         @Param(name = "enable_direct_classpath", defaultValue = "True", named = true),
         @Param(name = "additional_inputs", defaultValue = "[]", named = true),
         @Param(name = "additional_outputs", defaultValue = "[]", named = true),
+        @Param(
+            name = "extra_args",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = CommandLineArgsApi.class),
+            },
+            defaultValue = "[]",
+            named = true,
+            positional = false),
       })
   void createCompilationAction(
       StarlarkRuleContextT ctx,
@@ -553,7 +562,8 @@ public interface JavaCommonApi<
       boolean enableJSpecify,
       boolean enableDirectClasspath,
       Sequence<?> additionalInputs,
-      Sequence<?> additionalOutputs)
+      Sequence<?> additionalOutputs,
+      Sequence<?> extraArgs)
       throws EvalException,
           TypeException,
           RuleErrorException,

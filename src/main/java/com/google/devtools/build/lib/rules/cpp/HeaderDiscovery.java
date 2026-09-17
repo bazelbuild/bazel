@@ -92,6 +92,8 @@ final class HeaderDiscovery {
       // an action cache hit in that case, since even if it previously depended on the artifact
       // whose path changed, that is not taken into account by the action cache, and it will get an
       // action cache hit using the remaining un-renamed artifact.
+      // TODO: Consider using a multimap here so that header resolution depends on _all_ identical
+      // files, not just a single representative.
       if (a.isTreeArtifact()) {
         treeArtifacts.putIfAbsent(pathMapper.map(a.getExecPath()), (SpecialArtifact) a);
       } else {

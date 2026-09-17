@@ -62,6 +62,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -78,7 +79,6 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.LoadStatement;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.Program;
@@ -1386,7 +1386,10 @@ public class BzlLoadFunction implements SkyFunction {
     try (Mutability mu = Mutability.create("loading", label)) {
       StarlarkThread thread =
           StarlarkThread.create(
-              mu, starlarkSemantics, /* contextDescription= */ "", SymbolGenerator.create(key));
+              mu,
+              starlarkSemantics,
+              /* contextDescription= */ "",
+              BzlLoadThreadOwner.createGenerator(key, module));
       thread.setLoader(loadedModules::get);
       // This is needed so that any calls to `Label()` will have its used repo mapping entries
       // recorded. See #20721 for more details.
@@ -1496,6 +1499,19 @@ public class BzlLoadFunction implements SkyFunction {
                 key, env, ruleClassProvider.getBazelStarlarkEnvironment(), hashFunction);
         if (value != null) {
           bzlCompileCache.put(key, value);
+        }
+      } else {
+        // The cache hit may have been populated on behalf of a different BzlLoadValue node with
+        // the same compile key; make sure this node depends on the .bzl file too.
+        var bzlFileKey = key.getBzlFileKey();
+        if (bzlFileKey != null) {
+          try {
+            if (env.getValueOrThrow(bzlFileKey, IOException.class) == null) {
+              return null;
+            }
+          } catch (IOException e) {
+            throw new BzlCompileFunction.FailedIOException(e, Transience.PERSISTENT);
+          }
         }
       }
       return value;

@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.DurationConverter;
@@ -297,10 +298,10 @@ public class RepositoryOptions extends OptionsBase {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
           """
-          If true, Bazel ignores `bazel_dep` and `use_extension` declared as `dev_dependency` in
-          the `MODULE.bazel` of the root module. Note that, those dev dependencies are always
-          ignored in the `MODULE.bazel` if it's not the root module regardless of the value
-          of this flag.
+          If true, Bazel ignores `bazel_dep`, `use_extension`, and `include` declared as
+          `dev_dependency` in the `MODULE.bazel` of the root module. Note that these dev
+          dependencies are always ignored in the `MODULE.bazel` if it is not the root module,
+          regardless of the value of this flag.
           """)
   public boolean ignoreDevDependency;
 
@@ -340,6 +341,20 @@ public class RepositoryOptions extends OptionsBase {
               + " it to a resolution failure, `off` to disable the check, or `warning` to print a"
               + " warning when mismatch detected.")
   public BazelCompatibilityMode bazelCompatibilityMode;
+
+  @Option(
+      name = "incompatible_require_repo_extension_metadata",
+      defaultValue = "false",
+      converter = RequireRepoExtensionMetadataMode.Converter.class,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "Require repository rules and module extensions to return explicit metadata. Valid values"
+              + " are `false` to disable the check, `all` to require metadata everywhere, or `root`"
+              + " to require metadata only for repo rules and extensions defined in the root"
+              + " module.")
+  public RequireRepoExtensionMetadataMode requireRepoExtensionMetadata;
 
   @Option(
       name = "lockfile_mode",
@@ -393,6 +408,33 @@ public class RepositoryOptions extends OptionsBase {
     public static class Converter extends EnumConverter<BazelCompatibilityMode> {
       public Converter() {
         super(BazelCompatibilityMode.class, "Bazel compatibility check mode");
+      }
+    }
+  }
+
+  /** An enum for specifying when repo and extension metadata is required. */
+  public enum RequireRepoExtensionMetadataMode {
+    FALSE, // Don't require metadata.
+    ALL, // Require metadata everywhere.
+    ROOT; // Require metadata for repo rules and extensions defined in the root module.
+
+    @Override
+    public String toString() {
+      return switch (this) {
+        case FALSE -> "false";
+        case ALL -> "all";
+        case ROOT -> "root";
+      };
+    }
+
+    /** Converts to {@link RequireRepoExtensionMetadataMode}. */
+    public static class Converter extends BoolOrEnumConverter<RequireRepoExtensionMetadataMode> {
+      public Converter() {
+        super(
+            RequireRepoExtensionMetadataMode.class,
+            "repo extension metadata mode",
+            RequireRepoExtensionMetadataMode.ALL,
+            RequireRepoExtensionMetadataMode.FALSE);
       }
     }
   }

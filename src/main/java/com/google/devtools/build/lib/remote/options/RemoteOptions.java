@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import javax.annotation.Nullable;
 
 /** Options for remote execution and distributed caching for Bazel only. */
 public final class RemoteOptions extends CommonRemoteOptions {
@@ -241,6 +242,33 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " used: Days (d), hours (h), minutes (m), seconds (s), and milliseconds (ms). If"
               + " the unit is omitted, the value is interpreted as seconds.")
   public Duration remoteTimeout;
+
+  @Option(
+      name = "remote_grpc_service_config",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
+      help =
+          "Path to a gRPC service config JSON file for remote gRPC channels. This replaces the"
+              + " service config Bazel generates from --remote_timeout. Only a subset of the gRPC"
+              + " service config JSON schema is supported: top-level methodConfig entries with"
+              + " name objects containing service and optional method, plus timeout. Other service"
+              + " config fields are rejected and may be supported in the future.")
+  public PathFragment remoteGrpcServiceConfig;
+
+  @Option(
+      name = "remote_grpc_download_idle_timeout",
+      defaultValue = "60s",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = RemoteDurationConverter.class,
+      help =
+          "The maximum amount of time a remote gRPC download may go without receiving response"
+              + " data before Bazel cancels and retries the download. This applies to ByteStream"
+              + " Read. The value 0 disables the timeout. If the unit is omitted, the value is"
+              + " interpreted as seconds.")
+  public Duration remoteGrpcDownloadIdleTimeout;
 
   @Option(
       name = "remote_bytestream_uri_prefix",
@@ -731,11 +759,38 @@ public final class RemoteOptions extends CommonRemoteOptions {
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "If enabled, large blobs are split into content-defined chunks using FastCDC 2020 and "
+          "If enabled, large blobs are split into content-defined chunks and "
               + "uploaded/downloaded in chunks, enabling deduplication across blobs. The server "
-              + "must advertise SplitBlob/SpliceBlob RPCs and FastCDC 2020 parameters in its "
+              + "must advertise SplitBlob/SpliceBlob RPCs and the parameters of the chunking "
+              + "function selected by --experimental_remote_cache_chunking_function in its "
               + "capabilities.")
   public boolean experimentalRemoteCacheChunking;
+
+  @Option(
+      name = "experimental_remote_cache_chunking_function",
+      defaultValue = "auto",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = ChunkingFunctionValue.Converter.class,
+      help =
+          "The content-defined chunking function used to split large blobs when "
+              + "--experimental_remote_cache_chunking is enabled. If set to 'auto' (the "
+              + "default), the function is negotiated with the server: FastCDC 2020 is used if "
+              + "the server advertises it, otherwise RepMaxCDC. Set to 'fast_cdc_2020' or "
+              + "'rep_max_cdc' to require a specific function, in which case the server must "
+              + "advertise the parameters of that function in its capabilities. All clients "
+              + "sharing a cache should use the same function to maximize chunk reuse.")
+  public ChunkingFunctionValue experimentalRemoteCacheChunkingFunction;
+
+  /**
+   * Returns the chunking function to use for chunked cache transfers, or {@code null} if chunking
+   * is disabled.
+   */
+  @Nullable
+  public ChunkingFunctionValue getEffectiveChunkingFunction() {
+    return experimentalRemoteCacheChunking ? experimentalRemoteCacheChunkingFunction : null;
+  }
 
   @Option(
       name = "experimental_throttle_remote_action_building",
@@ -853,6 +908,21 @@ public final class RemoteOptions extends CommonRemoteOptions {
     public static class Converter extends EnumConverter<CircuitBreakerStrategy> {
       public Converter() {
         super(CircuitBreakerStrategy.class, "CircuitBreaker strategy");
+      }
+    }
+  }
+
+  /** An enum for specifying the content-defined chunking function. */
+  public enum ChunkingFunctionValue {
+    /** Negotiate with the server: FastCDC 2020 if advertised, otherwise RepMaxCDC. */
+    AUTO,
+    FAST_CDC_2020,
+    REP_MAX_CDC;
+
+    /** Converts to {@link ChunkingFunctionValue}. */
+    public static class Converter extends EnumConverter<ChunkingFunctionValue> {
+      public Converter() {
+        super(ChunkingFunctionValue.class, "chunking function");
       }
     }
   }

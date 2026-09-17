@@ -88,10 +88,15 @@ class SignalHandler {
   const std::string& GetProductName() const { return product_name_; }
   const blaze_util::Path& GetOutputBase() const { return output_base_; }
   void CancelServer() { cancel_server_(); }
+  void TerminalSizeChanged() {
+    if (terminal_size_changed_ != nullptr) {
+      terminal_size_changed_();
+    }
+  }
   void Install(const std::string& product_name,
                const blaze_util::Path& output_base,
                const ServerProcessInfo* server_process_info,
-               Callback cancel_server);
+               Callback cancel_server, Callback terminal_size_changed);
   ATTRIBUTE_NORETURN void PropagateSignalOrExit(int exit_code);
 
  private:
@@ -101,8 +106,12 @@ class SignalHandler {
   blaze_util::Path output_base_;
   const ServerProcessInfo* server_process_info_;
   Callback cancel_server_;
+  Callback terminal_size_changed_;
 
-  SignalHandler() : server_process_info_(nullptr), cancel_server_(nullptr) {}
+  SignalHandler()
+      : server_process_info_(nullptr),
+        cancel_server_(nullptr),
+        terminal_size_changed_(nullptr) {}
 };
 
 // A signal-safe version of fprintf(stderr, ...).

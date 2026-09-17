@@ -150,7 +150,7 @@ public class RemoteServerCapabilitiesTest {
             .directExecutor()
             .build();
     RemoteServerCapabilities client =
-        new RemoteServerCapabilities("build-req-id", "command-id", "instance", null, 3, retrier);
+        new RemoteServerCapabilities("build-req-id", "command-id", "instance", null, retrier);
 
     assertThat(client.get(channel).get()).isEqualTo(caps);
   }
@@ -194,7 +194,7 @@ public class RemoteServerCapabilitiesTest {
         InProcessChannelBuilder.forName(fakeServerName).directExecutor().build();
     RemoteServerCapabilities client =
         new RemoteServerCapabilities(
-            "build-req-id", "command-id", "instance", /* callCredentials= */ null, 3, retrier);
+            "build-req-id", "command-id", "instance", /* callCredentials= */ null, retrier);
 
     assertThat(client.get(channel).get()).isEqualTo(caps);
   }

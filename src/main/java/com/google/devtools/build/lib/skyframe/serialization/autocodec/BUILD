@@ -93,7 +93,8 @@ java_library(
     ],
 )
 
-# @AutoCodec annotation only. Used by clients and the processor.
+# @AutoCodec annotation only. Clients should not depend on this directly as it doesn't include the processor.
+# Depend on :autocodec instead.
 java_library(
     name = "autocodec-annotation",
     srcs = ["AutoCodec.java"],

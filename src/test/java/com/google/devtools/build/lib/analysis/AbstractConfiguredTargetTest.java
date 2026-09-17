@@ -56,7 +56,8 @@ public class AbstractConfiguredTargetTest extends BuildViewTestCase {
                     /* runTestsExclusively= */ false,
                     /* expandFilesets= */ false,
                     /* outputGroups= */ ImmutableSortedSet.of(
-                        OutputGroupInfo.DEFAULT, OutputGroupInfo.HIDDEN_TOP_LEVEL)))
+                        OutputGroupInfo.DEFAULT, OutputGroupInfo.HIDDEN_TOP_LEVEL),
+                    /* forRunCommand= */ false))
             .getImportantArtifacts()
             .toSet();
 

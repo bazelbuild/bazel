@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -23,6 +24,7 @@ import static org.junit.Assume.assumeFalse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -31,7 +33,11 @@ import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.exec.TestPolicy;
+import com.google.devtools.build.lib.runtime.commands.RunCommand;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CommandBuilder;
@@ -41,6 +47,8 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
+import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -56,6 +64,10 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   protected abstract void setDownloadAll();
 
   protected abstract void enableActionRewinding();
+
+  protected void disableActionRewinding() {
+    addOptions("--norewind_lost_inputs");
+  }
 
   protected abstract void assertOutputEquals(Path path, String expectedContent) throws Exception;
 
@@ -201,6 +213,137 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     // Assert: out/foo.txt is re-downloaded
     assertThat(actionEventCollector.getActionExecutedEvents()).hasSize(1);
     assertValidOutputFile("out/foo.txt", "foo\n");
+  }
+
+  @Test
+  public void downloadToplevel_outputDeletedAfterUnrelatedBuild_toplevelOutputIsRestored()
+      throws Exception {
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "genrule(",
+        "  name = 'bar',",
+        "  outs = ['out/bar.txt'],",
+        "  cmd = 'echo bar > $@',",
+        ")");
+
+    // The default minimal build leaves out/foo.txt represented only by remote metadata. The
+    // subsequent toplevel build materializes it via the completion function without reexecuting
+    // the generating action, so the metadata tracked for it in Skyframe remains remote.
+    buildTarget("//:foo");
+    assertOutputsDoNotExist("//:foo");
+    setDownloadToplevel();
+    buildTarget("//:foo");
+    waitDownloads();
+    assertValidOutputFile("out/foo.txt", "foo\n");
+
+    // An intervening build of an unrelated target discards the previous invocation's record of
+    // which outputs it wanted locally.
+    buildTarget("//:bar");
+    waitDownloads();
+    assertValidOutputFile("out/bar.txt", "bar\n");
+
+    // Delete the top-level output of the earlier build and request it again.
+    getOutputPath("out/foo.txt").delete();
+    buildTarget("//:foo");
+    waitDownloads();
+
+    assertValidOutputFile("out/foo.txt", "foo\n");
+  }
+
+  @Test
+  public void downloadToplevel_formerToplevelOutputDeleted_restoreAttemptedOnlyOnce()
+      throws Exception {
+    if (!hasAccessToRemoteOutputs()) {
+      return;
+    }
+
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location :foo) > $@ && echo bar >> $@',",
+        ")");
+
+    // Materialize out/foo.txt via the completion function so that the metadata tracked for it in
+    // Skyframe remains remote, then build a target for which it is merely an intermediate output.
+    buildTarget("//:foo");
+    assertOutputsDoNotExist("//:foo");
+    setDownloadToplevel();
+    buildTarget("//:foo");
+    waitDownloads();
+    assertValidOutputFile("out/foo.txt", "foo\n");
+    buildTarget("//:foobar");
+    waitDownloads();
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+
+    getOutputPath("out/foo.txt").delete();
+
+    // The first incremental build reevaluates the generating action so that the current download
+    // policy can decide whether to restore the file, but doesn't materialize it as it is no
+    // longer a top-level output.
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:foobar");
+    waitDownloads();
+    assertOutputDoesNotExist("out/foo.txt");
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+    assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(1);
+
+    // Subsequent incremental builds trust the still-missing output and evaluate nothing.
+    actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:foobar");
+    waitDownloads();
+    assertOutputDoesNotExist("out/foo.txt");
+    assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(0);
+  }
+
+  @Test
+  public void downloadToplevel_afterDownloadAllBuild_deletedToplevelOutputIsRestored()
+      throws Exception {
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location :foo) > $@ && echo bar >> $@',",
+        ")");
+
+    setDownloadAll();
+    buildTarget("//:foobar");
+    assertValidOutputFile("out/foo.txt", "foo\n");
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+
+    // Delete both a top-level and an intermediate output, then build with a narrower download
+    // policy.
+    getOutputPath("out/foo.txt").delete();
+    getOutputPath("out/foobar.txt").delete();
+
+    setDownloadToplevel();
+    buildTarget("//:foobar");
+    waitDownloads();
+
+    // The top-level output must be restored; the intermediate output is not needed locally.
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+    assertOutputDoesNotExist("out/foo.txt");
   }
 
   @Test
@@ -1551,7 +1694,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void remoteCacheEvictBlobs_whenPrefetchingInputFile_incrementalBuildCanContinue()
+  public void remoteCacheEvictBlobs_whenPrefetchingInputFile(@TestParameter boolean actionRewinding)
       throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write(
@@ -1591,11 +1734,17 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     // Evict blobs from remote cache
     evictAllBlobs();
 
-    // trigger build error
     write("a/bar.in", "updated bar");
     addOptions("--strategy_regexp=.*bar=local");
-    // Build failed because of remote cache eviction
-    assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    if (actionRewinding) {
+      // The lost input's generating action is rewound within the next build.
+      enableActionRewinding();
+    } else {
+      // The build fails because of remote cache eviction, but an incremental build without
+      // "clean" or "shutdown" can continue.
+      disableActionRewinding();
+      assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    }
 
     // Act: Do an incremental build without "clean" or "shutdown"
     buildTarget("//a:bar");
@@ -1605,7 +1754,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void remoteCacheEvictBlobs_whenPrefetchingInputTree_incrementalBuildCanContinue()
+  public void remoteCacheEvictBlobs_whenPrefetchingInputTree(@TestParameter boolean actionRewinding)
       throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write("BUILD");
@@ -1646,11 +1795,17 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     // Evict blobs from remote cache
     evictAllBlobs();
 
-    // trigger build error
     write("a/bar.in", "updated bar");
     addOptions("--strategy_regexp=.*bar=local");
-    // Build failed because of remote cache eviction
-    assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    if (actionRewinding) {
+      // The lost input's generating action is rewound within the next build.
+      enableActionRewinding();
+    } else {
+      // The build fails because of remote cache eviction, but an incremental build without
+      // "clean" or "shutdown" can continue.
+      disableActionRewinding();
+      assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    }
 
     // Act: Do an incremental build without "clean" or "shutdown"
     buildTarget("//a:bar");
@@ -1833,6 +1988,111 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertOnlyOutputRemoteContent("//:gen2", "shared.txt", "shared content");
   }
 
+  @Test
+  public void runAfterBuild_keepsCompletionsOfPreviousBuild() throws Exception {
+    writeFooAndBar();
+    var completionStats = new SkyframeEvaluationCollector(SkyFunctions.TARGET_COMPLETION);
+    getRuntimeWrapper().registerSubscriber(completionStats);
+
+    buildTarget("//:foo", "//:bar");
+    waitDownloads();
+
+    assertOutputsDoNotExist("//:foo");
+    assertOutputsDoNotExist("//:bar");
+    assertThat(completionStats.recomputed()).isEqualTo(2);
+
+    // Only the build phase of the run command is exercised here; it is the same one that the build
+    // command goes through, except for the command name recorded in the request.
+    runtimeWrapper.newCustomCommandWithExtensions(
+        new RunCommand(TestPolicy.EMPTY_POLICY),
+        /* extensions= */ ImmutableList.of(),
+        /* ignoreUserOptions= */ true);
+    buildTarget("//:foo");
+    waitDownloads();
+
+    // The run command always needs the outputs of the target it runs, so its completion is
+    // evaluated anew under a key of its own...
+    assertValidOutputFile("foo.txt", "foo\n");
+    assertOutputsDoNotExist("//:bar");
+    assertThat(completionStats.recomputed()).isEqualTo(1);
+    // ...while the completions of the preceding build are left in place.
+    assertThat(targetCompletions())
+        .containsExactly("//:foo (build)", "//:bar (build)", "//:foo (run)");
+
+    buildTarget("//:foo", "//:bar");
+    waitDownloads();
+
+    // Since nothing was invalidated, returning to the build command leaves no completion work.
+    assertThat(completionStats.recomputed()).isEqualTo(0);
+  }
+
+  @Test
+  public void downloadOutputsModeChange_discardsCompletionsOfPreviousBuild() throws Exception {
+    writeFooAndBar();
+    var completionStats = new SkyframeEvaluationCollector(SkyFunctions.TARGET_COMPLETION);
+    getRuntimeWrapper().registerSubscriber(completionStats);
+
+    buildTarget("//:foo", "//:bar");
+    // Add the new option here because waitDownloads below will internally create a new command
+    // which will parse the new option.
+    setDownloadToplevel();
+    waitDownloads();
+
+    assertThat(completionStats.recomputed()).isEqualTo(2);
+
+    buildTarget("//:foo");
+    waitDownloads();
+
+    // A change to the outputs mode may affect any target, so all completions are discarded and
+    // only the one requested by this build is recomputed...
+    assertValidOutputFile("foo.txt", "foo\n");
+    assertThat(completionStats.recomputed()).isEqualTo(1);
+    assertThat(targetCompletions()).containsExactly("//:foo (build)");
+
+    buildTarget("//:foo", "//:bar");
+    waitDownloads();
+
+    // ...leaving //:bar to be completed again by the next build.
+    assertThat(completionStats.recomputed()).isEqualTo(1);
+  }
+
+  private void writeFooAndBar() throws IOException {
+    write(
+        "BUILD",
+        """
+        genrule(
+            name = "foo",
+            outs = ["foo.txt"],
+            cmd = "echo foo > $@",
+        )
+
+        genrule(
+            name = "bar",
+            outs = ["bar.txt"],
+            cmd = "echo bar > $@",
+        )
+        """);
+  }
+
+  /**
+   * Describes every target completion node in the Skyframe graph by the label it completes and the
+   * command mode of its {@link com.google.devtools.build.lib.analysis.TopLevelArtifactContext}.
+   *
+   * <p>Nodes that are merely dirty are still reported; only deleted ones are missing.
+   */
+  private ImmutableSet<String> targetCompletions() {
+    return getSkyframeExecutor().getEvaluator().getValues().keySet().stream()
+        .filter(key -> key.functionName().equals(SkyFunctions.TARGET_COMPLETION))
+        .map(TargetCompletionKey.class::cast)
+        .map(
+            key ->
+                "%s (%s)"
+                    .formatted(
+                        key.actionLookupKey().getLabel(),
+                        key.topLevelArtifactContext().forRunCommand() ? "run" : "build"))
+        .collect(toImmutableSet());
+  }
+
   protected void assertOutputsDoNotExist(String target) throws Exception {
     for (Artifact output : getArtifacts(target)) {
       assertWithMessage(
@@ -1996,6 +2256,33 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "  attr_aspects = ['srcs'],",
         ")");
     write("rules.bzl", lines.build().toArray(new String[0]));
+  }
+
+  /** Records how much of a single {@link SkyFunctionName} the last command made Skyframe redo. */
+  protected static class SkyframeEvaluationCollector {
+    private final SkyFunctionName functionName;
+    private int recomputed;
+
+    public SkyframeEvaluationCollector(SkyFunctionName functionName) {
+      this.functionName = functionName;
+    }
+
+    @Subscribe
+    public void onSkyframeGraphStats(SkyframeGraphStatsEvent event) {
+      var stats = event.getEvaluationStats();
+      recomputed =
+          stats.built().getOrDefault(functionName, 0)
+              + stats.cleaned().getOrDefault(functionName, 0);
+    }
+
+    /**
+     * Returns how many nodes of the function the last command had to compute, whether they ended up
+     * with a new value or were found to be unchanged. Nodes that Skyframe never had to look at are
+     * not counted.
+     */
+    public int recomputed() {
+      return recomputed;
+    }
   }
 
   protected static class ActionEventCollector {

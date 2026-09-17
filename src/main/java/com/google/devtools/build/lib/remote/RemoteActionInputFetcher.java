@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.Collection;
@@ -100,7 +101,12 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
   protected boolean forceRefetch(Path path) {
     // Caches for download operations and output directory creation need to be disregarded for the
     // outputs of rewound actions as they may have been deleted after they were first created.
-    return path.startsWith(execRoot) && rewoundActionOutputs.contains(path.relativeTo(execRoot));
+    // Compare as fragments since execRoot may be located on a file system overlaying the host file
+    // system where downloads are written to.
+    PathFragment execRootFragment = execRoot.asFragment();
+    PathFragment pathFragment = path.asFragment();
+    return pathFragment.startsWith(execRootFragment)
+        && rewoundActionOutputs.contains(pathFragment.relativeTo(execRootFragment));
   }
 
   @Override

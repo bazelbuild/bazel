@@ -187,8 +187,7 @@ public class ExecutionGraphModule extends BlazeModule {
   private ActionDumpWriter writer;
   private CommandEnvironment env;
   private WalkableGraph graph;
-  private NanosToMillisSinceEpochConverter nanosToMillis =
-      BlazeClock.createNanosToMillisSinceEpochConverter();
+  private NanosToMillisSinceEpochConverter nanosToMillis;
   // Only relevant for Skymeld: there may be multiple events and we only count the first one.
   private final AtomicBoolean executionStarted = new AtomicBoolean();
 
@@ -210,13 +209,20 @@ public class ExecutionGraphModule extends BlazeModule {
   }
 
   @VisibleForTesting
-  void setNanosToMillis(NanosToMillisSinceEpochConverter nanosToMillis) {
-    this.nanosToMillis = nanosToMillis;
+  void resetNanosToMillis() {
+    this.nanosToMillis = BlazeClock.createNanosToMillisSinceEpochConverter();
+  }
+
+  @VisibleForTesting
+  NanosToMillisSinceEpochConverter getNanosToMillis() {
+    return nanosToMillis;
   }
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
     this.env = env;
+    // The offset between monotonic and wall clock time may change between commands.
+    resetNanosToMillis();
 
     if (env.getCommand().buildPhase().executes()) {
       ExecutionGraphOptions options =

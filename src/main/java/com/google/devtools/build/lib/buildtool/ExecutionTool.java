@@ -277,7 +277,8 @@ public class ExecutionTool {
               env.getDirectories().getProductName() + "-",
               skyframeExecutor.getIgnoredPaths(),
               request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout,
-              runtime.getWorkspace().doesAllowExternalRepositories());
+              runtime.getWorkspace().doesAllowExternalRepositories(),
+              skyframeExecutor::getRootForDonePackage);
       incrementalPackageRoots.eagerlyPlantSymlinksToSingleSourceRoot();
 
       env.getSkyframeBuildView()

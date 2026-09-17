@@ -157,7 +157,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
             }
             try {
               if (outputDirectoryHelper != null) {
-                outputDirectoryHelper.createOutputDirectory(dir, execRoot);
+                outputDirectoryHelper.createOutputDirectory(dir, execRoot.asFragment());
               } else {
                 dir.createDirectoryAndParents();
               }
@@ -274,7 +274,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     if (digest == null) {
       digest = path.getDigest();
     }
-    return !Arrays.equals(digest, metadata.getDigest());
+    if (!Arrays.equals(digest, metadata.getDigest())) {
+      return true;
+    }
+    // The file contents have been verified to be up to date. Record the contents proxy when
+    // supported, just like after a fresh download, to make future modification checks cheaper.
+    metadata.setContentsProxy(FileContentsProxy.create(stat));
+    return false;
   }
 
   protected abstract boolean canDownloadFile(Path path, FileArtifactValue metadata);
@@ -799,6 +805,17 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               return Completable.complete();
             }),
         forceRefetch(linkPath));
+  }
+
+  /**
+   * Forgets about completed downloads of the given paths so that the next prefetch of each of them
+   * verifies it against the local file system instead of assuming that it is still in place.
+   */
+  public void invalidateDownloads(Iterable<PathFragment> execPaths) {
+    for (PathFragment path : execPaths) {
+      // Downloads are written to the actual host file system, not any overlays.
+      downloadCache.invalidate(execRoot.getRelative(path).forHostFileSystem());
+    }
   }
 
   public ImmutableSet<Path> downloadedFiles() {

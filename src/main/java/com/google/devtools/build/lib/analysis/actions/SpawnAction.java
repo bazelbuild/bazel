@@ -206,7 +206,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   @Override
   public List<String> getArguments() throws CommandLineExpansionException, InterruptedException {
     return commandLines.allArguments(
-        PathMappers.create(this, outputPathsMode, this instanceof StarlarkAction));
+        PathMappers.create(
+            this,
+            outputPathsMode,
+            this instanceof StarlarkAction,
+            /* inputMetadataProvider= */ null));
   }
 
   @Override
@@ -361,7 +365,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       boolean reportOutputs)
       throws CommandLineExpansionException, InterruptedException {
     PathMapper pathMapper =
-        PathMappers.create(this, outputPathsMode, this instanceof StarlarkAction);
+        PathMappers.create(
+            this,
+            outputPathsMode,
+            this instanceof StarlarkAction,
+            actionExecutionContext.getInputMetadataProvider());
     ExpandedCommandLines expandedCommandLines =
         commandLines.expand(
             actionExecutionContext.getInputMetadataProvider(),
