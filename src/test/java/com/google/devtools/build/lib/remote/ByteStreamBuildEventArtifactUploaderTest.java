@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -24,6 +26,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
@@ -94,6 +97,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
+import org.openjdk.jol.info.GraphLayout;
 
 /** Test for {@link ByteStreamBuildEventArtifactUploader}. */
 @RunWith(JUnit4.class)
@@ -557,11 +561,21 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
 
-    artifactUploader.upload(filesToUpload).get();
+    PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
 
     assertThat(eventHandler.getEvents()).isNotEmpty();
     assertThat(eventHandler.getEvents().get(0).getMessage())
         .contains("Uploading BEP referenced local file /file");
+    for (Path file : filesToUpload.keySet()) {
+      String hash = BaseEncoding.base16().lowerCase().encode(file.getDigest());
+      if (hash.equals(hashOfBlobThatShouldFail)) {
+        // In ALL mode a file whose upload failed is reported with a file:// URI.
+        assertThat(pathConverter.apply(file)).isEqualTo("file://" + file.getPathString());
+      } else {
+        assertThat(pathConverter.apply(file))
+            .isEqualTo("bytestream://localhost/instance/blobs/" + hash + "/" + file.getFileSize());
+      }
+    }
 
     artifactUploader.release();
 
@@ -812,6 +826,172 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     assertThat(pathConverter.apply(sym)).isNull();
     assertThat(eventHandler.getEvents()).isEmpty();
+    artifactUploader.release();
+  }
+
+  @Test
+  public void pathConverter_storesPrecomputedUri() throws Exception {
+    // The converter is retained by the build event until the event has been sent to the BES
+    // backend, so it must store the final URI rather than the metadata needed to compute it.
+    Path file = fs.getPath("/file");
+    FileSystemUtils.writeContent(file, new byte[] {1, 2, 3});
+    Digest digest = DIGEST_UTIL.compute(file);
+    StaticMissingDigestsFinder digestQuerier =
+        new StaticMissingDigestsFinder(ImmutableSet.of(digest));
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier, digestQuerier);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
+
+    PathConverter pathConverter =
+        artifactUploader
+            .upload(
+                ImmutableMap.of(
+                    file,
+                    new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null)))
+            .get();
+
+    String uri = pathConverter.apply(file);
+    assertThat(uri)
+        .isEqualTo(
+            "bytestream://localhost/instance/blobs/"
+                + digest.getHash()
+                + "/"
+                + digest.getSizeBytes());
+    assertThat(pathConverter.apply(file)).isSameInstanceAs(uri);
+    artifactUploader.release();
+  }
+
+  @Test
+  public void pathConverter_matchesPathsByFragmentAcrossFileSystems() throws Exception {
+    // Outputs of remotely executed actions are referenced through per-action file systems. The
+    // converter must not depend on (and thus not retain) the file system of the declared paths.
+    Path remoteFile = fs.getPath("/remote-file");
+    FileSystemUtils.writeContent(remoteFile, StandardCharsets.UTF_8, "hello world");
+    Digest remoteDigest = DIGEST_UTIL.compute(remoteFile);
+    Path dir = fs.getPath("/dir");
+    dir.createDirectory();
+    StaticMissingDigestsFinder digestQuerier =
+        new StaticMissingDigestsFinder(ImmutableSet.of(remoteDigest));
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier, digestQuerier);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
+
+    PathConverter pathConverter =
+        artifactUploader
+            .upload(
+                ImmutableMap.of(
+                    remoteFile,
+                    new LocalFile(
+                        remoteFile, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null),
+                    dir,
+                    new LocalFile(
+                        dir, LocalFileType.OUTPUT_DIRECTORY, /* artifactMetadata= */ null)))
+            .get();
+
+    FileSystem otherFs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
+    Path remoteFileOnOtherFs = otherFs.getPath(remoteFile.asFragment());
+    assertThat(remoteFileOnOtherFs).isNotEqualTo(remoteFile);
+    assertThat(pathConverter.apply(remoteFileOnOtherFs))
+        .isEqualTo(pathConverter.apply(remoteFile));
+    assertThat(pathConverter.apply(remoteFileOnOtherFs))
+        .isEqualTo(
+            "bytestream://localhost/instance/blobs/"
+                + remoteDigest.getHash()
+                + "/"
+                + remoteDigest.getSizeBytes());
+    assertThat(pathConverter.apply(otherFs.getPath(dir.asFragment()))).isNull();
+    artifactUploader.release();
+  }
+
+  @Test
+  public void pathConverter_doesNotRetainPathMetadata() throws Exception {
+    // The converter of a pending build event may be retained for a long time. It must only hold
+    // the resulting URI strings, not the per-file metadata (Digest, DigestFunction) or the Path
+    // objects (which pin their FileSystem) that were used to compute them.
+    Path remoteFile = fs.getPath("/remote-file");
+    FileSystemUtils.writeContent(remoteFile, StandardCharsets.UTF_8, "hello world");
+    Digest remoteDigest = DIGEST_UTIL.compute(remoteFile);
+    Path localFile = fs.getPath("/local-file");
+    FileSystemUtils.writeContent(localFile, StandardCharsets.UTF_8, "foo bar");
+    Path dir = fs.getPath("/dir");
+    dir.createDirectory();
+    StaticMissingDigestsFinder digestQuerier =
+        new StaticMissingDigestsFinder(ImmutableSet.of(remoteDigest));
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = spy(newCombinedCache(refCntChannel, retrier, digestQuerier));
+    doAnswer(invocationOnMock -> Futures.immediateFuture(null))
+        .when(combinedCache)
+        .uploadFile(any(), any(), any());
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
+
+    PathConverter pathConverter =
+        artifactUploader
+            .upload(
+                ImmutableMap.of(
+                    remoteFile,
+                    new LocalFile(
+                        remoteFile, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null),
+                    localFile,
+                    new LocalFile(
+                        localFile, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null),
+                    dir,
+                    new LocalFile(
+                        dir, LocalFileType.OUTPUT_DIRECTORY, /* artifactMetadata= */ null)))
+            .get();
+
+    assertThat(pathConverter.apply(remoteFile)).contains(remoteDigest.getHash());
+    assertThat(pathConverter.apply(localFile)).startsWith("bytestream://");
+    assertThat(pathConverter.apply(dir)).isNull();
+    ImmutableSet<String> retainedClasses =
+        GraphLayout.parseInstance(pathConverter).getClasses().stream()
+            .map(Class::getName)
+            .collect(toImmutableSet());
+    assertThat(retainedClasses)
+        .containsNoneOf(
+            ByteStreamBuildEventArtifactUploader.class.getName() + "$PathMetadata",
+            Digest.class.getName(),
+            DigestFunction.Value.class.getName(),
+            Path.class.getName(),
+            fs.getClass().getName());
+    artifactUploader.release();
+  }
+
+  @Test
+  public void pathConverter_undeclaredPath_throws() throws Exception {
+    Path file = fs.getPath("/file");
+    FileSystemUtils.writeContent(file, new byte[] {1, 2, 3});
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    CombinedCache combinedCache = spy(newCombinedCache(refCntChannel, retrier));
+    doAnswer(invocationOnMock -> Futures.immediateFuture(null))
+        .when(combinedCache)
+        .uploadFile(any(), any(), any());
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
+
+    PathConverter pathConverter =
+        artifactUploader
+            .upload(
+                ImmutableMap.of(
+                    file,
+                    new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null)))
+            .get();
+
+    assertThat(pathConverter.apply(file)).isNotNull();
+    IllegalStateException e =
+        assertThrows(
+            IllegalStateException.class, () -> pathConverter.apply(fs.getPath("/undeclared")));
+    assertThat(e).hasMessageThat().contains("Illegal file reference: '/undeclared'");
     artifactUploader.release();
   }
 

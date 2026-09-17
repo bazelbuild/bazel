@@ -26,8 +26,8 @@ import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.remote.options.RemoteBuildEventUploadMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
@@ -497,31 +498,54 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     return this;
   }
 
-  private static class PathConverterImpl implements PathConverter {
+  /**
+   * A {@link PathConverter} that only retains the final URI of every file referenced by a build
+   * event.
+   *
+   * <p>A build event stays pending, and keeps its converter alive, until the BES upload has caught
+   * up with it. With {@code --bes_upload_mode=fully_async} on large builds this can be a very long
+   * time, so the converter must not retain the {@link PathMetadata} (and thus {@link Digest},
+   * {@link DigestFunction} and {@link Path}) of every file it can convert. Instead, the URI is
+   * computed once, up front.
+   *
+   * <p>Paths are keyed by their {@link PathFragment} rather than the {@link Path} itself: a {@link
+   * Path} references its {@link com.google.devtools.build.lib.vfs.FileSystem}, which for outputs
+   * of remotely executed actions is a per-action {@link RemoteActionFileSystem} that would
+   * otherwise be kept alive by the pending event. Callers only ever look up paths that the event
+   * declared as referenced local files, so the fragment alone identifies the file.
+   *
+   * <p>Instances are immutable: {@link #apply} may be called from the BES upload thread while
+   * uploads for later events are still running.
+   */
+  private static final class PathConverterImpl implements PathConverter {
+    /** Files reported with a {@code bytestream://} URI, mapped to that URI. */
+    private final ImmutableMap<PathFragment, String> pathToUri;
 
-    private final String remoteServerInstanceName;
-    private final Map<Path, PathMetadata> pathToMetadata;
-    private final Set<Path> skippedPaths;
-    private final Set<Path> localPaths;
+    /** Files that were not uploaded and are reported with a {@code file://} URI. */
+    private final ImmutableSet<PathFragment> localPaths;
+
+    /** Files that are omitted from the BEP (e.g. directories, symlinks or failed reads). */
+    private final ImmutableSet<PathFragment> skippedPaths;
 
     PathConverterImpl(
         String remoteServerInstanceName,
         List<PathMetadata> uploads,
         RemoteBuildEventUploadMode remoteBuildEventUploadMode) {
       Preconditions.checkNotNull(uploads);
-      this.remoteServerInstanceName = remoteServerInstanceName;
-      pathToMetadata = Maps.newHashMapWithExpectedSize(uploads.size());
-      ImmutableSet.Builder<Path> skippedPaths = ImmutableSet.builder();
-      ImmutableSet.Builder<Path> localPaths = ImmutableSet.builder();
+      ImmutableMap.Builder<PathFragment, String> pathToUri =
+          ImmutableMap.builderWithExpectedSize(uploads.size());
+      ImmutableSet.Builder<PathFragment> localPaths = ImmutableSet.builder();
+      ImmutableSet.Builder<PathFragment> skippedPaths = ImmutableSet.builder();
       for (PathMetadata metadata : uploads) {
-        Path path = metadata.getPath();
+        PathFragment path = metadata.getPath().asFragment();
         Digest digest = metadata.getDigest();
         if (digest != null) {
           // Always use bytestream:// in MINIMAL mode
-          if (remoteBuildEventUploadMode == RemoteBuildEventUploadMode.MINIMAL) {
-            pathToMetadata.put(path, metadata);
-          } else if (metadata.isRemote()) {
-            pathToMetadata.put(path, metadata);
+          if (remoteBuildEventUploadMode == RemoteBuildEventUploadMode.MINIMAL
+              || metadata.isRemote()) {
+            pathToUri.put(
+                path,
+                bytestreamUri(remoteServerInstanceName, digest, metadata.getDigestFunction()));
           } else {
             localPaths.add(path);
           }
@@ -531,47 +555,42 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
           skippedPaths.add(path);
         }
       }
-      this.skippedPaths = skippedPaths.build();
+      // The same file may legitimately be referenced through paths on different file systems.
+      this.pathToUri = pathToUri.buildKeepingLast();
       this.localPaths = localPaths.build();
+      this.skippedPaths = skippedPaths.build();
+    }
+
+    private static String bytestreamUri(
+        String remoteServerInstanceName, Digest digest, DigestFunction.Value digestFunction) {
+      StringBuilder uri =
+          new StringBuilder("bytestream://").append(remoteServerInstanceName).append("/blobs/");
+      if (!isOldStyleDigestFunction(digestFunction)) {
+        uri.append(Ascii.toLowerCase(digestFunction.getValueDescriptor().getName())).append('/');
+      }
+      return uri.append(digest.getHash()).append('/').append(digest.getSizeBytes()).toString();
     }
 
     @Override
     @Nullable
     public String apply(Path path) {
       Preconditions.checkNotNull(path);
+      PathFragment fragment = path.asFragment();
 
-      if (localPaths.contains(path)) {
-        return String.format("file://%s", path.getPathString());
+      if (localPaths.contains(fragment)) {
+        return "file://" + path.getPathString();
       }
 
-      PathMetadata metadata = pathToMetadata.get(path);
-      if (metadata == null) {
-        if (skippedPaths.contains(path)) {
+      String uri = pathToUri.get(fragment);
+      if (uri == null) {
+        if (skippedPaths.contains(fragment)) {
           return null;
         }
         // It's a programming error to reference a file that has not been uploaded.
         throw new IllegalStateException(
             String.format("Illegal file reference: '%s'", path.getPathString()));
       }
-
-      Digest digest = metadata.getDigest();
-      DigestFunction.Value digestFunction = metadata.getDigestFunction();
-      String out;
-      if (isOldStyleDigestFunction(digestFunction)) {
-        out =
-            String.format(
-                "bytestream://%s/blobs/%s/%d",
-                remoteServerInstanceName, digest.getHash(), digest.getSizeBytes());
-      } else {
-        out =
-            String.format(
-                "bytestream://%s/blobs/%s/%s/%d",
-                remoteServerInstanceName,
-                Ascii.toLowerCase(digestFunction.getValueDescriptor().getName()),
-                digest.getHash(),
-                digest.getSizeBytes());
-      }
-      return out;
+      return uri;
     }
   }
 }
