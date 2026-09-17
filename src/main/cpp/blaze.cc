@@ -2008,8 +2008,8 @@ void BlazeServer::SendTerminalSizeMessage(int columns) {
 
 void BlazeServer::DeleteAotCacheConfiguration() const {
   // The JVM expands %p in -XX:AOTConfiguration to "pid<PID>".
-  blaze_util::UnlinkPath(blaze_util::Path(
-      aot_cache_.AsNativePath() + ".pid" +
+  blaze_util::UnlinkPath(aot_cache_.GetParent().GetRelative(
+      aot_cache_.GetBaseName() + ".pid" +
       blaze_util::ToString(process_info_.server_pid_) + ".config"));
 }
 

@@ -698,7 +698,8 @@ blaze_util::Path StartupOptions::GetAotCachePath() const {
 }
 
 blaze_util::Path StartupOptions::GetAotCacheDisabledMarkerPath() const {
-  return blaze_util::Path(GetAotCachePath().AsNativePath() + ".disabled");
+  const blaze_util::Path aot_cache = GetAotCachePath();
+  return aot_cache.GetParent().GetRelative(aot_cache.GetBaseName() + ".disabled");
 }
 
 bool StartupOptions::IsRecordingAotCache() const {
