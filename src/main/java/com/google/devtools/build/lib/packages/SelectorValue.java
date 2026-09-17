@@ -121,9 +121,9 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
     // subtype that is not semantically meaningful to the user. These problems are probably best
     // solved by merging this class into the BuildType-land equivalent, with normalization that
     // removes subtype distinctions by copying into standard attribute types.
-    return Objects.equal(dictionary, that.dictionary)
-        && Objects.equal(type, that.type)
-        && Objects.equal(noMatchError, that.noMatchError);
+    return java.util.Objects.equals(dictionary, that.dictionary)
+        && java.util.Objects.equals(type, that.type)
+        && java.util.Objects.equals(noMatchError, that.noMatchError);
   }
 
   @Override
