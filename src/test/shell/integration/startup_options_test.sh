@@ -110,4 +110,102 @@ function test_bazelrc_after_devnull_ignored() {
   expect_not_log "--definitely_invalid_config"
 }
 
+function test_experimental_aot_cache_training_run() {
+  local install_base
+  install_base=$(bazel info install_base 2> $TEST_log) \
+    || fail "Couldn't run ${PRODUCT_NAME}"
+  local aot_cache="${install_base}.aot"
+  rm -f "$aot_cache" "$aot_cache".*
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+genrule(name = "gen", outs = ["gen.txt"], cmd = "touch $@")
+EOF
+
+  # A training run starts a new server, which records the cache until it is
+  # shut down. Invocations without the option keep using that server.
+  local training_pid pid
+  training_pid=$(bazel --experimental_aot_cache_training_run info server_pid \
+    2> $TEST_log) || fail "Couldn't start the training run"
+  bazel build //pkg:gen &> $TEST_log \
+    || fail "Couldn't build in the training run"
+  expect_not_log "server needs to be killed"
+  pid=$(bazel info server_pid 2> $TEST_log) \
+    || fail "Couldn't run ${PRODUCT_NAME}"
+  expect_not_log "server needs to be killed"
+  assert_equals "$training_pid" "$pid"
+  [[ -e "$aot_cache" ]] && fail "AOT cache assembled before the server exited"
+  bazel shutdown &> $TEST_log || fail "Couldn't shut down the server"
+  expect_not_log "server needs to be killed"
+  [[ -s "$aot_cache" ]] || fail "AOT cache not assembled at $aot_cache"
+
+  # The cache is used by servers started from now on. -XX:AOTMode=on makes the
+  # JVM fail to start instead of silently ignoring a cache it can't use.
+  bazel shutdown &> $TEST_log || fail "Couldn't shut down the server"
+  bazel --host_jvm_args=-XX:AOTMode=on info server_pid &> $TEST_log \
+    || fail "Couldn't start the server with the AOT cache"
+  bazel --host_jvm_args=-XX:AOTMode=on shutdown &> $TEST_log \
+    || fail "Couldn't shut down the server"
+  rm -f "$aot_cache"
+}
+
+function test_experimental_aot_cache_training_run_restarts_server() {
+  local install_base
+  install_base=$(bazel info install_base 2> $TEST_log) \
+    || fail "Couldn't run ${PRODUCT_NAME}"
+  local aot_cache="${install_base}.aot"
+  rm -f "$aot_cache" "$aot_cache".*
+
+  # A training run restarts a running server even if its startup options are
+  # the same, which includes a server that is already recording a cache.
+  local pid1 pid2 pid3
+  pid1=$(bazel info server_pid 2> $TEST_log) \
+    || fail "Couldn't run ${PRODUCT_NAME}"
+  pid2=$(bazel --experimental_aot_cache_training_run info server_pid \
+    2> $TEST_log) || fail "Couldn't start the training run"
+  expect_log "server needs to be killed, because --experimental_aot_cache"
+  assert_not_equals "$pid1" "$pid2"
+  [[ -e "$aot_cache" ]] && fail "AOT cache assembled by a non-recording server"
+
+  pid3=$(bazel --experimental_aot_cache_training_run info server_pid \
+    2> $TEST_log) || fail "Couldn't start the second training run"
+  expect_log "server needs to be killed, because --experimental_aot_cache"
+  assert_not_equals "$pid2" "$pid3"
+  # The first training run ended when its server was restarted.
+  [[ -s "$aot_cache" ]] || fail "AOT cache not assembled at $aot_cache"
+
+  bazel shutdown &> $TEST_log || fail "Couldn't shut down the server"
+  rm -f "$aot_cache"
+}
+
+function test_experimental_aot_cache_training_run_disabled_after_crash() {
+  local install_base
+  install_base=$(bazel info install_base 2> $TEST_log) \
+    || fail "Couldn't run ${PRODUCT_NAME}"
+  local aot_cache="${install_base}.aot"
+  rm -f "$aot_cache" "$aot_cache".*
+
+  # A cache that the JVM can't load is fatal with -XX:AOTMode=on (and in some
+  # cases even without it). The client then deletes the cache and stops using
+  # one for this install base until a new one is recorded.
+  echo "not an AOT cache" > "$aot_cache"
+  bazel --host_jvm_args=-XX:AOTMode=on info server_pid &> $TEST_log \
+    && fail "Server started with an unusable AOT cache"
+  expect_log "Server crashed during startup"
+  expect_log "The cache has been deleted"
+  [[ -e "$aot_cache" ]] && fail "Unusable AOT cache not deleted"
+  [[ -e "$aot_cache.disabled" ]] || fail "AOT cache not disabled"
+
+  bazel info server_pid &> $TEST_log \
+    || fail "Couldn't start the server with the AOT cache disabled"
+
+  # A training run records a new cache and re-enables its use.
+  bazel --experimental_aot_cache_training_run info server_pid &> $TEST_log \
+    || fail "Couldn't start the training run"
+  [[ -e "$aot_cache.disabled" ]] && fail "AOT cache still disabled"
+  bazel shutdown &> $TEST_log || fail "Couldn't shut down the server"
+  [[ -s "$aot_cache" ]] || fail "AOT cache not assembled at $aot_cache"
+  rm -f "$aot_cache"
+}
+
 run_suite "${PRODUCT_NAME} startup options test"
