@@ -284,7 +284,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     String progressMessage =
         (progressMessageUnchecked != Starlark.NONE)
             ? (String) progressMessageUnchecked
-            : "Creating symlink %{output}";
+            : UnresolvedSymlinkAction.DEFAULT_PROGRESS_MESSAGE;
 
     Action action;
     if (targetFile != Starlark.NONE) {
