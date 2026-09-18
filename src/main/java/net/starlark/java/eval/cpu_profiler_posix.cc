@@ -97,7 +97,9 @@ void onsigprof(int sig) {
 extern "C" JNIEXPORT jint JNICALL
 Java_net_starlark_java_eval_CpuProfilerNativeSupportImpl_getThreadId(
     JNIEnv* env, jobject instance) {
-  return gettid();
+  // Keep TLS initialization out of gettid(), which the signal handler also uses.
+  static thread_local const pid_t tid = gettid();
+  return tid;
 }
 
 // makeFD: return new FileDescriptor(fd)
