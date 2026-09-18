@@ -7366,6 +7366,15 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         .isEqualTo("external/dep+4.5");
     assertThat(eval(module, "Label('@@//foo:bar').workspace_root")).isEqualTo("");
 
+    assertThat(eval(module, "Label('//foo:bar').repo_root")).isEqualTo("external/module+1.2.3");
+    assertThat(eval(module, "Label('@my_module//foo:bar').repo_root"))
+        .isEqualTo("external/module+1.2.3");
+    assertThat(eval(module, "Label('@@module+1.2.3//foo:bar').repo_root"))
+        .isEqualTo("external/module+1.2.3");
+    assertThat(eval(module, "Label('@dep//foo:bar').repo_root")).isEqualTo("external/dep+4.5");
+    assertThat(eval(module, "Label('@@dep+4.5//foo:bar').repo_root")).isEqualTo("external/dep+4.5");
+    assertThat(eval(module, "Label('@@//foo:bar').repo_root")).isEqualTo("");
+
     assertThat(eval(module, "str(Label('@@//foo:bar'))")).isEqualTo("@@//foo:bar");
     assertThat(
             assertThrows(
@@ -7380,6 +7389,12 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         .hasMessageThat()
         .isEqualTo(
             "'workspace_root' is not allowed on invalid Label @@[unknown repo '' requested from"
+                + " @@module+1.2.3]//foo:bar");
+    assertThat(
+            assertThrows(EvalException.class, () -> eval(module, "Label('@//foo:bar').repo_root")))
+        .hasMessageThat()
+        .isEqualTo(
+            "'repo_root' is not allowed on invalid Label @@[unknown repo '' requested from"
                 + " @@module+1.2.3]//foo:bar");
   }
 
