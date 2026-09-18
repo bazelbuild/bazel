@@ -199,7 +199,8 @@ public final class SpawnInputExpander {
    * <p>The returned map contains all runfiles, but not the {@code MANIFEST}.
    *
    * <p>The returned map is sorted by {@link PathFragment#HIERARCHICAL_COMPARATOR}, which orders the
-   * paths nested under a directory directly after it.
+   * paths nested under a directory directly after it. Sandboxed execution relies on this to omit
+   * inputs nested under a directory input.
    */
   public SortedMap<PathFragment, ActionInput> getInputMapping(
       Spawn spawn, InputMetadataProvider inputMetadataProvider) {
