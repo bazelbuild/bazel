@@ -71,6 +71,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -300,7 +301,30 @@ public final class HelpCommand implements BlazeCommand {
   }
 
   private static void emitFlagsAsProtoHelp(BlazeRuntime runtime, OutErr outErr) {
+    Iterable<OptionsSupplier> optionsSuppliers = runtime.getOptionsSuppliers();
+    Set<Class<?>> commonClasses =
+        expandOptionsBaseHierarchy(BlazeCommandUtils.getCommonOptions(optionsSuppliers));
+    Set<Class<?>> configClasses =
+        expandOptionsBaseHierarchy(
+            runtime.getRuleClassProvider().getFragmentRegistry().getOptionsClasses());
+
+    Map<String, Set<Class<?>>> directClassesByCommand = new HashMap<>();
+    for (Map.Entry<String, BlazeCommand> entry : getSortedCommands(runtime).entrySet()) {
+      Command annotation = entry.getValue().getClass().getAnnotation(Command.class);
+      if (annotation.hidden()) {
+        continue;
+      }
+      Set<Class<? extends OptionsBase>> directClasses = new HashSet<>();
+      Collections.addAll(directClasses, annotation.options());
+      for (OptionsSupplier supplier : optionsSuppliers) {
+        Iterables.addAll(directClasses, supplier.getCommandOptions(annotation.name()));
+      }
+      directClassesByCommand.put(entry.getKey(), expandOptionsBaseHierarchy(directClasses));
+    }
+
     Map<String, BazelFlagsProto.FlagInfo.Builder> flags = new HashMap<>();
+    // Preserves insertion order of section values per flag.
+    Map<String, LinkedHashSet<String>> flagSections = new HashMap<>();
 
     Predicate<OptionDefinition> allOptions = unused -> true;
     BiConsumer<String, OptionDefinition> visitor =
@@ -312,6 +336,28 @@ public final class HelpCommand implements BlazeCommand {
           BazelFlagsProto.FlagInfo.Builder info =
               flags.computeIfAbsent(option.getOptionName(), unused -> createFlagInfo(option));
           info.addCommands(commandName);
+
+          Class<?> declaringClass = option.getDeclaringClass(OptionsBase.class);
+          LinkedHashSet<String> sections =
+              flagSections.computeIfAbsent(option.getOptionName(), unused -> new LinkedHashSet<>());
+          if (commandName.equals("startup")) {
+            sections.add("startup");
+            return;
+          }
+          // A single flag can belong to multiple sections. RemoteOptions, for example, is
+          // returned by both RemoteModule.getCommonCommandOptions() and
+          // BazelStrategyModule.getCommandOptions("build"), so its flags render under both
+          // "Options Common to all Commands" and "Build Options".
+          if (commonClasses.contains(declaringClass)) {
+            sections.add("common");
+          }
+          if (directClassesByCommand
+              .getOrDefault(commandName, Set.of())
+              .contains(declaringClass)) {
+            sections.add(commandName);
+          } else if (configClasses.contains(declaringClass)) {
+            sections.add("config");
+          }
         };
     Consumer<OptionsParser> startupOptionVisitor =
         parser -> parser.visitOptions(allOptions, option -> visitor.accept("startup", option));
@@ -324,8 +370,48 @@ public final class HelpCommand implements BlazeCommand {
     BazelFlagsProto.FlagCollection.Builder collectionBuilder =
         BazelFlagsProto.FlagCollection.newBuilder();
     for (BazelFlagsProto.FlagInfo.Builder info : flags.values()) {
+      LinkedHashSet<String> sections = flagSections.get(info.getName());
+      if (sections != null) {
+        info.addAllSections(sections);
+      }
       collectionBuilder.addFlagInfos(info);
     }
+
+    for (Map.Entry<String, BlazeCommand> entry : getSortedCommands(runtime).entrySet()) {
+      Command annotation = entry.getValue().getClass().getAnnotation(Command.class);
+      if (!annotation.hidden()) {
+        BazelFlagsProto.CommandInfo.Builder commandBuilder =
+            BazelFlagsProto.CommandInfo.newBuilder()
+                .setName(entry.getKey())
+                .setDescription(
+                    annotation.shortDescription().replace("%{product}", runtime.getProductName()));
+        for (Class<? extends BlazeCommand> base : annotation.inheritsOptionsFrom()) {
+          commandBuilder.addInheritsOptionsFrom(base.getAnnotation(Command.class).name());
+        }
+        commandBuilder.setUsesConfigurationOptions(annotation.usesConfigurationOptions());
+
+        collectionBuilder.addCommands(commandBuilder);
+      }
+    }
+
+    String productName = runtime.getProductName();
+    ImmutableMap<OptionEffectTag, String> effectTagDescriptions =
+        OptionFilterDescriptions.getOptionEffectTagDescription(productName);
+    for (Map.Entry<OptionEffectTag, String> entry : effectTagDescriptions.entrySet()) {
+      collectionBuilder.putEffectTags(
+          Ascii.toLowerCase(entry.getKey().name()), entry.getValue());
+    }
+
+    ImmutableMap<OptionMetadataTag, String> metadataTagDescriptions =
+        OptionFilterDescriptions.getOptionMetadataTagDescription(productName);
+    for (Map.Entry<OptionMetadataTag, String> entry : metadataTagDescriptions.entrySet()) {
+      OptionMetadataTag tag = entry.getKey();
+      if (!tag.equals(OptionMetadataTag.HIDDEN) && !tag.equals(OptionMetadataTag.INTERNAL)) {
+        collectionBuilder.putMetadataTags(
+            Ascii.toLowerCase(tag.name()), entry.getValue());
+      }
+    }
+
     outErr.printOut(Base64.getEncoder().encodeToString(collectionBuilder.build().toByteArray()));
   }
 
@@ -356,7 +442,9 @@ public final class HelpCommand implements BlazeCommand {
       flagBuilder.setDocumentationCategory(option.getDocumentationCategory().toString());
     }
 
-    if (!option.isSpecialNullDefault()) {
+    if (option.isSpecialNullDefault()) {
+      flagBuilder.setDefaultValue("see description");
+    } else {
       flagBuilder.setDefaultValue(option.getUnparsedDefaultValue());
     }
 
@@ -375,6 +463,16 @@ public final class HelpCommand implements BlazeCommand {
           converterClassName.substring(0, converterClassName.length() - "Converter".length());
       flagBuilder.setTypeConverter(shortName);
     }
+
+    String valueTypeHelpText = option.getValueTypeHelpText();
+    if (!valueTypeHelpText.isEmpty()) {
+      flagBuilder.setTypeDescription(valueTypeHelpText);
+    } else {
+      String typeDescription = converter.getTypeDescription();
+      if (!typeDescription.isEmpty()) {
+        flagBuilder.setTypeDescription(typeDescription);
+      }
+    }
     if (converter instanceof EnumConverter<?> enumConverter) {
       List<String> enumValues =
           Arrays.stream(enumConverter.getEnumType().getEnumConstants())
@@ -384,6 +482,24 @@ public final class HelpCommand implements BlazeCommand {
     }
 
     return flagBuilder;
+  }
+
+  /**
+   * Returns the transitive closure over {@link Class#getSuperclass()} of the given options
+   * classes, stopping at (but including) {@link OptionsBase}. This lets a lookup by declaring
+   * class match options declared on any superclass in the same hierarchy.
+   */
+  private static Set<Class<?>> expandOptionsBaseHierarchy(
+      Iterable<? extends Class<? extends OptionsBase>> classes) {
+    Set<Class<?>> result = new HashSet<>();
+    for (Class<? extends OptionsBase> cls : classes) {
+      for (Class<?> c = cls;
+          c != null && OptionsBase.class.isAssignableFrom(c);
+          c = c.getSuperclass()) {
+        result.add(c);
+      }
+    }
+    return result;
   }
 
   private static void visitAllOptions(
