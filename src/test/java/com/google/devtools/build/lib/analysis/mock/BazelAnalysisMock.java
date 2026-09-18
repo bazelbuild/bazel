@@ -397,9 +397,10 @@ launcher_flag_alias(
             srcs = ["collect_coverage.sh"],
         )
 
-        filegroup(
+        alias(
             name = "collect_cc_coverage",
-            srcs = ["collect_cc_coverage.sh"],
+            actual = "@rules_cc//cc/private/coverage:collect_cc_coverage",
+            deprecation = "Please use @rules_cc//cc/private/coverage:collect_cc_coverage instead.",
         )
 
         filegroup(
@@ -674,6 +675,9 @@ launcher_flag_alias(
         "bazel_features_workspace/features.bzl",
         """
         bazel_features = struct(
+          cc = struct(
+            _get_link_args_has_param_file_name = True,
+          ),
           rules = struct(
             _has_launcher_maker_toolchain = False,
           ),
