@@ -18,14 +18,15 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.util.WindowsParamFileEscaper.escapeString;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.Arrays;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link WindowsParamFileEscaper}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class WindowsParamFileEscaperTest {
 
   @Test
@@ -45,23 +46,20 @@ public class WindowsParamFileEscaperTest {
   }
 
   @Test
-  public void escapesBackslashesBeforeQuotes() {
-    for (int count = 1; count <= 3; count++) {
-      String backslashes = "\\".repeat(count);
-      String escapedBackslashes = "\\".repeat(2 * count + 1);
-      assertThat(escapeString("foo" + backslashes + "\"bar"))
-          .isEqualTo("foo" + escapedBackslashes + "\"bar");
-      assertThat(escapeString("foo " + backslashes + "\"bar"))
-          .isEqualTo("\"foo " + escapedBackslashes + "\"bar\"");
-    }
+  public void escapesBackslashesBeforeQuotes(@TestParameter({"1", "2", "3"}) int count) {
+    String backslashes = "\\".repeat(count);
+    String escapedBackslashes = "\\".repeat(2 * count + 1);
+    assertThat(escapeString("foo" + backslashes + "\"bar"))
+        .isEqualTo("foo" + escapedBackslashes + "\"bar");
+    assertThat(escapeString("foo " + backslashes + "\"bar"))
+        .isEqualTo("\"foo " + escapedBackslashes + "\"bar\"");
   }
 
   @Test
-  public void escapesTrailingBackslashesInQuotedArguments() {
-    for (int count = 1; count <= 3; count++) {
-      assertThat(escapeString("C:\\Program Files\\SDK" + "\\".repeat(count)))
-          .isEqualTo("\"C:\\Program Files\\SDK" + "\\".repeat(2 * count) + "\"");
-    }
+  public void escapesTrailingBackslashesInQuotedArguments(
+      @TestParameter({"1", "2", "3"}) int count) {
+    assertThat(escapeString("C:\\Program Files\\SDK" + "\\".repeat(count)))
+        .isEqualTo("\"C:\\Program Files\\SDK" + "\\".repeat(2 * count) + "\"");
   }
 
   @Test
