@@ -902,7 +902,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.TOP_LEVEL_ASPECTS,
         new ToplevelStarlarkAspectFunction(
-            new BuildViewProvider(),
+            () -> getSkyframeBuildView().getStarlarkTransitionCache(),
             ruleClassProvider,
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             this::getExistingPackage));
@@ -2931,17 +2931,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return value;
   }
 
-  class SkyframePackageLoader {
+  private final class SkyframePackageLoader implements SkyframePackageManager.PackageLoader {
     /**
-     * Looks up a particular package (mostly used after the loading phase, so packages should
-     * already be present, but occasionally used pre-loading phase). Use should be discouraged,
-     * since this cannot be used inside a Skyframe evaluation, and concurrent calls are
-     * synchronized.
-     *
-     * <p>Note that this method needs to be synchronized since InMemoryMemoizingEvaluator.evaluate()
+     * Note that this method needs to be synchronized since InMemoryMemoizingEvaluator.evaluate()
      * method does not support concurrent calls.
      */
-    Package getPackage(ExtendedEventHandler eventHandler, PackageIdentifier pkgName)
+    @Override
+    public Package getPackage(ExtendedEventHandler eventHandler, PackageIdentifier pkgName)
         throws InterruptedException, NoSuchPackageException {
       ImmutableList<SkyKey> keys = ImmutableList.of(pkgName);
       EvaluationResult<PackageValue> result;
@@ -2972,18 +2968,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
 
     /**
-     * Returns the BUILD file target of the given package. Mostly used after the loading phase, so
-     * packages should already be present, but occasionally used pre-loading phase. If the package
-     * is not present, will load either the full package (if lazy macro expansion is disabled) or
-     * just the package piece owning the BUILD file target (if lazy macro expansion is enabled).
-     *
-     * <p>Use should be discouraged, since this cannot be used inside a Skyframe evaluation, and
-     * concurrent calls are synchronized.
-     *
-     * <p>This method contains a synchronized block since InMemoryMemoizingEvaluator.evaluate()
-     * method does not support concurrent calls.
+     * This method contains a synchronized block since InMemoryMemoizingEvaluator.evaluate() method
+     * does not support concurrent calls.
      */
-    InputFile getBuildFile(ExtendedEventHandler eventHandler, PackageIdentifier pkgName)
+    @Override
+    public InputFile getBuildFile(ExtendedEventHandler eventHandler, PackageIdentifier pkgName)
         throws InterruptedException, NoSuchPackageException, NoSuchPackagePieceException {
       PackagePieceIdentifier.ForBuildFile packagePieceIdentifier =
           new PackagePieceIdentifier.ForBuildFile(pkgName);
@@ -3049,12 +3038,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
     }
 
-    /** Returns whether the given package should be consider deleted and thus should be ignored. */
+    @Override
     public boolean isPackageDeleted(PackageIdentifier packageName) {
       return deletedPackages.get().contains(packageName);
     }
 
-    PackageLookupValue getPackageLookupValue(PackageIdentifier pkgName) {
+    @Override
+    @Nullable
+    public PackageLookupValue getPackageLookupValue(PackageIdentifier pkgName) {
       try {
         return (PackageLookupValue)
             memoizingEvaluator.getExistingValue(PackageLookupValue.key(pkgName));
@@ -3066,7 +3057,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
     }
 
-    void dumpPackages(PrintStream out) {
+    @Override
+    public void dumpPackages(PrintStream out) {
       SkyframeExecutor.this.dumpPackages(out);
     }
   }
