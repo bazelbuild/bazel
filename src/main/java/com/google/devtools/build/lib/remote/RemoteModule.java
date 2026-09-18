@@ -188,7 +188,7 @@ public final class RemoteModule extends BlazeModule {
   private CredentialModule credentialModule;
 
   public RemoteModule() {
-    int defaultJobs = Options.getDefaults(BuildRequestOptions.class).getJobs();
+    int defaultJobs = Options.getDefaults(BuildRequestOptions.class).jobs;
     executorService =
         new ThreadPoolExecutor(
             defaultJobs,
