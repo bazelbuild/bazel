@@ -785,6 +785,13 @@ message TestResult {
     }
     TimingBreakdown timing_breakdown = 4;
 
+    // A named resource consumed by the test action, keyed by `name`. The set of
+    // names is not fixed; consumers should ignore names they do not recognize.
+    //
+    // Names currently emitted by Bazel:
+    //   * `memory_bytes`: peak memory usage of the test process, in bytes. Only
+    //     present when the test spawn ran under the process-wrapper or a sandbox
+    //     that reports rusage; absent for remotely executed and cached spawns.
     message ResourceUsage {
       string name = 1;
       int64 value = 2;
