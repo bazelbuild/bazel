@@ -744,6 +744,21 @@ public final class RemoteModuleTest {
   }
 
   @Test
+  public void executorService_withoutBuildRequestOptions_preservesPoolSize() throws Exception {
+    var executor = remoteModule.getExecutorService();
+    int jobs = executor.getCorePoolSize() + 1;
+    executor.setMaximumPoolSize(jobs);
+    executor.setCorePoolSize(jobs);
+    remoteOptions.setDiskCache(PathFragment.EMPTY_FRAGMENT);
+
+    // The test command's options do not include BuildRequestOptions.
+    beforeCommand();
+
+    assertThat(executor.getCorePoolSize()).isEqualTo(jobs);
+    assertThat(executor.getMaximumPoolSize()).isEqualTo(jobs);
+  }
+
+  @Test
   public void diskCache_defaultLocation_resolvesToOutputUserRoot() throws Exception {
     remoteOptions.setDiskCache(PathFragment.EMPTY_FRAGMENT);
 
@@ -900,4 +915,3 @@ public final class RemoteModuleTest {
     assertThat(RemoteModule.computeActionExecutionSalt(changedRemoteProxy)).isNotEqualTo(baseSalt);
   }
 }
-

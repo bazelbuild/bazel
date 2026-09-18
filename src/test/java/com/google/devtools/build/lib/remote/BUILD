@@ -76,6 +76,7 @@ java_library(
             "ChunkedDiskCacheIntegrationTest.java",
             "DiskCacheIntegrationTest.java",
             "RemoteCircuitBreakerRecoveryIntegrationTest.java",
+            "RemoteModuleIntegrationTest.java",
         ],
     ),
     deps = [
@@ -495,6 +496,27 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party/java/guava:collect",
         "//third_party/java/guava:io",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
+    name = "RemoteModuleIntegrationTest",
+    srcs = ["RemoteModuleIntegrationTest.java"],
+    tags = ["requires-network"],
+    runtime_deps = [
+        "//third_party/java/grpc:util",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/remote:remote_module",
+        "//src/main/java/com/google/devtools/build/lib/remote/options",
+        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
+        "//src/main/java/com/google/devtools/build/lib/runtime:block_waiting_module",
+        "//src/main/java/com/google/devtools/common/options:options_internal",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/remote/util:integration_test_utils",
+        "//third_party/java/guava:collect",
         "//third_party/java/junit",
         "//third_party/java/truth",
     ],
