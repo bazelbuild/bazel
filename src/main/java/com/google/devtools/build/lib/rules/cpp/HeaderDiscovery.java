@@ -75,6 +75,31 @@ final class HeaderDiscovery {
       ArtifactResolver artifactResolver,
       PathMapper pathMapper)
       throws ActionExecutionException {
+    return discoverInputsFromDependencies(
+        action,
+        sourceFile,
+        shouldValidateInclusions,
+        dependencies,
+        permittedSystemIncludePrefixes,
+        allowedDerivedInputs,
+        execRoot,
+        artifactResolver,
+        /* bazelExternalDirectory= */ false,
+        pathMapper);
+  }
+
+  static NestedSet<Artifact> discoverInputsFromDependencies(
+      Action action,
+      Artifact sourceFile,
+      boolean shouldValidateInclusions,
+      Collection<Path> dependencies,
+      List<Path> permittedSystemIncludePrefixes,
+      NestedSet<Artifact> allowedDerivedInputs,
+      Path execRoot,
+      ArtifactResolver artifactResolver,
+      boolean bazelExternalDirectory,
+      PathMapper pathMapper)
+      throws ActionExecutionException {
     Map<PathFragment, Artifact> regularDerivedArtifacts = new HashMap<>();
     Map<PathFragment, SpecialArtifact> treeArtifacts = new HashMap<>();
     for (Artifact a : allowedDerivedInputs.toList()) {
@@ -109,6 +134,7 @@ final class HeaderDiscovery {
         treeArtifacts,
         execRoot,
         artifactResolver,
+        bazelExternalDirectory,
         pathMapper);
   }
 
@@ -122,6 +148,7 @@ final class HeaderDiscovery {
       Map<PathFragment, SpecialArtifact> treeArtifacts,
       Path execRoot,
       ArtifactResolver artifactResolver,
+      boolean bazelExternalDirectory,
       PathMapper pathMapper)
       throws ActionExecutionException {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
@@ -162,7 +189,7 @@ final class HeaderDiscovery {
       Artifact derivedArtifact = regularDerivedArtifacts.get(execPathFragment);
       if (derivedArtifact == null) {
         Optional<PackageIdentifier> pkgId =
-            PackageIdentifier.discoverFromExecPath(execPathFragment, /* forFiles= */ false);
+            PackageIdentifier.discoverFromExecPath(execPathFragment, false, bazelExternalDirectory);
         if (pkgId.isPresent()) {
           if (possiblyCaseInsensitiveFileSystem) {
             resolvedArtifacts =

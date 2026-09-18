@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -31,6 +30,7 @@ import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFu
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.io.ProcessPackageDirectoryException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * Processes a directory that may contain a package and subdirectories for the benefit of processes
@@ -81,6 +82,11 @@ public final class ProcessPackageDirectory {
       IgnoredSubdirectories excludedPaths,
       SkyFunction.Environment env)
       throws InterruptedException, ProcessPackageDirectorySkyFunctionException {
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
+      return null;
+    }
+
     PathFragment rootRelativePath = rootedPath.getRootRelativePath();
 
     SkyKey fileKey = FileValue.key(rootedPath);
@@ -169,7 +175,12 @@ public final class ProcessPackageDirectory {
         dirListingValue, "%s %s %s", rootedPath, repositoryName, dirListingKey);
     return new ProcessPackageDirectoryResult(
         pkgLookupValue.packageExists() && pkgLookupValue.getRoot().equals(rootedPath.getRoot()),
-        getSubdirDeps(dirListingValue, rootedPath, repositoryName, excludedPaths),
+        getSubdirDeps(
+            dirListingValue,
+            rootedPath,
+            repositoryName,
+            excludedPaths,
+            starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_BAZEL_EXTERNAL_DIRECTORY)),
         /* additionalValuesToAggregate= */ ImmutableMap.of());
   }
 
@@ -254,7 +265,8 @@ public final class ProcessPackageDirectory {
       DirectoryListingValue dirListingValue,
       RootedPath rootedPath,
       RepositoryName repositoryName,
-      IgnoredSubdirectories excludedPaths) {
+      IgnoredSubdirectories excludedPaths,
+      boolean bazelExternalDirectory) {
     Root root = rootedPath.getRoot();
     PathFragment rootRelativePath = rootedPath.getRootRelativePath();
     boolean followSymlinks = shouldFollowSymlinksWhenTraversing(dirListingValue.getDirents());
@@ -273,8 +285,11 @@ public final class ProcessPackageDirectory {
       }
       String basename = dirent.getName();
       PathFragment subdirectory = rootRelativePath.getRelative(basename);
-      if (subdirectory.equals(LabelConstants.EXTERNAL_PACKAGE_NAME) && repositoryName.isMain()) {
-        // //external in the main repo is a reserved package name and never hosts subpackages.
+      if (!bazelExternalDirectory
+          && subdirectory.equals(LabelConstants.EXTERNAL_PACKAGE_NAME)
+          && repositoryName.isMain()) {
+        // Subpackages under //external in the main repo can be processed only when the execroot's
+        // external repository directory no longer occupies that path.
         continue;
       }
 
