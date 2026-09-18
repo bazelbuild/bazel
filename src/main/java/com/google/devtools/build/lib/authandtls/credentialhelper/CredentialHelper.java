@@ -18,6 +18,8 @@ import static com.google.devtools.build.lib.profiler.ProfilerTask.CREDENTIAL_HEL
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -26,6 +28,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.Immutable;
 import com.google.gson.Gson;
@@ -164,12 +167,61 @@ public final class CredentialHelper {
 
     ImmutableMap<String, String> clientEnv = environment.clientEnvironment().get();
     return new SubprocessBuilder(clientEnv)
-        .setArgv(ImmutableList.<String>builder().add(path.getPathString()).add(args).build())
+        .setArgv(getArgv(OS.getCurrent(), path.getPathString(), args))
         .setWorkingDirectory(
             environment.workspacePath() != null ? environment.workspacePath().getPathFile() : null)
         .setEnv(clientEnv)
         .setTimeoutMillis(environment.helperExecutionTimeout().toMillis())
         .start();
+  }
+
+  /**
+   * Returns the command line used to invoke the helper.
+   *
+   * <p>Batch scripts get special treatment on Windows: {@code CreateProcess}, which Bazel uses to
+   * spawn subprocesses there, can only start executable images, so a {@code .bat} or {@code .cmd}
+   * file has to be handed to the command interpreter instead. This lets a credential helper ship as
+   * a small wrapper script on Windows, the way a shell script can be used everywhere else.
+   */
+  @VisibleForTesting
+  static ImmutableList<String> getArgv(OS os, String pathString, String... args) {
+    if (os != OS.WINDOWS || !isBatchScript(pathString)) {
+      return ImmutableList.<String>builder().add(pathString).add(args).build();
+    }
+
+    // `cmd.exe` lives in C:\Windows\System32, which is always on the Windows search path.
+    //
+    // The entire command is wrapped in one extra pair of quotes: `/S` strips the first and the last
+    // quote and executes what remains verbatim, which is the only reliable way to keep a program
+    // path containing spaces in one piece.
+    StringBuilder command = new StringBuilder("\"");
+    command.append(quoteForCmd(pathString.replace('/', '\\')));
+    for (String arg : args) {
+      command.append(' ').append(quoteForCmd(arg));
+    }
+    command.append('"');
+
+    return ImmutableList.of(
+        "cmd.exe",
+        "/S", // Strip the outer quotes and execute the rest as is.
+        "/D", // Ignore AutoRun registry entries.
+        "/C", // Execute the command that follows. Must be the last option.
+        command.toString());
+  }
+
+  private static boolean isBatchScript(String path) {
+    String lowerCasePath = Ascii.toLowerCase(path);
+    return lowerCasePath.endsWith(".bat") || lowerCasePath.endsWith(".cmd");
+  }
+
+  /**
+   * Quotes an argument for {@code cmd.exe}, but only when it would otherwise be split apart.
+   *
+   * <p>Quotes are left off whenever possible because a batch script sees them as part of {@code %1}
+   * and friends.
+   */
+  private static String quoteForCmd(String arg) {
+    return arg.isEmpty() || CharMatcher.whitespace().matchesAnyOf(arg) ? "\"" + arg + "\"" : arg;
   }
 
   @Override
