@@ -3431,6 +3431,133 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   /**
+   * Regression test for a race between the commit of a rewound node's re-evaluation and a second
+   * rewind of the same node: the progress receiver used to forget that the node had been rewound
+   * when it was notified of the completed evaluation after the second rewind. If the evaluation was
+   * then aborted before the node was re-evaluated once more, the node survived as a dirty node with
+   * done reverse deps, on which invalidation short-circuited in the next build without dirtying
+   * them.
+   */
+  @Test
+  public void nodeRewoundAgainWhileCommitting_evaluationAborted_reverseTransitiveClosureDeleted()
+      throws Exception {
+    assume().that(resetSupported()).isTrue();
+    assume().that(incrementalitySupported()).isTrue();
+
+    var inconsistencyReceiver = recordInconsistencies();
+    SkyKey goodTop = skyKey("goodTop");
+    SkyKey firstRewinder = skyKey("firstRewinder");
+    SkyKey secondRewinder = skyKey("secondRewinder");
+    SkyKey mid = skyKey("mid");
+    SkyKey bottom = nonHermeticKey("bottom");
+
+    AtomicBoolean secondBuild = new AtomicBoolean(false);
+    CountDownLatch midCommitted = new CountDownLatch(1);
+    CountDownLatch midRewoundAgain = new CountDownLatch(1);
+    CountDownLatch midEvaluated = new CountDownLatch(1);
+    injectGraphListenerForTesting(
+        (key, type, order, context) -> {
+          if (!secondBuild.get()) {
+            return;
+          }
+          if (key.equals(mid) && type == EventType.SET_VALUE && order == Order.AFTER) {
+            // mid has committed its re-evaluation, but the progress receiver has not been notified
+            // of it yet. Let the second rewinder rewind mid in the meantime.
+            midCommitted.countDown();
+            TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                midRewoundAgain, "mid not rewound again");
+          } else if (key.equals(secondRewinder)
+              && type == EventType.RESET_FOR_RESTART_FROM_SCRATCH) {
+            // The second rewinder is reset only after the nodes in its rewind graph were dirtied.
+            midRewoundAgain.countDown();
+          } else if (key.equals(firstRewinder) && type == EventType.SIGNAL) {
+            // mid signals the first rewinder after the progress receiver was notified of its
+            // evaluation.
+            midEvaluated.countDown();
+          }
+        },
+        /* deterministic= */ false);
+
+    tester.getOrCreate(goodTop).addDependency(mid).setComputedValue(COPY);
+    tester.getOrCreate(mid).addDependency(bottom).setComputedValue(COPY);
+    tester.getOrCreate(bottom).setConstantValue(new StringValue("val1"));
+    tester
+        .getOrCreate(firstRewinder)
+        .setBuilder(
+            new SkyFunction() {
+              private int calls = 0;
+
+              @Nullable
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+                switch (++calls) {
+                  case 1 -> {
+                    // mid is done from the first build.
+                    assertThat(env.getValue(mid)).isNotNull();
+                    var rewindGraph = Reset.newRewindGraphFor(firstRewinder);
+                    rewindGraph.putEdge(firstRewinder, mid);
+                    return Reset.of(rewindGraph);
+                  }
+                  case 2 -> {
+                    // Request the re-evaluation of the rewound mid.
+                    assertThat(env.getValue(mid)).isNull();
+                    return null;
+                  }
+                  default -> {
+                    // Reached after mid was rewound a second time. Abort before requesting it
+                    // again.
+                    throw new InterruptedException("Evaluation aborted");
+                  }
+                }
+              }
+            });
+    tester
+        .getOrCreate(secondRewinder)
+        .setBuilder(
+            new SkyFunction() {
+              private boolean alreadyReset = false;
+
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+                if (alreadyReset) {
+                  // Abort only after the progress receiver was notified of mid's evaluation.
+                  midEvaluated.await();
+                  throw new InterruptedException("Evaluation aborted");
+                }
+                // Rewind mid right after it committed its re-evaluation, without requesting it.
+                midCommitted.await();
+                alreadyReset = true;
+                var rewindGraph = Reset.newRewindGraphFor(secondRewinder);
+                rewindGraph.putEdge(secondRewinder, mid);
+                return Reset.of(rewindGraph);
+              }
+            });
+
+    assertThatEvaluationResult(tester.eval(/* keepGoing= */ false, goodTop))
+        .hasEntryThat(goodTop)
+        .isEqualTo(new StringValue("val1"));
+
+    secondBuild.set(true);
+    assertThrows(
+        InterruptedException.class,
+        () -> tester.eval(/* keepGoing= */ false, firstRewinder, secondRewinder));
+    assertThat(inconsistencyReceiver)
+        .containsAtLeast(
+            InconsistencyData.rewind(firstRewinder, ImmutableSet.of(mid)),
+            InconsistencyData.rewind(secondRewinder, ImmutableSet.of(mid)));
+
+    tester.set(bottom, new StringValue("val2"));
+    tester.invalidate();
+    var result = tester.eval(/* keepGoing= */ false, goodTop);
+
+    assertThatEvaluationResult(result).hasEntryThat(goodTop).isEqualTo(new StringValue("val2"));
+    assertThatEvaluationResult(result).hasDirectDepsInGraphThat(goodTop).containsExactly(mid);
+    assertThatEvaluationResult(result).hasReverseDepsInGraphThat(mid).containsExactly(goodTop);
+    assertThatEvaluationResult(result).hasDirectDepsInGraphThat(mid).containsExactly(bottom);
+    assertThatEvaluationResult(result).hasReverseDepsInGraphThat(bottom).containsExactly(mid);
+  }
+
+  /**
    * Similar to {@link #evaluationAbortedWithRewoundNodeOnInvalidationPath_dirty} except that the
    * rewound node is inflight when the evaluation is aborted, so this actually works without the
    * special handling added for rewound nodes.
