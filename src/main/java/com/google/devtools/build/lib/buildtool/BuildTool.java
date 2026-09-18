@@ -84,6 +84,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandLineEvent;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLineEvent;
 import com.google.devtools.build.lib.runtime.ExecRootEvent;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.KeepStateAfterBuildOption;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser.BuildSettingLoader;
@@ -131,6 +132,7 @@ import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.RegexPatternOption;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -239,6 +241,7 @@ public class BuildTool {
           PostExecutionDumpException,
           RepositoryMappingResolutionException,
           OptionsParsingException {
+    maybeSetStopOnFirstFailure(request, result);
     try (SilentCloseable c = Profiler.instance().profile("validateOptions")) {
       validateOptions(request);
     }
@@ -361,6 +364,7 @@ public class BuildTool {
                     // build in BlazeCommandDispatcher.
                     /* replaceable= */ false));
         env.getEventBus().post(new UpdateOptionsEvent(optionsParser));
+        maybeSetStopOnFirstFailure(optionsParser, result);
       } else {
         // No PROJECT.scl flag updates. Release the original CanonicalCommandLineEvent for posting.
         env.getEventBus()
@@ -1250,14 +1254,14 @@ public class BuildTool {
     }
   }
 
-  private static void maybeSetStopOnFirstFailure(BuildRequest request, BuildResult result) {
-    if (shouldStopOnFailure(request)) {
-      result.setStopOnFirstFailure(true);
-    }
+  private static void maybeSetStopOnFirstFailure(
+      OptionsProvider optionsProvider, BuildResult result) {
+    result.setStopOnFirstFailure(shouldStopOnFailure(optionsProvider));
   }
 
-  private static boolean shouldStopOnFailure(BuildRequest request) {
-    return !(request.getKeepGoing() && request.getExecutionOptions().getTestKeepGoing());
+  private static boolean shouldStopOnFailure(OptionsProvider optionsProvider) {
+    return !(optionsProvider.getOptions(KeepGoingOption.class).getKeepGoing()
+        && optionsProvider.getOptions(ExecutionOptions.class).getTestKeepGoing());
   }
 
   /** Initializes the output filter to the value given with {@code --output_filter}. */
