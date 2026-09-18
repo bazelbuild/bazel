@@ -1433,11 +1433,30 @@ public final class FilesystemValueCheckerTest {
         hash.asBytes(), data.length, -1, expirationTime, /* inMemoryOutput= */ false);
   }
 
+  private FileArtifactValue createInlineMetadata(String contents) throws IOException {
+    return FileArtifactValue.createForFileWriteActionOutput(
+        out -> out.write(contents.getBytes()), fs.getDigestFunction().getHashFunction());
+  }
+
+  enum LazyMetadataType {
+    INLINE,
+    REMOTE;
+  }
+
+  private FileArtifactValue createMetadata(LazyMetadataType type, String contents)
+      throws IOException {
+    return switch (type) {
+      case INLINE -> createInlineMetadata(contents);
+      case REMOTE -> createRemoteMetadata(contents);
+    };
+  }
+
   @Test
-  public void testRemoteAndLocalArtifacts(@TestParameter boolean setContentsProxy)
+  public void testLazyAndLocalArtifacts(
+      @TestParameter LazyMetadataType metadataType, @TestParameter boolean setContentsProxy)
       throws Exception {
-    // Test that injected remote artifacts are trusted by the FileSystemValueChecker if it is
-    // configured to trust remote artifacts, and that local files always take precedence over remote
+    // Test that injected lazy artifacts are trusted by the FileSystemValueChecker if it is
+    // configured to trust lazy artifacts, and that local files always take precedence over remote
     // files if they are different.
     SkyKey actionKey1 = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
     SkyKey actionKey2 = ActionLookupData.create(ACTION_LOOKUP_KEY, 1);
@@ -1445,10 +1464,10 @@ public final class FilesystemValueCheckerTest {
     Artifact out1 = createDerivedArtifact("foo");
     Artifact out2 = createDerivedArtifact("bar");
     Map<SkyKey, Delta> metadataToInject = new HashMap<>();
-    var out1Metadata = createRemoteMetadata("foo-content");
+    var out1Metadata = createMetadata(metadataType, "foo-content");
     metadataToInject.put(actionKey1, actionValueWithMetadata(out1, out1Metadata));
     metadataToInject.put(
-        actionKey2, actionValueWithMetadata(out2, createRemoteMetadata("bar-content")));
+        actionKey2, actionValueWithMetadata(out2, createMetadata(metadataType, "bar-content")));
     differencer.inject(metadataToInject);
 
     EvaluationContext evaluationContext =
@@ -1500,9 +1519,10 @@ public final class FilesystemValueCheckerTest {
   }
 
   @Test
-  public void testRemoteAndLocalArtifacts_identicalContent(@TestParameter boolean setContentsProxy)
+  public void testLazyAndLocalArtifacts_identicalContent(
+      @TestParameter LazyMetadataType metadataType, @TestParameter boolean setContentsProxy)
       throws Exception {
-    // Test that if injected remote artifacts and local files are identical, the generating actions
+    // Test that if injected lazy artifacts and local files are identical, the generating actions
     // are not marked as dirty if it has contents proxy.
     SkyKey actionKey1 = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
     SkyKey actionKey2 = ActionLookupData.create(ACTION_LOOKUP_KEY, 1);
@@ -1510,10 +1530,10 @@ public final class FilesystemValueCheckerTest {
     Artifact out1 = createDerivedArtifact("foo");
     Artifact out2 = createDerivedArtifact("bar");
     Map<SkyKey, Delta> metadataToInject = new HashMap<>();
-    var out1Metadata = createRemoteMetadata("foo-content");
+    var out1Metadata = createMetadata(metadataType, "foo-content");
     metadataToInject.put(actionKey1, actionValueWithMetadata(out1, out1Metadata));
     metadataToInject.put(
-        actionKey2, actionValueWithMetadata(out2, createRemoteMetadata("bar-content")));
+        actionKey2, actionValueWithMetadata(out2, createMetadata(metadataType, "bar-content")));
     differencer.inject(metadataToInject);
 
     EvaluationContext evaluationContext =
@@ -1567,15 +1587,16 @@ public final class FilesystemValueCheckerTest {
   }
 
   @Test
-  public void testRemoteArtifactMaterializedAsToplevelOutputThenDeleted() throws Exception {
-    // Test that a remote artifact recorded as materialized in the local filesystem as a top-level
-    // output invalidates the generating action when the local file is deleted, even if remote
+  public void testLazyArtifactMaterializedAsToplevelOutputThenDeleted(
+      @TestParameter LazyMetadataType metadataType) throws Exception {
+    // Test that a lazy artifact recorded as materialized in the local filesystem as a top-level
+    // output invalidates the generating action when the local file is deleted, even if lazy
     // metadata is otherwise trusted - but only once: the record is cleared so that a reevaluation
     // that doesn't rematerialize the file isn't invalidated again.
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
 
     Artifact out = createDerivedArtifact("foo");
-    var outMetadata = createRemoteMetadata("foo-content");
+    var outMetadata = createMetadata(metadataType, "foo-content");
     differencer.inject(ImmutableMap.of(actionKey, actionValueWithMetadata(out, outMetadata)));
 
     EvaluationContext evaluationContext =

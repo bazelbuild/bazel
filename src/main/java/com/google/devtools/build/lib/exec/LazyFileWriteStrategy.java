@@ -1,0 +1,80 @@
+// Copyright 2025 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.exec;
+
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
+import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.RunningActionEvent;
+import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.util.DeterministicWriter;
+import java.io.IOException;
+
+/**
+ * A strategy for executing an {@link
+ * com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction} that avoids writing the
+ * file to disk if possible.
+ */
+public final class LazyFileWriteStrategy extends EagerFileWriteStrategy {
+  @Override
+  public ImmutableList<SpawnResult> writeOutputToFile(
+      AbstractAction action,
+      ActionExecutionContext actionExecutionContext,
+      DeterministicWriter deterministicWriter,
+      boolean makeExecutable,
+      boolean isRemotable,
+      Artifact output)
+      throws ExecException {
+    // Non-remotable file writes are always consumed locally and, for now, also opt out of lazy
+    // writes when their writers would retain too much state (see
+    // AbstractFileWriteAction#isRemotable). Volatile file writes may read changing inputs, so their
+    // writers cannot be retained for later materialization (for example, Python's
+    // CopyWithoutCachingAction).
+    if (!isRemotable
+        || action.isVolatile()
+        || actionExecutionContext.getActionFileSystem() == null) {
+      return super.writeOutputToFile(
+          action, actionExecutionContext, deterministicWriter, makeExecutable, isRemotable, output);
+    }
+    actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, "local"));
+    try (var _ = Profiler.instance().profile("LazyFileWriteStrategy.writeOutputToFile")) {
+      // TODO: Bazel currently marks all output files as executable after local execution and stages
+      // all files as executable for remote execution, so we don't keep track of the executable
+      // bit yet.
+      try {
+        actionExecutionContext
+            .getOutputMetadataStore()
+            .injectFile(
+                output,
+                FileArtifactValue.createForFileWriteActionOutput(
+                    deterministicWriter,
+                    actionExecutionContext
+                        .getActionFileSystem()
+                        .getDigestFunction()
+                        .getHashFunction()));
+      } catch (IOException e) {
+        throw new EnvironmentalExecException(
+            e, FailureDetails.Execution.Code.FILE_WRITE_IO_EXCEPTION);
+      }
+    }
+    return ImmutableList.of();
+  }
+}

@@ -106,6 +106,10 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
   /**
    * Whether the file write can be generated remotely. If the file is consumed in Blaze
    * unconditionally, it doesn't make sense to run remotely.
+   *
+   * <p>Non-remotable file writes are also always written eagerly, regardless of {@code
+   * --file_write_strategy}. For now, actions whose {@link DeterministicWriter} would retain a large
+   * amount of state use this to opt out of lazy writes.
    */
   public boolean isRemotable() {
     return true;

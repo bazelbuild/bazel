@@ -22,8 +22,9 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.analysis.test.TestStrategy;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.exec.EagerFileWriteStrategy;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.FileWriteStrategy;
+import com.google.devtools.build.lib.exec.LazyFileWriteStrategy;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
@@ -40,9 +41,7 @@ import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.TestSummaryOptions;
 import com.google.devtools.build.lib.vfs.Path;
 
-/**
- * StandaloneModule provides pluggable functionality for blaze.
- */
+/** StandaloneModule provides pluggable functionality for blaze. */
 public class StandaloneModule extends BlazeModule {
 
   @Override
@@ -70,7 +69,13 @@ public class StandaloneModule extends BlazeModule {
     registryBuilder.register(
         TestActionContext.class, new ExclusiveTestStrategy(testStrategy), "exclusive");
     registryBuilder.register(TestActionContext.class, testStrategy, "standalone");
-    registryBuilder.register(FileWriteActionContext.class, new FileWriteStrategy(), "local");
+    registryBuilder.register(
+        FileWriteActionContext.class,
+        switch (executionOptions.getFileWriteStrategy()) {
+          case LAZY -> new LazyFileWriteStrategy();
+          case EAGER -> new EagerFileWriteStrategy();
+        },
+        "local");
     registryBuilder.register(
         TemplateExpansionContext.class, new LocalTemplateExpansionStrategy(), "local");
   }
