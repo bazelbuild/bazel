@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.ByteString;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -919,5 +920,48 @@ public final class NestedSetTest {
         NestedSetBuilder.<String>stableOrder().add("x").addTransitive(compound).build();
     assertThat(withCompound).isNotSameInstanceAs(compound);
     assertThat(withCompound.toList()).containsExactly("x", "y").inOrder();
+  }
+
+  @Test
+  public void visitDirectDeps_singleton_visitsLeafOnly() {
+    Artifact a = ActionsTestUtil.createArtifact(artifactRoot, "a");
+    NestedSet<Artifact> set = NestedSetBuilder.create(Order.STABLE_ORDER, a);
+
+    List<Artifact> leaves = new ArrayList<>();
+    List<SkyKey> nonLeaves = new ArrayList<>();
+    ArtifactNestedSetKey.visitDirectDeps(set, leaves::add, nonLeaves::add);
+
+    assertThat(leaves).containsExactly(a);
+    assertThat(nonLeaves).isEmpty();
+  }
+
+  @Test
+  public void visitDirectDeps_empty_visitsNothing() {
+    NestedSet<Artifact> set = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+
+    List<Artifact> leaves = new ArrayList<>();
+    List<SkyKey> nonLeaves = new ArrayList<>();
+    ArtifactNestedSetKey.visitDirectDeps(set, leaves::add, nonLeaves::add);
+
+    assertThat(leaves).isEmpty();
+    assertThat(nonLeaves).isEmpty();
+  }
+
+  @Test
+  public void visitDirectDeps_mixedLeavesAndNonLeaves_visitsBothInSinglePass() {
+    Artifact a = ActionsTestUtil.createArtifact(artifactRoot, "a");
+    Artifact b = ActionsTestUtil.createArtifact(artifactRoot, "b");
+    Artifact c = ActionsTestUtil.createArtifact(artifactRoot, "c");
+
+    NestedSet<Artifact> childSet = NestedSetBuilder.create(Order.STABLE_ORDER, b, c);
+    NestedSet<Artifact> parentSet =
+        NestedSet.<Artifact>builder(Order.STABLE_ORDER).add(a).addTransitive(childSet).build();
+
+    List<Artifact> leaves = new ArrayList<>();
+    List<SkyKey> nonLeaves = new ArrayList<>();
+    ArtifactNestedSetKey.visitDirectDeps(parentSet, leaves::add, nonLeaves::add);
+
+    assertThat(leaves).containsExactly(a);
+    assertThat(nonLeaves).containsExactly(ArtifactNestedSetKey.create(childSet));
   }
 }

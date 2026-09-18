@@ -25,6 +25,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * {@link SkyKey} for requesting all artifacts in a {@link NestedSet}.
@@ -86,6 +87,31 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
     for (Object child : children) {
       if (child instanceof Artifact artifact) {
         function.accept(artifact);
+      }
+    }
+  }
+
+  /**
+   * Visits the direct dependencies of {@code set}, passing leaf artifacts to {@code leafConsumer}
+   * and non-leaf {@link ArtifactNestedSetKey}s to {@code nonLeafConsumer}.
+   */
+  public static void visitDirectDeps(
+      NestedSet<Artifact> set,
+      Consumer<Artifact> leafConsumer,
+      Consumer<? super ArtifactNestedSetKey> nonLeafConsumer) {
+    if (set.isSingleton()) {
+      leafConsumer.accept(set.getSingleton());
+      return;
+    }
+    Object children = set.getChildren();
+    if (!(children instanceof Object[] array)) {
+      return;
+    }
+    for (Object child : array) {
+      if (child instanceof Artifact artifact) {
+        leafConsumer.accept(artifact);
+      } else {
+        nonLeafConsumer.accept(createInternal((Object[]) child));
       }
     }
   }

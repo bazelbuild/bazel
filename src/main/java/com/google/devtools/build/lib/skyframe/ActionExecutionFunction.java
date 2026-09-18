@@ -446,15 +446,9 @@ public class ActionExecutionFunction implements SkyFunction {
     // Register the action's inputs and scheduling deps as "consumed" in the build.
     // As a general rule, we do it before requesting for the evaluation of these artifacts. This
     // would provide a good estimate of which outputs are consumed.
-    if (consumedArtifactsTracker != null && !state.checkedForConsumedArtifactRegistration) {
-      // Only registering the leaves here, since the Artifacts under non-leaves will be registered
-      // in ArtifactNestedSetFunction. Similarly for the non-singleton Scheduling Dependencies.
-      for (Artifact input : allInputs.getLeaves()) {
-        consumedArtifactsTracker.registerConsumedArtifact(input);
-      }
-      if (schedulingDependencies.isSingleton()) {
-        consumedArtifactsTracker.registerConsumedArtifact(schedulingDependencies.getSingleton());
-      }
+    boolean registerConsumed =
+        consumedArtifactsTracker != null && !state.checkedForConsumedArtifactRegistration;
+    if (registerConsumed) {
       state.checkedForConsumedArtifactRegistration = true;
     }
 
@@ -463,19 +457,24 @@ public class ActionExecutionFunction implements SkyFunction {
     // - This top layer costs 1 extra ArtifactNestedSetKey node.
     // - It's uncommon that 2 actions share the exact same set of inputs
     //   => the top layer offers little in terms of reusability.
-    // More details: b/143205147.
-    for (Artifact leaf : allInputs.getLeaves()) {
-      result.add(Artifact.key(leaf));
-    }
+    ArtifactNestedSetKey.visitDirectDeps(
+        allInputs,
+        leaf -> {
+          if (registerConsumed) {
+            consumedArtifactsTracker.registerConsumedArtifact(leaf);
+          }
+          result.add(Artifact.key(leaf));
+        },
+        result::add);
 
     if (schedulingDependencies.isSingleton()) {
-      result.add(Artifact.key(schedulingDependencies.getSingleton()));
+      Artifact schedulingDep = schedulingDependencies.getSingleton();
+      if (registerConsumed) {
+        consumedArtifactsTracker.registerConsumedArtifact(schedulingDep);
+      }
+      result.add(Artifact.key(schedulingDep));
     } else if (!schedulingDependencies.isEmpty()) {
       result.add(ArtifactNestedSetKey.create(schedulingDependencies));
-    }
-
-    for (NestedSet<Artifact> nonLeaf : allInputs.getNonLeaves()) {
-      result.add(ArtifactNestedSetKey.create(nonLeaf));
     }
 
     return result.build();
