@@ -1,3 +1,112 @@
+## Release 10.0.0-pre.20260911.2 (2026-09-18)
+
+```
+Baseline: d4c275b89348663ec7b84e58f75ec8ab46f62101
+
+Cherry picks:
+
+   + 27f9635b3723ff4a2e5b782c768b80b160e8722e:
+     Make the hash codes of providers and configured targets stable.
+```
+
+Incompatible changes:
+
+  - --experimental_sibling_repository_layout is now a no-op.
+
+Important changes:
+
+  - Support `dict(label, string)` aspect attributes in `query
+    --output=proto`.
+  - Transitive rule and toolchain resolution errors are now formatted
+    into a multi-line indented hierarchy.
+    Fixes https://github.com/bazelbuild/bazel/issues/15791
+  - Fix NullPointerException and improve error messages when Starlark
+    implicit output templates reference unset or unknown attributes.
+
+This release contains contributions from many people at Google, as well as Chris McDonald, David Zbarsky, Fabian Meumertzheim, James Judd, Tamir Duberstein, Vladimir Sitnikov.
+
+## Release 10.0.0-pre.20260908.2 (2026-09-15)
+
+```
+Baseline: 6a4878da6a4abeca65ceb60d5bc772123fa53c4a
+
+Cherry picks:
+
+   + 2ce8da8d5c24d7ccf2f6becdc16d7262f2f3c882:
+     Rollback of
+     https://github.com/bazelbuild/bazel/commit/f72ac81d9b589a62012f49
+     b32cf915f4a64c8cfb.
+```
+
+Important changes:
+
+  - Invalidate cached action execution results when remote
+    cache/executor endpoints or `--remote_instance_name` change
+    between invocations.
+  - Fix issue where `bazel test --nobuild` failed with
+    `TEST_WITH_NOANALYZE` instead of succeeding after analysis.
+  - With Build without the Bytes, a requested top-level output that
+    was deleted locally is now reliably redownloaded in the next
+    build that requests it, even if other invocations ran in between.
+  - Avoid redundant remote CAS uploads when using combined disk and
+    remote caching with a cold disk cache.
+  - Fix incremental remote builds failing to create output
+    directories beneath stale dangling symlinks.
+  - credential-helper: treat `null` values in response as unset.
+  - Fixed a rare crash with `NullPointerException` in
+    `ActionInputMap.getIndex` when an action discovers additional
+    inputs while executing.
+  - Add `repository_ctx.patch(directory)`
+  - Disk cache entries deleted by a concurrent garbage collection are
+    now treated as cache misses and don't result in failures.
+  - Fix an issue where Java compilation actions re-execute on every
+    build due to an Action Cache digest mismatch when
+    `--experimental_output_paths=strip` and in-memory `.jdeps` files
+    are enabled.
+  - Credential helper failures now abort HTTP downloads instead of
+    continuing without authentication.
+
+This release contains contributions from many people at Google, as well as Armando Montanez, Fabian Meumertzheim, George Gensure, Henner Zeller, James Judd, Jason Bedard, Jonathan Perry, Keith Smiley, Ming Zhao, Morax, Tamir Duberstein, Yannic Bonenberger.
+
+## Release 10.0.0-pre.20260902.1 (2026-09-10)
+
+```
+Baseline: e2e4c35d7400a1f3cdf3e337bb53e4fa0eafd001
+```
+
+Important changes:
+
+  - Starlark `fail()` calls now format error messages with `Error: `
+    instead of `Error in fail: `.
+    Resolves https://github.com/bazelbuild/bazel/issues/21523.
+  - Aquery now supports the `config(expr, word)` function.
+  - Fixed unnecessary remote-cache hits in incremental BwoB builds
+    after a previous invocation used a broader remote output download
+    policy.
+  - Fix an issue on Windows where empty environment variables (e.g.
+    `--action_env=VAR=`) caused test execution failures in the test
+    wrapper.
+  - `--experimental_override_platform_cpu_name` renamed to
+    `--override_platform_cpu_name`
+  - The macOS sandbox now allows actions to bind sockets when network
+    access is blocked, matching the behavior of the Linux sandbox.
+    Note that macOS cannot restrict inbound connections by peer, so
+    an action that listens on a non-loopback address is reachable
+    from other hosts on the network; outbound traffic remains
+    restricted to loopback.
+  - Clean up unused stashed sandbox directories when shutting down
+    the Bazel server.
+  - Downloader rewrites to endpoints that refuse connections no
+    longer repeat the connector's full retry sequence.
+  - Fix `grep: invalid option -- P` errors on macOS when running
+    release and documentation scripts.
+  - Remote execution, remote caching, and auth flags can now be reset
+    to their default unset state on the command line by passing an
+    empty value (e.g., `--remote_cache=`, `--remote_executor=`,
+    `--google_credentials=`).
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Angus Lees, Armando Montanez, Fabian Meumertzheim, Fabian Meumertzheim, Henner Zeller, jjj-n, Jonathan Perry, justinswe, Keith Smiley, Kip Hamiltons, Salma Samy, Samuel Bronson, Tyler Breisacher, zozo123.
+
 ## Release 10.0.0-pre.20260826.1 (2026-09-08)
 
 ```
