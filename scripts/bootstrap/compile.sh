@@ -136,10 +136,16 @@ function java_compilation() {
   # Useful if your system chooses too small of a max heap for javac.
   # We intentionally rely on shell word splitting to allow multiple
   # additional arguments to be passed to javac.
+  #
+  # -proc:full: javac 23 and later no longer run annotation processors found
+  # on the class path unless asked to, and the AutoValue and AutoService
+  # processors must run here. The option exists from 21 on, which is the
+  # minimum checked above, and is the default behaviour up to 22.
   run "${JAVAC}" -classpath "${classpath}" -sourcepath "${sourcepath}" \
       -d "${output}/classes" -source "$JAVA_VERSION" -target "$JAVA_VERSION" \
       -encoding UTF-8 --add-exports=java.base/jdk.internal.misc=ALL-UNNAMED \
       --add-exports=java.base/jdk.internal.vm=ALL-UNNAMED \
+      -proc:full \
       ${BAZEL_JAVAC_OPTS} "@${paramfile}"
 
   log "Extracting helper classes for $name..."
