@@ -26,10 +26,12 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
+import build.bazel.remote.execution.v2.ChunkingFunction;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.FastCdc2020Params;
 import build.bazel.remote.execution.v2.RequestMetadata;
@@ -93,6 +95,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Arrays;
@@ -1084,7 +1087,6 @@ public class CombinedCacheTest {
     }
   }
 
-
   @Test
   public void downloadBlob_chunkMissingAfterPartialWrite_doesNotRestartIntoSameStream()
       throws Exception {
@@ -1349,6 +1351,323 @@ public class CombinedCacheTest {
     // Verify disk cache has BOTH files saved
     assertThat(diskCacheClient.toPath(digest1, Store.CAS).exists()).isTrue();
     assertThat(diskCacheClient.toPath(digest2, Store.CAS).exists()).isTrue();
+  }
+
+  @Test
+  public void splitBlobManifest_allChunksPresent_returnsManifestAndLocalAvailability()
+      throws Exception {
+    Path diskCacheRoot = fs.getPath("/disk-cache");
+    DiskCacheClient diskCacheClient =
+        new DiskCacheClient(diskCacheRoot, digestUtil, /* checkActionResultIntegrity= */ true);
+    CombinedCache combinedCache =
+        new CombinedCache(
+            /* remoteCacheClient= */ null,
+            diskCacheClient,
+            /* symlinkTemplate= */ null,
+            digestUtil,
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
+    Digest manifestKey = digestUtil.computeAsUtf8("manifest");
+    ByteString firstChunk = ByteString.copyFromUtf8("first");
+    ByteString secondChunk = ByteString.copyFromUtf8("second");
+    Digest firstDigest = digestUtil.compute(firstChunk);
+    Digest secondDigest = digestUtil.compute(secondChunk);
+    SplitBlobResponse response =
+        SplitBlobResponse.newBuilder()
+            .addChunkDigests(firstDigest)
+            .addChunkDigests(secondDigest)
+            .build();
+    getFromFuture(diskCacheClient.uploadBlob(firstDigest, firstChunk));
+    getFromFuture(diskCacheClient.uploadBlob(secondDigest, secondChunk));
+    getFromFuture(diskCacheClient.uploadSplitBlobManifest(manifestKey, response));
+
+    try {
+      assertThat(combinedCache.downloadSplitBlobManifest(remoteActionExecutionContext, manifestKey))
+          .isEqualTo(response);
+      assertThat(
+              combinedCache.areBlobsPresentInDiskCache(
+                  remoteActionExecutionContext, response.getChunkDigestsList()))
+          .isTrue();
+    } finally {
+      combinedCache.release();
+    }
+  }
+
+  @Test
+  public void splitBlobManifest_chunkMissing_returnsManifestButNotLocalAvailability()
+      throws Exception {
+    Path diskCacheRoot = fs.getPath("/disk-cache");
+    DiskCacheClient diskCacheClient =
+        new DiskCacheClient(diskCacheRoot, digestUtil, /* checkActionResultIntegrity= */ true);
+    CombinedCache combinedCache =
+        new CombinedCache(
+            /* remoteCacheClient= */ null,
+            diskCacheClient,
+            /* symlinkTemplate= */ null,
+            digestUtil,
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
+    Digest manifestKey = digestUtil.computeAsUtf8("manifest");
+    SplitBlobResponse response =
+        SplitBlobResponse.newBuilder().addChunkDigests(digestUtil.computeAsUtf8("missing")).build();
+    getFromFuture(diskCacheClient.uploadSplitBlobManifest(manifestKey, response));
+
+    try {
+      assertThat(combinedCache.downloadSplitBlobManifest(remoteActionExecutionContext, manifestKey))
+          .isEqualTo(response);
+      assertThat(
+              combinedCache.areBlobsPresentInDiskCache(
+                  remoteActionExecutionContext, response.getChunkDigestsList()))
+          .isFalse();
+    } finally {
+      combinedCache.release();
+    }
+  }
+
+  @Test
+  public void downloadBlob_cachedManifestChunkEvicted_fallsBackToParent() throws Exception {
+    Path diskCacheRoot = fs.getPath("/disk-cache");
+    DiskCacheClient diskCacheClient =
+        spy(new DiskCacheClient(diskCacheRoot, digestUtil, /* checkActionResultIntegrity= */ true));
+    GrpcCacheClient grpcCacheClient =
+        spy(
+            new GrpcCacheClient(
+                mock(ReferenceCountedChannel.class),
+                mock(CallCredentialsProvider.class),
+                Options.getDefaults(RemoteOptions.class),
+                mock(RemoteRetrier.class),
+                digestUtil));
+    doAnswer(unused -> chunkingCapabilities()).when(grpcCacheClient).getServerCapabilities();
+
+    byte[] firstChunk = new byte[4096];
+    byte[] secondChunk = new byte[4096];
+    secondChunk[0] = 1;
+    byte[] parentData = new byte[firstChunk.length + secondChunk.length];
+    System.arraycopy(firstChunk, 0, parentData, 0, firstChunk.length);
+    System.arraycopy(secondChunk, 0, parentData, firstChunk.length, secondChunk.length);
+    Digest firstDigest = digestUtil.compute(firstChunk);
+    Digest secondDigest = digestUtil.compute(secondChunk);
+    Digest parentDigest = digestUtil.compute(parentData);
+    SplitBlobResponse splitResponse =
+        SplitBlobResponse.newBuilder()
+            .addChunkDigests(firstDigest)
+            .addChunkDigests(secondDigest)
+            .setChunkingFunction(ChunkingFunction.Value.FAST_CDC_2020)
+            .build();
+    doAnswer(unused -> immediateFuture(splitResponse))
+        .when(grpcCacheClient)
+        .splitBlob(any(), eq(parentDigest), eq(ChunkingFunction.Value.FAST_CDC_2020));
+    doAnswer(
+            invocation -> {
+              OutputStream out = invocation.getArgument(2);
+              out.write(parentData);
+              return Futures.immediateVoidFuture();
+            })
+        .when(grpcCacheClient)
+        .downloadBlob(any(), eq(parentDigest), any());
+    getFromFuture(diskCacheClient.uploadBlob(firstDigest, ByteString.copyFrom(firstChunk)));
+    getFromFuture(diskCacheClient.uploadBlob(secondDigest, ByteString.copyFrom(secondChunk)));
+
+    CombinedCache combinedCache =
+        new CombinedCache(
+            grpcCacheClient,
+            diskCacheClient,
+            /* symlinkTemplate= */ null,
+            digestUtil,
+            RemoteOptions.ChunkingFunctionValue.FAST_CDC_2020,
+            new ChunkLocationMap());
+    try {
+      assertThat(
+              getFromFuture(combinedCache.downloadBlob(remoteActionExecutionContext, parentDigest)))
+          .isEqualTo(parentData);
+
+      diskCacheClient.toPath(secondDigest, Store.CAS).delete();
+      doAnswer(unused -> immediateFuture(true)).when(diskCacheClient).areBlobsPresent(any());
+
+      assertThat(
+              getFromFuture(combinedCache.downloadBlob(remoteActionExecutionContext, parentDigest)))
+          .isEqualTo(parentData);
+      verify(grpcCacheClient, times(1))
+          .splitBlob(any(), eq(parentDigest), eq(ChunkingFunction.Value.FAST_CDC_2020));
+      verify(grpcCacheClient, times(1)).downloadBlob(any(), eq(parentDigest), any());
+    } finally {
+      combinedCache.release();
+    }
+  }
+
+  @Test
+  public void downloadBlob_splitResponseUsesUnadvertisedFunction_fallsBackToParent()
+      throws Exception {
+    Path diskCacheRoot = fs.getPath("/disk-cache");
+    DiskCacheClient diskCacheClient =
+        spy(new DiskCacheClient(diskCacheRoot, digestUtil, /* checkActionResultIntegrity= */ true));
+    GrpcCacheClient grpcCacheClient =
+        spy(
+            new GrpcCacheClient(
+                mock(ReferenceCountedChannel.class),
+                mock(CallCredentialsProvider.class),
+                Options.getDefaults(RemoteOptions.class),
+                mock(RemoteRetrier.class),
+                digestUtil));
+    doAnswer(unused -> chunkingCapabilities()).when(grpcCacheClient).getServerCapabilities();
+
+    byte[] parentData = new byte[8192];
+    Digest parentDigest = digestUtil.compute(parentData);
+    SplitBlobResponse splitResponse =
+        SplitBlobResponse.newBuilder()
+            .addChunkDigests(digestUtil.compute(new byte[4096]))
+            .setChunkingFunction(ChunkingFunction.Value.REP_MAX_CDC)
+            .build();
+    doAnswer(unused -> immediateFuture(splitResponse))
+        .when(grpcCacheClient)
+        .splitBlob(any(), eq(parentDigest), eq(ChunkingFunction.Value.FAST_CDC_2020));
+    doAnswer(
+            invocation -> {
+              OutputStream out = invocation.getArgument(2);
+              out.write(parentData);
+              return Futures.immediateVoidFuture();
+            })
+        .when(grpcCacheClient)
+        .downloadBlob(any(), eq(parentDigest), any());
+
+    CombinedCache combinedCache =
+        new CombinedCache(
+            grpcCacheClient,
+            diskCacheClient,
+            /* symlinkTemplate= */ null,
+            digestUtil,
+            RemoteOptions.ChunkingFunctionValue.FAST_CDC_2020,
+            new ChunkLocationMap());
+    try {
+      assertThat(
+              getFromFuture(combinedCache.downloadBlob(remoteActionExecutionContext, parentDigest)))
+          .isEqualTo(parentData);
+      verify(grpcCacheClient)
+          .splitBlob(any(), eq(parentDigest), eq(ChunkingFunction.Value.FAST_CDC_2020));
+      verify(grpcCacheClient).downloadBlob(any(), eq(parentDigest), any());
+      verify(diskCacheClient, never()).uploadSplitBlobManifest(any(), any());
+    } finally {
+      combinedCache.release();
+    }
+  }
+
+  @Test
+  public void downloadBlob_cachedManifestCancelled_deletesTempFile() throws Exception {
+    CountDownLatch tempWritten = new CountDownLatch(1);
+    AtomicBoolean watchTempWrites = new AtomicBoolean();
+    FileSystem cancellationFs =
+        new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256) {
+          @Override
+          public synchronized OutputStream getOutputStream(
+              PathFragment path, boolean append, boolean internal) throws IOException {
+            OutputStream out = super.getOutputStream(path, append, internal);
+            if (!watchTempWrites.get() || !path.getPathString().startsWith("/disk-cache/tmp/")) {
+              return out;
+            }
+            return new FilterOutputStream(out) {
+              @Override
+              public void write(byte[] data, int offset, int length) throws IOException {
+                super.write(data, offset, length);
+                tempWritten.countDown();
+              }
+
+              @Override
+              public void write(int data) throws IOException {
+                super.write(data);
+                tempWritten.countDown();
+              }
+            };
+          }
+        };
+    Path diskCacheRoot = cancellationFs.getPath("/disk-cache");
+    DiskCacheClient diskCacheClient =
+        spy(new DiskCacheClient(diskCacheRoot, digestUtil, /* checkActionResultIntegrity= */ true));
+    GrpcCacheClient grpcCacheClient =
+        spy(
+            new GrpcCacheClient(
+                mock(ReferenceCountedChannel.class),
+                mock(CallCredentialsProvider.class),
+                Options.getDefaults(RemoteOptions.class),
+                mock(RemoteRetrier.class),
+                digestUtil));
+    doAnswer(unused -> chunkingCapabilities()).when(grpcCacheClient).getServerCapabilities();
+
+    byte[] firstChunk = new byte[4096];
+    byte[] secondChunk = new byte[4096];
+    secondChunk[0] = 1;
+    byte[] parentData = new byte[firstChunk.length + secondChunk.length];
+    System.arraycopy(firstChunk, 0, parentData, 0, firstChunk.length);
+    System.arraycopy(secondChunk, 0, parentData, firstChunk.length, secondChunk.length);
+    Digest firstDigest = digestUtil.compute(firstChunk);
+    Digest secondDigest = digestUtil.compute(secondChunk);
+    Digest parentDigest = digestUtil.compute(parentData);
+    SplitBlobResponse splitResponse =
+        SplitBlobResponse.newBuilder()
+            .addChunkDigests(firstDigest)
+            .addChunkDigests(secondDigest)
+            .setChunkingFunction(ChunkingFunction.Value.FAST_CDC_2020)
+            .build();
+    doAnswer(unused -> immediateFuture(splitResponse))
+        .when(grpcCacheClient)
+        .splitBlob(any(), eq(parentDigest), eq(ChunkingFunction.Value.FAST_CDC_2020));
+    getFromFuture(diskCacheClient.uploadBlob(firstDigest, ByteString.copyFrom(firstChunk)));
+    getFromFuture(diskCacheClient.uploadBlob(secondDigest, ByteString.copyFrom(secondChunk)));
+
+    CombinedCache combinedCache =
+        new CombinedCache(
+            grpcCacheClient,
+            diskCacheClient,
+            /* symlinkTemplate= */ null,
+            digestUtil,
+            RemoteOptions.ChunkingFunctionValue.FAST_CDC_2020,
+            new ChunkLocationMap());
+    try {
+      assertThat(
+              getFromFuture(combinedCache.downloadBlob(remoteActionExecutionContext, parentDigest)))
+          .isEqualTo(parentData);
+
+      SettableFuture<Void> blockedChunk = SettableFuture.create();
+      doAnswer(unused -> blockedChunk).when(diskCacheClient).downloadBlob(eq(secondDigest), any());
+      watchTempWrites.set(true);
+      ListenableFuture<byte[]> download =
+          combinedCache.downloadBlob(remoteActionExecutionContext, parentDigest);
+      assertThat(tempWritten.await(1, TimeUnit.SECONDS)).isTrue();
+
+      assertThat(download.cancel(true)).isTrue();
+      assertThat(diskCacheRoot.getChild("tmp").getDirectoryEntries()).isEmpty();
+    } finally {
+      combinedCache.release();
+    }
+  }
+
+  @Test
+  public void downloadSplitBlobManifest_corruptManifest_returnsMiss() throws Exception {
+    Path diskCacheRoot = fs.getPath("/disk-cache");
+    DiskCacheClient diskCacheClient =
+        new DiskCacheClient(diskCacheRoot, digestUtil, /* checkActionResultIntegrity= */ true);
+    CombinedCache combinedCache =
+        new CombinedCache(
+            /* remoteCacheClient= */ null,
+            diskCacheClient,
+            /* symlinkTemplate= */ null,
+            digestUtil,
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
+    Digest manifestKey = digestUtil.computeAsUtf8("manifest");
+    Path manifestPath =
+        diskCacheRoot
+            .getRelative("blob_manifests")
+            .getChild(manifestKey.getHash().substring(0, 2))
+            .getChild(manifestKey.getHash());
+    manifestPath.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContent(manifestPath, new byte[] {(byte) 0xff});
+
+    try {
+      assertThat(combinedCache.downloadSplitBlobManifest(remoteActionExecutionContext, manifestKey))
+          .isNull();
+    } finally {
+      combinedCache.release();
+    }
   }
 
   private InMemoryCombinedCache newCombinedCache() {

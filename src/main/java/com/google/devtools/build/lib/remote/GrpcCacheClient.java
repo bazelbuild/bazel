@@ -138,6 +138,10 @@ public class GrpcCacheClient extends RemoteCacheClient implements MissingDigests
     return options.getRemoteVerifyDownloads();
   }
 
+  String getRemoteInstanceName() {
+    return options.getRemoteInstanceName();
+  }
+
   @VisibleForTesting
   public GrpcCacheClient(
       ReferenceCountedChannel channel,
