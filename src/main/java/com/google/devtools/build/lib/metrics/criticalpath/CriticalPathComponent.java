@@ -36,10 +36,6 @@ import javax.annotation.Nullable;
  */
 @ThreadCompatible
 public class CriticalPathComponent {
-  /** Empty metrics used to simplify handling of {@link #phaseMaxMetrics}. */
-  private static final SpawnMetrics EMPTY_PLACEHOLDER_METRICS =
-      SpawnMetrics.Builder.forOtherExec().build();
-
   // These two fields are values of BlazeClock.nanoTime() at the relevant points in time.
   private long startNanos;
   private long finishNanos = 0;
@@ -52,7 +48,7 @@ public class CriticalPathComponent {
   private final Artifact primaryOutput;
 
   /** Spawn metrics for this action. */
-  private SpawnMetrics phaseMaxMetrics = EMPTY_PLACEHOLDER_METRICS;
+  @Nullable private SpawnMetrics phaseMaxMetrics = null;
 
   private AggregatedSpawnMetrics totalSpawnMetrics = AggregatedSpawnMetrics.EMPTY;
   private int longestRunningTotalDurationInMs = 0;
@@ -70,9 +66,6 @@ public class CriticalPathComponent {
 
   /** Child with the maximum critical path. */
   @Nullable private CriticalPathComponent child;
-
-  /** Indication that there is at least one remote spawn metrics received. */
-  private boolean remote = false;
 
   public CriticalPathComponent(Action action, long startNanos) {
     this.action = Preconditions.checkNotNull(action);
@@ -121,10 +114,10 @@ public class CriticalPathComponent {
     }
 
     // If the phaseMaxMetrics has Duration, then we want to aggregate it to the total.
-    if (!this.phaseMaxMetrics.isEmpty()) {
+    if (this.phaseMaxMetrics != null && !this.phaseMaxMetrics.isEmpty()) {
       this.totalSpawnMetrics = this.totalSpawnMetrics.sumDurationsMaxOther(phaseMaxMetrics);
-      this.phaseMaxMetrics = EMPTY_PLACEHOLDER_METRICS;
     }
+    this.phaseMaxMetrics = null;
   }
 
   @SuppressWarnings("ReferenceEquality")
@@ -209,19 +202,14 @@ public class CriticalPathComponent {
    */
   void addSpawnResult(
       SpawnMetrics metrics, @Nullable String runnerName, String runnerSubtype, boolean wasRemote) {
-    // Mark this component as having remote components if _any_ spawn result contributing
-    // to it contains meaningful remote metrics. Subsequent non-remote spawns in an action
-    // must not reset this flag.
-    if (wasRemote) {
-      this.remote = true;
-    }
     if (this.phaseChange) {
-      if (!this.phaseMaxMetrics.isEmpty()) {
+      if (this.phaseMaxMetrics != null && !this.phaseMaxMetrics.isEmpty()) {
         this.totalSpawnMetrics = this.totalSpawnMetrics.sumDurationsMaxOther(phaseMaxMetrics);
       }
       this.phaseMaxMetrics = metrics;
       this.phaseChange = false;
-    } else if (metrics.totalTimeInMs() > phaseMaxMetrics.totalTimeInMs()) {
+    } else if (this.phaseMaxMetrics == null
+        || metrics.totalTimeInMs() > phaseMaxMetrics.totalTimeInMs()) {
       this.phaseMaxMetrics = metrics;
     }
 
@@ -348,7 +336,7 @@ public class CriticalPathComponent {
       currentTime = String.format("%.2f", getElapsedTimeNoCheck().toMillis() / 1000.0) + "s";
     }
     sb.append(currentTime);
-    if (remote) {
+    if (!getSpawnMetrics().getRemoteMetrics().isEmpty()) {
       sb.append(", ");
       sb.append(getSpawnMetrics().toString(getElapsedTimeNoCheck(), /* summary= */ false));
     }
