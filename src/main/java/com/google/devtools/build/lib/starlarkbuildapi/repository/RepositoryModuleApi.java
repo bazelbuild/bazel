@@ -197,13 +197,25 @@ public interface RepositoryModuleApi {
         @Param(
             name = "os_dependent",
             defaultValue = "False",
-            doc = "Indicates whether this extension is OS-dependent or not",
+            doc =
+                """
+                If true, Bazel includes the current host operating system in this extension's \
+                lockfile key. This prevents Bazel from reusing a lockfile entry created on a \
+                different operating system, and causes the extension to be evaluated separately \
+                for each operating system on which it is used.
+                """,
             named = true,
             positional = false),
         @Param(
             name = "arch_dependent",
             defaultValue = "False",
-            doc = "Indicates whether this extension is architecture-dependent or not",
+            doc =
+                """
+                If true, Bazel includes the current host CPU architecture in this extension's \
+                lockfile key. This prevents Bazel from reusing a lockfile entry created on a \
+                different architecture, and causes the extension to be evaluated separately for \
+                each architecture on which it is used.
+                """,
             named = true,
             positional = false),
         @Param(
