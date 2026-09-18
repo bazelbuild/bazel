@@ -218,8 +218,10 @@ function kill_group {
 }
 
 childPid=""
+signal_received=""
 function signal_children {
   local signal="${1-}"
+  signal_received="${signal}"
   if [ "${signal}" = "SIGTERM" ]; then
     echo "-- Test timed out at $(date +"%F %T %Z") --"
   fi
@@ -304,6 +306,19 @@ done
 # Wait one more time to retrieve the exit code.
 wait $childPid
 exitCode=$?
+
+# If we received SIGTERM on timeout, wait for any child processes in the process
+# group to exit so that cleanup handlers have time to finish during the
+# supervisor's termination grace period before we send SIGKILL.
+# Cap the wait using $SECONDS so hung child processes do not loop indefinitely.
+if [ "${signal_received}" = "SIGTERM" ] && [ -n "${childPid}" ]; then
+  grace_deadline=$(( SECONDS + 15 ))
+  while kill -0 -$childPid 2>/dev/null && [ $SECONDS -lt $grace_deadline ]; do
+    # Try subsecond sleep for fast polling; fall back to 1s if
+    # fractional sleep is unsupported.
+    sleep 0.1 2>/dev/null || sleep 1
+  done
+fi
 
 # By this point, we have everything we're willing to wait for. Tidy up our own
 # processes and move on.
