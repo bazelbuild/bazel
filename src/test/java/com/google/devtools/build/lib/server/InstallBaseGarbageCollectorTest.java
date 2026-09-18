@@ -14,9 +14,11 @@
 package com.google.devtools.build.lib.server;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.server.InstallBaseGarbageCollector.AOT_CACHE_SUFFIX;
 import static com.google.devtools.build.lib.server.InstallBaseGarbageCollector.DELETED_SUFFIX;
 import static com.google.devtools.build.lib.server.InstallBaseGarbageCollector.LOCK_SUFFIX;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.testutil.ExternalFileSystemLock;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -25,6 +27,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.stream.Stream;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -94,6 +97,50 @@ public final class InstallBaseGarbageCollectorTest {
     }
 
     assertDirectoryContents(OWN_MD5, OTHER_MD5, OTHER_MD5 + LOCK_SUFFIX);
+  }
+
+  private static final ImmutableList<String> AOT_CACHE_FILE_SUFFIXES =
+      ImmutableList.of(
+          AOT_CACHE_SUFFIX,
+          AOT_CACHE_SUFFIX + ".disabled",
+          AOT_CACHE_SUFFIX + ".pid123.config",
+          AOT_CACHE_SUFFIX + ".pid456.config");
+
+  @Test
+  public void otherInstallBase_notStale_aotCacheNotCollected() throws Exception {
+    Path otherInstallBase = createSubdirectory(OTHER_MD5);
+    setAge(otherInstallBase, Duration.ofDays(1));
+    for (String suffix : AOT_CACHE_FILE_SUFFIXES) {
+      Path file = rootDir.getChild(OTHER_MD5 + suffix);
+      FileSystemUtils.writeContentAsLatin1(file, "content");
+      setAge(file, Duration.ofDays(3));
+    }
+
+    run(Duration.ofDays(2));
+
+    assertDirectoryContents(
+        Stream.concat(
+                Stream.of(OWN_MD5, OTHER_MD5, OTHER_MD5 + LOCK_SUFFIX),
+                AOT_CACHE_FILE_SUFFIXES.stream().map(suffix -> OTHER_MD5 + suffix))
+            .toArray());
+  }
+
+  @Test
+  public void otherInstallBase_stale_aotCacheCollected() throws Exception {
+    Path otherInstallBase = createSubdirectory(OTHER_MD5);
+    setAge(otherInstallBase, Duration.ofDays(3));
+    for (String suffix : AOT_CACHE_FILE_SUFFIXES) {
+      Path file = rootDir.getChild(OTHER_MD5 + suffix);
+      FileSystemUtils.writeContentAsLatin1(file, "content");
+      setAge(file, Duration.ofDays(1));
+    }
+    // Belongs to a different install base.
+    Path unrelatedAotCache = rootDir.getChild(OWN_MD5 + AOT_CACHE_SUFFIX);
+    FileSystemUtils.writeContentAsLatin1(unrelatedAotCache, "content");
+
+    run(Duration.ofDays(2));
+
+    assertDirectoryContents(OWN_MD5, OWN_MD5 + AOT_CACHE_SUFFIX);
   }
 
   @Test
