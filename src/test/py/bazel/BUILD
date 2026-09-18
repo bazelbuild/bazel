@@ -312,7 +312,12 @@ py_test(
     name = "bazel_vendor_test",
     size = "large",
     srcs = ["bzlmod/bazel_vendor_test.py"],
-    data = ["//tools/build_defs/repo:mock_srcs"],
+    data = [
+        "//src:MODULE.tools",
+        "//tools:BUILD.tools",
+        "//tools:build_defs.bzl",
+        "//tools/build_defs/repo:mock_srcs",
+    ],
     shard_count = 5,
     tags = [
         "requires-network",

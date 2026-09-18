@@ -39,6 +39,7 @@ import java.io.OutputStreamWriter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Predicate;
+import javax.annotation.Nullable;
 
 /**
  * Module collecting Bazel module and module extensions resolution results and updating the
@@ -47,6 +48,10 @@ import java.util.function.Predicate;
 public class BazelLockFileModule extends BlazeModule {
 
   private CommandEnvironment env;
+  private boolean workspaceLockfileReadOnly;
+  // The update computed by workspaceLockfileNeedsUpdate, if any. It is reused by afterCommand
+  // since the command doesn't evaluate anything in Skyframe after checking.
+  @Nullable private LockfileUpdate lockfileUpdate;
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -56,25 +61,89 @@ public class BazelLockFileModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) {
     this.env = env;
+    workspaceLockfileReadOnly = false;
+    lockfileUpdate = null;
   }
 
   @Override
   public void afterCommand() {
     CommandEnvironment env = this.env;
     this.env = null;
+    LockfileUpdate update = lockfileUpdate != null ? lockfileUpdate : collectLockfileUpdate(env);
+    lockfileUpdate = null;
+    if (update == null) {
+      return;
+    }
+    // Write the new values to the files, but only if needed. This is not just a performance
+    // optimization: whenever the lockfile is updated, most Skyframe nodes will be marked as dirty
+    // on the next build, which breaks commands such as `bazel config` that rely on
+    // com.google.devtools.build.skyframe.MemoizingEvaluator#getDoneValues.
+    boolean writeWorkspaceLockfile =
+        !workspaceLockfileReadOnly && update.workspaceLockfileNeedsUpdate();
+    boolean writeHiddenLockfile = !update.newHiddenLockfile().equals(update.oldHiddenLockfile());
+    // Write both files in parallel.
+    Thread updateLockfile =
+        Thread.startVirtualThread(
+            () -> {
+              if (writeWorkspaceLockfile) {
+                updateLockfile(env.getWorkspace(), update.newLockfile());
+              }
+            });
+    Thread updateHiddenLockfile =
+        Thread.startVirtualThread(
+            () -> {
+              if (writeHiddenLockfile) {
+                updateLockfile(env.getOutputBase(), update.newHiddenLockfile());
+              }
+            });
+    try {
+      updateLockfile.join();
+      updateHiddenLockfile.join();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      logger.atSevere().withCause(e).log(
+          "Interrupted while updating MODULE.bazel.lock file: %s", e.getMessage());
+    }
+  }
+
+  /** Suppresses workspace lockfile writes for this command, including when evaluation fails. */
+  public void setWorkspaceLockfileReadOnly() {
+    workspaceLockfileReadOnly = true;
+  }
+
+  /**
+   * Returns whether the selected lockfile mode would update the workspace lockfile.
+   *
+   * <p>Must only be called after all Skyframe evaluations of the current command have completed.
+   */
+  public boolean workspaceLockfileNeedsUpdate() {
+    lockfileUpdate = collectLockfileUpdate(env);
+    return lockfileUpdate != null && lockfileUpdate.workspaceLockfileNeedsUpdate();
+  }
+
+  private record LockfileUpdate(
+      BazelLockFileValue oldLockfile,
+      BazelLockFileValue newLockfile,
+      BazelLockFileValue oldHiddenLockfile,
+      BazelLockFileValue newHiddenLockfile) {
+    boolean workspaceLockfileNeedsUpdate() {
+      return !newLockfile.equals(oldLockfile);
+    }
+  }
+
+  @Nullable
+  private static LockfileUpdate collectLockfileUpdate(@Nullable CommandEnvironment env) {
     if (env == null || !env.hasSyncedPackageLoading()) {
       // The current command (e.g. shutdown) didn't evaluate the lockfile values so they may
       // be stale, e.g., if a server with a different output base changed the lockfile
       // in the meantime.
-      return;
+      return null;
     }
     LockfileMode lockfileMode =
         env.getOptions().getOptions(RepositoryOptions.class).getLockfileMode();
     if (!ENABLED_IN_MODES.contains(lockfileMode)) {
-      return;
+      return null;
     }
-    Path workspaceRoot = env.getWorkspace();
-    Path outputBase = env.getOutputBase();
     MemoizingEvaluator evaluator = env.getSkyframeExecutor().getEvaluator();
     BazelModuleResolutionValue moduleResolutionValue;
     BazelDepGraphValue depGraphValue;
@@ -95,7 +164,7 @@ public class BazelLockFileModule extends BlazeModule {
       // Since these values are required to compute the main repo mapping, which happens in every
       // build, an error must have occurred that prevented the evaluation of these values and that
       // has already been reported at this point.
-      return;
+      return null;
     }
     if (oldHiddenLockfile == null) {
       oldHiddenLockfile = BazelLockFileValue.EMPTY_LOCKFILE;
@@ -144,82 +213,51 @@ public class BazelLockFileModule extends BlazeModule {
     var relevantHiddenFactsVersions =
         filterRelevantFactsVersions(combinedHiddenFactsVersions, relevantHiddenFacts);
 
-    Thread updateLockfile =
-        Thread.startVirtualThread(
-            () -> {
-              var notReproducibleExtensionInfos =
-                  combineModuleExtensions(
-                      oldLockfile.getModuleExtensions(),
-                      newExtensionInfos,
-                      /* hasUsages= */ depGraphValue.getExtensionUsagesTable()::containsRow,
-                      /* reproducible= */ false);
+    var notReproducibleExtensionInfos =
+        combineModuleExtensions(
+            oldLockfile.getModuleExtensions(),
+            newExtensionInfos,
+            /* hasUsages= */ depGraphValue.getExtensionUsagesTable()::containsRow,
+            /* reproducible= */ false);
 
-              // Bazel may track the hashes of files fetched from local registries for internal
-              // purposes, but those should never show up in the lockfile for two reasons:
-              // - they are not needed for reproducibility, as local registries are assumed to be
-              //   under the user's control, just like CLI flags;
-              // - they would contribute absolute paths and thus aren't portable.
-              var remoteRegistryFileHashes =
-                  ImmutableSortedMap.copyOf(
-                      Maps.filterKeys(
-                          moduleResolutionValue.getRegistryFileHashes(),
-                          url -> !url.startsWith("file:")));
+    // Bazel may track the hashes of files fetched from local registries for internal
+    // purposes, but those should never show up in the lockfile for two reasons:
+    // - they are not needed for reproducibility, as local registries are assumed to be
+    //   under the user's control, just like CLI flags;
+    // - they would contribute absolute paths and thus aren't portable.
+    var remoteRegistryFileHashes =
+        ImmutableSortedMap.copyOf(
+            Maps.filterKeys(
+                moduleResolutionValue.getRegistryFileHashes(), url -> !url.startsWith("file:")));
 
-              // Create an updated version of the lockfile, keeping only the extension results from
-              // the old lockfile that are still up-to-date and adding the newly resolved
-              // extension results, as long as any of them are not known to be reproducible.
-              BazelLockFileValue newLockfile =
-                  BazelLockFileValue.builder()
-                      .setRegistryFileHashes(remoteRegistryFileHashes)
-                      .setSelectedYankedVersions(moduleResolutionValue.getSelectedYankedVersions())
-                      .setModuleExtensions(notReproducibleExtensionInfos)
-                      .setFacts(relevantFacts)
-                      .setFactsVersions(relevantFactsVersions)
-                      .build();
+    // Create an updated version of the lockfile, keeping only the extension results from
+    // the old lockfile that are still up-to-date and adding the newly resolved
+    // extension results, as long as any of them are not known to be reproducible.
+    BazelLockFileValue newLockfile =
+        BazelLockFileValue.builder()
+            .setRegistryFileHashes(remoteRegistryFileHashes)
+            .setSelectedYankedVersions(moduleResolutionValue.getSelectedYankedVersions())
+            .setModuleExtensions(notReproducibleExtensionInfos)
+            .setFacts(relevantFacts)
+            .setFactsVersions(relevantFactsVersions)
+            .build();
 
-              // Write the new values to the files, but only if needed. This is not just a
-              // performance optimization: whenever the lockfile is updated, most Skyframe nodes
-              // will be marked as dirty on the next build, which breaks commands such as `bazel
-              // config` that rely on
-              // com.google.devtools.build.skyframe.MemoizingEvaluator#getDoneValues.
-              if (!newLockfile.equals(oldLockfile)) {
-                updateLockfile(workspaceRoot, newLockfile);
-              }
-            });
-
-    final BazelLockFileValue oldHiddenLockfileFinal = oldHiddenLockfile;
-    Thread updateHiddenLockfile =
-        Thread.startVirtualThread(
-            () -> {
-              // Results of reproducible extensions do not need to be stored for reproducibility,
-              // but avoiding reevaluations on server startups helps cold build performance.
-              var reproducibleExtensionInfos =
-                  combineModuleExtensions(
-                      oldHiddenLockfileFinal.getModuleExtensions(),
-                      newExtensionInfos,
-                      /* hasUsages= */ depGraphValue.getExtensionUsagesTable()::containsRow,
-                      /* reproducible= */ true);
-              BazelLockFileValue newHiddenLockfile =
-                  BazelLockFileValue.builder()
-                      .setSelectedYankedVersions(ImmutableMap.of())
-                      .setModuleExtensions(reproducibleExtensionInfos)
-                      .setFacts(relevantHiddenFacts)
-                      .setFactsVersions(relevantHiddenFactsVersions)
-                      .build();
-
-              if (!newHiddenLockfile.equals(oldHiddenLockfileFinal)) {
-                updateLockfile(outputBase, newHiddenLockfile);
-              }
-            });
-
-    try {
-      updateLockfile.join();
-      updateHiddenLockfile.join();
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      logger.atSevere().withCause(e).log(
-          "Interrupted while updating MODULE.bazel.lock file: %s", e.getMessage());
-    }
+    // Results of reproducible extensions do not need to be stored for reproducibility,
+    // but avoiding reevaluations on server startups helps cold build performance.
+    var reproducibleExtensionInfos =
+        combineModuleExtensions(
+            oldHiddenLockfile.getModuleExtensions(),
+            newExtensionInfos,
+            /* hasUsages= */ depGraphValue.getExtensionUsagesTable()::containsRow,
+            /* reproducible= */ true);
+    BazelLockFileValue newHiddenLockfile =
+        BazelLockFileValue.builder()
+            .setSelectedYankedVersions(ImmutableMap.of())
+            .setModuleExtensions(reproducibleExtensionInfos)
+            .setFacts(relevantHiddenFacts)
+            .setFactsVersions(relevantHiddenFactsVersions)
+            .build();
+    return new LockfileUpdate(oldLockfile, newLockfile, oldHiddenLockfile, newHiddenLockfile);
   }
 
   private static ImmutableSortedMap<ModuleExtensionId, Facts> filterRelevantFacts(

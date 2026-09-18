@@ -145,6 +145,7 @@ java_library(
         "//third_party/java/gson",
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 

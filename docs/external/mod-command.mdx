@@ -17,6 +17,17 @@ bazel mod <subcommand> [<options>] [<arg> [<arg>...]]
 
 The available subcommands and their respective required arguments are:
 
+*   `tidy`: Formats `MODULE.bazel` and its included module files and updates
+    `use_repo` calls for supported module extensions. Requests all extensions in
+    the dependency graph, including those used only by dependencies, to update
+    `MODULE.bazel.lock` according to `--lockfile_mode`. Pass `--diff` to check
+    module files and the lockfile without modifying them: module changes are
+    printed as unified diffs, and lockfile changes as a short diagnostic. This
+    exits with code 1 if changes are needed, including formatting changes, and
+    code 0 if no changes are needed. Errors evaluating extensions or running
+    buildozer still cause the command to fail. See the
+    [recommended update and CI workflows](/external/lockfile#updating-and-checking).
+
 *   `graph`: Displays the full dependency graph of the project, starting from
     the root module. If one or more modules are specified in `--from`, these
     modules are shown directly under the root, and the graph is only expanded
