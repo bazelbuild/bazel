@@ -15,8 +15,8 @@
 from dataclasses import dataclass
 from typing import Tuple
 
-from tools.ctexplain.ctexplain_types import ConfiguredTarget
-import tools.ctexplain.util as util
+from scripts.ctexplain.ctexplain_types import ConfiguredTarget
+import scripts.ctexplain.util as util
 
 
 @dataclass(frozen=True)

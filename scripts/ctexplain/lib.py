@@ -14,8 +14,8 @@
 """General-purpose business logic."""
 from typing import Tuple
 
-import tools.ctexplain.bazel_api as bazel_api
-from tools.ctexplain.ctexplain_types import ConfiguredTarget
+import scripts.ctexplain.bazel_api as bazel_api
+from scripts.ctexplain.ctexplain_types import ConfiguredTarget
 
 
 def analyze_build(bazel: bazel_api.BazelApi, labels: Tuple[str, ...],

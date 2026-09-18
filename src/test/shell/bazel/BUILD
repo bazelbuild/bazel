@@ -8,10 +8,10 @@ package(default_visibility = ["//visibility:private"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//scripts/aquery_differ:srcs",
         "//src/test/shell/bazel/apple:srcs",
         "//src/test/shell/bazel/remote:srcs",
         "//src/test/shell/bazel/testdata:srcs",
-        "//tools/aquery_differ:srcs",
     ],
     visibility = ["//src/test/shell:__pkg__"],
 )

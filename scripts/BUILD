@@ -80,6 +80,8 @@ sh_test(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//scripts/aquery_differ:srcs",
+        "//scripts/ctexplain:srcs",
         "//scripts/docs:srcs",
         "//scripts/packages:srcs",
         "//scripts/release:srcs",
