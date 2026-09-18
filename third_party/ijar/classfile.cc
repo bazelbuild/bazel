@@ -450,7 +450,7 @@ struct Attribute {
   virtual void ExtractClassNames() {}
   virtual bool KeepForCompile() const { return false; }
 
-  void WriteProlog(u1 *&p, u2 length) {
+  void WriteProlog(u1 *&p, u4 length) {
     put_u2be(p, attribute_name_->slot());
     put_u4be(p, length);
   }
@@ -1297,11 +1297,15 @@ struct NestMembersAttribute : Attribute {
 
 // See JVMS §4.7.30
 struct RecordAttribute : Attribute {
-  static RecordAttribute *Read(const u1 *&p, Constant *attribute_name,
-                                    u4 attribute_length) {
+  virtual ~RecordAttribute() {
+    for (size_t i = 0; i < components_.size(); ++i) {
+      delete components_[i];
+    }
+  }
+
+  static RecordAttribute *Read(const u1 *&p, Constant *attribute_name) {
     auto attr = new RecordAttribute;
     attr->attribute_name_ = attribute_name;
-    attr->attribute_length_ = attribute_length;
     u2 components_length = get_u2be(p);
     for (int i = 0; i < components_length; ++i) {
       attr->components_.push_back(RecordComponentInfo::Read(p));
@@ -1310,16 +1314,13 @@ struct RecordAttribute : Attribute {
   }
 
   void Write(u1 *&p) {
-    u1 *tmp = new u1[attribute_length_];
-    u1 *start = tmp;
-    put_u2be(tmp, components_.size());
+    WriteProlog(p, -1);
+    u1 *payload_start = p - 4;
+    put_u2be(p, components_.size());
     for (size_t i = 0; i < components_.size(); ++i) {
-      components_[i]->Write(tmp);
+      components_[i]->Write(p);
     }
-    u2 length = tmp - start;
-    WriteProlog(p, length);
-    memcpy(p, start, length);
-    p += length;
+    put_u4be(payload_start, p - 4 - payload_start);  // backpatch length
   }
 
   struct RecordComponentInfo : HasAttrs {
@@ -1340,7 +1341,6 @@ struct RecordAttribute : Attribute {
     Constant *descriptor_;
   };
 
-  u4 attribute_length_;
   std::vector<RecordComponentInfo *> components_;
 };
 
@@ -1581,8 +1581,7 @@ void HasAttrs::ReadAttrs(const u1 *&p) {
       attributes.push_back(
           NestMembersAttribute::Read(p, attribute_name, attribute_length));
     } else if (attr_name == "Record") {
-      attributes.push_back(
-          RecordAttribute::Read(p, attribute_name, attribute_length));
+      attributes.push_back(RecordAttribute::Read(p, attribute_name));
     } else if (attr_name == "PermittedSubclasses") {
       attributes.push_back(
           PermittedSubclassesAttribute::Read(p, attribute_name));

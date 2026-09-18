@@ -35,6 +35,7 @@ sh_test(
         # TODO(cushon): build from source once we have a JDK 11
         "nestmates/nestmates.jar",
         "records/records.jar",
+        ":record_length_mismatch.jar",
         "sealed/sealed.jar",
         ":source_debug_extension.jar",
         ":duplicated_unsupported_attribute.jar",
@@ -243,6 +244,20 @@ genrule(
     outs = ["dynamic_constant.jar"],
     cmd = "$(location :gen_dynamic_constant) $@",
     tools = [":gen_dynamic_constant"],
+)
+
+java_binary(
+    name = "gen_record_length_mismatch",
+    srcs = ["GenRecordLengthMismatch.java"],
+    main_class = "test.GenRecordLengthMismatch",
+)
+
+genrule(
+    name = "gen_record_length_mismatch_jar",
+    srcs = [],
+    outs = ["record_length_mismatch.jar"],
+    cmd = "$(execpath :gen_record_length_mismatch) $@",
+    tools = [":gen_record_length_mismatch"],
 )
 
 java_library(
