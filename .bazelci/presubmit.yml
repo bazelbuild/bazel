@@ -235,6 +235,8 @@ tasks:
       # https://github.com/bazelbuild/bazel/issues/4292
       - "-//src/test/shell/bazel/remote/..."
       - "-//tools/python:pywrapper_test"
+      # Too slow for Windows presubmit (24 shards, ~19m wall time on a single VM).
+      - "-//src/test/java/com/google/devtools/build/lib/skyframe/rewinding:RewindingTest"
     include_json_profile:
       - build
       - test
