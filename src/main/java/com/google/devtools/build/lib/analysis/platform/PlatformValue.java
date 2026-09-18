@@ -178,7 +178,8 @@ public record PlatformValue(PlatformInfo platformInfo, Optional<ParsedFlagsValue
             ImmutableList.copyOf(platformFlags),
             PackageContext.of(platformLabel.getPackageIdentifier(), repositoryMapping),
             /* includeDefaultValues= */ true,
-            ImmutableMap.of());
+            ImmutableMap.of(),
+            /* allowNonFlagBuildSettings= */ true);
     ParsedFlagsValue ans = (ParsedFlagsValue) skyframeEvaluator.evaluate(parsedFlagsKey);
     return Optional.ofNullable(ans);
   }
