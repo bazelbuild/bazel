@@ -86,7 +86,7 @@ class IncludeParser {
 
   /**
    * File types supported by the grep-includes binary. {@link #fileType} must be kept in sync with
-   * //tools/cpp:grep-includes.
+   * @rules_cc//cc/private/toolchain:grep-includes.
    */
   public enum GrepIncludesFileType {
     CPP("c++"),
@@ -921,7 +921,8 @@ class IncludeParser {
    * Returns type of the scanned file.
    *
    * <p>Supported values are "c++" for standard c/c++ headers and sources, and "swig" for .swig
-   * files. Changes to this method must be synchronized with change to //tools/cpp:grep-includes.
+   * files. Changes to this method must be synchronized with changes to
+   * @rules_cc//cc/private/toolchain:grep-includes.
    */
   protected GrepIncludesFileType getFileType() {
     return GrepIncludesFileType.CPP;

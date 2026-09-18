@@ -668,7 +668,7 @@ $ bazel cquery 'deps(//cc:my_cc_lib, 1)'
 //:default_host_platform (96d6638)
 @local_config_cc//:cc-compiler-k8 (HOST)
 //cc:my_cc_lib.cc (null)
-@bazel_tools//tools/cpp:grep-includes (HOST)
+@rules_cc//cc/private/toolchain:grep-includes (HOST)
 
 # Which of these are from toolchain resolution?
 $ bazel cquery 'deps(//cc:my_cc_lib, 1)' --transitions=lite | grep "toolchain dependency"
