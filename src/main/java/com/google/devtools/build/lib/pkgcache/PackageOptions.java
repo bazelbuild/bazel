@@ -95,7 +95,7 @@ public abstract class PackageOptions extends OptionsBase {
       name = "deleted_packages",
       allowMultiple = true,
       defaultValue = "null",
-      converter = CommaSeparatedPackageNameListConverter.class,
+      converter = CommaSeparatedPackagePatternListConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -107,8 +107,10 @@ public abstract class PackageOptions extends OptionsBase {
               + "in your client, the build system may complain if it "
               + "encounters a label '//x:y/z' if that is still provided by another "
               + "package_path entry.  Specifying --deleted_packages x/y avoids this "
-              + "problem.")
-  public abstract List<PackageIdentifier> getDeletedPackages();
+              + "problem.\n"
+              + "A pattern ending in '/...' (e.g. 'x/y/...') causes the named package "
+              + "and every package below it to be treated as deleted.")
+  public abstract List<DeletedPackages.Pattern> getDeletedPackagePatterns();
 
   @Option(
       name = "default_visibility",
@@ -231,21 +233,27 @@ public abstract class PackageOptions extends OptionsBase {
 
   public abstract void setLazyMacroExpansionPackages(LazyMacroExpansionPackages value);
 
-  /** A converter from strings containing comma-separated names of packages to lists of strings. */
-  public static class CommaSeparatedPackageNameListConverter
-      extends Converter.Contextless<List<PackageIdentifier>> {
+  /**
+   * A converter from a comma-separated list of package names to a list of {@link
+   * DeletedPackages.Pattern}.
+   *
+   * <p>An entry of the form {@code pkg/...} denotes a subtree match (the package and every package
+   * below it). Otherwise the entry denotes an exact match.
+   */
+  public static class CommaSeparatedPackagePatternListConverter
+      extends Converter.Contextless<List<DeletedPackages.Pattern>> {
 
     private static final Splitter COMMA_SPLITTER = Splitter.on(',');
 
     @Override
-    public List<PackageIdentifier> convert(String input) throws OptionsParsingException {
+    public List<DeletedPackages.Pattern> convert(String input) throws OptionsParsingException {
       if (Strings.isNullOrEmpty(input)) {
         return ImmutableList.of();
       }
-      ImmutableList.Builder<PackageIdentifier> list = ImmutableList.builder();
+      ImmutableList.Builder<DeletedPackages.Pattern> list = ImmutableList.builder();
       for (String s : COMMA_SPLITTER.split(input)) {
         try {
-          list.add(PackageIdentifier.parse(s));
+          list.add(DeletedPackages.Pattern.parse(s));
         } catch (LabelSyntaxException e) {
           throw new OptionsParsingException(e.getMessage());
         }
@@ -255,15 +263,16 @@ public abstract class PackageOptions extends OptionsBase {
 
     @Override
     public String getTypeDescription() {
-      return "comma-separated list of package names";
+      return "comma-separated list of package patterns";
     }
   }
 
-  public ImmutableSet<PackageIdentifier> getDeletedPackagesOrEmptySet() {
-    if (getDeletedPackages() == null) {
-      return ImmutableSet.of();
+  public DeletedPackages getDeletedPackages() {
+    List<DeletedPackages.Pattern> patterns = getDeletedPackagePatterns();
+    if (patterns == null) {
+      return DeletedPackages.EMPTY;
     }
-    return ImmutableSet.copyOf(getDeletedPackages());
+    return DeletedPackages.fromPatterns(patterns);
   }
 
   /**
