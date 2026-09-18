@@ -31,8 +31,11 @@ public final class WindowsParamFileEscaper {
    *     Parser Implementation</a>
    */
   public static String escapeString(String argument) {
+    if (!argument.isEmpty() && argument.indexOf('\\') < 0 && argument.indexOf('"') < 0) {
+      return containsWhitespace(argument) ? "\"" + argument + "\"" : argument;
+    }
     boolean needsSurroundingQuotes = argument.isEmpty() || containsWhitespace(argument);
-    StringBuilder out = new StringBuilder();
+    StringBuilder out = new StringBuilder(argument.length() + 2);
     if (needsSurroundingQuotes) {
       out.append("\"");
     }
