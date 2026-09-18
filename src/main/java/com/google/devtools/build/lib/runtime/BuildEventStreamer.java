@@ -487,6 +487,29 @@ public class BuildEventStreamer {
       halfCloseFuturesMapBuilder.put(transport, transport.getHalfCloseFuture());
     }
     halfCloseFuturesMap = halfCloseFuturesMapBuilder.buildOrThrow();
+    clearRetainedEventState();
+  }
+
+  /**
+   * Releases retained {@link BuildEventId} data structures when the build event stream has closed
+   * or completed, freeing memory occupied by announced and posted event graphs.
+   */
+  @VisibleForTesting
+  synchronized void clearRetainedEventState() {
+    if (announcedEvents != null) {
+      announcedEvents.clear();
+    }
+    postedEvents.clear();
+    configurationsPosted.clear();
+    pendingEvents.clear();
+  }
+
+  @VisibleForTesting
+  synchronized boolean hasRetainedEventState() {
+    return (announcedEvents != null && !announcedEvents.isEmpty())
+        || !postedEvents.isEmpty()
+        || !configurationsPosted.isEmpty()
+        || !pendingEvents.isEmpty();
   }
 
   private void maybeReportArtifactSet(CompletionContext ctx, NestedSet<?> set) {
