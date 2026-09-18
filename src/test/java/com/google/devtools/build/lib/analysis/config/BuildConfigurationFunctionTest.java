@@ -218,6 +218,70 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void avoidHashForCpuUsedAsPlatformName() throws Exception {
+    writeAllowlistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        """
+        def _cpu_impl(settings, attr):
+            return {"//command_line_option:cpu": "alpha"}
+
+        cpu_transition = transition(
+            implementation = _cpu_impl,
+            inputs = [],
+            outputs = ["//command_line_option:cpu"],
+        )
+        """);
+    scratch.file(
+        "test/rules.bzl",
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+        load("//test:transitions.bzl", "cpu_transition")
+
+        def _impl(ctx):
+            return MyInfo(dep = ctx.attr.dep)
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "dep": attr.label(cfg = cpu_transition),
+            },
+        )
+
+        def _basic_impl(ctx):
+            return []
+
+        simple = rule(_basic_impl)
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rules.bzl", "my_rule", "simple")
+
+        my_rule(
+            name = "test",
+            dep = ":dep",
+        )
+
+        simple(name = "dep")
+        """);
+
+    // Without an explicit --platforms, the legacy heuristic names the output directory after the
+    // CPU, which must thus not also contribute to the ST hash.
+    useConfiguration("--cpu=k8", "--experimental_use_platforms_in_output_dir_legacy_heuristic");
+    ConfiguredTarget test = getConfiguredTarget("//test");
+
+    assertThat(getMnemonic(test)).isEqualTo("k8-fastbuild");
+
+    @SuppressWarnings("unchecked")
+    ConfiguredTarget dep =
+        Iterables.getOnlyElement(
+            (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
+
+    assertThat(getMnemonic(dep)).isEqualTo("alpha-fastbuild");
+  }
+
+  @Test
   public void abaAvoidsHash() throws Exception {
     writeAllowlistFile();
     writeBuildSettingsBzl();
