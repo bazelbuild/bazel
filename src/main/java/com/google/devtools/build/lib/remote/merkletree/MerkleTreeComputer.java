@@ -551,7 +551,7 @@ public final class MerkleTreeComputer {
     var blobs =
         new TreeMap<
             /* Digest | FileArtifactValue */ Object,
-            /* byte[] | Path | VirtualActionInput */ Object>(
+            /* byte[] | ActionInput | DeterministicWriter */ Object>(
             MerkleTree.Uploadable.DIGEST_AND_METADATA_COMPARATOR);
     Deque<Directory.Builder> directoryStack = new ArrayDeque<>();
     directoryStack.push(Directory.newBuilder());

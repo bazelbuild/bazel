@@ -40,7 +40,7 @@ bazel_dep(name = "protobuf", version = "33.4", repo_name = "com_google_protobuf"
 
 # //tools/{jdk,java,build_rules}, //tools/build_defs/repo, //src/main/native,
 # //src/java_tools/{buildjar,import_deps_checker}, and java_toolchains above.
-bazel_dep(name = "rules_java", version = "9.7.2")
+bazel_dep(name = "rules_java", version = "9.9.0")
 
 # //tools/{cpp,jdk,objc,osx,res}, //tools/build_defs/cc, //src/main/{cpp/util,native},
 # //src/tools/launcher, //third_party/{def_parser,ijar}.
