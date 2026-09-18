@@ -239,6 +239,34 @@ public abstract class ExecutionOptions extends OptionsBase {
       help = "Specifies which strategy to use when running tests.")
   public abstract String getTestStrategy();
 
+  /** Strategies for executing file write actions. */
+  public enum FileWriteStrategy {
+    LOCAL,
+    REMOTE;
+
+    /** Converts to {@link FileWriteStrategy}. */
+    public static class Converter extends EnumConverter<FileWriteStrategy> {
+      public Converter() {
+        super(FileWriteStrategy.class, "file write strategy");
+      }
+    }
+  }
+
+  @Option(
+      name = "file_write_strategy",
+      defaultValue = "local",
+      converter = FileWriteStrategy.Converter.class,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Specifies which strategy to use for file write actions such as ctx.actions.write and"
+              + " ctx.actions.expand_template. 'local' writes the file to disk. 'remote' stores the"
+              + " contents in the remote cache and records them as a remote output when building"
+              + " without the bytes, so that the file is only written to disk if it is needed by"
+              + " a local action or requested via --remote_download_outputs. Has no effect without"
+              + " a remote cache that Bazel is allowed to upload to.")
+  public abstract FileWriteStrategy getFileWriteStrategy();
+
   @Option(
       name = "test_keep_going",
       defaultValue = "true",
