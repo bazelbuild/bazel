@@ -3120,6 +3120,7 @@ java_library(
     srcs = ["TopLevelConflictException.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
     ],
 )

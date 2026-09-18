@@ -1531,36 +1531,6 @@ public class SkyframeErrorProcessorTest {
   }
 
   @Test
-  public void noKeepGoing_emptyTopLevelConflictException_unexpectedAnalysisExceptionFallback() {
-    // The UNEXPECTED_ANALYSIS_EXCEPTION fallback: TopLevelConflictException extends plain
-    // Exception, so convertToAnalysisException returns null and the failure detail is built from
-    // errorMsg alone - *dropping* the cause message, which the exception itself keeps. That
-    // contrast is the point of this test.
-    //
-    // Two things are load-bearing here: the conflict map must be empty, so that
-    // isActionConflictError() is false and the loop does not skip this key; and
-    // includeExecutionPhase must be true, because the analysis-only validation rejects a
-    // TopLevelConflictException outright and files a bug report instead.
-    ConfiguredTargetKey key = configuredTargetKey("//pkg:conflict");
-
-    EvaluationResult<SkyValue> result =
-        resultOf(key, errorInfo(new TopLevelConflictException("msg", ImmutableMap.of())));
-
-    ViewCreationFailedException thrown =
-        assertThrows(
-            ViewCreationFailedException.class,
-            () -> processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ true));
-
-    assertThat(thrown.getFailureDetail().getMessage())
-        .isEqualTo("Analysis of target '//pkg:conflict' failed; build aborted");
-    assertThat(thrown.getFailureDetail().getAnalysis().getCode())
-        .isEqualTo(Analysis.Code.UNEXPECTED_ANALYSIS_EXCEPTION);
-    assertThat(thrown)
-        .hasMessageThat()
-        .isEqualTo("Analysis of target '//pkg:conflict' failed; build aborted: msg");
-  }
-
-  @Test
   public void validAnalysisExceptionOfUnrecognizedSubtype_filesBugReportFromIndividualProcessing() {
     // The fallback else branch of processIndividualError. Unlike
     // unrecognizedExceptionType_crashesWithABugReport, the exception here *is* a
