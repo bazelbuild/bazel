@@ -429,7 +429,6 @@ java_library(
         ":chunker",
         ":combined_cache",
         ":remote_action_file_system",
-        "//src/main/java/com/google/devtools/build/lib/actions:virtual_action_input",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/common:cache_not_found_exception",
