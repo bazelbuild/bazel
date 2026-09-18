@@ -1170,10 +1170,7 @@ java_library(
 
 java_library(
     name = "remote_rewound_action_synchronizer",
-    srcs = [
-        "ReaderPreferringReadWriteLock.java",
-        "RemoteRewoundActionSynchronizer.java",
-    ],
+    srcs = ["RemoteRewoundActionSynchronizer.java"],
     deps = [
         ":abstract_action_input_prefetcher",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -1181,14 +1178,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_template_expansion_value",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
         "//src/main/java/com/google/devtools/build/skyframe",
-        "//third_party/java/caffeine",
         "//third_party/java/error_prone:annotations",
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
-        "//third_party/java/jsr305_annotations",
     ],
 )
 
