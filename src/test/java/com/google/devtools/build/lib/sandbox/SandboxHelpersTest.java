@@ -14,16 +14,19 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
@@ -165,6 +168,38 @@ public class SandboxHelpersTest {
     assertThat(execRoot.getRelative("_bin/say_hello").isExecutable()).isTrue();
   }
 
+  @Test
+  public void processInputFiles_omitsInputsNestedUnderDirectoryInput() throws Exception {
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, ArtifactRoot.RootType.OUTPUT, "out");
+    // A directory artifact and inputs nested under it.
+    Artifact directory = ActionsTestUtil.createArtifact(root, "dir");
+    Artifact nestedFile = ActionsTestUtil.createArtifact(root, "dir/sub/nested");
+    Artifact nestedSymlink = ActionsTestUtil.createUnresolvedSymlinkArtifact(root, "dir/link");
+    scratch.dir("/execroot/out/dir");
+    execRoot.getRelative("out/dir/link").createSymbolicLink(PathFragment.create("nested_target"));
+    Artifact other = ActionsTestUtil.createArtifact(root, "other");
+    // An input symlink and an input nested under it, which is retained.
+    Artifact symlink = ActionsTestUtil.createUnresolvedSymlinkArtifact(root, "link");
+    Artifact fileUnderSymlink = ActionsTestUtil.createArtifact(root, "link/file");
+    execRoot.getRelative("out/link").createSymbolicLink(PathFragment.create("target"));
+
+    SandboxInputs inputs =
+        SandboxHelpers.processInputFiles(
+            inputMap(nestedFile, directory, other, fileUnderSymlink, nestedSymlink, symlink),
+            execRoot);
+
+    assertThat(inputs.getFiles())
+        .containsExactly(
+            directory.getExecPath(),
+            execRoot.getRelative(directory.getExecPath()),
+            other.getExecPath(),
+            execRoot.getRelative(other.getExecPath()),
+            fileUnderSymlink.getExecPath(),
+            execRoot.getRelative(fileUnderSymlink.getExecPath()));
+    assertThat(inputs.getSymlinks())
+        .containsExactly(symlink.getExecPath(), PathFragment.create("target"));
+  }
+
   /**
    * Test simulating a scenario when 2 parallel writes of the same virtual input both complete write
    * of the temp file and then proceed with post-processing steps one-by-one.
@@ -214,9 +249,11 @@ public class SandboxHelpersTest {
     assertThat(outputFile.isExecutable()).isTrue();
   }
 
-  private static ImmutableMap<PathFragment, ActionInput> inputMap(ActionInput... inputs) {
+  private static ImmutableSortedMap<PathFragment, ActionInput> inputMap(ActionInput... inputs) {
     return Arrays.stream(inputs)
-        .collect(toImmutableMap(ActionInput::getExecPath, Function.identity()));
+        .collect(
+            toImmutableSortedMap(
+                HIERARCHICAL_COMPARATOR, ActionInput::getExecPath, Function.identity()));
   }
 
   @Test

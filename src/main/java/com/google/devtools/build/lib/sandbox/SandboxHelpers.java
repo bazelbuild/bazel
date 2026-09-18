@@ -20,6 +20,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.DIRECTORY;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.FILE;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
+import static com.google.devtools.build.lib.vfs.PathFragment.HIERARCHICAL_COMPARATOR;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -638,23 +639,40 @@ public final class SandboxHelpers {
    * Returns the inputs of a Spawn as a map of PathFragments relative to an execRoot to paths in the
    * host filesystem where the input files can be found.
    *
-   * @param inputMap the map of action inputs and where they should be visible in the action
+   * <p>Inputs nested under an input that isn't a symlink are omitted: a file can't contain other
+   * paths, so such an input is a directory (e.g. a source directory artifact) that already provides
+   * the nested paths. Creating them separately would require creating the directory input as a real
+   * directory in the sandbox, which clashes with creating it as a symlink or copy. This matches how
+   * {@code MerkleTreeComputer} stages such inputs for remote execution. Inputs nested under an
+   * input symlink are retained and fail when the sandbox is created.
+   *
+   * @param inputMap the map of action inputs and where they should be visible in the action, sorted
+   *     by {@link PathFragment#HIERARCHICAL_COMPARATOR} so that nested inputs directly follow the
+   *     input they are nested under
    * @param execRoot the exec root
    * @throws IOException if processing symlinks fails
    */
   @CanIgnoreReturnValue
   public static SandboxInputs processInputFiles(
-      Map<PathFragment, ActionInput> inputMap, Path execRoot)
+      SortedMap<PathFragment, ActionInput> inputMap, Path execRoot)
       throws IOException, InterruptedException {
+    Preconditions.checkArgument(
+        inputMap.comparator() == HIERARCHICAL_COMPARATOR,
+        "inputMap must be sorted by PathFragment.HIERARCHICAL_COMPARATOR");
     Map<PathFragment, Path> inputFiles = new TreeMap<>();
     Map<PathFragment, PathFragment> inputSymlinks = new TreeMap<>();
     Map<VirtualActionInput, byte[]> virtualInputs = new HashMap<>();
 
+    // The last input that isn't a symlink. Any inputs nested under it directly follow it.
+    PathFragment lastFile = null;
     for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
       if (Thread.interrupted()) {
         throw new InterruptedException();
       }
       PathFragment pathFragment = e.getKey();
+      if (lastFile != null && pathFragment.startsWith(lastFile)) {
+        continue;
+      }
       ActionInput actionInput = e.getValue();
       if (actionInput instanceof VirtualActionInput input) {
         byte[] digest = input.atomicallyWriteRelativeTo(execRoot);
@@ -662,9 +680,11 @@ public final class SandboxHelpers {
       }
 
       if (actionInput.isSymlink()) {
+        lastFile = null;
         Path inputPath = execRoot.getRelative(actionInput.getExecPath());
         inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
       } else {
+        lastFile = pathFragment;
         Path inputPath =
             actionInput instanceof EmptyActionInput
                 ? null
