@@ -37,6 +37,17 @@ public class CppRuleClasses {
   public static final String CPP_MODULES = "cpp_modules";
 
   /**
+   * A string constant for the ignore_unresolvable_dep_paths feature.
+   *
+   * <p>If this feature is requested, paths listed in compiler-generated dependency files that do
+   * not resolve to discoverable compile inputs are ignored instead of being reported as undeclared
+   * inclusions. This is needed for compilers that emit non-input entries in dependency files:
+   * notably, GCC C++20 module builds add Makefile metadata (e.g. {@code .PHONY} targets,
+   * order-only {@code |} markers) and module pseudo-targets ({@code *.c++-module}).
+   */
+  public static final String IGNORE_UNRESOLVABLE_DEP_PATHS = "ignore_unresolvable_dep_paths";
+
+  /**
    * A string constant for the serialized_diagnostics_file feature. This feature generates the .dia
    * file.
    */
