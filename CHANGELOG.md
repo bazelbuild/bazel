@@ -1,3 +1,30 @@
+## Release 10.0.0-pre.20260911.2 (2026-09-18)
+
+```
+Baseline: d4c275b89348663ec7b84e58f75ec8ab46f62101
+
+Cherry picks:
+
+   + 27f9635b3723ff4a2e5b782c768b80b160e8722e:
+     Make the hash codes of providers and configured targets stable.
+```
+
+Incompatible changes:
+
+  - --experimental_sibling_repository_layout is now a no-op.
+
+Important changes:
+
+  - Support `dict(label, string)` aspect attributes in `query
+    --output=proto`.
+  - Transitive rule and toolchain resolution errors are now formatted
+    into a multi-line indented hierarchy.
+    Fixes https://github.com/bazelbuild/bazel/issues/15791
+  - Fix NullPointerException and improve error messages when Starlark
+    implicit output templates reference unset or unknown attributes.
+
+This release contains contributions from many people at Google, as well as Chris McDonald, David Zbarsky, Fabian Meumertzheim, James Judd, Tamir Duberstein, Vladimir Sitnikov.
+
 ## Release 10.0.0-pre.20260908.2 (2026-09-15)
 
 ```
