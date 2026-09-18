@@ -244,12 +244,15 @@ public class StarlarkInfoNoSchema extends StarlarkInfo {
   @Nullable
   @Override
   public StarlarkInfo binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
-    if (op == TokenKind.PLUS && that instanceof StarlarkInfo) {
-      final Provider thatProvider = ((StarlarkInfo) that).getProvider();
+    if (op == TokenKind.PLUS && that instanceof StarlarkInfo thatInfo) {
+      final Provider thatProvider = thatInfo.getProvider();
       if (!provider.equals(thatProvider)) {
         throw Starlark.errorf(
             "Cannot use '+' operator on instances of different providers (%s and %s)",
             provider.getPrintableName(), thatProvider.getPrintableName());
+      }
+      if (that instanceof StarlarkInfoWithSchema) {
+        return thisLeft ? plusSchemaless(this, thatInfo) : plusSchemaless(thatInfo, this);
       }
       Preconditions.checkArgument(that instanceof StarlarkInfoNoSchema);
       return thisLeft
@@ -257,6 +260,19 @@ public class StarlarkInfoNoSchema extends StarlarkInfo {
           : plus((StarlarkInfoNoSchema) that, this);
     }
     return null;
+  }
+
+  static StarlarkInfo plusSchemaless(StarlarkInfo x, StarlarkInfo y) throws EvalException {
+    Map<String, Object> values = new HashMap<>();
+    for (String name : x.getFieldNames()) {
+      values.put(name, x.getValue(name));
+    }
+    for (String name : y.getFieldNames()) {
+      if (values.putIfAbsent(name, y.getValue(name)) != null) {
+        throw Starlark.errorf("cannot add struct instances with common field '%s'", name);
+      }
+    }
+    return createSchemaless(x.getProvider(), values);
   }
 
   private static StarlarkInfo plus(StarlarkInfoNoSchema x, StarlarkInfoNoSchema y)
@@ -307,6 +323,9 @@ public class StarlarkInfoNoSchema extends StarlarkInfo {
     if (this == o) {
       return true;
     }
+    if (o instanceof StarlarkInfoWithSchema other) {
+      return other.equals(this);
+    }
     if (!(o instanceof StarlarkInfoNoSchema other)) {
       return false;
     }
@@ -319,12 +338,17 @@ public class StarlarkInfoNoSchema extends StarlarkInfo {
   }
 
   @Override
-  public StarlarkInfoNoSchema unsafeOptimizeMemoryLayout() {
+  public StarlarkInfo unsafeOptimizeMemoryLayout() {
     for (int i = table.length / 2; i < table.length; i++) {
       if (table[i] instanceof Compactable compactable) {
         table[i] = compactable.unsafeOptimizeMemoryLayout();
       }
     }
-    return this;
+    return StarlarkInfoWithSchema.createFromSchemaless(provider, table, getUnknownFieldError());
+  }
+
+  @Nullable
+  String getUnknownFieldError() {
+    return null;
   }
 }
