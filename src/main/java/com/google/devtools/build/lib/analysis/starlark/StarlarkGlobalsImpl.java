@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
+import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.MaterializedDepsInfo;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
@@ -113,6 +114,7 @@ public final class StarlarkGlobalsImpl implements StarlarkGlobals {
     env.put("DefaultInfo", DefaultInfo.PROVIDER);
     env.put("RunEnvironmentInfo", RunEnvironmentInfo.PROVIDER);
     env.put("MaterializedDepsInfo", MaterializedDepsInfo.PROVIDER);
+    env.put("IncompatiblePlatformProvider", IncompatiblePlatformProvider.PROVIDER);
 
     return env.buildOrThrow();
   }
