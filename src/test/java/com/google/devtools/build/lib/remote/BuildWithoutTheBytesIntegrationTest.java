@@ -118,6 +118,25 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     }
   }
 
+  @Test
+  public void remoteFileWrite_switchToLocalBuild_materializesOutput() throws Exception {
+    writeFileWriteRules();
+    write(
+        "BUILD",
+        """
+        load('//rules:write_file.bzl', 'write_file')
+        write_file(name = 'foo', content = 'hello')
+        """);
+    addOptions("--file_write_strategy=remote");
+    buildTarget("//:foo");
+    assertOutputsDoNotExist("//:foo");
+
+    // --file_write_strategy=remote has no effect without a remote cache.
+    addOptions("--remote_executor=", "--remote_cache=", "--disk_cache=");
+    buildTarget("//:foo");
+    assertOnlyOutputContent("//:foo", "foo", "hello");
+  }
+
   @Override
   protected void setDownloadToplevel() {
     addOptions("--remote_download_outputs=toplevel");
