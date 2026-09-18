@@ -26,17 +26,14 @@ import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransi
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
-import java.util.LinkedHashMap;
 import java.util.Objects;
 import net.starlark.java.eval.Printer;
-import net.starlark.java.eval.Starlark.InvalidStarlarkValueException;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /**
@@ -113,24 +110,10 @@ public class StarlarkAttributeTransitionProvider
         ConfiguredAttributeMapper attributeMap) {
       super(starlarkDefinedConfigTransition);
 
-      LinkedHashMap<String, Object> attributes = new LinkedHashMap<>();
-      if (attributeMap != null) {
-        for (String attribute : attributeMap.getAttributeNames()) {
-          Object val = attributeMap.get(attribute, attributeMap.getAttributeType(attribute));
-          try {
-            Object starlarkVal = Attribute.valueToStarlark(val);
-            attributes.put(Attribute.getStarlarkName(attribute), starlarkVal);
-          } catch (InvalidStarlarkValueException e) {
-            // This is only possible for native targets, since Starlark targets by definition have
-            // Starlark-readable attributes. The only Starlark transition that can apply to native
-            // targets is the exec transition (ExecutionTransitionFactory). Since that's
-            // experimental
-            // we don't need to do anything further.
-            // TODO(b/288258583): encode this more cleanly than a universally swallowed exception.
-          }
-        }
-      }
-      attrObject = StructProvider.STRUCT.create(attributes, ERROR_MESSAGE_FOR_NO_ATTR);
+      attrObject =
+          StructProvider.STRUCT.create(
+              attributeMap == null ? ImmutableMap.of() : attributeMap.getStarlarkAttributeValues(),
+              ERROR_MESSAGE_FOR_NO_ATTR);
       this.hashCode = Objects.hash(attrObject, super.hashCode());
     }
 
