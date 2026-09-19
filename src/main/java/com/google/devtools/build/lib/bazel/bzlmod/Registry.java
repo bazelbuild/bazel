@@ -15,13 +15,18 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /** A database where module metadata is stored. */
 public interface Registry extends NotComparableSkyValue {
@@ -70,4 +75,45 @@ public interface Registry extends NotComparableSkyValue {
    * based on the lockfile (if possible).
    */
   Optional<YankedVersionsValue> tryGetYankedVersionsFromLockfile(ModuleKey selectedModuleKey);
+
+  /**
+   * The versions of a module listed by a single registry: {@code available} holds the non-yanked
+   * versions, {@code yanked} the yanked ones.
+   */
+  record KnownVersions(ImmutableList<Version> available, ImmutableSet<Version> yanked) {}
+
+  /**
+   * Retrieves the versions of the module identified by {@code moduleName} that this registry lists.
+   * Returns {@code Optional.empty()} when the registry has no information about the module.
+   */
+  Optional<KnownVersions> getKnownVersions(
+      String moduleName, ExtendedEventHandler eventHandler, DownloadManager downloadManager)
+      throws IOException, InterruptedException;
+
+  /**
+   * Merges per-registry version information, given in registry precedence order, into the list of
+   * versions an upgrade may target. Module resolution fetches a version from the first registry
+   * that has it, so a version counts as available only if the first registry listing it (whether as
+   * available or as yanked) lists it as available. Returns {@code Optional.empty()} when no
+   * registry lists the module.
+   */
+  static Optional<ImmutableList<Version>> mergeKnownVersions(
+      List<Optional<KnownVersions>> perRegistry) {
+    boolean listed = false;
+    Set<Version> seen = new HashSet<>();
+    ImmutableList.Builder<Version> available = ImmutableList.builder();
+    for (Optional<KnownVersions> knownVersions : perRegistry) {
+      if (knownVersions.isEmpty()) {
+        continue;
+      }
+      listed = true;
+      for (Version version : knownVersions.get().available()) {
+        if (seen.add(version)) {
+          available.add(version);
+        }
+      }
+      seen.addAll(knownVersions.get().yanked());
+    }
+    return listed ? Optional.of(available.build()) : Optional.empty();
+  }
 }
