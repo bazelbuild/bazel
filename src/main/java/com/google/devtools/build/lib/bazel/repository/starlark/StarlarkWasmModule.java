@@ -181,7 +181,7 @@ final class StarlarkWasmModule implements StarlarkValue {
       String errMessage;
       try (var executor = Executors.newSingleThreadExecutor(wasmThreadFactory)) {
         return executor.invokeAny(
-            ImmutableList.of(() -> run(execFnName, input, memLimits)),
+            ImmutableList.of(() -> run(execFnName, input, memLimits, memLimitBytes)),
             timeout.toMillis(),
             TimeUnit.MILLISECONDS);
       } catch (TimeoutException e) {
@@ -193,7 +193,8 @@ final class StarlarkWasmModule implements StarlarkValue {
     }
   }
 
-  private StarlarkWasmExecutionResult run(String execFnName, byte[] input, MemoryLimits memLimits)
+  private StarlarkWasmExecutionResult run(
+      String execFnName, byte[] input, MemoryLimits memLimits, long memLimitBytes)
       throws EvalException, InterruptedException {
     Instance instance;
     try {
@@ -272,6 +273,20 @@ final class StarlarkWasmModule implements StarlarkValue {
 
     String output = "";
     if (outputLen > 0) {
+      // Both values were read back out of guest memory, so outputLen can be any
+      // i32 the module chose to write. Sizing the host buffer straight from it
+      // bounds the allocation by the module's honesty rather than by
+      // memory_limit: a large length fails inside the JVM allocator ("Requested
+      // array size exceeds VM limit") before readBytes gets to bounds-check the
+      // access. A module can't return more than it was allowed to allocate, so
+      // reject anything above the limit instead of trying to allocate it.
+      long maxOutputLen = (long) getMemLimitPages(memLimitBytes) * PAGE_SIZE;
+      if (outputLen > maxOutputLen) {
+        throw Starlark.errorf(
+            "WebAssembly module returned an output of %d bytes, which exceeds the memory"
+                + " limit of %d bytes",
+            outputLen, maxOutputLen);
+      }
       try (SilentCloseable c = Profiler.instance().profile(WASM_EXEC, "copy output")) {
         byte[] outputBytes = memory.readBytes(outputPtr, outputLen);
         output = new String(outputBytes, ISO_8859_1);
