@@ -99,6 +99,8 @@ public final class CcCommon {
 
   /** A filter that removes copts from a c++ compile action according to a nocopts regex. */
   public static final class CoptsFilter implements StarlarkValue {
+    private static final CoptsFilter ALWAYS_PASSES = new CoptsFilter(null, true);
+
     private final Pattern noCoptsPattern;
     private final boolean allPasses;
 
@@ -114,7 +116,7 @@ public final class CcCommon {
 
     /** Creates a filter that passes on all inputs. */
     public static CoptsFilter alwaysPasses() {
-      return new CoptsFilter(null, true);
+      return ALWAYS_PASSES;
     }
 
     /**
