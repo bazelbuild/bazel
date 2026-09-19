@@ -33,6 +33,9 @@ class Constants {
   static final String DA_MARKER = "DA:";
   static final String LH_MARKER = "LH:";
   static final String LF_MARKER = "LF:";
+  static final String MCDC_MARKER = "MCDC:";
+  static final String MCF_MARKER = "MCF:";
+  static final String MCH_MARKER = "MCH:";
   static final String END_OF_RECORD_MARKER = "end_of_record";
   static final String NEVER_EVALUATED = "-";
   static final String TRACEFILE_EXTENSION = ".dat";
