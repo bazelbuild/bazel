@@ -695,6 +695,59 @@ public class SpawnStrategyRegistryTest {
     assertThat(strategy7.usedCalled).isEqualTo(0);
   }
 
+  @Test
+  public void forceExclusiveIfLocalTestsInParallel_localOnlyTestRunnerStrategy_returnsFalse()
+      throws Exception {
+    SpawnStrategyRegistry strategyRegistry =
+        SpawnStrategyRegistry.builder()
+            .registerStrategy(new NoopStrategy("local"), "local")
+            .addMnemonicFilter("TestRunner", ImmutableList.of("local"))
+            .build();
+
+    assertThat(strategyRegistry.forceExclusiveIfLocalTestsInParallel()).isFalse();
+  }
+
+  @Test
+  public void forceExclusiveIfLocalTestsInParallel_remoteCapableTestRunnerStrategy_returnsTrue()
+      throws Exception {
+    SpawnStrategyRegistry strategyRegistry =
+        SpawnStrategyRegistry.builder()
+            .registerStrategy(new ForceExclusiveIfLocalInParallelStrategy("remote"), "remote")
+            .addMnemonicFilter("TestRunner", ImmutableList.of("remote"))
+            .build();
+
+    assertThat(strategyRegistry.forceExclusiveIfLocalTestsInParallel()).isTrue();
+  }
+
+  @Test
+  public void forceExclusiveIfLocalTestsInParallel_consultsDefaultStrategies() throws Exception {
+    // No mnemonic filter for "TestRunner", so the implicit default strategies are consulted.
+    SpawnStrategyRegistry strategyRegistry =
+        SpawnStrategyRegistry.builder()
+            .registerStrategy(new ForceExclusiveIfLocalInParallelStrategy("remote"), "remote")
+            .build();
+
+    assertThat(strategyRegistry.forceExclusiveIfLocalTestsInParallel()).isTrue();
+  }
+
+  @Test
+  public void forceExclusiveIfLocalTestsInParallel_consultsDynamicRemoteBranch_returnsTrue()
+      throws Exception {
+    // Under --strategy=TestRunner=dynamic the regular strategy does not opt in, but the remote
+    // branch of dynamic execution does. The registry must consult it.
+    SpawnStrategyRegistry strategyRegistry =
+        SpawnStrategyRegistry.builder()
+            .registerStrategy(new NoopSandboxedStrategy("local"), "local")
+            .registerStrategy(
+                new ForceExclusiveIfLocalInParallelSandboxedStrategy("remote"), "remote")
+            .addMnemonicFilter("TestRunner", ImmutableList.of("local"))
+            .addDynamicLocalStrategies(ImmutableMap.of("TestRunner", ImmutableList.of("local")))
+            .addDynamicRemoteStrategies(ImmutableMap.of("TestRunner", ImmutableList.of("remote")))
+            .build();
+
+    assertThat(strategyRegistry.forceExclusiveIfLocalTestsInParallel()).isTrue();
+  }
+
   private static Spawn createSpawnWithMnemonicAndDescription(String mnemonic, String description) {
     return new SimpleSpawn(
         new FakeOwner(mnemonic, description, "//dummy:label"),
@@ -750,6 +803,33 @@ public class SpawnStrategyRegistryTest {
         ActionExecutionContext actionExecutionContext,
         @Nullable SandboxedSpawnStrategy.StopConcurrentSpawns stopConcurrentSpawns) {
       throw new UnsupportedOperationException();
+    }
+  }
+
+  /** A strategy that opts "exclusive-if-local" tests into parallel execution, like remote. */
+  private static class ForceExclusiveIfLocalInParallelStrategy extends NoopStrategy {
+
+    private ForceExclusiveIfLocalInParallelStrategy(String name) {
+      super(name);
+    }
+
+    @Override
+    public boolean forceExclusiveIfLocalTestsInParallel() {
+      return true;
+    }
+  }
+
+  /** Sandboxed variant usable in the remote branch of dynamic execution. */
+  private static class ForceExclusiveIfLocalInParallelSandboxedStrategy
+      extends NoopSandboxedStrategy {
+
+    private ForceExclusiveIfLocalInParallelSandboxedStrategy(String name) {
+      super(name);
+    }
+
+    @Override
+    public boolean forceExclusiveIfLocalTestsInParallel() {
+      return true;
     }
   }
 

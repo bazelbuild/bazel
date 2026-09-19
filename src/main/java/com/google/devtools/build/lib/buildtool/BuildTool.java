@@ -621,7 +621,7 @@ public class BuildTool {
           analysisResult = analysisResult.withExclusiveTestsAsParallelTests();
         }
         if (!analysisResult.getExclusiveIfLocalTests().isEmpty()
-            && executionTool.getTestActionContext().forceExclusiveIfLocalTestsInParallel()) {
+            && executionTool.getSpawnStrategyRegistry().forceExclusiveIfLocalTestsInParallel()) {
           analysisResult = analysisResult.withExclusiveIfLocalTestsAsParallelTests();
         }
 
@@ -728,7 +728,7 @@ public class BuildTool {
                 @Override
                 public boolean forceExclusiveIfLocalTestsInParallel() {
                   return executionTool
-                      .getTestActionContext()
+                      .getSpawnStrategyRegistry()
                       .forceExclusiveIfLocalTestsInParallel();
                 }
               },
