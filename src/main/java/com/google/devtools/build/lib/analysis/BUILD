@@ -18,6 +18,11 @@ filegroup(
     visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
+java_library(
+    name = "test_runner_action_constants",
+    srcs = ["test/TestRunnerActionConstants.java"],
+)
+
 # TODO(b/144899336): Split this further.
 java_library(
     name = "analysis_cluster",
@@ -132,6 +137,7 @@ java_library(
         "test/TestTargetProperties.java",
     ],
     deps = [
+        ":test_runner_action_constants",
         ":actions/abstract_file_write_action",
         ":actions/buildinfo_file_write_action",
         ":actions/compression",
