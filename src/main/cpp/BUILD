@@ -7,12 +7,28 @@ package(
     default_visibility = ["//visibility:public"],
 )
 
-WIN_LINK_OPTS = [
-    "-DEFAULTLIB:advapi32.lib",  # GetUserNameW
-    "-DEFAULTLIB:ole32.lib",  # CoTaskMemFree
-    "-DEFAULTLIB:shell32.lib",  # SHGetKnownFolderPath
-    "-DEFAULTLIB:ws2_32.lib",  # grpc
-]
+# System libraries needed on Windows:
+#   advapi32: GetUserNameW
+#   ole32:    CoTaskMemFree
+#   shell32:  SHGetKnownFolderPath
+#   uuid:     FOLDERID_Profile (MinGW only, MSVC defines it inline)
+#   ws2_32:   grpc
+WIN_LINK_OPTS = select({
+    "//src/conditions:windows_msvc_like": [
+        "-DEFAULTLIB:advapi32.lib",
+        "-DEFAULTLIB:ole32.lib",
+        "-DEFAULTLIB:shell32.lib",
+        "-DEFAULTLIB:ws2_32.lib",
+    ],
+    "//src/conditions:windows_gcc_like": [
+        "-ladvapi32",
+        "-lole32",
+        "-lshell32",
+        "-luuid",
+        "-lws2_32",
+    ],
+    "//conditions:default": [],
+})
 
 cc_library(
     name = "blaze_util",
@@ -54,11 +70,12 @@ cc_library(
         ],
         "//src/conditions:openbsd": [
         ],
-        "//src/conditions:windows": WIN_LINK_OPTS,
+        "//src/conditions:windows": [
+        ],
         "//conditions:default": [
             "-lrt",
         ],
-    }),
+    }) + WIN_LINK_OPTS,
     deps = [
         "//src/main/cpp/util:blaze_exit_code",
         "//src/main/cpp/util:errors",
@@ -130,6 +147,23 @@ cc_binary(
             "-lrt",
             "-ldl",
         ],
+    }) + select({
+        # MinGW requires -municode when using wmain.
+        "//src/conditions:windows_gcc_like": [
+            "-municode",
+            # grpc and c-ares only pass -defaultlib:ws2_32.lib and abseil only
+            # detects MinGW GCC, not clang, so their system library
+            # dependencies are missing.
+            # TODO: Remove once https://github.com/grpc/grpc/pull/43483,
+            # https://github.com/bazelbuild/bazel-central-registry/pull/10644
+            # and https://github.com/abseil/abseil-cpp/pull/2172
+            # are available in the versions of grpc, c-ares and abseil used by
+            # Bazel.
+            "-lbcrypt",
+            "-liphlpapi",
+            "-lws2_32",
+        ],
+        "//conditions:default": [],
     }),
     visibility = ["//src:__pkg__"],
     deps = [
