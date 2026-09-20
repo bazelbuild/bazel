@@ -158,16 +158,13 @@ cc_binary(
         # MinGW requires -municode when using wmain.
         "//src/conditions:windows_gcc_like": [
             "-municode",
-            # grpc and c-ares only pass -defaultlib:ws2_32.lib and abseil only
-            # detects MinGW GCC, not clang, so their system library
-            # dependencies are missing.
-            # TODO: Remove once https://github.com/grpc/grpc/pull/43483,
-            # https://github.com/bazelbuild/bazel-central-registry/pull/10644
-            # and https://github.com/abseil/abseil-cpp/pull/2172
-            # are available in the versions of grpc, c-ares and abseil used by
-            # Bazel.
+            # grpc only passes -defaultlib:ws2_32.lib and abseil only detects
+            # MinGW GCC, not clang, so their system library dependencies are
+            # missing.
+            # TODO: Remove once https://github.com/grpc/grpc/pull/43483 and
+            # https://github.com/abseil/abseil-cpp/pull/2172 are available in
+            # the versions of grpc and abseil used by Bazel.
             "-lbcrypt",
-            "-liphlpapi",
             "-lws2_32",
         ],
         "//conditions:default": [],
