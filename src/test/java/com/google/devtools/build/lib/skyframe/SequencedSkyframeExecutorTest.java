@@ -882,6 +882,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
+            skyframeExecutor.getActionGraph(reporter),
             ImmutableSet.of(),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -990,6 +991,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
+            skyframeExecutor.getActionGraph(reporter),
             ImmutableSet.of(),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -1138,6 +1140,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
+            skyframeExecutor.getActionGraph(reporter),
             ImmutableSet.of(),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -1229,6 +1232,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
+            skyframeExecutor.getActionGraph(reporter),
             ImmutableSet.of(),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -1350,6 +1354,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
+            skyframeExecutor.getActionGraph(reporter),
             ImmutableSet.of(),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -1576,6 +1581,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
+            skyframeExecutor.getActionGraph(reporter),
             ImmutableSet.of(),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -1680,6 +1686,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
+            skyframeExecutor.getActionGraph(reporter),
             ImmutableSet.of(),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -1803,6 +1810,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
+            skyframeExecutor.getActionGraph(reporter),
             ImmutableSet.of(),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -2005,6 +2013,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                   builder.buildArtifacts(
                       reporter,
                       normalArtifacts,
+                      skyframeExecutor.getActionGraph(reporter),
                       ImmutableSet.of(),
                       ImmutableSet.of(),
                       ImmutableSet.of(),
@@ -2144,6 +2153,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                   builder.buildArtifacts(
                       reporter,
                       normalArtifacts,
+                      skyframeExecutor.getActionGraph(reporter),
                       ImmutableSet.of(),
                       ImmutableSet.of(),
                       ImmutableSet.of(),
@@ -2271,6 +2281,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                           .addAll(failedArtifacts)
                           .add(catastropheArtifact)
                           .build(),
+                      skyframeExecutor.getActionGraph(reporter),
                       ImmutableSet.of(),
                       ImmutableSet.of(),
                       ImmutableSet.of(),
@@ -2454,6 +2465,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                   builder.buildArtifacts(
                       reporter,
                       normalArtifacts,
+                      skyframeExecutor.getActionGraph(reporter),
                       ImmutableSet.of(),
                       ImmutableSet.of(),
                       ImmutableSet.of(),
@@ -2562,6 +2574,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                 builder.buildArtifacts(
                     reporter,
                     normalArtifacts,
+                    skyframeExecutor.getActionGraph(reporter),
                     ImmutableSet.of(),
                     ImmutableSet.of(),
                     ImmutableSet.of(),
@@ -2660,6 +2673,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                 builder.buildArtifacts(
                     reporter,
                     normalArtifacts,
+                    skyframeExecutor.getActionGraph(reporter),
                     ImmutableSet.of(),
                     ImmutableSet.of(),
                     ImmutableSet.of(),
@@ -2774,6 +2788,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                 builder.buildArtifacts(
                     reporter,
                     normalArtifacts,
+                    skyframeExecutor.getActionGraph(reporter),
                     ImmutableSet.of(),
                     ImmutableSet.of(),
                     ImmutableSet.of(),
@@ -2854,6 +2869,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     builder.buildArtifacts(
         reporter,
         ImmutableSet.of(topOutput),
+        skyframeExecutor.getActionGraph(reporter),
         ImmutableSet.of(),
         ImmutableSet.of(),
         ImmutableSet.of(),
