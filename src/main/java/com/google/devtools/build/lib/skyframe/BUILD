@@ -3990,6 +3990,8 @@ java_library(
 java_library(
     name = "skyframe_core",
     srcs = [
+        "ProcessFreeActionPlanner.java",
+        "ProcessFreeMaterializationEvent.java",
         "AspectFunction.java",
         "ConfiguredTargetFunction.java",
         "LoadAspectsFunction.java",

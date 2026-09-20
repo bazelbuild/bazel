@@ -435,5 +435,57 @@ EOF
   assert_equals "foo : delta" "$(cat bazel-bin/pkg/expanded1)"
 }
 
-run_suite "Integration tests of ${PRODUCT_NAME} using the execution phase."
+function test_process_free_materialization_defers_spawns_and_retains_graph() {
+  mkdir -p process_free
+  cat > process_free/BUILD <<'EOF'
+load(":rules.bzl", "mixed_graph")
 
+mixed_graph(name = "sample")
+EOF
+  cat > process_free/rules.bzl <<'EOF'
+def _mixed_graph_impl(ctx):
+    metadata = ctx.actions.declare_file(ctx.label.name + ".metadata")
+    ctx.actions.write(metadata, "metadata\n")
+
+    compiled = ctx.actions.declare_file(ctx.label.name + ".compiled")
+    ctx.actions.run_shell(
+        inputs = [metadata],
+        outputs = [compiled],
+        arguments = [metadata.path, compiled.path],
+        command = "cat \"$1\" > \"$2\" && echo spawn >> \"$2\"",
+    )
+    return DefaultInfo(files = depset([compiled]))
+
+mixed_graph = rule(implementation = _mixed_graph_impl)
+EOF
+
+  local -r partial_log="${TEST_TMPDIR}/process-free-partial.log"
+  bazel build \
+      --experimental_materialize_process_free_actions \
+      --noanalyze \
+      --nobuild \
+      --check_up_to_date \
+      --check_tests_up_to_date \
+      --nokeep_state_after_build \
+      --notrack_incremental_state \
+      --discard_analysis_cache \
+      --subcommands \
+      //process_free:sample >"${partial_log}" 2>&1 \
+      || { cat "${partial_log}"; fail "process-free materialization failed"; }
+  grep -q "Process-free materialization: 1 selected, 2 deferred, 3 visited, 0 unresolved" \
+      "${partial_log}" || fail "unexpected process-free plan"
+  ! grep -q "SUBCOMMAND" "${partial_log}" || fail "process-free mode executed a spawn"
+  assert_equals "metadata" "$(cat bazel-bin/process_free/sample.metadata)"
+  [[ ! -e bazel-bin/process_free/sample.compiled ]] || fail "spawn output was materialized"
+
+  local -r ordinary_log="${TEST_TMPDIR}/process-free-ordinary.log"
+  bazel build --subcommands //process_free:sample >"${ordinary_log}" 2>&1 \
+      || fail "ordinary build failed"
+  grep -q "0 packages loaded, 0 targets configured" "${ordinary_log}" \
+      || fail "ordinary build did not reuse the analysis graph"
+  grep -q "SUBCOMMAND:.*sample.compiled" "${ordinary_log}" \
+      || fail "ordinary build did not execute the deferred spawn"
+  assert_equals $'metadata\nspawn' "$(cat bazel-bin/process_free/sample.compiled)"
+}
+
+run_suite "Integration tests of ${PRODUCT_NAME} using the execution phase."

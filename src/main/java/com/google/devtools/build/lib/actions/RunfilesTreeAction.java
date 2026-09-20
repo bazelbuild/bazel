@@ -41,6 +41,11 @@ public final class RunfilesTreeAction extends AbstractAction implements RichData
   /** The runfiles tree created by this action. */
   private final RunfilesTree runfilesTree;
 
+  @Override
+  public boolean isProcessFree() {
+    return true;
+  }
+
   public RunfilesTreeAction(
       ActionOwner owner,
       RunfilesTree runfilesTree,

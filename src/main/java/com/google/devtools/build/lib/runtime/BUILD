@@ -1079,6 +1079,7 @@ java_library(
         "InstrumentationOutputBuilder.java",
         "InstrumentationOutputFactory.java",
         "LocalInstrumentationOutput.java",
+        "ProcessFreeMaterializationOptions.java",
         "QueryRuntimeHelper.java",
         "ServerBuilder.java",
         "WorkspaceBuilder.java",
