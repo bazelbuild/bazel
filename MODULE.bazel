@@ -78,6 +78,9 @@ single_version_override(
         # TODO: Remove once grpc is updated to a version that includes
         # https://github.com/grpc/grpc/pull/43482.
         "//third_party:grpc-windows-layering.patch",
+        # TODO: Remove once grpc is updated to a version that includes
+        # https://github.com/grpc/grpc/pull/43484.
+        "//third_party:grpc-windows-env-stdlib.patch",
     ],
 )
 
