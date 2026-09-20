@@ -1,5 +1,6 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//tools/res:win_res.bzl", "windows_resources")
 
 # Description:
 #   The Bazel launcher.
@@ -116,6 +117,15 @@ cc_library(
     ],
 )
 
+exports_files(["bazel.ico"])
+
+# The icon of bazel.exe.
+windows_resources(
+    name = "resources",
+    rc_files = ["resources.rc"],
+    resources = ["bazel.ico"],
+)
+
 cc_binary(
     name = "client",
     srcs = [
@@ -124,10 +134,7 @@ cc_binary(
         "main.cc",
         "server_process_info.cc",
         "server_process_info.h",
-    ] + select({
-        "//src/conditions:windows": ["resources.o"],
-        "//conditions:default": [],
-    }),
+    ],
     copts = select({
         "//src/conditions:windows_msvc_like": ["/wd4018"],
         "//conditions:default": ["-Wno-sign-compare"],
@@ -187,7 +194,10 @@ cc_binary(
         "//src/main/protobuf:command_server_cc_proto",
         "//third_party/ijar:zip",
         "@abseil-cpp//absl/time",
-    ],
+    ] + select({
+        "//src/conditions:windows": [":resources"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_library(
