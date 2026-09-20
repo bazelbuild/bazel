@@ -314,6 +314,7 @@ import java.nio.file.FileSystems;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -322,6 +323,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -2020,6 +2022,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ResourceManager resourceManager,
       Executor executor,
       Set<Artifact> artifactsToBuild,
+      ActionGraph actionGraph,
       Collection<ConfiguredTarget> targetsToBuild,
       ImmutableSet<AspectKey> aspects,
       Set<ConfiguredTarget> parallelTests,
@@ -2056,6 +2059,62 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               .setEventHandler(reporter)
               .setExecutionPhase()
               .build();
+      if (options.getOptions(BuildRequestOptions.class).getMaterializeProcessFreeActions()) {
+        boolean reportInventory =
+            options.getOptions(BuildRequestOptions.class).getProcessFreeActionInventory();
+        ProcessFreeActionPlanner.Plan plan =
+            ProcessFreeActionPlanner.create(artifactsToBuild, actionGraph, reportInventory);
+        if (reportInventory) {
+          TreeMap<ProcessFreeActionPlanner.ActionInventory, long[]> groups =
+              new TreeMap<>(
+                  Comparator.comparing(ProcessFreeActionPlanner.ActionInventory::state)
+                      .thenComparing(ProcessFreeActionPlanner.ActionInventory::actionClass)
+                      .thenComparing(ProcessFreeActionPlanner.ActionInventory::mnemonic));
+          for (ProcessFreeActionPlanner.ActionInventory action : plan.actionInventory()) {
+            long[] totals = groups.computeIfAbsent(action, unused -> new long[4]);
+            totals[0]++;
+            totals[1] += action.inputEdges();
+            totals[2] += action.schedulingDependencyEdges();
+            totals[3] += action.outputs();
+          }
+          for (Map.Entry<ProcessFreeActionPlanner.ActionInventory, long[]> group :
+              groups.entrySet()) {
+            ProcessFreeActionPlanner.ActionInventory key = group.getKey();
+            long[] totals = group.getValue();
+            reporter.handle(
+                Event.info(
+                    String.format(
+                        "Process-free inventory: state=%s actions=%d input_edges=%d"
+                            + " scheduling_dependency_edges=%d outputs=%d class=%s mnemonic=%s",
+                        key.state(),
+                        totals[0],
+                        totals[1],
+                        totals[2],
+                        totals[3],
+                        key.actionClass(),
+                        key.mnemonic())));
+          }
+        }
+        reporter.handle(
+            Event.info(
+                String.format(
+                    "Process-free materialization: %d selected, %d deferred, %d visited, %d unresolved",
+                    plan.actionKeys().size(),
+                    plan.deferredActions(),
+                    plan.visitedActions(),
+                    plan.unresolvedArtifacts())));
+        EvaluationResult<SkyValue> result =
+            memoizingEvaluator.evaluate(plan.actionKeys(), evaluationContext);
+        reporter.post(
+            new ProcessFreeMaterializationEvent(
+                plan.actionKeys().size(),
+                result.values().size(),
+                plan.deferredActions(),
+                plan.visitedActions(),
+                plan.unresolvedArtifacts(),
+                !result.hasError()));
+        return result;
+      }
       return memoizingEvaluator.evaluate(
           Iterables.concat(targetKeys, aspectKeys, testKeys, Artifact.keys(artifactsToBuild)),
           evaluationContext);

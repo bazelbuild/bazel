@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
@@ -488,9 +489,14 @@ public class ExecutionTool {
             env.getOutputService() != null
                 ? env.getOutputService().getOutputChecker()
                 : OutputChecker.TRUST_LOCAL_ONLY;
+        Set<Artifact> artifactsForBuilder =
+            request.getBuildOptions().getMaterializeProcessFreeActions()
+                ? TopLevelArtifactHelper.findAllTopLevelArtifacts(analysisResult)
+                : analysisResult.getArtifactsToBuild();
         builder.buildArtifacts(
             env.getReporter(),
-            analysisResult.getArtifactsToBuild(),
+            artifactsForBuilder,
+            actionGraph,
             analysisResult.getParallelTests(),
             Sets.union(
                 analysisResult.getExclusiveTests(), analysisResult.getExclusiveIfLocalTests()),
@@ -590,15 +596,17 @@ public class ExecutionTool {
               buildResultListener.getAnalyzedAspects().keySet(),
               buildResultListener.getBuiltAspects()));
       buildResult.setSkippedTargets(buildResultListener.getSkippedTargets());
-      BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
-      buildResultPrinter.showBuildResult(
-          request,
-          buildResult,
-          buildResultListener.getAnalyzedTargets(),
-          buildResultListener.getSkippedTargets(),
-          buildResultListener.getAnalyzedAspects(),
-          buildResultListener.getTargetRootCauses(),
-          buildResultListener.getAspectRootCauses());
+      if (!request.getBuildOptions().getMaterializeProcessFreeActions()) {
+        BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
+        buildResultPrinter.showBuildResult(
+            request,
+            buildResult,
+            buildResultListener.getAnalyzedTargets(),
+            buildResultListener.getSkippedTargets(),
+            buildResultListener.getAnalyzedAspects(),
+            buildResultListener.getTargetRootCauses(),
+            buildResultListener.getAspectRootCauses());
+      }
     }
 
     if (explanationHandler != null) {

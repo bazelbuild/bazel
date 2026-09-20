@@ -51,6 +51,12 @@ public class SkymeldModule extends BlazeModule {
       }
       effectiveValue = false;
     }
+    if (effectiveValue && buildRequestOptions.getMaterializeProcessFreeActions()) {
+      logger.atInfo().log(
+          "--experimental_merged_skyframe_analysis_execution is incompatible with"
+              + " --experimental_materialize_process_free_actions and will be ignored.");
+      effectiveValue = false;
+    }
     // TODO(b/245922903): Make --explain compatible with Skymeld.
     if (effectiveValue && buildRequestOptions.getExplanationPath() != null) {
       logger.atInfo().log(

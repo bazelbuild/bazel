@@ -264,6 +264,9 @@ message BuildEventId {
     string key = 1;
   }
 
+  // Identifier of the result of process-free action materialization.
+  message ProcessFreeMaterializationResultId {}
+
   reserved 27;
 
   oneof id {
@@ -296,6 +299,7 @@ message BuildEventId {
     ConvenienceSymlinksIdentifiedId convenience_symlinks_identified = 25;
     ExecRequestId exec_request = 28;
     SkyValueUploadedId skyvalue_uploaded = 31;
+    ProcessFreeMaterializationResultId process_free_materialization_result = 32;
   }
 }
 
@@ -1617,6 +1621,27 @@ message ExecRequestConstructed {
   bool should_exec = 5;
 }
 
+// Result of evaluating the process-free subset of an analyzed action graph.
+message ProcessFreeMaterializationResult {
+  // Process-free actions selected for evaluation.
+  uint64 selected_action_count = 1;
+
+  // Selected action keys that evaluated successfully.
+  uint64 materialized_action_count = 2;
+
+  // Visited actions excluded from the process-free closure.
+  uint64 deferred_action_count = 3;
+
+  // Total actions visited while planning the process-free closure.
+  uint64 visited_action_count = 4;
+
+  // Generated inputs for which no generating action could be resolved.
+  uint64 unresolved_artifact_count = 5;
+
+  // Whether every selected action key evaluated successfully.
+  bool success = 6;
+}
+
 // An environment variable provided by a run command after a successful build.
 message EnvironmentVariable {
   bytes name = 1;
@@ -1678,5 +1703,6 @@ message BuildEvent {
     ConvenienceSymlinksIdentified convenience_symlinks_identified = 27;
     ExecRequestConstructed exec_request = 29;
     SkyValueUploaded skyvalue_uploaded = 32;
+    ProcessFreeMaterializationResult process_free_materialization_result = 33;
   }
 }

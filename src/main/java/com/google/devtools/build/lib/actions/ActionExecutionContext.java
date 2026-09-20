@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionContext.ActionContextRegistry;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
@@ -219,6 +220,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   }
 
   private final Executor executor;
+  private final ActionContextRegistry actionContextRegistry;
   private final InputMetadataProvider inputMetadataProvider;
   private final ActionInputPrefetcher actionInputPrefetcher;
   private final ActionKeyContext actionKeyContext;
@@ -243,6 +245,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
   private ActionExecutionContext(
       Executor executor,
+      ActionContextRegistry actionContextRegistry,
       InputMetadataProvider inputMetadataProvider,
       ActionInputPrefetcher actionInputPrefetcher,
       ActionKeyContext actionKeyContext,
@@ -269,6 +272,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     this.eventHandler = eventHandler;
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
     this.executor = executor;
+    this.actionContextRegistry = actionContextRegistry;
     this.env = env;
     this.actionFileSystem = actionFileSystem;
     this.threadStateReceiverForMetrics = threadStateReceiverForMetrics;
@@ -298,6 +302,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       ThreadStateReceiver threadStateReceiverForMetrics) {
     this(
         executor,
+        executor,
         inputMetadataProvider,
         actionInputPrefetcher,
         actionKeyContext,
@@ -314,6 +319,81 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         threadStateReceiverForMetrics,
         /* fileSystemSupportsInputDiscovery= */ false,
         /* bustCaches= */ false);
+  }
+
+  /** Creates an execution context using a restricted action-context registry. */
+  public ActionExecutionContext(
+      Executor executor,
+      ActionContextRegistry actionContextRegistry,
+      InputMetadataProvider inputMetadataProvider,
+      ActionInputPrefetcher actionInputPrefetcher,
+      ActionKeyContext actionKeyContext,
+      OutputMetadataStore outputMetadataStore,
+      boolean rewindingEnabled,
+      LostInputsCheck lostInputsCheck,
+      FileOutErr fileOutErr,
+      ExtendedEventHandler eventHandler,
+      Map<String, String> clientEnv,
+      @Nullable FileSystem actionFileSystem,
+      DiscoveredModulesPruner discoveredModulesPruner,
+      SyscallCache syscallCache,
+      ThreadStateReceiver threadStateReceiverForMetrics) {
+    this(
+        executor,
+        actionContextRegistry,
+        inputMetadataProvider,
+        actionInputPrefetcher,
+        actionKeyContext,
+        outputMetadataStore,
+        rewindingEnabled,
+        lostInputsCheck,
+        fileOutErr,
+        eventHandler,
+        clientEnv,
+        actionFileSystem,
+        discoveredModulesPruner,
+        syscallCache,
+        threadStateReceiverForMetrics,
+        /* bustCaches= */ false);
+  }
+
+  /** Creates an execution context using a restricted action-context registry. */
+  public ActionExecutionContext(
+      Executor executor,
+      ActionContextRegistry actionContextRegistry,
+      InputMetadataProvider inputMetadataProvider,
+      ActionInputPrefetcher actionInputPrefetcher,
+      ActionKeyContext actionKeyContext,
+      OutputMetadataStore outputMetadataStore,
+      boolean rewindingEnabled,
+      LostInputsCheck lostInputsCheck,
+      FileOutErr fileOutErr,
+      ExtendedEventHandler eventHandler,
+      Map<String, String> clientEnv,
+      @Nullable FileSystem actionFileSystem,
+      DiscoveredModulesPruner discoveredModulesPruner,
+      SyscallCache syscallCache,
+      ThreadStateReceiver threadStateReceiverForMetrics,
+      boolean bustCaches) {
+    this(
+        executor,
+        actionContextRegistry,
+        inputMetadataProvider,
+        actionInputPrefetcher,
+        actionKeyContext,
+        outputMetadataStore,
+        rewindingEnabled,
+        lostInputsCheck,
+        fileOutErr,
+        eventHandler,
+        clientEnv,
+        /* env= */ null,
+        actionFileSystem,
+        discoveredModulesPruner,
+        syscallCache,
+        threadStateReceiverForMetrics,
+        /* fileSystemSupportsInputDiscovery= */ false,
+        bustCaches);
   }
 
   public ActionExecutionContext(
@@ -333,6 +413,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       ThreadStateReceiver threadStateReceiverForMetrics,
       boolean bustCaches) {
     this(
+        executor,
         executor,
         inputMetadataProvider,
         actionInputPrefetcher,
@@ -368,8 +449,46 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       SyscallCache syscalls,
       ThreadStateReceiver threadStateReceiverForMetrics,
       boolean fileSystemSupportsInputDiscovery) {
+    return forInputDiscovery(
+        executor,
+        executor,
+        actionInputFileCache,
+        actionInputPrefetcher,
+        actionKeyContext,
+        rewindingEnabled,
+        lostInputsCheck,
+        fileOutErr,
+        eventHandler,
+        clientEnv,
+        env,
+        actionFileSystem,
+        discoveredModulesPruner,
+        syscalls,
+        threadStateReceiverForMetrics,
+        fileSystemSupportsInputDiscovery);
+  }
+
+  /** Creates an input-discovery context using a restricted action-context registry. */
+  public static ActionExecutionContext forInputDiscovery(
+      Executor executor,
+      ActionContextRegistry actionContextRegistry,
+      InputMetadataProvider actionInputFileCache,
+      ActionInputPrefetcher actionInputPrefetcher,
+      ActionKeyContext actionKeyContext,
+      boolean rewindingEnabled,
+      LostInputsCheck lostInputsCheck,
+      FileOutErr fileOutErr,
+      ExtendedEventHandler eventHandler,
+      Map<String, String> clientEnv,
+      Environment env,
+      @Nullable FileSystem actionFileSystem,
+      DiscoveredModulesPruner discoveredModulesPruner,
+      SyscallCache syscalls,
+      ThreadStateReceiver threadStateReceiverForMetrics,
+      boolean fileSystemSupportsInputDiscovery) {
     return new ActionExecutionContext(
         executor,
+        actionContextRegistry,
         actionInputFileCache,
         actionInputPrefetcher,
         actionKeyContext,
@@ -494,7 +613,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   @Override
   @Nullable
   public <T extends ActionContext> T getContext(Class<T> type) {
-    return executor.getContext(type);
+    return actionContextRegistry.getContext(type);
   }
 
   /**
@@ -597,6 +716,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       InputMetadataProvider newInputMetadataProvider) {
     return new ActionExecutionContext(
         executor,
+        actionContextRegistry,
         newInputMetadataProvider,
         actionInputPrefetcher,
         actionKeyContext,
@@ -652,6 +772,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   public ActionExecutionContext withFileOutErr(FileOutErr fileOutErr) {
     return new ActionExecutionContext(
         executor,
+        actionContextRegistry,
         inputMetadataProvider,
         actionInputPrefetcher,
         actionKeyContext,

@@ -86,6 +86,9 @@ import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLi
 import com.google.devtools.build.lib.runtime.ExecRootEvent;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.KeepStateAfterBuildOption;
+import com.google.devtools.build.lib.runtime.InstrumentationOutput;
+import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
+import com.google.devtools.build.lib.runtime.ProcessFreeMaterializationOptions;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser.BuildSettingLoader;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
@@ -984,6 +987,7 @@ public class BuildTool {
       PostBuildCallback postBuildCallback,
       OptionsParsingResult options,
       @Nullable List<String> targetsForProjectResolution) {
+    ProcessFreeMaterializationOptions.normalize(request);
     BuildResult result = new BuildResult(request.getStartTime());
     maybeSetStopOnFirstFailure(request, result);
     Throwable crash = null;

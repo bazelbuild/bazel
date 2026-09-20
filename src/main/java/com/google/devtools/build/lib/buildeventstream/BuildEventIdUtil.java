@@ -320,4 +320,11 @@ public final class BuildEventIdUtil {
         .setSkyvalueUploaded(BuildEventId.SkyValueUploadedId.newBuilder().setKey(key).build())
         .build();
   }
+
+  public static BuildEventId processFreeMaterializationResultId() {
+    return BuildEventId.newBuilder()
+        .setProcessFreeMaterializationResult(
+            BuildEventId.ProcessFreeMaterializationResultId.getDefaultInstance())
+        .build();
+  }
 }

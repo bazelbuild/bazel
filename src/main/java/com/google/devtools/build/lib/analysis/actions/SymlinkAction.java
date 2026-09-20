@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -89,6 +90,16 @@ public final class SymlinkAction extends AbstractAction implements RichDataProdu
   }
 
   private final TargetType targetType;
+
+  @Override
+  public boolean isProcessFree() {
+    return true;
+  }
+
+  @Override
+  public ImmutableSet<Class<? extends ActionContext>> getProcessFreeActionContexts() {
+    return ImmutableSet.of(SpawnLogContext.class);
+  }
 
   public static SymlinkAction toArtifact(
       ActionOwner owner, Artifact input, Artifact output, String progressMessage) {

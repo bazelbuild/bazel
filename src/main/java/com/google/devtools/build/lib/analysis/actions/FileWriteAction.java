@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -212,6 +214,16 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
     super(owner, inputs, primaryOutput);
     this.makeExecutable = makeExecutable;
     this.mnemonic = mnemonic;
+  }
+
+  @Override
+  public final boolean isProcessFree() {
+    return true;
+  }
+
+  @Override
+  public final ImmutableSet<Class<? extends ActionContext>> getProcessFreeActionContexts() {
+    return ImmutableSet.of(FileWriteActionContext.class);
   }
 
   @Override

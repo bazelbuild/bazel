@@ -23,6 +23,7 @@ import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
+import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -101,6 +102,7 @@ public class SkyframeBuilder implements Builder {
   public void buildArtifacts(
       Reporter reporter,
       Set<Artifact> artifacts,
+      ActionGraph actionGraph,
       Set<ConfiguredTarget> parallelTests,
       Set<ConfiguredTarget> exclusiveTests,
       Set<ConfiguredTarget> targetsToBuild,
@@ -172,6 +174,7 @@ public class SkyframeBuilder implements Builder {
               resourceManager,
               executor,
               artifactsToBuild,
+              actionGraph,
               targetsToBuild,
               aspects,
               parallelTests,
@@ -195,6 +198,14 @@ public class SkyframeBuilder implements Builder {
 
       if (detailedExitCode != null) {
         detailedExitCodes.add(detailedExitCode);
+      }
+
+      if (buildRequestOptions.getMaterializeProcessFreeActions()) {
+        if (!detailedExitCodes.isEmpty()) {
+          throw new BuildFailedException(
+              null, Collections.max(detailedExitCodes, DetailedExitCodeComparator.INSTANCE));
+        }
+        return;
       }
 
       // Run exclusive tests: either tagged as "exclusive" or is run in an invocation with
