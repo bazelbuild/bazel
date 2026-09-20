@@ -15,7 +15,8 @@
 # limitations under the License.
 
 # This script creates from the full JDK a minimized version that only contains
-# the specified JDK modules.
+# the specified JDK modules. It runs on any host and can produce a minimized JDK
+# for any target platform, including Windows.
 
 # --- begin runfiles.bash initialization v3 ---
 # Copy-pasted from the Bazel Bash runfiles library v3.
@@ -58,7 +59,10 @@ if [ -n "$jmods_archive" ]; then
   jmods_archive=$(cd "$(dirname "$jmods_archive")" && echo "$(pwd)/$(basename "$jmods_archive")")
 fi
 
-UNAME=$(uname -s | tr 'A-Z' 'a-z')
+pe_manifest=$(rlocation io_bazel/src/tools/pe_manifest/pe_manifest_deploy.jar)
+# Convert to absolute path since we cd later.
+pe_manifest=$(cd "$(dirname "$pe_manifest")" && echo "$(pwd)/$(basename "$pe_manifest")")
+
 # Options for the JVM that runs the Bazel server, which are either required or
 # recommended when using the embedded JDK on platforms that use a minified JDK.
 # Setting these options here rather than in blaze.cc avoids the need to detect
@@ -66,6 +70,29 @@ UNAME=$(uname -s | tr 'A-Z' 'a-z')
 # Native access is required for the JNI library.
 # Compact object headers reduce retained and peak memory usage.
 JVM_OPTIONS='--enable-native-access=ALL-UNNAMED -XX:+UseCompactObjectHeaders'
+
+# Archives aren't necessarily named after their format (e.g. the tool JDK is
+# copied to an extensionless file), so detect zip files by their content.
+is_zip() {
+  unzip -l "$1" >/dev/null 2>&1
+}
+
+# Extracts a JDK archive, which is a zip file for Windows JDKs and a tarball
+# otherwise, into the given directory.
+extract_jdk() {
+  local archive=$1
+  local dir=$2
+  mkdir -p "$dir"
+  if is_zip "$archive"; then
+    unzip -q "$archive" -d "$dir"
+  else
+    # The --no-same-owner flag instructs tar to not try to chown extracted
+    # files to the owner stored in the archive - it will try to do that when
+    # running as root, but fail when running inside Docker, so we explicitly
+    # disable it.
+    tar xf "$archive" --no-same-owner -C "$dir"
+  fi
+}
 
 # Strips an extracted JDK archive to its home directory.
 # Some JDK archives (e.g., macOS .jdk bundles) nest the JDK home inside
@@ -90,90 +117,81 @@ strip_to_jdk_home() {
   fi
 }
 
-if [[ "$UNAME" =~ msys_nt* ]]; then
-  unzip -q "$tooljdk" -d "tool_jdk.$$"
-  strip_to_jdk_home "tool_jdk.$$"
-  unzip -q "$fulljdk" -d "full_jdk.$$"
-  strip_to_jdk_home "full_jdk.$$"
-  tool_jdk_home=$(cd "tool_jdk.$$" && pwd)
-  cd "full_jdk.$$"
-  # If the full JDK doesn't ship with jmods (e.g. JEP 493), use the separately
-  # provided jmods archive.
-  if [ ! -f jmods/java.base.jmod ]; then
-    if [ -n "$jmods_archive" ]; then
+extract_jdk "$tooljdk" "tool_jdk.$$"
+strip_to_jdk_home "tool_jdk.$$"
+tool_jdk_home=$(cd "tool_jdk.$$" && pwd)
+extract_jdk "$fulljdk" "target_jdk.$$"
+strip_to_jdk_home "target_jdk.$$"
+cd "target_jdk.$$"
+
+# The tool JDK runs on the host, the target JDK may be for another platform.
+if [[ -f "$tool_jdk_home/bin/jlink.exe" ]]; then
+  jlink="$tool_jdk_home/bin/jlink.exe"
+  java="$tool_jdk_home/bin/java.exe"
+else
+  jlink="$tool_jdk_home/bin/jlink"
+  java="$tool_jdk_home/bin/java"
+fi
+if [[ -f bin/java.exe ]]; then
+  target_windows=true
+else
+  target_windows=false
+fi
+
+# If the full JDK doesn't ship with jmods (e.g. JEP 493), use the separately
+# provided jmods archive.
+if [ ! -f jmods/java.base.jmod ]; then
+  if [ -n "$jmods_archive" ]; then
+    mkdir -p jmods
+    if is_zip "$jmods_archive"; then
       unzip -q "$jmods_archive" -d jmods_tmp
       # The archive contains a single top-level directory with jmod files.
       mv jmods_tmp/*/* jmods_tmp/ 2>/dev/null || true
-      # Move all .jmod files into the jmods directory.
-      mkdir -p jmods
       mv jmods_tmp/*.jmod jmods/
       rm -rf jmods_tmp
     else
-      echo >&2 "ERROR: Full JDK does not contain jmods/java.base.jmod and no" \
-        "separate jmods archive was provided. Cross-jlinking requires jmods." \
-        "JDKs with JEP 493 enabled (e.g. Adoptium Temurin 24+) need a separate" \
-        "jmods download."
-      exit 1
+      tar xf "$jmods_archive" --no-same-owner --strip-components=1 -C jmods --wildcards '*.jmod'
     fi
+  else
+    echo >&2 "ERROR: Full JDK does not contain jmods/java.base.jmod and no" \
+      "separate jmods archive was provided. Cross-jlinking requires jmods." \
+      "JDKs with JEP 493 enabled (e.g. Adoptium Temurin 24+) need a separate" \
+      "jmods download."
+    exit 1
   fi
+fi
+
+if [[ "$target_windows" == true ]]; then
   # We have to add this module explicitly because it is windows specific, it allows
   # the usage of the Windows truststore
   # e.g. -Djavax.net.ssl.trustStoreType=WINDOWS-ROOT
   modules="$modules,jdk.crypto.mscapi"
-  "$tool_jdk_home/bin/jlink" --module-path ./jmods/ --add-modules "$modules" \
-    --vm=server --strip-debug --no-man-pages --no-header-files \
-    --add-options=" ${JVM_OPTIONS}"\
-    --output reduced
+fi
+
+"$jlink" --module-path ./jmods/ --add-modules "$modules" \
+  --vm=server --strip-debug --no-man-pages --no-header-files \
+  --add-options=" ${JVM_OPTIONS}" \
+  --output reduced
+
+if [[ "$target_windows" == true ]]; then
   # Patch the app manifest of the java.exe launcher to force its active code
   # page to UTF-8 on Windows 1903 and later, which is required for proper
   # support of Unicode characters outside the system code page.
   # The JDK currently (as of JDK 23) doesn't support this natively:
   # https://mail.openjdk.org/pipermail/core-libs-dev/2024-November/133773.html
-  "$(rlocation io_bazel/src/read_manifest.exe)" reduced/bin/java.exe \
+  "$java" -jar "$pe_manifest" read reduced/bin/java.exe \
     | sed 's|</asmv3:windowsSettings>|<activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>&|' \
-    | "$(rlocation io_bazel/src/write_manifest.exe)" reduced/bin/java.exe
-  for f in DISCLAIMER readme.txt legal/java.base/ASSEMBLY_EXCEPTION; do [ -f "$f" ] && cp "$f" reduced/; done
-  # These are necessary for --host_jvm_debug to work.
-  cp bin/dt_socket.dll bin/jdwp.dll reduced/bin
-  zip -q -X -r ../reduced.zip reduced/
-  cd ..
-  mv reduced.zip "$out"
-  rm -rf "full_jdk.$$" "tool_jdk.$$"
-else
-  # The --no-same-owner flag instructs tar to not try to chown extracted files
-  # to the owner stored in the archive - it will try to do that when running as
-  # root, but fail when running inside Docker, so we explicitly disable it.
-  mkdir "tool_jdk.$$"
-  tar xf "$tooljdk" --no-same-owner -C "tool_jdk.$$"
-  strip_to_jdk_home "tool_jdk.$$"
-  mkdir "target_jdk.$$"
-  tar xf "$fulljdk" --no-same-owner -C "target_jdk.$$"
-  strip_to_jdk_home "target_jdk.$$"
-  cd "target_jdk.$$"
-  # If the full JDK doesn't ship with jmods (e.g. JEP 493), use the separately
-  # provided jmods archive.
-  if [ ! -f jmods/java.base.jmod ]; then
-    if [ -n "$jmods_archive" ]; then
-      mkdir -p jmods
-      tar xf "$jmods_archive" --no-same-owner --strip-components=1 -C jmods --wildcards '*.jmod'
-    else
-      echo >&2 "ERROR: Full JDK does not contain jmods/java.base.jmod and no" \
-        "separate jmods archive was provided. Cross-jlinking requires jmods." \
-        "JDKs with JEP 493 enabled (e.g. Adoptium Temurin 24+) need a separate" \
-        "jmods download."
-      exit 1
-    fi
-  fi
-  "../tool_jdk.$$/bin/jlink" --module-path ./jmods/ --add-modules "$modules" \
-    --vm=server --strip-debug --no-man-pages --no-header-files \
-    --add-options=" ${JVM_OPTIONS}" \
-    --output reduced
-  for f in DISCLAIMER readme.txt legal/java.base/ASSEMBLY_EXCEPTION; do [ -f "$f" ] && cp "$f" reduced/; done
-  # These are necessary for --host_jvm_debug to work.
-  cp lib/libdt_socket.* lib/libjdwp.* reduced/lib
-  find reduced -exec touch -ht 198001010000 {} +
-  zip -q -X -r ../reduced.zip reduced/
-  cd ..
-  mv reduced.zip "$out"
-  rm -rf "target_jdk.$$" "tool_jdk.$$"
+    | "$java" -jar "$pe_manifest" write reduced/bin/java.exe
 fi
+for f in DISCLAIMER readme.txt legal/java.base/ASSEMBLY_EXCEPTION; do [ -f "$f" ] && cp "$f" reduced/; done
+# These are necessary for --host_jvm_debug to work.
+if [[ "$target_windows" == true ]]; then
+  cp bin/dt_socket.dll bin/jdwp.dll reduced/bin
+else
+  cp lib/libdt_socket.* lib/libjdwp.* reduced/lib
+fi
+find reduced -exec touch -ht 198001010000 {} +
+zip -q -X -r ../reduced.zip reduced/
+cd ..
+mv reduced.zip "$out"
+rm -rf "target_jdk.$$" "tool_jdk.$$"
