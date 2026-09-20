@@ -87,7 +87,7 @@ single_version_override(
 # bazel_dep overrides
 single_version_override(
     module_name = "c-ares",
-    version = "1.34.5.bcr.4",
+    version = "1.34.5.bcr.5",
 )
 
 single_version_override(
