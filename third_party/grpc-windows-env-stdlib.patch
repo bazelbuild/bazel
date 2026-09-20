@@ -1,0 +1,14 @@
+Adds the include for abort(), which the MinGW headers for Windows arm64 don't
+pull in transitively. Sent upstream as https://github.com/grpc/grpc/pull/43484.
+
+diff --git a/src/core/util/windows/env.cc b/src/core/util/windows/env.cc
+--- a/src/core/util/windows/env.cc
++++ b/src/core/util/windows/env.cc
+@@ -22,6 +22,7 @@
+ 
+ #include <windows.h>
+ 
++#include <stdlib.h>
+ #include <memory>
+ 
+ #include "src/core/util/env.h"
