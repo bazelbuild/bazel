@@ -178,7 +178,7 @@ public final class RemoteFileWriteStrategyTest {
   }
 
   @Test
-  public void uploadDisabled_writesLocally() throws Exception {
+  public void uploadDisabled_missingRemotely_writesLocally() throws Exception {
     var strategy =
         createStrategy(RemoteOutputsMode.MINIMAL, cacheClient, /* uploadEnabled= */ false);
 
@@ -192,6 +192,31 @@ public final class RemoteFileWriteStrategyTest {
 
     assertWrittenLocally();
     assertNotStoredRemotely(cacheClient);
+    assertThat(eventHandler.getEvents()).isEmpty();
+  }
+
+  @Test
+  public void uploadDisabled_alreadyStoredRemotely_recordsRemoteOutput() throws Exception {
+    var prepopulatedCacheClient =
+        spy(new InMemoryCacheClient(ImmutableMap.of(CONTENT_DIGEST, CONTENT.getBytes(UTF_8))));
+    var strategy =
+        createStrategy(
+            RemoteOutputsMode.MINIMAL, prepopulatedCacheClient, /* uploadEnabled= */ false);
+
+    var unused =
+        strategy.writeOutputToFile(
+            action,
+            createActionExecutionContext(actionFileSystem),
+            writer(CONTENT),
+            /* makeExecutable= */ false,
+            /* isRemotable= */ true);
+
+    verify(prepopulatedCacheClient, never()).uploadBlobImpl(any(), any(), any());
+    var metadata = getRemoteMetadata();
+    assertThat(metadata.isRemote()).isTrue();
+    assertThat(metadata.getDigest()).isEqualTo(DigestUtil.toBinaryDigest(CONTENT_DIGEST));
+    assertThat(output.getPath().exists()).isFalse();
+    assertThat(eventHandler.getEvents()).isEmpty();
   }
 
   @Test

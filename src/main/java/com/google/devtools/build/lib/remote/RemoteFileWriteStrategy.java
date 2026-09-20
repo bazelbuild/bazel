@@ -47,9 +47,11 @@ import java.time.Instant;
  * records them as a remote output instead of writing them to disk.
  *
  * <p>The file is written to disk instead if the file write isn't remotable, if the action doesn't
- * run on a {@link RemoteActionFileSystem}, if uploads to the remote cache are disabled or if the
- * output has to be downloaded anyway according to {@code --remote_download_outputs}. If the remote
- * cache loses the contents later, action rewinding re-executes the action to store them again.
+ * run on a {@link RemoteActionFileSystem} or if the output has to be downloaded anyway according to
+ * {@code --remote_download_outputs}. If uploads to the remote cache are disabled, the contents are
+ * only recorded as a remote output if the remote cache already has them and the file is written to
+ * disk otherwise. If the remote cache loses the contents later, action rewinding re-executes the
+ * action to store them again.
  */
 public final class RemoteFileWriteStrategy implements FileWriteActionContext {
   private final FileWriteActionContext localStrategy;
@@ -95,7 +97,6 @@ public final class RemoteFileWriteStrategy implements FileWriteActionContext {
     // Non-remotable file writes are consumed by Bazel itself and thus have to exist locally.
     // Outputs that are requested for download would be materialized right after the action anyway.
     if (!isRemotable
-        || !uploadEnabled
         || !(actionExecutionContext.getActionFileSystem()
             instanceof RemoteActionFileSystem remoteActionFileSystem)
         || remoteOutputChecker.shouldDownloadOutput(
@@ -119,6 +120,17 @@ public final class RemoteFileWriteStrategy implements FileWriteActionContext {
         ImmutableSet<Digest> missingDigests =
             getFromFuture(combinedCache.findMissingDigests(context, ImmutableList.of(digest)));
         if (!missingDigests.isEmpty()) {
+          if (!uploadEnabled) {
+            // The remote cache is read-only and doesn't have the contents, so the file has to
+            // exist locally for consumers to be able to use it.
+            return localStrategy.writeOutputToFile(
+                action,
+                actionExecutionContext,
+                deterministicWriter,
+                makeExecutable,
+                isRemotable,
+                output);
+          }
           getFromFuture(
               combinedCache.uploadBlob(
                   context, digest, new DeterministicWriterBlob(deterministicWriter, output)));
