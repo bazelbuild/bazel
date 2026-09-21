@@ -96,7 +96,7 @@ single_version_override(
         "//third_party:rules_graalvm_load_fix.patch",
         "//third_party:rules_graalvm_bazel9_fixes.patch",
         "//third_party:rules_graalvm_graalvm25.patch",
-        "//third_party:rules_graalvm_additional_linker_inputs.patch",
+        "//third_party:rules_graalvm_additional_inputs.patch",
     ],
 )
 

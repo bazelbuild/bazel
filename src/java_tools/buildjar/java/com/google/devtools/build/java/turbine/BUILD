@@ -63,7 +63,7 @@ config_setting(
 
 native_image(
     name = "turbine_direct_graal",
-    additional_linker_inputs = select({
+    additional_inputs = select({
         "@platforms//os:windows": ["turbine_direct_graal.manifest"],
         "//conditions:default": [],
     }),
