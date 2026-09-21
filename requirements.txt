@@ -1,6 +1,11 @@
 absl-py==2.1.0
 bazel-runfiles==0.24.0
 frozendict==2.4.7
+
+# Used to patch manifests in Windows executables on any host platform.
+grope==2.0.1
+pe-tools==0.3.11
+
 # The following deps are only here because we need markdownify for the docs pipeline.
 beautifulsoup4==4.14.3
 certifi==2026.1.4
@@ -12,4 +17,3 @@ six==1.17.0
 soupsieve==2.8.3
 typing_extensions==4.15.0
 urllib3==2.7.0
-

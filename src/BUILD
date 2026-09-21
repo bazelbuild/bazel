@@ -1,7 +1,6 @@
 # Packaging
 
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
-load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
@@ -180,44 +179,11 @@ copy_file(
     allow_symlink = True,
 )
 
-# Reads the app manifest of a Windows executable.
-cc_binary(
-    name = "read_manifest",
-    srcs = ["read_manifest.cc"],
-    linkopts = select({
-        # MinGW requires -municode when using wmain.
-        "@rules_cc//cc/compiler:clang": ["-municode"],
-        "//conditions:default": [],
-    }),
-    tags = ["manual"],
-    target_compatible_with = ["@platforms//os:windows"],
-    visibility = ["//src/java_tools:__subpackages__"],
-)
-
-# Updates the app manifest of a Windows executable.
-cc_binary(
-    name = "write_manifest",
-    srcs = ["write_manifest.cc"],
-    linkopts = select({
-        # MinGW requires -municode when using wmain.
-        "@rules_cc//cc/compiler:clang": ["-municode"],
-        "//conditions:default": [],
-    }),
-    tags = ["manual"],
-    target_compatible_with = ["@platforms//os:windows"],
-    visibility = ["//src/java_tools:__subpackages__"],
-)
-
 sh_binary(
     name = "minimize_jdk",
     srcs = ["minimize_jdk.sh"],
-    data = select({
-        "@platforms//os:windows": [
-            ":read_manifest",
-            ":write_manifest",
-        ],
-        "//conditions:default": [],
-    }),
+    args = ["$(rlocationpath //src/tools/pe_manifest)"],
+    data = ["//src/tools/pe_manifest"],
     deps = [
         "@bazel_tools//tools/bash/runfiles",
     ],
@@ -247,8 +213,11 @@ genrule(
         ":jdeps_modules.golden",
     ],
     outs = ["minimal_jdk.zip"],
-    cmd = "$(location :minimize_jdk) " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
-    tools = [":minimize_jdk"] + _JLINK_TOOL,
+    cmd = "$(location :minimize_jdk) $(rlocationpath //src/tools/pe_manifest) " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
+    tools = [
+        ":minimize_jdk",
+        "//src/tools/pe_manifest",
+    ] + _JLINK_TOOL,
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
@@ -259,8 +228,11 @@ genrule(
         ":jdeps_modules.golden",
     ],
     outs = ["allmodules_jdk.zip"],
-    cmd = "$(location :minimize_jdk) --allmodules " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
-    tools = [":minimize_jdk"] + _JLINK_TOOL,
+    cmd = "$(location :minimize_jdk) $(rlocationpath //src/tools/pe_manifest) --allmodules " + _JLINK_TOOL_LOCATION + " $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
+    tools = [
+        ":minimize_jdk",
+        "//src/tools/pe_manifest",
+    ] + _JLINK_TOOL,
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
@@ -411,6 +383,7 @@ filegroup(
         "//src/tools/execlog:srcs",
         "//src/tools/launcher:srcs",
         "//src/tools/one_version:srcs",
+        "//src/tools/pe_manifest:srcs",
         "//src/tools/remote:srcs",
         "//src/tools/simple_catter:srcs",
         "//src/tools/singlejar:srcs",
