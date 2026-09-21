@@ -61,6 +61,11 @@ public final class BazelAnalysisMock extends AnalysisMock {
     MockObjcSupport.setupXcodeRules(config);
     config.create(
         "local_config_xcode_workspace/MODULE.bazel", "module(name = 'local_config_xcode')");
+    config.create("apple_support_workspace/MODULE.bazel", "module(name = 'apple_support')");
+    config.create(
+        "apple_support_workspace/xcode/BUILD",
+        "load('@build_bazel_apple_support//xcode:xcode_config.bzl', 'xcode_config')",
+        "xcode_config(name = 'version_config', visibility = ['//visibility:public'])");
     config.create("third_party/protobuf/BUILD");
     config.create("third_party/protobuf/MODULE.bazel", "module(name='com_google_protobuf')");
     config.overwrite(
@@ -87,6 +92,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "third_party/protobuf",
         "proto_bazel_features_workspace",
         "bazel_features_workspace",
+        "apple_support_workspace",
         "build_bazel_apple_support",
         "local_config_xcode_workspace",
         "third_party/bazel_rules/rules_cc",
@@ -846,6 +852,7 @@ launcher_flag_alias(
                 "third_party/protobuf") // for WORKSPACE compatibility use com_google_protobuf
             .put("proto_bazel_features", "proto_bazel_features_workspace")
             .put("bazel_features", "bazel_features_workspace")
+            .put("apple_support", "apple_support_workspace")
             .put("build_bazel_apple_support", "build_bazel_apple_support")
             .put("local_config_xcode", "local_config_xcode_workspace")
             .put("rules_cc", "third_party/bazel_rules/rules_cc")
