@@ -326,10 +326,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     String mnemonic =
         CppCompileAction.actionNameToMnemonic(
             actionName, featureConfiguration, cppConfiguration.useCppCompileHeaderMnemonic());
-    if (mnemonic.equals(CppCompileAction.CPP_COMPILE_MNEMONIC)
-        || mnemonic.equals(CppCompileAction.CPP_COMPILE_HEADER_MNEMONIC)
-        || mnemonic.equals(CppCompileAction.OBJC_COMPILE_MNEMONIC)
-        || mnemonic.equals(CppCompileAction.OBJC_COMPILE_HEADER_MNEMONIC)) {
+    if (CppCompileAction.PATH_MAPPING_SUPPORTED_MNEMONICS.contains(mnemonic)) {
       executionInfo.put(ExecutionRequirements.SUPPORTS_PATH_MAPPING, "");
     }
     configuration.modifyExecutionInfo(executionInfo, mnemonic);

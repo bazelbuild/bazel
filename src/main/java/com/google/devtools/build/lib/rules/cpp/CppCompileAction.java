@@ -122,10 +122,17 @@ public class CppCompileAction extends AbstractAction
 
   private static final UUID GUID = UUID.fromString("97493805-894f-493a-be66-9a698f45c31d");
 
-  @VisibleForTesting static final String CPP_COMPILE_MNEMONIC = "CppCompile";
+  private static final String CPP_COMPILE_MNEMONIC = "CppCompile";
   @VisibleForTesting static final String CPP_COMPILE_HEADER_MNEMONIC = "CppCompileHeader";
-  @VisibleForTesting static final String OBJC_COMPILE_MNEMONIC = "ObjcCompile";
-  static final String OBJC_COMPILE_HEADER_MNEMONIC = "ObjcCompileHeader";
+  private static final String OBJC_COMPILE_MNEMONIC = "ObjcCompile";
+  private static final String OBJC_COMPILE_HEADER_MNEMONIC = "ObjcCompileHeader";
+
+  static final ImmutableSet<String> PATH_MAPPING_SUPPORTED_MNEMONICS =
+      ImmutableSet.of(
+          CPP_COMPILE_MNEMONIC,
+          CPP_COMPILE_HEADER_MNEMONIC,
+          OBJC_COMPILE_MNEMONIC,
+          OBJC_COMPILE_HEADER_MNEMONIC);
 
   @Nullable private final Artifact gcnoFile;
   private final Artifact sourceFile;
