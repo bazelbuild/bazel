@@ -71,7 +71,7 @@ public final class AliasProvider implements TransitiveInfoProvider {
    * <p>For non-alias rules, it's the label of the rule itself. For alias rules, it's the label of
    * the alias rule.
    *
-   * <p>Note that {@link ConfiguredTarget#getLabel} isn't suitable for this use case because {@link
+   * <p>Note that {@link ConfiguredTarget#getLabel} isn't suitable for this use case because {@code
    * AliasConfiguredTarget}'s implementation of this method returns the alias's {@code actual}
    * prerequisite (and not even the transitive actual target at the end of the chain!).
    */
@@ -105,11 +105,13 @@ public final class AliasProvider implements TransitiveInfoProvider {
     return aliasChain;
   }
 
-  /** The way {@link #describeTargetWithAliases(ConfiguredTargetAndData, TargetMode) reports the
-   * kind of a target. */
+  /**
+   * The way {@link #describeTargetWithAliases(ConfiguredTargetAndData, TargetMode)} reports the
+   * kind of a target.
+   */
   public enum TargetMode {
-    WITH_KIND,      // Specify the kind of the target
-    WITHOUT_KIND,   // Only say "target"
+    WITH_KIND, // Specify the kind of the target
+    WITHOUT_KIND, // Only say "target"
   }
 
   /**
@@ -176,9 +178,9 @@ public final class AliasProvider implements TransitiveInfoProvider {
   }
 
   /**
-   * A provider to be advertised by {@link LateBoundAlias} rules.
+   * A provider to be advertised by {@code LateBoundAlias} rules.
    *
-   * <p>This is a separate provider from {@link AliasProvider} because {@link LateBoundAlias} rules
+   * <p>This is a separate provider from {@link AliasProvider} because {@code LateBoundAlias} rules
    * do not always create an {@link AliasProvider}.
    */
   @Immutable
