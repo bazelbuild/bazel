@@ -95,8 +95,9 @@ native_image(
             # but may be one of the legacy code pages on Windows, which aren't added by default.
             # https://github.com/oracle/graal/pull/10232
             "-H:+AddAllCharsets",
+            "-J-Djava.io.tmpdir=.",
             "-H:NativeLinkerOption=/MANIFEST:EMBED",
-            "-H:NativeLinkerOption=/MANIFESTINPUT:$(location turbine_direct_graal.manifest)",
+            "-H:NativeLinkerOption=/MANIFESTINPUT:../$(location turbine_direct_graal.manifest)",
         ],
         "//conditions:default": [],
     }) + select({
