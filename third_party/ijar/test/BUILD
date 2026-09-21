@@ -87,6 +87,17 @@ sh_test(
     deps = [":testenv"],
 )
 
+cc_test(
+    name = "zip64_test",
+    size = "large",
+    srcs = ["zip64_test.cc"],
+    tags = ["zip"],
+    deps = [
+        "//third_party/ijar:zip",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 sh_library(
     name = "testenv",
     srcs = ["testenv.sh"],

@@ -263,13 +263,15 @@ function test_zipper_output_larger_than_4G() {
   mkdir -p "${test_dir}"
   (
     cd "${test_dir}"
-    local -r mb=$((2 ** 20))
-    /bin/dd if=/dev/zero of=file_4097M.bin bs="${mb}" count=4097 conv=sparse \
+    /bin/dd if=/dev/zero of=file_4097M.bin bs=1 count=0 seek=4097M \
         >& "${TEST_log}"
-    ! "${ZIPPER}" c output.zip file_4097M.bin >& "${TEST_log}" \
-        || fail "zipper should fail when output exceeds 4GB"
-    grep -q "exceeds the maximum supported output size" "${TEST_log}" \
-        || fail "expected 'exceeds the maximum supported output size' message"
+    echo "hello zip64" > file2.txt
+    "${ZIPPER}" c output.zip file_4097M.bin file2.txt
+    "${UNZIP}" -t output.zip >& "${TEST_log}" \
+        || fail "unzip -t failed on >4GiB output.zip"
+    "${ZIPPER}" x output.zip -d unzipped
+    diff -r unzipped/file_4097M.bin file_4097M.bin
+    diff -r unzipped/file2.txt file2.txt
   )
   rm -rf "${test_dir}"
 }

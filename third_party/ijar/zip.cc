@@ -34,6 +34,7 @@
 #include <limits>
 #include <vector>
 
+#include "third_party/ijar/common.h"
 #include "third_party/ijar/mapped_file.h"
 #include "third_party/ijar/platform_utils.h"
 #include "third_party/ijar/zip.h"
@@ -59,6 +60,9 @@
 // version to extract: 1.0 - default value from APPNOTE.TXT.
 // Output JAR files contain no extra ZIP features, so this is enough.
 #define ZIP_VERSION_TO_EXTRACT                10
+// version to extract: 4.5 - file uses ZIP64 format extensions
+// (https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT section 4.4.3.2)
+#define ZIP64_VERSION_TO_EXTRACT              45
 #define COMPRESSION_METHOD_STORED             0   // no compression
 #define COMPRESSION_METHOD_DEFLATED           8
 
@@ -71,9 +75,10 @@
   | GENERAL_PURPOSE_BIT_FLAG_COMPRESSION_SPEED)
 
 namespace devtools_ijar {
-// In the absence of ZIP64 support, zip files are limited to 4GB.
-// http://www.info-zip.org/FAQ.html#limits
-static const size_t kMaximumOutputSize = std::numeric_limits<uint32_t>::max();
+// Maximum output size for MappedOutputFile, leaving 64 KiB headroom below
+// size_t::max(). Archives and entries >= 4 GiB use ZIP64 format extensions.
+static const size_t kMaximumOutputSize =
+    std::numeric_limits<size_t>::max() - 65536;
 
 static const u4 kDefaultTimestamp =
     30 << 25 | 1 << 21 | 1 << 16;  // January 1, 2010 in DOS time
@@ -256,6 +261,10 @@ class OutputZipFile : public ZipBuilder {
     // Start/length of the extra_field in the local header.
     const u1 *extra_field;
     u2 extra_field_length;
+
+    // Pointer to the 16-byte ZIP64 size fields in the local header extra field,
+    // or nullptr if the local header does not contain a ZIP64 extra field.
+    u1 *zip64_extra_data;
   };
 
   MappedOutputFile* output_file_;
@@ -299,7 +308,8 @@ class OutputZipFile : public ZipBuilder {
   // known in advance, it must be recorded later. This method returns a pointer
   // to "compressed size" in the file header that should be passed to
   // WriteFileSizeInLocalFileHeader() later.
-  u1 *WriteLocalFileHeader(const char *filename, u4 attr);
+  u1 *WriteLocalFileHeader(const char *filename, u4 attr,
+                           bool is_zip64 = false);
 
   // Fill in the "compressed size" and "uncompressed size" fields in a local
   // file header previously written by WriteLocalFileHeader().
@@ -946,6 +956,7 @@ int OutputZipFile::WriteEmptyFile(const char *filename) {
   entry->local_header_offset = Offset(q);
   entry->external_attr = 0;
   entry->crc32 = 0;
+  entry->zip64_extra_data = nullptr;
 
   // Output the ZIP local_file_header:
   put_u4le(q, LOCAL_FILE_HEADER_SIGNATURE);
@@ -977,40 +988,72 @@ void OutputZipFile::WriteCentralDirectory() {
   const u1 *central_directory_start = q;
   for (size_t ii = 0; ii < entries_.size(); ++ii) {
     LocalFileEntry *entry = entries_[ii];
+    bool zip64_uncompressed = entry->uncompressed_length >= U4_MAX;
+    bool zip64_compressed = entry->compressed_length >= U4_MAX;
+    bool zip64_offset = entry->local_header_offset >= U4_MAX;
+    bool needs_zip64 = zip64_uncompressed || zip64_compressed || zip64_offset;
+    u2 zip64_extra_data_size = (zip64_uncompressed ? 8 : 0) +
+                               (zip64_compressed ? 8 : 0) +
+                               (zip64_offset ? 8 : 0);
+    u2 total_extra_field_length =
+        entry->extra_field_length +
+        (needs_zip64 ? 4 + zip64_extra_data_size : 0);
+
     put_u4le(q, CENTRAL_FILE_HEADER_SIGNATURE);
     put_u2le(q, UNIX_ZIP_FILE_VERSION);
 
-    put_u2le(q, ZIP_VERSION_TO_EXTRACT);  // version to extract
+    put_u2le(q, needs_zip64 ? ZIP64_VERSION_TO_EXTRACT
+                            : ZIP_VERSION_TO_EXTRACT);  // version to extract
     put_u2le(q, 0);  // general purpose bit flag
     put_u2le(q, entry->compression_method);  // compression method:
     put_u4le(q, kDefaultTimestamp);          // last_mod_file date and time
     put_u4le(q, entry->crc32);  // crc32
-    put_u4le(q, entry->compressed_length);    // compressed_size
-    put_u4le(q, entry->uncompressed_length);  // uncompressed_size
+    // compressed_size:
+    put_u4le(q, zip64_compressed ? U4_MAX : entry->compressed_length);
+    // uncompressed_size:
+    put_u4le(q, zip64_uncompressed ? U4_MAX : entry->uncompressed_length);
     put_u2le(q, entry->file_name_length);
-    put_u2le(q, entry->extra_field_length);
+    put_u2le(q, total_extra_field_length);
 
     put_u2le(q, 0);  // file comment length
     put_u2le(q, 0);  // disk number start
     put_u2le(q, 0);  // internal file attributes
     put_u4le(q, entry->external_attr);  // external file attributes
     // relative offset of local header:
-    put_u4le(q, entry->local_header_offset);
+    put_u4le(q, zip64_offset ? U4_MAX : entry->local_header_offset);
 
     put_n(q, entry->file_name, entry->file_name_length);
     put_n(q, entry->extra_field, entry->extra_field_length);
+    if (needs_zip64) {
+      // Write the Zip64 Extended Information Extra Field (0x0001).
+      // Per https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+      // section 4.5.3, fields are only included if the corresponding standard
+      // header field is set to 0xFFFFFFFF, and must appear in the fixed order:
+      // uncompressed size, compressed size, relative header offset.
+      put_u2le(q, ZIP64_EXTRA_FIELD_TAG);
+      put_u2le(q, zip64_extra_data_size);
+      if (zip64_uncompressed) {
+        put_u8le(q, entry->uncompressed_length);
+      }
+      if (zip64_compressed) {
+        put_u8le(q, entry->compressed_length);
+      }
+      if (zip64_offset) {
+        put_u8le(q, entry->local_header_offset);
+      }
+    }
   }
   u8 central_directory_size = q - central_directory_start;
 
-  if (entries_.size() > U2_MAX || central_directory_size > U4_MAX ||
-      Offset(central_directory_start) > U4_MAX) {
+  if (entries_.size() >= U2_MAX || central_directory_size >= U4_MAX ||
+      Offset(central_directory_start) >= U4_MAX) {
     u1 *zip64_end_of_central_directory_start = q;
 
     put_u4le(q, ZIP64_EOCD_SIGNATURE);
     // signature and size field doesn't count towards size
     put_u8le(q, ZIP64_EOCD_FIXED_SIZE - 12);
     put_u2le(q, UNIX_ZIP_FILE_VERSION);  // version made by
-    put_u2le(q, 0);  // version needed to extract
+    put_u2le(q, ZIP64_VERSION_TO_EXTRACT);  // version needed to extract
     put_u4le(q, 0);  // number of this disk
     put_u4le(q, 0);  // # of the disk with the start of the central directory
     put_u8le(q, entries_.size());  // # central dir entries on this disk
@@ -1031,14 +1074,14 @@ void OutputZipFile::WriteCentralDirectory() {
     put_u2le(q, 0);  // number of this disk
     put_u2le(q, 0);  // # of disk with the start of the central directory
     // # central dir entries on this disk
-    put_u2le(q, entries_.size() > 0xffff ? 0xffff : entries_.size());
+    put_u2le(q, entries_.size() >= U2_MAX ? U2_MAX : entries_.size());
     // total # entries in the central directory
-    put_u2le(q, entries_.size() > 0xffff ? 0xffff : entries_.size());
+    put_u2le(q, entries_.size() >= U2_MAX ? U2_MAX : entries_.size());
     // size of the central directory
-    put_u4le(q,
-             central_directory_size > U4_MAX ? U4_MAX : central_directory_size);
+    put_u4le(q, central_directory_size >= U4_MAX ? U4_MAX
+                                                 : central_directory_size);
     // offset of start of central
-    put_u4le(q, Offset(central_directory_start) > U4_MAX
+    put_u4le(q, Offset(central_directory_start) >= U4_MAX
                     ? U4_MAX
                     : Offset(central_directory_start));
     put_u2le(q, 0);  // .ZIP file comment length
@@ -1056,7 +1099,8 @@ void OutputZipFile::WriteCentralDirectory() {
   }
 }
 
-u1* OutputZipFile::WriteLocalFileHeader(const char* filename, const u4 attr) {
+u1* OutputZipFile::WriteLocalFileHeader(const char* filename, const u4 attr,
+                                        bool is_zip64) {
   off_t file_name_length_ = strlen(filename);
   LocalFileEntry *entry = new LocalFileEntry;
   entry->local_header_offset = Offset(q);
@@ -1065,10 +1109,12 @@ u1* OutputZipFile::WriteLocalFileHeader(const char* filename, const u4 attr) {
   entry->extra_field_length = 0;
   entry->extra_field = (const u1 *)"";
   entry->crc32 = 0;
+  entry->zip64_extra_data = nullptr;
 
   // Output the ZIP local_file_header:
   put_u4le(q, LOCAL_FILE_HEADER_SIGNATURE);
-  put_u2le(q, ZIP_VERSION_TO_EXTRACT);     // version to extract
+  put_u2le(q, is_zip64 ? ZIP64_VERSION_TO_EXTRACT
+                       : ZIP_VERSION_TO_EXTRACT);  // version to extract
   put_u2le(q, 0);                          // general purpose bit flag
   u1 *header_ptr = q;
   put_u2le(q, COMPRESSION_METHOD_STORED);  // compression method = placeholder
@@ -1077,11 +1123,22 @@ u1* OutputZipFile::WriteLocalFileHeader(const char* filename, const u4 attr) {
   put_u4le(q, 0);  // compressed_size = placeholder
   put_u4le(q, 0);  // uncompressed_size = placeholder
   put_u2le(q, entry->file_name_length);
-  put_u2le(q, entry->extra_field_length);
+  put_u2le(q, is_zip64 ? 20 : entry->extra_field_length);
 
   entry->file_name = q;
   put_n(q, reinterpret_cast<const u1*>(filename), entry->file_name_length);
-  put_n(q, entry->extra_field, entry->extra_field_length);
+  if (is_zip64) {
+    // Per https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+    // section 4.5.3, a Zip64 extra field in the local file header MUST include
+    // both original uncompressed size and compressed size (16 bytes of data).
+    put_u2le(q, ZIP64_EXTRA_FIELD_TAG);
+    put_u2le(q, 16);
+    entry->zip64_extra_data = q;
+    put_u8le(q, 0);  // uncompressed_size placeholder
+    put_u8le(q, 0);  // compressed_size placeholder
+  } else {
+    put_n(q, entry->extra_field, entry->extra_field_length);
+  }
   entries_.push_back(entry);
 
   return header_ptr;
@@ -1103,8 +1160,17 @@ size_t OutputZipFile::WriteFileSizeInLocalFileHeader(u1 *header_ptr,
   }
   header_ptr += 4;
   put_u4le(header_ptr, crc);              // crc32
-  put_u4le(header_ptr, compressed_size);  // compressed_size
-  put_u4le(header_ptr, out_length);       // uncompressed_size
+  LocalFileEntry* entry = entries_.back();
+  if (entry->zip64_extra_data != nullptr) {
+    put_u4le(header_ptr, U4_MAX);  // compressed_size
+    put_u4le(header_ptr, U4_MAX);  // uncompressed_size
+    u1* extra_data_ptr = entry->zip64_extra_data;
+    put_u8le(extra_data_ptr, out_length);
+    put_u8le(extra_data_ptr, compressed_size);
+  } else {
+    put_u4le(header_ptr, compressed_size >= U4_MAX ? U4_MAX : compressed_size);
+    put_u4le(header_ptr, out_length >= U4_MAX ? U4_MAX : out_length);
+  }
   return compressed_size;
 }
 
@@ -1142,11 +1208,6 @@ int OutputZipFile::FinishFile(size_t filelength, bool compress,
   u4 crc = 0;
   if (compute_crc) {
     crc = ComputeCrcChecksum(q, filelength);
-
-    if (filelength > 0 && crc == 0) {
-      fprintf(stderr, "Error calculating CRC32 checksum.\n");
-      return -1;
-    }
   }
   size_t compressed_size =
       WriteFileSizeInLocalFileHeader(header_ptr, filelength, compress, crc);
@@ -1175,7 +1236,8 @@ int OutputZipFile::AddFile(const char* zip_path, const char* disk_path, u4 attr,
     return error("stat(%s): %s", disk_path, strerror(errno));
   }
   size_t file_size = static_cast<size_t>(file_stat.total_size);
-  u1* out_ptr = NewFile(zip_path, attr);
+  header_ptr = WriteLocalFileHeader(zip_path, attr, file_size >= U4_MAX);
+  u1* out_ptr = q;
   if (out_ptr == nullptr) {
     return -1;
   }
@@ -1238,11 +1300,11 @@ u8 ZipBuilder::EstimateSize(char const* const* files,
     }
     size += file_stat.total_size;
     // Add sizes of Zip meta data
-    // local file header = 30 bytes
+    // local file header = 30 bytes + 20 bytes (zip64 extra field)
     // data descriptor = 12 bytes
-    // central directory descriptor = 46 bytes
-    //    Total: 88bytes
-    size += 88;
+    // central directory descriptor = 46 bytes + 28 bytes (zip64 extra field)
+    //    Total: 136 bytes
+    size += 136;
     // The filename is stored twice (once in the central directory
     // and once in the local file header).
     size += strlen((zip_paths[i] != NULL) ? zip_paths[i] : files[i]) * 2;
