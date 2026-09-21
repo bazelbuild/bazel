@@ -1415,8 +1415,10 @@ public class CppCompileAction extends AbstractAction
       String mnemonic,
       OutputPathsMode outputPathsMode)
       throws CommandLineExpansionException, InterruptedException {
+    var effectiveOutputPathsMode =
+        PathMappers.getEffectiveOutputPathsMode(outputPathsMode, mnemonic, executionInfo);
     fp.addUUID(GUID);
-    env.addTo(fp);
+    env.addTo(effectiveOutputPathsMode, fp);
     fp.addStringMap(environmentVariables);
     fp.addStringMap(executionInfo);
     fp.addBytes(commandLineKey);

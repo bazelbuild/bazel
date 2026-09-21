@@ -240,7 +240,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     // As the classpath is no longer part of commandLines implicitly, we need to explicitly add
     // the transitive inputs to the key here.
     actionKeyContext.addNestedSetToFingerprint(fp, transitiveInputs);
-    getEnvironment().addTo(fp);
+    getEnvironment().addTo(effectiveOutputPathsMode, fp);
     fp.addStringMap(executionInfo);
     fp.addBoolean(
         outputDepsProto != null

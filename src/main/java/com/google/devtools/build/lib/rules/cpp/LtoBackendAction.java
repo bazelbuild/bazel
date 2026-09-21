@@ -320,7 +320,7 @@ public final class LtoBackendAction extends SpawnAction {
       bitcodeFiles.addToFingerprint(fp);
       fp.addPath(imports.getExecPath());
     }
-    getEnvironment().addTo(fp);
+    getEnvironment().addTo(OutputPathsMode.OFF, fp);
     fp.addStringMap(getExecutionInfo());
   }
 
