@@ -54,4 +54,19 @@ public interface Reportable {
   default boolean storeForReplay() {
     return false;
   }
+  /**
+   * Whether this event should be dropped when it is posted during the re-evaluation of an action
+   * that is being rewound.
+   *
+   * <p>An action that is re-executed because of rewinding must not emit its progress events a
+   * second time, since downstream consumers of action events may not expect them.
+   *
+   * <p><b>Subscribers of an event returning {@code false} must be idempotent.</b> Rewinding
+   * re-executes actions, so such an event may be delivered several times for one underlying
+   * occurrence.
+   */
+  default boolean suppressOnRewind() {
+    return !storeForReplay();
+  }
+
 }

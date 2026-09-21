@@ -29,4 +29,10 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
  * rewound more than once.
  */
 public record RewoundActionOutputsAvailableEvent(
-    ImmutableMap<ActionInput, FileArtifactValue> outputFileMetadata) implements Postable {}
+    ImmutableMap<ActionInput, FileArtifactValue> outputFileMetadata) implements Postable {
+
+  @Override
+  public boolean suppressOnRewind() {
+    return false;
+  }
+}
