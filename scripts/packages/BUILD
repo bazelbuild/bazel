@@ -1,7 +1,20 @@
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load(":self_extract_binary.bzl", "self_extract_binary")
 
 package(default_visibility = ["//scripts/packages:__subpackages__"])
+
+sh_test(
+    name = "template_bin_test",
+    size = "small",
+    srcs = ["template_bin_test.sh"],
+    data = [
+        "template_bin.sh",
+        "//src/test/shell:bashunit",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],  # The self-extracting installer is for Unix systems.
+)
 
 filegroup(
     name = "srcs",
