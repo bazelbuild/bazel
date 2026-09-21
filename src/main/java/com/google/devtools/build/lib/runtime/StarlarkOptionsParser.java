@@ -86,7 +86,9 @@ public class StarlarkOptionsParser {
 
   /** Create a new {@link Builder} instance for {@link StarlarkOptionsParser}. */
   public static Builder builder() {
-    return new AutoBuilder_StarlarkOptionsParser_Builder().includeDefaultValues(false);
+    return new AutoBuilder_StarlarkOptionsParser_Builder()
+        .includeDefaultValues(false)
+        .allowNonFlagBuildSettings(false);
   }
 
   /** A helper class to create new instances of {@link StarlarkOptionsParser}. */
@@ -100,6 +102,9 @@ public class StarlarkOptionsParser {
 
     /** Whether or not to report Starlark flags which are set to their default values. */
     public abstract Builder includeDefaultValues(boolean includeDefaultValues);
+
+    /** Whether or not to allow build settings with {@code flag = False}. */
+    public abstract Builder allowNonFlagBuildSettings(boolean allowNonFlagBuildSettings);
 
     /** Returns a new {@link StarlarkOptionsParser}. */
     public abstract StarlarkOptionsParser build();
@@ -124,6 +129,9 @@ public class StarlarkOptionsParser {
   // Map of parsed starlark options to their loaded BuildSetting objects (used for canonicalization)
   private final Map<String, BuildSetting> parsedBuildSettings = new LinkedHashMap<>();
 
+  // Map of parsed starlark options to their Target objects
+  private final Map<String, Target> parsedTargets = new LinkedHashMap<>();
+
   // Local cache of build settings so we don't repeatedly load them.
   private final Map<String, Target> buildSettings = new HashMap<>();
 
@@ -133,13 +141,18 @@ public class StarlarkOptionsParser {
   // whether options explicitly set to their default values are added to {@code starlarkOptions}
   private final boolean includeDefaultValues;
 
+  // whether build settings with flag = False are permitted
+  private final boolean allowNonFlagBuildSettings;
+
   protected StarlarkOptionsParser(
       BuildSettingLoader buildSettingLoader,
       OptionsParser nativeOptionsParser,
-      boolean includeDefaultValues) {
+      boolean includeDefaultValues,
+      boolean allowNonFlagBuildSettings) {
     this.buildSettingLoader = buildSettingLoader;
     this.nativeOptionsParser = nativeOptionsParser;
     this.includeDefaultValues = includeDefaultValues;
+    this.allowNonFlagBuildSettings = allowNonFlagBuildSettings;
   }
 
   /**
@@ -190,7 +203,7 @@ public class StarlarkOptionsParser {
       BuildSetting buildSetting =
           buildSettingTarget.getAssociatedRule().getRuleClassObject().getBuildSetting();
       // Do not recognize internal options, which are treated as if they did not exist.
-      if (!buildSetting.isFlag()) {
+      if (!buildSetting.isFlag() && !allowNonFlagBuildSettings) {
         throw new OptionsParsingException(
             String.format("Unrecognized option: %s=%s", loadedFlag, unparsedValue));
       }
@@ -243,6 +256,7 @@ public class StarlarkOptionsParser {
           buildSettingTarget.getAssociatedRule().getRuleClassObject().getBuildSetting();
       boolean allowsMultiple = buildSettingObject.allowsMultiple();
       parsedBuildSettings.put(buildSetting, buildSettingObject);
+      parsedTargets.put(buildSetting, buildSettingTarget);
       Object value = buildSettingAndFinalValue.getSecond();
       if (value instanceof Collection<?>) {
         if (buildSettingObject.getType().equals(Types.STRING_SET)) {
@@ -269,32 +283,13 @@ public class StarlarkOptionsParser {
         }
       }
 
-      // TODO: b/384058698 - use NonConfigurableAttributeMapper to ensure "scope" isn't selectable.
-      var attrMap = RawAttributeMapper.of(buildSettingTarget.getAssociatedRule());
-      String scopeType = ScopeType.DEFAULT.toString();
-      if (attrMap.isAttributeValueExplicitlySpecified("scope")) {
-        scopeType = attrMap.get("scope", Type.STRING);
-        if (!ScopeType.allowedAttributeValues().contains(scopeType.toLowerCase(Locale.ROOT))
-            && !scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
-          throw new OptionsParsingException(
-              String.format(
-                  "Can't load flag --%s: Invalid \"scope\" attribute value \"%s\". Allowed values:"
-                      + " [%s].",
-                  buildSetting,
-                  scopeType,
-                  ScopeType.allowedAttributeValues().stream()
-                      .map(s -> "\"" + s + "\"")
-                      .collect(joining(", "))));
-        }
-      }
+      String scopeType = getScopeType(buildSettingTarget);
       scopeTypeMap.put(buildSetting, scopeType);
       nativeOptionsParser.setScopesAttributes(ImmutableMap.copyOf(scopeTypeMap));
-
       if (scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
         customExecFlags.add(scopeType.substring(Scope.CUSTOM_EXEC_SCOPE_PREFIX.length()));
-        scopeTypeMap.put(scopeType.substring(Scope.CUSTOM_EXEC_SCOPE_PREFIX.length()), scopeType);
       }
-
+      var attrMap = RawAttributeMapper.of(buildSettingTarget.getAssociatedRule());
       if (attrMap.isAttributeValueExplicitlySpecified("on_leave_scope")) {
         var onLeaveScopeValue = attrMap.get("on_leave_scope", buildSettingObject.getType());
         onLeaveScopeMap.put(buildSetting, onLeaveScopeValue);
@@ -312,8 +307,9 @@ public class StarlarkOptionsParser {
       }
 
       // get the default value for the custom exec flag if it's not set yet.
-      parsedOptions.put(customExecFlag, getDefaultValueForAnyBuildSetting(customExecFlag));
-      scopeTypeMap.put(customExecFlag, ScopeType.TARGET);
+      Target customExecFlagTarget = loadBuildSetting(customExecFlag);
+      parsedOptions.put(customExecFlag, getDefaultValueForAnyBuildSetting(customExecFlagTarget));
+      scopeTypeMap.put(customExecFlag, getScopeType(customExecFlagTarget));
     }
 
     nativeOptionsParser.setStarlarkOptions(
@@ -326,9 +322,7 @@ public class StarlarkOptionsParser {
     return true;
   }
 
-  public Object getDefaultValueForAnyBuildSetting(String buildSetting)
-      throws InterruptedException, OptionsParsingException {
-    Target buildSettingTarget = loadBuildSetting(buildSetting);
+  private static Object getDefaultValueForAnyBuildSetting(Target buildSettingTarget) {
     BuildSetting buildSettingObject =
         buildSettingTarget.getAssociatedRule().getRuleClassObject().getBuildSetting();
     Object defaultValue =
@@ -337,6 +331,28 @@ public class StarlarkOptionsParser {
       return ImmutableList.of(Objects.requireNonNull(defaultValue));
     }
     return defaultValue;
+  }
+
+  private static String getScopeType(Target buildSettingTarget) throws OptionsParsingException {
+    // TODO: b/384058698 - use NonConfigurableAttributeMapper to ensure "scope" isn't selectable.
+    var attrMap = RawAttributeMapper.of(buildSettingTarget.getAssociatedRule());
+    String scopeType = ScopeType.DEFAULT.toString();
+    if (attrMap.isAttributeValueExplicitlySpecified("scope")) {
+      scopeType = attrMap.get("scope", Type.STRING);
+      if (!ScopeType.allowedAttributeValues().contains(scopeType.toLowerCase(Locale.ROOT))
+          && !scopeType.startsWith(Scope.CUSTOM_EXEC_SCOPE_PREFIX)) {
+        throw new OptionsParsingException(
+            String.format(
+                "Can't load flag --%s: Invalid \"scope\" attribute value \"%s\". Allowed values:"
+                    + " [%s].",
+                buildSettingTarget.getLabel().getCanonicalForm(),
+                scopeType,
+                ScopeType.allowedAttributeValues().stream()
+                    .map(s -> "\"" + s + "\"")
+                    .collect(joining(", "))));
+      }
+    }
+    return scopeType;
   }
 
   /**
@@ -481,6 +497,10 @@ public class StarlarkOptionsParser {
 
   public ImmutableMap<String, Object> getStarlarkOptions() {
     return ImmutableMap.copyOf(this.starlarkOptions);
+  }
+
+  public ImmutableMap<String, Target> getParsedBuildSettingTargets() {
+    return ImmutableMap.copyOf(this.parsedTargets);
   }
 
   public ImmutableSet<String> getStarlarkOptionsAllowingMultiple() {

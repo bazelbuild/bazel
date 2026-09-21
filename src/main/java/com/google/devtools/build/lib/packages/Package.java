@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext.LoadGraphVisitor;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
 import com.google.devtools.build.lib.collect.CollectionUtils;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetsShouldBeInternedByEquality;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageLimits;
@@ -276,7 +278,7 @@ public class Package extends Packageoid {
    * instances of the specified class.
    */
   public <T extends Target> Iterable<T> getTargets(Class<T> targetClass) {
-    return Iterables.filter(targets.values(), targetClass);
+    return Iterables.filter(targets, targetClass);
   }
 
   /**
@@ -284,7 +286,7 @@ public class Package extends Packageoid {
    * the dependency graph of a target. Fails if the target is not a Rule.
    */
   public Rule getRule(String targetName) {
-    return (Rule) targets.get(targetName);
+    return (Rule) checkNotNull(getTargetOrNull(targetName), targetName);
   }
 
   /**
@@ -333,7 +335,7 @@ public class Package extends Packageoid {
 
   @Override
   public Target getTarget(String targetName) throws NoSuchTargetException {
-    Target target = targets.get(targetName);
+    Target target = getTargetOrNull(targetName);
     if (target != null) {
       return target;
     }
@@ -350,7 +352,7 @@ public class Package extends Packageoid {
           label, String.format("target '%s' not declared in package '%s'", targetName, getName()));
     } else {
       String alternateTargetSuggestion =
-          getAlternateTargetSuggestion(metadata, targetName, targets.keySet());
+          getAlternateTargetSuggestion(metadata, targetName, targets);
       throw new NoSuchTargetException(
           label,
           String.format(
@@ -363,37 +365,43 @@ public class Package extends Packageoid {
   }
 
   static String getAlternateTargetSuggestion(
-      Metadata metadata, String targetName, ImmutableSet<String> otherTargets) {
-    // If there's a file on the disk that's not mentioned in the BUILD file,
-    // produce a more informative error.  NOTE! this code path is only executed
-    // on failure, which is (relatively) very rare.  In the common case no
-    // stat(2) is executed.
-    Path filename = metadata.getPackageDirectory().getRelative(targetName);
-    if (!PathFragment.isNormalized(targetName) || "*".equals(targetName)) {
-      // Don't check for file existence if the target name is not normalized
-      // because the error message would be confusing and wrong. If the
-      // targetName is "foo/bar/.", and there is a directory "foo/bar", it
-      // doesn't mean that "//pkg:foo/bar/." is a valid label.
-      // Also don't check if the target name is a single * character since
-      // it's invalid on Windows.
+      Metadata metadata, String targetName, ImmutableList<Target> otherTargets) {
+    try {
+      // If there's a file on the disk that's not mentioned in the BUILD file,
+      // produce a more informative error.  NOTE! this code path is only executed
+      // on failure, which is (relatively) very rare.  In the common case no
+      // stat(2) is executed.
+      Path filename = metadata.getPackageDirectory().getRelative(targetName);
+      if (!PathFragment.isNormalized(targetName) || "*".equals(targetName)) {
+        // Don't check for file existence if the target name is not normalized
+        // because the error message would be confusing and wrong. If the
+        // targetName is "foo/bar/.", and there is a directory "foo/bar", it
+        // doesn't mean that "//pkg:foo/bar/." is a valid label.
+        // Also don't check if the target name is a single * character since
+        // it's invalid on Windows.
+        return "";
+      } else if (filename.isDirectory()) {
+        return "; however, a source directory of this name exists.  (Perhaps add "
+            + "'exports_files([\""
+            + targetName
+            + "\"])' to "
+            + getRepoRelativeBuildFilePathString(metadata)
+            + ", or define a "
+            + "filegroup?)";
+      } else if (filename.exists()) {
+        return "; however, a source file of this name exists.  (Perhaps add "
+            + "'exports_files([\""
+            + targetName
+            + "\"])' to "
+            + getRepoRelativeBuildFilePathString(metadata)
+            + "?)";
+      } else {
+        return TargetSuggester.suggestTargets(
+            targetName, Lists.transform(otherTargets, Target::getName));
+      }
+    } catch (IOException e) {
+      // Ignore - suggestions are best-effort.
       return "";
-    } else if (filename.isDirectory()) {
-      return "; however, a source directory of this name exists.  (Perhaps add "
-          + "'exports_files([\""
-          + targetName
-          + "\"])' to "
-          + getRepoRelativeBuildFilePathString(metadata)
-          + ", or define a "
-          + "filegroup?)";
-    } else if (filename.exists()) {
-      return "; however, a source file of this name exists.  (Perhaps add "
-          + "'exports_files([\""
-          + targetName
-          + "\"])' to "
-          + getRepoRelativeBuildFilePathString(metadata)
-          + "?)";
-    } else {
-      return TargetSuggester.suggestTargets(targetName, otherTargets);
     }
   }
 
@@ -430,7 +438,7 @@ public class Package extends Packageoid {
     Preconditions.checkState(
         targetsToDeclaringMacro != null,
         "Cannot retrieve MacroInstance information from deserialized packages");
-    Preconditions.checkArgument(targets.containsKey(target), "unknown target '%s'", target);
+    Preconditions.checkArgument(getTargetOrNull(target) != null, "unknown target '%s'", target);
     return targetsToDeclaringMacro.get(target);
   }
 
@@ -446,7 +454,7 @@ public class Package extends Packageoid {
    */
   @Nullable
   public PackageIdentifier getDeclaringPackageForTargetIfInMacro(String target) {
-    Preconditions.checkArgument(targets.containsKey(target), "unknown target '%s'", target);
+    Preconditions.checkArgument(getTargetOrNull(target) != null, "unknown target '%s'", target);
     // Exactly one of targetsToDeclaringMacro and targetsToDeclaringPackage is non-null, depending
     // on whether this package was produced by deserialization.
     if (targetsToDeclaringMacro != null) {
@@ -576,6 +584,7 @@ public class Package extends Packageoid {
       Optional<String> associatedModuleVersion,
       boolean noImplicitFileExport,
       boolean simplifyUnconditionalSelectsInRuleAttrs,
+      boolean symbolicMacroStrictAttrs,
       RepositoryMapping repositoryMapping,
       RepositoryMapping mainRepositoryMapping,
       @Nullable Semaphore cpuBoundSemaphore,
@@ -604,6 +613,7 @@ public class Package extends Packageoid {
         packageSettings.precomputeTransitiveLoads(),
         noImplicitFileExport,
         simplifyUnconditionalSelectsInRuleAttrs,
+        symbolicMacroStrictAttrs,
         mainRepositoryMapping,
         cpuBoundSemaphore,
         packageOverheadEstimator,
@@ -622,6 +632,7 @@ public class Package extends Packageoid {
       Declarations declarations,
       boolean noImplicitFileExport,
       boolean simplifyUnconditionalSelectsInRuleAttrs,
+      boolean symbolicMacroStrictAttrs,
       RepositoryMapping mainRepositoryMapping,
       @Nullable Semaphore cpuBoundSemaphore,
       PackageOverheadEstimator packageOverheadEstimator,
@@ -640,6 +651,7 @@ public class Package extends Packageoid {
             packageSettings.precomputeTransitiveLoads(),
             noImplicitFileExport,
             simplifyUnconditionalSelectsInRuleAttrs,
+            symbolicMacroStrictAttrs,
             mainRepositoryMapping,
             cpuBoundSemaphore,
             packageOverheadEstimator,
@@ -993,6 +1005,7 @@ public class Package extends Packageoid {
         boolean precomputeTransitiveLoads,
         boolean noImplicitFileExport,
         boolean simplifyUnconditionalSelectsInRuleAttrs,
+        boolean symbolicMacroStrictAttrs,
         RepositoryMapping mainRepositoryMapping,
         @Nullable Semaphore cpuBoundSemaphore,
         PackageOverheadEstimator packageOverheadEstimator,
@@ -1008,6 +1021,7 @@ public class Package extends Packageoid {
           pkg,
           symbolGenerator,
           simplifyUnconditionalSelectsInRuleAttrs,
+          symbolicMacroStrictAttrs,
           mainRepositoryMapping,
           cpuBoundSemaphore,
           packageOverheadEstimator,
@@ -1131,6 +1145,7 @@ public class Package extends Packageoid {
         boolean precomputeTransitiveLoads,
         boolean noImplicitFileExport,
         boolean simplifyUnconditionalSelectsInRuleAttrs,
+        boolean symbolicMacroStrictAttrs,
         RepositoryMapping mainRepositoryMapping,
         @Nullable Semaphore cpuBoundSemaphore,
         PackageOverheadEstimator packageOverheadEstimator,
@@ -1147,6 +1162,7 @@ public class Package extends Packageoid {
           precomputeTransitiveLoads,
           noImplicitFileExport,
           simplifyUnconditionalSelectsInRuleAttrs,
+          symbolicMacroStrictAttrs,
           mainRepositoryMapping,
           cpuBoundSemaphore,
           packageOverheadEstimator,
@@ -1406,7 +1422,8 @@ public class Package extends Packageoid {
       Optional<String> associatedModuleVersion,
       @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
       boolean succinctTargetNotFoundErrors,
-      Root sourceRoot) {
+      Root sourceRoot)
+      implements NestedSetsShouldBeInternedByEquality {
 
     // See class-level Javadoc for an explanation of why we need this.
     @Override

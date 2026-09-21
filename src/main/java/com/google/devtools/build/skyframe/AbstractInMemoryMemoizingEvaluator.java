@@ -21,6 +21,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Multisets;
@@ -30,12 +31,14 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
+import com.google.devtools.build.skyframe.NodeEntry.LifecycleState;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent.EvaluationStats;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.PrintStream;
@@ -242,14 +245,34 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   }
 
   @Override
-  public final void deleteDirty(long versionAgeLimit) {
+  public final void deleteDirty(long versionAgeLimit, boolean keepChangePrunableNodes) {
     checkArgument(versionAgeLimit >= 0, versionAgeLimit);
     Version threshold = IntVersion.of(lastGraphVersion.getVal() - versionAgeLimit);
+    var graph = getInMemoryGraph();
+
+    var dirtyKeys = progressReceiver.getUnenqueuedDirtyKeys();
+    ImmutableSet<SkyKey> toKeep;
+    if (keepChangePrunableNodes) {
+      long profilerStartNanos = Profiler.instance().nanoTimeMaybe();
+      toKeep = new ChangePrunableNodesFinder(graph, dirtyKeys).find();
+      Profiler.instance()
+          .completeTask(
+              profilerStartNanos,
+              ProfilerTask.INFO,
+              "Resurrected %d out of %d dirty nodes during GC"
+                  .formatted(toKeep.size(), dirtyKeys.size()));
+    } else {
+      toKeep = ImmutableSet.of();
+    }
+
     valuesToDelete.addAll(
         Sets.filter(
-            progressReceiver.getUnenqueuedDirtyKeys(),
+            dirtyKeys,
             skyKey -> {
-              NodeEntry entry = checkNotNull(getInMemoryGraph().getIfPresent(skyKey), skyKey);
+              if (toKeep.contains(skyKey)) {
+                return false;
+              }
+              NodeEntry entry = checkNotNull(graph.getIfPresent(skyKey), skyKey);
               checkState(entry.isDirty(), skyKey);
               return entry.getVersion().atMost(threshold);
             }));
@@ -332,6 +355,18 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
 
       consumer.accept(entry);
     }
+  }
+
+  @Override
+  public final void dumpKeys(PrintStream out, Predicate<String> filter)
+      throws InterruptedException {
+    processGraphForDumpCommand(
+        filter,
+        out,
+        entry -> {
+          out.println(entry.getKey().getCanonicalName());
+          out.println();
+        });
   }
 
   @Override
@@ -462,8 +497,21 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
           // be injected.
           getInMemoryGraph().remove(key);
         }
+      } else if (prevEntry != null && keepEdges && hadDepsLastBuild(prevEntry)) {
+        // The node was dirtied by an earlier invalidation but has not been re-evaluated since, so
+        // it still holds the deps of its last build. Injecting a value would require the same
+        // reverse dep bookkeeping as for a done node with deps, so handle it the same way: just
+        // invalidate it and let it be evaluated freshly.
+        valuesToDirty.add(key);
+        it.remove();
       }
     }
+  }
+
+  /** Returns whether the given not-done entry had at least one dep the last time it was built. */
+  private static boolean hadDepsLastBuild(InMemoryNodeEntry entry) {
+    return entry.getLifecycleState() != LifecycleState.NOT_YET_EVALUATING
+        && !entry.noDepsLastBuild();
   }
 
   /** Injects values in {@code valuesToInject} into the graph. */

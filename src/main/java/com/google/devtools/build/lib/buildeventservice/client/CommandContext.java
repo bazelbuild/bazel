@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.buildeventservice.client;
 
 import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
+import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -33,4 +34,6 @@ public interface CommandContext {
   String projectId();
 
   boolean checkPrecedingLifecycleEvents();
+
+  List<byte[]> streamMetadata();
 }

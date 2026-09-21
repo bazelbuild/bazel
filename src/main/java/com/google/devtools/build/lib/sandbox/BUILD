@@ -2,13 +2,16 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker:__pkg__",
+    ],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
@@ -28,9 +31,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -44,7 +50,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -56,8 +62,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:flogger",
-        "//third_party:guava",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -81,9 +88,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:describable_execution_unit",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -117,9 +127,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -133,9 +145,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -160,8 +173,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -185,8 +200,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:process_wrapper",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -199,7 +213,6 @@ java_library(
     data = ["//src/main/tools:linux-sandbox"],
     deps = [
         ":abstract_sandbox_spawn_runner",
-        ":cgroups_info",
         ":linux_sandbox_command_line_builder",
         ":linux_sandbox_util",
         ":sandbox_helpers",
@@ -224,9 +237,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -234,16 +249,8 @@ java_library(
     name = "cgroups_info",
     srcs = [
         "Cgroup.java",
-        "CgroupsInfo.java",
-        "CgroupsInfoV1.java",
-        "CgroupsInfoV2.java",
     ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
+    deps = ["//third_party/java/guava:collect"],
 )
 
 java_library(
@@ -283,9 +290,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -311,10 +320,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:error_prone_annotations",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -343,14 +354,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:command_complete_event",
         "//src/main/java/com/google/devtools/build/lib/runtime:process_wrapper",
         "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/java/com/google/devtools/build/lib/unix:process_utils_service",
+        "//src/main/java/com/google/devtools/build/lib/unix:process_utils",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:error_prone_annotations",
-        "//third_party:flogger",
-        "//third_party:guava",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/guava:io",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )

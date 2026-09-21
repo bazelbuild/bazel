@@ -18,6 +18,7 @@
 #include <sys/sysctl.h>
 #include <sys/types.h>
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -39,7 +40,7 @@ Java_com_google_devtools_build_lib_profiler_SystemNetworkStatsServiceImpl_getNet
   size_t buf_len;
   for (;;) {
     if (sysctl(mib, 6, nullptr, &buf_len, nullptr, 0) < 0) {
-      PostException(env, errno, "sysctl");
+      PostNativePosixFilesException(env, errno, "sysctl");
       return;
     }
 
@@ -48,7 +49,7 @@ Java_com_google_devtools_build_lib_profiler_SystemNetworkStatsServiceImpl_getNet
       break;
     }
     if (errno != ENOMEM) {
-      PostException(env, errno, "sysctl");
+      PostNativePosixFilesException(env, errno, "sysctl");
       return;
     }
 
@@ -63,7 +64,7 @@ Java_com_google_devtools_build_lib_profiler_SystemNetworkStatsServiceImpl_getNet
 
   jclass counter_class = env->FindClass(
       "com/google/devtools/build/lib/profiler/"
-      "SystemNetworkStatsService$NetIoCounter");
+      "SystemNetworkStatsServiceImpl$NetIoCounterImpl");
   jmethodID counter_create =
       env->GetStaticMethodID(counter_class, "create",
                              "(JJJJ)Lcom/google/devtools/build/lib/profiler/"

@@ -51,7 +51,7 @@ py_library(
 py_library(
     name = "base",
     srcs = [
-        "types.py",
+        "ctexplain_types.py",
         "util.py",
     ],
     srcs_version = "PY3ONLY",

@@ -20,12 +20,13 @@ import static com.google.devtools.build.lib.bazel.repository.downloader.HttpPars
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
@@ -119,6 +120,27 @@ public class HttpConnectorTest {
     thrown.expect(IOException.class);
     thrown.expectMessage("Unknown host: bad.example");
     connector.connect(URI.create("http://bad.example"), url -> ImmutableMap.of());
+  }
+
+  @Test
+  public void requestHeadersFailure_doesNotConnectOrRetry() throws Exception {
+    IOException headerFailure = new IOException("credential helper failed");
+    AtomicInteger calls = new AtomicInteger();
+
+    IOException thrown =
+        assertThrows(
+            IOException.class,
+            () ->
+                connector.connect(
+                    URI.create("http://test.example"),
+                    url -> {
+                      calls.incrementAndGet();
+                      throw headerFailure;
+                    }));
+
+    assertThat(thrown).isSameInstanceAs(headerFailure);
+    assertThat(calls.get()).isEqualTo(1);
+    verifyNoInteractions(proxyHelper);
   }
 
   @Test
@@ -698,17 +720,14 @@ public class HttpConnectorTest {
               });
       // Header function that provides different auth headers for
       // the two servers.
-      Function<URI, ImmutableMap<String, List<String>>> authHeaders =
-          new Function<>() {
-            @Override
-            public ImmutableMap<String, List<String>> apply(URI url) {
-              if (url.getPort() == server1.getLocalPort()) {
-                return ImmutableMap.of("Authentication", ImmutableList.of(basic1));
-              } else if (url.getPort() == server2.getLocalPort()) {
-                return ImmutableMap.of("Authentication", ImmutableList.of(basic2));
-              } else {
-                return ImmutableMap.of();
-              }
+      HttpConnector.RequestHeadersProvider authHeaders =
+          url -> {
+            if (url.getPort() == server1.getLocalPort()) {
+              return ImmutableMap.of("Authentication", ImmutableList.of(basic1));
+            } else if (url.getPort() == server2.getLocalPort()) {
+              return ImmutableMap.of("Authentication", ImmutableList.of(basic2));
+            } else {
+              return ImmutableMap.of();
             }
           };
       URLConnection connection =

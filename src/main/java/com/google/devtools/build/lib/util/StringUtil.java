@@ -19,9 +19,31 @@ import com.google.common.collect.Iterables;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Locale;
+import javax.annotation.Nullable;
 
 /** Various utility methods operating on strings. */
 public class StringUtil {
+
+  /**
+   * Formats a hierarchical error message by indenting {@code childMessage} under {@code prefix}.
+   *
+   * <p>If {@code childMessage} is null or blank, returns {@code prefix}. Otherwise, returns:
+   *
+   * <pre>
+   * prefix:
+   *   [childMessage indented by 2 spaces per line]
+   * </pre>
+   */
+  public static String formatNested(String prefix, @Nullable String childMessage) {
+    if (childMessage == null || childMessage.isBlank()) {
+      return prefix;
+    }
+    String normalizedPrefix = prefix.stripTrailing();
+    if (normalizedPrefix.endsWith(":")) {
+      normalizedPrefix = normalizedPrefix.substring(0, normalizedPrefix.length() - 1);
+    }
+    return normalizedPrefix + ":\n" + childMessage.strip().indent(2).stripTrailing();
+  }
 
   /**
    * IEEE-style threshold for using thousands separators. Numbers with 5+ digits (>= 10,000) get

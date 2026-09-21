@@ -17,11 +17,11 @@ import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 
 /** A task that was very slow. */
 @SkybridgeInterface
-public record SlowTask(long durationNanos, String description, ProfilerTask type)
-    implements Comparable<SlowTask> {
+@SuppressWarnings("GoodTime")
+public interface SlowTask extends Comparable<SlowTask> {
+  long durationNanos();
 
-  @Override
-  public int compareTo(SlowTask other) {
-    return Long.compare(durationNanos(), other.durationNanos());
-  }
+  String description();
+
+  ProfilerTask type();
 }

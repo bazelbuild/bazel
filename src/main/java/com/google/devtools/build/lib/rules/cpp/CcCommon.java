@@ -19,12 +19,8 @@ import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import java.util.regex.Pattern;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkSemantics;
-import net.starlark.java.eval.StarlarkValue;
 
 /** Common parts of the implementation of cc rules. */
 public final class CcCommon {
@@ -98,52 +94,6 @@ public final class CcCommon {
     }
   }
 
-  /** A filter that removes copts from a c++ compile action according to a nocopts regex. */
-  public static final class CoptsFilter implements StarlarkValue {
-    private final Pattern noCoptsPattern;
-    private final boolean allPasses;
-
-    private CoptsFilter(Pattern noCoptsPattern, boolean allPasses) {
-      this.noCoptsPattern = noCoptsPattern;
-      this.allPasses = allPasses;
-    }
-
-    /** Creates a filter that filters all matches to a regex. */
-    public static CoptsFilter fromRegex(Pattern noCoptsPattern) {
-      return new CoptsFilter(noCoptsPattern, false);
-    }
-
-    /** Creates a filter that passes on all inputs. */
-    public static CoptsFilter alwaysPasses() {
-      return new CoptsFilter(null, true);
-    }
-
-    /**
-     * Returns true if the provided string passes through the filter, or false if it should be
-     * removed.
-     */
-    public boolean passesFilter(String flag) {
-      if (allPasses) {
-        return true;
-      } else {
-        return !noCoptsPattern.matcher(flag).matches();
-      }
-    }
-
-    @Override
-    public boolean isImmutable() {
-      return true;
-    }
-
-    @Override
-    public void repr(Printer printer, StarlarkSemantics semantics) {
-      printer.append("CoptsFilter(noCoptsPattern=");
-      printer.append(noCoptsPattern == null ? "null" : noCoptsPattern.pattern());
-      printer.append(", allPasses=");
-      printer.append(Boolean.toString(allPasses));
-      printer.append(")");
-    }
-  }
 
   private static ImmutableList<String> getCoverageFeatures(CppConfiguration cppConfiguration) {
     ImmutableList.Builder<String> coverageFeatures = ImmutableList.builder();

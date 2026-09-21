@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper.BasicActionInput;
@@ -27,11 +29,16 @@ import com.google.devtools.build.lib.actions.CommandLine.SimpleArgChunk;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
 import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.VirtualActionInput;
 import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Objects;
@@ -88,17 +95,23 @@ public final class StrippingPathMapper implements PathMapper {
   private final PathFragment outputRoot;
   private final String mnemonic;
   private final boolean isStarlarkAction;
+  private final boolean supportsHeuristicPathMapping;
   private final boolean isJavaAction;
   private final ExceptionlessMapFn<Object> structuredArgStripper;
   private final StringStripper argStripper;
   private final ArtifactRoot outputArtifactRoot;
   private final MappedArtifactRoot strippedOutputArtifactRoot;
 
-  private StrippingPathMapper(Artifact primaryOutput, String mnemonic, boolean isStarlarkAction) {
+  private StrippingPathMapper(
+      Artifact primaryOutput,
+      String mnemonic,
+      boolean isStarlarkAction,
+      boolean supportsHeuristicPathMapping) {
     // This is expected to always be "(bazel|blaze)-out".
     this.outputRoot = primaryOutput.getExecPath().subFragment(0, 1);
     this.mnemonic = mnemonic;
     this.isStarlarkAction = isStarlarkAction;
+    this.supportsHeuristicPathMapping = supportsHeuristicPathMapping;
     this.argStripper = new StringStripper(outputRoot.getPathString());
     this.structuredArgStripper =
         (object, args) -> {
@@ -127,19 +140,34 @@ public final class StrippingPathMapper implements PathMapper {
    *
    * @param action the action to potentially strip paths from
    * @param isStarlarkAction whether the action is a Starlark action
+   * @param inputMetadataProvider provider to verify colliding inputs have identical digests
    * @return a {@link StrippingPathMapper} if the action supports it, else {@link Optional#empty()}.
    */
-  static Optional<PathMapper> tryCreate(AbstractAction action, boolean isStarlarkAction) {
+  static Optional<PathMapper> tryCreate(
+      AbstractAction action,
+      boolean isStarlarkAction,
+      @Nullable InputMetadataProvider inputMetadataProvider) {
     PathFragment outputRoot = action.getPrimaryOutput().getExecPath().subFragment(0, 1);
-    // Additional artifacts to map are not part of the action's inputs, but may still lead to
-    // path collisions after stripping. It is thus important to include them in this check.
     if (isPathStrippable(
         Iterables.concat(
-            action.getInputs().toList(), action.getAdditionalArtifactsForPathMapping().toList()),
-        outputRoot)) {
+            action.getInputs().toList(),
+            action.getAdditionalArtifactsForPathMapping().toList(),
+            action.discoversInputs()
+                ? action.getAllowedDerivedInputs().toList()
+                : ImmutableSet.of(),
+            action.getOutputs()),
+        outputRoot,
+        inputMetadataProvider)) {
+      boolean supportsHeuristicPathMapping =
+          action
+              .getExecutionInfo()
+              .containsKey(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING);
       return Optional.of(
           new StrippingPathMapper(
-              action.getPrimaryOutput(), action.getMnemonic(), isStarlarkAction));
+              action.getPrimaryOutput(),
+              action.getMnemonic(),
+              isStarlarkAction,
+              supportsHeuristicPathMapping));
     }
     return Optional.empty();
   }
@@ -170,7 +198,17 @@ public final class StrippingPathMapper implements PathMapper {
     if (!isStarlarkAction) {
       return chunk;
     }
-    // Add your favorite Starlark mnemonic that needs custom arg processing here.
+
+    // Actions opted into heuristic path mapping have all arguments containing output
+    // paths stripped, regardless of flag names or argument position.
+    if (supportsHeuristicPathMapping) {
+      Iterable<String> args = chunk.arguments(this);
+      return new SimpleArgChunk(
+          () -> Iterators.transform(args.iterator(), this::stripIfOutputPath));
+    }
+
+    // Legacy fallback: for specific Android/Java mnemonics, strip only argument values
+    // that immediately follow a hardcoded set of known flags (e.g. --mainData, --resources).
     if (!mnemonic.contains("Android")
         && !mnemonic.equals("MergeManifests")
         && !mnemonic.equals("StarlarkRClassGenerator")
@@ -186,6 +224,13 @@ public final class StrippingPathMapper implements PathMapper {
     return new SimpleArgChunk(() -> new CustomStarlarkArgsIterator(args.iterator(), argStripper));
   }
 
+  private String stripIfOutputPath(String arg) {
+    if (arg.contains(outputRoot.getPathString())) {
+      return argStripper.strip(arg);
+    }
+    return arg;
+  }
+
   @Override
   public ExceptionlessMapFn<Object> getMapFn(@Nullable String previousFlag) {
     if (isJavaAction) {
@@ -197,9 +242,18 @@ public final class StrippingPathMapper implements PathMapper {
     return MapFn.DEFAULT;
   }
 
+  /**
+   * Heuristically maps all path-like strings in the given argument by replacing output root path
+   * segments with the fixed configuration segment.
+   */
   @Override
   public String mapHeuristically(String arg) {
-    return argStripper.strip(arg);
+    return stripIfOutputPath(arg);
+  }
+
+  @Override
+  public String mapString(String arg) {
+    return supportsHeuristicPathMapping ? mapHeuristically(arg) : arg;
   }
 
   @Override
@@ -345,18 +399,18 @@ public final class StrippingPathMapper implements PathMapper {
    * <p>This is distinct from whether we <b>should</b> strip it. An action is stripped if a) the
    * action is explicitly supported (see {@link PathMappers#SUPPORTED_MNEMONICS}) and b) it's safe
    * to do that (for example, the action doesn't have two inputs in different configurations that
-   * would resolve to the same path if prefixes were removed).
+   * would resolve to the same path if prefixes were removed and have different content).
+   *
+   * <p>Collisions between inputs from different configurations that map to the same root-relative
+   * path are allowed if they have the same file digest.
    *
    * <p>This method checks b).
    */
-  private static boolean isPathStrippable(
-      Iterable<? extends ActionInput> actionInputs, PathFragment outputRoot) {
-    // For qualifying action types, check that no inputs or outputs would clash if config segments
-    // were removed, e.g. "bazel-out/k8-fastbuild/bin/foo" and
-    // "bazel-out/k8-fastbuild-ST-1234/bin/foo".
-    //
-    // A more clever algorithm could remap these with custom prefixes - "bazel-out/1/bin/foo" and
-    // "bazel-out/2/bin/foo" - if experience shows that would help.
+  @VisibleForTesting
+  static boolean isPathStrippable(
+      Iterable<? extends ActionInput> actionInputs,
+      PathFragment outputRoot,
+      @Nullable InputMetadataProvider inputMetadataProvider) {
     HashMap<PathFragment, ActionInput> rootRelativePaths = new HashMap<>();
     for (ActionInput input : actionInputs) {
       if (!isOutputPath(input, outputRoot)) {
@@ -367,16 +421,37 @@ public final class StrippingPathMapper implements PathMapper {
       // Extract root-relative path after the configuration segment.
       // For "bazel-out/k8-fastbuild/bin/foo/bar", get "bin/foo/bar".
       PathFragment rootRelativePath = execPath.subFragment(configIndex + 1);
-      if (!rootRelativePaths.computeIfAbsent(rootRelativePath, k -> input).equals(input)) {
+      ActionInput previous = rootRelativePaths.computeIfAbsent(rootRelativePath, k -> input);
+      if (!previous.equals(input) && !haveSameDigest(previous, input, inputMetadataProvider)) {
         return false;
       }
     }
     return true;
   }
 
-  /*
-   * Strips the configuration prefix from an output artifact's exec path.
-   */
+  /** Returns true if the two inputs have the same file digest. */
+  private static boolean haveSameDigest(
+      ActionInput a, ActionInput b, @Nullable InputMetadataProvider inputMetadataProvider) {
+    if (inputMetadataProvider == null) {
+      return false;
+    }
+    try {
+      FileArtifactValue metadataA = inputMetadataProvider.getInputMetadata(a);
+      FileArtifactValue metadataB = inputMetadataProvider.getInputMetadata(b);
+      if (metadataA == null || metadataB == null) {
+        return false;
+      }
+      byte[] digestA = metadataA.getDigest();
+      byte[] digestB = metadataB.getDigest();
+      if (digestA == null || digestB == null) {
+        return false;
+      }
+      return Arrays.equals(digestA, digestB);
+    } catch (IOException e) {
+      return false;
+    }
+  }
+
   private static PathFragment strip(PathFragment execPath) {
     int configIndex = getConfigSegmentIndex(execPath);
     return execPath

@@ -14,8 +14,13 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.common.base.Throwables;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -27,9 +32,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 /** Context for compiling Java files. */
 public class JavaCompileActionContext implements ActionContext {
@@ -37,15 +40,17 @@ public class JavaCompileActionContext implements ActionContext {
   // TODO(djasper): Investigate caching across builds.
   private final ConcurrentHashMap<Artifact, Deps.Dependencies> cache = new ConcurrentHashMap<>();
 
-  private final ExecutorService executor =
-      Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("jdeps-reader-", 0).factory());
+  private final ListeningExecutorService executor =
+      MoreExecutors.listeningDecorator(
+          Executors.newThreadPerTaskExecutor(
+              Thread.ofVirtual().name("jdeps-reader-", 0).factory()));
 
   void addDependencies(
       ImmutableList<Artifact> jdepsFiles,
       ActionExecutionContext actionExecutionContext,
       Set<String> deps)
       throws IOException, InterruptedException {
-    List<Future<Deps.Dependencies>> uncached = new ArrayList<>();
+    List<ListenableFuture<Deps.Dependencies>> uncached = new ArrayList<>();
     for (Artifact jdepsFile : jdepsFiles) {
       // Reading a jdeps file is potentially expensive, e.g. when we have to download an input with
       // actionFS, so we use an ExecutorService instead of computeIfAbsent here. The downside is
@@ -62,18 +67,38 @@ public class JavaCompileActionContext implements ActionContext {
       }
     }
 
-    for (Future<Deps.Dependencies> future : uncached) {
+    // Wait for every read to finish, even after one fails, so that the full set of lost jdeps files
+    // can be discovered by RemoteActionFileSystem (if used).
+    try {
+      Futures.whenAllComplete(uncached).run(() -> {}, directExecutor()).get();
+    } catch (ExecutionException e) {
+      // whenAllComplete never completes exceptionally.
+      throw new IllegalStateException(e);
+    }
+
+    IOException ioException = null;
+    for (ListenableFuture<Deps.Dependencies> future : uncached) {
       Deps.Dependencies result;
       try {
-        result = future.get();
+        result = Futures.getDone(future);
       } catch (ExecutionException e) {
-        Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
+        if (e.getCause() instanceof IOException cause) {
+          if (ioException == null) {
+            ioException = cause;
+          } else {
+            ioException.addSuppressed(cause);
+          }
+          continue;
+        }
         throw new IllegalStateException(e);
       }
 
       for (Deps.Dependency dep : result.getDependencyList()) {
         deps.add(dep.getPath());
       }
+    }
+    if (ioException != null) {
+      throw ioException;
     }
   }
 

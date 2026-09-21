@@ -89,6 +89,9 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
 import io.grpc.Server;
+import io.grpc.ServerCall;
+import io.grpc.ServerCallHandler;
+import io.grpc.ServerInterceptor;
 import io.grpc.ServerInterceptors;
 import io.grpc.Status;
 import io.grpc.inprocess.InProcessChannelBuilder;
@@ -105,6 +108,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -359,6 +363,41 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
         "--bes_results_url=http://results-ui/");
     events.assertContainsEventsInOrder(
         "Streaming build results to: http://results-ui/", "Found 0 targets", "Found 0 targets");
+  }
+
+  @Test
+  public void testReportsBesResultsUrlWithTerminalOptions(
+      @TestParameter({"yes", "no", "auto"}) String color,
+      @TestParameter({"yes", "no", "auto"}) String terminalHyperlinks,
+      @TestParameter boolean isatty)
+      throws Exception {
+    String invocationId = "00000000-0000-0000-0000-000000000000";
+    runBuildWithOptions(
+        "--color=" + color,
+        "--terminal_hyperlinks=" + terminalHyperlinks,
+        "--isatty=" + (isatty ? "1" : "0"),
+        "--invocation_id=" + invocationId,
+        "--bes_backend=inprocess",
+        "--bes_upload_mode=FULLY_ASYNC",
+        "--bes_results_url=http://results-ui/");
+
+    boolean useColor = color.equals("yes") || (color.equals("auto") && isatty);
+    String url = "http://results-ui/" + invocationId;
+    String expectedUrl = url;
+    if (terminalHyperlinks.equals("yes")
+        || (terminalHyperlinks.equals("auto") && useColor && isatty)) {
+      expectedUrl = "\u001B]8;;" + url + "\u001B\\" + url + "\u001B]8;;\u001B\\";
+    }
+    if (useColor) {
+      expectedUrl = "\u001B[36m" + expectedUrl + "\u001B[0m";
+    }
+    String expectedMessage = "Streaming build results to: " + expectedUrl;
+    events.assertContainsEventsInOrder(expectedMessage, "Found 0 targets", "Found 0 targets");
+
+    afterBuildCommand();
+
+    events.assertContainsEventsInOrder(
+        expectedMessage, "Found 0 targets", "Found 0 targets", expectedMessage, expectedMessage);
   }
 
   @Test
@@ -907,6 +946,61 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
         .containsExactly(
             TestConstants.PRODUCT_NAME + " is crashing: Crashed: (java.lang.OutOfMemoryError) ");
     assertAndClearBugReporterStoredCrash(OutOfMemoryError.class);
+  }
+
+  @Test
+  public void getBesClient_credentialHelperUsesStaleClientEnvAfterTokenRotation() throws Exception {
+    // Write a credential helper that reads MY_TOKEN from its env and returns it as a header.
+    Path helperPath = tmpFolder.newFile("cred_helper.sh").toPath();
+    Files.writeString(
+        helperPath,
+        """
+        #!/usr/bin/env bash
+        cat /dev/stdin > /dev/null
+        echo "{\\"headers\\":{\\"x-my-token\\":[\\"$MY_TOKEN\\"]}}"
+        """);
+    helperPath.toFile().setExecutable(true);
+
+    // Intercept headers arriving at the fake BES server.
+    List<String> observedTokens = new ArrayList<>();
+    var headerInterceptor =
+        new ServerInterceptor() {
+          @Override
+          public <Req, Resp> ServerCall.Listener<Req> interceptCall(
+              ServerCall<Req, Resp> call, Metadata headers, ServerCallHandler<Req, Resp> next) {
+            String token =
+                headers.get(Metadata.Key.of("x-my-token", Metadata.ASCII_STRING_MARSHALLER));
+            if (token != null) {
+              observedTokens.add(token);
+            }
+            return next.startCall(call, headers);
+          }
+        };
+    serviceRegistry.addService(
+        ServerInterceptors.intercept(
+            buildEventService,
+            new TracingMetadataUtils.ServerHeadersInterceptor(),
+            headerInterceptor));
+
+    // Build 1: token-1 in client env.
+    addOptions(
+        "--bes_backend=inprocess",
+        "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE",
+        "--credential_helper=" + helperPath,
+        "--credential_helper_cache_duration=0s", // disable caching so helper is called every RPC
+        "--client_env=MY_TOKEN=token-1");
+    runBuildWithOptions();
+    afterBuildCommand();
+    observedTokens.clear();
+
+    // Build 2: same config, token rotated to token-2.
+    addOptions("--client_env=MY_TOKEN=token-2");
+    runBuildWithOptions();
+    afterBuildCommand();
+
+    assertThat(observedTokens).isNotEmpty();
+    assertThat(observedTokens)
+        .containsExactlyElementsIn(Collections.nCopies(observedTokens.size(), "token-2"));
   }
 
   @Test

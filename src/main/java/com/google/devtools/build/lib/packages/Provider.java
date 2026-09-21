@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.packages;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.util.Fingerprint;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.TypeContext;
 
 /**
  * Declared Provider (a constructor for {@link Info}).
@@ -32,10 +34,16 @@ import net.starlark.java.syntax.Location;
  * <p>Prefer to use {@link Key} as a serializable identifier of {@link Provider}. In particular,
  * {@link Key} should be used in all data structures exposed to Skyframe.
  */
+// TODO: #27370 - the StarlarkType of Provider must be made assignable to both Callable and Type.
 @Immutable
 public interface Provider extends ProviderApi {
 
   @Override
+  public default boolean hasInstance(
+      Object value, StarlarkSemantics semantics, TypeContext typeContext) {
+    return hasInstance(value);
+  }
+
   public default boolean hasInstance(Object value) {
     if (value instanceof Info info) {
       return info.getProvider().equals(this);
@@ -63,9 +71,7 @@ public interface Provider extends ProviderApi {
     return String.format("'%s' value has no field or method '%s'", getPrintableName(), name);
   }
 
-  /**
-   * Returns the location at which provider was defined.
-   */
+  /** Returns the location at which provider was defined. */
   Location getLocation();
 
   /** A serializable and fingerprintable representation of {@link Provider}. */

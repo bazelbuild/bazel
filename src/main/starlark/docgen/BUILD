@@ -1,6 +1,6 @@
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//visibility:public"],
 )
 
 filegroup(
@@ -13,6 +13,7 @@ filegroup(
 starlark_doc_extract(
     name = "gen_be_proto_stardoc_proto",
     src = "proto.bzl",
+    tags = ["manual"],
     deps = [
         "@com_google_protobuf//bazel:cc_proto_library_bzl",
         "@com_google_protobuf//bazel:java_lite_proto_library_bzl",
@@ -31,6 +32,7 @@ starlark_doc_extract(
 starlark_doc_extract(
     name = "gen_be_java_stardoc_proto",
     src = "java.bzl",
+    tags = ["manual"],
     deps = [
         "@com_google_protobuf//bazel/common:proto_info_bzl",
         "@rules_cc//cc:core_rules",
@@ -42,6 +44,7 @@ starlark_doc_extract(
 starlark_doc_extract(
     name = "gen_be_cpp_stardoc_proto",
     src = "cpp.bzl",
+    tags = ["manual"],
     deps = [
         "@rules_cc//cc:core_rules",
         "@rules_cc//cc/toolchains:toolchain_rules",
@@ -51,6 +54,7 @@ starlark_doc_extract(
 starlark_doc_extract(
     name = "gen_be_objc_stardoc_proto",
     src = "objc.bzl",
+    tags = ["manual"],
     deps = [
         "@rules_cc//cc:core_rules",
         # Workaround missing deps, can be removed once fixed in rules_cc
@@ -64,6 +68,7 @@ starlark_doc_extract(
 starlark_doc_extract(
     name = "gen_be_python_stardoc_proto",
     src = "python.bzl",
+    tags = ["manual"],
     deps = [
         "@com_google_protobuf//bazel:cc_proto_library_bzl",  # Because rules_python are using @rules_cc//cc:defs.bzl
         "@rules_cc//cc/common",
@@ -78,5 +83,6 @@ starlark_doc_extract(
 starlark_doc_extract(
     name = "gen_be_shell_stardoc_proto",
     src = "sh.bzl",
+    tags = ["manual"],
     deps = ["@rules_shell//shell:rules_bzl"],
 )

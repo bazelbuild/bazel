@@ -33,6 +33,7 @@
 #include <mutex>  // NOLINT
 #include <set>
 #include <sstream>
+#include <string>
 #include <thread>       // NOLINT (to silence Google-internal linter)
 #include <type_traits>  // static_assert
 #include <utility>
@@ -54,6 +55,7 @@
 #include "src/main/native/windows/file.h"
 #include "src/main/native/windows/process.h"
 #include "src/main/native/windows/util.h"
+#include "absl/time/time.h"
 
 namespace blaze {
 
@@ -306,7 +308,8 @@ BOOL WINAPI ConsoleCtrlHandler(_In_ DWORD ctrlType) {
         if (SignalHandler::Get().GetServerProcessInfo()->server_pid_ != -1) {
           KillServerProcess(
               SignalHandler::Get().GetServerProcessInfo()->server_pid_,
-              SignalHandler::Get().GetOutputBase());
+              SignalHandler::Get().GetOutputBase(),
+              /*from_signal_handler=*/true);
         }
         _exit(1);
       }
@@ -325,11 +328,13 @@ BOOL WINAPI ConsoleCtrlHandler(_In_ DWORD ctrlType) {
 void SignalHandler::Install(const string& product_name,
                             const blaze_util::Path& output_base,
                             const ServerProcessInfo* server_process_info,
-                            SignalHandler::Callback cancel_server) {
+                            SignalHandler::Callback cancel_server,
+                            SignalHandler::Callback terminal_size_changed) {
   product_name_ = product_name;
   output_base_ = output_base;
   server_process_info_ = server_process_info;
   cancel_server_ = cancel_server;
+  terminal_size_changed_ = terminal_size_changed;
   ::SetConsoleCtrlHandler(&ConsoleCtrlHandler, TRUE);
 }
 
@@ -377,7 +382,16 @@ string GetSelfPath(const char* argv0) {
 }
 
 string GetCacheDir() {
-  string home = GetHomeDir();
+  // Respect $XDG_CACHE_HOME if set, for consistency with Linux / macOS and
+  // to provide a uniform way to configure caches in CI environments without
+  // explicitly setting --output_user_root.
+  //
+  // See https://github.com/bazelbuild/bazel/issues/27808
+  const string xdg_cache_home = GetPathEnv("XDG_CACHE_HOME");
+  if (!xdg_cache_home.empty()) {
+    return blaze_util::JoinPath(xdg_cache_home, "bazel");
+  }
+  const string home = GetHomeDir();
   if (home.empty()) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Cannot find a good output root.\n"
@@ -452,12 +466,13 @@ bool IsSharedLibrary(const string& filename) {
 string GetSystemJavabase() {
   string javahome(GetPathEnv("JAVA_HOME"));
   if (!javahome.empty()) {
-    string javac = blaze_util::JoinPath(javahome, "bin/javac.exe");
-    if (blaze_util::PathExists(javac.c_str())) {
+    string java = blaze_util::JoinPath(javahome, "bin/java.exe");
+    if (blaze_util::PathExists(java.c_str())) {
       return javahome;
     }
     BAZEL_LOG(WARNING)
-        << "Ignoring JAVA_HOME, because it must point to a JDK, not a JRE.";
+        << "Ignoring JAVA_HOME, because it does not contain a bin/java.exe "
+           "executable.";
   }
 
   return "";
@@ -834,7 +849,15 @@ bool VerifyServerProcess(int pid, const blaze_util::Path& output_base) {
          recorded_start_time == blaze_util::ToString(start_time);
 }
 
-bool KillServerProcess(int pid, const blaze_util::Path& output_base) {
+std::string ParseProcStatDiagnosis(absl::string_view /*statline*/,
+                                   int /*pid*/) {
+  return "";
+}
+
+std::string GetProcessTerminationDiagnosis(int /*pid*/) { return ""; }
+
+bool KillServerProcess(int pid, const blaze_util::Path& output_base,
+                       bool from_signal_handler) {
   AutoHandle process(::OpenProcess(
       PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid));
   DWORD exitcode = 0;
@@ -846,12 +869,21 @@ bool KillServerProcess(int pid, const blaze_util::Path& output_base) {
   }
 
   BOOL result = TerminateProcess(process, /*uExitCode*/ 0);
-  if (!result || !AwaitServerProcessTermination(pid, output_base,
-                                                kPostKillGracePeriodSeconds)) {
+  if (!result || !AwaitServerProcessTermination(
+                     pid, output_base, kPostKillGracePeriodSeconds,
+                     TerminationReason::kKillSignal)) {
     string err = GetLastErrorString();
+    string diagnosis;
+    if (!from_signal_handler) {
+      diagnosis = GetProcessTerminationDiagnosis(pid);
+      if (!diagnosis.empty()) {
+        diagnosis = " Diagnosis: " + diagnosis;
+      }
+    }
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Cannot terminate server process with PID " << pid
-        << ", output_base=(" << output_base.AsPrintablePath() << "): " << err;
+        << ", output_base=(" << output_base.AsPrintablePath() << "): " << err
+        << diagnosis;
   }
   return result;
 }
@@ -1105,7 +1137,8 @@ static bool StillExists(HANDLE handle, const string& name) {
 std::pair<LockHandle, DurationMillis> AcquireLock(const std::string& name,
                                                   const blaze_util::Path& path,
                                                   LockMode mode,
-                                                  bool batch_mode, bool block) {
+                                                  bool batch_mode,
+                                                  absl::Duration timeout) {
   const uint64_t start_time = GetMillisecondsMonotonic();
   bool multiple_attempts = false;
 
@@ -1156,22 +1189,36 @@ std::pair<LockHandle, DurationMillis> AcquireLock(const std::string& name,
 
     if (!multiple_attempts) {
       BAZEL_LOG(USER) << "Another command holds the " << name << " lock.";
-      if (block) {
-        BAZEL_LOG(USER) << "Waiting for it to complete...";
-      }
-      fflush(stderr);
     }
 
-    if (!block) {
+    if (timeout <= absl::ZeroDuration()) {
       BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
           << "Exiting because the " << name
           << " lock is held and --noblock_for_lock was given.";
     }
 
-    multiple_attempts = true;
+    DWORD sleep_ms = 500;
+    if (timeout != absl::InfiniteDuration()) {
+      const uint64_t elapsed = GetMillisecondsMonotonic() - start_time;
+      const uint64_t timeout_ms = absl::ToInt64Milliseconds(timeout);
+      if (elapsed >= timeout_ms) {
+        BAZEL_DIE(blaze_exit_code::LOCK_HELD_NOBLOCK_FOR_LOCK)
+            << "Exiting because the " << name
+            << " lock is held and --block_for_lock=" << timeout_ms
+            << "ms timeout expired.";
+      }
+      sleep_ms =
+          static_cast<DWORD>(std::min<uint64_t>(500ULL, timeout_ms - elapsed));
+    }
 
+    if (!multiple_attempts) {
+      BAZEL_LOG(USER) << "Waiting for it to complete...";
+      fflush(stderr);
+    }
+
+    multiple_attempts = true;
     CloseHandle(handle);
-    Sleep(/* dwMilliseconds */ 500);
+    Sleep(/* dwMilliseconds */ sleep_ms);
   }
 }
 
@@ -1196,25 +1243,28 @@ string GetUserName() {
   // Check USER, for sake of consistency with Linux / macOS. This is only set
   // under MSYS2, or potentially in tests.
   string user = GetEnv("USER");
-  if (!user.empty()) {
-    return user;
+  if (user.empty()) {
+    // Check USERNAME before calling GetUserNameW. Doing so allows the user to
+    // customize (or override) the user name.
+    // See
+    // https://github.com/bazelbuild/bazel/issues/7819#issuecomment-533050947
+    user = GetEnv("USERNAME");
   }
-
-  // Check USERNAME before calling GetUserNameW. Doing so allows the user to
-  // customize (or override) the user name.
-  // See https://github.com/bazelbuild/bazel/issues/7819#issuecomment-533050947
-  user = GetEnv("USERNAME");
-  if (!user.empty()) {
-    return user;
+  if (user.empty()) {
+    WCHAR buffer[UNLEN + 1];
+    DWORD len = UNLEN + 1;
+    if (!::GetUserNameW(buffer, &len)) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "GetUserNameW failed: " << GetLastErrorString();
+    }
+    user = blaze_util::WstringToCstring(buffer);
   }
-
-  WCHAR buffer[UNLEN + 1];
-  DWORD len = UNLEN + 1;
-  if (!::GetUserNameW(buffer, &len)) {
-    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "GetUserNameW failed: " << GetLastErrorString();
-  }
-  return blaze_util::WstringToCstring(buffer);
+  // Replace slashes and backslashes with underscores so that usernames like
+  // "DOMAIN\\user" or "foo/bar" do not cause issues in paths (e.g.
+  // output_user_root). See https://github.com/bazelbuild/bazel/issues/20289
+  std::replace(user.begin(), user.end(), '/', '_');
+  std::replace(user.begin(), user.end(), '\\', '_');
+  return user;
 }
 
 bool IsEmacsTerminal() {

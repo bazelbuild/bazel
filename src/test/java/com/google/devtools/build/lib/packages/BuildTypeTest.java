@@ -672,6 +672,49 @@ public final class BuildTypeTest {
   }
 
   @Test
+  public void starlarkMapCopyAndGetStarlarkDefault_preserveNoneValue() throws Exception {
+    SelectorValue selectorWithNone =
+        new SelectorValue(
+            ImmutableMap.of(
+                "//conditions:default",
+                Starlark.NONE,
+                "//foo:bar",
+                StarlarkList.of(null, "//tools/cpp:link_extra_lib")),
+            "");
+    Object converted =
+        BuildType.selectableConvert(
+            BuildType.LABEL_LIST,
+            SelectorList.of(selectorWithNone),
+            null,
+            labelConverter,
+            /* simplifyUnconditionalSelects= */ false);
+    BuildType.SelectorList<?> selectorList = (BuildType.SelectorList<?>) converted;
+    BuildType.Selector<?> selector = selectorList.getSelectors().get(0);
+
+    assertThat(selector.starlarkMapCopy())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//conditions:default"),
+            Starlark.NONE,
+            Label.parseCanonicalUnchecked("//foo:bar"),
+            ImmutableList.of(Label.parseCanonicalUnchecked("//tools/cpp:link_extra_lib")))
+        .inOrder();
+
+    SelectorValue unconditionalSelectorNone =
+        new SelectorValue(
+            ImmutableMap.of(BuildType.Selector.DEFAULT_CONDITION_KEY, Starlark.NONE), "");
+    Object unconditionalConverted =
+        BuildType.selectableConvert(
+            BuildType.LABEL_LIST,
+            SelectorList.of(unconditionalSelectorNone),
+            null,
+            labelConverter,
+            /* simplifyUnconditionalSelects= */ false);
+    BuildType.Selector<?> unconditionalSelector =
+        ((BuildType.SelectorList<?>) unconditionalConverted).getSelectors().get(0);
+    assertThat(unconditionalSelector.getStarlarkDefault()).isEqualTo(Starlark.NONE);
+  }
+
+  @Test
   public void selectableConvert_simplifyingUnconditionals_failsCleanlyOnInvalidConcatenation()
       throws Exception {
     ConversionException exception =

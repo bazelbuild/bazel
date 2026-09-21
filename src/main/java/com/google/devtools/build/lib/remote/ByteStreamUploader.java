@@ -13,11 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDigestFunction;
 import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
@@ -27,7 +25,6 @@ import com.google.bytestream.ByteStreamGrpc.ByteStreamStub;
 import com.google.bytestream.ByteStreamProto.QueryWriteStatusRequest;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Strings;
 import com.google.common.util.concurrent.AsyncCallable;
@@ -49,7 +46,6 @@ import io.grpc.stub.ClientResponseObserver;
 import io.netty.util.ReferenceCounted;
 import java.io.IOException;
 import java.util.UUID;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
@@ -65,12 +61,9 @@ final class ByteStreamUploader {
   private final String instanceName;
   private final ReferenceCountedChannel channel;
   private final CallCredentialsProvider callCredentialsProvider;
-  private final long callTimeoutSecs;
   private final RemoteRetrier retrier;
   private final DigestFunction.Value digestFunction;
   private final AtomicBoolean queryWriteStatusImplemented = new AtomicBoolean(true);
-
-  @Nullable private final Semaphore openedFilePermits;
 
   /**
    * Creates a new instance.
@@ -79,25 +72,18 @@ final class ByteStreamUploader {
    *     call. See the {@code ByteStream} service definition for details
    * @param channel the {@link io.grpc.Channel} to use for calls
    * @param callCredentialsProvider the credentials provider to use for authentication.
-   * @param callTimeoutSecs the timeout in seconds after which a {@code Write} gRPC call must be
-   *     complete. The timeout resets between retries
    * @param retrier the {@link RemoteRetrier} whose backoff strategy to use for retry timings.
    */
   ByteStreamUploader(
       @Nullable String instanceName,
       ReferenceCountedChannel channel,
       CallCredentialsProvider callCredentialsProvider,
-      long callTimeoutSecs,
       RemoteRetrier retrier,
-      int maximumOpenFiles,
       DigestFunction.Value digestFunction) {
-    checkArgument(callTimeoutSecs > 0, "callTimeoutSecs must be gt 0.");
     this.instanceName = instanceName;
     this.channel = channel;
     this.callCredentialsProvider = callCredentialsProvider;
-    this.callTimeoutSecs = callTimeoutSecs;
     this.retrier = retrier;
-    this.openedFilePermits = maximumOpenFiles != -1 ? new Semaphore(maximumOpenFiles) : null;
     this.digestFunction = digestFunction;
   }
 
@@ -169,34 +155,9 @@ final class ByteStreamUploader {
     UUID uploadId = UUID.randomUUID();
     String resourceName =
         buildUploadResourceName(instanceName, uploadId, digest, chunker.isCompressed());
-    if (openedFilePermits != null) {
-      try {
-        openedFilePermits.acquire();
-      } catch (InterruptedException e) {
-        return Futures.immediateFailedFuture(
-            new InterruptedException(
-                "Unexpected interrupt while acquiring open file permit. Original error message: "
-                    + e.getMessage()));
-      }
-    }
     AsyncUpload newUpload =
-        new AsyncUpload(
-            context,
-            channel,
-            callCredentialsProvider,
-            callTimeoutSecs,
-            retrier,
-            resourceName,
-            chunker);
-    ListenableFuture<Void> currUpload = newUpload.start();
-    currUpload.addListener(
-        () -> {
-          if (openedFilePermits != null) {
-            openedFilePermits.release();
-          }
-        },
-        MoreExecutors.directExecutor());
-    return currUpload;
+        new AsyncUpload(context, channel, callCredentialsProvider, retrier, resourceName, chunker);
+    return newUpload.start();
   }
 
   /**
@@ -213,7 +174,6 @@ final class ByteStreamUploader {
     private final RemoteActionExecutionContext context;
     private final ReferenceCountedChannel channel;
     private final CallCredentialsProvider callCredentialsProvider;
-    private final long callTimeoutSecs;
     private final Retrier retrier;
     private final String resourceName;
     private final Chunker chunker;
@@ -225,14 +185,12 @@ final class ByteStreamUploader {
         RemoteActionExecutionContext context,
         ReferenceCountedChannel channel,
         CallCredentialsProvider callCredentialsProvider,
-        long callTimeoutSecs,
         Retrier retrier,
         String resourceName,
         Chunker chunker) {
       this.context = context;
       this.channel = channel;
       this.callCredentialsProvider = callCredentialsProvider;
-      this.callTimeoutSecs = callTimeoutSecs;
       this.retrier = retrier;
       this.progressiveBackoff = new ProgressiveBackoff(retrier::newBackoff);
       this.resourceName = resourceName;
@@ -273,10 +231,18 @@ final class ByteStreamUploader {
           return;
         }
 
+        // The spec leaves the non-dedup committed_size for a compressed write
+        // underspecified, so accept the uncompressed blob size that some servers
+        // report on success.
+        if (committedSize == chunker.getUncompressedSize()) {
+          return;
+        }
+
         throw new IOException(
             format(
-                "compressed write incomplete: committed_size %d is neither -1 nor total %d - %s",
-                committedSize, expected, resourceName));
+                "compressed write incomplete: committed_size %d is neither -1, total %d, nor"
+                    + " uncompressed size %d - %s",
+                committedSize, expected, chunker.getUncompressedSize(), resourceName));
       }
 
       // Uncompressed upload failed.
@@ -314,16 +280,14 @@ final class ByteStreamUploader {
       return ByteStreamGrpc.newFutureStub(channel)
           .withInterceptors(
               TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
-          .withCallCredentials(callCredentialsProvider.getCallCredentials())
-          .withDeadlineAfter(callTimeoutSecs, SECONDS);
+          .withCallCredentials(callCredentialsProvider.getCallCredentials());
     }
 
     private ByteStreamStub bsAsyncStub(Channel channel) {
       return ByteStreamGrpc.newStub(channel)
           .withInterceptors(
               TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
-          .withCallCredentials(callCredentialsProvider.getCallCredentials())
-          .withDeadlineAfter(callTimeoutSecs, SECONDS);
+          .withCallCredentials(callCredentialsProvider.getCallCredentials());
     }
 
     private ListenableFuture<Long> query() {
@@ -449,9 +413,9 @@ final class ByteStreamUploader {
         if (Ascii.toLowerCase(e.getMessage()).contains(Ascii.toLowerCase(tooManyOpenFilesError))) {
           String newMessage =
               "An IOException was thrown because the process opened too many files. We recommend"
-                  + " setting --bep_maximum_open_remote_upload_files flag to a number lower than"
-                  + " your system default (run 'ulimit -a' for *nix-based operating systems)."
-                  + " Original error message: "
+                  + " checking your system configuration (run 'ulimit -a' for *nix-based operating"
+                  + " systems) or setting --bep_maximum_open_remote_upload_files flag for BEP"
+                  + " uploads. Original error message: "
                   + e.getMessage();
           e = new IOException(newMessage, e);
         }
@@ -472,7 +436,7 @@ final class ByteStreamUploader {
       if (finishedWriting) {
         uploadResult.set(committedSize);
       } else {
-        // Server completed succesfully before we finished writing all the data, meaning the blob
+        // Server completed successfully before we finished writing all the data, meaning the blob
         // already exists. The server is supposed to set committed_size to the size of the blob (for
         // uncompressed uploads) or -1 (for compressed uploads), but we do not verify this.
         requestObserver.cancel("server has returned early", null);
@@ -486,10 +450,5 @@ final class ByteStreamUploader {
       uploadResult.setException(
           (Status.fromThrowable(t).getCode() == Code.ALREADY_EXISTS) ? new AlreadyExists() : t);
     }
-  }
-
-  @VisibleForTesting
-  public Semaphore getOpenedFilePermits() {
-    return openedFilePermits;
   }
 }

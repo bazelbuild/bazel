@@ -234,6 +234,50 @@ public abstract class RemoteWorkerOptions extends OptionsBase {
               + " invocation id. This is useful for testing only.")
   public abstract boolean getErrorOnDuplicateDownloads();
 
+  @Option(
+      name = "action_cache_integrity_check",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If false, action results are served without checking that the blobs they reference"
+              + " are present in the CAS. This emulates remote caches that do not perform"
+              + " integrity checks and is useful for testing only.")
+  public abstract boolean getActionCacheIntegrityCheck();
+
+  @Option(
+      name = "failure_count",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If positive, the first N calls to --failure_method return UNAVAILABLE (re-armed each"
+              + " time --failure_marker_file appears). This is useful for testing only, e.g. to"
+              + " drive the remote failure circuit breaker.")
+  public abstract int getFailureCount();
+
+  @Option(
+      name = "failure_method",
+      defaultValue = "google.bytestream.ByteStream/Read",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The fully-qualified gRPC method (service/method) that --failure_count applies to. This"
+              + " is useful for testing only.")
+  public abstract String getFailureMethod();
+
+  @Option(
+      name = "failure_marker_file",
+      defaultValue = "null",
+      converter = PathFragmentConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set, --failure_count only injects failures while this file exists, and the failure"
+              + " budget re-arms each time the file (re)appears. This lets a test arm failures for"
+              + " a specific build. This is useful for testing only.")
+  public abstract PathFragment getFailureMarkerFile();
+
   private static final int MAX_JOBS = 16384;
 
   /**

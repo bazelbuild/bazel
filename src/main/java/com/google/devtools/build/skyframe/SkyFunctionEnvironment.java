@@ -850,7 +850,8 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     building = false;
   }
 
-  Set<SkyKey> getNewlyRequestedDeps() {
+  @Override
+  public Set<SkyKey> getNewlyRequestedDeps() {
     return newlyRequestedDepsValues.keySet();
   }
 
@@ -1042,14 +1043,41 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   }
 
   @Override
-  public void injectVersionForNonHermeticFunction(Version version) {
-    checkState(skyKey.functionName().getHermeticity() == FunctionHermeticity.NONHERMETIC, skyKey);
-    checkState(
-        maxTransitiveSourceVersion == null,
-        "Multiple injected versions (%s, %s) for %s",
-        maxTransitiveSourceVersion,
-        version,
-        skyKey);
+  public void injectVersion(Version version) {
+    var hermeticity = skyKey.functionName().getHermeticity();
+    switch (hermeticity) {
+      case NONHERMETIC ->
+          checkState(
+              maxTransitiveSourceVersion == null,
+              "Multiple versions (%s, %s) for %s",
+              maxTransitiveSourceVersion,
+              version,
+              skyKey);
+      case HERMETIC, SEMI_HERMETIC -> {
+        if (inErrorBubbling()) {
+          // Do nothing -- version is null during error bubbling, since SkyFunctionEnvironments will
+          // set a null MTSV anyway.
+          //
+          // See also Javadoc for SkyFunction.Environment#getMaxTransitiveSourceVersionSoFar.
+          return;
+        }
+        // It's possible, but rare, for a function to get a top-down cache hit after partially
+        // resolving its deps (and collecting a temporary MTSV), specifically under
+        // SkyKeyComputeState eviction conditions. This temporary MTSV must be less than or equal to
+        // the version that would be provided by a cache hit injected here.
+        //
+        // A higher MTSV would imply that the Skycache version is stale.
+        //
+        // It's also possible for the MTSV to be the Minimal Version during the initial evaluation
+        // and getting a top-down cache hit without resolving any dep.
+        checkState(
+            maxTransitiveSourceVersion.atMost(version),
+            "Multiple versions (%s, %s) for %s",
+            maxTransitiveSourceVersion,
+            version,
+            skyKey);
+      }
+    }
     checkNotNull(version, skyKey);
     checkState(
         !evaluatorContext.getGraphVersion().lowerThan(version),

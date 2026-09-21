@@ -72,6 +72,12 @@ message RunRequest {
   // arbitrary messages which the server may be programmed to recognize and
   // consume. Unrecognized message types are ignored.
   repeated google.protobuf.Any command_extensions = 8;
+
+  // Maximum duration in milliseconds to wait for concurrent commands to
+  // complete before aborting with an error. If not set, wait indefinitely if
+  // block_for_lock is true, or abort immediately if block_for_lock is false.
+  // If set to 0 (or <= 0), abort immediately when the lock is held.
+  optional int64 block_for_lock_timeout_ms = 10;
 }
 
 // Contains the a startup option with its source file. Uses bytes to preserve
@@ -193,6 +199,28 @@ message CancelResponse {
   string cookie = 1;
 }
 
+// Passed to CommandServer.update_terminal_size to update terminal dimensions
+// for an in-flight command.
+message TerminalSizeRequest {
+  // The client request cookie (see RunRequest.cookie).
+  string cookie = 1;
+
+  // The id of the command whose UI should use the updated terminal size.
+  string command_id = 2;
+
+  // Terminal width in columns.
+  int32 columns = 3;
+
+  // Terminal height in rows. This is not currently used by Bazel's progress UI
+  // but is included so the RPC can carry the complete terminal size.
+  int32 rows = 4;
+}
+
+message TerminalSizeResponse {
+  // The server response cookie (see RunResponse.cookie).
+  string cookie = 1;
+}
+
 // Passed to CommandServer.ping to initiate a ping request.
 message PingRequest {
   // The client request cookie (see RunRequest.cookie).
@@ -249,6 +277,9 @@ service CommandServer {
   // Cancel a currently running Bazel command. May return before the run command
   // actually terminates.
   rpc Cancel(CancelRequest) returns (CancelResponse) {}
+
+  // Updates the terminal dimensions for a currently running Bazel command.
+  rpc UpdateTerminalSize(TerminalSizeRequest) returns (TerminalSizeResponse) {}
 
   // Does not do anything. Used for liveness check.
   rpc Ping(PingRequest) returns (PingResponse) {}

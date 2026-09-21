@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.CompactSpawnLogContext;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -33,7 +34,6 @@ import com.google.devtools.build.lib.exec.ExpandedSpawnLogContext;
 import com.google.devtools.build.lib.exec.ExpandedSpawnLogContext.Encoding;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnLogContext;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -43,8 +43,10 @@ import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.util.function.Predicate;
@@ -181,6 +183,12 @@ public final class SpawnLogModule extends BlazeModule {
 
       checkNotNull(displayName);
 
+      CompressionService compressionService =
+          checkNotNull(
+              env.getRuntime().getBlazeService(CompressionService.class),
+              "expected CompressionService to be available");
+
+      XattrProvider xattrProvider = getOutputServiceAwareXattrProvider(env);
       if (executionOptions.getExecutionLogCompactFile() != null) {
         spawnLogContext =
             new CompactSpawnLogContext(
@@ -188,12 +196,10 @@ public final class SpawnLogModule extends BlazeModule {
                 displayName,
                 env.getExecRoot().asFragment(),
                 env.getWorkspaceName(),
-                env.getOptions()
-                    .getOptions(BuildLanguageOptions.class)
-                    .getExperimentalSiblingRepositoryLayout(),
                 env.getOptions().getOptions(RemoteOptions.class),
                 env.getRuntime().getFileSystem().getDigestFunction(),
-                env.getXattrProvider(),
+                xattrProvider,
+                compressionService,
                 env.getCommandId(),
                 env.getReporter(),
                 logSpawnPredicate);
@@ -214,7 +220,7 @@ public final class SpawnLogModule extends BlazeModule {
                 env.getExecRoot().asFragment(),
                 env.getOptions().getOptions(RemoteOptions.class),
                 env.getRuntime().getFileSystem().getDigestFunction(),
-                env.getXattrProvider(),
+                xattrProvider,
                 uriFuture != null,
                 logSpawnPredicate);
       }
@@ -222,6 +228,12 @@ public final class SpawnLogModule extends BlazeModule {
       env.getReporter()
           .handle(Event.error("Error while setting up the execution log: " + e.getMessage()));
     }
+  }
+
+  static XattrProvider getOutputServiceAwareXattrProvider(CommandEnvironment env) {
+    XattrProvider xattrProvider = env.getXattrProvider();
+    OutputService outputService = env.getOutputService();
+    return outputService == null ? xattrProvider : outputService.getXattrProvider(xattrProvider);
   }
 
   /**

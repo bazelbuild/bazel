@@ -94,6 +94,16 @@ public abstract class ExecutionInfoModifier {
     public String getTypeDescription() {
       return "regex=[+-]key,regex=[+-]key,...";
     }
+
+    @Override
+    public boolean starlarkConvertible() {
+      return true;
+    }
+
+    @Override
+    public String reverseForStarlark(Object converted) {
+      return ((ExecutionInfoModifier) converted).option();
+    }
   }
 
   private static ExecutionInfoModifier create(String input, ImmutableList<Expression> expressions) {
@@ -109,34 +119,58 @@ public abstract class ExecutionInfoModifier {
   }
 
   /** Checks whether the {@code executionInfoList} matches the {@code mnemonic}. */
-  public static boolean matches(
-      List<ExecutionInfoModifier> executionInfoList, boolean isAdditive, String mnemonic) {
+  public static boolean matches(List<ExecutionInfoModifier> executionInfoList, String mnemonic) {
     if (executionInfoList.isEmpty()) {
       return false;
     }
 
-    if (isAdditive) {
-      return executionInfoList.stream().anyMatch(eim -> eim.matches(mnemonic));
-    } else {
-      return executionInfoList.getLast().matches(mnemonic);
+    return executionInfoList.stream().anyMatch(eim -> eim.matches(mnemonic));
+  }
+
+  /** Checks whether applying this modifier would actually change the given map. */
+  // When --modify_execution_info is non-empty, this method helps reduce CPU/memory overhead from
+  // modifying every action's execution info map.
+  boolean wouldChange(String mnemonic, Map<String, String> executionInfo) {
+    for (Expression expr : expressions()) {
+      if (!expr.pattern().matcher(internalToUnicode(mnemonic)).matches()) {
+        continue;
+      }
+      if (expr.remove()) {
+        if (executionInfo.containsKey(expr.key())) {
+          return true;
+        }
+      } else {
+        String val = executionInfo.get(expr.key());
+        if (val == null || !val.isEmpty()) {
+          return true;
+        }
+      }
     }
+    return false;
+  }
+
+  /** Checks whether any modifier in the list would actually change the given map. */
+  public static boolean wouldChange(
+      List<ExecutionInfoModifier> executionInfoList,
+      String mnemonic,
+      Map<String, String> executionInfo) {
+    if (executionInfoList.isEmpty()) {
+      return false;
+    }
+
+    return executionInfoList.stream().anyMatch(eim -> eim.wouldChange(mnemonic, executionInfo));
   }
 
   /** Applies {@code executionInfoList} to the given {@code executionInfo}. */
   public static void apply(
       List<ExecutionInfoModifier> executionInfoList,
-      boolean isAdditive,
       String mnemonic,
       Map<String, String> executionInfo) {
     if (executionInfoList.isEmpty()) {
       return;
     }
 
-    if (isAdditive) {
-      executionInfoList.forEach(eim -> eim.apply(mnemonic, executionInfo));
-    } else {
-      executionInfoList.getLast().apply(mnemonic, executionInfo);
-    }
+    executionInfoList.forEach(eim -> eim.apply(mnemonic, executionInfo));
   }
 
   /** Modifies the given map of {@code executionInfo} to add or remove the keys for this option. */

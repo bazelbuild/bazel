@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 
 /** Helpers for serialization futures. */
@@ -45,6 +46,8 @@ public final class FutureHelpers {
       return getUninterruptibly(future);
     } catch (ExecutionException e) {
       throw asSerializationException(e.getCause());
+    } catch (CancellationException e) {
+      throw asSerializationException(e);
     }
   }
 
@@ -144,13 +147,12 @@ public final class FutureHelpers {
   }
 
   private static SerializationException asSerializationException(Throwable cause) {
-    if (cause instanceof SerializationException serializationException) {
-      return serializationException;
-    }
-    if (cause instanceof IOException) {
-      return new SerializationException("serialization I/O error", cause);
-    }
-    return new SerializationException("unexpected serialization error", cause);
+    return switch (cause) {
+      case Error error -> throw error;
+      case SerializationException serialization -> serialization;
+      case IOException io -> new SerializationException("serialization I/O error", io);
+      default -> new SerializationException("unexpected serialization error", cause);
+    };
   }
 
   private FutureHelpers() {}

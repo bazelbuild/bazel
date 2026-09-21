@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.skybridge.ScOnly;
 import com.google.devtools.build.v1.PublishBuildEventGrpc;
 import com.google.devtools.build.v1.PublishBuildEventGrpc.PublishBuildEventBlockingStub;
 import com.google.devtools.build.v1.PublishBuildEventGrpc.PublishBuildEventStub;
@@ -41,6 +42,7 @@ import java.time.Duration;
 import javax.annotation.Nullable;
 
 /** Implementation of BuildEventServiceClient that uploads data using gRPC. */
+@ScOnly
 public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
   private static final ImmutableSet<Status.Code> NON_RETRYABLE_STATUS_CODES =
       ImmutableSet.of(Status.Code.INVALID_ARGUMENT, Status.Code.PERMISSION_DENIED);
@@ -95,8 +97,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
                   TracingMetadataUtils.buildMetadata(
                       commandContext.buildId(),
                       commandContext.invocationId(),
-                      "publish_lifecycle_event",
-                      /* actionMetadata= */ null)))
+                      "publish_lifecycle_event")))
           .publishLifecycleEvent(request);
     } catch (StatusRuntimeException e) {
       Throwables.throwIfInstanceOf(Throwables.getRootCause(e), InterruptedException.class);
@@ -121,8 +122,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
                       TracingMetadataUtils.buildMetadata(
                           commandContext.buildId(),
                           commandContext.invocationId(),
-                          "publish_build_tool_event_stream",
-                          /* actionMetadata= */ null)))
+                          "publish_build_tool_event_stream")))
               .publishBuildToolEventStream(
                   new StreamObserver<PublishBuildToolEventStreamResponse>() {
                     @Override
@@ -173,11 +173,14 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
 
     @Override
     public void abortStream(AbortReason reason, @Nullable String description) {
-      Status status =
-          switch (reason) {
-            case CANCELLED -> Status.CANCELLED;
-            case FAILED_PRECONDITION -> Status.FAILED_PRECONDITION;
-          };
+      Status status;
+      if (reason == AbortReason.CANCELLED) {
+        status = Status.CANCELLED;
+      } else if (reason == AbortReason.FAILED_PRECONDITION) {
+        status = Status.FAILED_PRECONDITION;
+      } else {
+        status = Status.UNKNOWN;
+      }
       if (description != null) {
         status = status.withDescription(description);
       }

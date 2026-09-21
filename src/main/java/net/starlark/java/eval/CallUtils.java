@@ -15,6 +15,8 @@
 package net.starlark.java.eval;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.primitives.Booleans.falseFirst;
+import static java.util.Comparator.comparing;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -22,7 +24,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
-import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
@@ -124,30 +126,29 @@ public final class CallUtils {
     @Nullable TypeConstructor typeConstructor;
 
     /**
-     * The value of {@link ClassStarlarkType#getSupertypes} for this class's {@link
-     * ClassStarlarkType} if it exists (i.e. if the {@link ClassStarlarkType} is non-null); or null
-     * otherwise.
+     * The value of {@link StarlarkBuiltinAutoType#getSupertypes} for this class's {@link
+     * StarlarkBuiltinAutoType} if it exists (i.e. if the {@link StarlarkBuiltinAutoType} is
+     * non-null); or null otherwise.
      *
-     * <p>Needs to be stored outside the {@link ClassStarlarkType} to avoid circular dependencies
-     * between a {@link ClassStarlarkType} and its methods' args/returns types.
+     * <p>Needs to be stored outside the {@link StarlarkBuiltinAutoType} to avoid circular
+     * dependencies between a {@link StarlarkBuiltinAutoType} and its methods' args/returns types.
      */
-    @Nullable ImmutableList<StarlarkType> classStarlarkTypeSupertypes;
+    @Nullable ImmutableList<StarlarkType> starlarkBuiltinAutoTypeSupertypes;
   }
 
-  private static final class ClassStarlarkType extends StarlarkType {
+  private static final class StarlarkBuiltinAutoType extends StarlarkType {
+    // Invariant: a StarlarkBuiltinAutoType must not contain any pointer path to a ClassDescriptor.
     private final String name;
     private final Class<?> clazz;
-    private final BuiltinManager manager;
 
-    private ClassStarlarkType(String name, Class<?> clazz, BuiltinManager manager) {
-      this.name = name;
+    private StarlarkBuiltinAutoType(Class<?> clazz) {
+      this.name = StarlarkAnnotations.getStarlarkTypeName(clazz);
       this.clazz = clazz;
-      this.manager = manager;
     }
 
     // TODO: #28325 - Populate supertypes where possible. If a class implements eval.Sequence, its
-    // ClassStarlarkType should have `Sequence` as a supertype. The StarlarkType hierarchy should be
-    // compatible with the Java inheritance hierarchy.
+    // StarlarkBuiltinAutoType should have `Sequence` as a supertype. The StarlarkType hierarchy
+    // should be compatible with the Java inheritance hierarchy.
     static ImmutableList<StarlarkType> buildSupertypes(
         Class<?> clazz, ClassDescriptor classDescriptor) {
       ImmutableList.Builder<StarlarkType> builder = ImmutableList.builder();
@@ -156,37 +157,95 @@ public final class CallUtils {
         builder.add(classDescriptor.selfCall.getStarlarkType());
       }
       if (StarlarkAnnotations.isAssignableToStructType(clazz)) {
-        // Values of struct-like types are assignable to a struct type whose fields are the
-        // class's structfield annotated methods.
-        // TODO: #28325 - Do we need to support partial structs?
-        ImmutableMap.Builder<String, StarlarkType> fields = ImmutableMap.builder();
-        classDescriptor.methods.forEach(
-            (methodName, desc) -> {
-              if (desc.isStructField()) {
-                fields.put(methodName, desc.getStarlarkType());
-              }
-            });
-        builder.add(Types.struct(fields.buildOrThrow()));
+        if (StarlarkAnnotations.getStarlarkBuiltin(clazz).isStructType()) {
+          builder.add(Types.ANY_STRUCT);
+        } else {
+          // Values of struct-like types are assignable to a struct type whose fields are the
+          // class's structfield annotated methods.
+          // TODO: #28325 - Do we need to support partial structs?
+          ImmutableMap.Builder<String, StarlarkType> fields = ImmutableMap.builder();
+          classDescriptor.methods.forEach(
+              (methodName, desc) -> {
+                if (desc.isStructField()) {
+                  fields.put(methodName, desc.getStarlarkType());
+                }
+              });
+          builder.add(Types.struct(fields.buildOrThrow()));
+        }
       }
       return builder.build();
     }
 
     @Override
-    public ImmutableList<StarlarkType> getSupertypes() {
-      return checkNotNull(manager.getClassDescriptor(clazz).classStarlarkTypeSupertypes);
+    public ImmutableList<StarlarkType> getSupertypes(TypeContext context) {
+      return checkNotNull(context.getStarlarkBuiltinAutoTypeSupertypes(clazz));
     }
 
     @Override
     @Nullable
     public StarlarkType getField(String name, TypeContext context) {
-      @Nullable MethodDescriptor method = manager.getClassDescriptor(clazz).methods.get(name);
-      return method == null ? null : method.getStarlarkType();
+      return context.getStarlarkBuiltinFieldType(clazz, name);
     }
 
     @Override
-    public String toString() {
+    public String typeRepr() {
       return name;
     }
+  }
+
+  private static final ClassValue<StarlarkType> starlarkBuiltinAutoTypeCache =
+      new ClassValue<StarlarkType>() {
+        @Override
+        @Nullable
+        protected StarlarkType computeValue(Class<?> clazz) {
+          Class<?> parentWithStarlarkBuiltin =
+              StarlarkAnnotations.getParentWithStarlarkBuiltin(clazz);
+          if (parentWithStarlarkBuiltin == null) {
+            // Not annotated as @StarlarkBuiltin - treat as Object unless special.
+            @Nullable StarlarkType fixedStarlarkType = getFixedStarlarkType(clazz);
+            if (fixedStarlarkType != null) {
+              return fixedStarlarkType;
+            }
+            return Types.OBJECT;
+          } else if (parentWithStarlarkBuiltin != clazz) {
+            // Subclasses of a @StarlarkBuiltin class share the same auto-generated type.
+            return starlarkBuiltinAutoTypeCache.get(parentWithStarlarkBuiltin);
+          }
+
+          @Nullable StarlarkType fixedStarlarkType = getFixedStarlarkType(clazz);
+          if (fixedStarlarkType != null) {
+            return fixedStarlarkType;
+          }
+          if (!wantStarlarkBuiltinAutoType(clazz)) {
+            return null;
+          }
+          return new StarlarkBuiltinAutoType(clazz);
+        }
+      };
+
+  /**
+   * Returns the Starlark type to be used for valid Starlark values of the given class, which must
+   * have be annotated as (or have an ancestor annotated as) {@link StarlarkBuiltin} and mustn't
+   * override {@link StarlarkValue#getStarlarkType}. Returns null if the given class does not
+   * satisfy these conditions.
+   */
+  @Nullable
+  static StarlarkType getStarlarkBuiltinAutoType(Class<?> clazz) {
+    return starlarkBuiltinAutoTypeCache.get(clazz);
+  }
+
+  /**
+   * Like {@link #getStarlarkBuiltinAutoType}, but wraps the result in a reified {@link
+   * TypeConstructor} value.
+   */
+  @Nullable
+  public static TypeConstructorValue wrapStarlarkBuiltinAutoType(Class<?> clazz) {
+    @Nullable StarlarkType type = getStarlarkBuiltinAutoType(clazz);
+    if (type == null) {
+      return null;
+    }
+    return TypeConstructorValue.of(
+        Types.wrapType(StarlarkAnnotations.getStarlarkTypeName(clazz), type));
   }
 
   /**
@@ -211,35 +270,8 @@ public final class CallUtils {
           }
         };
 
-    private final ClassValue<ClassStarlarkType> classStarlarkTypeCache =
-        new ClassValue<ClassStarlarkType>() {
-          @Override
-          @Nullable
-          protected ClassStarlarkType computeValue(Class<?> clazz) {
-            if (!wantClassStarlarkType(clazz)) {
-              return null;
-            }
-            // TODO: #28325 - Use a superclass's/interface's ClassStarlarkType where it makes sense.
-            // In particular, classes sharing the same most-proximate StarlarkBuiltin and the same
-            // set of methods should share the same ClassStarlarkType.
-            @Nullable StarlarkBuiltin annotation = StarlarkAnnotations.getStarlarkBuiltin(clazz);
-            String typeName = annotation != null ? annotation.name() : clazz.getSimpleName();
-            return new ClassStarlarkType(typeName, clazz, BuiltinManager.this);
-          }
-        };
-
     private BuiltinManager(StarlarkSemantics semantics) {
       this.semantics = semantics;
-    }
-
-    /**
-     * Returns the Starlark type to be used for valid Starlark values of the given class which
-     * doesn't override {@link StarlarkValue#getStarlarkType}; or null if it (or one of its
-     * superclasses) does override {@link StarlarkValue#getStarlarkType}.
-     */
-    @Nullable
-    StarlarkType getClassStarlarkType(Class<?> clazz) {
-      return classStarlarkTypeCache.get(clazz);
     }
 
     StarlarkSemantics getSemantics() {
@@ -281,6 +313,15 @@ public final class CallUtils {
     }
 
     /**
+     * Returns the supertypes of the generated Starlark type associated with the given Java class,
+     * or null if no such generated type exists.
+     */
+    @Nullable
+    ImmutableList<StarlarkType> getStarlarkBuiltinAutoTypeSupertypes(Class<?> clazz) {
+      return getClassDescriptor(clazz).starlarkBuiltinAutoTypeSupertypes;
+    }
+
+    /**
      * Returns a {@link MethodDescriptor} object representing a function which calls the selfCall
      * java method of the given object (the {@link StarlarkMethod} method with {@link
      * StarlarkMethod#selfCall()} set to true). Returns null if no such method exists.
@@ -306,19 +347,19 @@ public final class CallUtils {
 
   private static ClassDescriptor buildClassDescriptor(BuiltinManager manager, Class<?> clazz) {
     MethodDescriptor selfCall = null;
-    ImmutableMap.Builder<String, MethodDescriptor> methodsBuilder = ImmutableMap.builder();
+    LinkedHashMap<String, MethodDescriptor> methods = new LinkedHashMap<>();
 
-    TypeConstructor typeConstructor = getAssociatedTypeConstructor(clazz);
+    TypeConstructor associatedTypeConstructor = getAssociatedTypeConstructor(clazz);
 
-    // Sort methods by Java name, for determinism.
+    // Sort non-synthetic methods ahead of synthetic ones, then by Java name for determinism. A
+    // public method inherited from a non-public superclass is exposed by Class.getMethods() only as
+    // a synthetic bridge, so synthetic methods must not be skipped outright; processing
+    // non-synthetic methods first lets a real method (with its non-erased signature) win over its
+    // bridge, while a bridge still provides any name no non-synthetic method does.
     Method[] classMethods = clazz.getMethods();
-    Arrays.sort(classMethods, Comparator.comparing(Method::getName));
+    Arrays.sort(
+        classMethods, comparing(Method::isSynthetic, falseFirst()).thenComparing(Method::getName));
     for (Method method : classMethods) {
-      // Synthetic methods lead to false multiple matches
-      if (method.isSynthetic()) {
-        continue;
-      }
-
       // annotated?
       StarlarkMethod callable = StarlarkAnnotations.getStarlarkMethod(method);
       if (callable == null) {
@@ -337,43 +378,47 @@ public final class CallUtils {
 
       // self-call method?
       if (callable.selfCall()) {
-        if (selfCall != null) {
+        if (selfCall == null) {
+          selfCall = descriptor;
+        } else if (!method.isSynthetic()) {
+          // Two distinct selfCall methods. (A synthetic bridge of the same method -- e.g. from a
+          // covariant return override -- is not a conflict and is simply ignored.)
           throw new IllegalArgumentException(
               String.format("Class %s has two selfCall methods defined", clazz.getName()));
         }
-        selfCall = descriptor;
         continue;
       }
 
       // regular method
-      methodsBuilder.put(callable.name(), descriptor);
+      methods.putIfAbsent(callable.name(), descriptor);
     }
-    ImmutableMap<String, MethodDescriptor> methods = methodsBuilder.buildOrThrow();
 
     ClassDescriptor classDescriptor = new ClassDescriptor();
     classDescriptor.manager = manager;
     classDescriptor.selfCall = selfCall;
-    classDescriptor.methods = methods;
-    classDescriptor.typeConstructor = typeConstructor;
-    if (wantClassStarlarkType(clazz)) {
-      classDescriptor.classStarlarkTypeSupertypes =
-          ClassStarlarkType.buildSupertypes(clazz, classDescriptor);
+    classDescriptor.methods = ImmutableMap.copyOf(methods);
+    classDescriptor.typeConstructor = associatedTypeConstructor;
+    if (getFixedStarlarkType(clazz) == null && wantStarlarkBuiltinAutoType(clazz)) {
+      if (classDescriptor.typeConstructor == null) {
+        classDescriptor.typeConstructor =
+            Types.wrapType(
+                StarlarkAnnotations.getStarlarkBuiltin(clazz).name(),
+                () -> starlarkBuiltinAutoTypeCache.get(clazz));
+      }
+      classDescriptor.starlarkBuiltinAutoTypeSupertypes =
+          StarlarkBuiltinAutoType.buildSupertypes(clazz, classDescriptor);
     }
     return classDescriptor;
   }
 
   /**
-   * Returns true if a {@link ClassStarlarkType} should be generated for the given class. This is
-   * the case if the class is a {@link StarlarkValue} and does not override {@link
+   * Returns true if a {@link StarlarkBuiltinAutoType} should be generated for the given class. This
+   * is the case if the class is annotated as {@link StarlarkBuiltin}, and does not override {@link
    * StarlarkValue#getStarlarkType}.
    */
-  private static boolean wantClassStarlarkType(Class<?> clazz) {
-    if (!StarlarkValue.class.isAssignableFrom(clazz)) {
+  private static boolean wantStarlarkBuiltinAutoType(Class<?> clazz) {
+    if (StarlarkAnnotations.getStarlarkBuiltin(clazz) == null) {
       return false;
-    }
-    @Nullable StarlarkBuiltin annotation = StarlarkAnnotations.getStarlarkBuiltin(clazz);
-    if (annotation == null) {
-      return true;
     }
     Method getter;
     try {
@@ -387,6 +432,28 @@ public final class CallUtils {
           String.format("%s missing getStarlarkType(StarlarkSemantics) method", clazz), e);
     }
     return getter.getDeclaringClass().equals(StarlarkValue.class);
+  }
+
+  /**
+   * Certain Java classes/interfaces should be associated with a special fixed {@link StarlarkType}
+   * instead of a generated {@link StarlarkBuiltinAutoType}. Returns that fixed {@link
+   * StarlarkType}, or null otherwise.
+   */
+  @Nullable
+  private static StarlarkType getFixedStarlarkType(Class<?> clazz) {
+    @Nullable StarlarkBuiltin annotation = StarlarkAnnotations.getStarlarkBuiltin(clazz);
+    // Special case: Structure.class is unannotated, but represents an arbitrary struct type (and
+    // the same should hold for its unannotated implementations).
+    if (annotation == null && Structure.class.isAssignableFrom(clazz)) {
+      return Types.ANY_STRUCT;
+    }
+
+    if (annotation != null && annotation.isStructType()) {
+      // Interpret com.google.devtools.build.lib.starlarkbuildapi.core.StructApi as a marker for
+      // an arbitrary struct type.
+      return Types.ANY_STRUCT;
+    }
+    return null;
   }
 
   /**

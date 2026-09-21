@@ -310,7 +310,10 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
               public Single<ChannelConnectionWithServerCapabilities> create() {
                 ManagedChannel ch =
                     InProcessChannelBuilder.forName(fakeServerName)
-                        .intercept(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions))
+                        .intercept(
+                            TracingMetadataUtils.newExecHeadersInterceptor(
+                                remoteOptions.getRemoteHeaders(),
+                                remoteOptions.getRemoteExecHeaders()))
                         .directExecutor()
                         .build();
                 ServerCapabilities caps =
@@ -343,7 +346,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             /* diskCacheClient= */ null,
             /* symlinkTemplate= */ null,
             DIGEST_UTIL,
-            /* chunkingEnabled= */ false);
+            /* chunkingFunction= */ null,
+            new ChunkLocationMap());
     RemoteExecutionService remoteExecutionService =
         new RemoteExecutionService(
             reporter,

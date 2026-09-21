@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -46,19 +47,14 @@ public final class HeapOffsetHelper {
    * histogram and gets the total #bytes attributed to the FillerArray. We'll offset that against
    * the final value to make it more stable.
    */
-  @SuppressWarnings("StringSplitter")
   public static long getSizeOfFillerArrayOnHeap(
       Pattern internalJvmObjectPattern, BugReporter bugReporter) {
-    long sizeInBytes = 0;
-
     // Verify we're using OpenJDK 21 before proceeding.
     if (!isWorkaroundNeeded()) {
       return 0;
     }
 
-    boolean foundInternal = false;
-    boolean hasManagementApi = false;
-    String histogram = "";
+    String histogram;
     try {
       histogram =
           (String)
@@ -68,25 +64,42 @@ public final class HeapOffsetHelper {
                       "gcClassHistogram",
                       new Object[] {null},
                       new String[] {"[Ljava.lang.String;"});
-      hasManagementApi = true;
+    } catch (Exception e) {
+      // Swallow all exceptions.
+      logger.atWarning().withCause(e).log(
+          "Failed to obtain the size of jdk.internal.vm.FillerArray");
+      return 0;
+    }
+
+    return getSizeOfFillerArrayOnHeap(histogram, internalJvmObjectPattern, bugReporter);
+  }
+
+  @VisibleForTesting
+  @SuppressWarnings("StringSplitter")
+  static long getSizeOfFillerArrayOnHeap(
+      String histogram, Pattern internalJvmObjectPattern, BugReporter bugReporter) {
+    long sizeInBytes = 0;
+    boolean foundInternal = false;
+    boolean parseSuccess = true;
+    try {
       for (String line : histogram.split("\n")) {
         Matcher m = internalJvmObjectPattern.matcher(line);
-        // ["", <num>, <#instances>, <#bytes>, <class name>]
+        // [<num>, <#instances>, <#bytes>, <class name>]
         if (m.find()) {
           foundInternal = true;
-          sizeInBytes += Long.parseLong(line.split("\\s+")[3]);
+          sizeInBytes += Long.parseLong(line.trim().split("\\s+")[2]);
         }
       }
     } catch (Exception e) {
-      // This should already be false, but just to be sure set it again because
-      // something went wrong trying to get the management API histogram.
-      hasManagementApi = false;
+      parseSuccess = false;
       // Swallow all exceptions.
       logger.atWarning().withCause(e).log(
           "Failed to obtain the size of jdk.internal.vm.FillerArray");
     }
 
-    logIfMissingFillerArray(bugReporter, foundInternal, hasManagementApi, histogram);
+    if (parseSuccess) {
+      logIfMissingFillerArray(bugReporter, foundInternal, histogram);
+    }
 
     if (sizeInBytes > 0) {
       logger.atInfo().log(
@@ -104,12 +117,12 @@ public final class HeapOffsetHelper {
    * tests, since otherwise bug-report logging is configured to crash in tests.
    */
   private static void logIfMissingFillerArray(
-      BugReporter bugReporter, boolean foundInternal, boolean hasManagementApi, String histogram) {
+      BugReporter bugReporter, boolean foundInternal, String histogram) {
     if (TestType.getTestType() == TestType.SHELL_INTEGRATION) {
       return;
     }
 
-    if (!foundInternal && hasManagementApi) {
+    if (!foundInternal) {
       bugReporter.logUnexpected(
           "Unable to identify JDK 21+ G1 GC internal 'filler' array. Reported Blaze JVM memory"
               + " metrics are volatile See b/311665999.  vm.name=%s, feature=%d histogram=%s",

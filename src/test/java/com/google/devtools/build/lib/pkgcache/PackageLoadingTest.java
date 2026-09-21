@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -112,20 +114,21 @@ public class PackageLoadingTest extends FoundationTestCase {
       packageFactoryBuilder.disableChecks();
     }
     skyframeExecutor =
-        BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
+        SequencedSkyframeExecutor.newBazelSkyframeExecutorBuilder()
             .setPkgFactory(packageFactoryBuilder.build(ruleClassProvider, fileSystem))
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setSyscallCache(SyscallCache.NO_CACHE)
+            .setCompressionService(new CompressionServiceImpl())
             .build();
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     setUpSkyframe(parsePackageOptions(), parseBuildLanguageOptions());
   }
 
   private void setUpSkyframe(
-      PackageOptions packageOptions, BuildLanguageOptions buildLanguageOptions) {
+      PackageOptions packageOptions, BuildLanguageOptions buildLanguageOptions) throws Exception {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             /* outputBase= */ null,
@@ -143,6 +146,7 @@ public class PackageLoadingTest extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        /* repoEnv= */ ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());

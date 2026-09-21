@@ -41,7 +41,9 @@
 #include <unistd.h>
 
 #include <ctime>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 
 #ifndef MS_REC
@@ -71,6 +73,37 @@
 static int global_child_pid;
 
 // Helper methods
+
+// Returns the interpreter specified in the file's shebang ('#!') line, if
+// present. Returns std::nullopt if the file does not start with '#!' or has no
+// non-empty interpreter.
+static std::optional<std::string> GetInterpreter(const std::string& path) {
+  int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
+  if (fd < 0) {
+    return std::nullopt;
+  }
+  char buf[1024];
+  ssize_t n = read(fd, buf, sizeof(buf));
+  close(fd);
+
+  if (n <= 2 || buf[0] != '#' || buf[1] != '!') {
+    return std::nullopt;
+  }
+
+  std::string header(buf + 2, n - 2);
+  size_t start = header.find_first_not_of(" \t");
+  if (start == std::string::npos) {
+    return std::nullopt;
+  }
+  size_t end = header.find_first_of(" \t\r\n", start);
+  std::string interpreter = header.substr(
+      start, end == std::string::npos ? std::string::npos : end - start);
+  if (interpreter.empty()) {
+    return std::nullopt;
+  }
+  return interpreter;
+}
+
 static void CreateFile(const char* path) {
   int handle = open(path, O_CREAT | O_WRONLY | O_TRUNC | O_NOFOLLOW, 0666);
   if (handle < 0) {
@@ -334,10 +367,28 @@ static void MountFilesystems() {
   }
 }
 
+static std::string_view GetRelativePath(std::string_view path) {
+  if (opt.hermetic) {
+    if (path == opt.sandbox_root) {
+      return "/";
+    }
+    std::string_view root = opt.sandbox_root;
+    if (path.length() > root.length() && path[root.length()] == '/' &&
+        path.substr(0, root.length()) == root) {
+      return path.substr(root.length());
+    }
+  }
+  return path;
+}
+
 // We later remount everything read-only, except the paths for which this method
 // returns true.
-static bool ShouldBeWritable(const std::string& mnt_dir) {
-  if (mnt_dir == opt.working_dir) {
+static bool ShouldBeWritable(std::string_view mnt_dir) {
+  if (opt.hermetic && mnt_dir == "/proc") {
+    return true;
+  }
+
+  if (mnt_dir == GetRelativePath(opt.working_dir)) {
     return true;
   }
 
@@ -346,18 +397,82 @@ static bool ShouldBeWritable(const std::string& mnt_dir) {
   }
 
   for (const std::string& writable_file : opt.writable_files) {
-    if (mnt_dir == writable_file) {
+    if (mnt_dir == GetRelativePath(writable_file)) {
       return true;
     }
   }
 
   for (const std::string& tmpfs_dir : opt.tmpfs_dirs) {
-    if (mnt_dir == tmpfs_dir) {
+    if (mnt_dir == GetRelativePath(tmpfs_dir)) {
       return true;
     }
   }
 
   return false;
+}
+
+static int RemountWithBusyRetry(const std::string& target, int mount_flags) {
+  for (int i = 0; i < 5; ++i) {
+    if (mount(nullptr, target.c_str(), nullptr, mount_flags, nullptr) == 0) {
+      return 0;
+    }
+    if (errno != EBUSY) {
+      break;
+    }
+    struct timespec delay = {0, 100 * 1000 * 1000};  // 100 milliseconds
+    nanosleep(&delay, nullptr);
+  }
+  return -1;
+}
+
+static void RemountReadonly(const std::string& target) {
+  FILE* mounts = setmntent("/proc/self/mounts", "r");
+  if (mounts == nullptr) {
+    DIE("setmntent");
+  }
+
+  struct mntent* ent;
+  bool found = false;
+  int mount_flags = MS_BIND | MS_REMOUNT | MS_RDONLY;
+
+  while ((ent = getmntent(mounts)) != nullptr) {
+    if (strcmp(ent->mnt_dir, target.c_str()) == 0) {
+      found = true;
+      if (hasmntopt(ent, "ro") != nullptr) {
+        // Target mount is already read-only.
+        endmntent(mounts);
+        return;
+      }
+      if (hasmntopt(ent, "nodev") != nullptr) {
+        mount_flags |= MS_NODEV;
+      }
+      if (hasmntopt(ent, "noexec") != nullptr) {
+        mount_flags |= MS_NOEXEC;
+      }
+      if (hasmntopt(ent, "nosuid") != nullptr) {
+        mount_flags |= MS_NOSUID;
+      }
+      if (hasmntopt(ent, "noatime") != nullptr) {
+        mount_flags |= MS_NOATIME;
+      }
+      if (hasmntopt(ent, "nodiratime") != nullptr) {
+        mount_flags |= MS_NODIRATIME;
+      }
+      if (hasmntopt(ent, "relatime") != nullptr) {
+        mount_flags |= MS_RELATIME;
+      }
+      break;
+    }
+  }
+  endmntent(mounts);
+
+  if (!found) {
+    DIE("Could not find mount entry for %s", target.c_str());
+  }
+
+  if (RemountWithBusyRetry(target, mount_flags) < 0) {
+    DIE("remount sandbox_root read-only failed");
+  }
 }
 
 // Makes the whole filesystem read-only, except for the paths for which
@@ -370,6 +485,15 @@ static void MakeFilesystemMostlyReadOnly() {
 
   struct mntent* ent;
   while ((ent = getmntent(mounts)) != nullptr) {
+    bool should_be_writable = ShouldBeWritable(ent->mnt_dir);
+    bool is_already_ro = (hasmntopt(ent, "ro") != nullptr);
+
+    // If the mount is already in the desired state, skip redundant remount
+    // syscall.
+    if (should_be_writable != is_already_ro) {
+      continue;
+    }
+
     int mountFlags = MS_BIND | MS_REMOUNT;
 
     // MS_REMOUNT does not allow us to change certain flags. This means, we have
@@ -395,7 +519,7 @@ static void MakeFilesystemMostlyReadOnly() {
       mountFlags |= MS_RELATIME;
     }
 
-    if (!ShouldBeWritable(ent->mnt_dir)) {
+    if (!should_be_writable) {
       mountFlags |= MS_RDONLY;
     }
 
@@ -409,15 +533,7 @@ static void MakeFilesystemMostlyReadOnly() {
     // active mounts (especially "/") it can sometimes hit. Retry on EBUSY.
     // This behavior mimics runc's handling of EBUSY during readonly remounts:
     // https://github.com/opencontainers/runc/blob/eb7eaf19b6eec5d1143b257057899e4a7b738c81/libcontainer/rootfs_linux.go#L1305-L1309
-    int rc;
-    for (int i = 0; i < 5; ++i) {
-      rc = mount(nullptr, ent->mnt_dir, nullptr, mountFlags, nullptr);
-      if (rc == 0 || errno != EBUSY || i == 4) break;
-      struct timespec delay;
-      delay.tv_sec = 0;
-      delay.tv_nsec = 100 * 1000 * 1000;  // 100 milliseconds
-      nanosleep(&delay, nullptr);
-    }
+    int rc = RemountWithBusyRetry(ent->mnt_dir, mountFlags);
     if (rc < 0) {
       // If we get EACCES or EPERM, this might be a mount-point for which we
       // don't have read access. Not much we can do about this, but it also
@@ -581,6 +697,41 @@ static void SpawnChild() {
     opt.args.push_back(nullptr);
 
     if (execvp(opt.args[0], opt.args.data()) < 0) {
+      const int orig_errno = errno;
+      // If opt.args[0] does not contain a '/', execvp searches PATH. Calling
+      // stat/access on opt.args[0] in that case would incorrectly check the
+      // current working directory rather than the PATH entries.
+      if ((orig_errno == ENOENT || orig_errno == ENOTDIR) &&
+          strchr(opt.args[0], '/') != nullptr) {
+        struct stat st;
+        // Only inspect regular files to avoid blocking on FIFOs or reading
+        // directories.
+        if (stat(opt.args[0], &st) == 0 && S_ISREG(st.st_mode)) {
+          std::optional<std::string> interpreter = GetInterpreter(opt.args[0]);
+          if (interpreter.has_value()) {
+            // If the interpreter exists on disk, its dynamic loader or
+            // library is missing.
+            if (!interpreter->empty() && (*interpreter)[0] == '/' &&
+                access(interpreter->c_str(), F_OK) == 0) {
+              errno = orig_errno;
+              DIE("execvp(%s, %p): file exists and interpreter '%s' exists, "
+                  "but its loader or dependencies do not exist in sandbox",
+                  opt.args[0], opt.args.data(), interpreter->c_str());
+            }
+            errno = orig_errno;
+            DIE("execvp(%s, %p): file exists, but interpreter '%s' does not "
+                "exist in sandbox",
+                opt.args[0], opt.args.data(), interpreter->c_str());
+          }
+          // The file is either a dynamic ELF binary or a script with an empty
+          // shebang.
+          errno = orig_errno;
+          DIE("execvp(%s, %p): file exists, but its loader or interpreter does "
+              "not exist in sandbox",
+              opt.args[0], opt.args.data());
+        }
+      }
+      errno = orig_errno;
       DIE("execvp(%s, %p)", opt.args[0], opt.args.data());
     }
   } else {
@@ -681,13 +832,12 @@ static void MountAllMounts() {
     }
   }
 
-  // Make sure that the working directory is writable (unlike most of the rest
-  // of the file system, which is read-only by default). The easiest way to do
-  // this is by bind-mounting it upon itself.
-  if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr, MS_BIND,
-            nullptr) < 0) {
-    DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", opt.working_dir.c_str(),
-        opt.working_dir.c_str());
+  if (!opt.hermetic) {
+    if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr,
+              MS_BIND, nullptr) < 0) {
+      DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", opt.working_dir.c_str(),
+          opt.working_dir.c_str());
+    }
   }
 
   for (int i = 0; i < (signed)opt.bind_mount_sources.size(); i++) {
@@ -789,6 +939,8 @@ int Pid1Main(void* args) {
     MountProcAndSys();
     MountAllMounts();
     ChangeRoot();
+    MakeFilesystemMostlyReadOnly();
+    RemountReadonly("/");
   } else {
     MountFilesystems();
     MakeFilesystemMostlyReadOnly();

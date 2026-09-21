@@ -65,11 +65,23 @@ public interface BuildEventServiceClient {
   }
 
   /** The reason why a stream is being aborted. */
-  enum AbortReason {
+  public final class AbortReason {
+    private final String name;
+
+    private AbortReason(String name) {
+      this.name = name;
+    }
+
     /** The operation was cancelled. */
-    CANCELLED,
+    public static final AbortReason CANCELLED = new AbortReason("CANCELLED");
+
     /** A precondition was failed. */
-    FAILED_PRECONDITION,
+    public static final AbortReason FAILED_PRECONDITION = new AbortReason("FAILED_PRECONDITION");
+
+    @Override
+    public String toString() {
+      return name;
+    }
   }
 
   /** A handle to a bidirectional stream. */

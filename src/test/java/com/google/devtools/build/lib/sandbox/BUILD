@@ -2,7 +2,7 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
@@ -10,7 +10,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/sandbox/cgroups:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
@@ -26,8 +26,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/exec:spawn_input_expander",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
         "//src/main/java/com/google/devtools/build/lib/shell",
@@ -38,10 +36,13 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:mockito",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
     ],
 )
 
@@ -52,12 +53,13 @@ java_test(
         [
             "AbstractContainerizingSandboxedSpawnTest.java",
             "SandboxHelpersTest.java",
+            "SandboxModuleTest.java",
             "SandboxOptionsTest.java",
             "SymlinkedSandboxedSpawnTest.java",
         ],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -69,6 +71,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
         "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_module",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_options",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandboxed_spawns",
         "//src/main/java/com/google/devtools/build/lib/sandbox:tree_deleter",
@@ -80,12 +83,12 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/exec/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
     ],
 )
 
@@ -99,10 +102,16 @@ java_test(
         "ProcessWrapperSandboxedSpawnRunnerTest.java",
     ],
     data = ["//src/test/java/com/google/devtools/build/lib:embedded_scripts"],
+    exec_group_compatible_with = {
+        "test": [
+            "//:highcpu_machine",
+            "//:mount_capable",
+        ],
+    },
     tags = ["no_windows"],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
     deps = [
         ":testutil",
@@ -111,6 +120,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:param_file_action_input",
         "//src/main/java/com/google/devtools/build/lib/actions:parameter_file",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
         "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
@@ -131,27 +141,10 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/exec/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
-    ],
-)
-
-java_test(
-    name = "CgroupsInfoTest",
-    size = "small",
-    srcs = ["CgroupsInfoTest.java"],
-    tags = [
-        # MacOS does not have cgroups so it can't support hardened sandbox
-        "no_macos",
-        "no_windows",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
-        "//src/test/java/com/google/devtools/build/lib/vfs/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:io",
+        "//third_party/java/junit",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
     ],
 )

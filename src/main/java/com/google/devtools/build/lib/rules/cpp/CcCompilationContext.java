@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
@@ -47,6 +48,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkList;
@@ -393,6 +395,46 @@ public final class CcCompilationContext {
     return modules;
   }
 
+  /**
+   * Returns the modules that a compilation in this context could use directly: the modules of its
+   * direct dependencies as well as the separate module of this context (except for the compile of
+   * the separate module itself, which is indicated by {@code separate}).
+   *
+   * <p>Just like in {@link #computeUsedModules}, the main module of this context is never included:
+   * it is either the output of the compilation or, for other compiles of the same rule, its headers
+   * are included textually.
+   *
+   * <p>This is an upper bound for the top-level modules of a compilation, used when include
+   * scanning is disabled and thus the exact set of used headers is unknown.
+   */
+  NestedSet<Artifact> getDirectModules(boolean usePic, boolean separate) {
+    HeaderInfo headerInfo = getHeaderInfo();
+    CompactHashSet<Artifact> modules = CompactHashSet.create();
+    for (HeaderInfo dep : headerInfo.deps) {
+      collectModules(dep, usePic, modules);
+    }
+    // The separate module can be used by all compiles of this context except for its own compile.
+    DerivedArtifact separateModule = headerInfo.getSeparateModule(usePic);
+    if (separateModule != null && !separate) {
+      modules.add(separateModule);
+    }
+    return NestedSetBuilder.wrap(Order.STABLE_ORDER, modules);
+  }
+
+  private static void collectModules(HeaderInfo headerInfo, boolean usePic, Set<Artifact> modules) {
+    DerivedArtifact module = headerInfo.getModule(usePic);
+    if (module == null) {
+      // If we don't have a main module, there is also not going to be a separate module. This is
+      // verified when constructing HeaderInfo instances.
+      return;
+    }
+    modules.add(module);
+    DerivedArtifact separateModule = headerInfo.getSeparateModule(usePic);
+    if (separateModule != null) {
+      modules.add(separateModule);
+    }
+  }
+
   private static void removeArtifactsFromSet(Set<Artifact> set, ImmutableList<Artifact> artifacts) {
     // Not using iterators here as the resulting overhead is significant in profiles. Do not use
     // Iterables.removeAll() or Set.removeAll() here as with the given container sizes, that
@@ -555,6 +597,7 @@ public final class CcCompilationContext {
    */
   @Immutable
   @VisibleForTesting
+  @StarlarkBuiltin(name = "header_info", documented = false)
   public static final class HeaderInfo implements StarlarkValue {
     // This class has non-private visibility testing and HeaderInfoCodec.
 
@@ -758,6 +801,11 @@ public final class CcCompilationContext {
       return true;
     }
 
+    @Override
+    public boolean isAcyclic() {
+      return true;
+    }
+
     /** Represents the memoized transitive information for a HeaderInfo instance. */
     private class TransitiveHeaderCollection extends AbstractCollection<HeaderInfo> {
       private final int size;
@@ -843,10 +891,9 @@ public final class CcCompilationContext {
           "Separate module ('%s', '%s') cannot be used without main module",
           separateModule,
           separatePicModule);
-      ImmutableSet.Builder<Artifact> modularPublicHeaders = ImmutableSet.builder();
-      ImmutableSet.Builder<Artifact> modularPrivateHeaders = ImmutableSet.builder();
-      ImmutableSet.Builder<Artifact> allTextualHeaders = ImmutableSet.builder();
-      allTextualHeaders.addAll(textualHeaders);
+      Set<Artifact> modularPublicHeaders = CompactHashSet.create();
+      Set<Artifact> modularPrivateHeaders = CompactHashSet.create();
+      Set<Artifact> allTextualHeaders = CompactHashSet.create(textualHeaders);
       // TODO(djasper): CPP_TEXTUAL_INCLUDEs are currently special cased here and in
       // CppModuleMapAction. These should be moved to a place earlier in the Action construction.
       for (Artifact header : publicHeaders) {
@@ -872,9 +919,9 @@ public final class CcCompilationContext {
           identityToken,
           headerModule,
           picHeaderModule,
-          modularPublicHeaders.build().asList(),
-          modularPrivateHeaders.build().asList(),
-          allTextualHeaders.build().asList(),
+          ImmutableList.copyOf(modularPublicHeaders),
+          ImmutableList.copyOf(modularPrivateHeaders),
+          ImmutableList.copyOf(allTextualHeaders),
           separateModuleHeaders,
           separateModule,
           separatePicModule,

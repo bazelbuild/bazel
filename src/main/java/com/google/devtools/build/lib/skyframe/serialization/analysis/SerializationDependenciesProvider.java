@@ -14,11 +14,13 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.KeyValueWriter;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
@@ -39,7 +41,11 @@ public interface SerializationDependenciesProvider {
    */
   ObjectCodecs getObjectCodecs() throws InterruptedException;
 
+  /** Returns the {@link CompressionService} implementation. */
+  CompressionService getCompressionService();
+
   /** Returns the {@link FingerprintValueService} implementation. */
+  @Nullable
   FingerprintValueService getFingerprintValueService() throws InterruptedException;
 
   String getSerializedFrontierProfile();
@@ -52,6 +58,11 @@ public interface SerializationDependenciesProvider {
 
   @Nullable
   RemoteAnalysisMetadataWriter getMetadataWriter() throws InterruptedException;
+
+  @Nullable
+  FileOpNodeMemoizingLookup getFileOpNodes() throws InterruptedException;
+
+  void waitForUploadCompletion() throws InterruptedException, ExecutionException;
 
   boolean shouldMinimizeMemory();
 

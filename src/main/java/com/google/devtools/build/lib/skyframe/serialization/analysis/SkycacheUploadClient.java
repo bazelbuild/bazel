@@ -13,18 +13,32 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import com.google.common.collect.ImmutableSet;
+import static com.google.devtools.build.lib.skyframe.serialization.ErrorMessageHelper.getErrorMessage;
+
+import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupSummaryKey;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.compress.CompressionService;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.versioning.LongVersionGetter;
+import com.google.devtools.build.skyframe.GroupedDeps;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import javax.annotation.Nullable;
 
 /** Client for uploading to Skycache during computation. */
 public final class SkycacheUploadClient {
@@ -33,25 +47,21 @@ public final class SkycacheUploadClient {
   private final SelectedEntrySerializer.SerializationStatus writeStatuses;
 
   public SkycacheUploadClient(
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       ObjectCodecs codecs,
       FrontierNodeVersion frontierNodeVersion,
       InMemoryGraph graph,
       EventBus eventBus,
       LongVersionGetter versionGetter,
-      boolean emitUploadedEvents) {
-    var fileOpNodes =
-        new FileOpNodeMemoizingLookup(
-            fingerprintValueService.getExecutor(),
-            graph,
-            /* selectedKeys= */ ImmutableSet.of(),
-            /* shouldDiscardMemory= */ false,
-            /* referencedPackages= */ null);
+      boolean emitUploadedEvents,
+      FileOpNodeMemoizingLookup fileOpNodes) {
 
     var fileDependencySerializer =
         new FileDependencySerializer(
             versionGetter,
             graph,
+            compressionService,
             fingerprintValueService,
             fingerprintValueService.getExecutor(),
             /* profileCollector= */ null);
@@ -64,6 +74,7 @@ public final class SkycacheUploadClient {
             graph,
             codecs,
             frontierNodeVersion,
+            compressionService,
             fingerprintValueService,
             fileOpNodes,
             fileDependencySerializer,
@@ -78,13 +89,26 @@ public final class SkycacheUploadClient {
 
   public void tryUpload(SkyKey key, SkyValue value, SkyFunction.Environment env)
       throws InterruptedException {
+    if (getLabel(key) == null) {
+      return;
+    }
     writeStatuses.selectedEntryStartingCapped();
     try {
       if (key instanceof ActionLookupKey analysisKey) {
         // This is an analysis-phase entry, we need the direct deps of this entry, which is not
         // committed to Skyframe yet, so we pluck them out of the environment of the SkyFunction
+        GroupedDeps temporaryDirectDeps = env.getTemporaryDirectDeps();
+        Set<SkyKey> newlyRequestedDeps = env.getNewlyRequestedDeps();
+        ImmutableList<SkyKey> deps =
+            temporaryDirectDeps.isEmpty()
+                ? ImmutableList.copyOf(newlyRequestedDeps)
+                : ImmutableList.<SkyKey>builderWithExpectedSize(
+                        temporaryDirectDeps.numElements() + newlyRequestedDeps.size())
+                    .addAll(temporaryDirectDeps.getAllElementsAsIterable())
+                    .addAll(newlyRequestedDeps)
+                    .build();
         selectedEntrySerializer.uploadAnalysisEntry(
-            analysisKey, value, env.getTemporaryDirectDeps().getAllElementsAsIterable());
+            analysisKey, value, deps, env.getMaxTransitiveSourceVersionSoFar());
       } else {
         // This is an execution-phase entry. We need the deps of its owner, which should be
         // available
@@ -99,8 +123,32 @@ public final class SkycacheUploadClient {
     }
   }
 
+  @Nullable
+  private static Label getLabel(SkyKey key) {
+    return switch (key) {
+      case ActionLookupKey alk -> alk.getLabel();
+      case ActionLookupData ald -> ald.getLabel();
+      case ActionLookupSummaryKey summaryKey -> summaryKey.argument().getLabel();
+      case Artifact artifact -> artifact.getOwnerLabel();
+      default -> null;
+    };
+  }
+
   public void waitForCompletion() throws InterruptedException, ExecutionException {
-    writeStatuses.notifyAllStarted();
-    var unused = writeStatuses.get();
+    writeStatuses.finishRegistration();
+    ImmutableList<Throwable> errors = writeStatuses.get();
+    if (errors.isEmpty()) {
+      return;
+    }
+    String message = "Skycache upload failed: " + getErrorMessage(errors);
+    FailureDetail detail =
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setRemoteAnalysisCaching(
+                RemoteAnalysisCaching.newBuilder()
+                    .setCode(RemoteAnalysisCaching.Code.UPLOAD_FAILED))
+            .build();
+    throw new ExecutionException(
+        new AbruptExitException(DetailedExitCode.of(detail), errors.get(0)));
   }
 }

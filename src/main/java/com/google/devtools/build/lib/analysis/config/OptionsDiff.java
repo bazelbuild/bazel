@@ -26,9 +26,17 @@ import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.common.options.OptionDefinition;
+import com.google.devtools.common.options.OptionsBase;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -46,6 +54,46 @@ import javax.annotation.Nullable;
  * OptionsDiff#diff}.
  */
 public final class OptionsDiff {
+  public OptionsDiff() {}
+
+  OptionsDiff(
+      ListMultimap<Class<? extends FragmentOptions>, OptionDefinition> differingOptions,
+      Map<OptionDefinition, Object> first,
+      SetMultimap<OptionDefinition, Object> second,
+      Set<Class<? extends FragmentOptions>> extraFirstFragments,
+      Set<FragmentOptions> extraSecondFragments,
+      Map<Label, Object> starlarkFirst,
+      Map<Label, Object> starlarkSecond,
+      List<Label> extraStarlarkOptionsFirst,
+      SequencedMap<Label, Object> extraStarlarkOptionsSecond,
+      Map<Label, Scope.ScopeType> extraStarlarkOptionsSecondScopes,
+      Map<Label, Object> extraStarlarkOptionsSecondOnLeaveValues,
+      Map<Label, Scope.ScopeType> starlarkFirstScopes,
+      Map<Label, Scope.ScopeType> starlarkSecondScopes,
+      Map<Label, Object> starlarkFirstOnLeaveValues,
+      Map<Label, Object> starlarkSecondOnLeaveValues) {
+    this.differingOptions.putAll(differingOptions);
+    this.first.putAll(first);
+    this.second.putAll(second);
+    this.extraFirstFragments.addAll(extraFirstFragments);
+    this.extraSecondFragments.addAll(extraSecondFragments);
+    this.starlarkFirst.putAll(starlarkFirst);
+    this.starlarkSecond.putAll(starlarkSecond);
+    this.extraStarlarkOptionsFirst.addAll(extraStarlarkOptionsFirst);
+    this.extraStarlarkOptionsSecond.putAll(extraStarlarkOptionsSecond);
+    this.extraStarlarkOptionsSecondScopes.putAll(extraStarlarkOptionsSecondScopes);
+    this.extraStarlarkOptionsSecondOnLeaveValues.putAll(extraStarlarkOptionsSecondOnLeaveValues);
+    this.starlarkFirstScopes.putAll(starlarkFirstScopes);
+    this.starlarkSecondScopes.putAll(starlarkSecondScopes);
+    this.starlarkFirstOnLeaveValues.putAll(starlarkFirstOnLeaveValues);
+    this.starlarkSecondOnLeaveValues.putAll(starlarkSecondOnLeaveValues);
+    this.hasStarlarkOptions =
+        !this.starlarkFirst.isEmpty()
+            || !this.starlarkSecond.isEmpty()
+            || !this.extraStarlarkOptionsFirst.isEmpty()
+            || !this.extraStarlarkOptionsSecond.isEmpty();
+  }
+
   /** Returns the difference between two BuildOptions in a new {@link OptionsDiff}. */
   public static OptionsDiff diff(BuildOptions first, BuildOptions second) {
     return diff(new OptionsDiff(), first, second);
@@ -177,6 +225,9 @@ public final class OptionsDiff {
       MultimapBuilder.linkedHashKeys().arrayListValues().build();
   // The keyset for the {@link first} and {@link second} maps are identical and indicate which
   // specific options differ between the first and second built options.
+  // Note (Latent Risk): After Skyframe serialization/deserialization, the values in this map
+  // are replaced with "RESET" strings (for scalars) or ListDiff objects (for lists), violating
+  // the expected OptionDefinition value type contract.
   private final SequencedMap<OptionDefinition, Object> first = new LinkedHashMap<>();
   // Since this class can be used to track the result of transitions, {@link second} is a multimap
   // to be able to handle {@link SplitTransition}s.
@@ -217,6 +268,17 @@ public final class OptionsDiff {
     return extraSecondFragments;
   }
 
+  /**
+   * Returns the baseline values of the differing options from the first BuildOptions.
+   *
+   * <p><b>WARNING - Latent Risk / Type Contract Mismatch:</b> If this {@link OptionsDiff} instance
+   * was deserialized via Skyframe (e.g. using {@link OptionsDiffCodec}), the values in this map do
+   * NOT match the original option types. The codec replaces all non-list base values with the
+   * String {@code "RESET"}, and list values with a {@link ListDiff}. Querying values from a
+   * deserialized instance and casting them to their expected type (e.g., casting to {@code
+   * RunUnder} in {@code OptionsDiffPredicate}) will cause a {@link ClassCastException} in
+   * production.
+   */
   public Map<OptionDefinition, Object> getFirst() {
     return first;
   }
@@ -542,6 +604,325 @@ public final class OptionsDiff {
         starlarkSecondScopes,
         starlarkFirstOnLeaveValues,
         starlarkSecondOnLeaveValues);
+  }
+
+  /** Serializable reference to an OptionDefinition. */
+  @AutoCodec
+  public static final class OptionRef {
+    public final Class<? extends OptionsBase> declaringClass;
+    public final String optionName;
+
+    public OptionRef(Class<? extends OptionsBase> declaringClass, String optionName) {
+      this.declaringClass = declaringClass;
+      this.optionName = optionName;
+    }
+
+    public OptionDefinition getDefinition() {
+      for (OptionDefinition definition : OptionDefinition.getOptionDefinitions(declaringClass)) {
+        if (definition.getOptionName().equals(optionName)) {
+          return definition;
+        }
+      }
+      throw new IllegalStateException(
+          "Could not find OptionDefinition for " + optionName + " in " + declaringClass);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof OptionRef other)) {
+        return false;
+      }
+      return declaringClass.equals(other.declaringClass) && optionName.equals(other.optionName);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(declaringClass, optionName);
+    }
+  }
+
+  /**
+   * Codec to serialize and deserialize {@link OptionsDiff}.
+   *
+   * <p>Care should be taken when using this codec due to the potential {@link ClassCastExceptions}
+   * when using deserialized values. Currently, this codec is only being used to serialize
+   * BuildConfigurationKeys based on diffs with a baseline {@link BuildOptions} object.
+   * Deserialization happens in a context where the same baseline BuildOptions object is available.
+   */
+  public static final class OptionsDiffCodec extends DeferredObjectCodec<OptionsDiff> {
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public Class<OptionsDiff> getEncodedClass() {
+      return OptionsDiff.class;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, OptionsDiff obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      // 1. Serialize differingOptions using OptionRef
+      Map<Class<? extends FragmentOptions>, List<OptionRef>> differingOptionsRef =
+          new LinkedHashMap<>();
+      for (Map.Entry<Class<? extends FragmentOptions>, Collection<OptionDefinition>> entry :
+          obj.differingOptions.asMap().entrySet()) {
+        List<OptionRef> refs = new ArrayList<>();
+        for (OptionDefinition def : entry.getValue()) {
+          refs.add(new OptionRef(def.getDeclaringClass(OptionsBase.class), def.getOptionName()));
+        }
+        differingOptionsRef.put(entry.getKey(), refs);
+      }
+      context.serialize(differingOptionsRef, codedOut);
+
+      // 2. Serialize first using OptionRef
+      Map<OptionRef, Object> firstRef = new LinkedHashMap<>();
+      for (Map.Entry<OptionDefinition, Object> entry : obj.first.entrySet()) {
+        OptionDefinition def = entry.getKey();
+        Object firstValue = entry.getValue();
+        // Latent Risk / Type Contract Mismatch: Replacing non-list base values with the string
+        // "RESET" violates the Map<OptionDefinition, Object> type contract upon deserialization.
+        // If a consumer queries the base state fields of a deserialized OptionsDiff object, this
+        // can cause a ClassCastException in production (e.g., TestConfiguration casting oldValue
+        // directly to RunUnder).
+        Object serializedFirstValue = "RESET";
+        if (firstValue instanceof List<?>) {
+          Set<Object> secondColl = obj.second.get(def);
+          if (!secondColl.isEmpty() && secondColl.iterator().next() instanceof List<?>) {
+            List<?> list1 = (List<?>) firstValue;
+            List<?> list2 = (List<?>) secondColl.iterator().next();
+            boolean isAppend =
+                list2.size() >= list1.size() && list2.subList(0, list1.size()).equals(list1);
+            boolean reset = !isAppend;
+            serializedFirstValue = new ListDiff(reset, ImmutableList.of());
+          }
+        }
+        firstRef.put(
+            new OptionRef(def.getDeclaringClass(OptionsBase.class), def.getOptionName()),
+            serializedFirstValue);
+      }
+      context.serialize(firstRef, codedOut);
+
+      // 3. Serialize second using OptionRef
+      Map<OptionRef, List<Object>> secondRef = new LinkedHashMap<>();
+      for (Map.Entry<OptionDefinition, Collection<Object>> entry : obj.second.asMap().entrySet()) {
+        OptionDefinition def = entry.getKey();
+        Collection<Object> secondColl = entry.getValue();
+        List<Object> secondList = new ArrayList<>();
+        for (Object secondValue : secondColl) {
+          Object serializedSecondValue = secondValue;
+          if (secondValue instanceof List<?>) {
+            Object firstValue = obj.first.get(def);
+            if (firstValue instanceof List<?>) {
+              List<?> list1 = (List<?>) firstValue;
+              List<?> list2 = (List<?>) secondValue;
+              boolean isAppend =
+                  list2.size() >= list1.size() && list2.subList(0, list1.size()).equals(list1);
+              boolean reset = !isAppend;
+              ImmutableList.Builder<Object> added = ImmutableList.builder();
+              if (isAppend) {
+                added.addAll(list2.subList(list1.size(), list2.size()));
+              } else {
+                added.addAll(list2);
+              }
+              serializedSecondValue = new ListDiff(reset, added.build());
+            }
+          }
+          secondList.add(serializedSecondValue);
+        }
+        secondRef.put(
+            new OptionRef(def.getDeclaringClass(OptionsBase.class), def.getOptionName()),
+            secondList);
+      }
+      context.serialize(secondRef, codedOut);
+
+      // 4. Serialize other fields directly
+      context.serialize(ImmutableSet.copyOf(obj.extraFirstFragments), codedOut);
+      context.serialize(ImmutableSet.copyOf(obj.extraSecondFragments), codedOut);
+
+      Map<Label, Object> starlarkFirstCensored = new LinkedHashMap<>();
+      for (Label label : obj.starlarkFirst.keySet()) {
+        starlarkFirstCensored.put(label, "RESET");
+      }
+      context.serialize(starlarkFirstCensored, codedOut);
+
+      context.serialize(obj.starlarkSecond, codedOut);
+      context.serialize(ImmutableList.copyOf(obj.extraStarlarkOptionsFirst), codedOut);
+      context.serialize(obj.extraStarlarkOptionsSecond, codedOut);
+      context.serialize(obj.extraStarlarkOptionsSecondScopes, codedOut);
+      context.serialize(obj.extraStarlarkOptionsSecondOnLeaveValues, codedOut);
+
+      Map<Label, Scope.ScopeType> starlarkFirstScopesCensored = new LinkedHashMap<>();
+      for (Label label : obj.starlarkFirstScopes.keySet()) {
+        starlarkFirstScopesCensored.put(label, new Scope.ScopeType("default"));
+      }
+      context.serialize(starlarkFirstScopesCensored, codedOut);
+
+      context.serialize(obj.starlarkSecondScopes, codedOut);
+
+      Map<Label, Object> starlarkFirstOnLeaveValuesCensored = new LinkedHashMap<>();
+      for (Label label : obj.starlarkFirstOnLeaveValues.keySet()) {
+        starlarkFirstOnLeaveValuesCensored.put(label, "RESET");
+      }
+      context.serialize(starlarkFirstOnLeaveValuesCensored, codedOut);
+
+      context.serialize(obj.starlarkSecondOnLeaveValues, codedOut);
+    }
+
+    @Override
+    public DeferredObjectCodec.DeferredValue<OptionsDiff> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      var builder = new Builder();
+
+      context.deserialize(codedIn, builder, Builder::setDifferingOptionsRef);
+      context.deserialize(codedIn, builder, Builder::setFirstRef);
+      context.deserialize(codedIn, builder, Builder::setSecondRef);
+      context.deserialize(codedIn, builder, Builder::setExtraFirstFragments);
+      context.deserialize(codedIn, builder, Builder::setExtraSecondFragments);
+      context.deserialize(codedIn, builder, Builder::setStarlarkFirst);
+      context.deserialize(codedIn, builder, Builder::setStarlarkSecond);
+      context.deserialize(codedIn, builder, Builder::setExtraStarlarkOptionsFirst);
+      context.deserialize(codedIn, builder, Builder::setExtraStarlarkOptionsSecond);
+      context.deserialize(codedIn, builder, Builder::setExtraStarlarkOptionsSecondScopes);
+      context.deserialize(codedIn, builder, Builder::setExtraStarlarkOptionsSecondOnLeaveValues);
+      context.deserialize(codedIn, builder, Builder::setStarlarkFirstScopes);
+      context.deserialize(codedIn, builder, Builder::setStarlarkSecondScopes);
+      context.deserialize(codedIn, builder, Builder::setStarlarkFirstOnLeaveValues);
+      context.deserialize(codedIn, builder, Builder::setStarlarkSecondOnLeaveValues);
+
+      return builder;
+    }
+
+    // Safe because the static setters are invoked by Skyframe deserialization, which decodes nested
+    // generic objects to their original type parameters.
+    @SuppressWarnings("unchecked")
+    private static class Builder implements DeferredObjectCodec.DeferredValue<OptionsDiff> {
+      private Map<Class<? extends FragmentOptions>, List<OptionRef>> differingOptionsRef;
+      private Map<OptionRef, Object> firstRef;
+      private Map<OptionRef, List<Object>> secondRef;
+      private Set<Class<? extends FragmentOptions>> extraFirstFragments;
+      private Set<FragmentOptions> extraSecondFragments;
+      private Map<Label, Object> starlarkFirst;
+      private Map<Label, Object> starlarkSecond;
+      private List<Label> extraStarlarkOptionsFirst;
+      private Map<Label, Object> extraStarlarkOptionsSecond;
+      private Map<Label, Scope.ScopeType> extraStarlarkOptionsSecondScopes;
+      private Map<Label, Object> extraStarlarkOptionsSecondOnLeaveValues;
+      private Map<Label, Scope.ScopeType> starlarkFirstScopes;
+      private Map<Label, Scope.ScopeType> starlarkSecondScopes;
+      private Map<Label, Object> starlarkFirstOnLeaveValues;
+      private Map<Label, Object> starlarkSecondOnLeaveValues;
+
+      private static void setDifferingOptionsRef(Builder b, Object v) {
+        b.differingOptionsRef = (Map<Class<? extends FragmentOptions>, List<OptionRef>>) v;
+      }
+
+      private static void setFirstRef(Builder b, Object v) {
+        b.firstRef = (Map<OptionRef, Object>) v;
+      }
+
+      private static void setSecondRef(Builder b, Object v) {
+        b.secondRef = (Map<OptionRef, List<Object>>) v;
+      }
+
+      private static void setExtraFirstFragments(Builder b, Object v) {
+        b.extraFirstFragments = (Set<Class<? extends FragmentOptions>>) v;
+      }
+
+      private static void setExtraSecondFragments(Builder b, Object v) {
+        b.extraSecondFragments = (Set<FragmentOptions>) v;
+      }
+
+      private static void setStarlarkFirst(Builder b, Object v) {
+        b.starlarkFirst = (Map<Label, Object>) v;
+      }
+
+      private static void setStarlarkSecond(Builder b, Object v) {
+        b.starlarkSecond = (Map<Label, Object>) v;
+      }
+
+      private static void setExtraStarlarkOptionsFirst(Builder b, Object v) {
+        b.extraStarlarkOptionsFirst = (List<Label>) v;
+      }
+
+      private static void setExtraStarlarkOptionsSecond(Builder b, Object v) {
+        b.extraStarlarkOptionsSecond = (Map<Label, Object>) v;
+      }
+
+      private static void setExtraStarlarkOptionsSecondScopes(Builder b, Object v) {
+        b.extraStarlarkOptionsSecondScopes = (Map<Label, Scope.ScopeType>) v;
+      }
+
+      private static void setExtraStarlarkOptionsSecondOnLeaveValues(Builder b, Object v) {
+        b.extraStarlarkOptionsSecondOnLeaveValues = (Map<Label, Object>) v;
+      }
+
+      private static void setStarlarkFirstScopes(Builder b, Object v) {
+        b.starlarkFirstScopes = (Map<Label, Scope.ScopeType>) v;
+      }
+
+      private static void setStarlarkSecondScopes(Builder b, Object v) {
+        b.starlarkSecondScopes = (Map<Label, Scope.ScopeType>) v;
+      }
+
+      private static void setStarlarkFirstOnLeaveValues(Builder b, Object v) {
+        b.starlarkFirstOnLeaveValues = (Map<Label, Object>) v;
+      }
+
+      private static void setStarlarkSecondOnLeaveValues(Builder b, Object v) {
+        b.starlarkSecondOnLeaveValues = (Map<Label, Object>) v;
+      }
+
+      @Override
+      public OptionsDiff call() {
+        // 1. Reconstruct differingOptions
+        ListMultimap<Class<? extends FragmentOptions>, OptionDefinition> differingOptions =
+            MultimapBuilder.linkedHashKeys().arrayListValues().build();
+        for (Map.Entry<Class<? extends FragmentOptions>, List<OptionRef>> entry :
+            differingOptionsRef.entrySet()) {
+          for (OptionRef ref : entry.getValue()) {
+            differingOptions.put(entry.getKey(), ref.getDefinition());
+          }
+        }
+
+        // 2. Reconstruct first
+        Map<OptionDefinition, Object> first = new LinkedHashMap<>();
+        for (Map.Entry<OptionRef, Object> entry : firstRef.entrySet()) {
+          first.put(entry.getKey().getDefinition(), entry.getValue());
+        }
+
+        // 3. Reconstruct second
+        SetMultimap<OptionDefinition, Object> second = OrderedSetMultimap.create();
+        for (Map.Entry<OptionRef, List<Object>> entry : secondRef.entrySet()) {
+          second.putAll(entry.getKey().getDefinition(), entry.getValue());
+        }
+
+        SequencedMap<Label, Object> extraStarlarkOptionsSecondMap =
+            new LinkedHashMap<>(extraStarlarkOptionsSecond);
+
+        return new OptionsDiff(
+            differingOptions,
+            first,
+            second,
+            extraFirstFragments,
+            extraSecondFragments,
+            starlarkFirst,
+            starlarkSecond,
+            extraStarlarkOptionsFirst,
+            extraStarlarkOptionsSecondMap,
+            extraStarlarkOptionsSecondScopes,
+            extraStarlarkOptionsSecondOnLeaveValues,
+            starlarkFirstScopes,
+            starlarkSecondScopes,
+            starlarkFirstOnLeaveValues,
+            starlarkSecondOnLeaveValues);
+      }
+    }
   }
 
   /**

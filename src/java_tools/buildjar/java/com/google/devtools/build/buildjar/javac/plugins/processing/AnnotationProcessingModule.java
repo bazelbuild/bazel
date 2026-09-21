@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.buildjar.javac.plugins.processing;
 
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.proto.JavaCompilation.CompilationUnit;
@@ -27,6 +29,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nonnull;
 
 /** A module for information about the compilation's annotation processing. */
 public class AnnotationProcessingModule {
@@ -35,11 +38,12 @@ public class AnnotationProcessingModule {
   public static class Builder {
     private Path sourceGenDir;
     private Path manifestProto;
+    private Path workDir;
 
     private Builder() {}
 
     public AnnotationProcessingModule build() {
-      return new AnnotationProcessingModule(sourceGenDir, manifestProto);
+      return new AnnotationProcessingModule(sourceGenDir, manifestProto, workDir);
     }
 
     public void setSourceGenDir(Path sourceGenDir) {
@@ -49,23 +53,40 @@ public class AnnotationProcessingModule {
     public void setManifestProtoPath(Path manifestProto) {
       this.manifestProto = manifestProto.toAbsolutePath();
     }
+
+    public void setWorkDir(@Nonnull Path workDir) {
+      this.workDir = workDir;
+    }
   }
 
   private final boolean enabled;
   private final Path sourceGenDir;
   private final Path manifestProto;
+  private final Path workDir;
 
   public boolean isGenerated(Path path) {
     return path.startsWith(sourceGenDir);
   }
 
   public Path stripSourceRoot(Path path) {
-    return path.startsWith(sourceGenDir) ? sourceGenDir.relativize(path) : path;
+    if (isGenerated(path)) {
+      return sourceGenDir.relativize(path);
+    }
+    // Strip the sandbox working directory prefix to produce deterministic exec-root-relative paths.
+    // Without this, multiplex worker sandboxing embeds a non-deterministic slot number
+    // (e.g. __sandbox/751/_main/...) in the manifest proto output.
+    return stripPrefix(path, workDir);
   }
 
-  private AnnotationProcessingModule(Path sourceGenDir, Path manifestProto) {
+  /** Returns {@code path} relativized against {@code prefix} if it is under it, else unchanged. */
+  private static Path stripPrefix(Path path, Path prefix) {
+    return !prefix.toString().isEmpty() && path.startsWith(prefix) ? prefix.relativize(path) : path;
+  }
+
+  private AnnotationProcessingModule(Path sourceGenDir, Path manifestProto, @Nonnull Path workDir) {
     this.sourceGenDir = sourceGenDir;
     this.manifestProto = manifestProto;
+    this.workDir = requireNonNull(workDir);
     this.enabled = sourceGenDir != null && manifestProto != null;
   }
 

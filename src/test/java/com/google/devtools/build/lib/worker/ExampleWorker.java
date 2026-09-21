@@ -109,8 +109,17 @@ public final class ExampleWorker {
         } else {
           startResponseThread(workerIO, request);
         }
-        if (workerOptions.getExitAfter() > 0 && workUnitCounter > workerOptions.getExitAfter()) {
-          System.exit(0);
+        if (workerOptions.getExitAfter() > 0) {
+          try {
+            while (!activeRequests.isEmpty()) {
+              Thread.sleep(1);
+            }
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+          }
+          if (workUnitCounter > workerOptions.getExitAfter()) {
+            System.exit(0);
+          }
         }
       }
 

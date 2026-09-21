@@ -100,6 +100,11 @@ public class LetExpression extends QueryExpression {
   }
 
   @Override
+  public boolean isSomePathFunction() {
+    return bodyExpr.isSomePathFunction();
+  }
+
+  @Override
   public String toString() {
     return "let " + varName + " = " + varExpr + " in " + bodyExpr;
   }

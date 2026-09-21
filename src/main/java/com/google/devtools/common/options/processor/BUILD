@@ -4,13 +4,15 @@ load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
 #   A preprocessor for the annotations used in the options parser.
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/main/java/com/google/devtools/common/options:__pkg__",
+        "//src/test/java/com/google/devtools/common/options/processor:__pkg__",
+    ],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
 )
 
 java_plugin(
@@ -31,7 +33,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/common/options:options_internal",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )

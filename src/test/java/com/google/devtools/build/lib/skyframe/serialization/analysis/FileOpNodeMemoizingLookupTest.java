@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.concurrent.safeexecutor.RejectionHandlingRunnable;
+import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes.NestedFileOpNodesWithSource;
 import com.google.devtools.build.lib.skyframe.DirectoryListingKey;
@@ -37,6 +39,7 @@ import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNode;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNodeOrEmpty;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FutureFileOpNode;
+import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.RemoteFileOpNode;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.ArrayList;
@@ -74,7 +77,7 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
 
     InMemoryGraph graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
 
-    var pool = new ForkJoinPool(CONCURRENCY);
+    var pool = new SafeExecutorOwner(new ForkJoinPool(CONCURRENCY));
 
     var fileOpDataMap =
         new FileOpNodeMemoizingLookup(
@@ -101,16 +104,32 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
 
     for (ActionLookupKey lookupKey : actionLookups) {
       pool.execute(
-          () -> {
-            futures.add(verifyFileOpNodeForActionLookupKey(graph, fileOpDataMap, lookupKey));
-            allAdded.countDown();
+          new RejectionHandlingRunnable() {
+            @Override
+            public void run() {
+              futures.add(verifyFileOpNodeForActionLookupKey(graph, fileOpDataMap, lookupKey));
+              allAdded.countDown();
+            }
+
+            @Override
+            public void handleRejection(Throwable t) {
+              allAdded.countDown();
+            }
           });
     }
     for (ActionLookupData lookupData : actions) {
       pool.execute(
-          () -> {
-            futures.add(verifyFileOpNodeForActionLookupData(graph, fileOpDataMap, lookupData));
-            allAdded.countDown();
+          new RejectionHandlingRunnable() {
+            @Override
+            public void run() {
+              futures.add(verifyFileOpNodeForActionLookupData(graph, fileOpDataMap, lookupData));
+              allAdded.countDown();
+            }
+
+            @Override
+            public void handleRejection(Throwable t) {
+              allAdded.countDown();
+            }
           });
     }
 
@@ -210,6 +229,7 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
     switch (node) {
       case FileKey file -> nodes.add(file);
       case DirectoryListingKey directory -> nodes.add(directory);
+      case RemoteFileOpNode remote -> nodes.add(remote);
       case NestedFileOpNodes nested -> {
         for (int i = 0; i < nested.analysisDependenciesCount(); i++) {
           flattenNode(nested.getAnalysisDependency(i), nodes, sources, visited);
@@ -268,7 +288,7 @@ public final class FileOpNodeMemoizingLookupTest extends BuildIntegrationTestCas
 
     InMemoryGraph graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
 
-    var pool = new ForkJoinPool(CONCURRENCY);
+    var pool = new SafeExecutorOwner(new ForkJoinPool(CONCURRENCY));
 
     ImmutableList<ActionLookupKey> actionLookups =
         graph.getDoneValues().keySet().stream()

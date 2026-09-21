@@ -177,11 +177,16 @@ public final class VendorCommand implements BlazeCommand {
         result = vendorAll(env, threadsOption);
       }
     } catch (InterruptedException e) {
-      return createFailedBlazeCommandResult(
-          env.getReporter(), "Vendor interrupted: " + e.getMessage());
+      String message =
+          e.getMessage() != null ? "Vendor interrupted: " + e.getMessage() : "Vendor interrupted";
+      return createFailedBlazeCommandResult(env.getReporter(), message);
     } catch (IOException e) {
+      String message =
+          e.getMessage() != null
+              ? "Error while vendoring repos: " + e.getMessage()
+              : "Error while vendoring repos";
       return createFailedBlazeCommandResult(
-          env.getReporter(), "Error while vendoring repos: " + e.getMessage());
+          env.getReporter(), Code.QUERY_EVALUATION_ERROR, message);
     }
 
     env.getEventBus()
@@ -222,9 +227,12 @@ public final class VendorCommand implements BlazeCommand {
         env.getSkyframeExecutor().prepareAndGet(ImmutableSet.of(fetchKey), evaluationContext);
     if (evaluationResult.hasError()) {
       Exception e = evaluationResult.getError().getException();
+      String errorMessage =
+          e != null && e.getMessage() != null
+              ? e.getMessage()
+              : "Unexpected error during fetching all external deps.";
       return createFailedBlazeCommandResult(
-          env.getReporter(),
-          e != null ? e.getMessage() : "Unexpected error during fetching all external deps.");
+          env.getReporter(), Code.QUERY_EVALUATION_ERROR, errorMessage);
     }
 
     BazelFetchAllValue fetchAllValue = (BazelFetchAllValue) evaluationResult.get(fetchKey);
@@ -244,7 +252,10 @@ public final class VendorCommand implements BlazeCommand {
       return createFailedBlazeCommandResult(
           env.getReporter(), "Invalid repo name: " + e.getMessage(), e.getDetailedExitCode());
     } catch (RepositoryFetcherException e) {
-      return createFailedBlazeCommandResult(env.getReporter(), e.getMessage());
+      String errorMessage =
+          e.getMessage() != null ? e.getMessage() : "Unexpected error during repository fetching.";
+      return createFailedBlazeCommandResult(
+          env.getReporter(), Code.QUERY_EVALUATION_ERROR, errorMessage);
     }
 
     // Split repos to found and not found, vendor found ones and report others
@@ -266,7 +277,9 @@ public final class VendorCommand implements BlazeCommand {
     vendor(env, reposToVendor.build());
     if (!notFoundRepoErrors.isEmpty()) {
       return createFailedBlazeCommandResult(
-          env.getReporter(), "Vendoring some repos failed with errors: " + notFoundRepoErrors);
+          env.getReporter(),
+          Code.QUERY_EVALUATION_ERROR,
+          "Vendoring some repos failed with errors: " + notFoundRepoErrors);
     }
     env.getReporter().handle(Event.info("All requested repos vendored successfully."));
     return BlazeCommandResult.success();
@@ -305,17 +318,17 @@ public final class VendorCommand implements BlazeCommand {
       InMemoryGraph inMemoryGraph, ImmutableList<SkyKey> targetKeys) throws InterruptedException {
     ImmutableSet.Builder<RepositoryName> repos = ImmutableSet.builder();
     Queue<SkyKey> nodes = new ArrayDeque<>(targetKeys);
-    Set<SkyKey> visited = new HashSet<>();
+    // Mark nodes as visited when they are enqueued.
+    Set<SkyKey> visited = new HashSet<>(targetKeys);
     while (!nodes.isEmpty()) {
       SkyKey key = nodes.remove();
-      visited.add(key);
       NodeEntry nodeEntry = inMemoryGraph.get(null, Reason.VENDOR_EXTERNAL_REPOS, key);
       if (nodeEntry.getValue() instanceof RepositoryDirectoryValue.Success repoDirValue
           && !repoDirValue.excludeFromVendoring()) {
         repos.add((RepositoryName) key.argument());
       }
       for (SkyKey depKey : nodeEntry.getDirectDeps()) {
-        if (!visited.contains(depKey)) {
+        if (visited.add(depKey)) {
           nodes.add(depKey);
         }
       }

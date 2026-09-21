@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-
 import com.google.devtools.build.lib.concurrent.SettableFutureKeyedValue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiConsumer;
@@ -79,6 +78,27 @@ abstract class AbstractValueOrFutureMap<
       }
     }
     return result;
+  }
+
+  /**
+   * Puts a specific value into the map.
+   *
+   * <p>Returns the old value, if any.
+   */
+  public final ValueOrFutureT put(KeyT key, ValueT value) {
+    return map.put(key, value);
+  }
+
+  /**
+   * Clears all entries from the underlying map for testing or benchmarking.
+   *
+   * <p>Concurrency Precondition Contract: Callers must guarantee that all futures ({@link
+   * SettableFutureKeyedValue}) are completed and the service is completely idle with zero in-flight
+   * requests prior to invocation. If an incomplete future completes after clearing, its
+   * asynchronous callback re-inserts a phantom entry into the map via {@link #accept}.
+   */
+  public void unsafeClearForTesting() {
+    map.clear();
   }
 
   /**

@@ -2,13 +2,13 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib/skyframe/serialization:__pkg__"],
 )
 
 DUMPER_SOURCES = [
@@ -32,11 +32,18 @@ java_library(
             "SerializationDepsUtils.java",
         ],
     ),
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/collect:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/skyframe:__subpackages__",
+    ],
     runtime_deps = [
         "//src/test/java/com/google/devtools/build/lib/vfs/util",  # For FileSystem modules
     ],
     deps = [
         ":round-tripping",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:fingerprint_value_store",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:key_bytes_provider",
@@ -46,12 +53,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/net/starlark/java/eval",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/flogger",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/truth",
     ],
 )
 
@@ -59,12 +68,14 @@ java_library(
     name = "round-tripping",
     srcs = ["RoundTripping.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:concurrent",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )
 
@@ -74,7 +85,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -95,8 +106,10 @@ java_library(
     srcs = DUMPER_SOURCES,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/guava:annotations",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:hash",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -105,6 +118,6 @@ java_library(
     srcs = ["FakeInvalidationDataHelper.java"],
     deps = [
         "//src/main/protobuf:file_invalidation_data_java_proto",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/java/protobuf:protobuf_lite",
     ],
 )

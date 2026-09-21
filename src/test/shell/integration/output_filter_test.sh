@@ -45,6 +45,8 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 
 function set_up() {
   add_rules_java MODULE.bazel
+  add_rules_cc MODULE.bazel
+  add_rules_shell MODULE.bazel
 }
 
 function test_output_filter_cc() {
@@ -164,6 +166,7 @@ function test_test_output_printed() {
 
   mkdir -p $pkg/foo/bar
   cat >$pkg/foo/bar/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(name='test',
         srcs=['test.sh'])
 EOF
@@ -184,6 +187,7 @@ function test_output_filter_does_not_apply_to_test_output() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg/geflugel
   cat >$pkg/geflugel/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(name='mockingbird', srcs=['mockingbird.sh'])
 sh_test(name='hummingbird', srcs=['hummingbird.sh'])
 EOF

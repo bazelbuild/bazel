@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
+import com.google.devtools.build.lib.actions.UploadingActionEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
@@ -57,6 +58,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.CrashDebuggingProtos.InflightActionInfo;
+import com.google.devtools.build.lib.server.TerminalSizeMonitor;
 import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
@@ -79,6 +81,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -127,11 +130,11 @@ public final class UiEventHandler implements EventHandler {
   private final long progressRateLimitMillis;
   private final long minimalUpdateInterval;
   private final AtomicBoolean dateShown;
-  private long lastRefreshMillis;
-  private long mustRefreshAfterMillis;
+  private final AtomicLong lastRefreshMillis;
+  private final AtomicLong mustRefreshAfterMillis;
   private int numLinesProgressBar;
   private volatile boolean buildRunning;
-  private boolean progressBarNeedsRefresh;
+  private final AtomicBoolean progressBarNeedsRefresh;
   private volatile boolean shutdown;
   private final AtomicReference<Thread> updateThread;
   private final Lock updateLock;
@@ -139,7 +142,7 @@ public final class UiEventHandler implements EventHandler {
   private ByteArrayOutputStream stderrLineBuffer;
 
   private final int maxStdoutErrBytes;
-  private final int terminalWidth;
+  private int terminalWidth;
 
   /**
    * An output stream that wraps another output stream and that fully buffers writes until flushed.
@@ -182,7 +185,29 @@ public final class UiEventHandler implements EventHandler {
       @Nullable PathFragment workspacePathFragment,
       boolean skymeldMode,
       boolean newStatsSummary) {
-    this.terminalWidth = (options.getTerminalColumns() > 0 ? options.getTerminalColumns() : 80);
+    this(
+        outErr,
+        options,
+        quiet,
+        clock,
+        eventBus,
+        workspacePathFragment,
+        skymeldMode,
+        newStatsSummary,
+        TerminalSizeMonitor.NOOP);
+  }
+
+  public UiEventHandler(
+      OutErr outErr,
+      UiOptions options,
+      boolean quiet,
+      Clock clock,
+      EventBus eventBus,
+      @Nullable PathFragment workspacePathFragment,
+      boolean skymeldMode,
+      boolean newStatsSummary,
+      TerminalSizeMonitor terminalSizeMonitor) {
+    this.terminalWidth = normalizeTerminalWidth(options.getTerminalColumns());
     this.maxStdoutErrBytes = options.getMaxStdoutErrBytes();
     this.outErr =
         OutErr.create(
@@ -209,12 +234,12 @@ public final class UiEventHandler implements EventHandler {
     if (skymeldMode) {
       this.stateTracker =
           this.cursorControl
-              ? new SkymeldUiStateTracker(clock, /* targetWidth= */ this.terminalWidth - 2)
+              ? new SkymeldUiStateTracker(clock, /* targetWidth= */ getProgressTargetWidth())
               : new SkymeldUiStateTracker(clock);
     } else {
       this.stateTracker =
           this.cursorControl
-              ? new UiStateTracker(clock, /* targetWidth= */ this.terminalWidth - 2)
+              ? new UiStateTracker(clock, /* targetWidth= */ getProgressTargetWidth())
               : new UiStateTracker(clock);
     }
     this.stateTracker.setProgressSampleSize(options.getUiActionsShown());
@@ -233,11 +258,56 @@ public final class UiEventHandler implements EventHandler {
     this.stdoutLineBuffer = new ByteArrayOutputStream();
     this.stderrLineBuffer = new ByteArrayOutputStream();
     this.dateShown = new AtomicBoolean();
+    this.lastRefreshMillis = new AtomicLong();
+    this.mustRefreshAfterMillis = new AtomicLong();
+    this.progressBarNeedsRefresh = new AtomicBoolean();
     this.updateThread = new AtomicReference<>();
     this.updateLock = new ReentrantLock();
     this.filteredEventKinds = options.getFilteredEventKinds();
     // The progress bar has not been updated yet.
     ignoreRefreshLimitOnce();
+    terminalSizeMonitor.addListener(this::terminalSizeChanged);
+  }
+
+  private static int normalizeTerminalWidth(int columns) {
+    return columns > 0 ? columns : 80;
+  }
+
+  private int getProgressTargetWidth() {
+    return Math.max(0, terminalWidth - 2);
+  }
+
+  private int getWrappingWidth() {
+    return Math.max(1, terminalWidth - 1);
+  }
+
+  private void terminalSizeChanged(int columns, int rows) {
+    int newTerminalWidth = normalizeTerminalWidth(columns);
+    updateLock.lock();
+    try {
+      synchronized (this) {
+        if (terminalWidth == newTerminalWidth) {
+          return;
+        }
+        if (showProgress && buildRunning && cursorControl) {
+          clearProgressBar();
+        }
+        terminalWidth = newTerminalWidth;
+        if (cursorControl) {
+          stateTracker.setTargetWidth(getProgressTargetWidth());
+        }
+        ignoreRefreshLimitOnce();
+        progressBarNeedsRefresh.set(true);
+        if (showProgress && buildRunning && cursorControl) {
+          addProgressBar();
+          terminal.flush();
+        }
+      }
+    } catch (IOException e) {
+      logger.atWarning().withCause(e).log("IO Error updating terminal size");
+    } finally {
+      updateLock.unlock();
+    }
   }
 
   /**
@@ -781,6 +851,13 @@ public final class UiEventHandler implements EventHandler {
 
   @Subscribe
   @AllowConcurrentEvents
+  public void uploadingAction(UploadingActionEvent event) {
+    stateTracker.uploadingAction(event);
+    refresh();
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
   public void schedulingAction(SchedulingActionEvent event) {
     stateTracker.schedulingAction(event);
     refresh();
@@ -925,7 +1002,7 @@ public final class UiEventHandler implements EventHandler {
 
   private void refresh() {
     if (showProgress) {
-      progressBarNeedsRefresh = true;
+      progressBarNeedsRefresh.set(true);
       doRefresh();
     }
   }
@@ -935,12 +1012,11 @@ public final class UiEventHandler implements EventHandler {
       return;
     }
     long nowMillis = clock.currentTimeMillis();
-    if (lastRefreshMillis + progressRateLimitMillis < nowMillis) {
+    if (lastRefreshMillis.get() + progressRateLimitMillis < nowMillis) {
       if (updateLock.tryLock()) {
         try {
           synchronized (this) {
-            if (showProgress && (progressBarNeedsRefresh || timeBasedRefresh())) {
-              progressBarNeedsRefresh = false;
+            if (showProgress && (progressBarNeedsRefresh.getAndSet(false) || timeBasedRefresh())) {
               clearProgressBar();
               addProgressBar();
               terminal.flush();
@@ -970,9 +1046,10 @@ public final class UiEventHandler implements EventHandler {
     // Schedule an update of the progress bar in the near future, unless there is already
     // a future update scheduled.
     long nowMillis = clock.currentTimeMillis();
-    if (mustRefreshAfterMillis <= lastRefreshMillis) {
-      mustRefreshAfterMillis = Math.max(nowMillis + 1, lastRefreshMillis + minimalUpdateInterval);
-    }
+    long last = lastRefreshMillis.get();
+    mustRefreshAfterMillis.updateAndGet(
+        current ->
+            current <= last ? Math.max(nowMillis + 1, last + minimalUpdateInterval) : current);
     startUpdateThread();
   }
 
@@ -986,20 +1063,21 @@ public final class UiEventHandler implements EventHandler {
       return false;
     }
     long nowMillis = clock.currentTimeMillis();
-    if (lastRefreshMillis < mustRefreshAfterMillis
-        && mustRefreshAfterMillis < nowMillis + progressRateLimitMillis) {
+    long lastRefresh = lastRefreshMillis.get();
+    long mustRefresh = mustRefreshAfterMillis.get();
+    if (lastRefresh < mustRefresh && mustRefresh < nowMillis + progressRateLimitMillis) {
       // Within a small interval from now, an update is scheduled anyway,
       // so don't do a time-based update of the progress bar now, to avoid
       // updates too close to each other.
       return false;
     }
-    return lastRefreshMillis + SHORT_REFRESH_MILLIS < nowMillis;
+    return lastRefresh + SHORT_REFRESH_MILLIS < nowMillis;
   }
 
   private void ignoreRefreshLimitOnce() {
     // Set refresh time variables in a state such that the next progress bar
     // update will definitely be written out.
-    lastRefreshMillis = clock.currentTimeMillis() - progressRateLimitMillis - 1;
+    lastRefreshMillis.set(clock.currentTimeMillis() - progressRateLimitMillis - 1);
   }
 
   private void startUpdateThread() {
@@ -1013,9 +1091,10 @@ public final class UiEventHandler implements EventHandler {
                 try {
                   while (!shutdown) {
                     Thread.sleep(minimalUpdateInterval);
-                    if (lastRefreshMillis < mustRefreshAfterMillis
-                        && mustRefreshAfterMillis < clock.currentTimeMillis()) {
-                      progressBarNeedsRefresh = true;
+                    long mustRefresh = mustRefreshAfterMillis.get();
+                    if (lastRefreshMillis.get() < mustRefresh
+                        && mustRefresh < clock.currentTimeMillis()) {
+                      progressBarNeedsRefresh.set(true);
                     }
                     doRefresh(/* fromUpdateThread= */ true);
                   }
@@ -1079,9 +1158,9 @@ public final class UiEventHandler implements EventHandler {
     LineCountingAnsiTerminalWriter countingTerminalWriter =
         new LineCountingAnsiTerminalWriter(terminal);
     AnsiTerminalWriter terminalWriter = countingTerminalWriter;
-    lastRefreshMillis = clock.currentTimeMillis();
+    lastRefreshMillis.set(clock.currentTimeMillis());
     if (cursorControl) {
-      terminalWriter = new LineWrappingAnsiTerminalWriter(terminalWriter, terminalWidth - 1);
+      terminalWriter = new LineWrappingAnsiTerminalWriter(terminalWriter, getWrappingWidth());
     }
     String timestamp = null;
     if (showTimestamp) {
@@ -1097,7 +1176,13 @@ public final class UiEventHandler implements EventHandler {
     if (progressInTermTitle) {
       LoggingTerminalWriter stringWriter = new LoggingTerminalWriter(true);
       stateTracker.writeProgressBar(stringWriter, true);
-      terminal.setTitle(stringWriter.getTranscript());
+      String transcript = stringWriter.getTranscript();
+      int newlinePos = transcript.indexOf('\n');
+      if (newlinePos == -1) {
+        terminal.setTitle(stringWriter.getTranscript());
+      } else {
+        terminal.setTitle(stringWriter.getTranscript().substring(0, newlinePos));
+      }
     }
   }
 }

@@ -189,7 +189,10 @@ public class OptionFilterDescriptions {
             "This option isn't even a option, and should not be logged.")
         .put(
             OptionMetadataTag.NON_CONFIGURABLE,
-            "This option cannot be changed in a transition or be used in a select() statement.");
+            "This option cannot be changed in a transition or be used in a select() statement.")
+        .put(
+            OptionMetadataTag.FULLY_REDACTED_IN_LOGS,
+            "This option may contain sensitive credentials and should be redacted in logs.");
     return effectTagDescriptionBuilder.build();
   }
 }

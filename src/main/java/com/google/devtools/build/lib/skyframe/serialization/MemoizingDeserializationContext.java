@@ -231,7 +231,7 @@ abstract class MemoizingDeserializationContext extends DeserializationContext {
    * SharedValueDeserializationContext}.
    */
   @ForOverride
-  abstract Object combineValueWithReadFutures(Object value);
+  abstract Object combineValueWithReadFutures(Object value) throws SerializationException;
 
   /**
    * Adds a new id → object maplet to the memo table.

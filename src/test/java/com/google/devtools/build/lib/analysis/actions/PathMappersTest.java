@@ -18,16 +18,24 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.String.format;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
-import com.google.devtools.build.lib.rules.java.JavaInfo;
+import com.google.devtools.build.lib.rules.java.JavaCompileAction;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import net.starlark.java.eval.Dict;
@@ -77,32 +85,29 @@ public class PathMappersTest extends BuildViewTestCase {
         )
         """);
 
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//java/com/google/test:a");
-    Artifact compiledArtifact =
-        JavaInfo.getProvider(JavaCompilationArgsProvider.class, configuredTarget)
-            .directCompileTimeJars()
-            .toList()
-            .get(0);
-    SpawnAction action = (SpawnAction) getGeneratingAction(compiledArtifact);
-    Spawn spawn =
-        action.getSpawn(
-            new ActionExecutionContextBuilder()
-                .setMetadataProvider(new FakeActionInputFileCache())
-                .build());
+    JavaCompileAction action =
+        (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
+    PathMapper pathMapper =
+        PathMappers.create(
+            action,
+            PathMappers.getOutputPathsMode(targetConfig),
+            /* isStarlarkAction= */ false,
+            /* inputMetadataProvider= */ null);
 
-    assertThat(spawn.getPathMapper().isNoop()).isFalse();
+    assertThat(pathMapper.isNoop()).isFalse();
     String outDir = analysisMock.getProductName() + "-out";
     assertThat(
-            spawn.getArguments().stream()
+            action.getCommandLines().allArguments(pathMapper).stream()
                 .filter(arg -> arg.contains("java/com/google/test/"))
                 .collect(toImmutableList()))
         .containsExactly(
             "java/com/google/test/A.java",
             format("%s/cfg/bin/java/com/google/test/B.java", outDir),
             format("%s/cfg/bin/java/com/google/test/C.java", outDir),
-            format("%s/cfg/bin/java/com/google/test/liba-hjar.jar", outDir),
-            format("%s/cfg/bin/java/com/google/test/liba-hjar.jdeps", outDir),
-            format("%s/cfg/bin/java/com/google/test/liba-tjar.jar", outDir),
+            format("%s/cfg/bin/java/com/google/test/liba.jar", outDir),
+            format("%s/cfg/bin/java/com/google/test/liba-native-header.jar", outDir),
+            format("%s/cfg/bin/java/com/google/test/liba.jar_manifest_proto", outDir),
+            format("%s/cfg/bin/java/com/google/test/liba.jdeps", outDir),
             format("-XepOpt:foo:bar=%s/cfg/bin/java/com/google/test/B.java", outDir),
             format(
                 "-XepOpt:baz=%s/cfg/bin/java/com/google/test/C.java,%s/cfg/bin/java/com/google/test/B.java",
@@ -182,10 +187,7 @@ public class PathMappersTest extends BuildViewTestCase {
     addStarlarkRule(
         Dict.<String, String>builder().put("supports-path-mapping", "1").buildImmutable());
 
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//pkg:my_rule");
-    Artifact outputArtifact =
-        configuredTarget.getProvider(FileProvider.class).getFilesToBuild().toList().get(0);
-    SpawnAction action = (SpawnAction) getGeneratingAction(outputArtifact);
+    SpawnAction action = (SpawnAction) getGeneratingActionForLabel("//pkg:my_rule");
     Spawn spawn =
         action.getSpawn(
             new ActionExecutionContextBuilder()
@@ -214,10 +216,7 @@ public class PathMappersTest extends BuildViewTestCase {
         "--modify_execution_info=MyRuleAction=+supports-path-mapping");
     addStarlarkRule(Dict.empty());
 
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//pkg:my_rule");
-    Artifact outputArtifact =
-        configuredTarget.getProvider(FileProvider.class).getFilesToBuild().toList().get(0);
-    SpawnAction action = (SpawnAction) getGeneratingAction(outputArtifact);
+    SpawnAction action = (SpawnAction) getGeneratingActionForLabel("//pkg:my_rule");
     Spawn spawn =
         action.getSpawn(
             new ActionExecutionContextBuilder()
@@ -237,6 +236,110 @@ public class PathMappersTest extends BuildViewTestCase {
             "-source",
             "<pkg/source.txt:pkg/source.txt::pkg>")
         .inOrder();
+  }
+
+  @Test
+  public void starlarkRule_heuristicPathMappingNotAllowedViaExecutionRequirements()
+      throws Exception {
+    useConfiguration("--experimental_output_paths=strip");
+    addStarlarkRule(
+        Dict.<String, String>builder()
+            .put("supports-heuristic-path-mapping", "1")
+            .buildImmutable());
+
+    checkError(
+        "//pkg:my_rule",
+        "execution requirement 'supports-heuristic-path-mapping' cannot be set directly; it can"
+            + " only be enabled via --modify_execution_info");
+  }
+
+  @Test
+  public void starlarkRule_heuristicPathMappingAllowedViaModifyExecutionInfo() throws Exception {
+    useConfiguration(
+        "--experimental_output_paths=strip",
+        "--modify_execution_info=MyRuleAction=+supports-heuristic-path-mapping");
+    addStarlarkRule(Dict.empty());
+
+    SpawnAction action = (SpawnAction) getGeneratingActionForLabel("//pkg:my_rule");
+    Spawn spawn =
+        action.getSpawn(
+            new ActionExecutionContextBuilder()
+                .setMetadataProvider(new FakeActionInputFileCache())
+                .build());
+
+    assertThat(spawn.getPathMapper().isNoop()).isFalse();
+  }
+
+  @Test
+  public void customCommandLine_heuristicPathMapping_stripsPrefixedAndFormattedArgs()
+      throws Exception {
+    ActionsTestUtil.MockAction heuristicAction =
+        new ActionsTestUtil.MockAction(
+            ImmutableList.of(), ImmutableSet.of(getBinArtifactWithNoOwner("pkg/out.bin"))) {
+          @Override
+          public ImmutableMap<String, String> getExecutionInfo() {
+            return ImmutableMap.of(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING, "");
+          }
+        };
+    PathMapper pathMapper =
+        PathMappers.create(
+            heuristicAction,
+            OutputPathsMode.STRIP,
+            /* isStarlarkAction= */ false,
+            /* inputMetadataProvider= */ null);
+
+    String outDir = analysisMock.getProductName() + "-out";
+    CustomCommandLine commandLine =
+        CustomCommandLine.builder()
+            .addPrefixed("-I", format("%s/k8-fastbuild/bin/pkg/foo.h", outDir))
+            .addFormatted("-DROOT=%s", format("%s/k8-fastbuild/bin", outDir))
+            .build();
+
+    assertThat(commandLine.arguments(/* inputMetadataProvider= */ null, pathMapper))
+        .containsExactly(
+            format("-I%s/cfg/bin/pkg/foo.h", outDir), format("-DROOT=%s/cfg/bin", outDir))
+        .inOrder();
+  }
+
+  @Test
+  public void addToFingerprint_differentiatesHeuristicPathMapping() throws Exception {
+    ActionKeyContext actionKeyContext = new ActionKeyContext();
+    NestedSet<Artifact> emptyArtifacts = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+
+    Fingerprint fpOff = new Fingerprint();
+    PathMappers.addToFingerprint(
+        "Mnemonic",
+        ImmutableMap.of(),
+        emptyArtifacts,
+        actionKeyContext,
+        OutputPathsMode.STRIP,
+        fpOff);
+
+    Fingerprint fpStructured = new Fingerprint();
+    PathMappers.addToFingerprint(
+        "Mnemonic",
+        ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, ""),
+        emptyArtifacts,
+        actionKeyContext,
+        OutputPathsMode.STRIP,
+        fpStructured);
+
+    Fingerprint fpHeuristic = new Fingerprint();
+    PathMappers.addToFingerprint(
+        "Mnemonic",
+        ImmutableMap.of(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING, ""),
+        emptyArtifacts,
+        actionKeyContext,
+        OutputPathsMode.STRIP,
+        fpHeuristic);
+
+    String digestOff = fpOff.hexDigestAndReset();
+    String digestStructured = fpStructured.hexDigestAndReset();
+    String digestHeuristic = fpHeuristic.hexDigestAndReset();
+
+    assertThat(digestOff).isNotEqualTo(digestStructured);
+    assertThat(digestStructured).isNotEqualTo(digestHeuristic);
+    assertThat(digestOff).isNotEqualTo(digestHeuristic);
   }
 
   @Test
@@ -283,10 +386,7 @@ public class PathMappersTest extends BuildViewTestCase {
         my_rule(name = "my_rule")
         """);
 
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//:my_rule");
-    Artifact outputArtifact =
-        configuredTarget.getProvider(FileProvider.class).getFilesToBuild().toList().get(0);
-    SpawnAction action = (SpawnAction) getGeneratingAction(outputArtifact);
+    SpawnAction action = (SpawnAction) getGeneratingActionForLabel("//:my_rule");
     Spawn spawn =
         action.getSpawn(
             new ActionExecutionContextBuilder()
@@ -455,10 +555,7 @@ public class PathMappersTest extends BuildViewTestCase {
         my_rule(name = "my_rule")
         """);
 
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//:my_rule");
-    Artifact outputArtifact =
-        configuredTarget.getProvider(FileProvider.class).getFilesToBuild().toList().get(0);
-    SpawnAction action = (SpawnAction) getGeneratingAction(outputArtifact);
+    SpawnAction action = (SpawnAction) getGeneratingActionForLabel("//:my_rule");
     Spawn spawn =
         action.getSpawn(
             new ActionExecutionContextBuilder()
@@ -476,5 +573,101 @@ public class PathMappersTest extends BuildViewTestCase {
             "--input",
             "%s/:archived_tree_artifacts/cfg/bin/pkg/tree.zip".formatted(outDir))
         .inOrder();
+  }
+
+  @Test
+  public void starlarkRule_inputsOutputsCollision() throws Exception {
+    scratch.file(
+        "defs/defs.bzl",
+        """
+        def _flag_impl(ctx):
+            return []
+
+        bool_flag = rule(implementation = _flag_impl, build_setting = config.bool(flag = True))
+
+        def _transition_impl(settings, attr):
+            return {"//defs:transitioned": True}
+
+        _transitioned = transition(
+            implementation = _transition_impl,
+            inputs = [],
+            outputs = ["//defs:transitioned"],
+        )
+
+        def _my_rule_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name + ".out")
+            args = ctx.actions.args()
+            args.add(out)
+            args.add_all(ctx.files.dep)
+            ctx.actions.run(
+                outputs = [out],
+                inputs = ctx.files.dep,
+                executable = ctx.executable._tool,
+                arguments = [args],
+                execution_requirements = {"supports-path-mapping": "1"},
+            )
+            return [DefaultInfo(files = depset([out]))]
+
+        my_rule = rule(
+            implementation = _my_rule_impl,
+            attrs = {
+                "dep": attr.label_list(cfg = _transitioned, allow_files = True),
+                "_tool": attr.label(default = "//tool", executable = True, cfg = "exec"),
+            },
+        )
+        """);
+    scratch.file(
+        "defs/BUILD",
+        """
+        load("//defs:defs.bzl", "bool_flag")
+
+        bool_flag(
+            name = "transitioned",
+            build_setting_default = False,
+            visibility = ["//visibility:public"],
+        )
+
+        config_setting(
+            name = "is_transitioned",
+            flag_values = {":transitioned": "True"},
+            visibility = ["//visibility:public"],
+        )
+        """);
+    scratch.file(
+        "collide/BUILD",
+        """
+        load("//defs:defs.bzl", "my_rule")
+
+        my_rule(
+            name = "a",
+            dep = select({
+                "//defs:is_transitioned": [],
+                "//conditions:default": [":a"],
+            }),
+        )
+        """);
+    scratch.file(
+        "tool/BUILD",
+        """
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
+            name = 'tool',
+            srcs = ['tool.sh'],
+            visibility = ['//visibility:public'],
+        )
+        """);
+
+    SpawnAction action = (SpawnAction) getGeneratingActionForLabel("//collide:a");
+    Spawn spawn =
+        action.getSpawn(
+            new ActionExecutionContextBuilder()
+                .setMetadataProvider(new FakeActionInputFileCache())
+                .build());
+
+    assertThat(spawn.getPathMapper().isNoop()).isTrue();
+    String outDir = analysisMock.getProductName() + "-out";
+    assertThat(spawn.getArguments()).doesNotContain(format("%s/cfg/bin/collide/a.out", outDir));
+    assertThat(spawn.getArguments().stream().anyMatch(arg -> arg.endsWith("/bin/collide/a.out")))
+        .isTrue();
   }
 }

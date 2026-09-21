@@ -3,7 +3,7 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
@@ -13,7 +13,9 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/packages/util/mock:srcs",
         "//src/test/java/com/google/devtools/build/lib/packages/util/real/linux:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib:__pkg__",
+    ],
 )
 
 java_library(
@@ -23,7 +25,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//third_party:guava",
+        "//third_party/java/guava:collect",
     ],
 )
 
@@ -39,7 +41,7 @@ java_test(
     shard_count = 20,
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
     ],
     deps = [
         ":testutil",
@@ -94,16 +96,18 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
-        "//third_party:auto_value",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
-        "@com_google_protobuf//:protobuf_java",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:hash",
+        "//third_party/java/guava:testing",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/testparameterinjector",
+        "//third_party/java/truth",
     ],
 )
 
@@ -111,15 +115,16 @@ java_test(
     name = "BazelDocumentationTests",
     size = "medium",
     srcs = ["BazelDocumentationTest.java"],
-    data = ["//site/en:docs/user-manual.md"],
+    data = ["//docs:docs/user-manual.mdx"],
     test_class = "com.google.devtools.build.lib.packages.BazelDocumentationTest",
     deps = [
         ":DocumentationTestUtil",
         "//src/main/java/com/google/devtools/build/lib/bazel:bazel_services",
         "//src/main/java/com/google/devtools/build/lib/bazel:main",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules:bazel_rule_class_provider",
-        "//third_party:guava",
-        "//third_party:junit4",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:io",
+        "//third_party/java/junit",
         "@rules_java//java/runfiles",
     ],
 )
@@ -127,6 +132,8 @@ java_test(
 java_library(
     name = "DocumentationTestUtil",
     srcs = ["DocumentationTestUtil.java"],
+    visibility = [
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -136,8 +143,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:options_supplier",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
-        "//third_party:truth",
+        "//third_party/java/guava:collect",
+        "//third_party/java/truth",
     ],
 )
 
@@ -151,12 +158,16 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/packages/util/mock:android_cc_toolchain_config.bzl",
         "//src/test/java/com/google/devtools/build/lib/packages/util/mock:osx_cc_toolchain_config.bzl",
         "//tools/build_defs/cc:action_names.bzl",
+        "//tools/cpp:cc_toolchain_config_lib",
         "//tools/python:srcs",  # For BazelMockPythonSupport
         "@rules_cc//cc:srcs",
         "@rules_cc//cc/common:srcs",
         "@rules_cc//cc/private:srcs",
         "@rules_cc//cc/private/rules_impl:srcs",
         "@rules_cc//cc/toolchains:srcs",
+    ],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -169,6 +180,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/python",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/compress:compression_service_impl",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:rule_visibility",
@@ -196,11 +208,13 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestPackageFactoryBuilderFactory",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:io",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
         "@rules_java//java/runfiles",
     ],
 )

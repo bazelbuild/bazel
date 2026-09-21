@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.CommandDispatcher;
-import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.CommandDispatcher.UiVerbosity;
 import com.google.devtools.build.lib.runtime.SafeRequestLogging;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
@@ -37,6 +36,8 @@ import com.google.devtools.build.lib.server.CommandProtos.RunRequest;
 import com.google.devtools.build.lib.server.CommandProtos.RunResponse;
 import com.google.devtools.build.lib.server.CommandProtos.ServerInfo;
 import com.google.devtools.build.lib.server.CommandProtos.StartupOption;
+import com.google.devtools.build.lib.server.CommandProtos.TerminalSizeRequest;
+import com.google.devtools.build.lib.server.CommandProtos.TerminalSizeResponse;
 import com.google.devtools.build.lib.server.FailureDetails.Command;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
@@ -67,6 +68,7 @@ import java.net.SocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
@@ -502,19 +504,24 @@ public class CommandServer implements GrpcCommandServer.Callback {
 
         InvocationPolicy policy = InvocationPolicyParser.parsePolicy(request.getInvocationPolicy());
         logger.atInfo().log("Executing command %s", SafeRequestLogging.getRequestLogString(args));
+        Duration blockForLockTimeout =
+            request.hasBlockForLockTimeoutMs()
+                ? Duration.ofMillis(Math.max(0, request.getBlockForLockTimeoutMs()))
+                : (request.getBlockForLock() ? Duration.ofMillis(Long.MAX_VALUE) : Duration.ZERO);
         result =
             dispatcher.exec(
                 policy,
                 args,
                 rpcOutErr,
-                request.getBlockForLock() ? LockingMode.WAIT : LockingMode.ERROR_OUT,
+                blockForLockTimeout,
                 request.getQuiet() ? UiVerbosity.QUIET : UiVerbosity.NORMAL,
                 request.getClientDescription(),
                 clock.currentTimeMillis(),
                 Optional.of(startupOptions.build()),
                 commandManager::getIdleTaskResults,
                 request.getCommandExtensionsList(),
-                new RpcCommandExtensionReporter(command.getId(), responseCookie, responder));
+                new RpcCommandExtensionReporter(command.getId(), responseCookie, responder),
+                command.getTerminalSizeMonitor());
       } catch (OptionsParsingException e) {
         rpcOutErr.printErrLn(e.getMessage());
         result =
@@ -613,6 +620,30 @@ public class CommandServer implements GrpcCommandServer.Callback {
     } catch (IOException e) {
       // There is no one to report the failure to.
       logger.atInfo().withCause(e).log("Error while sending CancelResponse");
+    }
+  }
+
+  @Override
+  public void updateTerminalSize(byte[] serializedRequest, GrpcCommandServer.Responder responder) {
+    TerminalSizeRequest request;
+    try {
+      request =
+          TerminalSizeRequest.parseFrom(serializedRequest, ExtensionRegistry.getEmptyRegistry());
+    } catch (InvalidProtocolBufferException e) {
+      // Programming error: the SC proto must remain backwards-compatible with the LC proto.
+      throw new IllegalStateException(e);
+    }
+    logger.atInfo().log("Got TerminalSizeRequest for command id %s", request.getCommandId());
+    try {
+      if (isValidRequestCookie(request.getCookie())) {
+        commandManager.doUpdateTerminalSize(request);
+        responder.onNext(
+            TerminalSizeResponse.newBuilder().setCookie(responseCookie).build().toByteArray());
+      }
+      responder.onCompleted();
+    } catch (IOException e) {
+      // There is no one to report the failure to.
+      logger.atInfo().withCause(e).log("Error while sending TerminalSizeResponse");
     }
   }
 

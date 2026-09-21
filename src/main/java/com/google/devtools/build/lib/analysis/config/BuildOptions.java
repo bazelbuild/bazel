@@ -89,9 +89,10 @@ public final class BuildOptions implements Cloneable {
 
   /**
    * Converts the map containing String representation of scopes attributes to a map of {@link
-   * Label} of Starlark options to their corresponding {@link Scope.ScopeType}.
+   * Label} of Starlark options to their corresponding {@link Scope.ScopeType}, keeping only entries
+   * for flags present in {@code starlarkOptions}.
    */
-  private static ImmutableMap<Label, Scope.ScopeType> convertScopesAttributes(
+  public static ImmutableMap<Label, Scope.ScopeType> convertScopesAttributes(
       Map<String, String> scopesAttributes, Map<String, Object> starlarkOptions) {
     return scopesAttributes.entrySet().stream()
         .filter(e -> starlarkOptions.containsKey(e.getKey()))

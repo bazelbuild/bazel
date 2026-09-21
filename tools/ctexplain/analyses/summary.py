@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Analysis that summarizes basic graph info."""
+from dataclasses import dataclass
 from typing import Tuple
 
-from dataclasses import dataclass
-
-from tools.ctexplain.types import ConfiguredTarget
+from tools.ctexplain.ctexplain_types import ConfiguredTarget
 import tools.ctexplain.util as util
 
 

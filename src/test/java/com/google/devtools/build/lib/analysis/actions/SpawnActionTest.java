@@ -564,6 +564,23 @@ public final class SpawnActionTest extends BuildViewTestCase {
         .isEqualTo("ToolPoolMnemonic");
   }
 
+  @Test
+  public void testWorkerMnemonicOverride_validSpecialCharacters() throws Exception {
+    SpawnAction customMnemonicSpawn =
+        createWorkerSupportSpawn(ImmutableMap.of("worker-key-mnemonic", "Tool_Pool-Mnemonic"));
+    assertThat(Spawns.getWorkerKeyMnemonic(customMnemonicSpawn.getSpawnForTesting()))
+        .isEqualTo("Tool_Pool-Mnemonic");
+  }
+
+  @Test
+  public void testWorkerMnemonicValidation_invalidPathTraversal() throws Exception {
+    SpawnAction customMnemonicSpawn =
+        createWorkerSupportSpawn(
+            ImmutableMap.of("worker-key-mnemonic", "../../../ToolPoolMnemonic"));
+    Spawn spawn = customMnemonicSpawn.getSpawnForTesting();
+    assertThrows(IllegalArgumentException.class, () -> Spawns.getWorkerKeyMnemonic(spawn));
+  }
+
   private ActionOwner nullOwnerWithTargetConfig() {
     return ActionOwner.create(
         ActionsTestUtil.NULL_ACTION_OWNER.getLabel(),

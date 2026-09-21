@@ -147,6 +147,6 @@ public interface PackageProvider extends TargetProvider {
   default ImmutableCollection<Target> getSiblingTargetsInPackage(
       ExtendedEventHandler eventHandler, Target target)
       throws NoSuchPackageException, InterruptedException {
-    return getPackage(eventHandler, target).getTargets().values();
+    return getPackage(eventHandler, target).getTargets();
   }
 }

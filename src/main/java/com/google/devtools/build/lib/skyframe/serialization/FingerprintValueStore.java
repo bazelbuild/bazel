@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
 import com.google.devtools.build.lib.util.Bucket;
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import javax.annotation.Nullable;
 
 /** Encapsulates fingerprint keyed bytes storage system. */
@@ -25,22 +28,95 @@ import javax.annotation.Nullable;
 public interface FingerprintValueStore {
   /** Usage statistics. */
   @SkybridgeInterface
-  record Stats(
-      long valueBytesReceived,
-      long valueBytesSent,
-      long keyBytesSent,
-      long entriesWritten,
-      long entriesFound,
-      long entriesNotFound,
-      long getBatches,
-      long setBatches,
-      List<Bucket> getLatencyMicros,
-      List<Bucket> setLatencyMicros,
-      List<Bucket> getBatchLatencyMicros,
-      List<Bucket> setBatchLatencyMicros) {}
+  interface Stats {
+    long valueBytesReceived();
+
+    long valueBytesSent();
+
+    long keyBytesSent();
+
+    long entriesWritten();
+
+    long entriesFound();
+
+    long entriesNotFound();
+
+    long getBatches();
+
+    long setBatches();
+
+    List<Bucket> getLatencyMicros();
+
+    List<Bucket> setLatencyMicros();
+
+    List<Bucket> getBatchLatencyMicros();
+
+    List<Bucket> setBatchLatencyMicros();
+  }
 
   @SuppressWarnings("JdkImmutableCollections") // Keep the SkybridgeInterface simple.
-  Stats EMPTY_STATS = new Stats(0, 0, 0, 0, 0, 0, 0, 0, List.of(), List.of(), List.of(), List.of());
+  Stats EMPTY_STATS =
+      new Stats() {
+        @Override
+        public long valueBytesReceived() {
+          return 0;
+        }
+
+        @Override
+        public long valueBytesSent() {
+          return 0;
+        }
+
+        @Override
+        public long keyBytesSent() {
+          return 0;
+        }
+
+        @Override
+        public long entriesWritten() {
+          return 0;
+        }
+
+        @Override
+        public long entriesFound() {
+          return 0;
+        }
+
+        @Override
+        public long entriesNotFound() {
+          return 0;
+        }
+
+        @Override
+        public long getBatches() {
+          return 0;
+        }
+
+        @Override
+        public long setBatches() {
+          return 0;
+        }
+
+        @Override
+        public List<Bucket> getLatencyMicros() {
+          return List.of();
+        }
+
+        @Override
+        public List<Bucket> setLatencyMicros() {
+          return List.of();
+        }
+
+        @Override
+        public List<Bucket> getBatchLatencyMicros() {
+          return List.of();
+        }
+
+        @Override
+        public List<Bucket> setBatchLatencyMicros() {
+          return List.of();
+        }
+      };
 
   default Stats getStats() {
     return EMPTY_STATS;
@@ -58,10 +134,6 @@ public interface FingerprintValueStore {
    */
   WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes);
 
-  /** Returns whether the WriteStatuses from {@link #put} can be sparsely aggregated. */
-  default boolean isSparseAggregationSupported() {
-    return false;
-  }
 
   /**
    * Retrieves the serialized bytes associated with {@code fingerprint}.
@@ -73,7 +145,7 @@ public interface FingerprintValueStore {
 
   /**
    * {@link FingerprintValueStore#get} was called with a fingerprint that does not exist in the
-   * store.
+   * store, or the get operation was cancelled.
    */
   final class MissingFingerprintValueException extends Exception {
 
@@ -84,6 +156,10 @@ public interface FingerprintValueStore {
     public MissingFingerprintValueException(
         KeyBytesProvider fingerprint, @Nullable Throwable cause) {
       super("No remote value for " + fingerprint, cause);
+    }
+
+    public MissingFingerprintValueException(CancellationException cause) {
+      super("Fingerprint value fetch cancelled", checkNotNull(cause));
     }
   }
 

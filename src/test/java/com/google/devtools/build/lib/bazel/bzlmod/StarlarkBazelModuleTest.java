@@ -112,7 +112,9 @@ public class StarlarkBazelModuleTest {
 
     assertThat(moduleProxy.getName()).isEqualTo("foo");
     assertThat(moduleProxy.getVersion()).isEqualTo("1.0");
-    assertThat(moduleProxy.getTags().getFieldNames()).containsExactly("dep", "repos", "pom");
+    assertThat(moduleProxy.getTags().getFieldNames())
+        .containsExactly("dep", "repos", "pom")
+        .inOrder();
 
     // We have 2 "dep" tags...
     @SuppressWarnings("unchecked")

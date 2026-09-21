@@ -32,12 +32,6 @@ public class BranchExpression implements CoverageExpression {
     this.branches = branches;
   }
 
-  /** Create a new BranchExpression using this CoverageExpression as the only branch. */
-  private BranchExpression(CoverageExpression exp) {
-    branches = new ArrayList<>();
-    branches.add(exp);
-  }
-
   /** Make a new BranchExpression with a branch for each of the given expressions. */
   public static BranchExpression create(CoverageExpression... expressions) {
     return new BranchExpression(new ArrayList<>(Arrays.asList(expressions)));
@@ -115,14 +109,14 @@ public class BranchExpression implements CoverageExpression {
     }
     List<CoverageExpression> remainder = leftSize < rightSize ? right.branches : left.branches;
     for (; i < remainder.size(); i++) {
-      zippedBranches.add(new BranchExpression(remainder.get(i)));
+      zippedBranches.add(BranchExpression.create(remainder.get(i)));
     }
     return new BranchExpression(zippedBranches);
   }
 
   /** Wraps a CoverageExpression in a BranchExpression if it isn't one already. */
   public static BranchExpression ensureIsBranchExpression(CoverageExpression exp) {
-    return exp instanceof BranchExpression ? (BranchExpression) exp : new BranchExpression(exp);
+    return exp instanceof BranchExpression ? (BranchExpression) exp : BranchExpression.create(exp);
   }
 
   private void invalidateEvalCache() {

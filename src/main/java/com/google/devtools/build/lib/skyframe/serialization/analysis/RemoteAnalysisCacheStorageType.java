@@ -13,11 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import com.google.devtools.build.lib.skybridge.SkybridgeInterface;
-
 /** The storage type for the remote analysis cache. */
-@SkybridgeInterface
-public enum RemoteAnalysisCacheStorageType {
+enum RemoteAnalysisCacheStorageType {
   /** Write to RAM. */
   RAM,
 

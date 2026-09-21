@@ -3,14 +3,14 @@ load("@rules_java//java:defs.bzl", "java_library")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["*"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/test/java/com/google/devtools/build/lib/buildtool:__pkg__"],
 )
 
 # Redirection for util lib to allow exporting both ":util_internal" and the
@@ -33,6 +33,7 @@ java_library(
     name = "util_internal",
     srcs = glob(["*.java"]),
     data = ["//src/main/protobuf/project:project_proto_scl_filegroup"],
+    visibility = ["//visibility:private"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -135,13 +136,17 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@com_google_protobuf//:protobuf_java",
+        "//third_party/google/protobuf:any_java_proto",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/guava:eventbus",
+        "//third_party/java/guava:testing",
+        "//third_party/java/jsr305_annotations",
+        "//third_party/java/junit",
+        "//third_party/java/protobuf",
+        "//third_party/java/protobuf:protobuf_lite",
+        "//third_party/java/truth",
         "@rules_java//java/runfiles",
     ],
 )

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -31,11 +32,13 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.ForOverride;
 import com.google.protobuf.ByteString;
 import java.lang.ref.WeakReference;
 import java.time.Duration;
@@ -45,9 +48,9 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import javax.annotation.Nullable;
 
@@ -75,15 +78,19 @@ import javax.annotation.Nullable;
  *
  * <p>The implementation has been highly optimized as it is crucial to Blaze's performance.
  *
+ * <p>To optimize memory usage, the implementation uses two different subclasses depending on the
+ * depth of the set. "Flat" sets ({@code depth <= 2}, containing no transitive nested sets) are
+ * represented by a subclass that omits the {@code cached} list representation field. Since flat
+ * sets are cheap to flatten and constitute a significant fraction of all instances, this saves
+ * significant memory by avoiding the overhead of the {@code WeakReference} cache field for these
+ * simple sets. "Nested" sets ({@code depth > 2}) use a subclass that retains the {@code cached}
+ * field to avoid re-flattening expensive deep DAGs.
+ *
  * @see NestedSetBuilder
  */
 @SuppressWarnings("unchecked")
 @AutoCodec
-public final class NestedSet<E> {
-
-  /** Initial value of {@link #cached} indicating that a traversal is necessary. */
-  @SuppressWarnings("rawtypes") // Safe to use as WeakReference<ImmutableList<E>> since it's null.
-  private static final WeakReference EMPTY_WEAK_REF = new WeakReference<>(null);
+public abstract sealed class NestedSet<E> {
 
   @VisibleForSerialization @SerializationConstant static final Object[] EMPTY_CHILDREN = {};
 
@@ -98,7 +105,7 @@ public final class NestedSet<E> {
    */
   static <E> NestedSet<E> withFuture(
       Order order, int depth, ListenableFuture<Object[]> deserializationFuture) {
-    return new NestedSet<>(order, depth, deserializationFuture);
+    return new Nested<>(order, depth, deserializationFuture);
   }
 
   @AutoCodec.Instantiator
@@ -109,7 +116,7 @@ public final class NestedSet<E> {
     //
     // A future improvement might be to unify deserialization's interning with NestedSetInterner
     // (used by NestedSetBuilder).
-    return new NestedSet<>(order, approxDepth, children);
+    return create(order, approxDepth, children);
   }
 
   /**
@@ -143,46 +150,32 @@ public final class NestedSet<E> {
    */
   final Object children;
 
-  /**
-   * Cached representation of {@link #toList}.
-   *
-   * <p>For instances with no transitive members, this is always {@code null} - caching is not
-   * worthwhile, since no traversal is needed. For instances with transitive members, this is
-   * initialized to {@link #EMPTY_WEAK_REF} and replaced with a populated {@link WeakReference} when
-   * a traversal is performed.
-   *
-   * <p>As an exception to the above, deserializing instances created by {@link #withFuture} are
-   * assigned {@link #EMPTY_WEAK_REF}.
-   *
-   * <p>Using weak references is preferable to soft references because {@link
-   * com.google.devtools.build.lib.runtime.GcThrashingDetector} may throw a manual OOM before all
-   * soft references are collected. See b/322474776.
-   *
-   * <p>This field is {@code volatile} to support double-checked locking in {@link
-   * #expandWithCaching}.
-   */
-  @Nullable private transient volatile WeakReference<ImmutableList<E>> cached;
-
-  /** Constructs an empty NestedSet. Should only be called by Order's class initializer. */
-  NestedSet(Order order) {
-    this(order, /* depth= */ 0, EMPTY_CHILDREN);
-  }
-
   @SuppressWarnings("EnumOrdinal") // Used to pack order and depth into a single int field.
   NestedSet(Order order, int depth, Object children) {
     this.depthAndOrder = (depth << 2) | order.ordinal();
     this.children = children;
-    // expandWithCaching() assumes that cached == null means there are no transitive members. We
-    // could use depth, but that's an approximation in some cases, so avoid relying on it.
-    this.cached =
-        switch (children) {
-          case Object[] array when hasTransitiveMember(array) -> EMPTY_WEAK_REF;
-          case ListenableFuture<?> future -> EMPTY_WEAK_REF;
-          default -> null;
-        };
   }
 
-  NestedSet(
+  /** Constructs an empty NestedSet. Should only be called by Order's class initializer. */
+  static <E> NestedSet<E> empty(Order order) {
+    return new Flat<>(order, 0, EMPTY_CHILDREN);
+  }
+
+  private static boolean isNested(Object children) {
+    return switch (children) {
+      case Object[] array when hasTransitiveMember(array) -> true;
+      case ListenableFuture<?> future -> true;
+      default -> false;
+    };
+  }
+
+  static <E> NestedSet<E> create(Order order, int depth, Object children) {
+    return isNested(children)
+        ? new Nested<>(order, depth, children)
+        : new Flat<>(order, depth, children);
+  }
+
+  static <E> NestedSet<E> create(
       Order order,
       Set<E> direct,
       Collection<NestedSet<E>> transitive,
@@ -254,23 +247,26 @@ public final class NestedSet<E> {
       }
     }
 
+    Object finalChildren;
     // n == |successors|
     if (n == 0) {
       approxDepth = 0;
-      this.children = EMPTY_CHILDREN;
+      finalChildren = EMPTY_CHILDREN;
     } else if (n == 1) {
       // If we ended up wrapping exactly one item or one other set, dereference it.
       approxDepth--;
-      this.children = children[0];
+      finalChildren = children[0];
+      shallow = !isNested(finalChildren);
     } else {
       if (n < children.length) {
         children = Arrays.copyOf(children, n); // shrink to save space
       }
-      this.children = children;
+      finalChildren = NestedSetInterner.intern(children);
     }
-    this.depthAndOrder = (approxDepth << 2) | order.ordinal();
 
-    this.cached = shallow ? null : EMPTY_WEAK_REF;
+    return shallow
+        ? new Flat<>(order, approxDepth, finalChildren)
+        : new Nested<>(order, approxDepth, finalChildren);
   }
 
   private static boolean hasTransitiveMember(Object[] children) {
@@ -289,19 +285,15 @@ public final class NestedSet<E> {
    * <p>Although the cached representation is stored as a {@link WeakReference}, eagerly clearing it
    * helps the garbage collector, plus it also frees the {@link WeakReference} itself.
    */
-  public void clearCachedListRepresentation() {
-    if (cached != null) {
-      cached = EMPTY_WEAK_REF;
-    }
-  }
+  public abstract void clearCachedListRepresentation();
 
   /** Returns the ordering of this nested set. */
-  public Order getOrder() {
+  public final Order getOrder() {
     return Order.getOrder(depthAndOrder & 3);
   }
 
   @VisibleForSerialization
-  int getDepthAndOrder() {
+  final int getDepthAndOrder() {
     return depthAndOrder;
   }
 
@@ -309,12 +301,13 @@ public final class NestedSet<E> {
    * Returns the internal item or array. If the internal item is a deserialization future, blocks on
    * completion. For use only by NestedSetVisitor.
    */
-  Object getChildren() {
+  @VisibleForTesting
+  public final Object getChildren() {
     return getChildrenUninterruptibly();
   }
 
   /** Same as {@link #getChildren}, except propagates {@link InterruptedException}. */
-  Object getChildrenInterruptibly() throws InterruptedException {
+  final Object getChildrenInterruptibly() throws InterruptedException {
     return children instanceof ListenableFuture
         ? MoreFutures.waitForFutureAndGet(
             (ListenableFuture<Object[]>) children, /* cancelOnInterrupt= */ false)
@@ -335,7 +328,7 @@ public final class NestedSet<E> {
    * Implementation of {@link #getChildren} that crashes with the appropriate failure detail if it
    * encounters {@link InterruptedException}.
    */
-  private Object getChildrenUninterruptibly() {
+  final Object getChildrenUninterruptibly() {
     if (!(children instanceof ListenableFuture)) {
       return children;
     }
@@ -354,11 +347,10 @@ public final class NestedSet<E> {
   }
 
   /**
-   * Private implementation of getChildren that will propagate an InterruptedException from a future
-   * in the nested set based on the value of {@code interruptStrategy}.
+   * Package-private implementation of getChildren that will propagate an InterruptedException from
+   * a future in the nested set based on the value of {@code interruptStrategy}.
    */
-  private Object getChildrenInternal(InterruptStrategy interruptStrategy)
-      throws InterruptedException {
+  Object getChildrenInternal(InterruptStrategy interruptStrategy) throws InterruptedException {
     return switch (interruptStrategy) {
       case CRASH -> getChildrenUninterruptibly();
       case PROPAGATE -> getChildrenInterruptibly();
@@ -366,14 +358,14 @@ public final class NestedSet<E> {
   }
 
   /** Returns true if the set is empty. Runs in O(1) time (i.e. does not flatten the set). */
-  public boolean isEmpty() {
+  public final boolean isEmpty() {
     // We don't check for future members here, since empty sets are special-cased in serialization
     // and do not make requests against storage.
     return children == EMPTY_CHILDREN;
   }
 
   /** Returns true if the set has exactly one element. */
-  public boolean isSingleton() {
+  public final boolean isSingleton() {
     return isSingleton(children);
   }
 
@@ -391,12 +383,12 @@ public final class NestedSet<E> {
    * <p>This function may return an overapproximation of the true depth if the NestedSet was derived
    * from the result of calling {@link #getNonLeaves} or {@link #splitIfExceedsMaximumSize}.
    */
-  public int getApproxDepth() {
+  public final int getApproxDepth() {
     return this.depthAndOrder >>> 2;
   }
 
   /** Returns true if this set depends on data from storage. */
-  public boolean isFromStorage() {
+  public final boolean isFromStorage() {
     return children instanceof ListenableFuture;
   }
 
@@ -406,7 +398,7 @@ public final class NestedSet<E> {
    * <p>Only returns false if this set {@link #isFromStorage} and the contents are not fully
    * deserialized (either because the deserialization future is not complete or because it failed).
    */
-  public boolean isReady() {
+  public final boolean isReady() {
     if (!isFromStorage()) {
       return true;
     }
@@ -423,25 +415,30 @@ public final class NestedSet<E> {
   }
 
   /** Returns the single element; only call this if {@link #isSingleton} returns true. */
-  public E getSingleton() {
+  public final E getSingleton() {
     Preconditions.checkState(isSingleton());
     return (E) children;
   }
 
   /**
    * Returns an immutable list of all unique elements of this set, similar to {@link #toList}, but
-   * will propagate an {@code InterruptedException} or {@link MissingFingerprintValueException} if
-   * one is thrown.
+   * will propagate an {@code InterruptedException}, {@link MissingFingerprintValueException}, or
+   * {@link SerializationException} if one is thrown.
    */
-  public ImmutableList<E> toListInterruptibly()
-      throws InterruptedException, MissingFingerprintValueException {
+  public final ImmutableList<E> toListInterruptibly()
+      throws InterruptedException, MissingFingerprintValueException, SerializationException {
     Object actualChildren;
-    if (children instanceof ListenableFuture) {
-      actualChildren =
-          MoreFutures.waitForFutureAndGetWithCheckedException(
-              (ListenableFuture<Object[]>) children,
-              /* cancelOnInterrupt= */ false,
-              MissingFingerprintValueException.class);
+    if (children instanceof ListenableFuture<?> future) {
+      try {
+        actualChildren =
+            MoreFutures.waitForFutureAndGetWithCheckedException(
+                future,
+                /* cancelOnInterrupt= */ false,
+                MissingFingerprintValueException.class,
+                SerializationException.class);
+      } catch (CancellationException e) {
+        throw new MissingFingerprintValueException(e);
+      }
     } else {
       actualChildren = children;
     }
@@ -450,28 +447,37 @@ public final class NestedSet<E> {
 
   /**
    * Returns an immutable list of all unique elements of this set, similar to {@link #toList}, but
-   * will propagate an {@code InterruptedException} if one is thrown and will throw {@link
-   * TimeoutException} if this set is deserializing and does not become ready within the given
-   * timeout.
+   * supports specifying a timeout for deserialization futures and propagates checked exceptions
+   * associated with deserialization.
    *
-   * <p>Additionally, throws {@link MissingFingerprintValueException} if this nested set {@link
-   * #isFromStorage} and could not be retrieved.
+   * <p>The timeout only applies to blocking for the deserialization future to become available. The
+   * actual list transformation is untimed.
    *
-   * <p>Note that the timeout only applies to blocking for the deserialization future to become
-   * available. The actual list transformation is untimed.
+   * <p>Checked exceptions are only possible if this nested set {@link #isFromStorage}.
+   *
+   * @throws InterruptedException if interrupted while blocking for a deserialization future
+   * @throws TimeoutException if this set is deserializing and does not become ready within the
+   *     given timeout
+   * @throws MissingFingerprintValueException if this set could not be retrieved from storage
+   * @throws SerializationException if one is thrown while deserializing this set
    */
-  public ImmutableList<E> toListWithTimeout(Duration timeout)
-      throws InterruptedException, TimeoutException, MissingFingerprintValueException {
+  public final ImmutableList<E> toListWithTimeout(Duration timeout)
+      throws InterruptedException,
+          TimeoutException,
+          MissingFingerprintValueException,
+          SerializationException {
     Object actualChildren;
-    if (children instanceof ListenableFuture) {
+    if (children instanceof ListenableFuture<?> future) {
       try {
-        actualChildren =
-            ((ListenableFuture<Object[]>) children).get(timeout.toNanos(), TimeUnit.NANOSECONDS);
+        actualChildren = future.get(timeout.toNanos(), NANOSECONDS);
       } catch (ExecutionException e) {
         throwIfInstanceOf(e.getCause(), InterruptedException.class);
         throwIfInstanceOf(e.getCause(), MissingFingerprintValueException.class);
+        throwIfInstanceOf(e.getCause(), SerializationException.class);
         throwIfUnchecked(e.getCause());
         throw new IllegalStateException(e);
+      } catch (CancellationException e) {
+        throw new MissingFingerprintValueException(e);
       }
     } else {
       actualChildren = children;
@@ -486,7 +492,7 @@ public final class NestedSet<E> {
    * <p>Prefer calling this method over {@link ImmutableList#copyOf} on this set for better
    * efficiency, as it saves an iteration.
    */
-  public ImmutableList<E> toList() {
+  public final ImmutableList<E> toList() {
     return actualChildrenToList(getChildrenUninterruptibly());
   }
 
@@ -509,7 +515,7 @@ public final class NestedSet<E> {
    * Returns an immutable set of all unique elements of this set (including subsets) in an
    * implementation-specified order.
    */
-  public ImmutableSet<E> toSet() {
+  public final ImmutableSet<E> toSet() {
     return ImmutableSet.copyOf(toList());
   }
 
@@ -518,13 +524,7 @@ public final class NestedSet<E> {
    *
    * @return the size of the nested set.
    */
-  public int memoizedFlattenAndGetSize() {
-    if (cached == null) {
-      Object children = getChildrenUninterruptibly();
-      return children instanceof Object[] array ? array.length : 1;
-    }
-    return toList().size();
-  }
+  public abstract int memoizedFlattenAndGetSize();
 
   /**
    * Returns true if this set is equal to {@code other} based on the top-level elements and object
@@ -537,7 +537,7 @@ public final class NestedSet<E> {
    *
    * @param other the {@code NestedSet} to compare against.
    */
-  public boolean shallowEquals(@Nullable NestedSet<?> other) {
+  public final boolean shallowEquals(@Nullable NestedSet<?> other) {
     if (this == other) {
       return true;
     }
@@ -561,7 +561,7 @@ public final class NestedSet<E> {
    * equals/hashCode is to minimize accidental use, since they are different from both standard Java
    * objects and collection-like objects.
    */
-  public int shallowHashCode() {
+  public final int shallowHashCode() {
     return isSingleton() || children instanceof ListenableFuture
         ? Objects.hash(getOrder(), children)
         : Objects.hash(getOrder(), Arrays.hashCode((Object[]) children));
@@ -570,7 +570,7 @@ public final class NestedSet<E> {
   @VisibleForTesting static final int MAX_ELEMENTS_TO_STRING = 1_000_000;
 
   @Override
-  public String toString() {
+  public final String toString() {
     if (isSingleton(children)) {
       return "[" + children + "]";
     }
@@ -587,53 +587,8 @@ public final class NestedSet<E> {
         + ")";
   }
 
-  private ImmutableList<E> expandWithCaching(Object[] children) {
-    WeakReference<ImmutableList<E>> localCached = this.cached;
-    if (localCached == null) {
-      return ImmutableList.copyOf(new ArraySharingCollection<>(children));
-    }
-
-    ImmutableList<E> result = localCached.get();
-    if (result != null) {
-      return result;
-    }
-
-    synchronized (this) {
-      // Read the field again under a lock.
-      result = this.cached.get();
-      if (result != null) {
-        return result;
-      }
-      result = expand(children);
-      this.cached = new WeakReference<>(result);
-    }
-    return result;
-  }
-
-  /** Implementation of {@link #toList} for sets with > 1 element. */
-  private ImmutableList<E> expand(Object[] children) {
-    CompactHashSet<E> members = CompactHashSet.createWithExpectedSize(128);
-    VisitedArraySet arrays = new VisitedArraySet();
-    arrays.add(children);
-    walk(arrays, members, children);
-    return ImmutableList.copyOf(members);
-  }
-
-  /**
-   * Performs a depth-first traversal of {@code children}, tracking visited arrays in {@code arrays}
-   * and visited leaves in {@code members}.
-   */
-  private void walk(VisitedArraySet arrays, CompactHashSet<E> members, Object[] children) {
-    for (Object child : children) {
-      if (child instanceof Object[] array) {
-        if (arrays.add(array)) {
-          walk(arrays, members, array);
-        }
-      } else {
-        members.add((E) child);
-      }
-    }
-  }
+  @ForOverride
+  abstract ImmutableList<E> expandWithCaching(Object[] children);
 
   /**
    * Efficient data structure for tracking the set of visited arrays during {@link NestedSet#walk}.
@@ -728,7 +683,7 @@ public final class NestedSet<E> {
    * shallow, not deeply recursive. The resulting set's iteration order is undefined.
    */
   // TODO(adonovan): move this hack into BuildEventStreamer. And rename 'size' to 'degree'.
-  public NestedSet<E> splitIfExceedsMaximumSize(int maxDegree) {
+  public final NestedSet<E> splitIfExceedsMaximumSize(int maxDegree) {
     Preconditions.checkArgument(maxDegree >= 2, "maxDegree must be at least 2");
     Object children = getChildren(); // may wait for a future
     if (!(children instanceof Object[] succs)) {
@@ -738,24 +693,28 @@ public final class NestedSet<E> {
     if (nsuccs <= maxDegree) {
       return this;
     }
-    Object[][] pieces = new Object[ceildiv(nsuccs, maxDegree)][];
+    Object[] pieces = new Object[ceildiv(nsuccs, maxDegree)];
     for (int i = 0; i < pieces.length; i++) {
-      int max = Math.min((i + 1) * maxDegree, succs.length);
-      pieces[i] = Arrays.copyOfRange(succs, i * maxDegree, max);
+      int start = i * maxDegree;
+      int end = Math.min(start + maxDegree, succs.length);
+      if (end - start == 1) {
+        // We cannot have non-leaves of size 1, so inline the singleton.
+        pieces[i] = succs[start];
+      } else {
+        pieces[i] = Arrays.copyOfRange(succs, start, end);
+      }
     }
     int depth = getApproxDepth() + 1; // may be an overapproximation
-
-    // TODO(adonovan): (preexisting): if the last piece is a singleton, it must be inlined.
 
     // Each piece is now smaller than maxDegree, but there may be many pieces.
     // Recursively split pieces. (The recursion affects only the root; it
     // does not traverse into successors.) In practice, maxDegree is large
     // enough that the recursion rarely does any work.
-    return new NestedSet<E>(getOrder(), depth, pieces).splitIfExceedsMaximumSize(maxDegree);
+    return NestedSet.<E>create(getOrder(), depth, pieces).splitIfExceedsMaximumSize(maxDegree);
   }
 
   /** Returns the list of this node's successors that are themselves non-leaf nodes. */
-  public ImmutableList<NestedSet<E>> getNonLeaves() {
+  public final ImmutableList<NestedSet<E>> getNonLeaves() {
     Object children = getChildren(); // may wait for a future
     if (!(children instanceof Object[] array)) {
       return ImmutableList.of();
@@ -764,7 +723,7 @@ public final class NestedSet<E> {
     for (Object c : array) {
       if (c instanceof Object[]) {
         int depth = getApproxDepth() - 1; // possible overapproximation
-        res.add(new NestedSet<>(getOrder(), depth, c));
+        res.add(NestedSet.<E>create(getOrder(), depth, c));
       }
     }
     return res.build();
@@ -775,7 +734,7 @@ public final class NestedSet<E> {
    * graph edge.
    */
   @SuppressWarnings("unchecked")
-  public ImmutableList<E> getLeaves() {
+  public final ImmutableList<E> getLeaves() {
     Object children = getChildren(); // may wait for a future
     if (!(children instanceof Object[])) {
       return ImmutableList.of((E) children);
@@ -793,7 +752,7 @@ public final class NestedSet<E> {
    * Returns a Node, an opaque reference to the logical node of the DAG that this NestedSet
    * represents.
    */
-  public Node toNode() {
+  public final Node toNode() {
     return new Node(children);
   }
 
@@ -827,6 +786,111 @@ public final class NestedSet<E> {
     @Override
     public String toString() {
       return "NestedSet.Node@" + hashCode(); // intentionally opaque
+    }
+  }
+
+  /** Implementation for {@code depth <= 2}, when no caching is necessary. */
+  private static final class Flat<E> extends NestedSet<E> {
+    Flat(Order order, int depth, Object children) {
+      super(order, depth, children);
+    }
+
+    @Override
+    public void clearCachedListRepresentation() {}
+
+    @Override
+    public int memoizedFlattenAndGetSize() {
+      Object children = getChildrenUninterruptibly();
+      return children instanceof Object[] array ? array.length : 1;
+    }
+
+    @Override
+    ImmutableList<E> expandWithCaching(Object[] children) {
+      return ImmutableList.copyOf(new ArraySharingCollection<>(children));
+    }
+  }
+
+  /** Implementation for {@code depth > 2} that caches its flattened list representation. */
+  private static final class Nested<E> extends NestedSet<E> {
+
+    /** Initial value of {@link #cached} indicating that a traversal is necessary. */
+    @SuppressWarnings("rawtypes") // Safe to use as WeakReference<ImmutableList<E>> since it's null.
+    private static final WeakReference EMPTY_WEAK_REF = new WeakReference<>(null);
+
+    /**
+     * A cache of the flattened list representation of this set.
+     *
+     * <p>This field is initialized to {@link #EMPTY_WEAK_REF} to indicate that a traversal is
+     * necessary.
+     *
+     * <p>Using weak references is preferable to soft references because {@link
+     * com.google.devtools.build.lib.runtime.GcThrashingDetector} may throw a manual OOM before all
+     * soft references are collected. See b/322474776.
+     *
+     * <p>This field is {@code volatile} to support double-checked locking in {@link
+     * #expandWithCaching}.
+     */
+    private transient volatile WeakReference<ImmutableList<E>> cached;
+
+    Nested(Order order, int depth, Object children) {
+      super(order, depth, children);
+      this.cached = EMPTY_WEAK_REF;
+    }
+
+    @Override
+    public void clearCachedListRepresentation() {
+      this.cached = EMPTY_WEAK_REF;
+    }
+
+    @Override
+    public int memoizedFlattenAndGetSize() {
+      return toList().size();
+    }
+
+    @Override
+    ImmutableList<E> expandWithCaching(Object[] children) {
+      WeakReference<ImmutableList<E>> localCached = this.cached;
+
+      ImmutableList<E> result = localCached.get();
+      if (result != null) {
+        return result;
+      }
+
+      synchronized (this) {
+        // Read the field again under a lock.
+        result = this.cached.get();
+        if (result != null) {
+          return result;
+        }
+        result = expand(children);
+        this.cached = new WeakReference<>(result);
+      }
+      return result;
+    }
+
+    private static <E> ImmutableList<E> expand(Object[] children) {
+      CompactHashSet<E> members = CompactHashSet.createWithExpectedSize(128);
+      VisitedArraySet arrays = new VisitedArraySet();
+      arrays.add(children);
+      walk(arrays, members, children);
+      return ImmutableList.copyOf(members);
+    }
+
+    /**
+     * Performs a depth-first traversal of {@code children}, tracking visited arrays in {@code
+     * arrays} and visited leaves in {@code members}.
+     */
+    private static <E> void walk(
+        VisitedArraySet arrays, CompactHashSet<E> members, Object[] children) {
+      for (Object child : children) {
+        if (child instanceof Object[] array) {
+          if (arrays.add(array)) {
+            walk(arrays, members, array);
+          }
+        } else {
+          members.add((E) child);
+        }
+      }
     }
   }
 }

@@ -37,7 +37,8 @@ function set_up() {
   create_new_workspace
 
   cat > $(setup_module_dot_bazel) <<EOF
-xcode_configure = use_extension("@bazel_tools//tools/osx:xcode_configure.bzl", "xcode_configure_extension")
+bazel_dep(name = "apple_support", version = "2.5.4")
+xcode_configure = use_extension("@apple_support//xcode:xcode_configure.bzl", "xcode_configure_extension")
 use_repo(xcode_configure, "local_config_xcode")
 EOF
 }
@@ -112,10 +113,6 @@ function test_host_available_xcodes() {
 }
 
 function test_xcode_config_select() {
-  cat >> MODULE.bazel <<'EOF'
-bazel_dep(name = "apple_support", version = "1.24.2")
-EOF
-
   mkdir -p a
   cat > a/BUILD <<'EOF'
 load("@apple_support//xcode:xcode_config.bzl", "xcode_config")

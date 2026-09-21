@@ -63,6 +63,15 @@ public interface GrpcCommandServer {
     void cancel(byte[] request, Responder responder);
 
     /**
+     * Handles an UpdateTerminalSize RPC.
+     *
+     * @param request a serialized {@link com.google.devtools.build.lib.server.TerminalSizeRequest}
+     * @param responder a responder accepting serialized {@link
+     *     com.google.devtools.build.lib.server.TerminalSizeResponse}
+     */
+    void updateTerminalSize(byte[] request, Responder responder);
+
+    /**
      * Handles a Ping RPC.
      *
      * @param request a serialized {@link com.google.devtools.build.lib.server.PingRequest}

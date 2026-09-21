@@ -116,8 +116,6 @@ public class SkyframeBuilder implements Builder {
     // TODO(bazel-team): Should use --experimental_fsvc_threads instead of the hardcoded constant
     // but plumbing the flag through is hard.
     int fsvcThreads = buildRequestOptions == null ? 200 : buildRequestOptions.getFsvcThreads();
-    boolean skyframeErrorHandlingRefactor =
-        buildRequestOptions != null && buildRequestOptions.getSkyframeErrorHandlingRefactor();
     skyframeExecutor.detectModifiedOutputFiles(
         modifiedOutputFiles, lastExecutionTimeRange, outputChecker, fsvcThreads);
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
@@ -192,8 +190,7 @@ public class SkyframeBuilder implements Builder {
                   options.getOptions(KeepGoingOption.class).getKeepGoing(),
                   skyframeExecutor.tracksStateForIncrementality(),
                   skyframeExecutor.getEventBus(),
-                  bugReporter,
-                  skyframeErrorHandlingRefactor)
+                  bugReporter)
               .executionDetailedExitCode();
 
       if (detailedExitCode != null) {
@@ -225,8 +222,7 @@ public class SkyframeBuilder implements Builder {
                     options.getOptions(KeepGoingOption.class).getKeepGoing(),
                     skyframeExecutor.tracksStateForIncrementality(),
                     skyframeExecutor.getEventBus(),
-                    bugReporter,
-                    skyframeErrorHandlingRefactor)
+                    bugReporter)
                 .executionDetailedExitCode();
         Preconditions.checkState(
             detailedExitCode != null || !result.keyNames().isEmpty(),
@@ -257,8 +253,7 @@ public class SkyframeBuilder implements Builder {
                     options.getOptions(KeepGoingOption.class).getKeepGoing(),
                     skyframeExecutor.tracksStateForIncrementality(),
                     skyframeExecutor.getEventBus(),
-                    bugReporter,
-                    skyframeErrorHandlingRefactor)
+                    bugReporter)
                 .executionDetailedExitCode();
         if (detailedExitCode != null) {
           detailedExitCodes.add(detailedExitCode);

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.SubscriberExceptionHandler;
@@ -118,26 +117,22 @@ public abstract class BlazeModule implements OptionsSupplier {
     return null;
   }
 
-  /** Tuple returned by {@link #getFileSystem}. */
-  @AutoValue
-  public abstract static class ModuleFileSystem {
-    public abstract FileSystem fileSystem();
-
-    /**
-     * Present if this filesystem virtualizes the source root. See {@link
-     * ServerDirectories#getVirtualSourceRoot}.
-     */
-    abstract Optional<Root> virtualSourceRoot();
-
+  /**
+   * Tuple returned by {@link #getFileSystem}.
+   *
+   * @param fileSystem the {@link FileSystem} implementation
+   * @param virtualSourceRoot present if this filesystem virtualizes the source root (see {@link
+   *     ServerDirectories#getVirtualSourceRoot})
+   */
+  public record ModuleFileSystem(FileSystem fileSystem, Optional<Root> virtualSourceRoot) {
     public static ModuleFileSystem createWithVirtualization(
         FileSystem fileSystem, PathFragment virtualSourceRoot) {
-      return new AutoValue_BlazeModule_ModuleFileSystem(
+      return new ModuleFileSystem(
           fileSystem, Optional.of(Root.fromPath(fileSystem.getPath(virtualSourceRoot))));
     }
 
     public static ModuleFileSystem create(FileSystem fileSystem) {
-      return new AutoValue_BlazeModule_ModuleFileSystem(
-          fileSystem, /* virtualSourceRoot= */ Optional.empty());
+      return new ModuleFileSystem(fileSystem, Optional.empty());
     }
   }
 

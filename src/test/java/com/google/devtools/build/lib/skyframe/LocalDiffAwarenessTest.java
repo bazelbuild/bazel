@@ -307,6 +307,55 @@ public class LocalDiffAwarenessTest {
   }
 
   @Test
+  public void testOverflow() throws Exception {
+    captureFirstView(watchFsEnabledProvider);
+    for (int i = 0; i < 600; i++) {
+      touch("file" + i + ".txt");
+    }
+    // Give inotify and JVM poller a moment to queue events
+    Thread.sleep(200);
+    new ModifiedFileSetChecker().checkEverythingModified(watchFsEnabledProvider);
+
+    // After recovering from overflow, incremental diffing works immediately on the next view.
+    touch("single.txt");
+    new ModifiedFileSetChecker().modify("single.txt").check();
+  }
+
+  @Test
+  public void testDirectoryCreatedDuringOverflow() throws Exception {
+    captureFirstView(watchFsEnabledProvider);
+    mkdir("newdir");
+    for (int i = 0; i < 600; i++) {
+      touch("file" + i + ".txt");
+    }
+    Thread.sleep(200);
+    new ModifiedFileSetChecker().checkEverythingModified(watchFsEnabledProvider);
+
+    // Subdirectories created during overflow are discovered and registered,
+    // so subsequent modifications inside them are tracked incrementally.
+    touch("newdir/inner.txt");
+    new ModifiedFileSetChecker().modify("newdir/inner.txt").check();
+  }
+
+  @Test
+  public void testDirectoryDeletedDuringOverflow() throws Exception {
+    mkdir("deldir");
+    touch("deldir/f.txt");
+    captureFirstView(watchFsEnabledProvider);
+
+    rm("deldir");
+    for (int i = 0; i < 600; i++) {
+      touch("file" + i + ".txt");
+    }
+    Thread.sleep(200);
+    new ModifiedFileSetChecker().checkEverythingModified(watchFsEnabledProvider);
+
+    // Subsequent modifications to other files work incrementally without stale key issues.
+    touch("foo.txt");
+    new ModifiedFileSetChecker().modify("foo.txt").check();
+  }
+
+  @Test
   public void modifiedPathIsntUnderWatchRoot() {
     java.nio.file.Path otherRootDirectoryNioPath = Paths.get("/notundertestroot");
     assertThat(otherRootDirectoryNioPath.startsWith(Paths.get(testCaseRoot.getPathString())))
@@ -314,13 +363,17 @@ public class LocalDiffAwarenessTest {
 
     View oldView =
         new LocalDiffAwareness.SequentialView(
-            localDiff, /* position= */ 0, /* modifiedAbsolutePaths= */ ImmutableSet.of());
+            localDiff,
+            /* position= */ 0,
+            /* modifiedAbsolutePaths= */ ImmutableSet.of(),
+            /* isOverflow= */ false);
     View newView =
         new LocalDiffAwareness.SequentialView(
             localDiff,
             /* position= */ 1,
             /* modifiedAbsolutePaths= */ ImmutableSet.of(
-                otherRootDirectoryNioPath.resolve("foo.txt")));
+                otherRootDirectoryNioPath.resolve("foo.txt")),
+            /* isOverflow= */ false);
     Throwable throwable =
         assertThrows(BrokenDiffAwarenessException.class, () -> localDiff.getDiff(oldView, newView));
     assertThat(throwable)

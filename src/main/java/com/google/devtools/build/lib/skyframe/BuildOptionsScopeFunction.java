@@ -219,10 +219,7 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
 
     var attrs = RawAttributeMapper.of(target.getAssociatedRule());
     if (!attrs.has("scope", Type.STRING)
-        // TODO: https://github.com/bazelbuild/bazel/issues/26909 - Honor the rule's actual
-        // value when --incompatible_exclude_starlark_flags_from_exec_config is stably enabled
-        // and existing rules like skylib's have updated to TARGET.
-        || !attrs.isAttributeValueExplicitlySpecified("scope")) {
+        || attrs.get("scope", Type.STRING).equals(Type.STRING.getDefaultValue())) {
       return new Scope.ScopeType(Scope.ScopeType.DEFAULT);
     }
     return new Scope.ScopeType(attrs.get("scope", Type.STRING));

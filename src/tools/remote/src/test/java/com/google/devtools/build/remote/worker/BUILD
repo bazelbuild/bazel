@@ -10,5 +10,5 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/tools/remote/src/test/java/com/google/devtools/build/remote/worker/http:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/tools/remote:__pkg__"],
 )

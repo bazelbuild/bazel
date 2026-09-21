@@ -140,22 +140,30 @@ final class SkymeldUiStateTracker extends UiStateTracker {
       throws IOException {
     writeBaseProgress(status, message, terminalWriter);
 
+    String analysisProgress = "";
+    String activity = "";
     if (packageProgressReceiver != null) {
       Pair<String, String> progress = packageProgressReceiver.progressState();
-      String analysisProgress = progress.getFirst();
+      analysisProgress = progress.getFirst();
+      activity = progress.getSecond();
+    }
 
-      if (analysisProgressReceiver != null) {
-        analysisProgress += ", " + analysisProgressReceiver.getProgressString();
+    if (analysisProgressReceiver != null) {
+      if (!analysisProgress.isEmpty()) {
+        analysisProgress += ", ";
       }
+      analysisProgress += analysisProgressReceiver.getProgressString();
+    }
 
+    if (!analysisProgress.isEmpty()) {
       if (message.isEmpty()) {
         terminalWriter.append(analysisProgress);
       } else {
         terminalWriter.append(" (" + analysisProgress + ")");
       }
-      if (!progress.getSecond().isEmpty() && !shortVersion) {
-        terminalWriter.newline().append("    " + progress.getSecond());
-      }
+    }
+    if (!activity.isEmpty() && !shortVersion) {
+      terminalWriter.newline().append("    " + activity);
     }
   }
 

@@ -31,34 +31,77 @@ public interface RemoteAnalysisCacheClient {
 
   /** The key for memoizing top-level targets lookup results. */
   @SkybridgeInterface
-  record TopLevelTargetsCacheKey(
-      long evaluatingVersion,
-      String configurationHash,
-      boolean useFakeStampData,
-      String blazeVersion) {}
+  interface TopLevelTargetsCacheKey {
+    long evaluatingVersion();
 
-  /**
-   * Usage statistics.
-   *
-   * @param matchStatus maps to
-   *     com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus.
-   *     See {@link LookupTopLevelTargetsResult} for more details.
-   */
+    String configurationHash();
+
+    boolean useFakeStampData();
+
+    String blazeVersion();
+  }
+
+  /** Usage statistics. */
   @SkybridgeInterface
-  record Stats(
-      long bytesSent,
-      long bytesReceived,
-      long requestsSent,
-      long batches,
-      List<Bucket> latencyMicros,
-      List<Bucket> batchLatencyMicros,
-      int matchStatus) {}
+  interface Stats {
+    long bytesSent();
+
+    long bytesReceived();
+
+    long requestsSent();
+
+    long batches();
+
+    List<Bucket> latencyMicros();
+
+    List<Bucket> batchLatencyMicros();
+
+    /**
+     * Maps to
+     * com.google.devtools.build.lib.skyframe.serialization.analysis.proto.TopLevelTargetsMatchStatus.
+     * See {@link LookupTopLevelTargetsResult} for more details.
+     */
+    int matchStatus();
+  }
 
   @SuppressWarnings("JdkImmutableCollections") // Keep the SkybridgeInterface simple.
   Stats EMPTY_STATS =
-      new Stats(
-          0, 0, 0, 0, List.of(), List.of(),
-          0); // TopLevelTargetsMatchStatus.MATCH_STATUS_UNSPECIFIED
+      new Stats() {
+        @Override
+        public long bytesSent() {
+          return 0;
+        }
+
+        @Override
+        public long bytesReceived() {
+          return 0;
+        }
+
+        @Override
+        public long requestsSent() {
+          return 0;
+        }
+
+        @Override
+        public long batches() {
+          return 0;
+        }
+
+        @Override
+        public List<Bucket> latencyMicros() {
+          return List.of();
+        }
+
+        @Override
+        public List<Bucket> batchLatencyMicros() {
+          return List.of();
+        }
+
+        @Override
+        public int matchStatus() {
+          return 0; // TopLevelTargetsMatchStatus.MATCH_STATUS_UNSPECIFIED
+        }
+      };
 
   /** Looks up an entry in the remote analysis cache based on a serialized key. */
   ListenableFuture<LookupResult> lookup(byte[] key);

@@ -18,8 +18,9 @@ import os
 import tempfile
 import unittest
 
+from unittest import mock
+
 from google.protobuf import proto
-from third_party.py import mock
 
 from src.main.protobuf import analysis_v2_pb2
 from tools.aquery_differ import aquery_differ

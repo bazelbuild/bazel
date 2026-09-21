@@ -260,7 +260,9 @@ public abstract class BlazeServerStartupOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
       help =
           "When --noblock_for_lock is passed, Bazel does not wait for a running command to "
-              + "complete, but instead exits immediately.")
+              + "complete, but instead exits immediately. If a duration is specified (e.g."
+              + " --block_for_lock=30s), Bazel will wait up to that duration for the lock before"
+              + " exiting.")
   public abstract boolean getBlockForLock();
 
   @Option(
@@ -463,8 +465,10 @@ public abstract class BlazeServerStartupOptions extends OptionsBase {
       help =
           "Sets the QoS service class of the %{product} server when running on macOS. This "
               + "flag has no effect on all other platforms but is supported to ensure rc files "
-              + "can be shared among them without changes. Possible values are: user-interactive, "
-              + "user-initiated, default, utility, and background.")
+              + "can be shared among them without changes. Possible values are: default (leave "
+              + "QoS unchanged), utility, and background. Only utility and background request "
+              + "a macOS process QoS class because Apple's posix_spawnattr_set_qos_class_np API "
+              + "does not accept user-interactive or user-initiated for spawned processes.")
   public abstract String getMacosQosClass();
 
   @Option(
@@ -561,4 +565,17 @@ public abstract class BlazeServerStartupOptions extends OptionsBase {
           "A colon-separated list of classpath entries to be added to the classpath of the Bazel"
               + " server.")
   public abstract String getExtraClasspath();
+
+  @Option(
+      name = "experimental_use_compact_object_headers",
+      defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+      },
+      help =
+          "Use compact object headers in the JVM. Enabled by default for Bazel when "
+              + "using the embedded JDK. This can reduce memory usage by 5-7%.")
+  public abstract boolean getUseCompactObjectHeaders();
 }

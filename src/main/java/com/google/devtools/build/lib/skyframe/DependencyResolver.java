@@ -78,6 +78,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
@@ -98,13 +99,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.Location;
 
 /**
- * Helper logic for {@link ConfiguredTargetFunction} and {@link AspectFunction}: performs the
+ * Helper logic for {@code ConfiguredTargetFunction} and {@code AspectFunction}: performs the
  * analysis phase through computation of prerequisites.
  *
- * <p>For the {@link ConfiguredTargetFunction} this includes:
+ * <p>For the {@code ConfiguredTargetFunction} this includes:
  *
  * <ul>
  *   <li>getting this target's {@link Target} and {@link BuildConfigurationValue}
@@ -112,7 +114,7 @@ import net.starlark.java.syntax.Location;
  *       evaluate all rule attributes with {@code select()} and determine exact dependencies
  *   <li>figuring out which toolchains this target needs
  *   <li>getting the {@link ConfiguredTargetValue}s of this target's prerequisites (through
- *       recursive calls to {@link ConfiguredTargetFunction}
+ *       recursive calls to {@code ConfiguredTargetFunction}
  * </ul>
  *
  * <p>Figuring out which toolchains are needed and computing the {@link ConfigConditions} is
@@ -124,9 +126,9 @@ import net.starlark.java.syntax.Location;
  *
  * <p>This class also provides getters for the above data for subsequent analysis logic to use.
  *
- * <p>See {@link ConfiguredTargetFunction} for more review on analysis implementation.
+ * <p>See {@code ConfiguredTargetFunction} for more review on analysis implementation.
  *
- * <p>{@link AspectFunction} shares the logic computing a target's prerequisites via the {@link
+ * <p>{@code AspectFunction} shares the logic computing a target's prerequisites via the {@link
  * DependencyResolver#computeDependencies}.
  */
 public final class DependencyResolver {
@@ -706,6 +708,17 @@ public final class DependencyResolver {
         } catch (DependencyResolutionHelpers.Failure e) {
           throw handleDependencyRootCauseError(ctgValue, e.getLocation(), e.getMessage(), listener);
         }
+
+        PrecomputedValue precomputedValue =
+            (PrecomputedValue) env.getValue(PrecomputedValue.STARLARK_SEMANTICS.getKey());
+        if (precomputedValue == null) {
+          return null;
+        }
+        StarlarkSemantics starlarkSemantics = (StarlarkSemantics) precomputedValue.get();
+        boolean requireMatchingAspectHintsProviders =
+            starlarkSemantics.getBool(
+                BuildLanguageOptions.INCOMPATIBLE_REQUIRE_MATCHING_ASPECT_HINTS_PROVIDERS);
+
         state.dependencyMapProducer =
             new Driver(
                 new DependencyMapProducer(
@@ -721,7 +734,8 @@ public final class DependencyResolver {
                         state.transitiveState,
                         state.storedEvents,
                         baseTargetPrerequisitesSupplier,
-                        baseTargetUnloadedToolchainContexts),
+                        baseTargetUnloadedToolchainContexts,
+                        requireMatchingAspectHintsProviders),
                     dependencyLabels.labels(),
                     (DependencyMapProducer.ResultSink) state));
       }

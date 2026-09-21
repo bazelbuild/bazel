@@ -1619,6 +1619,7 @@ public class AspectTest extends AnalysisTestCase {
         hint = rule(
             implementation = _hint_impl,
             attrs = {"hints_cnt": attr.int(default = 0)},
+            provides = [HintInfo],
         )
         """);
     scratch.file(
@@ -1642,6 +1643,7 @@ public class AspectTest extends AnalysisTestCase {
         my_aspect = aspect(
             implementation = _my_aspect_impl,
             attr_aspects = ["deps"],
+            required_aspect_hints_providers = [HintInfo],
         )
 
         def _count_hints_impl(ctx):
@@ -1689,6 +1691,185 @@ public class AspectTest extends AnalysisTestCase {
         .filter(e -> e.getKey().getAspectName().equals(name))
         .map(Map.Entry::getValue)
         .collect(onlyElement());
+  }
+
+  private void setupMatchingHintsProviderRules() throws Exception {
+    scratch.file(
+        "aspect_hints/poison_hint.bzl",
+        """
+        def _poison_hint_impl(ctx):
+            fail("poison_hint should not be analyzed")
+
+        poison_hint = rule(
+            implementation = _poison_hint_impl,
+        )
+        """);
+    scratch.file(
+        "aspect_hints/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("//aspect_hints:hints.bzl", "hint")
+        load("//aspect_hints:poison_hint.bzl", "poison_hint")
+        load("//aspect_hints:hints_counter.bzl", "count_hints")
+
+        hint(
+            name = "my_hint",
+            hints_cnt = 1,
+        )
+
+        poison_hint(
+            name = "poison_hint",
+        )
+
+        cc_library(
+            name = "lib",
+            # with --incompatible_require_matching_aspect_hints_providers=true, poison_hint will not
+            # be made a dependency of this library because it doesn't provide the required HintInfo
+            # provider, and thus won't be analyzed and fail.
+            aspect_hints = [":my_hint", ":poison_hint"],
+        )
+
+        count_hints(
+            name = "cnt",
+            deps = [":lib"],
+        )
+        """);
+  }
+
+  @Test
+  public void incompatibleRequireMatchingAspectHintsProviders_disabled() throws Exception {
+    setupAspectHints();
+    setupMatchingHintsProviderRules();
+
+    useConfiguration("--incompatible_require_matching_aspect_hints_providers=false");
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//aspect_hints:cnt"));
+    assertContainsEvent("poison_hint should not be analyzed");
+  }
+
+  @Test
+  public void incompatibleRequireMatchingAspectHintsProviders_enabled() throws Exception {
+    setupAspectHints();
+    setupMatchingHintsProviderRules();
+
+    useConfiguration("--incompatible_require_matching_aspect_hints_providers=true");
+    update("//aspect_hints:cnt");
+    ConfiguredTarget a = getConfiguredTarget("//aspect_hints:cnt");
+    StarlarkInt info = (StarlarkInt) getHintsCntInfo(a).getValue("cnt");
+    assertThat(info.truncateToInt()).isEqualTo(1);
+  }
+
+  public void setupInvalidAspectHints(String hints) throws Exception {
+    scratch.overwriteFile(
+        "aspect_hints/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        load("//aspect_hints:hints.bzl", "hint")
+        load("//aspect_hints:hints_counter.bzl", "count_hints")
+
+        hint(
+            name = "my_hint",
+            hints_cnt = 1,
+        )
+
+        cc_library(
+            name = "lib",
+            aspect_hints = [%s],
+        )
+
+        count_hints(
+            name = "cnt",
+            deps = [":lib"],
+        )
+        """
+            .formatted(hints));
+    scratch.file("aspect_hints/file.txt");
+    scratch.file("other_pkg/BUILD", "exports_files(['file.txt'])");
+    scratch.file("other_pkg/file.txt");
+  }
+
+  @Test
+  public void invalidAspectHints_incompatibleRequireMatchingAspectHintsProviders_disabled()
+      throws Exception {
+    setupAspectHints();
+    setupInvalidAspectHints("':my_hint', 'dne', 'file.txt'");
+    useConfiguration("--incompatible_require_matching_aspect_hints_providers=false");
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//aspect_hints:cnt"));
+    assertContainsEvent(
+        "in aspect_hints attribute of cc_library rule //aspect_hints:lib: source file"
+            + " '//aspect_hints:file.txt' is misplaced here (expected no files)");
+    assertContainsEvent(
+        "in aspect_hints attribute of cc_library rule //aspect_hints:lib: rule"
+            + " '//aspect_hints:dne' does not exist");
+  }
+
+  @Test
+  public void invalidAspectHints_incompatibleRequireMatchingAspectHintsProviders_enabled()
+      throws Exception {
+    setupAspectHints();
+    setupInvalidAspectHints("':my_hint', 'dne', 'file.txt'");
+    useConfiguration("--incompatible_require_matching_aspect_hints_providers=true");
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//aspect_hints:cnt"));
+    assertContainsEvent(
+        "in aspect_hints attribute of cc_library rule //aspect_hints:lib: source file"
+            + " '//aspect_hints:file.txt' is misplaced here (expected no files)");
+    assertContainsEvent(
+        "in aspect_hints attribute of cc_library rule //aspect_hints:lib: rule"
+            + " '//aspect_hints:dne' does not exist");
+  }
+
+  @Test
+  public void
+      aspectHints_nonExistentPackage_incompatibleRequireMatchingAspectHintsProviders_disabled()
+          throws Exception {
+    setupAspectHints();
+    setupInvalidAspectHints("'//non_existent_pkg:hint'");
+    useConfiguration("--incompatible_require_matching_aspect_hints_providers=false");
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//aspect_hints:cnt"));
+    assertContainsEvent("no such package 'non_existent_pkg'");
+  }
+
+  @Test
+  public void
+      aspectHints_fileInOtherPackage_incompatibleRequireMatchingAspectHintsProviders_disabled()
+          throws Exception {
+    setupAspectHints();
+    setupInvalidAspectHints("'//other_pkg:file.txt'");
+    useConfiguration("--incompatible_require_matching_aspect_hints_providers=false");
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//aspect_hints:cnt"));
+    assertContainsEvent(
+        "in aspect_hints attribute of cc_library rule //aspect_hints:lib: source file"
+            + " '//other_pkg:file.txt' is misplaced here (expected no files)");
+  }
+
+  @Test
+  public void
+      aspectHints_nonExistentPackage_incompatibleRequireMatchingAspectHintsProviders_enabled()
+          throws Exception {
+    setupAspectHints();
+    setupInvalidAspectHints("'//non_existent_pkg:hint'");
+    useConfiguration("--incompatible_require_matching_aspect_hints_providers=true");
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//aspect_hints:cnt"));
+    assertContainsEvent("no such package 'non_existent_pkg'");
+  }
+
+  @Test
+  public void
+      aspectHints_fileInOtherPackage_incompatibleRequireMatchingAspectHintsProviders_enabled()
+          throws Exception {
+    setupAspectHints();
+    setupInvalidAspectHints("'//other_pkg:file.txt'");
+    useConfiguration("--incompatible_require_matching_aspect_hints_providers=true");
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//aspect_hints:cnt"));
+    assertContainsEvent(
+        "in aspect_hints attribute of cc_library rule //aspect_hints:lib: source file"
+            + " '//other_pkg:file.txt' is misplaced here (expected no files)");
   }
 
   private static class AspectConfiguredCollector {

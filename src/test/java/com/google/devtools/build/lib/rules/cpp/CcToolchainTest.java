@@ -909,7 +909,6 @@ public final class CcToolchainTest extends BuildViewTestCase {
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
-    useConfiguration("--incompatible_use_specific_tool_files");
     ConfiguredTarget target = getConfiguredTarget("//a:a");
     CcToolchainProvider toolchainProvider = CcToolchainProvider.getFromTarget(target);
     RuleConfiguredTarget libTarget = (RuleConfiguredTarget) getConfiguredTarget("//a:l");

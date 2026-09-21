@@ -20,6 +20,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -161,11 +162,12 @@ public final class CredentialHelper {
     Preconditions.checkNotNull(environment);
     Preconditions.checkNotNull(args);
 
-    return new SubprocessBuilder(environment.clientEnvironment())
+    ImmutableMap<String, String> clientEnv = environment.clientEnvironment().get();
+    return new SubprocessBuilder(clientEnv)
         .setArgv(ImmutableList.<String>builder().add(path.getPathString()).add(args).build())
         .setWorkingDirectory(
             environment.workspacePath() != null ? environment.workspacePath().getPathFile() : null)
-        .setEnv(environment.clientEnvironment())
+        .setEnv(clientEnv)
         .setTimeoutMillis(environment.helperExecutionTimeout().toMillis())
         .start();
   }

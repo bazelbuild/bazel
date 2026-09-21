@@ -310,28 +310,48 @@ public class ConfigCommand implements BlazeCommand {
   private static ConfigurationForOutput getConfiguration(
       Collection<ConfigurationForOutput> configurations, String configPrefix)
       throws InvalidConfigurationException {
-    ImmutableList<ConfigurationForOutput> matches =
+    ImmutableList<ConfigurationForOutput> hashMatches =
         configurations.stream()
-            .filter(config -> doesConfigMatch(config, configPrefix))
+            .filter(config -> config.getConfigHash().startsWith(configPrefix))
             .collect(toImmutableList());
-    if (matches.isEmpty()) {
-      throw new InvalidConfigurationException(
-          String.format("No configuration found with ID prefix %s", configPrefix));
-    } else if (matches.size() > 1) {
-      throw new InvalidConfigurationException(
-          String.format(
-              "Configuration identifier '%s' is ambiguous.\n"
-                  + "'%s' is a prefix of multiple configurations:\n %s\n\n"
-                  + "Use a sufficient prefix to uniquely identify one configuration.",
-              configPrefix,
-              configPrefix,
-              matches.stream().map(ConfigurationForOutput::getConfigHash).collect(joining("\n "))));
-    }
-    return Iterables.getOnlyElement(matches);
-  }
 
-  private static boolean doesConfigMatch(ConfigurationForOutput config, String configPrefix) {
-    return config.getConfigHash().startsWith(configPrefix);
+    ImmutableList<ConfigurationForOutput> prefixMnemonicMatches =
+        configurations.stream()
+            .filter(
+                config ->
+                    config.getDisplayMnemonic().startsWith(configPrefix)
+                        || config.getMnemonic().startsWith(configPrefix))
+            .collect(toImmutableList());
+
+    ImmutableSet<ConfigurationForOutput> combinedMatches =
+        ImmutableSet.<ConfigurationForOutput>builder()
+            .addAll(hashMatches)
+            .addAll(prefixMnemonicMatches)
+            .build();
+
+    if (combinedMatches.size() == 1) {
+      return Iterables.getOnlyElement(combinedMatches);
+    } else if (combinedMatches.size() > 1) {
+      if (prefixMnemonicMatches.isEmpty()) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "Configuration identifier '%s' is ambiguous.\n"
+                    + "'%s' is a prefix of multiple configurations:\n %s\n\n"
+                    + "Use a sufficient prefix to uniquely identify one configuration.",
+                configPrefix,
+                configPrefix,
+                hashMatches.stream()
+                    .map(ConfigurationForOutput::getConfigHash)
+                    .collect(joining("\n "))));
+      } else {
+        throw new InvalidConfigurationException(
+            "Multiple configurations match this prefix. Please choose a specific checksum to"
+                + " disambiguate");
+      }
+    }
+
+    throw new InvalidConfigurationException(
+        String.format("No configuration found with ID prefix %s", configPrefix));
   }
 
   /**

@@ -54,7 +54,7 @@ import javax.annotation.Nullable;
  * may be different than the configuration of the parent. For now, forbid all access to attributes
  * that read selects.
  *
- * <p>For starlark-defined attribute transitions, see {@link StarlarkAttributeTransitionProvider}.
+ * <p>For starlark-defined attribute transitions, see {@code StarlarkAttributeTransitionProvider}.
  */
 public final class StarlarkRuleTransitionProvider implements TransitionFactory<RuleTransitionData> {
 
@@ -117,8 +117,7 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
         }
       }
 
-      attributes.put(
-          Attribute.getStarlarkName(attribute.getPublicName()), Attribute.valueToStarlark(val));
+      attributes.put(attribute.getPublicName(), Attribute.valueToStarlark(val));
     }
 
     StructImpl attrObject =

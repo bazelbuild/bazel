@@ -53,7 +53,7 @@ public class AbruptExitException extends Exception {
 
   public SerializedAbruptExitException toSerialized() {
     byte[] serializedFailureDetail = detailedExitCode.getFailureDetail().toByteArray();
-    return new SerializedAbruptExitException(getMessage(), serializedFailureDetail, this);
+    return new SerializedAbruptExitException(serializedFailureDetail, this);
   }
 
   public static AbruptExitException fromSerialized(SerializedAbruptExitException e) {

@@ -18,7 +18,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 import static com.google.devtools.build.lib.rules.cpp.CcModule.nullIfNone;
 
-import com.google.common.base.Strings;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext.HeaderInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.MapVariables;
@@ -65,8 +64,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.IdentityHashMap;
 import java.util.Objects;
-import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -522,6 +519,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         ImmutableSet.of());
   }
 
+  @StarlarkBuiltin(name = "WrappedStarlarkActionFactory", documented = false)
   static class WrappedStarlarkActionFactory extends StarlarkActionFactory {
     final LinkActionConstruction construction;
 
@@ -605,7 +603,7 @@ public class CcStarlarkInternal implements StarlarkValue {
     String aspectName = ctx.getAspectDescriptor().getAspectClass().getName();
     // Starlark aspects names are of the form //my/aspect.bzl%aspect
     if (aspectName.contains("%")) {
-      aspectName = aspectName.split("%", -1)[1];
+      aspectName = Splitter.on('%').splitToList(aspectName).get(1);
     }
     return aspectName;
   }
@@ -814,16 +812,13 @@ public class CcStarlarkInternal implements StarlarkValue {
           "action_construction_context must be either StarlarkRuleContext or"
               + " StarlarkTemplateContext");
     }
-    CoptsFilter coptsFilter =
-        createCoptsFilter(
-            Starlark.isNullOrNone(coptsFilterObject) ? null : (String) coptsFilterObject);
+
     CppCompileActionBuilder builder =
         createCppCompileActionBuilder(
             ccActionContext.getActionOwner(),
             CcCompilationContext.of(ccCompilationContext),
             ccToolchain,
             configuration,
-            coptsFilter,
             featureConfigurationForStarlark,
             sourceArtifact,
             additionalCompilationInputs,
@@ -944,19 +939,6 @@ public class CcStarlarkInternal implements StarlarkValue {
     }
   }
 
-  private CoptsFilter createCoptsFilter(String coptsFilterString) throws EvalException {
-    if (Strings.isNullOrEmpty(coptsFilterString)) {
-      return CoptsFilter.alwaysPasses();
-    } else {
-      try {
-        return CoptsFilter.fromRegex(Pattern.compile(coptsFilterString));
-      } catch (PatternSyntaxException e) {
-        throw Starlark.errorf(
-            "invalid regular expression '%s': %s", coptsFilterString, e.getMessage());
-      }
-    }
-  }
-
   @StarlarkMethod(
       name = "create_cc_compile_action_template",
       documented = false,
@@ -1016,9 +998,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       boolean needsIncludeValidation,
       String toolchainType)
       throws RuleErrorException, EvalException {
-    CoptsFilter coptsFilter =
-        createCoptsFilter(
-            Starlark.isNullOrNone(coptsFilterObject) ? null : (String) coptsFilterObject);
+
     ImmutableList.Builder<ArtifactCategory> outputCategories = ImmutableList.builder();
     for (Object outputCategoryObject : outputCategoriesUnchecked) {
       if (outputCategoryObject instanceof String outputCategoryString) {
@@ -1049,7 +1029,6 @@ public class CcStarlarkInternal implements StarlarkValue {
             CcCompilationContext.of(ccCompilationContext),
             ccToolchain,
             configuration,
-            coptsFilter,
             featureConfigurationForStarlark,
             source,
             additionalCompilationInputs,
@@ -1089,7 +1068,6 @@ public class CcStarlarkInternal implements StarlarkValue {
       CcCompilationContext ccCompilationContext,
       StarlarkInfo ccToolchain,
       BuildConfigurationValue configuration,
-      CoptsFilter coptsFilter,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
       Artifact sourceArtifact,
       Sequence<?> additionalCompilationInputs,
@@ -1108,7 +1086,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         new CppCompileActionBuilder(owner, CcToolchainProvider.create(ccToolchain), configuration)
             .setSourceFile(sourceArtifact)
             .setCcCompilationContext(ccCompilationContext)
-            .setCoptsFilter(coptsFilter)
             .setFeatureConfiguration(featureConfigurationForStarlark.getFeatureConfiguration())
             .addExecutionInfo(executionInfo);
     if (additionalCompilationInputs.size() > 0) {
@@ -1151,7 +1128,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       documented = false,
       parameters = {@Param(name = "fn")})
   public void checkToplevel(StarlarkFunction fn) throws EvalException {
-    if (fn.getModule().getGlobal(fn.getName()) != fn) {
+    if (!Objects.equals(fn.getModule().getGlobal(fn.getName()), fn)) {
       throw Starlark.errorf("Passed function must be top-level functions.");
     }
   }
@@ -1208,7 +1185,7 @@ public class CcStarlarkInternal implements StarlarkValue {
     RuleContext ruleContext = starlarkRuleContext.getRuleContext();
     return ruleContext.getDerivedArtifact(
         objectFile.getRootRelativePath().getParentDirectory().getRelative(outputName),
-        ruleContext.getConfiguration().getBinDirectory(ruleContext.getLabel().getRepository()));
+        ruleContext.getConfiguration().getBinDirectory());
   }
 
   @StarlarkMethod(

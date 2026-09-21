@@ -42,7 +42,14 @@ public final class OptionsUtils {
       if (result.length() != 0) {
         result.append(' ');
       }
-      result.append(option.getCanonicalFormWithValueEscaper(ShellEscaper::escapeString));
+      if (option.isFullyRedactedInLogs()) {
+        result
+            .append("--")
+            .append(option.getOptionDefinition().getOptionName())
+            .append("=<REDACTED>");
+      } else {
+        result.append(option.getCanonicalFormWithValueEscaper(ShellEscaper::escapeString));
+      }
     }
     return result.toString();
   }
@@ -65,7 +72,11 @@ public final class OptionsUtils {
       if (option.isHidden()) {
         continue;
       }
-      builder.add(option.getCanonicalForm());
+      if (option.isFullyRedactedInLogs()) {
+        builder.add("--" + option.getOptionDefinition().getOptionName() + "=<REDACTED>");
+      } else {
+        builder.add(option.getCanonicalForm());
+      }
     }
     return builder.build();
   }

@@ -27,7 +27,9 @@ import net.starlark.java.eval.StarlarkValue;
 
 /** An interface for a set of runfiles. */
 @StarlarkBuiltin(
+    // TODO: #27370 - make capitalization consistent
     name = "runfiles",
+    starlarkTypeName = "Runfiles",
     category = DocCategory.BUILTIN,
     doc =
 """

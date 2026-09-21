@@ -76,7 +76,7 @@ public class CompactPersistentActionCache implements ActionCache {
   // cache records.
   private static final int VALIDATION_KEY = -10;
 
-  private static final int VERSION = 25;
+  private static final int VERSION = 26;
 
   /**
    * A timestamp, represented as the number of minutes since the Unix epoch.
@@ -482,12 +482,26 @@ public class CompactPersistentActionCache implements ActionCache {
       // This also ensures that the next initialization attempt will create an empty cache.
       // To avoid using too much disk space, only keep the most recent corrupted cache around.
       corruptedCacheRoot.deleteTree();
-      cacheRoot.renameTo(corruptedCacheRoot);
+      boolean preexistingKept;
+      try {
+        cacheRoot.renameTo(corruptedCacheRoot);
+        preexistingKept = true;
+      } catch (IOException e1) {
+        // If renaming fails, delete instead.
+        preexistingKept = false;
+        try {
+          cacheRoot.deleteTree();
+        } catch (IOException e2) {
+          e2.addSuppressed(e1);
+          throw e2;
+        }
+      }
 
       e = new IOException("%s: %s".formatted(message, e.getMessage()), e);
 
       logger.atWarning().withCause(e).log(
-          "Failed to load action cache, preexisting files kept in %s", corruptedCacheRoot);
+          "Failed to load action cache%s",
+          preexistingKept ? ", preexisting files kept in %s".formatted(corruptedCacheRoot) : "");
 
       reporterForInitializationErrors.handle(
           Event.warn(
@@ -790,6 +804,8 @@ public class CompactPersistentActionCache implements ActionCache {
     VarInt.putVarLong(
         value.getExpirationTime() != null ? value.getExpirationTime().toEpochMilli() : -1, sink);
 
+    VarInt.putVarInt(value.isInMemoryOutput() ? 1 : 0, sink);
+
     PathFragment resolvedPath = value.getResolvedPath();
     if (resolvedPath != null) {
       VarInt.putVarInt(1, sink);
@@ -804,6 +820,7 @@ public class CompactPersistentActionCache implements ActionCache {
           + VarInt.MAX_VARLONG_SIZE // size
           + VarInt.MAX_VARINT_SIZE // locationIndex
           + VarInt.MAX_VARLONG_SIZE // expirationTime
+          + VarInt.MAX_VARINT_SIZE // inMemoryOutput
           + (1 + VarInt.MAX_VARINT_SIZE); // resolvedPath
 
   private FileArtifactValue decodeRemoteMetadata(ByteBuffer source) throws IOException {
@@ -815,6 +832,8 @@ public class CompactPersistentActionCache implements ActionCache {
 
     long expirationTimeEpochMilli = VarInt.getVarLong(source);
 
+    boolean inMemoryOutput = VarInt.getVarInt(source) != 0;
+
     PathFragment resolvedPath = null;
     int numResolvedPath = VarInt.getVarInt(source);
     if (numResolvedPath > 0) {
@@ -824,12 +843,16 @@ public class CompactPersistentActionCache implements ActionCache {
       resolvedPath = PathFragment.create(getStringForIndex(indexer, VarInt.getVarInt(source)));
     }
 
-    FileArtifactValue metadata =
-        FileArtifactValue.createForRemoteFileWithMaterializationData(
-            digest,
-            size,
-            locationIndex,
-            expirationTimeEpochMilli >= 0 ? Instant.ofEpochMilli(expirationTimeEpochMilli) : null);
+    FileArtifactValue metadata;
+    if (expirationTimeEpochMilli >= 0 || inMemoryOutput) {
+      Instant expirationTime =
+          expirationTimeEpochMilli >= 0 ? Instant.ofEpochMilli(expirationTimeEpochMilli) : null;
+      metadata =
+          FileArtifactValue.createForRemoteFileWithMaterializationData(
+              digest, size, locationIndex, expirationTime, inMemoryOutput);
+    } else {
+      metadata = FileArtifactValue.createForRemoteFile(digest, size, locationIndex);
+    }
 
     if (resolvedPath != null) {
       metadata = FileArtifactValue.createFromExistingWithResolvedPath(metadata, resolvedPath);

@@ -59,82 +59,115 @@ namespace blaze_jni {
 
 #define FILE_BASENAME "unix_jni.cc"
 
+namespace {
+
+static jclass getClass(JNIEnv* env, const char* name) {
+  jclass lookup_result = env->FindClass(name);
+  BAZEL_CHECK_NE(lookup_result, nullptr);
+  return static_cast<jclass>(env->NewGlobalRef(lookup_result));
+}
+
+static jmethodID getConstructorID(JNIEnv* env, jclass clazz, const char* sig) {
+  jmethodID method = env->GetMethodID(clazz, "<init>", sig);
+  BAZEL_CHECK_NE(method, nullptr) << sig;
+  return method;
+}
+
+static jobject getStaticObjectField(JNIEnv* env, jclass clazz, const char* name,
+                                    const char* sig) {
+  jfieldID field = env->GetStaticFieldID(clazz, name, sig);
+  BAZEL_CHECK_NE(field, nullptr);
+  return static_cast<jobject>(
+      env->NewGlobalRef(env->GetStaticObjectField(clazz, field)));
+}
+
+}  // namespace
+
 struct DIROrError {
   DIR *dir;
   int error;
 };
 
-static void PostException(JNIEnv *env, const char *exception_classname,
-                          const std::string &message) {
+static void PostException(JNIEnv* env, const char* exception_classname,
+                          const std::string& message) {
   jclass exception_class = env->FindClass(exception_classname);
+  BAZEL_CHECK_NE(exception_class, nullptr) << exception_classname;
+  jmethodID constructor =
+      getConstructorID(env, exception_class, "(Ljava/lang/String;)V");
+
   bool success = false;
-  if (exception_class != nullptr) {
-    success = env->ThrowNew(exception_class, message.c_str()) == 0;
+  jstring j_message = NewStringLatin1(env, message.c_str());
+  if (j_message != nullptr) {
+    jobject exception = env->NewObject(exception_class, constructor, j_message);
+    if (exception != nullptr) {
+      success = env->Throw(reinterpret_cast<jthrowable>(exception)) == 0;
+    }
   }
   if (!success) {
-    BAZEL_LOG(FATAL) << "Failed to throw Java exception from JNI: "
-                     << message.c_str();
+    BAZEL_LOG(FATAL) << "Failed to throw " << exception_classname
+                     << " with message '" << message.c_str() << "'";
   }
 }
 
-// See unix_jni.h.
-void PostException(JNIEnv* env, int error_number, const std::string& message) {
-  // Select the most appropriate Java exception for a given UNIX error number.
-  const char *exception_classname;
-  switch (error_number) {
-    case EFAULT:  // Illegal pointer (unlikely; perhaps from or via FUSE?)
-      exception_classname = "java/lang/IllegalArgumentException";
-      break;
+static jobject GetPosixError(JNIEnv* env, int saved_errno) {
+  static const jclass error_class =
+      getClass(env,
+               "com/google/devtools/build/lib/unix/"
+               "NativePosixFilesException$PosixError");
+  static const char* field_sig =
+      "Lcom/google/devtools/build/lib/unix/"
+      "NativePosixFilesException$PosixError;";
+  static const jobject error_enoent =
+      getStaticObjectField(env, error_class, "ENOENT", field_sig);
+  static const jobject error_eacces =
+      getStaticObjectField(env, error_class, "EACCES", field_sig);
+  static const jobject error_eloop =
+      getStaticObjectField(env, error_class, "ELOOP", field_sig);
+  static const jobject error_etimedout =
+      getStaticObjectField(env, error_class, "ETIMEDOUT", field_sig);
+  static const jobject error_other =
+      getStaticObjectField(env, error_class, "OTHER", field_sig);
+
+  switch (saved_errno) {
     case ETIMEDOUT:  // Local socket timed out
-      exception_classname = "java/net/SocketTimeoutException";
-      break;
+      return error_etimedout;
     case ENOENT:  // No such file or directory
-      exception_classname = "java/io/FileNotFoundException";
-      break;
+      return error_enoent;
     case EACCES:  // Permission denied
-      exception_classname =
-          "com/google/devtools/build/lib/vfs/FileAccessException";
-      break;
-    case ENOSYS:   // Function not implemented
-    case ENOTSUP:  // Operation not supported on transport endpoint
-                   // (aka EOPNOTSUPP)
-      exception_classname = "java/lang/UnsupportedOperationException";
-      break;
+      return error_eacces;
     case ELOOP:  // Too many symbolic links encountered
-      exception_classname =
-          "com/google/devtools/build/lib/vfs/FileSymlinkLoopException";
-      break;
-    case EBADF:         // Bad file number or descriptor already closed.
-    case ENAMETOOLONG:  // File name too long
-    case ENODATA:    // No data available
-#if defined(EMULTIHOP)
-    case EMULTIHOP:  // Multihop attempted
-#endif
-    case EINVAL:     // Invalid argument
-    case EINTR:      // Interrupted system call
-    case ENOMEM:     // Out of memory
-    case EPERM:      // Operation not permitted
-    case ENOLINK:    // Link has been severed
-    case EIO:        // I/O error
-    case EAGAIN:     // Try again
-    case EFBIG:      // File too large
-    case EPIPE:      // Broken pipe
-    case ENOSPC:     // No space left on device
-    case EXDEV:      // Cross-device link
-    case EROFS:      // Read-only file system
-    case EEXIST:     // File exists
-    case EMLINK:     // Too many links
-    case EISDIR:     // Is a directory
-    case ENOTDIR:    // Not a directory
-    case ENOTEMPTY:  // Directory not empty
-    case EBUSY:      // Device or resource busy
-    case ENFILE:     // File table overflow
-    case EMFILE:     // Too many open files
+      return error_eloop;
     default:
-      exception_classname = "java/io/IOException";
+      return error_other;
   }
-  PostException(env, exception_classname,
-                message + " (" + ErrorMessage(error_number) + ")");
+}
+
+void PostNativePosixFilesException(JNIEnv* env, int saved_errno,
+                                   const std::string& message) {
+  static const jclass exception_class = getClass(
+      env, "com/google/devtools/build/lib/unix/NativePosixFilesException");
+  static const jmethodID constructor =
+      getConstructorID(env, exception_class,
+                       "(Ljava/lang/String;Lcom/google/devtools/build/lib/unix/"
+                       "NativePosixFilesException$PosixError;)V");
+
+  jobject posix_error = GetPosixError(env, saved_errno);
+  std::string full_message = message + " (" + ErrorMessage(saved_errno) + ")";
+
+  bool success = false;
+  jstring j_full_message = NewStringLatin1(env, full_message.c_str());
+  if (j_full_message != nullptr) {
+    jobject exception = env->NewObject(exception_class, constructor,
+                                       j_full_message, posix_error);
+    if (exception != nullptr) {
+      success = env->Throw(reinterpret_cast<jthrowable>(exception)) == 0;
+    }
+  }
+  if (!success) {
+    BAZEL_LOG(FATAL)
+        << "Failed to throw NativePosixFilesException with message '"
+        << message.c_str() << "'";
+  }
 }
 
 static void PostAssertionError(JNIEnv *env, const std::string& message) {
@@ -145,56 +178,16 @@ static void PostAssertionError(JNIEnv *env, const std::string& message) {
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
 
-#define POST_EXCEPTION_FROM_ERRNO(env, error, message)                       \
-  PostException(env, error,                                                  \
-                std::string("[" FILE_BASENAME ":" TOSTRING(__LINE__) "] ") + \
-                    std::string(message))
+#define POST_EXCEPTION_FROM_ERRNO(env, error, message)             \
+  PostNativePosixFilesException(                                   \
+      env, error,                                                  \
+      std::string("[" FILE_BASENAME ":" TOSTRING(__LINE__) "] ") + \
+          std::string(message))
 
 #define POST_ASSERTION_ERROR(env, message)                              \
   PostAssertionError(                                                   \
       env, std::string("[" FILE_BASENAME ":" TOSTRING(__LINE__) "] ") + \
                std::string(message))
-
-// Throws RuntimeExceptions for IO operations which fail unexpectedly.
-// See package-info.html.
-// Returns true iff an exception was thrown.
-static bool PostRuntimeException(JNIEnv *env, int error_number,
-                                 const char *file_path) {
-  const char *exception_classname;
-  switch (error_number) {
-    case EFAULT:   // Illegal pointer--not likely
-    case EBADF:    // Bad file number
-      exception_classname = "java/lang/IllegalArgumentException";
-      break;
-    case ENOMEM:   // Out of memory
-      exception_classname = "java/lang/OutOfMemoryError";
-      break;
-    case ENOTSUP:  // Operation not supported on transport endpoint
-                   // (aka EOPNOTSUPP)
-      exception_classname = "java/lang/UnsupportedOperationException";
-      break;
-    default:
-      exception_classname = nullptr;
-  }
-
-  if (exception_classname == nullptr) {
-    return false;
-  }
-
-  jclass exception_class = env->FindClass(exception_classname);
-  if (exception_class != nullptr) {
-    std::string message(file_path);
-    message += " (";
-    message += ErrorMessage(error_number);
-    message += ")";
-    env->ThrowNew(exception_class, message.c_str());
-    return true;
-  } else {
-    BAZEL_LOG(FATAL) << "Unable to find exception_class: "
-                     << exception_classname;
-    return false;
-  }
-}
 
 static JavaVM *GetJavaVM(JNIEnv *env) {
   static JavaVM *java_vm = nullptr;
@@ -310,29 +303,9 @@ Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_symlink(
 
 namespace {
 
-static jclass getClass(JNIEnv* env, const char* name) {
-  jclass lookup_result = env->FindClass(name);
-  BAZEL_CHECK_NE(lookup_result, nullptr);
-  return static_cast<jclass>(env->NewGlobalRef(lookup_result));
-}
-
-static jmethodID getConstructorID(JNIEnv* env, jclass clazz, const char* sig) {
-  jmethodID method = env->GetMethodID(clazz, "<init>", sig);
-  BAZEL_CHECK_NE(method, nullptr) << sig;
-  return method;
-}
-
-static jobject getStaticObjectField(JNIEnv* env, jclass clazz, const char* name,
-                                    const char* sig) {
-  jfieldID field = env->GetStaticFieldID(clazz, name, sig);
-  BAZEL_CHECK_NE(field, nullptr);
-  return static_cast<jobject>(
-      env->NewGlobalRef(env->GetStaticObjectField(clazz, field)));
-}
-
 static jobject NewStat(JNIEnv* env, const portable_stat_struct& stat_ref) {
-  static const jclass stat_class = getClass(
-      env, "com/google/devtools/build/lib/unix/NativePosixFilesService$Stat");
+  static const jclass stat_class =
+      getClass(env, "com/google/devtools/build/lib/unix/NativePosixFilesServiceImpl$StatImpl");
   static const jmethodID file_status_class_ctor =
       getConstructorID(env, stat_class, "(IJJJJ)V");
   return env->NewObject(
@@ -361,11 +334,6 @@ static jobject StatCommon(JNIEnv *env, jstring path,
   if (err == -1) {
     // Save errno immediately, before we do any other syscalls.
     int saved_errno = errno;
-
-    // Throw a RuntimeException if errno suggests a programming error.
-    if (PostRuntimeException(env, saved_errno, path_chars)) {
-      return nullptr;
-    }
 
     // Throw an IOException if requested by the error handling mode.
     if (error_handling == 'a' ||
@@ -443,8 +411,8 @@ Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_mkdir(
 namespace {
 
 jobject NewDirent(JNIEnv* env, const struct dirent* e) {
-  static const jclass dirent_class = getClass(
-      env, "com/google/devtools/build/lib/unix/NativePosixFilesService$Dirent");
+  static const jclass dirent_class =
+      getClass(env, "com/google/devtools/build/lib/unix/NativePosixFilesServiceImpl$DirentImpl");
   static const jmethodID dirent_ctor =
       getConstructorID(env, dirent_class,
                        "(Ljava/lang/String;Lcom/google/devtools/build/lib/unix/"
@@ -550,6 +518,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFilesServiceImpl_readdir(
     }
     jobject dirent = NewDirent(env, entry);
     if (dirent == nullptr && env->ExceptionOccurred()) {
+      closedir(dirh);
       return nullptr;
     }
     dirents.push_back(dirent);
@@ -642,9 +611,9 @@ namespace {
 // it. The faulty path is specified by all the components of dir_path and the
 // optional entry subcomponent, which may be NULL.
 static void PostDeleteTreesBelowException(
-    JNIEnv *env, int error, const char *function,
-    const std::vector<std::string> &dir_path, const char *entry,
-    const char *filename_and_line_prefix) {
+    JNIEnv* env, int saved_errno, const char* function,
+    const std::vector<std::string>& dir_path, const char* entry,
+    const char* filename_and_line_prefix) {
   std::vector<std::string>::const_iterator iter = dir_path.begin();
   std::string path;
   if (iter != dir_path.end()) {
@@ -663,8 +632,8 @@ static void PostDeleteTreesBelowException(
     path = entry;
   }
   BAZEL_CHECK(!env->ExceptionOccurred());
-  PostException(
-      env, error,
+  PostNativePosixFilesException(
+      env, saved_errno,
       std::string(filename_and_line_prefix) + function + " (" + path + ")");
 }
 
@@ -845,6 +814,9 @@ static int IsSubdir(JNIEnv* env, const std::vector<std::string>& dir_path,
 // Returns 0 on success. Returns -1 on error and posts an exception.
 static int DeleteTreesBelow(JNIEnv* env, std::vector<std::string>* dir_path,
                             const int dir_fd, const char* entry) {
+  if (env->ExceptionOccurred() != nullptr) {
+    return -1;
+  }
   DIROrError dir_or_error = ForceOpendir(env, *dir_path, dir_fd, entry);
   DIR *dir = dir_or_error.dir;
   if (dir == nullptr) {
@@ -901,6 +873,9 @@ static int DeleteTreesBelow(JNIEnv* env, std::vector<std::string>* dir_path,
   }
   if (env->ExceptionOccurred() == nullptr) {
     for (const auto &file : dir_files) {
+      if (env->ExceptionOccurred() != nullptr) {
+        break;
+      }
       if (ForceDelete(env, *dir_path, dirfd(dir), file.c_str(), false) == -1) {
         BAZEL_CHECK_NE(env->ExceptionOccurred(), nullptr);
         break;
@@ -911,6 +886,9 @@ static int DeleteTreesBelow(JNIEnv* env, std::vector<std::string>* dir_path,
   }
   if (env->ExceptionOccurred() == nullptr) {
     for (const auto &subdir : dir_subdirs) {
+      if (env->ExceptionOccurred() != nullptr) {
+        break;
+      }
       if (DeleteTreesBelow(env, dir_path, dirfd(dir), subdir.c_str()) == -1) {
         BAZEL_CHECK_NE(env->ExceptionOccurred(), nullptr);
         break;

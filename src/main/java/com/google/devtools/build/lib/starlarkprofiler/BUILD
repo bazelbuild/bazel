@@ -2,18 +2,23 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/main/java/net/starlark/java:clients",
+    ],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
     name = "cpu_profiler_module",
     srcs = ["CpuProfilerModule.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/bazel:__pkg__",
+    ],
     deps = [
         ":cpu_profiler_service",
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_command_cluster",
@@ -30,18 +35,23 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
         "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
         "//src/main/java/net/starlark/java/eval:cpu_profiler_native_support",
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
 java_library(
     name = "cpu_profiler_service_impl",
     srcs = ["CpuProfilerServiceImpl.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/bazel:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/testutil:__pkg__",
+    ],
     deps = [
         ":cpu_profiler_service",
+        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/net/starlark/java/eval:cpu_profiler_native_support",
         "//src/main/java/net/starlark/java/eval:cpu_profiler_native_support_impl",
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )

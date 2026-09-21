@@ -80,9 +80,6 @@ public interface JavaConfigurationApi extends StarlarkValue {
       documented = false)
   boolean enforceOneVersionOnJavaTests();
 
-  @StarlarkMethod(name = "add_test_support_to_compile_deps", structField = true, documented = false)
-  boolean addTestSupportToCompileTimeDeps();
-
   @StarlarkMethod(
       name = "run_android_lint",
       structField = true,
@@ -98,7 +95,7 @@ public interface JavaConfigurationApi extends StarlarkValue {
   @StarlarkMethod(
       name = "multi_release_deploy_jars",
       structField = true,
-      doc = "The value of the --incompatible_multi_release_deploy_jars flag.")
+      doc = "Always true. Java deploy jars preserve multi-release entries.")
   boolean multiReleaseDeployJars();
 
   @StarlarkMethod(

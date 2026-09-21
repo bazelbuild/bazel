@@ -204,10 +204,11 @@ public class EvalException extends Exception {
     int n = callstack.size(); // n > 0
     String prefix = "Error: ";
     // If the topmost frame is a built-in, don't show it.
-    // Instead just prefix the name of the built-in onto the error message.
+    // Instead just prefix the name of the built-in onto the error message,
+    // unless it is fail() where we just use "Error: ".
     StarlarkThread.CallStackEntry leaf = callstack.get(n - 1);
     if (leaf.location.equals(Location.BUILTIN)) {
-      prefix = "Error in " + leaf.name + ": ";
+      prefix = leaf.name.equals("fail") ? "Error: " : "Error in " + leaf.name + ": ";
       n--;
     }
     if (n > 0) {

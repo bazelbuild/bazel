@@ -26,8 +26,10 @@
 #include <utility>
 #include <vector>
 
+#include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/path_platform.h"
+#include "absl/time/time.h"
 
 namespace blaze {
 
@@ -160,10 +162,10 @@ class StartupOptions {
   // Override more finegrained rc file flags and ignore them all.
   bool ignore_all_rc_files;
 
-  // Block for the Blaze server lock. Otherwise,
-  // quit with non-0 exit code if lock can't
-  // be acquired immediately.
-  bool block_for_lock;
+  // Maximum duration to wait for the Blaze server lock or output base lock.
+  // InfiniteDuration() waits indefinitely (default), ZeroDuration() does not
+  // block (--noblock_for_lock).
+  absl::Duration block_for_lock_timeout;
 
   bool host_jvm_debug;
 
@@ -296,6 +298,8 @@ class StartupOptions {
   // Whether to use a remote cache to store the contents of reproducible
   // external repositories.
   bool remote_repo_contents_cache;
+
+  bool use_compact_object_headers_;
 
  protected:
   // Constructor for subclasses only so that site-specific extensions of this

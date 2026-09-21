@@ -85,6 +85,15 @@ config_setting(
 )
 
 config_setting(
+    name = "linux_loongarch64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:loongarch64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
     name = "linux_x86_64",
     constraint_values = [
         "@platforms//os:linux",
@@ -144,12 +153,6 @@ config_setting(
         "@platforms//os:macos",
         "@platforms//cpu:arm64e",
     ],
-    visibility = ["//visibility:public"],
-)
-
-config_setting(
-    name = "iphonesdk",
-    values = {"define": "IPHONE_SDK=1"},
     visibility = ["//visibility:public"],
 )
 

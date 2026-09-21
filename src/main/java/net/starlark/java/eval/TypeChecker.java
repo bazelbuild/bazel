@@ -16,17 +16,19 @@ package net.starlark.java.eval;
 
 import java.util.Objects;
 import net.starlark.java.syntax.StarlarkType;
+import net.starlark.java.syntax.TypeContext;
 import net.starlark.java.syntax.Types;
 
 /** Type checker for Starlark types. */
 public final class TypeChecker {
 
-  static boolean isValueSubtypeOf(Object value, StarlarkType type2, StarlarkSemantics semantics) {
+  static boolean isValueSubtypeOf(
+      Object value, StarlarkType type2, StarlarkSemantics semantics, TypeContext context) {
     // Fast path for Any type. `Starlark.getStarlarkType(value)` can take long time to evaluate
     if (Objects.equals(type2, Types.ANY)) {
       return true;
     }
-    return StarlarkType.assignableFrom(type2, Starlark.getStarlarkType(value, semantics));
+    return StarlarkType.assignableFrom(type2, Starlark.getStarlarkType(value, semantics), context);
   }
 
   private TypeChecker() {}

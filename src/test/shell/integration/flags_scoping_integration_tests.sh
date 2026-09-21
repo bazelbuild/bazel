@@ -218,7 +218,7 @@ transition_attached(
     name = "project_target",
 )
 EOF
-  bazel build //${pkg}:project_target --experimental_enable_scl_dialect --//${out_of_scope_flags_pkg}:project_flag_baseline=baseline || fail "bazel failed"
+  bazel build //${pkg}:project_target --//${out_of_scope_flags_pkg}:project_flag_baseline=baseline || fail "bazel failed"
 
   for config in $(bazel config | tail -n +2 | cut -d ' ' -f 1); do
     bazel config "${config}" >> $TEST_log
@@ -290,7 +290,7 @@ sample_flag(
 
 EOF
 
-  bazel build //${pkg}:main --experimental_enable_scl_dialect || fail "bazel failed"
+  bazel build //${pkg}:main || fail "bazel failed"
 }
 
 function create_test_rule() {
@@ -501,7 +501,7 @@ main_rule(
 )
 EOF
 
-  bazel build //${pkg}:main_target --experimental_enable_scl_dialect >& $TEST_log || fail "bazel failed"
+  bazel build //${pkg}:main_target >& $TEST_log || fail "bazel failed"
 
   expect_log "Exec dep flag value: custom_value"
 }
@@ -596,7 +596,7 @@ main_rule(
 )
 EOF
 
-  bazel build //${other_pkg}:main_target --experimental_enable_scl_dialect >& $TEST_log || fail "bazel failed"
+  bazel build //${other_pkg}:main_target >& $TEST_log || fail "bazel failed"
 
   expect_log "Exec dep flag value: default"
 }

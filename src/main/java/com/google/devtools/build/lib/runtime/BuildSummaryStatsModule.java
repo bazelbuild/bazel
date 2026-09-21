@@ -185,11 +185,15 @@ public class BuildSummaryStatsModule extends BlazeModule {
           // way.
           for (CriticalPathComponent stat : criticalPath.components().reverse()) {
             Profiler.instance()
-                .logSimpleTaskDuration(
+                .logActionTaskDuration(
                     stat.getStartTimeNanos(),
                     stat.getElapsedTime(),
                     ProfilerTask.CRITICAL_PATH_COMPONENT,
-                    stat.prettyPrintAction());
+                    stat.prettyPrintAction(),
+                    stat.getMnemonic(),
+                    stat.getPrimaryOutputExecPathString(),
+                    stat.getOwnerLabelAsString(),
+                    stat.getOwnerConfigurationAsString());
           }
         }
       }

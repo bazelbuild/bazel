@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.buildtool.CommandPrecompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.cmdline.LabelNameDeduper;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetInterner;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -72,7 +73,6 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunctio
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatters;
 import com.google.devtools.build.lib.runtime.BlazeModule.ModuleFileSystem;
-import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.CommandDispatcher.UiVerbosity;
 import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
@@ -167,6 +167,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final FileSystem fileSystem;
+  private final UUID instanceId;
   private final ImmutableList<BlazeModule> blazeModules;
   private final ImmutableList<BlazeService> blazeServices;
   private final Map<String, BlazeCommand> commandMap = new LinkedHashMap<>();
@@ -215,6 +216,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   private BlazeRuntime(
       FileSystem fileSystem,
+      UUID instanceId,
       QueryEnvironmentFactory queryEnvironmentFactory,
       ImmutableList<QueryFunction> queryFunctions,
       ImmutableList<OutputFormatter> queryOutputFormatters,
@@ -240,6 +242,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       FileSystemLock installBaseLock) {
     // Server state
     this.fileSystem = fileSystem;
+    this.instanceId = instanceId;
     this.blazeModules = blazeModules;
     this.blazeServices = blazeServices;
     overrideCommands(commands);
@@ -476,6 +479,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                 .getCollectPressureStallIndicators(),
             /* collectSkyframeCounts= */ commandOptions.getCollectSkyframeCounts());
 
+        // Instead of logEvent() we're calling the low level function to pass the timings we took in
+        // the launcher. We're setting the INIT phase marker so that it follows immediately the
+        // LAUNCH phase.
+        long startupTimeNanos = commandOptions.getStartupTime() * 1000000L;
+        long waitTimeNanos = waitTimeInMs * 1000000L;
+        long clientStartTimeNanos = execStartTimeNanos - startupTimeNanos - waitTimeNanos;
+
         // TODO(b/457644247): Encapsulate the start params into a config object.
         Profiler.instance()
             .start(
@@ -486,20 +496,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                 env.getCommandId(),
                 recordFullProfilerData,
                 clock,
-                execStartTimeNanos,
+                clientStartTimeNanos,
                 /* slimProfile= */ commandOptions.getSlimProfile().isEnabled(),
                 /* slimProfileSizeLimit= */ commandOptions.getSlimProfile().getSizeLimit(),
                 /* includePrimaryOutput= */ commandOptions.getIncludePrimaryOutput(),
                 /* includeTargetLabel= */ commandOptions.getProfileIncludeTargetLabel(),
                 /* includeConfiguration= */ commandOptions.getProfileIncludeTargetConfiguration(),
                 /* collectTaskHistograms= */ commandOptions.getAlwaysProfileSlowOperations());
-
-        // Instead of logEvent() we're calling the low level function to pass the timings we took in
-        // the launcher. We're setting the INIT phase marker so that it follows immediately the
-        // LAUNCH phase.
-        long startupTimeNanos = commandOptions.getStartupTime() * 1000000L;
-        long waitTimeNanos = waitTimeInMs * 1000000L;
-        long clientStartTimeNanos = execStartTimeNanos - startupTimeNanos - waitTimeNanos;
         Profiler.instance()
             .logSimpleTaskDuration(
                 clientStartTimeNanos,
@@ -546,6 +549,14 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   public FileSystem getFileSystem() {
     return fileSystem;
+  }
+
+  /**
+   * Returns the ID of this Bazel server instance. It is stable for the lifetime of the server and
+   * changes when the server restarts.
+   */
+  public UUID getInstanceId() {
+    return instanceId;
   }
 
   public BlazeWorkspace getWorkspace() {
@@ -833,8 +844,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     if (otherThreadWonExitCode != null) {
       finalCommandResult = BlazeCommandResult.detailedExitCode(otherThreadWonExitCode);
     }
-    env.getBlazeWorkspace().clearEventBus();
+    env.getSkyframeExecutor().setEventBus(null);
+    env.getSkyframeExecutor().setOutputService(null);
     NestedSetInterner.clear();
+    LabelNameDeduper.clear();
 
     // Some module's commandComplete() relies on the stoppage of profiler. And it is impossible the
     // profiler is needed after all `BlazeModule.afterCommand`s are executed.
@@ -1165,7 +1178,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               policy,
               commandLineOptions.getOtherArgs(),
               OutErr.SYSTEM_OUT_ERR,
-              LockingMode.ERROR_OUT,
+              Duration.ZERO,
               startupOptions.getQuiet() ? UiVerbosity.QUIET : UiVerbosity.NORMAL,
               "batch client",
               runtime.clock.currentTimeMillis(),
@@ -1807,6 +1820,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       BlazeRuntime runtime =
           new BlazeRuntime(
               fileSystem,
+              instanceId,
               serverBuilder.getQueryEnvironmentFactory(),
               serverBuilder.getQueryFunctions(),
               serverBuilder.getQueryOutputFormatters(),

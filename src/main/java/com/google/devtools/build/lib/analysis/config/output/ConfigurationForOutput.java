@@ -83,6 +83,19 @@ public class ConfigurationForOutput {
     return mnemonic;
   }
 
+  public String getTransitionSuffix() {
+    if (isExec()) {
+      return " (exec)";
+    } else if (!hasTestConfig()) {
+      return " (test-trimmed)";
+    }
+    return "";
+  }
+
+  public String getDisplayMnemonic() {
+    return mnemonic + getTransitionSuffix();
+  }
+
   public boolean isExec() {
     return isExec;
   }

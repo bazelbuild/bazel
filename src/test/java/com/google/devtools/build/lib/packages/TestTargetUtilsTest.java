@@ -201,6 +201,30 @@ public final class TestTargetUtilsTest extends PackageLoadingTestCase {
     assertThat(result.second).containsExactly("tag1", "tag3");
   }
 
+  // Regression test for b/489243968.
+  @Test
+  public void testStarlarkRuleNamedTestSuite_notExpandedLikeTestSuite() throws Exception {
+    scratch.file(
+        "test/test_suite.bzl",
+        """
+        # Custom Starlark rule whose name happens to be test_suite.
+        test_suite = rule(
+            implementation = lambda ctx: [],
+        )
+        """);
+
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:test_suite.bzl", "test_suite")
+
+        test_suite(name = "not_a_real_test_suite")
+        """);
+
+    Target target = getTarget("//test:not_a_real_test_suite");
+    assertExpandedSuitesSkyframe(ImmutableList.of(target), ImmutableList.of(target));
+  }
+
   private void assertExpandedSuitesSkyframe(Iterable<Target> expected, Collection<Target> suites)
       throws Exception {
     ImmutableSet<Label> expectedLabels =

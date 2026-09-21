@@ -116,7 +116,7 @@ public enum Order {
 
   Order(String starlarkName) {
     this.starlarkName = starlarkName;
-    this.emptySet = new NestedSet<>(this);
+    this.emptySet = NestedSet.empty(this);
     this.emptyDepset = new Depset(null, this.emptySet);
   }
 
@@ -169,11 +169,11 @@ public enum Order {
    * @throws IllegalArgumentException if the name is not valid
    */
   public static Order parse(String name) {
-    if (VALUES.containsKey(name)) {
-      return VALUES.get(name);
-    } else {
+    Order order = VALUES.get(name);
+    if (order == null) {
       throw new IllegalArgumentException("Invalid order: " + name);
     }
+    return order;
   }
 
   /**

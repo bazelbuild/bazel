@@ -139,7 +139,10 @@ public class GrpcRemoteExecutorTest {
               public Single<ChannelConnectionWithServerCapabilities> create() {
                 ManagedChannel ch =
                     InProcessChannelBuilder.forName(fakeServerName)
-                        .intercept(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions))
+                        .intercept(
+                            TracingMetadataUtils.newExecHeadersInterceptor(
+                                remoteOptions.getRemoteHeaders(),
+                                remoteOptions.getRemoteExecHeaders()))
                         .directExecutor()
                         .build();
                 ServerCapabilities caps =
@@ -535,7 +538,10 @@ public class GrpcRemoteExecutorTest {
                 channelCreations.incrementAndGet();
                 ManagedChannel ch =
                     InProcessChannelBuilder.forName(fakeServerName)
-                        .intercept(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions))
+                        .intercept(
+                            TracingMetadataUtils.newExecHeadersInterceptor(
+                                remoteOptions.getRemoteHeaders(),
+                                remoteOptions.getRemoteExecHeaders()))
                         .build();
                 ServerCapabilities caps =
                     ServerCapabilities.newBuilder()

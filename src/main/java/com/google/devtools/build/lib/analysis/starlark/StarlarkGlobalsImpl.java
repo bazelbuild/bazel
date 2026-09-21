@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.starlark;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
@@ -30,7 +32,15 @@ import com.google.devtools.build.lib.packages.StarlarkGlobals;
 import com.google.devtools.build.lib.packages.StarlarkNativeModule;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.VendorFileGlobals;
+import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
+import com.google.devtools.build.lib.starlarkbuildapi.RunfilesApi;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
+import net.starlark.java.eval.CallUtils;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.TypeConstructorValue;
 import net.starlark.java.lib.json.Json;
 
 /**
@@ -105,6 +115,22 @@ public final class StarlarkGlobalsImpl implements StarlarkGlobals {
     env.put("MaterializedDepsInfo", MaterializedDepsInfo.PROVIDER);
 
     return env.buildOrThrow();
+  }
+
+  @Override
+  public ImmutableMap<String, Object> getBzlExtraTypeConstructorToplevels() {
+    return ImmutableMap.<String, Object>builder()
+        .put("Args", wrapStarlarkBuiltinAutoType(CommandLineArgsApi.class))
+        .put("Ctx", wrapStarlarkBuiltinAutoType(StarlarkRuleContextApi.class))
+        .put("File", wrapStarlarkBuiltinAutoType(FileApi.class))
+        .put("Root", wrapStarlarkBuiltinAutoType(FileRootApi.class))
+        .put("Runfiles", wrapStarlarkBuiltinAutoType(RunfilesApi.class))
+        .put("Target", wrapStarlarkBuiltinAutoType(TransitiveInfoCollectionApi.class))
+        .buildOrThrow();
+  }
+
+  private static TypeConstructorValue wrapStarlarkBuiltinAutoType(Class<?> clazz) {
+    return checkNotNull(CallUtils.wrapStarlarkBuiltinAutoType(clazz));
   }
 
   @Override

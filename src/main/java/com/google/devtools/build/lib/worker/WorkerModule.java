@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -33,7 +32,6 @@ import com.google.devtools.build.lib.runtime.BlazeWorkspace;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
 import com.google.devtools.build.lib.sandbox.AsynchronousTreeDeleter;
-import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
 import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroup;
@@ -119,14 +117,10 @@ public class WorkerModule extends BlazeModule {
     Path trashBase = workerDir.getRelative(AsynchronousTreeDeleter.MOVED_TRASH_DIR);
     if (treeDeleter == null) {
       treeDeleter = new AsynchronousTreeDeleter(trashBase);
-      if (trashBase.exists()) {
-        removeStaleTrash(workerDir, trashBase);
-      }
+      removeStaleTrash(workerDir, trashBase);
     }
     VirtualCgroupFactory cgroupFactory =
-        OS.getCurrent() != OS.LINUX
-                || sandboxOptions == null
-                || !sandboxOptions.getUseNewCgroupImplementation()
+        OS.getCurrent() != OS.LINUX || sandboxOptions == null
             ? null
             : new VirtualCgroupFactory(
                 "worker_",
@@ -137,8 +131,8 @@ public class WorkerModule extends BlazeModule {
     WorkerFactory newWorkerFactory =
         new WorkerFactory(workerDir, options, workerSandboxOptions, treeDeleter, cgroupFactory);
     if (!newWorkerFactory.equals(workerFactory)) {
-      if (workerDir.exists()) {
-        try {
+      try {
+        if (workerDir.exists()) {
           // Clean out old log files.
           for (Path logFile : workerDir.getDirectoryEntries()) {
             if (logFile.getBaseName().endsWith(".log")) {
@@ -154,14 +148,14 @@ public class WorkerModule extends BlazeModule {
               }
             }
           }
-        } catch (IOException e) {
-          env.getReporter()
-              .handle(
-                  Event.warn(
-                      String.format(
-                          "Could not delete old worker logs in '%s': %s",
-                          workerDir, e.getMessage())));
         }
+      } catch (IOException e) {
+        env.getReporter()
+            .handle(
+                Event.warn(
+                    String.format(
+                        "Could not delete old worker logs in '%s': %s",
+                        workerDir, e.getMessage())));
       }
 
       shutdownPool(
@@ -195,9 +189,7 @@ public class WorkerModule extends BlazeModule {
     boolean useCgroupsOnLinux =
         OS.getCurrent() == OS.LINUX
             && options.getUseCgroupsOnLinux()
-            && ((sandboxOptions == null || !sandboxOptions.getUseNewCgroupImplementation())
-                ? CgroupsInfo.isSupported()
-                : VirtualCgroup.getInstance().memory() != null);
+            && VirtualCgroup.getInstance().memory() != null;
     WorkerProcessMetricsCollector.instance().setUseCgroupsOnLinux(useCgroupsOnLinux);
 
     // Start collecting after a pool is defined
@@ -211,6 +203,9 @@ public class WorkerModule extends BlazeModule {
 
   private void removeStaleTrash(Path workerDir, Path trashBase) {
     try {
+      if (!trashBase.exists()) {
+        return;
+      }
       // The AsynchronousTreeDeleter relies on a counter for naming directories that will be
       // moved out of the way before being deleted asynchronously.
       // If there is trash on disk from a previous bazel server instance, the dirs will have
@@ -244,7 +239,7 @@ public class WorkerModule extends BlazeModule {
             localEnvProvider,
             env.getBlazeWorkspace().getBinTools(),
             env.getLocalResourceManager(),
-            RunfilesTreeUpdater.forCommandEnvironment(env),
+            env.getRunfilesTreeUpdater(),
             env.getOptions().getOptions(WorkerOptions.class),
             WorkerProcessMetricsCollector.instance(),
             env.getClock());
@@ -276,7 +271,7 @@ public class WorkerModule extends BlazeModule {
     Preconditions.checkArgument(!reason.isEmpty());
 
     if (workerPool != null) {
-      if (workerVerbose || alwaysLog) {
+      if ((workerVerbose || alwaysLog) && env != null) {
         env.getReporter().handle(Event.info(reason));
       }
       workerPool.close();
@@ -292,6 +287,14 @@ public class WorkerModule extends BlazeModule {
       this.workerFactory.setReporter(null);
     }
     WorkerMultiplexerManager.afterCommand();
+  }
+
+  @Override
+  public void blazeShutdown() {
+    shutdownPool(
+        "Blaze server shutting down, shutting down worker pool...",
+        /* alwaysLog= */ false,
+        /* workerVerbose= */ false);
   }
 
   public WorkerPoolConfig getWorkerPoolConfig() {

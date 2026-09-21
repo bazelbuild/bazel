@@ -183,7 +183,8 @@ public interface ConfiguredAspect extends ProviderCollection {
       try {
         Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
             analysisEnvironment.getActionKeyContext(), actions, ruleContext.getOwner());
-      } catch (Actions.ArtifactGeneratedByOtherRuleException e) {
+      } catch (Actions.ArtifactGeneratedByOtherRuleException
+          | Actions.SourceArtifactUsedAsOutputException e) {
         ruleContext.ruleError(e.getMessage());
         return null;
       }

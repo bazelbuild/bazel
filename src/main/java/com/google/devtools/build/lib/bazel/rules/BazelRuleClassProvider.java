@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.PackageCallable;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidStarlarkCommon;
 import com.google.devtools.build.lib.rules.android.BazelAndroidConfiguration;
@@ -48,7 +47,6 @@ import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.test.TestingSupportRules;
-import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextGuardedValue;
 import com.google.devtools.build.lib.util.EnvVar;
 import com.google.devtools.build.lib.util.OS;
@@ -273,21 +271,13 @@ public class BazelRuleClassProvider {
 
   public static final RuleSet ANDROID_RULES =
       new RuleSet() {
-        private static final ImmutableSet<PackageIdentifier> allowedRepositories =
-            ImmutableSet.of(PackageIdentifier.createUnchecked("rules_android", ""));
-
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
 
           builder.addConfigurationFragment(AndroidConfiguration.class);
           builder.addConfigurationFragment(BazelAndroidConfiguration.class);
 
-          builder.addBzlToplevel(
-              "android_common",
-              ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
-                  BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-                  new AndroidStarlarkCommon(),
-                  allowedRepositories));
+          builder.addBzlToplevel("android_common", new AndroidStarlarkCommon());
         }
 
         @Override

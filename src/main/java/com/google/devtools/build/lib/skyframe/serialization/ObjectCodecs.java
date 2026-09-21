@@ -13,17 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.compress.CompressionService;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
+import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 
 /**
@@ -80,9 +81,9 @@ public class ObjectCodecs {
 
   @VisibleForTesting // private
   public SharedValueSerializationContext getSharedValueSerializationContextForTesting(
-      FingerprintValueService fingerprintValueService) {
+      CompressionService compressionService, FingerprintValueService fingerprintValueService) {
     return SharedValueSerializationContext.createForTesting(
-        getCodecRegistry(), getDependencies(), fingerprintValueService);
+        getCodecRegistry(), getDependencies(), compressionService, fingerprintValueService);
   }
 
   @VisibleForTesting // private
@@ -112,9 +113,9 @@ public class ObjectCodecs {
 
   @VisibleForTesting // private
   public SharedValueDeserializationContext getSharedValueDeserializationContextForTesting(
-      FingerprintValueService fingerprintValueService) {
+      CompressionService compressionService, FingerprintValueService fingerprintValueService) {
     return SharedValueDeserializationContext.createForTesting(
-        getCodecRegistry(), getDependencies(), fingerprintValueService);
+        getCodecRegistry(), getDependencies(), compressionService, fingerprintValueService);
   }
 
   /**
@@ -176,10 +177,16 @@ public class ObjectCodecs {
 
   /** Serializes {@code subject} using a {@link SharedValueSerializationContext}. */
   public SerializationResult<ByteString> serializeMemoizedAndBlocking(
-      FingerprintValueService fingerprintValueService, Object subject)
+      CompressionService compressionService,
+      FingerprintValueService fingerprintValueService,
+      Object subject)
       throws SerializationException {
     return SharedValueSerializationContext.serializeToResult(
-        getCodecRegistry(), getDependencies(), fingerprintValueService, subject);
+        getCodecRegistry(),
+        getDependencies(),
+        compressionService,
+        fingerprintValueService,
+        subject);
   }
 
   /**
@@ -188,6 +195,7 @@ public class ObjectCodecs {
    * @param dependencyOverrides dependencies to override, see {@link #overrideDependencies}
    */
   public SerializationResult<ByteString> serializeMemoizedAndBlocking(
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       ImmutableClassToInstanceMap<?> dependencyOverrides,
       Object subject)
@@ -195,16 +203,23 @@ public class ObjectCodecs {
     return SharedValueSerializationContext.serializeToResult(
         getCodecRegistry(),
         overrideDependencies(getDependencies(), dependencyOverrides),
+        compressionService,
         fingerprintValueService,
         subject);
   }
 
   public AsyncSerializationTask serializeMemoizedAsync(
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       Object subject,
       @Nullable ProfileCollector profileCollector) {
     return SharedValueSerializationContext.serializeToResultAsync(
-        getCodecRegistry(), getDependencies(), fingerprintValueService, subject, profileCollector);
+        getCodecRegistry(),
+        getDependencies(),
+        compressionService,
+        fingerprintValueService,
+        subject,
+        profileCollector);
   }
 
   public Object deserialize(byte[] data) throws SerializationException {
@@ -230,13 +245,16 @@ public class ObjectCodecs {
   }
 
   public Object deserializeMemoizedAndBlocking(
-      FingerprintValueService fingerprintValueService, ByteString data)
+      CompressionService compressionService,
+      FingerprintValueService fingerprintValueService,
+      ByteString data)
       throws SerializationException {
     return SharedValueDeserializationContext.deserializeWithSharedValues(
-        getCodecRegistry(), getDependencies(), fingerprintValueService, data);
+        getCodecRegistry(), getDependencies(), compressionService, fingerprintValueService, data);
   }
 
   public Object deserializeMemoizedAndBlocking(
+      CompressionService compressionService,
       FingerprintValueService fingerprintValueService,
       ByteString data,
       ImmutableClassToInstanceMap<?> dependencyOverrides)
@@ -244,6 +262,7 @@ public class ObjectCodecs {
     return SharedValueDeserializationContext.deserializeWithSharedValues(
         getCodecRegistry(),
         overrideDependencies(getDependencies(), dependencyOverrides),
+        compressionService,
         fingerprintValueService,
         data);
   }
@@ -256,17 +275,43 @@ public class ObjectCodecs {
    */
   @Nullable
   public Object deserializeWithSkyframe(
-      FingerprintValueService fingerprintValueService, ByteString data)
+      CompressionService compressionService,
+      FingerprintValueService fingerprintValueService,
+      ByteString data)
       throws SerializationException {
-    return deserializeWithSkyframe(fingerprintValueService, data.newCodedInput());
+    CodedInputStream codedIn = data.newCodedInput();
+    return SharedValueDeserializationContext.deserializeWithSkyframe(
+        getCodecRegistry(),
+        getDependencies(),
+        compressionService,
+        fingerprintValueService,
+        codedIn);
   }
 
   @Nullable
   public Object deserializeWithSkyframe(
-      FingerprintValueService fingerprintValueService, CodedInputStream codedIn)
+      CompressionService compressionService,
+      FingerprintValueService fingerprintValueService,
+      CodedInputStream codedIn)
+      throws SerializationException {
+    return deserializeWithSkyframe(
+        compressionService, fingerprintValueService, codedIn, /* debugContext= */ null);
+  }
+
+  @Nullable
+  public Object deserializeWithSkyframe(
+      CompressionService compressionService,
+      FingerprintValueService fingerprintValueService,
+      CodedInputStream codedIn,
+      @Nullable DebugContext debugContext)
       throws SerializationException {
     return SharedValueDeserializationContext.deserializeWithSkyframe(
-        getCodecRegistry(), getDependencies(), fingerprintValueService, codedIn);
+        getCodecRegistry(),
+        getDependencies(),
+        compressionService,
+        fingerprintValueService,
+        codedIn,
+        debugContext);
   }
 
   static Object deserializeStreamFully(CodedInputStream codedIn, DeserializationContext context)
@@ -323,4 +368,11 @@ public class ObjectCodecs {
         .putAll(dependencyOverrides)
         .build();
   }
+
+  /** Information needed to emit debugging information. */
+  public record DebugContext(
+      // The fingerprint of the object requesting the deserialization
+      PackedFingerprint fingerprint,
+      // Receiver for the outgoing shared value dependency edges
+      BiConsumer<PackedFingerprint, PackedFingerprint> edgeReceiver) {}
 }

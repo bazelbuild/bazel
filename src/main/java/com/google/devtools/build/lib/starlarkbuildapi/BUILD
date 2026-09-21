@@ -14,7 +14,7 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
@@ -31,14 +31,14 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/repository:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test:srcs",
     ],
-    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
     name = "starlarkbuildapi",
     srcs = glob(["*.java"]),
     deps = [
-        "//third_party:guava",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/com/google/devtools/build/docgen/annot",
@@ -49,6 +49,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
-        "//third_party:jsr305",
+        "//third_party/java/jsr305_annotations",
     ],
 )

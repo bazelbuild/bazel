@@ -71,6 +71,11 @@ class ZipBuilder {
   // On failure, returns -1 and GetError() will return an non-empty message.
   virtual int WriteEmptyFile(const char* filename) = 0;
 
+  // Adds a file from the local filesystem into the ZIP archive.
+  // On failure, returns -1 and GetError() will return an non-empty message.
+  virtual int AddFile(const char* zip_path, const char* disk_path, u4 attr,
+                      bool compress = false, bool compute_crc = true) = 0;
+
   // Finish writing the ZIP file. This method can be called only once
   // (subsequent calls will do nothing) and none of
   // NewFile/FinishFile/WriteEmptyFile should be called after calling Finish. If

@@ -2,15 +2,12 @@
 
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(
-    default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
-)
+package(default_applicable_licenses = ["//:license"])
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//src/main/java/net/starlark/java:__pkg__"],
 )
 
 # The Starlark frontend (syntax, scanner, parser, resolver)
@@ -79,8 +76,9 @@ java_library(
     # Do not add Bazel or Google dependencies here!
     deps = [
         "//src/main/java/net/starlark/java/spelling",
-        "//third_party:auto_value",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party/java/auto:auto_value",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
     ],
 )

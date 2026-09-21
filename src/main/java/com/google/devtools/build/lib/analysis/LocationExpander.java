@@ -225,13 +225,11 @@ public final class LocationExpander {
   }
 
   /**
-   * Expands attribute's location and locations tags based on the target and
-   * location map.
+   * Expands attribute's location and locations tags based on the target and location map.
    *
-   * @param attrName  name of the attribute; only used for error reporting
+   * @param attrName name of the attribute; only used for error reporting
    * @param attrValue initial value of the attribute
-   * @return attribute value with expanded location tags or original value in
-   *         case of errors
+   * @return attribute value with expanded location tags or original value in case of errors
    */
   public String expandAttribute(String attrName, String attrValue) {
     return expand(attrValue, new AttributeErrorReporter(ruleErrorConsumer, attrName));
@@ -249,16 +247,19 @@ public final class LocationExpander {
 
     private final Label root;
     private final Supplier<Map<Label, Collection<Artifact>>> locationMapSupplier;
+    private final String name;
     private final PathType pathType;
     private final boolean multiple;
 
     LocationFunction(
         Label root,
         Supplier<Map<Label, Collection<Artifact>>> locationMapSupplier,
+        String name,
         PathType pathType,
         boolean multiple) {
       this.root = root;
       this.locationMapSupplier = locationMapSupplier;
+      this.name = Preconditions.checkNotNull(name);
       this.pathType = Preconditions.checkNotNull(pathType);
       this.multiple = multiple;
     }
@@ -283,8 +284,7 @@ public final class LocationExpander {
                 arg, PackageContext.of(root.getPackageIdentifier(), repositoryMapping));
       } catch (LabelSyntaxException e) {
         throw new IllegalStateException(
-            String.format(
-                "invalid label in %s expression: %s", functionName(), e.getMessage()), e);
+            String.format("invalid label in %s expression: %s", functionName(), e.getMessage()), e);
       }
       Set<String> paths = resolveLabel(label, workspaceRunfilesDirectory);
       return joinPaths(paths);
@@ -306,16 +306,17 @@ public final class LocationExpander {
       if (paths.isEmpty()) {
         throw new IllegalStateException(
             String.format(
-                "label '%s' in %s expression expands to no files",
-                unresolved, functionName()));
+                "label '%s' in %s expression expands to no files", unresolved, functionName()));
       }
 
       if (!multiple && paths.size() > 1) {
         throw new IllegalStateException(
             String.format(
-                "label '%s' in $(location) expression expands to more than one file, "
-                    + "please use $(locations %s) instead.  Files (at most %d shown) are: %s",
+                "label '%s' in %s expression expands to more than one file, "
+                    + "please use $(%ss %s) instead.  Files (at most %d shown) are: %s",
                 unresolved,
+                functionName(),
+                name,
                 unresolved,
                 MAX_PATHS_SHOWN,
                 Iterables.limit(paths, MAX_PATHS_SHOWN)));
@@ -363,7 +364,7 @@ public final class LocationExpander {
     }
 
     private String functionName() {
-      return multiple ? "$(locations)" : "$(location)";
+      return "$(" + name + ")";
     }
   }
 
@@ -373,22 +374,39 @@ public final class LocationExpander {
         .put(
             "location",
             new LocationFunction(
-                root, locationMap, execPaths ? PathType.EXEC : PathType.LOCATION, EXACTLY_ONE))
+                root,
+                locationMap,
+                "location",
+                execPaths ? PathType.EXEC : PathType.LOCATION,
+                EXACTLY_ONE))
         .put(
             "locations",
             new LocationFunction(
-                root, locationMap, execPaths ? PathType.EXEC : PathType.LOCATION, ALLOW_MULTIPLE))
-        .put("rootpath", new LocationFunction(root, locationMap, PathType.LOCATION, EXACTLY_ONE))
+                root,
+                locationMap,
+                "locations",
+                execPaths ? PathType.EXEC : PathType.LOCATION,
+                ALLOW_MULTIPLE))
         .put(
-            "rootpaths", new LocationFunction(root, locationMap, PathType.LOCATION, ALLOW_MULTIPLE))
-        .put("execpath", new LocationFunction(root, locationMap, PathType.EXEC, EXACTLY_ONE))
-        .put("execpaths", new LocationFunction(root, locationMap, PathType.EXEC, ALLOW_MULTIPLE))
+            "rootpath",
+            new LocationFunction(root, locationMap, "rootpath", PathType.LOCATION, EXACTLY_ONE))
+        .put(
+            "rootpaths",
+            new LocationFunction(root, locationMap, "rootpaths", PathType.LOCATION, ALLOW_MULTIPLE))
+        .put(
+            "execpath",
+            new LocationFunction(root, locationMap, "execpath", PathType.EXEC, EXACTLY_ONE))
+        .put(
+            "execpaths",
+            new LocationFunction(root, locationMap, "execpaths", PathType.EXEC, ALLOW_MULTIPLE))
         .put(
             "rlocationpath",
-            new LocationFunction(root, locationMap, PathType.RLOCATION, EXACTLY_ONE))
+            new LocationFunction(
+                root, locationMap, "rlocationpath", PathType.RLOCATION, EXACTLY_ONE))
         .put(
             "rlocationpaths",
-            new LocationFunction(root, locationMap, PathType.RLOCATION, ALLOW_MULTIPLE))
+            new LocationFunction(
+                root, locationMap, "rlocationpaths", PathType.RLOCATION, ALLOW_MULTIPLE))
         .buildOrThrow();
   }
 
@@ -486,9 +504,9 @@ public final class LocationExpander {
   }
 
   /**
-   * Returns the value in the specified map corresponding to 'key', creating and
-   * inserting an empty container if absent. We use Map not Multimap because
-   * we need to distinguish the cases of "empty value" and "absent key".
+   * Returns the value in the specified map corresponding to 'key', creating and inserting an empty
+   * container if absent. We use Map not Multimap because we need to distinguish the cases of "empty
+   * value" and "absent key".
    *
    * @return the value in the specified map corresponding to 'key'
    */

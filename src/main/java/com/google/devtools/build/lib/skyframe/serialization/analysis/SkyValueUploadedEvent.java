@@ -25,18 +25,28 @@ import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /** A BEP event signaled when a SkyValue is uploaded to Skycache. */
-public final class SkyValueUploadedEvent implements BuildEvent {
+final class SkyValueUploadedEvent implements BuildEvent {
   private final SkyKey key;
   private final FrontierNodeVersion version;
   private final PackedFingerprint fingerprint;
 
-  public SkyValueUploadedEvent(
-      SkyKey key, FrontierNodeVersion version, PackedFingerprint fingerprint) {
+  SkyValueUploadedEvent(SkyKey key, FrontierNodeVersion version, PackedFingerprint fingerprint) {
     this.key = key;
     this.version = version;
     this.fingerprint = fingerprint;
   }
 
+  public SkyKey getKey() {
+    return key;
+  }
+
+  public FrontierNodeVersion getVersion() {
+    return version;
+  }
+
+  public PackedFingerprint getFingerprint() {
+    return fingerprint;
+  }
   @Override
   public BuildEventId getEventId() {
     return BuildEventIdUtil.skyValueUploadedId(fingerprint.toHex());

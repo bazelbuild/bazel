@@ -20,7 +20,7 @@ import re
 _BASE_URL = "https://bazel.build"
 
 # We need to use regular expressions here since HTML can be embedded in
-# Markdown and Yaml, thus breaking XML parsers. Moreover, our use case is
+# Markdown, thus breaking XML parsers. Moreover, our use case is
 # simple, so regex should work (tm).
 _HTML_LINK_PATTERN = re.compile(
     r"((href|src)\s*=\s*[\"']({})?)/".format(_BASE_URL))
@@ -56,53 +56,18 @@ def _fix_md_links_and_images(content, rel_path, version):
                                        content)
 
 
-_MD_METADATA_PATTERN = re.compile(r"^(Book: )(/.+)$", re.MULTILINE)
-
-
-def _fix_md_metadata(content, rel_path, version):
-  del rel_path  # unused
-  return _MD_METADATA_PATTERN.sub(r"\1/versions/{}\2".format(version), content)
-
-
-_YAML_PATH_PATTERN = re.compile(
-    r"(((book_|image_)?path|include): ['\"]?)(/.*?)(['\"]?)$", re.MULTILINE
-)
-
-_YAML_IGNORE_LIST = frozenset(
-    ["/", "/_project.yaml", "/versions/", "/versions/_toc.yaml"])
-
-
-def _fix_yaml_paths(content, rel_path, version):
-  del rel_path  # unused
-  def sub(m):
-    prefix, path, suffix = m.group(1, 4, 5)
-    if path in _YAML_IGNORE_LIST:
-      return m.group(0)
-
-    return "{}/versions/{}{}{}".format(prefix, version, path, suffix)
-
-  return _YAML_PATH_PATTERN.sub(sub, content)
-
-
 _PURE_HTML_FIXES = [_fix_html_links, _fix_html_metadata]
-_PURE_MD_FIXES = [_fix_md_links_and_images, _fix_md_metadata]
-_PURE_YAML_FIXES = [_fix_yaml_paths]
+_PURE_MD_FIXES = [_fix_md_links_and_images]
 _MD_AND_HTML_ONLY_FIXES = [_set_header_vars]
 
 _FIXES = {
     ".html": _PURE_HTML_FIXES + _MD_AND_HTML_ONLY_FIXES,
     ".md": _PURE_MD_FIXES + _PURE_HTML_FIXES + _MD_AND_HTML_ONLY_FIXES,
     ".mdx": [_fix_md_links_and_images, _fix_html_links],
-    ".yaml": _PURE_YAML_FIXES + _PURE_HTML_FIXES,
 }
 
 
 def _get_fixes(path):
-  # Ignore _buttons.html since it's updated by //scripts/docs:gen_new_toc
-  # (src/main/java/com/google/devtools/build/docgen/release/TableOfContentsUpdater.java).
-  if "_buttons.html" in path:
-    return None
-
   _, ext = os.path.splitext(path)
   return _FIXES.get(ext)
 

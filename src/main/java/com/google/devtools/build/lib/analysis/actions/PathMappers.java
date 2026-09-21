@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -61,6 +62,9 @@ public final class PathMappers {
     // inputs, which are already part of the action key.
     if (effectiveOutputPathsMode == OutputPathsMode.STRIP) {
       fingerprint.addString(StrippingPathMapper.GUID);
+      if (executionInfo.containsKey(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING)) {
+        fingerprint.addString(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING);
+      }
       // These artifacts are not part of the actual command line or inputs, but influence the
       // behavior of path mapping.
       actionKeyContext.addNestedSetToFingerprint(fingerprint, additionalArtifactsForPathMapping);
@@ -89,17 +93,23 @@ public final class PathMappers {
    * @param action the {@link AbstractAction} for which a {@link Spawn} is to be created
    * @param outputPathsMode the value of {@link CoreOptions#outputPathsMode}
    * @param isStarlarkAction whether the action is a Starlark action
+   * @param inputMetadataProvider if non-null, used to verify that colliding inputs (from different
+   *     configurations mapping to the same path) have identical file digests
    * @return a {@link PathMapper} that maps paths of the action's inputs and outputs. May be {@link
    *     PathMapper#NOOP} if path mapping is not applicable to the action.
    */
   public static PathMapper create(
-      AbstractAction action, OutputPathsMode outputPathsMode, boolean isStarlarkAction) {
+      AbstractAction action,
+      OutputPathsMode outputPathsMode,
+      boolean isStarlarkAction,
+      @Nullable InputMetadataProvider inputMetadataProvider) {
     if (getEffectiveOutputPathsMode(
             outputPathsMode, action.getMnemonic(), action.getExecutionInfo())
         != OutputPathsMode.STRIP) {
       return PathMapper.NOOP;
     }
-    return StrippingPathMapper.tryCreate(action, isStarlarkAction).orElse(PathMapper.NOOP);
+    return StrippingPathMapper.tryCreate(action, isStarlarkAction, inputMetadataProvider)
+        .orElse(PathMapper.NOOP);
   }
 
   /**
@@ -131,7 +141,8 @@ public final class PathMappers {
       return OutputPathsMode.OFF;
     }
     if (outputPathsMode == OutputPathsMode.STRIP
-        && executionInfo.containsKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING)) {
+        && (executionInfo.containsKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING)
+            || executionInfo.containsKey(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING))) {
       return OutputPathsMode.STRIP;
     }
     return OutputPathsMode.OFF;

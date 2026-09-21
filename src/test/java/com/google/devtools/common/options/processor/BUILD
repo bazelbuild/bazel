@@ -2,14 +2,13 @@ load("@rules_java//java:defs.bzl", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/common:__subpackages__"],
 )
 
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
 )
 
 java_test(
@@ -19,10 +18,10 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options/processor:options_preprocessor_lib",
-        "//third_party:compile_testing",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/compile_testing",
+        "//third_party/java/guava:io",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -33,10 +32,10 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options/processor:options_preprocessor_lib",
-        "//third_party:compile_testing",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
+        "//third_party/java/compile_testing",
+        "//third_party/java/guava:io",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 

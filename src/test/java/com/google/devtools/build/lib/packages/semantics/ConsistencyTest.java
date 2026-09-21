@@ -124,8 +124,6 @@ public class ConsistencyTest {
   private static BuildLanguageOptions buildRandomOptions(Random rand) throws Exception {
     return parseOptions(
         // <== Add new options here in alphabetic order ==>
-        "--experimental_disable_external_package=" + rand.nextBoolean(),
-        "--experimental_sibling_repository_layout=" + rand.nextBoolean(),
         "--experimental_builtins_bzl_path=" + rand.nextDouble(),
         "--experimental_builtins_dummy=" + rand.nextBoolean(),
         "--experimental_bzl_visibility=" + rand.nextBoolean(),
@@ -141,8 +139,8 @@ public class ConsistencyTest {
         "--experimental_dormant_deps=" + rand.nextBoolean(),
         "--force_starlark_stack_trace=" + rand.nextBoolean(),
         "--incompatible_always_check_depset_elements=" + rand.nextBoolean(),
+        "--incompatible_check_external_repo_source_dir_package_boundary=" + rand.nextBoolean(),
         "--incompatible_disallow_empty_glob=" + rand.nextBoolean(),
-        "--incompatible_do_not_split_linking_cmdline=" + rand.nextBoolean(),
         "--incompatible_enable_deprecated_label_apis=" + rand.nextBoolean(),
         "--incompatible_enforce_starlark_utf8="
             + BuildLanguageOptions.Utf8EnforcementMode.values()[
@@ -156,6 +154,7 @@ public class ConsistencyTest {
         "--incompatible_run_shell_command_string=" + rand.nextBoolean(),
         "--incompatible_unambiguous_label_stringification=" + rand.nextBoolean(),
         "--incompatible_resolve_select_keys_eagerly=" + rand.nextBoolean(),
+        "--incompatible_symbolic_macro_strict_attrs=" + rand.nextBoolean(),
         "--internal_starlark_flag_test_canary=" + rand.nextBoolean(),
         "--internal_starlark_utf_8_byte_strings=" + rand.nextBoolean(),
         "--max_computation_steps=" + rand.nextLong());
@@ -168,8 +167,6 @@ public class ConsistencyTest {
   private static StarlarkSemantics buildRandomSemantics(Random rand) {
     return StarlarkSemantics.builder()
         // <== Add new options here in alphabetic order ==>
-        .setBool(BuildLanguageOptions.EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE, rand.nextBoolean())
-        .setBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, rand.nextBoolean())
         .set(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH, String.valueOf(rand.nextDouble()))
         .setBool(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_DUMMY, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_BZL_VISIBILITY, rand.nextBoolean())
@@ -187,8 +184,10 @@ public class ConsistencyTest {
         .setBool(BuildLanguageOptions.EXPERIMENTAL_DORMANT_DEPS, rand.nextBoolean())
         .setBool(StarlarkSemantics.FORCE_STARLARK_STACK_TRACE, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS, rand.nextBoolean())
+        .setBool(
+            BuildLanguageOptions.INCOMPATIBLE_CHECK_EXTERNAL_REPO_SOURCE_DIR_PACKAGE_BOUNDARY,
+            rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_DISALLOW_EMPTY_GLOB, rand.nextBoolean())
-        .setBool(BuildLanguageOptions.INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS, rand.nextBoolean())
         .set(
             BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8,
@@ -202,6 +201,7 @@ public class ConsistencyTest {
         .setBool(
             BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_RESOLVE_SELECT_KEYS_EAGERLY, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.INCOMPATIBLE_SYMBOLIC_MACRO_STRICT_ATTRS, rand.nextBoolean())
         .setBool(StarlarkSemantics.PRINT_TEST_MARKER, rand.nextBoolean())
         .setBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS, rand.nextBoolean())
         .set(BuildLanguageOptions.MAX_COMPUTATION_STEPS, rand.nextLong())

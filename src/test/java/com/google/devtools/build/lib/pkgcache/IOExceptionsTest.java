@@ -100,6 +100,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     crashMessage =
         path -> buildPath.asFragment().equals(path) ? "custom crash: " + buildPath : null;
     assertThat(visitTransitively(Label.parseCanonical("//pkg:x"))).isFalse();
+    crashMessage = IOExceptionsTest::nullFunction;
     scratch.overwriteFile(
         "pkg/BUILD",
         """
@@ -107,7 +108,6 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
         # another comment to force reload
         foo_library(name = "x")
         """);
-    crashMessage = IOExceptionsTest::nullFunction;
     syncPackages();
     eventCollector.clear();
     reporter.addHandler(failFastHandler);
@@ -134,6 +134,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     assertContainsEvent("no such package 'pkg'");
     assertContainsEvent("custom crash");
     assertThat(eventCollector).hasSize(1);
+    crashMessage = IOExceptionsTest::nullFunction;
     scratch.overwriteFile(
         "pkg/BUILD",
         """
@@ -141,7 +142,6 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
         # another comment to force reload
         foo_library(name = "x")
         """);
-    crashMessage = IOExceptionsTest::nullFunction;
     syncPackages();
     eventCollector.clear();
     reporter.addHandler(failFastHandler);

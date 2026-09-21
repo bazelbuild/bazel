@@ -187,16 +187,6 @@ public class TestConfiguration extends Fragment {
             """)
     public abstract TriState getCacheTestResults();
 
-    @Deprecated
-    @Option(
-        name = "test_result_expiration",
-        defaultValue = "-1", // No expiration by default.
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        metadataTags = {OptionMetadataTag.DEPRECATED},
-        help = "This option is deprecated and has no effect.")
-    public abstract int getTestResultExpiration();
-
     @Option(
         name = "trim_test_configuration",
         defaultValue = "true",
@@ -346,7 +336,7 @@ public class TestConfiguration extends Fragment {
 
     @Option(
         name = "experimental_fetch_all_coverage_outputs",
-        defaultValue = "false",
+        defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_FETCH_ALL_COVERAGE_OUTPUTS,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
@@ -370,7 +360,7 @@ public class TestConfiguration extends Fragment {
 
     @Option(
         name = "experimental_split_coverage_postprocessing",
-        defaultValue = "false",
+        defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_SPLIT_COVERAGE_POSTPROCESSING,
         documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
         effectTags = {OptionEffectTag.EXECUTION},
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},

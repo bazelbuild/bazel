@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.getOsFromConstraintsOrHost;
 import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
-import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -96,6 +95,7 @@ import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -330,23 +330,23 @@ public class RuleContext extends TargetContext
 
   @Override
   public ArtifactRoot getBinDirectory() {
-    return getConfiguration().getBinDirectory(getLabel().getRepository());
+    return getConfiguration().getBinDirectory();
   }
 
   public ArtifactRoot getGenfilesDirectory() {
-    return getConfiguration().getGenfilesDirectory(getLabel().getRepository());
+    return getConfiguration().getGenfilesDirectory();
   }
 
   public ArtifactRoot getTestLogsDirectory() {
-    return getConfiguration().getTestLogsDirectory(getLabel().getRepository());
+    return getConfiguration().getTestLogsDirectory();
   }
 
   public PathFragment getBinFragment() {
-    return getConfiguration().getBinFragment(getLabel().getRepository());
+    return getConfiguration().getBinFragment();
   }
 
   public PathFragment getGenfilesFragment() {
-    return getConfiguration().getGenfilesFragment(getLabel().getRepository());
+    return getConfiguration().getGenfilesFragment();
   }
 
   public Rule getRule() {
@@ -434,36 +434,6 @@ public class RuleContext extends TargetContext
   public List<ConfiguredTargetAndData> getPrerequisiteConfiguredTargets(String attributeName) {
     return getOwningPrerequisitesCollection(attributeName)
         .getPrerequisiteConfiguredTargets(attributeName);
-  }
-
-  /**
-   * Returns a special action owner for test actions. Test actions should run on the target platform
-   * rather than the host platform. Note that the value is not cached (on the assumption that this
-   * method is only called once).
-   */
-  public ActionOwner getTestActionOwner() {
-    PlatformInfo testExecutionPlatform;
-    ImmutableMap<String, String> testExecProperties;
-
-    // If we have a toolchain, pull the target platform out of it.
-    if (toolchainContexts != null) {
-      // TODO(https://github.com/bazelbuild/bazel/issues/17466): This doesn't respect execution
-      // properties coming from the target's `exec_properties` attribute.
-      // src/test/java/com/google/devtools/build/lib/analysis/test/TestActionBuilderTest.java has a
-      // test to test for it when it gets figured out.
-      testExecutionPlatform = toolchainContexts.getTargetPlatform();
-      testExecProperties = testExecutionPlatform.execProperties();
-    } else {
-      testExecutionPlatform = null;
-      testExecProperties = getExecGroups().getExecProperties(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME);
-    }
-
-    return createActionOwner(
-        rule,
-        getAspectDescriptors(),
-        getConfiguration(),
-        testExecProperties,
-        testExecutionPlatform);
   }
 
   @Override
@@ -690,8 +660,8 @@ public class RuleContext extends TargetContext
   @Override
   public ArtifactRoot getBinOrGenfilesDirectory() {
     return rule.outputsToBindir()
-        ? getConfiguration().getBinDirectory(getLabel().getRepository())
-        : getConfiguration().getGenfilesDirectory(getLabel().getRepository());
+        ? getConfiguration().getBinDirectory()
+        : getConfiguration().getGenfilesDirectory();
   }
 
   /**
@@ -703,8 +673,7 @@ public class RuleContext extends TargetContext
   }
 
   public Artifact getBinArtifact(PathFragment relative) {
-    return getPackageRelativeArtifact(
-        relative, getConfiguration().getBinDirectory(getLabel().getRepository()));
+    return getPackageRelativeArtifact(relative, getConfiguration().getBinDirectory());
   }
 
   /**
@@ -716,8 +685,7 @@ public class RuleContext extends TargetContext
   }
 
   public Artifact getGenfilesArtifact(PathFragment relative) {
-    return getPackageRelativeArtifact(
-        relative, getConfiguration().getGenfilesDirectory(getLabel().getRepository()));
+    return getPackageRelativeArtifact(relative, getConfiguration().getGenfilesDirectory());
   }
 
   @Override
@@ -741,9 +709,7 @@ public class RuleContext extends TargetContext
 
   @Override
   public PathFragment getPackageDirectory() {
-    return getLabel()
-        .getPackageIdentifier()
-        .getPackagePath(getConfiguration().isSiblingRepositoryLayout());
+    return getLabel().getPackageIdentifier().getPackagePath();
   }
 
   /**
@@ -1293,8 +1259,7 @@ public class RuleContext extends TargetContext
    */
   @Override
   public PathFragment getUniqueDirectory(PathFragment fragment) {
-    return AnalysisUtils.getUniqueDirectory(
-        getLabel(), fragment, getConfiguration().isSiblingRepositoryLayout());
+    return AnalysisUtils.getUniqueDirectory(getLabel(), fragment);
   }
 
   /**
@@ -1384,7 +1349,7 @@ public class RuleContext extends TargetContext
   @Override
   public Artifact.DerivedArtifact getRelatedArtifact(PathFragment pathFragment, String extension) {
     PathFragment file = FileSystemUtils.replaceExtension(pathFragment, extension);
-    return getDerivedArtifact(file, getConfiguration().getBinDirectory(getLabel().getRepository()));
+    return getDerivedArtifact(file, getConfiguration().getBinDirectory());
   }
 
   /** Returns true if the target for this context is a test target. */
@@ -1453,7 +1418,10 @@ public class RuleContext extends TargetContext
     private ConfigConditions configConditions;
     private Mutability mutability;
     private NestedSet<PackageGroupContents> visibility;
-    @Nullable private PackageSpecificationProvider transitiveVisibilityImposedByThisPackage;
+
+    @Nullable
+    private TransitiveVisibilityProvider.Requirement transitiveVisibilityImposedByThisPackage;
+
     private ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
     private ToolchainCollection<AspectBaseTargetResolvedToolchainContext>
         baseTargetToolchainContexts;
@@ -1492,16 +1460,17 @@ public class RuleContext extends TargetContext
      * within attribute checking.
      */
     @VisibleForTesting
-    public RuleContext unsafeBuild() throws InvalidExecGroupException {
+    public RuleContext unsafeBuild() throws IOException, InvalidExecGroupException {
       return build(false);
     }
 
     @VisibleForTesting
-    public RuleContext build() throws InvalidExecGroupException {
+    public RuleContext build() throws IOException, InvalidExecGroupException {
       return build(true);
     }
 
-    private RuleContext build(boolean attributeChecks) throws InvalidExecGroupException {
+    private RuleContext build(boolean attributeChecks)
+        throws IOException, InvalidExecGroupException {
       Preconditions.checkNotNull(ruleClassProvider);
       Preconditions.checkNotNull(configurationFragmentPolicy);
       Preconditions.checkNotNull(actionOwnerSymbol);
@@ -1646,7 +1615,7 @@ public class RuleContext extends TargetContext
 
     @CanIgnoreReturnValue
     public Builder setTransitiveVisibilityImposedByThisPackage(
-        @Nullable PackageSpecificationProvider transitiveVisibility) {
+        @Nullable TransitiveVisibilityProvider.Requirement transitiveVisibility) {
       this.transitiveVisibilityImposedByThisPackage = transitiveVisibility;
       return this;
     }
@@ -1718,7 +1687,8 @@ public class RuleContext extends TargetContext
      * Filter only attribute-based prerequisites, validate them and return them in a map from {@link
      * DependencyKind} to list of configured targets.
      */
-    private ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> createTargetMap() {
+    private ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> createTargetMap()
+        throws IOException {
       ImmutableListMultimap.Builder<DependencyKind, ConfiguredTargetAndData> mapBuilder =
           ImmutableListMultimap.builder();
 
@@ -1856,7 +1826,7 @@ public class RuleContext extends TargetContext
     }
 
     private void validateDirectPrerequisiteType(
-        ConfiguredTargetAndData prerequisite, Attribute attribute) {
+        ConfiguredTargetAndData prerequisite, Attribute attribute) throws IOException {
 
       if (prerequisite.isMaterializerRule()) {
         // Materializer rules pass along other targets, so don't check their providers.
@@ -2112,7 +2082,7 @@ public class RuleContext extends TargetContext
      * validated as part of {@link #createTargetMap}.
      */
     private void validateExtraPrerequisites(
-        boolean attributeChecks, ConfiguredAttributeMapper attributes) {
+        boolean attributeChecks, ConfiguredAttributeMapper attributes) throws IOException {
       // These checks can fail when ConfigConditions.EMPTY are empty, resulting in noMatchError
       // accessing attributes without a default condition.
       // ConfigConditions.EMPTY is always true for non-rules:
@@ -2175,7 +2145,7 @@ public class RuleContext extends TargetContext
     }
 
     private void validateDirectPrerequisite(
-        Attribute attribute, ConfiguredTargetAndData prerequisite) {
+        Attribute attribute, ConfiguredTargetAndData prerequisite) throws IOException {
       validateDirectPrerequisiteType(prerequisite, attribute);
       validateDirectPrerequisiteFileTypes(prerequisite, attribute);
       if (attribute.performPrereqValidatorCheck()) {

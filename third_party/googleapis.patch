@@ -101,6 +101,14 @@ index 9ac62c0..97a3a72 100755
  load(
      "@com_google_googleapis_imports//:imports.bzl",
      "cc_grpc_library",
+@@ -56,6 +57,7 @@
+     deps = [
+         "//google/api:annotations_proto",
+         "//google/api:client_proto",
+         "//google/api:field_behavior_proto",
++        "//google/api:visibility_proto",
+         "@com_google_protobuf//:any_proto",
+         "@com_google_protobuf//:duration_proto",
 diff --git a/google/devtools/containeranalysis/v1beta1/build/BUILD.bazel b/google/devtools/containeranalysis/v1beta1/build/BUILD.bazel
 index 7d478fa..284187c 100755
 --- a/google/devtools/containeranalysis/v1beta1/build/BUILD.bazel
@@ -244,4 +252,25 @@ index 8415965..34868ff 100755
 +
  # This is an API workspace, having public visibility by default makes perfect sense.
  package(default_visibility = ["//visibility:public"])
+
+diff --git a/google/devtools/build/v1/publish_build_event.proto b/google/devtools/build/v1/publish_build_event.proto
+--- a/google/devtools/build/v1/publish_build_event.proto
++++ b/google/devtools/build/v1/publish_build_event.proto
+@@ -22,3 +22,5 @@
+ import "google/devtools/build/v1/build_events.proto";
++import "google/api/visibility.proto";
++import "google/protobuf/any.proto";
+ import "google/protobuf/duration.proto";
+ import "google/protobuf/empty.proto";
+@@ -182,6 +184,10 @@
+   // Whether to require a previously received matching InvocationAttemptStarted
+   // event before continuing event processing for the event in the current
+   // request. BES only performs this check for events with sequence_number 1
+   // i.e. the first event in the stream.
+   bool check_preceding_lifecycle_events_present = 7;
++
++  // Arbitrary metadata associated with this stream.
++  // Populated on sequence_number == 1.
++  repeated google.protobuf.Any stream_metadata = 8 [(google.api.field_visibility).restriction = "GOOGLE_INTERNAL"];
+ }
  

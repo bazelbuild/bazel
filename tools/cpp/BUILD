@@ -39,3 +39,8 @@ filegroup(
     srcs = glob(["*.bzl"]),
     visibility = ["//tools:__pkg__"],
 )
+
+alias(
+    name = "cc_toolchain_config_lib",
+    actual = "@rules_cc//cc:srcs",
+)

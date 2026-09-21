@@ -129,7 +129,13 @@ Passing the
 [`--worker_sandboxing`](/reference/command-line-reference#flag--worker_sandboxing)
 flag makes each worker request use a separate sandbox directory for all its
 inputs. Setting up the [sandbox](/docs/sandboxing) takes some extra time,
-especially on macOS, but gives a better correctness guarantee.
+especially on macOS, but gives a better correctness guarantee. In addition to
+the plain boolean form, the flag may be scoped to a worker-key mnemonic as
+`--worker_sandboxing=<mnemonic>=<boolean>`, allowing sandboxing to be enabled or
+disabled per mnemonic (for example
+`--worker_sandboxing --worker_sandboxing=Javac=no`). Later values override
+earlier ones for the mnemonics they affect, so a later plain
+`--worker_sandboxing` re-enables sandboxing for all mnemonics.
 
 The
 [`--worker_quit_after_build`](/reference/command-line-reference#flag--worker_quit_after_build)
@@ -237,7 +243,8 @@ might be helpful.
 Using the `worker` strategy by default does not run the action in a
 [sandbox](/docs/sandboxing), similar to the `local` strategy. You can set the
 `--worker_sandboxing` flag to run all workers inside sandboxes, making sure each
-execution of the tool only sees the input files it's supposed to have. The tool
+execution of the tool only sees the input files it's supposed to have, or scope
+it per mnemonic with `--worker_sandboxing=<mnemonic>=<boolean>`. The tool
 may still leak information between requests internally, for instance through a
 cache. Using `dynamic` strategy
 [requires workers to be sandboxed](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/exec/SpawnStrategyRegistry.java).

@@ -81,6 +81,15 @@ public final class MacroClass {
           .nonconfigurable("special attribute integrated more deeply into Bazel's core logic")
           .build();
 
+  /**
+   * Exception thrown when a macro declares more than {@link RuleClass#MAX_ATTRIBUTES} attributes.
+   */
+  public static final class TooManyAttributesException extends Exception {
+    private TooManyAttributesException(String message) {
+      super(message);
+    }
+  }
+
   private final String name;
   private final Label definingBzlLabel;
   private final StarlarkFunction implementation;
@@ -177,15 +186,17 @@ public final class MacroClass {
       return this;
     }
 
-    public MacroClass build() {
+    public MacroClass build() throws TooManyAttributesException {
       Preconditions.checkNotNull(name);
       Preconditions.checkNotNull(definingBzlLabel);
-      return new MacroClass(
-          name,
-          definingBzlLabel,
-          implementation,
-          attributes.build(),
-          /* isFinalizer= */ isFinalizer);
+      ImmutableList<Attribute> builtAttributes = attributes.build();
+      if (builtAttributes.size() > RuleClass.MAX_ATTRIBUTES) {
+        throw new TooManyAttributesException(
+            String.format(
+                "Macro class %s declared too many attributes (%s > %s)",
+                name, builtAttributes.size(), RuleClass.MAX_ATTRIBUTES));
+      }
+      return new MacroClass(name, definingBzlLabel, implementation, builtAttributes, isFinalizer);
     }
   }
 

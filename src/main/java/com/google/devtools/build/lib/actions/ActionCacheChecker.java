@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.SerializableTreeArtifactValue;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -75,13 +76,19 @@ public class ActionCacheChecker {
 
   @Nullable private final ActionCache actionCache; // Null when not enabled.
 
-
   /** Cache config parameters for ActionCacheChecker. */
   @AutoValue
   public abstract static class CacheConfig {
     abstract boolean enabled();
 
     abstract boolean storeOutputMetadata();
+
+    /**
+     * Optional target for which all actions are unconditionally executed, as requested by {@code
+     * --bust_action_caches}.
+     */
+    @Nullable
+    abstract Label bustActionCachesTarget();
 
     public static Builder builder() {
       return new AutoValue_ActionCacheChecker_CacheConfig.Builder();
@@ -93,6 +100,8 @@ public class ActionCacheChecker {
       public abstract Builder setEnabled(boolean value);
 
       public abstract Builder setStoreOutputMetadata(boolean value);
+
+      public abstract Builder setBustActionCachesTarget(@Nullable Label value);
 
       public abstract CacheConfig build();
     }
@@ -191,6 +200,7 @@ public class ActionCacheChecker {
   private static boolean isUpToDate(
       ActionCache.Entry entry,
       Action action,
+      Token token,
       String actionKey,
       NestedSet<Artifact> actionInputs,
       InputMetadataProvider inputMetadataProvider,
@@ -240,6 +250,12 @@ public class ActionCacheChecker {
       FileArtifactValue inputMetadata = getInputMetadataMaybe(inputMetadataProvider, artifact);
       builder.addInputFile(artifact, inputMetadata);
     }
+    // Stash the input digest for reuse when the entry is written after execution. Actions that
+    // discover inputs are excluded: their input set may still grow during execution, and their
+    // discovered exec paths must be recorded individually.
+    if (!action.discoversInputs()) {
+      token.setInputDigest(builder.getInputDigest());
+    }
     return Arrays.equals(entry.getDigest(), builder.build().getDigest());
   }
 
@@ -249,7 +265,7 @@ public class ActionCacheChecker {
     if (outputChecker == null) {
       return true;
     }
-    return outputChecker.shouldTrustMetadata(artifact, metadata);
+    return outputChecker.shouldTrustCachedMetadata(artifact, metadata);
   }
 
   private static boolean shouldTrustTreeMetadata(
@@ -269,7 +285,7 @@ public class ActionCacheChecker {
               .getArchivedRepresentation()
               .map(ArchivedRepresentation::archivedFileValue)
               .orElseThrow();
-      if (!outputChecker.shouldTrustMetadata(archivedArtifact, archivedMetadata)) {
+      if (!outputChecker.shouldTrustCachedMetadata(archivedArtifact, archivedMetadata)) {
         return false;
       }
     }
@@ -277,7 +293,7 @@ public class ActionCacheChecker {
         treeMetadata.getChildValues().entrySet()) {
       TreeFileArtifact child = entry.getKey();
       FileArtifactValue childMetadata = entry.getValue();
-      if (!outputChecker.shouldTrustMetadata(child, childMetadata)) {
+      if (!outputChecker.shouldTrustCachedMetadata(child, childMetadata)) {
         return false;
       }
     }
@@ -285,7 +301,15 @@ public class ActionCacheChecker {
   }
 
   private boolean unconditionalExecution(Action action) {
-    return !isActionExecutionProhibited(action) && action.executeUnconditionally();
+    if (isActionExecutionProhibited(action)) {
+      return false;
+    }
+    if (action.executeUnconditionally()) {
+      checkState(action.isVolatile());
+      return true;
+    }
+    Label target = cacheConfig.bustActionCachesTarget();
+    return target != null && target.equals(action.getOwner().getLabel());
   }
 
   private static ImmutableMap<String, String> computeEffectiveEnvironment(
@@ -551,7 +575,6 @@ public class ActionCacheChecker {
       throws InterruptedException {
     // Unconditional execution can be applied only for actions that are allowed to be executed.
     if (unconditionalExecution(action)) {
-      checkState(action.isVolatile());
       reportUnconditionalExecution(handler, action);
       actionCache.accountMiss(MissReason.UNCONDITIONAL_EXECUTION);
       return true;
@@ -578,6 +601,7 @@ public class ActionCacheChecker {
     if (!isUpToDate(
         entry,
         action,
+        token,
         actionKey,
         actionInputs,
         inputMetadataProvider,
@@ -713,16 +737,21 @@ public class ActionCacheChecker {
       }
     }
 
-    ImmutableSet<Artifact> excludePathsFromActionCache =
-        action.discoversInputs() && !action.prunedInputs()
-            ? action.getMandatoryInputs().toSet()
-            : ImmutableSet.of();
+    byte[] tokenInputDigest = token.getInputDigest();
+    if (!action.discoversInputs() && tokenInputDigest != null) {
+      builder.setInputDigest(tokenInputDigest);
+    } else {
+      ImmutableSet<Artifact> excludePathsFromActionCache =
+          action.discoversInputs() && !action.prunedInputs()
+              ? action.getMandatoryInputs().toSet()
+              : ImmutableSet.of();
 
-    for (Artifact input : action.getInputs().toList()) {
-      builder.addInputFile(
-          input,
-          getInputMetadataMaybe(inputMetadataProvider, input),
-          /* saveExecPath= */ !excludePathsFromActionCache.contains(input));
+      for (Artifact input : action.getInputs().toList()) {
+        builder.addInputFile(
+            input,
+            getInputMetadataMaybe(inputMetadataProvider, input),
+            /* saveExecPath= */ !excludePathsFromActionCache.contains(input));
+      }
     }
 
     actionCache.put(key, builder.build());
@@ -874,8 +903,31 @@ public class ActionCacheChecker {
     /** The result of calling {@link Action#getKey}, or {@code null} if it was not called. */
     @Nullable private String actionKey;
 
+    /**
+     * The digest of the action's input metadata, computed during the {@code isUpToDate} check, or
+     * {@code null} if it was not computed.
+     *
+     * <p>Only populated for actions that do not discover inputs, whose input set cannot change
+     * between the cache check and {@link ActionCacheChecker#updateActionCache}. It is {@code null}
+     * whenever the check short-circuited before hashing inputs (an absent, corrupted or untrusted
+     * entry, or unconditional execution), in which case the inputs are traversed again.
+     *
+     * <p>Declared {@code volatile} because a Skyframe restart may run the check and the subsequent
+     * cache update on different threads.
+     */
+    @Nullable private volatile byte[] inputDigest;
+
     private Token(Action action) {
       this.cacheKey = action.getPrimaryOutput().getExecPathString();
+    }
+
+    @Nullable
+    byte[] getInputDigest() {
+      return inputDigest;
+    }
+
+    void setInputDigest(byte[] inputDigest) {
+      this.inputDigest = inputDigest;
     }
   }
 

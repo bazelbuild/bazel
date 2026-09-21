@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Interner;
 import com.google.common.primitives.Ints;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -25,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Timing, size, and memory statistics for a Spawn execution. */
 @SuppressWarnings("GoodTime") // Use ints instead of Durations to improve build time (cl/505728570)
@@ -40,11 +43,23 @@ public class SpawnMetrics {
     this.setupTimeInMs = builder.setupTimeInMs;
     this.uploadTimeInMs = builder.uploadTimeInMs;
     this.executionWallTimeInMs = builder.executionWallTimeInMs;
-    this.retryTimeInMs = ImmutableMap.copyOf(builder.retryTimeInMs);
+    this.retryTimeInMs =
+        builder.retryTimeInMs == null || builder.retryTimeInMs.isEmpty()
+            ? ImmutableMap.of()
+            : ImmutableMap.copyOf(builder.retryTimeInMs);
     this.processOutputsTimeInMs = builder.processOutputsTimeInMs;
     this.inputBytes = builder.inputBytes;
     this.inputFiles = builder.inputFiles;
     this.memoryEstimateBytes = builder.memoryEstimateBytes;
+    this.measuredMemoryPeakBytes = builder.measuredMemoryPeakBytes;
+    this.limits =
+        SpawnLimits.create(
+            builder.inputBytesLimit,
+            builder.inputFilesLimit,
+            builder.outputBytesLimit,
+            builder.outputFilesLimit,
+            builder.memoryBytesLimit,
+            builder.timeLimitInMs);
   }
 
   /** Indicates whether the metrics correspond to the remote, local or worker execution. */
@@ -83,8 +98,10 @@ public class SpawnMetrics {
   // error code to duration in ms
   private final ImmutableMap<Integer, Integer> retryTimeInMs;
   private final long inputBytes;
-  private final long inputFiles;
+  private final int inputFiles;
   private final long memoryEstimateBytes;
+  private final long measuredMemoryPeakBytes;
+  private final SpawnLimits limits;
 
   /** Any non-important stats < than 10% will not be shown in the summary. */
   private static final double STATS_SHOW_THRESHOLD = 0.10;
@@ -226,7 +243,14 @@ public class SpawnMetrics {
 
   /** Time spent in previous failed attempts. Does not include queue time. */
   public int retryTimeInMs() {
-    return retryTimeInMs.values().stream().reduce(0, Integer::sum);
+    if (retryTimeInMs.isEmpty()) {
+      return 0;
+    }
+    int sum = 0;
+    for (int duration : retryTimeInMs.values()) {
+      sum += duration;
+    }
+    return sum;
   }
 
   /** Time spent in previous failed attempts, keyed by error code. Does not include queue time. */
@@ -262,7 +286,7 @@ public class SpawnMetrics {
   }
 
   /** Total number of input files or 0 if unavailable. */
-  public long inputFiles() {
+  public int inputFiles() {
     return inputFiles;
   }
 
@@ -271,34 +295,43 @@ public class SpawnMetrics {
     return memoryEstimateBytes;
   }
 
+  /** Measured peak memory usage in bytes, or 0 if unavailable. */
+  public long measuredMemoryPeak() {
+    return measuredMemoryPeakBytes;
+  }
+
+  public Builder toBuilder() {
+    return Builder.forExec(execKind).addDurations(this).addNonDurations(this);
+  }
+
   /** Limit of total size in bytes of inputs or 0 if unavailable. */
   public long inputBytesLimit() {
-    return 0;
+    return limits.inputBytesLimit();
   }
 
   /** Limit of total number of input files or 0 if unavailable. */
-  public long inputFilesLimit() {
-    return 0;
+  public int inputFilesLimit() {
+    return limits.inputFilesLimit();
   }
 
   /** Limit of total size in bytes of outputs or 0 if unavailable. */
   public long outputBytesLimit() {
-    return 0;
+    return limits.outputBytesLimit();
   }
 
   /** Limit of total number of output files or 0 if unavailable. */
-  public long outputFilesLimit() {
-    return 0;
+  public int outputFilesLimit() {
+    return limits.outputFilesLimit();
   }
 
   /** Memory limit or 0 if unavailable. */
   public long memoryLimit() {
-    return 0;
+    return limits.memoryLimit();
   }
 
   /** Time limit in milliseconds or 0 if unavailable. */
   public int timeLimitInMs() {
-    return 0;
+    return limits.timeLimitInMs();
   }
 
   /** Builder class for SpawnMetrics. */
@@ -313,16 +346,17 @@ public class SpawnMetrics {
     private int uploadTimeInMs = 0;
     private int executionWallTimeInMs = 0;
     private int processOutputsTimeInMs = 0;
-    private Map<Integer, Integer> retryTimeInMs = new HashMap<>();
+    @Nullable private Map<Integer, Integer> retryTimeInMs = null;
     private long inputBytes = 0;
-    private long inputFiles = 0;
+    private int inputFiles = 0;
     private long memoryEstimateBytes = 0;
-    long inputBytesLimit = 0;
-    long inputFilesLimit = 0;
-    long outputBytesLimit = 0;
-    long outputFilesLimit = 0;
-    long memoryBytesLimit = 0;
-    int timeLimitInMs = 0;
+    private long measuredMemoryPeakBytes = 0;
+    private long inputBytesLimit = 0;
+    private int inputFilesLimit = 0;
+    private long outputBytesLimit = 0;
+    private int outputFilesLimit = 0;
+    private long memoryBytesLimit = 0;
+    private int timeLimitInMs = 0;
 
     public static Builder forLocalExec() {
       return forExec(ExecKind.LOCAL);
@@ -350,16 +384,7 @@ public class SpawnMetrics {
 
     public SpawnMetrics build() {
       Preconditions.checkNotNull(execKind, "ExecKind must be explicitly set using `setExecKind`");
-      // TODO(ulfjack): Add consistency checks here?
-      if (inputBytesLimit == 0
-          && inputFilesLimit == 0
-          && outputBytesLimit == 0
-          && outputFilesLimit == 0
-          && memoryBytesLimit == 0
-          && timeLimitInMs == 0) {
-        return new SpawnMetrics(this);
-      }
-      return new FullSpawnMetrics(this);
+      return new SpawnMetrics(this);
     }
 
     @CanIgnoreReturnValue
@@ -485,13 +510,17 @@ public class SpawnMetrics {
 
     @CanIgnoreReturnValue
     public Builder addRetryTimeInMs(int errorCode, int retryTimeInMs) {
+      if (this.retryTimeInMs == null || !(this.retryTimeInMs instanceof HashMap)) {
+        this.retryTimeInMs =
+            this.retryTimeInMs == null ? new HashMap<>() : new HashMap<>(this.retryTimeInMs);
+      }
       this.retryTimeInMs.merge(errorCode, retryTimeInMs, Integer::sum);
       return this;
     }
 
     @CanIgnoreReturnValue
     public Builder setRetryTimeInMs(ImmutableMap<Integer, Integer> retryTimeInMs) {
-      this.retryTimeInMs = retryTimeInMs;
+      this.retryTimeInMs = retryTimeInMs == null || retryTimeInMs.isEmpty() ? null : retryTimeInMs;
       return this;
     }
 
@@ -514,13 +543,19 @@ public class SpawnMetrics {
 
     @CanIgnoreReturnValue
     public Builder setInputFiles(long inputFiles) {
-      this.inputFiles = inputFiles;
+      this.inputFiles = Ints.saturatedCast(inputFiles);
       return this;
     }
 
     @CanIgnoreReturnValue
     public Builder setMemoryEstimateBytes(long memoryEstimateBytes) {
       this.memoryEstimateBytes = memoryEstimateBytes;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setMeasuredMemoryPeakBytes(long measuredMemoryPeakBytes) {
+      this.measuredMemoryPeakBytes = measuredMemoryPeakBytes;
       return this;
     }
 
@@ -532,7 +567,7 @@ public class SpawnMetrics {
 
     @CanIgnoreReturnValue
     public Builder setInputFilesLimit(long inputFilesLimit) {
-      this.inputFilesLimit = inputFilesLimit;
+      this.inputFilesLimit = Ints.saturatedCast(inputFilesLimit);
       return this;
     }
 
@@ -544,7 +579,7 @@ public class SpawnMetrics {
 
     @CanIgnoreReturnValue
     public Builder setOutputFilesLimit(long outputFilesLimit) {
-      this.outputFilesLimit = outputFilesLimit;
+      this.outputFilesLimit = Ints.saturatedCast(outputFilesLimit);
       return this;
     }
 
@@ -570,8 +605,10 @@ public class SpawnMetrics {
       uploadTimeInMs += metric.uploadTimeInMs();
       setupTimeInMs += metric.setupTimeInMs();
       executionWallTimeInMs += metric.executionWallTimeInMs();
-      for (Map.Entry<Integer, Integer> entry : metric.retryTimeInMs.entrySet()) {
-        addRetryTimeInMs(entry.getKey(), entry.getValue());
+      if (!metric.retryTimeInMs.isEmpty()) {
+        for (Map.Entry<Integer, Integer> entry : metric.retryTimeInMs.entrySet()) {
+          addRetryTimeInMs(entry.getKey(), entry.getValue());
+        }
       }
       processOutputsTimeInMs += metric.processOutputsTimeInMs();
       return this;
@@ -582,6 +619,7 @@ public class SpawnMetrics {
       inputFiles += metric.inputFiles();
       inputBytes += metric.inputBytes();
       memoryEstimateBytes += metric.memoryEstimate();
+      measuredMemoryPeakBytes += metric.measuredMemoryPeak();
       inputFilesLimit += metric.inputFilesLimit();
       inputBytesLimit += metric.inputBytesLimit();
       outputFilesLimit += metric.outputFilesLimit();
@@ -593,20 +631,59 @@ public class SpawnMetrics {
 
     @CanIgnoreReturnValue
     public Builder maxNonDurations(SpawnMetrics metric) {
-      inputFiles = Long.max(inputFiles, metric.inputFiles());
-      inputBytes = Long.max(inputBytes, metric.inputBytes());
-      memoryEstimateBytes = Long.max(memoryEstimateBytes, metric.memoryEstimate());
-      inputFilesLimit = Long.max(inputFilesLimit, metric.inputFilesLimit());
-      inputBytesLimit = Long.max(inputBytesLimit, metric.inputBytesLimit());
-      outputFilesLimit = Long.max(outputFilesLimit, metric.outputFilesLimit());
-      outputBytesLimit = Long.max(outputBytesLimit, metric.outputBytesLimit());
-      memoryBytesLimit = Long.max(memoryBytesLimit, metric.memoryLimit());
-      timeLimitInMs = Integer.max(timeLimitInMs, metric.timeLimitInMs());
+      inputFiles = Math.max(inputFiles, metric.inputFiles());
+      inputBytes = Math.max(inputBytes, metric.inputBytes());
+      memoryEstimateBytes = Math.max(memoryEstimateBytes, metric.memoryEstimate());
+      measuredMemoryPeakBytes = Math.max(measuredMemoryPeakBytes, metric.measuredMemoryPeak());
+      inputFilesLimit = Math.max(inputFilesLimit, metric.inputFilesLimit());
+      inputBytesLimit = Math.max(inputBytesLimit, metric.inputBytesLimit());
+      outputFilesLimit = Math.max(outputFilesLimit, metric.outputFilesLimit());
+      outputBytesLimit = Math.max(outputBytesLimit, metric.outputBytesLimit());
+      memoryBytesLimit = Math.max(memoryBytesLimit, metric.memoryLimit());
+      timeLimitInMs = Math.max(timeLimitInMs, metric.timeLimitInMs());
       return this;
     }
 
     private static int toMs(Duration duration) {
       return Ints.saturatedCast(duration.toMillis());
+    }
+  }
+
+  private record SpawnLimits(
+      long inputBytesLimit,
+      int inputFilesLimit,
+      long outputBytesLimit,
+      int outputFilesLimit,
+      long memoryLimit,
+      int timeLimitInMs) {
+
+    private static final Interner<SpawnLimits> interner = BlazeInterners.newWeakInterner();
+
+    private static final SpawnLimits NO_LIMITS = new SpawnLimits(0L, 0, 0L, 0, 0L, 0);
+
+    static SpawnLimits create(
+        long inputBytesLimit,
+        int inputFilesLimit,
+        long outputBytesLimit,
+        int outputFilesLimit,
+        long memoryLimit,
+        int timeLimitInMs) {
+      if (inputBytesLimit == 0
+          && inputFilesLimit == 0
+          && outputBytesLimit == 0
+          && outputFilesLimit == 0
+          && memoryLimit == 0
+          && timeLimitInMs == 0) {
+        return NO_LIMITS;
+      }
+      return interner.intern(
+          new SpawnLimits(
+              inputBytesLimit,
+              inputFilesLimit,
+              outputBytesLimit,
+              outputFilesLimit,
+              memoryLimit,
+              timeLimitInMs));
     }
   }
 }

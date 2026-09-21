@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -62,7 +61,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
   private Artifact gcnoFile;
   private CcCompilationContext ccCompilationContext = null;
   private final List<String> pluginOpts = new ArrayList<>();
-  private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private ImmutableList<PathFragment> extraSystemIncludePrefixes = ImmutableList.of();
   private boolean usePic;
   private final CppConfiguration cppConfiguration;
@@ -122,7 +120,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     this.gcnoFile = other.gcnoFile;
     this.ccCompilationContext = other.ccCompilationContext;
     this.pluginOpts.addAll(other.pluginOpts);
-    this.coptsFilter = other.coptsFilter;
     this.extraSystemIncludePrefixes = other.extraSystemIncludePrefixes;
     this.cppConfiguration = other.cppConfiguration;
     this.configuration = other.configuration;
@@ -292,8 +289,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     addTransitiveMandatoryInputs(
         getShouldScanIncludes()
             ? compilerFilesWithoutIncludes
-            : configuration.getFragment(CppConfiguration.class).useSpecificToolFiles()
-                    && !getSourceFile().isTreeArtifact()
+            : !getSourceFile().isTreeArtifact()
                 ? (getActionName().equals(CppActionNames.ASSEMBLE)
                     ? ccToolchain.getAsFiles()
                     : ccToolchain.getCompilerFiles())
@@ -306,6 +302,25 @@ public final class CppCompileActionBuilder implements StarlarkValue {
             .addTransitive(cacheKeyInputs)
             .build();
     NestedSet<Artifact> prunableHeaders = additionalPrunableHeaders;
+    if (getShouldScanIncludes()) {
+      // With include scanning enabled, only compiler_files_without_includes is staged as a
+      // mandatory input; the rest of the toolchain files (compiler_files) are expected to be
+      // discovered on demand by the include scanner. Generated toolchain headers -- e.g. a sysroot
+      // whose headers are symlinked into the output tree -- are only discoverable if they are known
+      // inputs, so fold generated compiler files into the prunable set here. They must also be
+      // registered as declared headers (the scanner never stats output-directory paths); see the
+      // addDeclaredHeaders calls in discoverInputs below. Source headers from compiler_files are
+      // skipped as they already resolve via source-artifact lookup and need not be prunable or
+      // declared, avoiding unnecessary heap retention and array allocations in toList().
+      ImmutableList<Artifact> generatedCompilerFiles = ccToolchain.getGeneratedCompilerFiles();
+      if (!generatedCompilerFiles.isEmpty()) {
+        prunableHeaders =
+            NestedSetBuilder.<Artifact>stableOrder()
+                .addTransitive(additionalPrunableHeaders)
+                .addAll(generatedCompilerFiles)
+                .build();
+      }
+    }
 
     configuration.modifyExecutionInfo(
         executionInfo,
@@ -334,7 +349,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
         dwoFile,
         ltoIndexingFile,
         ccCompilationContext,
-        coptsFilter,
         ImmutableList.copyOf(additionalIncludeScanningRoots),
         ImmutableMap.copyOf(executionInfo),
         actionName,
@@ -372,8 +386,15 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     NestedSetBuilder<Artifact> realMandatoryInputsBuilder = NestedSetBuilder.compileOrder();
     realMandatoryInputsBuilder.addTransitive(mandatoryInputsBuilder.build());
     realMandatoryInputsBuilder.addAll(getBuiltinIncludeFiles());
-    if (useHeaderModules() && !getShouldScanIncludes()) {
+    if ((useHeaderModules() || loadHeaderModules()) && !getShouldScanIncludes()) {
       realMandatoryInputsBuilder.addTransitive(ccCompilationContext.getTransitiveModules(usePic));
+      // The separate module of this compilation context is not part of the transitive modules, but
+      // may be used by all compiles of this context except for its own compile; see
+      // CcCompilationContext#getDirectModules.
+      Artifact separateModule = ccCompilationContext.getSeparateHeaderModule(usePic);
+      if (separateModule != null && !separateModule.equals(outputFile)) {
+        realMandatoryInputsBuilder.add(separateModule);
+      }
     }
     ccCompilationContext.addAdditionalInputs(realMandatoryInputsBuilder);
     realMandatoryInputsBuilder.add(Preconditions.checkNotNull(sourceFile));
@@ -409,6 +430,18 @@ public final class CppCompileActionBuilder implements StarlarkValue {
 
   private boolean useHeaderModules() {
     return useHeaderModules(sourceFile);
+  }
+
+  /**
+   * Whether this is a module codegen action that may load (but doesn't compile against) transitive
+   * modules.
+   */
+  private boolean loadHeaderModules() {
+    Preconditions.checkNotNull(featureConfiguration);
+    Preconditions.checkNotNull(sourceFile);
+    // The module file imports the modules of dependencies iff it was built with USE_HEADER_MODULES.
+    return featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)
+        && sourceFile.isFileType(CppFileTypes.CPP_MODULE);
   }
 
   /**
@@ -585,16 +618,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
 
   public CcToolchainProvider getToolchain() {
     return ccToolchain;
-  }
-
-  @CanIgnoreReturnValue
-  public CppCompileActionBuilder setCoptsFilter(CoptsFilter coptsFilter) {
-    this.coptsFilter = Preconditions.checkNotNull(coptsFilter);
-    return this;
-  }
-
-  CoptsFilter getCoptsFilter() {
-    return coptsFilter;
   }
 
   @CanIgnoreReturnValue

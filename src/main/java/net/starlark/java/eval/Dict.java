@@ -115,7 +115,6 @@ public abstract sealed class Dict<K, V>
         StarlarkIndexable,
         StarlarkIterable<K>
     permits MapBackedDict, CompactImmutableDict {
-
   public static TypeConstructor getAssociatedTypeConstructor() {
     return Types.DICT_CONSTRUCTOR;
   }
@@ -172,6 +171,11 @@ public abstract sealed class Dict<K, V>
   @Override
   public final boolean isImmutable() {
     return mutability().isFrozen();
+  }
+
+  @Override
+  public boolean isAcyclic() {
+    return isEmpty();
   }
 
   @Override
@@ -620,8 +624,8 @@ public abstract sealed class Dict<K, V>
   }
 
   /** Implementation backed by a (non-dict) {@link Map}. */
-  // TODO: jhorvitz - This should be private but bazel_bootstrap_distfile_test is not picking up
-  //  https://bugs.openjdk.org/browse/JDK-8284011 for some reason.
+  // TODO: b/536902188 - Make private once we no longer have to worry about OpenJDK 21 in the bazel
+  // bootstrap test (https://bugs.openjdk.org/browse/JDK-8284011).
   abstract static sealed class MapBackedDict<K, V> extends Dict<K, V> {
     private Map<K, V> contents;
 
@@ -867,6 +871,13 @@ public abstract sealed class Dict<K, V>
         return true;
       }
       return false;
+    }
+
+    @Override
+    public StarlarkList<?> items(StarlarkThread thread) {
+      Set<K> keySet = super.keySet();
+      accessedKeys.addAll(keySet);
+      return super.items(thread);
     }
 
     @Nullable

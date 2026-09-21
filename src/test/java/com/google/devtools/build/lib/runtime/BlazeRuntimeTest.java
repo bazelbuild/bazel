@@ -23,8 +23,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace.ActionCacheGarbageCollectorIdleTask;
 import com.google.devtools.build.lib.runtime.commands.VersionCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
@@ -214,6 +217,33 @@ public class BlazeRuntimeTest {
   }
 
   @Test
+  public void runfilesTreeUpdater_distinctAcrossCommandsSharingWorkspace() throws Exception {
+    // Two commands sharing one workspace must still get distinct updaters. This pins the command
+    // scope against a potential regression of scoping the updater to the long-lived workspace:
+    // its dedup map never evicts, so a reused updater would skip restaging a tree that changed
+    // between commands.
+    BlazeRuntime runtime =
+        createRuntime(
+            ImmutableList.of(
+                new BlazeModule() {
+                  @Override
+                  public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
+                    builder.setRunfilesPrefix("_main");
+                  }
+                }),
+            ImmutableList.of());
+    BlazeWorkspace workspace =
+        runtime.initWorkspace(blazeDirectories, BinTools.empty(blazeDirectories));
+    CommandEnvironment firstEnv = createCommandEnvironment(runtime, workspace);
+    CommandEnvironment secondEnv = createCommandEnvironment(runtime, workspace);
+
+    RunfilesTreeUpdater firstUpdater = firstEnv.getRunfilesTreeUpdater();
+    assertThat(firstUpdater).isNotNull();
+    assertThat(firstEnv.getRunfilesTreeUpdater()).isSameInstanceAs(firstUpdater);
+    assertThat(secondEnv.getRunfilesTreeUpdater()).isNotSameInstanceAs(firstUpdater);
+  }
+
+  @Test
   public void doesNotAddInstallBaseGcIdleTaskWhenDisabled() throws Exception {
     BlazeRuntime runtime = createRuntime();
     CommandEnvironment env = createCommandEnvironment(runtime);
@@ -344,7 +374,7 @@ public class BlazeRuntimeTest {
 
     BlazeRuntime runtime = createRuntime(ImmutableList.of(module), ImmutableList.of(service));
 
-    assertThat(runtime.getOptionsSuppliers()).containsExactly(module, service);
+    assertThat(runtime.getOptionsSuppliers()).containsAtLeast(module, service);
   }
 
   private BlazeRuntime createRuntime() throws Exception {
@@ -358,7 +388,8 @@ public class BlazeRuntimeTest {
             .setFileSystem(fs)
             .setProductName("foo product")
             .setServerDirectories(serverDirectories)
-            .setStartupOptionsProvider(mock(OptionsParsingResult.class));
+            .setStartupOptionsProvider(mock(OptionsParsingResult.class))
+            .addBlazeService(new CompressionServiceImpl());
     for (var module : modules) {
       builder.addBlazeModule(module);
     }
@@ -371,6 +402,11 @@ public class BlazeRuntimeTest {
   private CommandEnvironment createCommandEnvironment(BlazeRuntime runtime) throws Exception {
     BlazeWorkspace workspace =
         runtime.initWorkspace(blazeDirectories, BinTools.empty(blazeDirectories));
+    return createCommandEnvironment(runtime, workspace);
+  }
+
+  private CommandEnvironment createCommandEnvironment(
+      BlazeRuntime runtime, BlazeWorkspace workspace) {
     return new CommandEnvironment(
         runtime,
         workspace,

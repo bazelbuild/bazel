@@ -95,6 +95,10 @@ public final class GsonTypeAdapterUtil {
       new TypeAdapter<>() {
         @Override
         public void write(JsonWriter jsonWriter, ModuleKey moduleKey) throws IOException {
+          if (moduleKey == null) {
+            jsonWriter.nullValue();
+            return;
+          }
           jsonWriter.value(internalToUnicode(moduleKey.toString()));
         }
 
@@ -115,6 +119,10 @@ public final class GsonTypeAdapterUtil {
       new TypeAdapter<>() {
         @Override
         public void write(JsonWriter jsonWriter, Label label) throws IOException {
+          if (label == null) {
+            jsonWriter.nullValue();
+            return;
+          }
           jsonWriter.value(internalToUnicode(label.getUnambiguousCanonicalForm()));
         }
 
@@ -128,6 +136,10 @@ public final class GsonTypeAdapterUtil {
       new TypeAdapter<>() {
         @Override
         public void write(JsonWriter jsonWriter, RepoRuleId repoRuleId) throws IOException {
+          if (repoRuleId == null) {
+            jsonWriter.nullValue();
+            return;
+          }
           jsonWriter.value(internalToUnicode(repoRuleId.toString()));
         }
 
@@ -148,6 +160,10 @@ public final class GsonTypeAdapterUtil {
       new TypeAdapter<>() {
         @Override
         public void write(JsonWriter jsonWriter, RepositoryName repoName) throws IOException {
+          if (repoName == null) {
+            jsonWriter.nullValue();
+            return;
+          }
           jsonWriter.value(repoName.getName());
         }
 

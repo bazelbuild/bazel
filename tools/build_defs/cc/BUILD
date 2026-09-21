@@ -10,7 +10,6 @@ filegroup(
     srcs = glob(["**"]),
     visibility = [
         "//:__pkg__",
-        "//devtools/blaze/integration:__pkg__",
         "//tools/build_defs:__pkg__",
     ],
 )

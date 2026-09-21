@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.Path;
 import java.time.Duration;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -32,14 +33,13 @@ import javax.annotation.Nullable;
  *     outside a workspace.
  *     <p>If available, it will be used as the working directory when invoking the helper
  *     subprocess. Otherwise, the working directory is inherited from the Bazel server process.
- * @param clientEnvironment Returns the environment from the Bazel client.
- *     <p>Passed as environment variables to the subprocess.
+ * @param clientEnvironment Supplies the environment from the Bazel client.
  * @param helperExecutionTimeout Returns the execution timeout for the helper subprocess.
  */
 public record CredentialHelperEnvironment(
     Reporter eventReporter,
     @Nullable Path workspacePath,
-    ImmutableMap<String, String> clientEnvironment,
+    Supplier<ImmutableMap<String, String>> clientEnvironment,
     Duration helperExecutionTimeout) {
   public CredentialHelperEnvironment {
     requireNonNull(eventReporter, "eventReporter");
@@ -64,10 +64,11 @@ public record CredentialHelperEnvironment(
     public abstract Builder setWorkspacePath(@Nullable Path path);
 
     /**
-     * Sets the environment from the Bazel client to pass as environment variables to the
-     * subprocess.
+     * Sets the supplier of the client environment to pass as environment variables to the
+     * subprocess. The supplier is called each time a subprocess is spawned.
      */
-    public abstract Builder setClientEnvironment(ImmutableMap<String, String> environment);
+    public abstract Builder setClientEnvironment(
+        Supplier<ImmutableMap<String, String>> environment);
 
     /** Sets the execution timeout for the helper subprocess. */
     public abstract Builder setHelperExecutionTimeout(Duration timeout);

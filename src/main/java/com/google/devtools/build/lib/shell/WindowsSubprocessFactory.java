@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.shell;
 
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 
+import com.google.common.base.Ascii;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -50,6 +52,18 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
 
     // DO NOT quote argv0, createProcess will do it for us.
     String argv0 = processArgv0(argv.get(0));
+    if (isBatchFile(argv0)) {
+      for (int i = 1; i < argv.size(); ++i) {
+        String arg = argv.get(i);
+        if (containsCmdMetaCharacters(arg)) {
+          throw new IOException(
+              String.format(
+                  "Argument '%s' contains dangerous characters for batch file execution: "
+                      + "\\n, \\r, \", &, |, <, >, ^, %%, !",
+                  arg));
+        }
+      }
+    }
     String argvRest =
         argv.size() > 1
             ? escapeArgvRest(argv.subList(1, argv.size()), argv0.equals("cmd.exe"))
@@ -165,5 +179,28 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
 
     result.append("\0");
     return result.toString().getBytes(StandardCharsets.UTF_16LE);
+  }
+
+  private static final ImmutableList<String> BATCH_EXTENSIONS =
+      ImmutableList.of(".bat", ".cmd", ".btm");
+
+  static boolean isBatchFile(String path) {
+    int lastSep = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+    String filename = (lastSep != -1) ? path.substring(lastSep + 1) : path;
+    String lowerFilename = Ascii.toLowerCase(filename);
+
+    for (String ext : BATCH_EXTENSIONS) {
+      if (lowerFilename.endsWith(ext)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private static final CharMatcher CMD_META_CHARACTERS = CharMatcher.anyOf("\n\r\"&|<>^%!");
+
+  static boolean containsCmdMetaCharacters(String s) {
+    return CMD_META_CHARACTERS.matchesAnyOf(s);
   }
 }

@@ -9,7 +9,10 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["*.java"]) + ["BUILD"],
-    visibility = ["//src:__subpackages__"],
+    visibility = [
+        "//src:__pkg__",
+        "//src/java_tools/buildjar:buildjar_package_group",
+    ],
 )
 
 java_library(
@@ -19,7 +22,7 @@ java_library(
         "JarHelper.java",
     ],
     deps = [
-        "//third_party:error_prone_annotations",
+        "//third_party/java/error_prone:annotations",
     ],
 )
 

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.events.EventBusEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -508,13 +509,14 @@ public class IncrementalLoadingTest {
                           ImmutableMap.of())))
               .build(ruleClassProvider, fs);
       skyframeExecutor =
-          BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
+          SequencedSkyframeExecutor.newBazelSkyframeExecutorBuilder()
               .setPkgFactory(pkgFactory)
               .setFileSystem(fs)
               .setDirectories(directories)
               .setActionKeyContext(new ActionKeyContext())
               .setDiffAwarenessFactories(ImmutableList.of(new ManualDiffAwarenessFactory()))
               .setSyscallCache(SyscallCache.NO_CACHE)
+              .setCompressionService(new CompressionServiceImpl())
               .build();
       SkyframeExecutorTestHelper.process(skyframeExecutor);
       PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
@@ -537,6 +539,7 @@ public class IncrementalLoadingTest {
           buildLanguageOptions,
           UUID.randomUUID(),
           ImmutableMap.of(),
+          /* repoEnv= */ ImmutableMap.of(),
           QuiescingExecutorsImpl.forTesting(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
       skyframeExecutor.setActionEnv(ImmutableMap.of());
@@ -633,6 +636,7 @@ public class IncrementalLoadingTest {
           buildLanguageOptions,
           UUID.randomUUID(),
           ImmutableMap.of(),
+          /* repoEnv= */ ImmutableMap.of(),
           QuiescingExecutorsImpl.forTesting(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
       skyframeExecutor.setActionEnv(ImmutableMap.of());
