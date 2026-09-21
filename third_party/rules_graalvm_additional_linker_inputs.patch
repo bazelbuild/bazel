@@ -11,7 +11,7 @@ index 907fdc9..ff6f211 100644
 +++ b/internal/native_image/classic.bzl
 @@ -28 +28 @@ def _graal_binary_classic_implementation(ctx):
 -    direct_inputs = []
-+    direct_inputs = ctx.files.additional_linker_inputs
++    direct_inputs = ctx.files.additional_linker_inputs[:]
 diff --git a/internal/native_image/common.bzl b/internal/native_image/common.bzl
 index 5e43aad..48ae32e 100644
 --- a/internal/native_image/common.bzl
@@ -26,4 +26,4 @@ index 0a1b65a..7879960 100644
 +++ b/internal/native_image/rules.bzl
 @@ -50 +50 @@ def _graal_binary_implementation(ctx):
 -    direct_inputs = []
-+    direct_inputs = ctx.files.additional_linker_inputs
++    direct_inputs = ctx.files.additional_linker_inputs[:]
