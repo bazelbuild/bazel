@@ -97,6 +97,7 @@ import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultM
 import com.google.devtools.build.lib.remote.Scrubber.SpawnScrubber;
 import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
@@ -804,12 +805,22 @@ public class RemoteExecutionService {
     // the build to abort and rewind, so there is no data race here. This allows us to avoid the
     // check until cache eviction happens.
     if (!knownMissingCasDigests.isEmpty()) {
-      var metadata =
-          result.getOrParseActionResultMetadata(
-              combinedCache,
-              digestUtil,
-              action.getRemoteActionExecutionContext(),
-              action.getRemotePathResolver());
+      ActionResultMetadata metadata;
+      try {
+        metadata =
+            result.getOrParseActionResultMetadata(
+                combinedCache,
+                digestUtil,
+                action.getRemoteActionExecutionContext(),
+                action.getRemotePathResolver());
+      } catch (CacheNotFoundException e) {
+        return null; // Handle dangling reference to lost Tree message as AC miss.
+      } catch (BulkTransferException e) {
+        if (!e.allCausedByCacheNotFoundException()) {
+          throw e;
+        }
+        return null;
+      }
 
       // If we already know digests referenced by this AC is missing from remote cache, ignore it so
       // that we can fall back to execution. This could happen when the remote cache is an HTTP

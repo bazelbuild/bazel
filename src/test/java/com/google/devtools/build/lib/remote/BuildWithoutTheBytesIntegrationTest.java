@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeFalse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -837,6 +838,66 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
   }
 
+  @Test
+  public void actionRewinding_lostTree(
+      @TestParameter boolean localExecution) throws Exception {
+    // Verify that a lost tree can be rewound, both the Tree message itself and its children.
+    //
+    // When Bazel processes an ActionResult that it accepts, it fetches any referenced Tree
+    // message, so a lost tree digest is detected and handled at that point.
+    //
+    // In particular this test covers:
+    //   - CacheNotFoundException when a tree digest is lost.
+    //
+    // Parameterized over local and remote execution because RemoteSpawnRunner and
+    // RemoteSpawnCache handle BulkTransferException from lookupCache differently: only remote
+    // execution failed before this fix. No point in the disk cache parameterization.
+    assumeFalse(useDiskCache);
+    var unverifiedWorker = IntegrationTestUtils.createWorker("--noaction_cache_integrity_check");
+    try (var ignored = unverifiedWorker.start()) {
+      addOptions("--remote_executor=grpc://localhost:" + unverifiedWorker.getPort());
+      setDownloadToplevel();
+      writeOutputDirRule();
+      write("BUILD");
+      write(
+          "a/BUILD",
+          """
+          load("//:output_dir.bzl", "output_dir")
+
+          output_dir(
+              name = "foo.out",
+              content_map = {"file-inside": "hello world"},
+          )
+
+          genrule(
+              name = "bar",
+              srcs = [
+                  "foo.out",
+                  "bar.in",
+              ],
+              outs = ["bar.out"],
+              cmd = "( ls $(location :foo.out); cat $(location :bar.in) ) > $@",
+          )
+          """);
+      write("a/bar.in", "bar");
+
+      buildTarget("//a:bar");
+
+      // Wipe remote CAS, including the tree message describing foo.out, but keep all AC entries.
+      unverifiedWorker.evictAllCasBlobs();
+
+      // Invalidate only //a:bar, so its execution finds foo.out lost and rewinds //a:foo.out.
+      write("a/bar.in", "updated bar");
+      if (localExecution) {
+        addOptions("--strategy_regexp=.*=local");
+      }
+      enableActionRewinding();
+
+      buildTarget("//a:bar");
+
+      assertValidOutputFile("a/bar.out", "file-inside\nupdated bar\n");
+    }
+  }
   @Test
   public void remoteTreeFilesExpiredBetweenBuilds(@TestParameter boolean actionRewinding)
       throws Exception {
