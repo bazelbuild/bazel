@@ -35,8 +35,8 @@ record RepoSpecKey(ModuleKey moduleKey, String registryUrl) implements SkyKey {
 
   static RepoSpecKey of(InterimModule module) {
     Preconditions.checkNotNull(
-        module.getRegistry(), "module must not have a non-registry override");
-    return create(module.getKey(), module.getRegistry().getUrl());
+        module.getRegistryUrl(), "module must not have a non-registry override");
+    return create(module.getKey(), module.getRegistryUrl());
   }
 
   @AutoCodec.Instantiator
