@@ -34,12 +34,12 @@ PARENT_DIR="$(dirname "$(dirname "${CURRENT_SCRIPT}")")"
 # Configuration params. Export these in your bashrc to set personal defaults.
 
 # The source of Bazel code.
-BAZEL_REPO=${BAZEL_REPO:-https://github.com/bazelbuild/bazel}
+BAZEL_REPO="${BAZEL_REPO:-https://github.com/bazelbuild/bazel}"
 # Where to keep the Bazel repository. If you make changes here, be warned that
 # this script may overwrite or lose them.
-BAZEL_DIR=${BAZEL_DIR:-${PARENT_DIR}}
+BAZEL_DIR="${BAZEL_DIR:-${PARENT_DIR}}"
 # Bazel to use to build local bazel binaries.
-BAZEL_BINARY=${BAZEL_BINARY:-$(which bazel)}
+BAZEL_BINARY="${BAZEL_BINARY:-$(which bazel)}"
 
 # The location of the resulting binary.
 BAZEL_DEV="$BAZEL_DIR/bazel-bin/src/bazel-dev"
