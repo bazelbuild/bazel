@@ -1,5 +1,5 @@
 load("@bazel_pip_dev_deps//:requirements.bzl", "requirement")
-load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
 package(default_applicable_licenses = ["//:license"])
 
@@ -17,6 +17,19 @@ py_binary(
         "//src:__pkg__",
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:__pkg__",
     ],
+    deps = [
+        requirement("grope"),
+        requirement("pe-tools"),
+    ],
+)
+
+py_test(
+    name = "pe_manifest_test",
+    srcs = [
+        "pe_manifest.py",
+        "pe_manifest_test.py",
+    ],
+    main = "pe_manifest_test.py",
     deps = [
         requirement("grope"),
         requirement("pe-tools"),
