@@ -1,8 +1,6 @@
 absl-py==2.1.0
 bazel-runfiles==0.24.0
 frozendict==2.4.7
-
-# Used to patch manifests in Windows executables on any host platform.
 grope==2.0.1
 pe-tools==0.3.11
 

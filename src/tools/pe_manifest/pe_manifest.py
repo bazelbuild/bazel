@@ -82,7 +82,6 @@ def write_manifest(executable, manifest):
         manifests[0] = manifest
 
       # Modifying any byte covered by Authenticode invalidates the signature.
-      # pe_tools preserves any other data in the PE overlay.
       if pe.has_signature():
         pe.remove_signature()
 

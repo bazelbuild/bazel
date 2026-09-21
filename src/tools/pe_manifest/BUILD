@@ -9,8 +9,6 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
-# Reads or replaces the application manifest of a Windows executable on any
-# host platform.
 py_binary(
     name = "pe_manifest",
     srcs = ["pe_manifest.py"],

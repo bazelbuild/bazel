@@ -15,8 +15,7 @@
 # limitations under the License.
 
 # This script creates from the full JDK a minimized version that only contains
-# the specified JDK modules. It runs on any host and can produce a minimized JDK
-# for any target platform, including Windows.
+# the specified JDK modules.
 
 # --- begin runfiles.bash initialization v3 ---
 # Copy-pasted from the Bazel Bash runfiles library v3.
@@ -73,13 +72,15 @@ pe_manifest=$(cd "$(dirname "$pe_manifest")" && echo "$(pwd)/$(basename "$pe_man
 # Compact object headers reduce retained and peak memory usage.
 JVM_OPTIONS='--enable-native-access=ALL-UNNAMED -XX:+UseCompactObjectHeaders'
 
-# Extracts a JDK archive, which is a zip file for Windows JDKs and a tarball
-# otherwise, into the given directory.
+is_zip() {
+  unzip -l "$1" >/dev/null 2>&1
+}
+
 extract_jdk() {
   local archive=$1
   local dir=$2
   mkdir -p "$dir"
-  if [[ "$archive" == *.zip ]]; then
+  if is_zip "$archive"; then
     unzip -q "$archive" -d "$dir"
   else
     # The --no-same-owner flag instructs tar to not try to chown extracted
@@ -120,8 +121,6 @@ extract_jdk "$fulljdk" "target_jdk.$$"
 strip_to_jdk_home "target_jdk.$$"
 cd "target_jdk.$$"
 
-# The tool JDK runs on the host, while the target JDK may be for another
-# platform.
 if [[ -f "$tool_jdk_home/bin/jlink.exe" ]]; then
   jlink="$tool_jdk_home/bin/jlink.exe"
 else
@@ -138,7 +137,7 @@ fi
 if [ ! -f jmods/java.base.jmod ]; then
   if [ -n "$jmods_archive" ]; then
     mkdir -p jmods
-    if [[ "$jmods_archive" == *.zip ]]; then
+    if is_zip "$jmods_archive"; then
       unzip -q "$jmods_archive" -d jmods_tmp
       # The archive contains a single top-level directory with jmod files.
       mv jmods_tmp/*/* jmods_tmp/ 2>/dev/null || true
