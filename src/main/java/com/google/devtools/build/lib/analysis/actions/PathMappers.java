@@ -48,18 +48,22 @@ public final class PathMappers {
    * <p>Compared to {@link #create}, this method does not flatten nested sets and thus can't result
    * in memory regressions.
    *
-   * @param effectiveOutputPathsMode the value returned by {@link #getEffectiveOutputPathsMode}
+   * @param outputPathsMode the value of {@link CoreOptions#outputPathsMode}
    * @param fingerprint the fingerprint to add to
    */
   public static void addToFingerprint(
+      String mnemonic,
+      Map<String, String> executionInfo,
       NestedSet<Artifact> additionalArtifactsForPathMapping,
       ActionKeyContext actionKeyContext,
-      OutputPathsMode effectiveOutputPathsMode,
+      OutputPathsMode outputPathsMode,
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException {
     // Creating a new PathMapper instance can be expensive, but isn't needed here: Whether and
     // how path mapping applies to the action only depends on the output paths mode and the action
     // inputs, which are already part of the action key.
+    OutputPathsMode effectiveOutputPathsMode =
+        getEffectiveOutputPathsMode(outputPathsMode, mnemonic, executionInfo);
     if (effectiveOutputPathsMode == OutputPathsMode.STRIP) {
       fingerprint.addString(StrippingPathMapper.GUID);
       if (executionInfo.containsKey(ExecutionRequirements.SUPPORTS_HEURISTIC_PATH_MAPPING)) {

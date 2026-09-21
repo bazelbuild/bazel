@@ -246,7 +246,12 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         outputDepsProto != null
             && configuration.getFragment(JavaConfiguration.class).inmemoryJdepsFiles());
     PathMappers.addToFingerprint(
-        getAdditionalArtifactsForPathMapping(), actionKeyContext, effectiveOutputPathsMode, fp);
+        getMnemonic(),
+        getExecutionInfo(),
+        getAdditionalArtifactsForPathMapping(),
+        actionKeyContext,
+        outputPathsMode,
+        fp);
   }
 
   /**

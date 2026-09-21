@@ -233,7 +233,6 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
     fp.addInt(runfileSymlinksMode.ordinal());
     fp.addBoolean(preferTargetConfigurationRunfiles);
     env.addTo(CoreOptions.OutputPathsMode.OFF, fp);
-    env.addTo(fp);
     // We need to ensure that the fingerprints for two different instances of this action are
     // different. Consider the hypothetical scenario where we add a second runfiles object to this
     // class, which could also be null: the sequence

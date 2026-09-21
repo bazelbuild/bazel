@@ -408,9 +408,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     env.addTo(effectiveOutputPathsMode, fp);
     fp.addStringMap(getExecutionInfo());
     PathMappers.addToFingerprint(
+        getMnemonic(),
+        getExecutionInfo(),
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         actionKeyContext,
-        effectiveOutputPathsMode,
+        outputPathsMode,
         fp);
   }
 

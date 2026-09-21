@@ -334,9 +334,11 @@ public final class StarlarkMapActionTemplate extends ActionKeyComputer
     var effectiveOutputPathsMode =
         PathMappers.getEffectiveOutputPathsMode(outputPathsMode, getMnemonic(), getExecutionInfo());
     PathMappers.addToFingerprint(
+        getMnemonic(),
+        getExecutionInfo(),
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         actionKeyContext,
-        effectiveOutputPathsMode,
+        outputPathsMode,
         fp);
     env.addTo(effectiveOutputPathsMode, fp);
     fp.addString(implementation.getName());

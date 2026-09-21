@@ -1443,9 +1443,11 @@ public class CppCompileAction extends AbstractAction
     actionKeyContext.addNestedSetToFingerprint(fp, inputsForInvalidation);
 
     PathMappers.addToFingerprint(
+        mnemonic,
+        executionInfo,
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         actionKeyContext,
-        effectiveOutputPathsMode,
+        outputPathsMode,
         fp);
   }
 
