@@ -580,14 +580,21 @@ function test_records_attribute() {
 
 function test_record_attribute_length_mismatch() {
   # Regression test for a heap buffer overflow in RecordAttribute::Write. This
-  # jar holds a class whose Record attribute declares a tiny attribute_length
-  # while physically carrying 65,535 components (393,212 bytes).
+  # jar holds Foo.class (whose Record attribute declares a tiny attribute_length
+  # of 6 while physically carrying 65,535 components) and Bar.class (valid
+  # 393,212-byte Record attribute with a private method stripped by ijar).
   $IJAR $RECORD_LENGTH_MISMATCH_JAR $RECORD_LENGTH_MISMATCH_IJAR \
     || fail "ijar failed on a Record attribute with a mismatched length"
   $JAVAP -classpath $RECORD_LENGTH_MISMATCH_IJAR -v Foo >& $TEST_log \
-    || fail "javap failed"
-  expect_log "Record:" "Record attribute not preserved!"
-  expect_not_log "Error:" "javap reported an error on interface jar!"
+    || fail "javap failed on Foo"
+  expect_log "Record:" "Record attribute not preserved in Foo!"
+  expect_not_log "Error:" "javap reported an error on Foo!"
+
+  $JAVAP -classpath $RECORD_LENGTH_MISMATCH_IJAR -v -p Bar >& $TEST_log \
+    || fail "javap failed on Bar"
+  expect_log "Record:" "Record attribute not preserved in Bar!"
+  expect_not_log "priv()" "private method priv() was not stripped from Bar!"
+  expect_not_log "Error:" "javap reported an error on Bar!"
 }
 
 function test_sealed_attribute() {

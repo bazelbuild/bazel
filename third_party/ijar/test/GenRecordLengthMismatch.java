@@ -30,14 +30,19 @@ import java.util.zip.ZipEntry;
 public final class GenRecordLengthMismatch {
   public static void main(String[] args) throws IOException {
     try (JarOutputStream jos = new JarOutputStream(Files.newOutputStream(Paths.get(args[0])))) {
-      ZipEntry ze = new ZipEntry("Foo.class");
-      ze.setTime(0);
-      jos.putNextEntry(ze);
-      jos.write(dump());
+      ZipEntry foo = new ZipEntry("Foo.class");
+      foo.setTime(0);
+      jos.putNextEntry(foo);
+      jos.write(dump("Foo", /* mismatchedLength= */ true));
+
+      ZipEntry bar = new ZipEntry("Bar.class");
+      bar.setTime(0);
+      jos.putNextEntry(bar);
+      jos.write(dump("Bar", /* mismatchedLength= */ false));
     }
   }
 
-  private static byte[] dump() throws IOException {
+  private static byte[] dump(String className, boolean mismatchedLength) throws IOException {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     DataOutputStream dos = new DataOutputStream(baos);
 
@@ -46,11 +51,11 @@ public final class GenRecordLengthMismatch {
     dos.writeShort(0);
     dos.writeShort(61);
 
-    // Constant pool (count = 8, entries 1..7)
-    dos.writeShort(8);
-    // #1: Utf8 "Foo"
+    // Constant pool (count = 10, entries 1..9)
+    dos.writeShort(10);
+    // #1: Utf8 className
     dos.writeByte(1);
-    dos.writeUTF("Foo");
+    dos.writeUTF(className);
     // #2: Class #1
     dos.writeByte(7);
     dos.writeShort(1);
@@ -69,25 +74,36 @@ public final class GenRecordLengthMismatch {
     // #7: Utf8 "I"
     dos.writeByte(1);
     dos.writeUTF("I");
+    // #8: Utf8 "priv"
+    dos.writeByte(1);
+    dos.writeUTF("priv");
+    // #9: Utf8 "()V"
+    dos.writeByte(1);
+    dos.writeUTF("()V");
 
     // access_flags (ACC_PUBLIC | ACC_FINAL | ACC_SUPER), this_class (#2), super_class (#4)
     dos.writeShort(0x0031);
     dos.writeShort(2);
     dos.writeShort(4);
 
-    // interfaces_count (0), fields_count (0), methods_count (0)
+    // interfaces_count (0), fields_count (0)
     dos.writeShort(0);
     dos.writeShort(0);
-    dos.writeShort(0);
+
+    // methods_count (1): private void priv() so ijar strips it when valid
+    dos.writeShort(1);
+    dos.writeShort(0x0002); // ACC_PRIVATE
+    dos.writeShort(8); // "priv"
+    dos.writeShort(9); // "()V"
+    dos.writeShort(0); // attributes_count = 0
 
     // attributes_count (1)
     dos.writeShort(1);
     // Record attribute: attribute_name_index (#5 = "Record")
     dos.writeShort(5);
-    // Declared attribute_length: 6 (intentionally tiny mismatch; actual payload is 393,212 bytes)
-    dos.writeInt(6);
-    // components_count: 65535
     int componentsCount = 65535;
+    int actualPayloadSize = 2 + componentsCount * 6;
+    dos.writeInt(mismatchedLength ? 6 : actualPayloadSize);
     dos.writeShort(componentsCount);
     for (int i = 0; i < componentsCount; i++) {
       // name_index (#6 = "x"), descriptor_index (#7 = "I"), attributes_count (0)

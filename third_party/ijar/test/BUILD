@@ -1,3 +1,4 @@
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_java//java:java_library.bzl", "java_library")
 load("@rules_java//java:java_test.bzl", "java_test")
@@ -9,6 +10,16 @@ package(default_visibility = ["//visibility:__pkg__"])
 licenses(["notice"])  # Apache License 2.0
 
 exports_files(["LICENSE"])
+
+cc_test(
+    name = "ijar_malformed_test",
+    size = "small",
+    srcs = ["ijar_malformed_test.cc"],
+    deps = [
+        "//third_party/ijar:classfile",
+        "//third_party/ijar:zip",
+    ],
+)
 
 sh_test(
     name = "ijar_test",
