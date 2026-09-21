@@ -31,7 +31,7 @@ function cleanup() {
 }
 
 function generate_lock_file() {
-  tmpdir=$(mktemp -d -t bazel.XXXXXX)
+  tmpdir="$(mktemp -d -t bazel.XXXXXX)"
   trap 'cleanup "$tmpdir"' EXIT
 
   cd "${tmpdir}"
