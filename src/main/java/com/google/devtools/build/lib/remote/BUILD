@@ -1269,6 +1269,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/common:cache_not_found_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/common:lost_inputs_event",
+        "//src/main/java/com/google/devtools/build/lib/remote/common:rewound_action_outputs_available_event",
         "//src/main/java/com/google/devtools/build/lib/remote/merkletree",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/remote/util:bulk_transfers",

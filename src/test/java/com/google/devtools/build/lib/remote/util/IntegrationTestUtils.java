@@ -338,6 +338,11 @@ public final class IntegrationTestUtils {
       return PathFragment.create(casBlobPath(digest).toString());
     }
 
+    /** Returns whether the blob with the given contents is present in the worker's CAS. */
+    public boolean hasCasBlob(byte[] contents) {
+      return Files.exists(Path.of(getCasBlobPath(contents).getPathString()));
+    }
+
     /**
      * Deletes every blob from the worker's CAS, while leaving the AC entries that
      * reference them intact.

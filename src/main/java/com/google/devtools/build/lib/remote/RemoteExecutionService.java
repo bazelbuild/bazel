@@ -99,6 +99,7 @@ import com.google.devtools.build.lib.remote.common.ActionKey;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.LostInputsEvent;
+import com.google.devtools.build.lib.remote.common.RewoundActionOutputsAvailableEvent;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
@@ -827,7 +828,7 @@ public class RemoteExecutionService {
       // cache, or doesn't implement AC integrity check.
       //
       // See https://github.com/bazelbuild/bazel/issues/18696.
-      if (updateKnownMissingCasDigests(knownMissingCasDigests, metadata)) {
+      if (referencesKnownMissingCasDigest(knownMissingCasDigests, metadata)) {
         return null;
       }
     }
@@ -847,6 +848,28 @@ public class RemoteExecutionService {
       return PathFragment.create(outputPath);
     }
     return null;
+  }
+
+  /**
+   * Returns whether any digest referenced by {@code metadata} is in {@code knownMissingCasDigests}.
+   *
+   * <p>Unlike {@link #updateKnownMissingCasDigests}, this does not modify the set.
+   */
+  private static boolean referencesKnownMissingCasDigest(
+      Set<Digest> knownMissingCasDigests, ActionResultMetadata metadata) {
+    for (var file : metadata.files()) {
+      if (knownMissingCasDigests.contains(file.digest())) {
+        return true;
+      }
+    }
+    for (var entry : metadata.directories()) {
+      for (var file : entry.getValue().files()) {
+        if (knownMissingCasDigests.contains(file.digest())) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   /**
@@ -2138,6 +2161,23 @@ public class RemoteExecutionService {
       // If build succeeded, clear knownMissingCasDigests in case there are missing digests from
       // other targets from previous builds which are not relevant anymore.
       knownMissingCasDigests.clear();
+    }
+  }
+
+  /**
+   * Forgets that a rewound action's outputs were missing, now that they have been
+   * regenerated and are available locally and/or remotely.
+   */
+  @Subscribe
+  public void onRewoundActionOutputsAvailable(RewoundActionOutputsAvailableEvent event) {
+    if (knownMissingCasDigests.isEmpty()) {
+        return; // Fast path
+    }
+    for (FileArtifactValue metadata : event.outputFileMetadata().values()) {
+      if (metadata.getDigest() != null) {
+        knownMissingCasDigests.remove(
+            DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize()));
+      }
     }
   }
 

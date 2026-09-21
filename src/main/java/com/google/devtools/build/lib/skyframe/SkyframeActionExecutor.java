@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
@@ -81,6 +82,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
+import com.google.devtools.build.lib.remote.common.RewoundActionOutputsAvailableEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
@@ -1379,6 +1381,13 @@ public final class SkyframeActionExecutor {
               Code.ACTION_OUTPUTS_NOT_CREATED);
         }
 
+        if (wasRewound(action)) {
+          // checkOutputs has populated the store, so snapshotOutputFileMetadata only reads it.
+          eventHandler.post(
+              new RewoundActionOutputsAvailableEvent(
+                  snapshotOutputFileMetadata(action, outputMetadataStore)));
+        }
+
         if (finalizeActions) {
           try (SilentCloseable c =
               Profiler.instance().profile(ProfilerTask.INFO, "outputService.finalizeAction")) {
@@ -1662,6 +1671,35 @@ public final class SkyframeActionExecutor {
     return actionFileSystem == null
         ? LostInputsCheck.NONE
         : () -> outputService.checkActionFileSystemForLostInputs(actionFileSystem, action);
+  }
+
+  /**
+   * Returns a detached copy of the metadata of the action's output files, so that subscribers never
+   * see the mutable {@link OutputMetadataStore}. Tree artifacts contribute their children rather
+   * than themselves.
+   */
+  private static ImmutableMap<ActionInput, FileArtifactValue> snapshotOutputFileMetadata(
+      Action action, OutputMetadataStore outputMetadataStore) throws InterruptedException {
+    ImmutableMap.Builder<ActionInput, FileArtifactValue> builder = ImmutableMap.builder();
+    for (Artifact output : action.getOutputs()) {
+      if (outputMetadataStore.artifactOmitted(output)) {
+        continue;
+      }
+      try {
+        if (output.isTreeArtifact()) {
+          builder.putAll(
+              outputMetadataStore.getTreeArtifactValue((SpecialArtifact) output).getChildValues());
+        } else {
+          FileArtifactValue metadata = outputMetadataStore.getOutputMetadata(output);
+          if (metadata != null) {
+            builder.put(output, metadata);
+          }
+        }
+      } catch (IOException e) {
+        // A digest that cannot be resolved will simply be left recorded as missing.
+      }
+    }
+    return builder.buildKeepingLast();
   }
 
   /**
