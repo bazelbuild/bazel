@@ -19,7 +19,7 @@ set -eu
 # Generate the release notes from the git history.
 
 RELNOTES_SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-source ${RELNOTES_SCRIPT_DIR}/common.sh
+source "${RELNOTES_SCRIPT_DIR}/common.sh"
 
 # It uses the RELNOTES tag in the history to knows the important changes to
 # report:
