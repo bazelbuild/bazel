@@ -32,7 +32,7 @@ function cleanup() {
 
 function generate_lock_file() {
   tmpdir=$(mktemp -d -t bazel.XXXXXX)
-  trap 'cleanup $tmpdir' EXIT
+  trap 'cleanup "$tmpdir"' EXIT
 
   cd "${tmpdir}"
   touch MODULE.bazel
@@ -40,8 +40,8 @@ function generate_lock_file() {
   bazel=$(rlocation io_bazel/src/bazel)
 
   echo "Running: $bazel --batch --ignore_all_rc_files mod deps $@"
-  $bazel --batch --ignore_all_rc_files mod deps "$@"
-  cp ./MODULE.bazel.lock $BUILD_WORKSPACE_DIRECTORY/src/test/tools/bzlmod/MODULE.bazel.lock
+  "$bazel" --batch --ignore_all_rc_files mod deps "$@"
+  cp ./MODULE.bazel.lock "$BUILD_WORKSPACE_DIRECTORY/src/test/tools/bzlmod/MODULE.bazel.lock"
 }
 
 generate_lock_file "$@"
