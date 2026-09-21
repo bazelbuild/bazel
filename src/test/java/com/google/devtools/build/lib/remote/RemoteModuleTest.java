@@ -750,7 +750,7 @@ public final class RemoteModuleTest {
     int jobs = executor.getCorePoolSize() + 1;
     executor.setMaximumPoolSize(jobs);
     executor.setCorePoolSize(jobs);
-    remoteOptions.setDiskCache(PathFragment.EMPTY_FRAGMENT);
+    remoteOptions.diskCache = PathFragment.EMPTY_FRAGMENT;
 
     // The test command's options do not include BuildRequestOptions.
     beforeCommand();
