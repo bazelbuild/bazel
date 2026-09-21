@@ -1295,9 +1295,43 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
     assertThat(getGeneratingCompileAction("_objs/x/a.o", x).getMnemonic()).isEqualTo("CppCompile");
     assertThat(getGeneratingCompileAction("_objs/x/y.h.processed", x).getMnemonic())
-        .isEqualTo("CppCompileHeader");
+        .isEqualTo(CppCompileAction.CPP_COMPILE_HEADER_MNEMONIC);
     assertThat(getGeneratingCompileAction("_objs/x/z.h.processed", x).getMnemonic())
-        .isEqualTo("CppCompileHeader");
+        .isEqualTo(CppCompileAction.CPP_COMPILE_HEADER_MNEMONIC);
+    assertThat(getGeneratingCompileAction("_objs/x/y.h.processed", x).getExecutionInfo())
+        .containsEntry(ExecutionRequirements.SUPPORTS_PATH_MAPPING, "");
+    assertThat(getGeneratingCompileAction("_objs/x/z.h.processed", x).getExecutionInfo())
+        .containsEntry(ExecutionRequirements.SUPPORTS_PATH_MAPPING, "");
+  }
+
+  @Test
+  public void testCppCompileHeaderCanDisablePathMapping() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration(
+        "--incompatible_use_cpp_compile_header_mnemonic",
+        "--features=parse_headers",
+        "--process_headers_in_dependencies",
+        "--modify_execution_info="
+            + CppCompileAction.CPP_COMPILE_HEADER_MNEMONIC
+            + "=-supports-path-mapping");
+
+    ConfiguredTarget x =
+        scratchConfiguredTarget(
+            "foo",
+            "x",
+            "load('@rules_cc//cc:cc_library.bzl', 'cc_library')",
+            "cc_library(name = 'x', srcs = ['a.cc', 'y.h'], hdrs = ['z.h'])");
+
+    assertThat(getGeneratingCompileAction("_objs/x/a.o", x).getExecutionInfo())
+        .containsEntry(ExecutionRequirements.SUPPORTS_PATH_MAPPING, "");
+    assertThat(getGeneratingCompileAction("_objs/x/y.h.processed", x).getExecutionInfo())
+        .doesNotContainKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING);
+    assertThat(getGeneratingCompileAction("_objs/x/z.h.processed", x).getExecutionInfo())
+        .doesNotContainKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING);
   }
 
   private CppCompileAction getGeneratingCompileAction(
