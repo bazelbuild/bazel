@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.util;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -70,12 +71,10 @@ public final class Fingerprint implements BytesSink {
   /** Creates and initializes a new instance. */
   public Fingerprint(DigestHashFunction digestFunction) {
     messageDigest = digestFunction.newMessageDigest();
-    // This is a lot of indirection, but CodedOutputStream does a reasonable job of converting
-    // strings to bytes without creating a whole bunch of garbage, which pays off.
     codedOut =
         CodedOutputStream.newInstance(
             new DigestOutputStream(ByteStreams.nullOutputStream(), messageDigest),
-            /*bufferSize=*/ 1024);
+            /* bufferSize= */ 1024);
   }
 
   public Fingerprint() {
@@ -235,11 +234,11 @@ public final class Fingerprint implements BytesSink {
     return this;
   }
 
-  /** Appends a String to the fingerprint message. */
+  /** Appends a string in Bazel's {@linkplain StringEncoding internal encoding}. */
   @CanIgnoreReturnValue
   public Fingerprint addString(String input) {
     try {
-      codedOut.writeStringNoTag(input);
+      codedOut.writeByteArrayNoTag(StringUnsafe.getInternalStringBytes(input));
     } catch (IOException e) {
       throw new IllegalStateException("failed to write string", e);
     }
