@@ -1868,6 +1868,8 @@ public abstract class AbstractQueryTest<T> {
         "proto_bazel_features_workspace/MODULE.bazel", "module(name='proto_bazel_features')");
     helper.writeFile("bazel_features_workspace/BUILD");
     helper.writeFile("bazel_features_workspace/MODULE.bazel", "module(name='bazel_features')");
+    helper.writeFile("apple_support_workspace/BUILD");
+    helper.writeFile("apple_support_workspace/MODULE.bazel", "module(name='apple_support')");
     helper.writeFile("build_bazel_apple_support/BUILD");
     helper.writeFile(
         "build_bazel_apple_support/MODULE.bazel", "module(name='build_bazel_apple_support')");
