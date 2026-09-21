@@ -218,6 +218,8 @@ public abstract class ExecutionOptions extends OptionsBase {
               + "an error is reported and the build fails.")
   public abstract boolean getCheckUpToDate();
 
+  public abstract void setCheckUpToDate(boolean value);
+
   @Option(
       name = "check_tests_up_to_date",
       defaultValue = "false",
@@ -230,6 +232,8 @@ public abstract class ExecutionOptions extends OptionsBase {
               + "executed, an error is reported and the testing fails.  This option implies "
               + "--check_up_to_date behavior.")
   public abstract boolean getTestCheckUpToDate();
+
+  public abstract void setTestCheckUpToDate(boolean value);
 
   @Option(
       name = "test_strategy",

@@ -29,6 +29,8 @@ java_library(
         "ConfiguredTargetFunction.java",
         "HighWaterMarkLimiter.java",
         "LoadAspectsFunction.java",
+        "ProcessFreeActionPlanner.java",
+        "ProcessFreeMaterializationEvent.java",
         "SequencedSkyframeExecutor.java",
         "SequencedSkyframeExecutorFactory.java",
         "SkyframeBuildView.java",

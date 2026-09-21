@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
+import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
@@ -76,6 +77,7 @@ public interface Builder {
   void buildArtifacts(
       Reporter reporter,
       Set<Artifact> artifacts,
+      ActionGraph actionGraph,
       Set<ConfiguredTarget> parallelTests,
       Set<ConfiguredTarget> exclusiveTests,
       Set<ConfiguredTarget> targetsToBuild,

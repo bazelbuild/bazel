@@ -19,9 +19,11 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.escape.CharEscaperBuilder;
 import com.google.common.escape.Escaper;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -32,6 +34,7 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.Runfiles.RunfilesConflictReceiver;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.analysis.starlark.UnresolvedSymlinkAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -67,6 +70,16 @@ import javax.annotation.Nullable;
 @Immutable // if all ManifestWriter implementations are immutable
 public final class SourceManifestAction extends AbstractFileWriteAction
     implements AbstractFileWriteAction.FileContentsProvider {
+
+  @Override
+  public boolean isProcessFree() {
+    return true;
+  }
+
+  @Override
+  public ImmutableSet<Class<? extends ActionContext>> getProcessFreeActionContexts() {
+    return ImmutableSet.of(FileWriteActionContext.class);
+  }
 
   private static final String GUID = "07459553-a3d0-4d37-9d78-18ed942470f4";
 

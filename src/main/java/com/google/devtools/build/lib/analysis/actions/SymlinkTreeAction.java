@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -215,6 +216,16 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
   @Override
   public String getMnemonic() {
     return "SymlinkTree";
+  }
+
+  @Override
+  public boolean isProcessFree() {
+    return true;
+  }
+
+  @Override
+  public ImmutableSet<Class<? extends ActionContext>> getProcessFreeActionContexts() {
+    return ImmutableSet.of(SymlinkTreeActionContext.class);
   }
 
   @Override

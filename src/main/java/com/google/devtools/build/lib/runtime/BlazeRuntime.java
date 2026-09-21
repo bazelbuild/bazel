@@ -687,9 +687,11 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
     boolean stateKeptAfterBuild =
         !env.getCommandName().equals("clean")
-            && env.getOptions()
-                .getOptions(KeepStateAfterBuildOption.class)
-                .getKeepStateAfterBuild();
+            && ProcessFreeMaterializationOptions.shouldKeepStateAfterBuild(
+                env.getOptions()
+                    .getOptions(KeepStateAfterBuildOption.class)
+                    .getKeepStateAfterBuild(),
+                env.getOptions());
     env.addIdleTask(new GcAndInternerShrinkingIdleTask(stateKeptAfterBuild));
 
     if (options.getInstallBaseGcMaxAge() != null && !options.getInstallBaseGcMaxAge().isZero()) {
@@ -824,7 +826,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     // next build anyway.
     KeepStateAfterBuildOption keepStateAfterBuildOption =
         env.getOptions().getOptions(KeepStateAfterBuildOption.class);
-    if (!keepStateAfterBuildOption.getKeepStateAfterBuild() && !forceKeepStateForTesting) {
+    if (!ProcessFreeMaterializationOptions.shouldKeepStateAfterBuild(
+            keepStateAfterBuildOption.getKeepStateAfterBuild(), env.getOptions())
+        && !forceKeepStateForTesting) {
       workspace.getSkyframeExecutor().resetEvaluator();
     }
 

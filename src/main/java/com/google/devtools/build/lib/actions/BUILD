@@ -98,6 +98,7 @@ java_library(
         "MissingInputFileException.java",
         "MutableActionGraph.java",
         "NotifyOnActionCacheHit.java",
+        "ProcessFreeActionContextRegistry.java",
         "ProxyMetadataFactory.java",
         "ResourceEstimator.java",
         "RichDataProducingAction.java",

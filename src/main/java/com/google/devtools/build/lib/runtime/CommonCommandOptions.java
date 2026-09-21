@@ -618,6 +618,8 @@ public abstract class CommonCommandOptions extends OptionsBase {
               + "to specify --batch when setting this to false.")
   public abstract boolean getTrackIncrementalState();
 
+  public abstract void setTrackIncrementalState(boolean value);
+
   @Option(
       name = "repo_env",
       converter = EnvVar.Converter.class,
