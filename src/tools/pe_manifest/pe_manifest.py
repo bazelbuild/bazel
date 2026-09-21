@@ -43,7 +43,12 @@ def _align(value, alignment):
 
 
 def _add_resource_section(executable, packed_resources):
-  """Returns executable with a new resource section containing resources."""
+  """Returns executable with a new resource section containing resources.
+
+  References:
+  https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#section-table-section-headers
+  https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#optional-header-data-directories-image-only
+  """
   if len(executable) < _PE_OFFSET_OFFSET + 4:
     raise ValueError("invalid PE header")
 
