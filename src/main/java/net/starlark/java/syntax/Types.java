@@ -1873,20 +1873,26 @@ public final class Types {
   }
 
   public static TypeConstructor wrapType(String name, StarlarkType type) {
-    return argsTuple -> {
-      if (!argsTuple.isEmpty()) {
-        throw new TypeConstructor.Failure(String.format("'%s' does not accept arguments", name));
+    return new TypeConstructor() {
+      @Override
+      public StarlarkType createStarlarkType(ImmutableList<Term> argsTuple) throws Failure {
+        if (!argsTuple.isEmpty()) {
+          throw new Failure(String.format("'%s' does not accept arguments", name));
+        }
+        return type;
       }
-      return type;
     };
   }
 
   public static TypeConstructor wrapType(String name, Supplier<StarlarkType> typeSupplier) {
-    return argsTuple -> {
-      if (!argsTuple.isEmpty()) {
-        throw new TypeConstructor.Failure(String.format("'%s' does not accept arguments", name));
+    return new TypeConstructor() {
+      @Override
+      public StarlarkType createStarlarkType(ImmutableList<Term> argsTuple) throws Failure {
+        if (!argsTuple.isEmpty()) {
+          throw new TypeConstructor.Failure(String.format("'%s' does not accept arguments", name));
+        }
+        return typeSupplier.get();
       }
-      return typeSupplier.get();
     };
   }
 
@@ -1913,16 +1919,19 @@ public final class Types {
   public static TypeConstructor wrapTypeConstructor(
       String name, Function<StarlarkType, StarlarkType> factory) {
     final StarlarkType nullaryType = factory.apply(ANY);
-    return args -> {
-      var types = toStarlarkTypes(name, args);
-      return switch (types.size()) {
-        case 0 -> nullaryType;
-        case 1 -> factory.apply(types.get(0));
-        default -> {
-          throw new TypeConstructor.Failure(
-              String.format("%s[] accepts exactly 1 argument but got %d", name, types.size()));
-        }
-      };
+    return new TypeConstructor() {
+      @Override
+      public StarlarkType createStarlarkType(ImmutableList<Term> args) throws Failure {
+        var types = toStarlarkTypes(name, args);
+        return switch (types.size()) {
+          case 0 -> nullaryType;
+          case 1 -> factory.apply(types.get(0));
+          default -> {
+            throw new TypeConstructor.Failure(
+                String.format("%s[] accepts exactly 1 argument but got %d", name, types.size()));
+          }
+        };
+      }
     };
   }
 
@@ -1937,118 +1946,130 @@ public final class Types {
   public static TypeConstructor wrapTypeConstructor(
       String name, BiFunction<StarlarkType, StarlarkType, StarlarkType> factory) {
     final StarlarkType nullaryType = factory.apply(ANY, ANY);
-    return args -> {
-      var types = toStarlarkTypes(name, args);
-      return switch (types.size()) {
-        case 0 -> nullaryType;
-        case 2 -> factory.apply(types.get(0), types.get(1));
-        default ->
-            throw new TypeConstructor.Failure(
-                String.format("%s[] accepts exactly 2 arguments but got %d", name, types.size()));
-      };
+    return new TypeConstructor() {
+      @Override
+      public StarlarkType createStarlarkType(ImmutableList<Term> args) throws Failure {
+        var types = toStarlarkTypes(name, args);
+        return switch (types.size()) {
+          case 0 -> nullaryType;
+          case 2 -> factory.apply(types.get(0), types.get(1));
+          default ->
+              throw new TypeConstructor.Failure(
+                  String.format("%s[] accepts exactly 2 arguments but got %d", name, types.size()));
+        };
+      }
     };
   }
 
   private static TypeConstructor wrapTupleConstructor() {
     // This is a function instead of a constant, so that the order of evaluation doesn't depend on
     // the position in the class.
-    return args -> {
-      if (args.isEmpty()) {
-        // `tuple` is equivalent to `tuple[Any, ...]`
-        return HOMOGENEOUS_TUPLE_OF_ANY;
-      }
-      for (int i = 0; i < args.size(); i++) {
-        TypeConstructor.Term arg = args.get(i);
-        if (arg.equals(TypeConstructor.Term.ELLIPSIS)) {
-          if (i == 1 && args.size() == 2) {
-            return homogeneousTuple((StarlarkType) args.getFirst());
-          }
-          throw new TypeConstructor.Failure(
-              "in application to tuple, '...' can only appear as the second of exactly 2 arguments,"
-                  + " where the first argument is a type");
-        } else if (arg.equals(TypeConstructor.Term.EMPTY_TUPLE)) {
-          if (args.size() == 1) {
-            return Types.EMPTY_TUPLE;
-          }
-          throw new TypeConstructor.Failure(
-              "in application to tuple, '()' can only appear if it is the only argument");
-        } else if (!(arg instanceof StarlarkType)) {
-          throw new TypeConstructor.Failure(
-              String.format("in application to tuple, got '%s', expected a type", arg));
+    return new TypeConstructor() {
+      @Override
+      public StarlarkType createStarlarkType(ImmutableList<Term> args) throws Failure {
+        if (args.isEmpty()) {
+          // `tuple` is equivalent to `tuple[Any, ...]`
+          return HOMOGENEOUS_TUPLE_OF_ANY;
         }
+        for (int i = 0; i < args.size(); i++) {
+          TypeConstructor.Term arg = args.get(i);
+          if (arg.equals(TypeConstructor.Term.ELLIPSIS)) {
+            if (i == 1 && args.size() == 2) {
+              return homogeneousTuple((StarlarkType) args.getFirst());
+            }
+            throw new TypeConstructor.Failure(
+                "in application to tuple, '...' can only appear as the second of exactly 2"
+                    + " arguments, where the first argument is a type");
+          } else if (arg.equals(TypeConstructor.Term.EMPTY_TUPLE)) {
+            if (args.size() == 1) {
+              return Types.EMPTY_TUPLE;
+            }
+            throw new TypeConstructor.Failure(
+                "in application to tuple, '()' can only appear if it is the only argument");
+          } else if (!(arg instanceof StarlarkType)) {
+            throw new TypeConstructor.Failure(
+                String.format("in application to tuple, got '%s', expected a type", arg));
+          }
+        }
+        @SuppressWarnings("unchecked") // list is immutable and all elements verified above
+        var result = (ImmutableList<StarlarkType>) (ImmutableList<?>) args;
+        return tuple(result);
       }
-      @SuppressWarnings("unchecked") // list is immutable and all elements verified above
-      var result = (ImmutableList<StarlarkType>) (ImmutableList<?>) args;
-      return tuple(result);
     };
   }
 
   private static final TypeConstructor wrapStructConstructor() {
-    return args -> {
-      if (args.isEmpty()) {
-        // `struct` is equivalent to `struct[{}, ...]`
-        return ANY_STRUCT;
-      } else if (args.size() <= 2) {
-        TypeConstructor.Term arg = args.getFirst();
-        ImmutableMap<String, StarlarkType> fields;
-        if (arg instanceof TypeConstructor.Term.TypeDict dict) {
-          try {
-            fields = dict.getTypes();
-          } catch (TypeConstructor.Failure e) {
+    return new TypeConstructor() {
+      @Override
+      public StarlarkType createStarlarkType(ImmutableList<Term> args) throws Failure {
+        if (args.isEmpty()) {
+          // `struct` is equivalent to `struct[{}, ...]`
+          return ANY_STRUCT;
+        } else if (args.size() <= 2) {
+          TypeConstructor.Term arg = args.getFirst();
+          ImmutableMap<String, StarlarkType> fields;
+          if (arg instanceof TypeConstructor.Term.TypeDict dict) {
+            try {
+              fields = dict.getTypes();
+            } catch (TypeConstructor.Failure e) {
+              throw new TypeConstructor.Failure(
+                  String.format("in application to struct, %s", e.getMessage()));
+            }
+          } else {
             throw new TypeConstructor.Failure(
-                String.format("in application to struct, %s", e.getMessage()));
+                String.format("in application to struct, got '%s', expected a dict", arg));
+          }
+          if (args.size() == 1) {
+            return struct(fields);
+          } else {
+            if (!(args.get(1) instanceof TypeConstructor.Term.Ellipsis)) {
+              throw new TypeConstructor.Failure(
+                  String.format(
+                      "in application to struct, got '%s' for optional argument #2, expected '...'",
+                      args.get(1)));
+            }
+            return partialStruct(fields);
           }
         } else {
           throw new TypeConstructor.Failure(
-              String.format("in application to struct, got '%s', expected a dict", arg));
+              String.format("struct[] accepts at most 2 arguments but got %d", args.size()));
         }
-        if (args.size() == 1) {
-          return struct(fields);
-        } else {
-          if (!(args.get(1) instanceof TypeConstructor.Term.Ellipsis)) {
-            throw new TypeConstructor.Failure(
-                String.format(
-                    "in application to struct, got '%s' for optional argument #2, expected '...'",
-                    args.get(1)));
-          }
-          return partialStruct(fields);
-        }
-      } else {
-        throw new TypeConstructor.Failure(
-            String.format("struct[] accepts at most 2 arguments but got %d", args.size()));
       }
     };
   }
 
   private static final TypeConstructor wrapCallableConstructor() {
-    return args -> {
-      if (args.isEmpty()) {
-        return ANY_CALLABLE;
-      } else if (args.size() != 2) {
-        throw new TypeConstructor.Failure(
-            String.format("Callable[] accepts exactly 2 arguments but got %d", args.size()));
+    return new TypeConstructor() {
+      @Override
+      public StarlarkType createStarlarkType(ImmutableList<Term> args) throws Failure {
+        if (args.isEmpty()) {
+          return ANY_CALLABLE;
+        } else if (args.size() != 2) {
+          throw new TypeConstructor.Failure(
+              String.format("Callable[] accepts exactly 2 arguments but got %d", args.size()));
+        }
+        TypeConstructor.Term arg1 = args.get(0);
+        TypeConstructor.Term arg2 = args.get(1);
+        if (!(arg2 instanceof StarlarkType returnType)) {
+          throw new TypeConstructor.Failure(
+              String.format(
+                  "in application to Callable, got '%s' for argument #2, expected a type", arg2));
+        }
+        boolean hasVarargsAndKwargs = false;
+        ImmutableList<StarlarkType> paramTypes;
+        if (arg1 instanceof TypeConstructor.Term.Ellipsis) {
+          hasVarargsAndKwargs = true;
+          paramTypes = ImmutableList.of();
+        } else if (arg1 instanceof TypeConstructor.Term.TypeList typeList) {
+          paramTypes = toStarlarkTypes("Callable", typeList.getTerms());
+        } else {
+          throw new TypeConstructor.Failure(
+              String.format(
+                  "in application to Callable, got '%s' for argument #1, expected a list or '...'",
+                  arg1));
+        }
+        return simpleCallable(paramTypes, hasVarargsAndKwargs, returnType);
       }
-      TypeConstructor.Term arg1 = args.get(0);
-      TypeConstructor.Term arg2 = args.get(1);
-      if (!(arg2 instanceof StarlarkType returnType)) {
-        throw new TypeConstructor.Failure(
-            String.format(
-                "in application to Callable, got '%s' for argument #2, expected a type", arg2));
-      }
-      boolean hasVarargsAndKwargs = false;
-      ImmutableList<StarlarkType> paramTypes;
-      if (arg1 instanceof TypeConstructor.Term.Ellipsis) {
-        hasVarargsAndKwargs = true;
-        paramTypes = ImmutableList.of();
-      } else if (arg1 instanceof TypeConstructor.Term.TypeList typeList) {
-        paramTypes = toStarlarkTypes("Callable", typeList.getTerms());
-      } else {
-        throw new TypeConstructor.Failure(
-            String.format(
-                "in application to Callable, got '%s' for argument #1, expected a list or '...'",
-                arg1));
-      }
-      return simpleCallable(paramTypes, hasVarargsAndKwargs, returnType);
     };
   }
 }
