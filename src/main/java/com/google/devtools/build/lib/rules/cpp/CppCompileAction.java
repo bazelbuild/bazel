@@ -125,7 +125,7 @@ public class CppCompileAction extends AbstractAction
   @VisibleForTesting static final String CPP_COMPILE_MNEMONIC = "CppCompile";
   @VisibleForTesting static final String CPP_COMPILE_HEADER_MNEMONIC = "CppCompileHeader";
   @VisibleForTesting static final String OBJC_COMPILE_MNEMONIC = "ObjcCompile";
-  private static final String OBJC_COMPILE_HEADER_MNEMONIC = "ObjcCompileHeader";
+  static final String OBJC_COMPILE_HEADER_MNEMONIC = "ObjcCompileHeader";
 
   @Nullable private final Artifact gcnoFile;
   private final Artifact sourceFile;
