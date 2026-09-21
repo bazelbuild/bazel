@@ -27,3 +27,9 @@ index 0a1b65a..7879960 100644
 @@ -50 +50 @@ def _graal_binary_implementation(ctx):
 -    direct_inputs = []
 +    direct_inputs = ctx.files.additional_inputs[:]
+diff --git a/internal/native_image/toolchain.bzl b/internal/native_image/toolchain.bzl
+--- a/internal/native_image/toolchain.bzl
++++ b/internal/native_image/toolchain.bzl
+@@ -106,0 +107,2 @@ def resolve_cc_toolchain(ctx, transitive_inputs, *, is_windows):
++    if "PATH" in env:
++        paths.extend(env["PATH"].split(ctx.configuration.host_path_separator))
