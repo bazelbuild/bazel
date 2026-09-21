@@ -80,6 +80,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
           TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD",
           """
           toolchain_type(name = 'toolchain_type')
+          toolchain_type(name = 'cc_runtimes_toolchain_type')
           cc_library(
               name = 'link_extra_lib',
               srcs = ['linkextra.cc'],
@@ -211,6 +212,10 @@ public final class BazelMockCcSupport extends MockCcSupport {
           srcs = ["collect_cc_coverage.sh"],
         )
         """);
+    config.overwrite(
+        "third_party/bazel_rules/rules_cc/cc/settings/BUILD",
+        ResourceLoader.readFromResources(
+            TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/settings/BUILD"));
     config.overwrite("third_party/bazel_rules/bazel_features_mock/BUILD");
     config.overwrite("third_party/bazel_rules/rules_cc/cc/common/BUILD");
     config.overwrite("third_party/bazel_rules/rules_cc/cc/private/BUILD");
