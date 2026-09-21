@@ -951,7 +951,7 @@ public class CompactPersistentActionCache implements ActionCache {
             serializableTreeArtifactValue.childValues().entrySet()) {
           // Don't put tree-relative paths in the string indexer. They are unlikely to be reused.
           // Instead, write them directly into the encoding.
-          MetadataDigestUtils.write(StringUnsafe.getByteArray(child.getKey()), sink);
+          MetadataDigestUtils.write(StringUnsafe.getInternalStringBytes(child.getKey()), sink);
           encodeRemoteMetadata(child.getValue(), sink);
         }
 
