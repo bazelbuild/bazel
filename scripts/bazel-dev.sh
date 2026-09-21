@@ -61,7 +61,7 @@ if [ "$REBUILD" == 1 ]; then
   (
     cd "$BAZEL_DIR"
     result=0
-    ${BAZEL_BINARY} build //src:bazel-dev || result=$?
+    "${BAZEL_BINARY}" build //src:bazel-dev || result=$?
     if [[ $result != 0 ]]; then
       echo -e "\033[31mError building dev version of bazel.\033[0m"
       exit $result
@@ -71,5 +71,5 @@ fi
 
 # Execute bazel command.
 echo -e "\e[31mExecuting bazel-dev...\e[0m"
-exec $BAZEL_DEV "$@"
+exec "$BAZEL_DEV" "$@"
 
