@@ -118,7 +118,8 @@ public final class CppIncludeScanningContextImpl implements CppIncludeScanningCo
       if (actionExecutionContext.getEnvironmentForDiscoveringInputs().valuesMissing()) {
         return null;
       }
-      return collect(actionExecutionContext, includes, absoluteBuiltInIncludeDirs);
+      return collect(
+          actionExecutionContext, includes, absoluteBuiltInIncludeDirs, action.getSourceFile());
     } catch (IOException e) {
       throw new EnvironmentalExecException(
           e, createFailureDetail("Include scanning IOException", Code.SCANNING_IO_EXCEPTION));
@@ -173,11 +174,19 @@ public final class CppIncludeScanningContextImpl implements CppIncludeScanningCo
   private static List<Artifact> collect(
       ActionExecutionContext actionExecutionContext,
       Set<Artifact> includes,
-      List<PathFragment> absoluteBuiltInIncludeDirs)
+      List<PathFragment> absoluteBuiltInIncludeDirs,
+      Artifact sourceFile)
       throws ExecException {
     // Collect inputs and output
     List<Artifact> inputs = new ArrayList<>(includes.size());
     for (Artifact included : includes) {
+      // The include scanner adds the sources it scans to the includes, but the source file is
+      // already a mandatory input of the action and thus doesn't need to be discovered. Skipping it
+      // also ensures that a tree file artifact source doesn't pull in its parent tree artifact as
+      // an input below, which would duplicate the source file in the action's inputs.
+      if (included.equals(sourceFile)) {
+        continue;
+      }
       // Check for absolute includes -- we assign the file system root as
       // the root path for such includes
       if (included.getRoot().getRoot().isAbsolute()) {
