@@ -124,6 +124,62 @@ EOF
   write_default_bazelrc
 }
 
+function test_home() {
+  add_rules_shell "MODULE.bazel"
+  mkdir -p foo
+  cat > foo/home_test.sh <<'EOF'
+#!/bin/bash
+echo "HOME=${HOME-<unset>}"
+if [[ "${HOME:-}" == "$TEST_TMPDIR" ]]; then
+  echo "HOME_IS_TEST_TMPDIR"
+fi
+EOF
+  chmod +x foo/home_test.sh
+  cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+    name = "home_test",
+    srcs = ["home_test.sh"],
+)
+EOF
+
+  # By default, HOME is set to the (absolute) value of TEST_TMPDIR.
+  bazel test --nocache_test_results --test_output=all //foo:home_test \
+    >& $TEST_log || fail "Running sh_test failed"
+  expect_log "^HOME=/"
+  expect_log "HOME_IS_TEST_TMPDIR"
+
+  # An absolute HOME passed via --test_env is preserved.
+  bazel test --nocache_test_results --test_output=all //foo:home_test \
+    --test_env=HOME=/custom/home >& $TEST_log || fail "Running sh_test failed"
+  expect_log "^HOME=/custom/home$"
+  expect_not_log "HOME_IS_TEST_TMPDIR"
+
+  # An empty HOME passed via --test_env is preserved.
+  bazel test --nocache_test_results --test_output=all //foo:home_test \
+    --test_env=HOME= >& $TEST_log || fail "Running sh_test failed"
+  expect_log "^HOME=$"
+  expect_not_log "HOME_IS_TEST_TMPDIR"
+
+  # --test_env==HOME unsets the default HOME.
+  bazel test --nocache_test_results --test_output=all //foo:home_test \
+    --test_env==HOME >& $TEST_log || fail "Running sh_test failed"
+  expect_log "^HOME=<unset>$"
+  expect_not_log "HOME_IS_TEST_TMPDIR"
+
+  # --test_env==HOME also unsets a HOME set via --test_env in a bazelrc, but a
+  # later --test_env=HOME=... wins again.
+  add_to_bazelrc "test --test_env=HOME=/from/bazelrc"
+  bazel test --nocache_test_results --test_output=all //foo:home_test \
+    --test_env==HOME >& $TEST_log || fail "Running sh_test failed"
+  expect_log "^HOME=<unset>$"
+  bazel test --nocache_test_results --test_output=all //foo:home_test \
+    --test_env==HOME --test_env=HOME=/set/again >& $TEST_log || fail "Running sh_test failed"
+  expect_log "^HOME=/set/again$"
+  write_default_bazelrc
+}
+
 function test_env_vars() {
   add_rules_shell "MODULE.bazel"
   mkdir -p foo

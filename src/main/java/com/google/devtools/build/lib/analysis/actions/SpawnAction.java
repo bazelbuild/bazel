@@ -599,7 +599,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       } else {
         env =
             ActionEnvironment.create(
-                configuration.getActionEnvironment().getFixedEnv(), userFilteredInheritedEnv);
+                configuration.getActionEnvironment().getFixedEnv(),
+                userFilteredInheritedEnv,
+                configuration.getActionEnvironment().getUnsetEnv());
       }
       env = env.withAdditionalFixedVariables(environment);
     } else if (useDefaultShellEnvironment) {
