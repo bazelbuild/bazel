@@ -42,6 +42,7 @@ java_library(
         ":dependency_resolution_helpers",
         ":event_handling_error_reporter",
         ":materialized_deps_info",
+        ":package_specification_provider",
         ":required_fragments_util",
         ":sh_toolchain",
         ":shell_configuration",
@@ -50,9 +51,11 @@ java_library(
         ":starlark/starlark_rule_transition_provider",
         ":starlark/unresolved_symlink_action",
         ":target_complete_event",
+        ":target_context",
         ":test/coverage_common",
         ":test/test_tags_provider",
         ":top_level_artifact_helper",
+        ":transitive_visibility_provider",
     ],
 )
 
@@ -79,7 +82,6 @@ java_library(
         "LocationExpander.java",
         "LocationTemplateContext.java",
         "OutputGroupInfo.java",
-        "PackageSpecificationProvider.java",
         "PrerequisiteArtifacts.java",
         "PrerequisitesCollection.java",
         "PseudoAction.java",
@@ -92,8 +94,6 @@ java_library(
         "RunfilesSupport.java",
         "SourceManifestAction.java",
         "StarlarkProviderValidationUtil.java",
-        "TargetContext.java",
-        "TransitiveVisibilityProvider.java",
         "Util.java",
         "WindowsBatchCommandConstructor.java",
         "WindowsPowershellCommandConstructor.java",
@@ -150,12 +150,15 @@ java_library(
         ":dependency_resolution_helpers",
         ":event_handling_error_reporter",
         ":materialized_deps_info",
+        ":package_specification_provider",
         ":sh_toolchain",
         ":shell_configuration",
         ":starlark/composed_transition_materializer",
         ":starlark/starlark_rule_transition_provider",
         ":starlark/unresolved_symlink_action",
+        ":target_context",
         ":test/test_tags_provider",
+        ":transitive_visibility_provider",
     ],
     deps = [
         ":actions/abstract_file_write_action",
@@ -190,6 +193,7 @@ java_library(
         ":label_expander",
         ":materialized_deps_info",
         ":options_diff_predicate",
+        ":package_specification_provider",
         ":platform_configuration",
         ":provider_collection",
         ":repo_mapping_manifest_action",
@@ -214,6 +218,7 @@ java_library(
         ":starlark/template_dict",
         ":starlark/unresolved_symlink_action",
         ":symlink_entry",
+        ":target_context",
         ":template_variable_info",
         ":test/analysis_failure",
         ":test/analysis_failure_info",
@@ -231,6 +236,7 @@ java_library(
         ":transitive_info_provider_map",
         ":transitive_info_provider_map_builder",
         ":transitive_info_provider_map_impl",
+        ":transitive_visibility_provider",
         ":visibility_provider",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -835,6 +841,20 @@ java_library(
 )
 
 java_library(
+    name = "package_specification_provider",
+    srcs = ["PackageSpecificationProvider.java"],
+    deps = [
+        ":transitive_info_provider",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
+        "//src/main/java/com/google/devtools/build/lib/packages:provider",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
     name = "platform_configuration",
     srcs = ["PlatformConfiguration.java"],
     deps = [
@@ -1078,6 +1098,26 @@ java_library(
 )
 
 java_library(
+    name = "target_context",
+    srcs = ["TargetContext.java"],
+    deps = [
+        ":analysis_environment",
+        ":transitive_info_collection",
+        ":transitive_visibility_provider",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
     name = "template_variable_info",
     srcs = ["TemplateVariableInfo.java"],
     deps = [
@@ -1200,6 +1240,18 @@ java_library(
 )
 
 java_library(
+    name = "transitive_visibility_provider",
+    srcs = ["TransitiveVisibilityProvider.java"],
+    deps = [
+        ":package_specification_provider",
+        ":transitive_info_provider",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:collect",
+    ],
+)
+
+java_library(
     name = "view_creation_failed_exception",
     srcs = ["ViewCreationFailedException.java"],
     deps = [
@@ -1269,7 +1321,8 @@ java_library(
     ],
 )
 
-# TODO(b/144899336): This should be analysis/actions/BUILD
+# Targets for analysis/actions/*.java. Kept in analysis/BUILD because SpawnAction and StarlarkAction
+# depend on RuleContext and are part of the core analysis cycle (:analysis_core).
 java_library(
     name = "actions/abstract_file_write_action",
     srcs = ["actions/AbstractFileWriteAction.java"],
@@ -1568,7 +1621,8 @@ java_library(
     ],
 )
 
-# TODO(b/144899336): This should be analysis/extra/BUILD
+# Targets for analysis/extra/*.java. Kept in analysis/BUILD because ExtraAction depends on
+# RuleContext and is part of the core analysis cycle (:analysis_core).
 java_library(
     name = "extra/extra_action_info_file_write_action",
     srcs = ["extra/ExtraActionInfoFileWriteAction.java"],
@@ -1589,7 +1643,8 @@ java_library(
     ],
 )
 
-# TODO(b/144899336): This should be analysis/starlark/BUILD
+# Targets for analysis/starlark/*.java. Kept in analysis/BUILD because StarlarkRuleContext and
+# StarlarkActionFactory depend on RuleContext and are part of the core analysis cycle (:analysis_core).
 java_library(
     name = "starlark/args",
     srcs = ["starlark/Args.java"],
@@ -1813,7 +1868,8 @@ java_library(
     ],
 )
 
-# TODO(b/144899336): This should be lib/analysis/test/BUILD
+# Targets for analysis/test/*.java. Kept in analysis/BUILD because TestActionBuilder and
+# InstrumentedFilesCollector depend on RuleContext and are part of the core analysis cycle (:analysis_core).
 java_library(
     name = "test/analysis_failure",
     srcs = ["test/AnalysisFailure.java"],
