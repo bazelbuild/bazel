@@ -169,7 +169,7 @@ public class MerkleTreeComputerTest {
                         /* scrubber= */ null,
                         createSpawnExecutionContext(spawn, delayedMetadataProvider),
                         RemotePathResolver.createDefault(execRoot),
-                        MerkleTreeComputer.BlobPolicy.KEEP);
+            MerkleTreeComputer.BlobPolicy.KEEP);
               } catch (Throwable t) {
                 if (t instanceof InterruptedException) {
                   Thread.currentThread().interrupt();
@@ -282,7 +282,7 @@ public class MerkleTreeComputerTest {
                         /* scrubber= */ null,
                         createSpawnExecutionContext(spawn, delayedMetadataProvider),
                         RemotePathResolver.createDefault(execRoot),
-                        MerkleTreeComputer.BlobPolicy.KEEP);
+            MerkleTreeComputer.BlobPolicy.KEEP);
               } catch (Throwable t) {
                 if (t instanceof InterruptedException) {
                   Thread.currentThread().interrupt();
@@ -310,7 +310,7 @@ public class MerkleTreeComputerTest {
                           /* scrubber= */ null,
                           createSpawnExecutionContext(spawn, fakeFileCache),
                           RemotePathResolver.createDefault(execRoot),
-                          MerkleTreeComputer.BlobPolicy.KEEP);
+            MerkleTreeComputer.BlobPolicy.KEEP);
                 } catch (Throwable t) {
                   if (t instanceof InterruptedException) {
                     Thread.currentThread().interrupt();
@@ -371,7 +371,7 @@ public class MerkleTreeComputerTest {
                   /* scrubber= */ null,
                   createSpawnExecutionContext(spawn, fakeFileCache),
                   RemotePathResolver.createDefault(execRoot),
-                  MerkleTreeComputer.BlobPolicy.KEEP);
+            MerkleTreeComputer.BlobPolicy.KEEP);
     }
 
     assertThat(uploader.ensureInputsPresentCount.get()).isEqualTo(1);
@@ -405,7 +405,7 @@ public class MerkleTreeComputerTest {
                   /* scrubber= */ null,
                   createSpawnExecutionContext(spawn, fakeFileCache),
                   RemotePathResolver.createDefault(execRoot),
-                  MerkleTreeComputer.BlobPolicy.KEEP);
+            MerkleTreeComputer.BlobPolicy.KEEP);
     }
 
     assertThat(uploader.ensureInputsPresentCount.get()).isEqualTo(1);
@@ -434,7 +434,7 @@ public class MerkleTreeComputerTest {
                   /* scrubber= */ null,
                   createSpawnExecutionContext(spawn, fakeFileCache),
                   RemotePathResolver.createDefault(execRoot),
-                  MerkleTreeComputer.BlobPolicy.KEEP);
+            MerkleTreeComputer.BlobPolicy.KEEP);
     }
 
     assertThat(uploader.ensureInputsPresentCount.get()).isEqualTo(1);
@@ -453,9 +453,9 @@ public class MerkleTreeComputerTest {
     @Override
     public ListenableFuture<Void> uploadFile(
         RemoteActionExecutionContext context,
-        RemotePathResolver remotePathResolver,
         Digest digest,
         Path path,
+        PathFragment execPath,
         boolean force) {
       return immediateVoidFuture();
     }
@@ -471,10 +471,7 @@ public class MerkleTreeComputerTest {
 
     @Override
     public void ensureInputsPresent(
-        RemoteActionExecutionContext context,
-        MerkleTree.Uploadable merkleTree,
-        boolean force,
-        RemotePathResolver remotePathResolver) {
+        RemoteActionExecutionContext context, MerkleTree.Uploadable merkleTree, boolean force) {
       ensureInputsPresentCount.incrementAndGet();
     }
   }

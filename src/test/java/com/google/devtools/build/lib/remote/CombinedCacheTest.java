@@ -378,15 +378,38 @@ public class CombinedCacheTest {
             BulkTransferException.class,
             () ->
                 remoteCache.ensureInputsPresent(
-                    remoteActionExecutionContext,
-                    merkleTree,
-                    ImmutableMap.of(),
-                    false,
-                    new RemotePathResolver.DefaultRemotePathResolver(execRoot)));
+                    remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false));
     assertThat(e.getLostArtifacts(ActionInputHelper::fromPath).byDigest())
         .containsExactly(
             DigestUtil.toString(digestUtil.computeAsUtf8("bar")),
             ActionInputHelper.fromPath("foo"));
+  }
+
+  @Test
+  public void ensureInputsPresent_missingInputOutsideExecRoot_exceptionHasLostInputs()
+      throws Exception {
+    RemoteExecutionCache remoteCache = newRemoteExecutionCache(new InMemoryCacheClient());
+    remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
+    remoteCache.setRemotePathChecker((context, path) -> immediateFuture(false));
+
+    // Source files in external repositories are located outside the exec root.
+    Path path = fs.getPath("/outputbase/external/repo/foo");
+    path.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(path, "bar");
+    SortedMap<PathFragment, Path> inputs = new TreeMap<>();
+    inputs.put(PathFragment.create("external/repo/foo"), path);
+    var merkleTree = merkleTreeComputer.buildForFiles(inputs);
+
+    var e =
+        assertThrows(
+            BulkTransferException.class,
+            () ->
+                remoteCache.ensureInputsPresent(
+                    remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false));
+    assertThat(e.getLostArtifacts(ActionInputHelper::fromPath).byDigest())
+        .containsExactly(
+            DigestUtil.toString(digestUtil.computeAsUtf8("bar")),
+            ActionInputHelper.fromPath("external/repo/foo"));
   }
 
   @Test
@@ -409,14 +432,9 @@ public class CombinedCacheTest {
     var additionalInputs = ImmutableMap.of(messageDigest, message);
     var allDigests =
         ImmutableSet.<Digest>builder().addAll(merkleTree.allDigests()).add(messageDigest).build();
-    var remotePathResolver = new RemotePathResolver.DefaultRemotePathResolver(execRoot);
 
     remoteCache.ensureInputsPresent(
-        remoteActionExecutionContext,
-        merkleTree,
-        additionalInputs,
-        /* force= */ false,
-        remotePathResolver);
+        remoteActionExecutionContext, merkleTree, additionalInputs, /* force= */ false);
     assertThat(
             getFromFuture(remoteCache.findMissingDigests(remoteActionExecutionContext, allDigests)))
         .isEmpty();
@@ -427,11 +445,7 @@ public class CombinedCacheTest {
     }
 
     remoteCache.ensureInputsPresent(
-        remoteActionExecutionContext,
-        merkleTree,
-        additionalInputs,
-        /* force= */ true,
-        remotePathResolver);
+        remoteActionExecutionContext, merkleTree, additionalInputs, /* force= */ true);
     assertThat(
             getFromFuture(remoteCache.findMissingDigests(remoteActionExecutionContext, allDigests)))
         .isEmpty();
@@ -516,11 +530,7 @@ public class CombinedCacheTest {
             () -> {
               try {
                 remoteCache.ensureInputsPresent(
-                    fooRemoteContext,
-                    fooTree,
-                    ImmutableMap.of(),
-                    /* force= */ false,
-                    RemotePathResolver.createDefault(execRoot));
+                    fooRemoteContext, fooTree, ImmutableMap.of(), /* force= */ false);
               } catch (Throwable t) {
                 if (t instanceof InterruptedException) {
                   Thread.currentThread().interrupt();
@@ -537,11 +547,7 @@ public class CombinedCacheTest {
             () -> {
               try {
                 remoteCache.ensureInputsPresent(
-                    barRemoteContext,
-                    barTree,
-                    ImmutableMap.of(),
-                    /* force= */ false,
-                    RemotePathResolver.createDefault(execRoot));
+                    barRemoteContext, barTree, ImmutableMap.of(), /* force= */ false);
               } catch (Throwable t) {
                 if (t instanceof InterruptedException) {
                   Thread.currentThread().interrupt();
@@ -613,11 +619,7 @@ public class CombinedCacheTest {
             () -> {
               try {
                 remoteCache.ensureInputsPresent(
-                    remoteActionExecutionContext,
-                    merkleTree,
-                    ImmutableMap.of(),
-                    false,
-                    /* remotePathResolver= */ null);
+                    remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false);
               } catch (IOException | InterruptedException ignored) {
                 // ignored
               } finally {
@@ -693,11 +695,7 @@ public class CombinedCacheTest {
         () -> {
           try {
             remoteCache.ensureInputsPresent(
-                remoteActionExecutionContext,
-                merkleTree,
-                ImmutableMap.of(),
-                false,
-                /* remotePathResolver= */ null);
+                remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false);
           } catch (IOException ignored) {
             // ignored
           } catch (InterruptedException e) {
@@ -785,11 +783,7 @@ public class CombinedCacheTest {
             () -> {
               try {
                 remoteCache.ensureInputsPresent(
-                    remoteActionExecutionContext,
-                    merkleTree1,
-                    ImmutableMap.of(),
-                    false,
-                    /* remotePathResolver= */ null);
+                    remoteActionExecutionContext, merkleTree1, ImmutableMap.of(), false);
               } catch (IOException ignored) {
                 // ignored
               } catch (InterruptedException e) {
@@ -803,11 +797,7 @@ public class CombinedCacheTest {
             () -> {
               try {
                 remoteCache.ensureInputsPresent(
-                    remoteActionExecutionContext,
-                    merkleTree2,
-                    ImmutableMap.of(),
-                    false,
-                    /* remotePathResolver= */ null);
+                    remoteActionExecutionContext, merkleTree2, ImmutableMap.of(), false);
               } catch (InterruptedException | IOException ignored) {
                 // ignored
               } finally {
@@ -863,11 +853,7 @@ public class CombinedCacheTest {
             IOException.class,
             () ->
                 remoteCache.ensureInputsPresent(
-                    remoteActionExecutionContext,
-                    merkleTree,
-                    ImmutableMap.of(),
-                    false,
-                    /* remotePathResolver= */ null));
+                    remoteActionExecutionContext, merkleTree, ImmutableMap.of(), false));
 
     assertThat(e).hasMessageThat().contains("upload failed");
   }

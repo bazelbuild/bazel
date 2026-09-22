@@ -437,11 +437,7 @@ public class GrpcCacheClientTest {
                 () -> {
                   try {
                     client.ensureInputsPresent(
-                        context,
-                        merkleTree,
-                        ImmutableMap.of(),
-                        /* force= */ true,
-                        remotePathResolver);
+                        context, merkleTree, ImmutableMap.of(), /* force= */ true);
                   } catch (Throwable e) {
                     if (e instanceof InterruptedException) {
                       Thread.currentThread().interrupt();
