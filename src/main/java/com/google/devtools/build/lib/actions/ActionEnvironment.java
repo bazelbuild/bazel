@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Map;
@@ -29,11 +30,14 @@ import java.util.TreeSet;
 /**
  * Environment variables for build or test actions.
  *
- * <p>The action environment consists of two parts.
+ * <p>The action environment consists of three parts.
  *
  * <ol>
  *   <li>All the environment variables with a fixed value, stored in a map.
  *   <li>All the environment variables inherited from the client environment, stored in a set.
+ *   <li>All the environment variables that are explicitly unset, stored in a set. These are
+ *       removed from the environment even if an earlier layer of the environment (e.g. the default
+ *       test environment) set them.
  * </ol>
  *
  * <p>Inherited environment variables must be declared in the Action interface (see {@link
@@ -58,7 +62,7 @@ public abstract class ActionEnvironment {
   }
 
   /**
-   * Creates a new {@link ActionEnvironment}.
+   * Creates a new {@link ActionEnvironment} with no unset variables.
    *
    * <p>If an environment variable is contained both as a key in {@code fixedEnv} and in {@code
    * inheritedEnv}, the result of {@link #resolve} will contain the value inherited from the client
@@ -66,10 +70,30 @@ public abstract class ActionEnvironment {
    */
   public static ActionEnvironment create(
       ImmutableMap<String, String> fixedEnv, ImmutableSet<String> inheritedEnv) {
-    if (fixedEnv.isEmpty() && inheritedEnv.isEmpty()) {
+    return create(fixedEnv, inheritedEnv, /* unsetEnv= */ ImmutableSet.of());
+  }
+
+  /**
+   * Creates a new {@link ActionEnvironment}.
+   *
+   * <p>If an environment variable is contained both as a key in {@code fixedEnv} and in {@code
+   * inheritedEnv}, the result of {@link #resolve} will contain the value inherited from the client
+   * environment.
+   *
+   * <p>Variables in {@code unsetEnv} are removed from the map passed to {@link #resolve}, even if
+   * they were present in the map before the call or are contained in {@code fixedEnv} or {@code
+   * inheritedEnv}. This allows an environment to remove variables that were set by an earlier
+   * layer of the environment, e.g. the default test environment.
+   */
+  public static ActionEnvironment create(
+      ImmutableMap<String, String> fixedEnv,
+      ImmutableSet<String> inheritedEnv,
+      ImmutableSet<String> unsetEnv) {
+    if (fixedEnv.isEmpty() && inheritedEnv.isEmpty() && unsetEnv.isEmpty()) {
       return EMPTY;
     }
-    return actionEnvironmentInterner.intern(new SimpleActionEnvironment(fixedEnv, inheritedEnv));
+    return actionEnvironmentInterner.intern(
+        new SimpleActionEnvironment(fixedEnv, inheritedEnv, unsetEnv));
   }
 
   /**
@@ -78,6 +102,16 @@ public abstract class ActionEnvironment {
    * given map. Returns these two parts as a new {@link ActionEnvironment} instance.
    */
   public static ActionEnvironment split(Map<String, String> env) {
+    return split(env, /* unsetEnv= */ ImmutableSet.of());
+  }
+
+  /**
+   * Splits the given map into a map of variables with a fixed value, and a set of variables that
+   * should be inherited, the latter of which are identified by having a {@code null} value in the
+   * given map. Returns these two parts together with the given set of variables to unset as a new
+   * {@link ActionEnvironment} instance.
+   */
+  public static ActionEnvironment split(Map<String, String> env, Set<String> unsetEnv) {
     Map<String, String> fixedEnv = new TreeMap<>();
     Set<String> inheritedEnv = new TreeSet<>();
     for (Map.Entry<String, String> entry : env.entrySet()) {
@@ -87,7 +121,10 @@ public abstract class ActionEnvironment {
         inheritedEnv.add(entry.getKey());
       }
     }
-    return create(ImmutableMap.copyOf(fixedEnv), ImmutableSet.copyOf(inheritedEnv));
+    return create(
+        ImmutableMap.copyOf(fixedEnv),
+        ImmutableSet.copyOf(inheritedEnv),
+        ImmutableSet.copyOf(new TreeSet<>(unsetEnv)));
   }
 
   private ActionEnvironment() {}
@@ -108,6 +145,14 @@ public abstract class ActionEnvironment {
   public abstract ImmutableSet<String> getInheritedEnv();
 
   /**
+   * Returns the 'unset' part of the environment, i.e., those environment variables that are
+   * explicitly removed from the environment by {@link #resolve}. This should only be used for
+   * testing and to compute the cache keys of actions. Use {@link #resolve} instead to get the
+   * complete environment.
+   */
+  public abstract ImmutableSet<String> getUnsetEnv();
+
+  /**
    * Returns an upper bound on the combined size of the fixed and inherited environments. A call to
    * {@link #resolve} may add fewer entries than this number if environment variables are contained
    * in both the fixed and the inherited environment.
@@ -116,7 +161,8 @@ public abstract class ActionEnvironment {
 
   /**
    * Resolves the action environment and adds the resulting entries to the given {@code result} map,
-   * by looking up any inherited env variables in the given {@code clientEnv}.
+   * by looking up any inherited env variables in the given {@code clientEnv}. Afterwards, removes
+   * all unset env variables from the map.
    *
    * <p>We pass in a map to mutate to avoid creating and merging intermediate maps.
    */
@@ -129,16 +175,26 @@ public abstract class ActionEnvironment {
         result.put(var, value);
       }
     }
+    ImmutableSet<String> unsetEnv = getUnsetEnv();
+    if (!unsetEnv.isEmpty()) {
+      result.keySet().removeAll(unsetEnv);
+    }
   }
 
   public final void addTo(Fingerprint f) {
     f.addStringMap(getFixedEnv());
     f.addStrings(getInheritedEnv());
+    // Only add the unset variables if there are any so that the fingerprint of the common case of
+    // an environment without unset variables remains unchanged.
+    ImmutableSet<String> unsetEnv = getUnsetEnv();
+    if (!unsetEnv.isEmpty()) {
+      f.addStrings(unsetEnv);
+    }
   }
 
   /**
    * Returns a copy of the environment with the given fixed variables added to it, <em>overwriting
-   * any existing occurrences of those variables</em>.
+   * any existing occurrences of those variables</em>, including any that were previously unset.
    */
   public final ActionEnvironment withAdditionalFixedVariables(Map<String, String> fixedVars) {
     if (fixedVars.isEmpty()) {
@@ -146,7 +202,8 @@ public abstract class ActionEnvironment {
     }
     if (this == EMPTY) {
       return actionEnvironmentInterner.intern(
-          new SimpleActionEnvironment(ImmutableMap.copyOf(fixedVars), ImmutableSet.of()));
+          new SimpleActionEnvironment(
+              ImmutableMap.copyOf(fixedVars), ImmutableSet.of(), ImmutableSet.of()));
     }
     return actionEnvironmentInterner.intern(
         new CompoundActionEnvironment(this, ImmutableMap.copyOf(fixedVars)));
@@ -165,6 +222,11 @@ public abstract class ActionEnvironment {
     }
 
     @Override
+    public ImmutableSet<String> getUnsetEnv() {
+      return ImmutableSet.of();
+    }
+
+    @Override
     public int estimatedSize() {
       return 0;
     }
@@ -173,11 +235,15 @@ public abstract class ActionEnvironment {
   private static final class SimpleActionEnvironment extends ActionEnvironment {
     private final ImmutableMap<String, String> fixedEnv;
     private final ImmutableSet<String> inheritedEnv;
+    private final ImmutableSet<String> unsetEnv;
 
     SimpleActionEnvironment(
-        ImmutableMap<String, String> fixedEnv, ImmutableSet<String> inheritedEnv) {
+        ImmutableMap<String, String> fixedEnv,
+        ImmutableSet<String> inheritedEnv,
+        ImmutableSet<String> unsetEnv) {
       this.fixedEnv = fixedEnv;
       this.inheritedEnv = inheritedEnv;
+      this.unsetEnv = unsetEnv;
     }
 
     @Override
@@ -188,6 +254,11 @@ public abstract class ActionEnvironment {
     @Override
     public ImmutableSet<String> getInheritedEnv() {
       return inheritedEnv;
+    }
+
+    @Override
+    public ImmutableSet<String> getUnsetEnv() {
+      return unsetEnv;
     }
 
     @Override
@@ -203,12 +274,14 @@ public abstract class ActionEnvironment {
       if (!(o instanceof SimpleActionEnvironment that)) {
         return false;
       }
-      return fixedEnv.equals(that.fixedEnv) && inheritedEnv.equals(that.inheritedEnv);
+      return fixedEnv.equals(that.fixedEnv)
+          && inheritedEnv.equals(that.inheritedEnv)
+          && unsetEnv.equals(that.unsetEnv);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(fixedEnv, inheritedEnv);
+      return Objects.hash(fixedEnv, inheritedEnv, unsetEnv);
     }
   }
 
@@ -233,6 +306,16 @@ public abstract class ActionEnvironment {
     @Override
     public ImmutableSet<String> getInheritedEnv() {
       return base.getInheritedEnv();
+    }
+
+    @Override
+    public ImmutableSet<String> getUnsetEnv() {
+      // The additional fixed variables override any unset variables of the base environment.
+      ImmutableSet<String> baseUnsetEnv = base.getUnsetEnv();
+      if (baseUnsetEnv.isEmpty()) {
+        return baseUnsetEnv;
+      }
+      return Sets.difference(baseUnsetEnv, fixedVars.keySet()).immutableCopy();
     }
 
     @Override
