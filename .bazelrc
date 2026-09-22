@@ -32,6 +32,14 @@ common:macos --repo_env=APPLE_SUPPORT_LAYERING_CHECK_BETA=0
 common:windows_arm64 --platforms=//:windows_arm64
 common:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows
 
+# Build Bazel with the hermetic LLVM toolchains from the `llvm` module instead
+# of the auto-configured host toolchain. Combine with --platforms to
+# cross-compile, e.g.:
+#   bazel build --config=llvm --platforms=@llvm//platforms:linux_x86_64 //src:bazel
+#   bazel build --config=llvm --platforms=@llvm//platforms:windows_x86_64 //src:bazel
+#   bazel build --config=llvm --platforms=@llvm//platforms:macos_aarch64 //src:bazel
+common:llvm --extra_toolchains=@llvm//toolchain:all
+
 # Check direct Bazel module dependencies are up-to-date
 common --check_direct_dependencies=error
 

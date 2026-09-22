@@ -26,14 +26,14 @@ bazel_dep(name = "grpc", version = "1.76.0.bcr.1", repo_name = "com_github_grpc_
 bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "protobuf", version = "36.0.bcr.1", repo_name = "com_google_protobuf")
 bazel_dep(name = "re2", version = "2025-11-05.bcr.1")
-bazel_dep(name = "rules_go", version = "0.59.0")
+bazel_dep(name = "rules_go", version = "0.62.0")
 bazel_dep(name = "rules_graalvm", version = "0.11.1")
 bazel_dep(name = "rules_java", version = "9.9.0")
 bazel_dep(name = "rules_jvm_external", version = "6.8")
 bazel_dep(name = "rules_license", version = "1.0.0")
 bazel_dep(name = "rules_pkg", version = "1.1.0")
 bazel_dep(name = "rules_python", version = "1.9.2")
-bazel_dep(name = "rules_shell", version = "0.6.1")
+bazel_dep(name = "rules_shell", version = "0.8.0")
 bazel_dep(name = "rules_testing", version = "0.9.0")
 bazel_dep(name = "stardoc", version = "0.8.0", repo_name = "io_bazel_skydoc")
 bazel_dep(name = "with_cfg.bzl", version = "0.13.0")
@@ -44,6 +44,11 @@ bazel_dep(name = "zstd-jni", version = "1.5.6-9.bcr.2")
 # from apple_support wins over the generic Unix toolchain from rules_cc.
 bazel_dep(name = "apple_support", version = "2.8.4")
 bazel_dep(name = "rules_cc", version = "0.2.25")
+
+# Hermetic LLVM toolchains used to cross-compile Bazel to all supported
+# platforms from any host. They are not registered by default; see the `llvm`
+# config in .bazelrc.
+bazel_dep(name = "llvm", version = "0.8.21")
 
 # The starlark rules in @rules_cc are hidden behind macros but docgen needs to
 # load the rule class directly, so we need to expose the cc_compatibility_proxy
@@ -408,6 +413,25 @@ use_repo(
 # Required only by `--extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows` from .bazelrc
 cc_configure = use_extension("@rules_cc//cc:extensions.bzl", "cc_configure_extension")
 use_repo(cc_configure, "local_config_cc")
+
+# The hermetic macOS SDK used by the LLVM toolchains only ships a minimal set
+# of frameworks by default. Bazel's native code additionally needs CoreServices
+# (FSEvents) and IOKit (power management, thermal and disk space monitoring) as
+# well as the frameworks their headers include.
+osx = use_extension("@llvm//extensions:osx.bzl", "osx")
+osx.frameworks(names = [
+    "CFNetwork",
+    "CoreFoundation",
+    "CoreGraphics",
+    "CoreServices",
+    "DiskArbitration",
+    "Foundation",
+    "IOKit",
+    "Kernel",
+    "OSLog",
+    "Security",
+    "SystemConfiguration",
+])
 
 http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 
