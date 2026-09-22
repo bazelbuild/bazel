@@ -763,10 +763,10 @@ public final class RemoteModuleTest {
   private void awaitChannelsConnected() throws Exception {
     var combinedCache = remoteModule.getActionContextProvider().getCombinedCache();
     if (combinedCache != null) {
-      var _ = combinedCache.getRemoteCacheCapabilities();
+      var unused = combinedCache.getRemoteCacheCapabilities();
     }
     if (remoteModule.getRemoteDownloader() instanceof GrpcRemoteDownloader downloader) {
-      var _ = downloader.getChannel().withChannelBlocking(ch -> new Object());
+      var unused = downloader.getChannel().withChannelBlocking(ch -> new Object());
     }
   }
 
@@ -778,8 +778,8 @@ public final class RemoteModuleTest {
     downloaderServer.start();
 
     try {
-      remoteOptions.setRemoteCache(CACHE_SERVER_NAME);
-      remoteOptions.setRemoteDownloader(DOWNLOADER_SERVER_NAME);
+      remoteOptions.remoteCache = CACHE_SERVER_NAME;
+      remoteOptions.remoteDownloader = DOWNLOADER_SERVER_NAME;
 
       var env = beforeCommand();
       awaitChannelsConnected();
@@ -805,8 +805,8 @@ public final class RemoteModuleTest {
     cacheServer.start();
 
     try {
-      remoteOptions.setRemoteCache(CACHE_SERVER_NAME);
-      remoteOptions.setRemoteDownloader(CACHE_SERVER_NAME);
+      remoteOptions.remoteCache = CACHE_SERVER_NAME;
+      remoteOptions.remoteDownloader = CACHE_SERVER_NAME;
 
       var env = beforeCommand();
       awaitChannelsConnected();
