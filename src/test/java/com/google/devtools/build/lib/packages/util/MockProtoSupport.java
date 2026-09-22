@@ -432,6 +432,32 @@ public final class MockProtoSupport {
             srcs = ["metadata.go"],
         )
         """);
+    config.create(
+        "third_party/golang/grpc/codes/BUILD",
+        """
+        load("//tools/build_defs/go:go_library.bzl", "go_library")
+        package(default_visibility = ["//visibility:public"])
+
+        licenses(["notice"])
+
+        go_library(
+            name = "codes",
+            srcs = ["codes.go"],
+        )
+        """);
+    config.create(
+        "third_party/golang/grpc/status/BUILD",
+        """
+        load("//tools/build_defs/go:go_library.bzl", "go_library")
+        package(default_visibility = ["//visibility:public"])
+
+        licenses(["notice"])
+
+        go_library(
+            name = "status",
+            srcs = ["status.go"],
+        )
+        """);
   }
 
   public static void setupWorkspace(MockToolsConfig config) throws IOException {
