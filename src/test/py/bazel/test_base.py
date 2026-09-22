@@ -25,6 +25,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import zipfile
 from absl.testing import absltest
 import runfiles
 
@@ -90,7 +91,11 @@ class TestBase(absltest.TestCase):
     with open(self._test_bazelrc, 'wt') as f:
       shared_install_base = os.environ.get('TEST_INSTALL_BASE')
       if shared_install_base:
-        f.write('startup --install_base={}\n'.format(shared_install_base))
+        f.write(
+            'startup --install_base={}\n'.format(
+                self._InstallBaseForBazelBinary(shared_install_base)
+            )
+        )
       shared_repo_cache = os.environ.get('REPOSITORY_CACHE')
       if shared_repo_cache:
         f.write('common --repository_cache={}\n'.format(shared_repo_cache))
@@ -197,6 +202,19 @@ class TestBase(absltest.TestCase):
       ] + (stderr_lines or []) + [
           '(end stderr)------------------------------------------',
       ]))
+
+  def _InstallBaseForBazelBinary(self, shared_install_base):
+    """Returns an install base shared only by tests using the same Bazel binary.
+
+    Test rules may build Bazel in different configurations (e.g. py_test is
+    subject to a rules_python transition), which yields binaries with different
+    install base keys. Bazel wipes an install base populated by a different
+    binary, which fails on Windows while another Bazel server is still running
+    from it, so the key is made part of the path.
+    """
+    with zipfile.ZipFile(self.Rlocation('io_bazel/src/bazel')) as bazel:
+      key = bazel.read('install_base_key').decode('ascii').strip()
+    return '{}-{}'.format(shared_install_base, key)
 
   def AssertExitCode(self,
                      actual_exit_code,
