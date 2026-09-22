@@ -79,6 +79,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.grpc.BindableService;
+import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.ServerInterceptors;
 import io.grpc.inprocess.InProcessChannelBuilder;
@@ -90,6 +91,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.Assert;
@@ -103,6 +105,7 @@ import org.junit.runners.JUnit4;
 public final class RemoteModuleTest {
   private static final String EXECUTION_SERVER_NAME = "execution-server";
   private static final String CACHE_SERVER_NAME = "cache-server";
+  private static final String DOWNLOADER_SERVER_NAME = "downloader-server";
   private static final String OUTPUT_SERVICE_SERVER_NAME = "output-service";
   private static final ServerCapabilities CACHE_ONLY_CAPS =
       ServerCapabilities.newBuilder()
@@ -263,15 +266,19 @@ public final class RemoteModuleTest {
   private RemoteModule remoteModule;
   private RemoteOptions remoteOptions;
   private Map<String, Map<String, ?>> serviceConfigsByTarget;
+  private List<ManagedChannel> createdChannels;
 
   @Before
   public void initialize() {
     serviceConfigsByTarget = new HashMap<>();
+    createdChannels = new ArrayList<>();
     remoteModule = new RemoteModule();
     remoteModule.setChannelFactory(
         (target, proxy, options, interceptors, serviceConfig) -> {
           serviceConfigsByTarget.put(target, serviceConfig);
-          return InProcessChannelBuilder.forName(target).directExecutor().build();
+          ManagedChannel channel = InProcessChannelBuilder.forName(target).directExecutor().build();
+          createdChannels.add(channel);
+          return channel;
         });
     remoteOptions = Options.getDefaults(RemoteOptions.class);
   }
@@ -740,9 +747,88 @@ public final class RemoteModuleTest {
       throws IOException, AbruptExitException {
     CommandEnvironment env =
         createTestCommandEnvironment(remoteModule, remoteOptions, workspaceInitializer);
+    env.getRuntime().getBlazeModule(BlockWaitingModule.class).beforeCommand(env);
     remoteModule.beforeCommand(env);
     env.throwPendingException();
     return env;
+  }
+
+  /** Runs the remote module's after-command cleanup and waits for it to complete. */
+  private void afterCommand(CommandEnvironment env) throws AbruptExitException {
+    remoteModule.afterCommand();
+    env.getRuntime().getBlazeModule(BlockWaitingModule.class).afterCommand();
+  }
+
+  /** Waits for the eagerly created channels of the current command to be connected. */
+  private void awaitChannelsConnected() throws Exception {
+    var combinedCache = remoteModule.getActionContextProvider().getCombinedCache();
+    if (combinedCache != null) {
+      var _ = combinedCache.getRemoteCacheCapabilities();
+    }
+    if (remoteModule.getRemoteDownloader() instanceof GrpcRemoteDownloader downloader) {
+      var _ = downloader.getChannel().withChannelBlocking(ch -> new Object());
+    }
+  }
+
+  @Test
+  public void remoteDownloader_separateEndpoint_channelsAreClosedAfterCommand() throws Exception {
+    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, new CapabilitiesImpl(CACHE_ONLY_CAPS));
+    cacheServer.start();
+    Server downloaderServer = createFakeServer(DOWNLOADER_SERVER_NAME);
+    downloaderServer.start();
+
+    try {
+      remoteOptions.setRemoteCache(CACHE_SERVER_NAME);
+      remoteOptions.setRemoteDownloader(DOWNLOADER_SERVER_NAME);
+
+      var env = beforeCommand();
+      awaitChannelsConnected();
+      assertThat(createdChannels).hasSize(2);
+
+      afterCommand(env);
+
+      for (ManagedChannel channel : createdChannels) {
+        assertThat(channel.isTerminated()).isTrue();
+      }
+    } finally {
+      cacheServer.shutdownNow();
+      downloaderServer.shutdownNow();
+      cacheServer.awaitTermination();
+      downloaderServer.awaitTermination();
+    }
+  }
+
+  @Test
+  public void remoteDownloader_sharedEndpoint_channelIsClosedOnceCacheIsReleased()
+      throws Exception {
+    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, new CapabilitiesImpl(CACHE_ONLY_CAPS));
+    cacheServer.start();
+
+    try {
+      remoteOptions.setRemoteCache(CACHE_SERVER_NAME);
+      remoteOptions.setRemoteDownloader(CACHE_SERVER_NAME);
+
+      var env = beforeCommand();
+      awaitChannelsConnected();
+      assertThat(createdChannels).hasSize(1);
+      ManagedChannel channel = createdChannels.get(0);
+
+      // Retain the cache beyond the end of the command, as e.g. the artifact uploader of an
+      // asynchronous BES upload does.
+      var combinedCache = remoteModule.getActionContextProvider().getCombinedCache();
+      combinedCache.retain();
+      afterCommand(env);
+
+      // Closing the downloader must not shut down the channel it shares with the cache.
+      assertThat(channel.isShutdown()).isFalse();
+
+      combinedCache.release();
+
+      assertThat(channel.isTerminated()).isTrue();
+    } finally {
+      cacheServer.shutdownNow();
+      cacheServer.awaitTermination();
+    }
   }
 
   @Test
