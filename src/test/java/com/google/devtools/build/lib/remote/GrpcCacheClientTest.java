@@ -357,7 +357,6 @@ public class GrpcCacheClientTest {
                 ImmutableSet.of(),
                 /* scrubber= */ null,
                 context.getSpawnExecutionContext(),
-                remotePathResolver,
                 MerkleTreeComputer.BlobPolicy.KEEP);
     Digest digest = DIGEST_UTIL.compute(virtualActionInput);
 
@@ -441,11 +440,7 @@ public class GrpcCacheClientTest {
                 () -> {
                   try {
                     client.ensureInputsPresent(
-                        context,
-                        merkleTree,
-                        ImmutableMap.of(),
-                        /* force= */ true,
-                        remotePathResolver);
+                        context, merkleTree, ImmutableMap.of(), /* force= */ true);
                   } catch (Throwable e) {
                     if (e instanceof InterruptedException) {
                       Thread.currentThread().interrupt();

@@ -524,7 +524,6 @@ public class RemoteExecutionService {
                 toolSignature != null ? toolSignature.toolInputs : ImmutableSet.of(),
                 scrubber,
                 context,
-                remotePathResolver,
                 blobPolicy);
       } catch (CredentialHelperException e) {
         throw createExecExceptionForCredentialHelperException(e);
@@ -2012,7 +2011,6 @@ public class RemoteExecutionService {
                     toolSignature != null ? toolSignature.toolInputs : ImmutableSet.of(),
                     scrubber,
                     context,
-                    action.getRemotePathResolver(),
                     force
                         ? MerkleTreeComputer.BlobPolicy.KEEP_AND_REUPLOAD
                         : MerkleTreeComputer.BlobPolicy.KEEP);
@@ -2024,8 +2022,7 @@ public class RemoteExecutionService {
               .withWriteCachePolicy(CachePolicy.REMOTE_CACHE_ONLY), // Only upload to remote cache
           merkleTree,
           additionalInputs,
-          force,
-          action.getRemotePathResolver());
+          force);
     } finally {
       maybeReleaseRemoteActionBuildingSemaphore();
     }
