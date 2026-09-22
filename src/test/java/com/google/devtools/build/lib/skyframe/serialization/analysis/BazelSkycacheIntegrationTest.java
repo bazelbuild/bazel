@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.devtools.build.lib.skyframe.serialization.analysis.LongVersionGetterTestInjection.injectVersionGetterForTesting;
 import static java.util.concurrent.ForkJoinPool.commonPool;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 
+import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -28,6 +28,8 @@ import com.google.devtools.build.lib.compress.CompressionServiceImpl;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutor;
 import com.google.devtools.build.lib.concurrent.safeexecutor.SafeExecutorOwner;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.CommandStartEvent;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
@@ -54,7 +56,14 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
 
   @Before
   public void injectVersionGetter() {
-    injectVersionGetterForTesting(versionGetter);
+    runtimeWrapper.registerSubscriber(
+        new Object() {
+          @Subscribe
+          public void commandStart(CommandStartEvent event) {
+            CommandEnvironment env = getCommandEnvironment();
+            env.setVersionGetter(versionGetter);
+          }
+        });
   }
 
   private static class FailingFingerprintValueStore implements FingerprintValueStore {

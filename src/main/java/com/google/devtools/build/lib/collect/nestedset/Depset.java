@@ -662,7 +662,8 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
               doc = "A list of depsets whose elements will become indirect elements of the depset.",
               defaultValue = "None"),
         },
-        useStarlarkThread = true)
+        useStarlarkThread = true,
+        isTypeConstructor = true)
     public Depset depset(
         Object direct, String orderString, Object transitive, StarlarkThread thread)
         throws EvalException {

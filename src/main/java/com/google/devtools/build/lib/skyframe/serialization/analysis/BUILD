@@ -2,7 +2,6 @@ load("@rules_java//java:java_library.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
 )
 
 filegroup(
@@ -122,6 +121,7 @@ java_library(
 java_library(
     name = "frontier_serializer",
     srcs = [
+        "AnalysisValueWithMtsv.java",
         "FrontierSerializer.java",
         "SelectedEntrySerializer.java",
         "SkyValueUploadedEvent.java",
@@ -138,7 +138,6 @@ java_library(
         ":file_dependency_serializer",
         ":file_op_node_map",
         ":invalidation_data_reference_or_future",
-        ":long_version_getter_test_injection",
         ":missing_skyframe_entry_exception",
         ":remote_analysis_cache_mode",
         ":serialization_dependencies_provider",
@@ -167,15 +166,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:error_message_helper",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:frontier_node_version",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:write_status",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_execution_platforms_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_toolchains_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:toolchain_context_key",
-        "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/versioning:long_version_getter",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/com/google/devtools/build/skyframe:version",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:file_invalidation_data_java_proto",
         "//third_party/java/error_prone:annotations",
@@ -235,6 +235,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/compress:compression_service",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent/safeexecutor:safe_executor",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:counter_series_task_impl",
@@ -569,19 +570,6 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
     ],
     deps = ["//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface"],
-)
-
-java_library(
-    name = "long_version_getter_test_injection",
-    srcs = ["LongVersionGetterTestInjection.java"],
-    visibility = [
-        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:__pkg__",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/util:TestType",
-        "//src/main/java/com/google/devtools/build/lib/versioning:long_version_getter",
-        "//third_party/java/guava:base",
-    ],
 )
 
 java_library(

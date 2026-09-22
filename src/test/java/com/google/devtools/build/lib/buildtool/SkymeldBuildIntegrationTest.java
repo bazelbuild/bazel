@@ -395,6 +395,27 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void sequentialBuilds_sameInvocationId_noNullPointerException(
+      @TestParameter boolean mergedAnalysisExecution) throws Exception {
+    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+    addOptions("--invocation_id=00000000-0000-0000-0000-000000000000");
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt"],
+            outs = ["out"],
+            cmd = "cat $< > $@",
+        )
+        """);
+
+    buildTarget("//hello:target");
+    buildTarget("//hello:target");
+  }
+
+  @Test
   public void aspectAnalysisFailure_consistentWithNonSkymeld(
       @TestParameter boolean keepGoing, @TestParameter boolean mergedAnalysisExecution)
       throws Exception {

@@ -35,6 +35,7 @@ class ByteStreamBuildEventArtifactUploaderFactory implements BuildEventArtifactU
   private final String buildRequestId;
   private final String commandId;
   private final RemoteBuildEventUploadMode remoteBuildEventUploadMode;
+  private final int maximumOpenFiles;
 
   @Nullable private ByteStreamBuildEventArtifactUploader uploader;
 
@@ -47,7 +48,8 @@ class ByteStreamBuildEventArtifactUploaderFactory implements BuildEventArtifactU
       String remoteBytestreamUriPrefix,
       String buildRequestId,
       String commandId,
-      RemoteBuildEventUploadMode remoteBuildEventUploadMode) {
+      RemoteBuildEventUploadMode remoteBuildEventUploadMode,
+      int maximumOpenFiles) {
     this.executor = executor;
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
@@ -57,6 +59,7 @@ class ByteStreamBuildEventArtifactUploaderFactory implements BuildEventArtifactU
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.remoteBuildEventUploadMode = remoteBuildEventUploadMode;
+    this.maximumOpenFiles = maximumOpenFiles;
   }
 
   @Override
@@ -73,7 +76,8 @@ class ByteStreamBuildEventArtifactUploaderFactory implements BuildEventArtifactU
             buildRequestId,
             commandId,
             env.getXattrProvider(),
-            remoteBuildEventUploadMode);
+            remoteBuildEventUploadMode,
+            maximumOpenFiles);
     env.getEventBus().register(uploader);
     return uploader;
   }

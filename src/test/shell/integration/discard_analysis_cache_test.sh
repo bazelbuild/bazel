@@ -332,8 +332,14 @@ EOF
 int b() { return FOO_VALUE; }
 EOF
 
+  # Settle MODULE.bazel.lock before the builds below: a lockfile updated at
+  # the end of the first build would dirty the loading-phase nodes of
+  # @other_repo, which the second build relies on finding done in Skyframe.
+  bazel build --experimental_merged_skyframe_analysis_execution --nobuild \
+      //foo:target_a >& "$TEST_log" \
+      || fail "Warm-up build of target_a failed"
+
   bazel build --experimental_merged_skyframe_analysis_execution \
-      --lockfile_mode=off \
       //foo:target_a >& "$TEST_log" \
       || fail "First build of target_a failed"
 
@@ -345,10 +351,49 @@ EOF
   # header from the execroot. HeaderDiscovery then requires the fallback
   # package root lookup in IncrementalPackageRoots to resolve the package root.
   bazel build --experimental_merged_skyframe_analysis_execution \
-      --lockfile_mode=off \
       --spawn_strategy=standalone \
       --cxxopt=-O3 //foo:target_b >& "$TEST_log" \
       || fail "Second build of target_b failed"
+}
+
+function test_skymeld_top_level_alias_notrack_incremental_state() {
+  mkdir -p real aliased chain pkg
+  cat > real/BUILD << 'EOF'
+genrule(
+    name = "real_bin",
+    outs = ["real.out"],
+    cmd = "sleep 3 && echo real > $@",
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > aliased/BUILD << 'EOF'
+alias(
+    name = "aliased_bin",
+    actual = "//real:real_bin",
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > chain/BUILD << 'EOF'
+alias(
+    name = "chain_bin",
+    actual = "//aliased:aliased_bin",
+)
+EOF
+
+  cat > pkg/BUILD << 'EOF'
+genrule(
+    name = "quick",
+    outs = ["quick.out"],
+    cmd = "echo quick > $@",
+)
+EOF
+
+  bazel build --experimental_merged_skyframe_analysis_execution \
+      --notrack_incremental_state \
+      //chain:chain_bin //pkg:quick >& "$TEST_log" \
+      || fail "Expected build to succeed"
 }
 
 run_suite "test for --discard_analysis_cache"

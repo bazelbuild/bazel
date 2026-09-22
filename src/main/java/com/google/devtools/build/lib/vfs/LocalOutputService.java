@@ -65,10 +65,10 @@ public class LocalOutputService implements OutputService {
       if (outputPath.isSymbolicLink()) {
         // Remove the existing symlink first.
         outputPath.delete();
-      }
-      if (localOutputPath.exists()) {
-        // Pre-existing local output directory. Move to outputPath.
-        localOutputPath.renameTo(outputPath);
+        if (localOutputPath.exists()) {
+          // Pre-existing local output directory. Move to outputPath.
+          localOutputPath.renameTo(outputPath);
+        }
       }
     } catch (IOException e) {
       throw new AbruptExitException(

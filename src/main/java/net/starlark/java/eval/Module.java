@@ -33,6 +33,7 @@ import net.starlark.java.syntax.Resolver;
 import net.starlark.java.syntax.StarlarkType;
 import net.starlark.java.syntax.TypeConstructor;
 import net.starlark.java.syntax.TypeTagger;
+import net.starlark.java.syntax.Types;
 
 /**
  * A {@link Module} represents a Starlark module, a container of global variables populated by
@@ -224,7 +225,7 @@ public final class Module implements Resolver.Module, TypeTagger.LoadableModule 
   public StarlarkType getUniversalSymbolType(String name) {
     @Nullable StarlarkType type = Starlark.UNIVERSAL_SYMBOL_TYPES.get(name);
     if (type == null && Starlark.UNIVERSE_EXTRA_TYPE_CONSTRUCTORS.containsKey(name)) {
-      type = TypeConstructorValue.TYPE;
+      type = Types.TYPE;
     }
     return type;
   }

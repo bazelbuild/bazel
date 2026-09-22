@@ -18,10 +18,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.remote.util.BulkTransfers.mergeBulkTransfer;
 import static com.google.devtools.build.lib.remote.util.Futures.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toListenableFuture;
-import static com.google.devtools.build.lib.remote.util.Utils.mergeBulkTransfer;
 import static io.reactivex.rxjava3.core.Completable.concat;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -162,7 +162,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
             }
             try {
               if (outputDirectoryHelper != null) {
-                outputDirectoryHelper.createOutputDirectory(dir, execRoot);
+                outputDirectoryHelper.createOutputDirectory(dir, execRoot.asFragment());
               } else {
                 dir.createDirectoryAndParents();
               }
@@ -460,8 +460,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         // directory. If it lies in an external repo backed by the remote repo contents cache, its
         // contents may only be available in memory and must be materialized to the local file
         // system for local actions to access them.
-        if (inputPath.getFileSystem() instanceof SubtreeMaterializer subtreeMaterializer) {
-          subtreeMaterializer.ensureSubtreeMaterialized(inputPath.asFragment());
+        if (inputPath.getFileSystem() instanceof LazyMaterializer lazyMaterializer) {
+          lazyMaterializer.ensureSubtreeMaterialized(inputPath.asFragment());
         }
         return immediateVoidFuture();
       }
@@ -853,12 +853,20 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   public void shutdown() {
     downloadCache.shutdown();
-    while (true) {
-      try {
-        downloadCache.awaitTermination();
-        break;
-      } catch (InterruptedException ignored) {
-        downloadCache.shutdownNow();
+    boolean interrupted = false;
+    try {
+      while (true) {
+        try {
+          downloadCache.awaitTermination();
+          break;
+        } catch (InterruptedException ignored) {
+          interrupted = true;
+          downloadCache.shutdownNow();
+        }
+      }
+    } finally {
+      if (interrupted) {
+        Thread.currentThread().interrupt();
       }
     }
   }

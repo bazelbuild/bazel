@@ -69,6 +69,15 @@ public interface CcToolchainProviderApi extends StarlarkValue {
   }
 
   @StarlarkMethod(
+      name = "disallowed_copts_infos",
+      doc = "Returns the list of disallowed_copts_info structs for disallowed copts enforcement.",
+      structField = true)
+  default void getDisallowedCoptsInfosForStarlark() {
+    throw new UnsupportedOperationException(
+        "Native CcToolchainInfo API no longer exists, use Starlark provider instead.");
+  }
+
+  @StarlarkMethod(
       name = "static_runtime_lib",
       doc =
           "Returns the files from `static_runtime_lib` attribute (so they can be passed to actions "

@@ -21,6 +21,7 @@ import static org.mockito.Mockito.mock;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
@@ -40,20 +41,26 @@ import com.google.devtools.build.lib.remote.RemoteActionInputFetcher;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestUtils;
+import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
+import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
@@ -111,11 +118,19 @@ public final class ActionOutputMetadataStoreTest {
 
   private ActionOutputMetadataStore createStore(
       ImmutableSet<Artifact> outputs, @Nullable FileSystem actionFs) {
+    return createStore(outputs, actionFs, /* batchStatter= */ null);
+  }
+
+  private ActionOutputMetadataStore createStore(
+      ImmutableSet<Artifact> outputs,
+      @Nullable FileSystem actionFs,
+      @Nullable BatchStat batchStatter) {
     return ActionOutputMetadataStore.create(
         /* archivedTreeArtifactsEnabled= */ false,
         OutputPermissions.READONLY,
         outputs,
         SyscallCache.NO_CACHE,
+        batchStatter,
         tsgm,
         ArtifactPathResolver.createPathResolver(actionFs, execRoot));
   }
@@ -243,6 +258,44 @@ public final class ActionOutputMetadataStoreTest {
     assertThat(store.getTreeArtifactValue(treeArtifact)).isEqualTo(tree);
     assertThat(store.getAllArtifactData()).isEmpty();
     assertThat(chmodCalls).isEmpty();
+  }
+
+  @Test
+  public void createsTreeArtifactValueUsingOneBatchStatOfFinalFilesystemState() throws Exception {
+    SpecialArtifact treeArtifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "foo/bar");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(treeArtifact, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(treeArtifact, "nested/child2");
+    scratch.file(child1.getPath().getPathString(), "staged child1");
+    scratch.file(child2.getPath().getPathString(), "child2");
+    ImmutableList.Builder<ImmutableList<PathFragment>> batches = ImmutableList.builder();
+    BatchStat batchStatter =
+        paths -> {
+          ImmutableList<PathFragment> batch = ImmutableList.copyOf(paths);
+          batches.add(batch);
+          ImmutableList.Builder<FileStatusWithDigest> stats = ImmutableList.builder();
+          for (PathFragment path : batch) {
+            stats.add(
+                FileStatusWithDigestAdapter.maybeAdapt(
+                    execRoot.getRelative(path).statIfFound(Symlinks.NOFOLLOW)));
+          }
+          return stats.build();
+        };
+    ActionOutputMetadataStore store =
+        createStore(
+            /* outputs= */ ImmutableSet.of(treeArtifact), /* actionFs= */ null, batchStatter);
+    scratch.overwriteFile(child1.getPath().getPathString(), "locally modified child1");
+    byte[] finalChild1Digest = child1.getPath().getDigest();
+
+    TreeArtifactValue tree = store.getTreeArtifactValue(treeArtifact);
+
+    ImmutableList<ImmutableList<PathFragment>> calls = batches.build();
+    assertThat(calls).hasSize(1);
+    assertThat(calls.get(0)).containsExactly(child1.getExecPath(), child2.getExecPath());
+    assertThat(tree.getChildren()).containsExactly(child1, child2);
+    assertThat(tree.getChildValues().get(child1).getDigest()).isEqualTo(finalChild1Digest);
+    assertThat(tree.getChildValues().get(child2).getDigest())
+        .isEqualTo(child2.getPath().getDigest());
   }
 
   @Test
@@ -625,6 +678,7 @@ public final class ActionOutputMetadataStoreTest {
             OutputPermissions.WRITABLE,
             /* outputs= */ ImmutableSet.of(output),
             SyscallCache.NO_CACHE,
+            /* batchStatter= */ null,
             tsgm,
             ArtifactPathResolver.IDENTITY);
     store.prepareForActionExecution();
@@ -777,5 +831,129 @@ public final class ActionOutputMetadataStoreTest {
 
     assertThat(symlinkMetadata).isEqualTo(targetMetadata);
     assertThat(DigestUtils.getCacheStats().hitCount()).isEqualTo(1);
+  }
+
+  @Test
+  public void outputTreeArtifact_withBatchStatter_allHits() throws Exception {
+    SpecialArtifact treeArtifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "foo/bar");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(treeArtifact, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(treeArtifact, "subdir/child2");
+    Path child1Path = scratch.file(child1.getPath().getPathString(), "contents1");
+    Path child2Path = scratch.file(child2.getPath().getPathString(), "contents2");
+
+    BatchStat batchStatter =
+        paths ->
+            ImmutableList.of(
+                FileStatusWithDigestAdapter.maybeAdapt(child1Path.statIfFound(Symlinks.NOFOLLOW)),
+                FileStatusWithDigestAdapter.maybeAdapt(child2Path.statIfFound(Symlinks.NOFOLLOW)));
+
+    ActionOutputMetadataStore store =
+        createStore(
+            /* outputs= */ ImmutableSet.of(treeArtifact), /* actionFs= */ null, batchStatter);
+    store.prepareForActionExecution();
+
+    FileArtifactValue treeMetadata = store.getOutputMetadata(treeArtifact);
+    FileArtifactValue child1Metadata = store.getOutputMetadata(child1);
+    FileArtifactValue child2Metadata = store.getOutputMetadata(child2);
+    TreeArtifactValue tree = store.getAllTreeArtifactData().get(treeArtifact);
+
+    assertThat(tree.getMetadata()).isEqualTo(treeMetadata);
+    assertThat(tree.getChildValues())
+        .containsExactly(child1, child1Metadata, child2, child2Metadata);
+    assertThat(store.getTreeArtifactValue(treeArtifact)).isEqualTo(tree);
+  }
+
+  @Test
+  public void outputTreeArtifact_withBatchStatter_partialHitsFallsBackToFilesystem()
+      throws Exception {
+    SpecialArtifact treeArtifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "foo/bar");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(treeArtifact, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(treeArtifact, "subdir/child2");
+    Path child1Path = scratch.file(child1.getPath().getPathString(), "contents1");
+    scratch.file(child2.getPath().getPathString(), "contents2");
+
+    // Return stat for child1, but null for child2
+    BatchStat batchStatter =
+        paths ->
+            Arrays.asList(
+                FileStatusWithDigestAdapter.maybeAdapt(child1Path.statIfFound(Symlinks.NOFOLLOW)),
+                null);
+
+    ActionOutputMetadataStore store =
+        createStore(
+            /* outputs= */ ImmutableSet.of(treeArtifact), /* actionFs= */ null, batchStatter);
+    store.prepareForActionExecution();
+
+    FileArtifactValue treeMetadata = store.getOutputMetadata(treeArtifact);
+    FileArtifactValue child1Metadata = store.getOutputMetadata(child1);
+    FileArtifactValue child2Metadata = store.getOutputMetadata(child2);
+    TreeArtifactValue tree = store.getAllTreeArtifactData().get(treeArtifact);
+
+    assertThat(tree.getMetadata()).isEqualTo(treeMetadata);
+    assertThat(tree.getChildValues())
+        .containsExactly(child1, child1Metadata, child2, child2Metadata);
+    assertThat(store.getTreeArtifactValue(treeArtifact)).isEqualTo(tree);
+  }
+
+  @Test
+  public void outputTreeArtifact_withBatchStatter_allMissesFallsBackToFilesystem()
+      throws Exception {
+    SpecialArtifact treeArtifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "foo/bar");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(treeArtifact, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(treeArtifact, "subdir/child2");
+    scratch.file(child1.getPath().getPathString(), "contents1");
+    scratch.file(child2.getPath().getPathString(), "contents2");
+
+    // Return null for all paths
+    BatchStat batchStatter = paths -> Collections.nCopies(Iterables.size(paths), null);
+
+    ActionOutputMetadataStore store =
+        createStore(
+            /* outputs= */ ImmutableSet.of(treeArtifact), /* actionFs= */ null, batchStatter);
+    store.prepareForActionExecution();
+
+    FileArtifactValue treeMetadata = store.getOutputMetadata(treeArtifact);
+    FileArtifactValue child1Metadata = store.getOutputMetadata(child1);
+    FileArtifactValue child2Metadata = store.getOutputMetadata(child2);
+    TreeArtifactValue tree = store.getAllTreeArtifactData().get(treeArtifact);
+
+    assertThat(tree.getMetadata()).isEqualTo(treeMetadata);
+    assertThat(tree.getChildValues())
+        .containsExactly(child1, child1Metadata, child2, child2Metadata);
+    assertThat(store.getTreeArtifactValue(treeArtifact)).isEqualTo(tree);
+  }
+
+  @Test
+  public void outputTreeArtifact_withBatchStatter_ioExceptionFallsBackToFilesystem()
+      throws Exception {
+    SpecialArtifact treeArtifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "foo/bar");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(treeArtifact, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(treeArtifact, "subdir/child2");
+    scratch.file(child1.getPath().getPathString(), "contents1");
+    scratch.file(child2.getPath().getPathString(), "contents2");
+
+    BatchStat batchStatter =
+        paths -> {
+          throw new IOException("BatchStat RPC failure simulation");
+        };
+
+    ActionOutputMetadataStore store =
+        createStore(
+            /* outputs= */ ImmutableSet.of(treeArtifact), /* actionFs= */ null, batchStatter);
+    store.prepareForActionExecution();
+
+    FileArtifactValue treeMetadata = store.getOutputMetadata(treeArtifact);
+    FileArtifactValue child1Metadata = store.getOutputMetadata(child1);
+    FileArtifactValue child2Metadata = store.getOutputMetadata(child2);
+    TreeArtifactValue tree = store.getAllTreeArtifactData().get(treeArtifact);
+
+    assertThat(tree.getMetadata()).isEqualTo(treeMetadata);
+    assertThat(tree.getChildValues())
+        .containsExactly(child1, child1Metadata, child2, child2Metadata);
+    assertThat(store.getTreeArtifactValue(treeArtifact)).isEqualTo(tree);
   }
 }

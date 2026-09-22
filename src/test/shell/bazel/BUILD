@@ -490,7 +490,10 @@ sh_test(
     srcs = ["bazel_spawnstats_test.sh"],
     data = [":test-deps"],
     exec_group_compatible_with = {
-        "test": ["//:highcpu_machine"],
+        "test": [
+            "//:highcpu_machine",
+            "//:mount_capable",
+        ],
     },
     tags = ["no_windows"],
 )
@@ -1338,6 +1341,17 @@ genquery(
     name = "srcs_list",
     expression = "kind(\"source file\", deps(//:srcs))",
     scope = ["//:srcs"],
+)
+
+sh_test(
+    name = "list_source_repository_test",
+    size = "small",
+    srcs = ["list_source_repository_test.sh"],
+    data = [
+        ":list_source_repository.bzl",
+        ":test-deps",
+    ],
+    tags = ["no_windows"],
 )
 
 sh_test(

@@ -34,7 +34,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.gson.JsonSyntaxException;
+import com.google.gson.JsonParseException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.regex.Matcher;
@@ -68,6 +68,10 @@ public class BazelLockFileFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws BazelLockfileFunctionException, InterruptedException {
+    if (LOCKFILE_MODE.get(env) == LockfileMode.OFF) {
+      return BazelLockFileValue.EMPTY_LOCKFILE;
+    }
+
     boolean forHiddenLockfile = skyKey == BazelLockFileValue.HIDDEN_KEY;
     RootedPath lockfilePath =
         RootedPath.toRootedPath(
@@ -86,10 +90,7 @@ public class BazelLockFileFunction implements SkyFunction {
                 forHiddenLockfile ? "parse hidden lockfile" : "parse lockfile")) {
       return getLockfileValue(
           lockfilePath, forHiddenLockfile ? LockfileMode.UPDATE : LOCKFILE_MODE.get(env));
-    } catch (IOException
-        | JsonSyntaxException
-        | NullPointerException
-        | IllegalArgumentException e) {
+    } catch (IOException | JsonParseException | NullPointerException | IllegalArgumentException e) {
       if (forHiddenLockfile) {
         return BazelLockFileValue.EMPTY_LOCKFILE;
       }
@@ -158,15 +159,12 @@ public class BazelLockFileFunction implements SkyFunction {
       return false;
     }
     for (var extensionMap : lockFileValue.getModuleExtensions().values()) {
-      if (extensionMap == null) {
-        return false;
-      }
-      for (LockFileModuleExtension extension : extensionMap.values()) {
-        if (extension == null || extension.getGeneratedRepoSpecs() == null) {
+      for (var extension : extensionMap.values()) {
+        if (extension.getGeneratedRepoSpecs() == null) {
           return false;
         }
-        for (RepoSpec repoSpec : extension.getGeneratedRepoSpecs().values()) {
-          if (repoSpec == null || repoSpec.repoRuleId() == null) {
+        for (var repoSpec : extension.getGeneratedRepoSpecs().values()) {
+          if (repoSpec.repoRuleId() == null) {
             return false;
           }
         }

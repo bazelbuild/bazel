@@ -3,7 +3,7 @@ load("@rules_java//java:defs.bzl", "java_library")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
@@ -23,8 +23,8 @@ java_library(
         "FsApparatus.java",
     ],
     visibility = [
-        "//src:__subpackages__",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib:test_lib",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/clock",

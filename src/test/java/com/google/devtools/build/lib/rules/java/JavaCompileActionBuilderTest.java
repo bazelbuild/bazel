@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.remote.RemoteActionFileSystem;
 import com.google.devtools.build.lib.remote.RemoteActionInputFetcher;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
@@ -85,10 +84,7 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
     MoreAsserts.assertContainsSublist(
         command,
         "--output",
-        targetConfig
-            .getBinFragment(RepositoryName.MAIN)
-            .getRelative("java/com/google/test/a.jar")
-            .getPathString());
+        targetConfig.getBinFragment().getRelative("java/com/google/test/a.jar").getPathString());
   }
 
   @Test

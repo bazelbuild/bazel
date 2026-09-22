@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -171,6 +172,9 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     }
     ImmutableList.Builder<TargetPattern> executionPlatforms = ImmutableList.builder();
     for (Module module : bazelDepGraphValue.getDepGraph().values()) {
+      if (module.getExecutionPlatformsToRegister().isEmpty()) {
+        continue;
+      }
       TargetPattern.Parser parser =
           new TargetPattern.Parser(
               PathFragment.EMPTY_FRAGMENT,
@@ -255,16 +259,16 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     }
 
     InvalidExecutionPlatformLabelException(String invalidPattern, TargetParsingException e) {
-      super(
-          String.format(
-              "invalid registered execution platform '%s': %s", invalidPattern, e.getMessage()),
-          e);
+      super(formatMessage(invalidPattern, e.getMessage()), e);
     }
 
     public InvalidExecutionPlatformLabelException(Label platform, InvalidConfigurationException e) {
-      super(
-          String.format("invalid registered execution platform '%s': %s", platform, e.getMessage()),
-          e);
+      super(formatMessage(platform.getCanonicalForm(), e.getMessage()), e);
+    }
+
+    private static String formatMessage(String invalidPattern, String reason) {
+      return StringUtil.formatNested(
+          String.format("invalid registered execution platform '%s'", invalidPattern), reason);
     }
 
     @Override

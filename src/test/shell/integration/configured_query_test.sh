@@ -1819,4 +1819,45 @@ EOF
   expect_log "//$pkg:target_3.txt"
 }
 
+function test_rdeps_missing_target_no_npe() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  touch $pkg/dep.txt
+  touch $pkg/{1,2}.txt
+  cat > $pkg/BUILD <<'EOF'
+filegroup(
+    name = "dep",
+    srcs = ["dep.txt"],
+)
+
+filegroup(
+    name = "valid",
+    srcs = [
+        "1.txt",
+        ":dep",
+    ],
+)
+
+filegroup(
+    name = "missing_input",
+    srcs = [
+        "2.txt",
+        ":dep",
+    ],
+)
+EOF
+
+  bazel cquery "rdeps(//$pkg:all, //$pkg:dep)" > output 2>"$TEST_log" || fail "Unexpected failure"
+  expect_log "//$pkg:valid"
+  expect_log "//$pkg:missing_input"
+
+  # Remove input file to leave a broken target in the reverse dependency graph
+  rm $pkg/2.txt
+  bazel cquery --keep_going "rdeps(//$pkg:all, //$pkg:dep, 1)" > output 2>"$TEST_log" || true
+
+  expect_not_log "NullPointerException"
+  expect_not_log "crashed due to an internal error"
+  expect_log "//$pkg:valid"
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"

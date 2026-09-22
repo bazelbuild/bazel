@@ -15,6 +15,8 @@
 #ifndef SRC_TOOLS_SINGLEJAR_COMBINERS_H_
 #define SRC_TOOLS_SINGLEJAR_COMBINERS_H_ 1
 
+#include <cstddef>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <string>

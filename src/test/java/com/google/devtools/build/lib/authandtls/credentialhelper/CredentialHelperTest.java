@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.authandtls.credentialhelper;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.util.OsUtils.executableExtension;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
@@ -47,7 +48,7 @@ public class CredentialHelperTest {
   private static final PathFragment TEST_CREDENTIAL_HELPER_PATH =
       PathFragment.create(
           "io_bazel/src/test/java/com/google/devtools/build/lib/authandtls/credentialhelper/test_credential_helper"
-              + (OS.getCurrent() == OS.WINDOWS ? ".exe" : ""));
+              + executableExtension());
 
   private static final Reporter reporter =
       new Reporter(EventBusEventHandler.createWithNewEventBus());

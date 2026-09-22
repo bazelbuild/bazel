@@ -53,7 +53,6 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.Phaser;
 import javax.annotation.Nullable;
 
 /**
@@ -134,14 +133,9 @@ public class DownloadManager {
       Path output,
       Map<String, String> clientEnv,
       String context,
-      Phaser downloadPhaser,
       boolean mayHardlink) {
     return executorService.submit(
         () -> {
-          if (downloadPhaser.register() != 0) {
-            // Not in download phase, must already have been cancelled.
-            throw new InterruptedException();
-          }
           try (SilentCloseable c = Profiler.instance().profile("fetching: " + context)) {
             return downloadInExecutor(
                 originalUrls,
@@ -154,8 +148,6 @@ public class DownloadManager {
                 clientEnv,
                 context,
                 mayHardlink);
-          } finally {
-            downloadPhaser.arrive();
           }
         });
   }

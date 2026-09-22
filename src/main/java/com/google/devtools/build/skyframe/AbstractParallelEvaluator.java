@@ -32,7 +32,9 @@ import com.google.common.graph.ImmutableGraph;
 import com.google.common.graph.Traverser;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
+import com.google.devtools.build.lib.concurrent.QuiescingTask;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
@@ -156,10 +158,11 @@ abstract class AbstractParallelEvaluator {
   }
 
   /** * An action that evaluates a value. */
-  private final class Evaluate implements Runnable {
+  private final class Evaluate extends QuiescingTask {
     private final SkyKey skyKey;
 
     private Evaluate(SkyKey skyKey) {
+      super((AbstractQueueVisitor) evaluatorContext.getExecutor());
       this.skyKey = skyKey;
     }
 
@@ -353,17 +356,12 @@ abstract class AbstractParallelEvaluator {
           // Replay events once change-pruned.
           replay(ValueWithMetadata.getEvents(valueMaybeWithMetadata));
           // Tell the receiver that the value was not actually changed this run.
-          // BUILD_DRIVER nodes are an exception: even when change-pruned (versionChanged == false),
-          // their value must be passed to the progress receiver so that ExecutionProgressReceiver
-          // can post completion events. See BuildDriverKey.
           evaluatorContext
               .getProgressReceiver()
               .evaluated(
                   skyKey,
                   EvaluationState.get(valueMaybeWithMetadata, /* versionChanged= */ false),
-                  /* newValue= */ skyKey.functionName().getName().equals("BUILD_DRIVER")
-                      ? ValueWithMetadata.justValue(valueMaybeWithMetadata)
-                      : null,
+                  /* newValue= */ null,
                   /* newError= */ null,
                   /* directDeps= */ null);
           if (!evaluatorContext.keepGoing(skyKey) && nodeEntry.getErrorInfo() != null) {
@@ -417,7 +415,7 @@ abstract class AbstractParallelEvaluator {
     }
 
     @Override
-    public void run() {
+    public void runCore() {
       SkyFunctionEnvironment env = null;
       try {
         NodeEntry nodeEntry = graph.get(null, Reason.EVALUATION, skyKey);

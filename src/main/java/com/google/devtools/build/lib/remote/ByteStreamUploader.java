@@ -25,7 +25,6 @@ import com.google.bytestream.ByteStreamGrpc.ByteStreamStub;
 import com.google.bytestream.ByteStreamProto.QueryWriteStatusRequest;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Strings;
 import com.google.common.util.concurrent.AsyncCallable;
@@ -47,7 +46,6 @@ import io.grpc.stub.ClientResponseObserver;
 import io.netty.util.ReferenceCounted;
 import java.io.IOException;
 import java.util.UUID;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
@@ -67,8 +65,6 @@ final class ByteStreamUploader {
   private final DigestFunction.Value digestFunction;
   private final AtomicBoolean queryWriteStatusImplemented = new AtomicBoolean(true);
 
-  @Nullable private final Semaphore openedFilePermits;
-
   /**
    * Creates a new instance.
    *
@@ -83,13 +79,11 @@ final class ByteStreamUploader {
       ReferenceCountedChannel channel,
       CallCredentialsProvider callCredentialsProvider,
       RemoteRetrier retrier,
-      int maximumOpenFiles,
       DigestFunction.Value digestFunction) {
     this.instanceName = instanceName;
     this.channel = channel;
     this.callCredentialsProvider = callCredentialsProvider;
     this.retrier = retrier;
-    this.openedFilePermits = maximumOpenFiles != -1 ? new Semaphore(maximumOpenFiles) : null;
     this.digestFunction = digestFunction;
   }
 
@@ -161,27 +155,9 @@ final class ByteStreamUploader {
     UUID uploadId = UUID.randomUUID();
     String resourceName =
         buildUploadResourceName(instanceName, uploadId, digest, chunker.isCompressed());
-    if (openedFilePermits != null) {
-      try {
-        openedFilePermits.acquire();
-      } catch (InterruptedException e) {
-        return Futures.immediateFailedFuture(
-            new InterruptedException(
-                "Unexpected interrupt while acquiring open file permit. Original error message: "
-                    + e.getMessage()));
-      }
-    }
     AsyncUpload newUpload =
         new AsyncUpload(context, channel, callCredentialsProvider, retrier, resourceName, chunker);
-    ListenableFuture<Void> currUpload = newUpload.start();
-    currUpload.addListener(
-        () -> {
-          if (openedFilePermits != null) {
-            openedFilePermits.release();
-          }
-        },
-        MoreExecutors.directExecutor());
-    return currUpload;
+    return newUpload.start();
   }
 
   /**
@@ -437,9 +413,9 @@ final class ByteStreamUploader {
         if (Ascii.toLowerCase(e.getMessage()).contains(Ascii.toLowerCase(tooManyOpenFilesError))) {
           String newMessage =
               "An IOException was thrown because the process opened too many files. We recommend"
-                  + " setting --bep_maximum_open_remote_upload_files flag to a number lower than"
-                  + " your system default (run 'ulimit -a' for *nix-based operating systems)."
-                  + " Original error message: "
+                  + " checking your system configuration (run 'ulimit -a' for *nix-based operating"
+                  + " systems) or setting --bep_maximum_open_remote_upload_files flag for BEP"
+                  + " uploads. Original error message: "
                   + e.getMessage();
           e = new IOException(newMessage, e);
         }
@@ -474,10 +450,5 @@ final class ByteStreamUploader {
       uploadResult.setException(
           (Status.fromThrowable(t).getCode() == Code.ALREADY_EXISTS) ? new AlreadyExists() : t);
     }
-  }
-
-  @VisibleForTesting
-  public Semaphore getOpenedFilePermits() {
-    return openedFilePermits;
   }
 }

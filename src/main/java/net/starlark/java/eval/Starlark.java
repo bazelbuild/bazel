@@ -359,14 +359,13 @@ public final class Starlark {
    * x}. A Starlark value is iterable if it implements {@link StarlarkIterable}.
    */
   public static Object[] toArray(Object x) throws EvalException {
-    // Specialize Sequence and Dict to avoid allocation and/or indirection.
-    if (x instanceof Sequence) {
-      return ((Sequence<?>) x).toArray();
-    } else if (x instanceof Dict) {
-      return ((Dict<?, ?>) x).keySet().toArray();
-    } else {
-      return Iterables.toArray(toIterable(x), Object.class);
-    }
+    // Specialize common types to avoid allocation and/or indirection.
+    return switch (x) {
+      case Sequence<?> seq -> seq.toArray();
+      case Dict<?, ?> dict -> dict.keySet().toArray();
+      case StarlarkSet<?> set -> set.toArray();
+      case null, default -> Iterables.toArray(toIterable(x), Object.class);
+    };
   }
 
   /**

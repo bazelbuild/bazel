@@ -21,7 +21,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_util",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/protobuf:remote_execution_log_java_proto",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
+        "//src/test/java/com/google/devtools/build/lib:AllTests",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party/google/bytestream:bytestream_grpc",
         "//third_party/google/bytestream:bytestream_java_proto",

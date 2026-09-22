@@ -31,10 +31,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -104,7 +105,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   private volatile boolean jobsMustBeStopped = false;
 
   /** Map from thread to number of jobs executing in the thread. Used for interrupt handling. */
-  private final Map<Thread, AtomicLong> jobs = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<Thread, AtomicInteger> jobs = new ConcurrentHashMap<>();
 
   private final ExecutorService executorService;
 
@@ -296,7 +297,13 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         zeroRemainingTasksCondition.await();
       }
     } finally {
-      zeroRemainingTasksLock.unlock();
+      try {
+        if (remainingTasks.get() == 0) {
+          jobs.clear();
+        }
+      } finally {
+        zeroRemainingTasksLock.unlock();
+      }
     }
   }
 
@@ -308,44 +315,70 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
    * already been interrupted. For more details, see:
    *
    * <ul>
-   *   <li>{@link WrappedRunnable#run()} immediate returns without executing the {@code
-   *       originalRunnable} when {@link #blockNewActions()} returns true,
+   *   <li>{@link QuiescingTask#exec()} returns without executing the action when {@link
+   *       #blockNewActions()} returns true,
    *   <li>{@link #recordError} swallows {@link RejectedExecutionException} thrown by the
    *       interrupted thread.
    * </ul>
    */
   @Override
   public final void execute(Runnable runnable) {
-    executeWithExecutorService(runnable, executorService);
+    execute(wrapRunnable(runnable));
   }
 
-  protected void executeWithExecutorService(Runnable runnable, ExecutorService executorService) {
-    WrappedRunnable wrappedRunnable = new WrappedRunnable(runnable);
+  @Override
+  public void execute(QuiescingTask task) {
+    incrementRemainingTasks();
+    executeQuiescingTask(task, executorService);
+  }
+
+  protected final QuiescingTask wrapRunnable(Runnable runnable) {
+    if (runnable instanceof QuiescingTask task) {
+      return task;
+    }
+    return new RunnableQuiescingTask(this, runnable);
+  }
+
+  void incrementRemainingTasks() {
+    long tasks = remainingTasks.incrementAndGet();
+    Preconditions.checkState(
+        tasks > 0,
+        "Incrementing remaining tasks counter resulted in impossible non-positive number.");
+  }
+
+  private static final class RunnableQuiescingTask extends QuiescingTask {
+    private final Runnable runnable;
+
+    private RunnableQuiescingTask(AbstractQueueVisitor visitor, Runnable runnable) {
+      super(visitor);
+      this.runnable = Preconditions.checkNotNull(runnable);
+    }
+
+    @Override
+    public void runCore() {
+      runnable.run();
+    }
+  }
+
+  protected void executeQuiescingTask(QuiescingTask task, ExecutorService executorService) {
     try {
-      // It's impossible for this increment to result in remainingTasks.get <= 0 because
-      // remainingTasks is never negative. Therefore it isn't necessary to check its value for
-      // the purpose of updating zeroRemainingTasks.
-      long tasks = remainingTasks.incrementAndGet();
-      Preconditions.checkState(
-          tasks > 0,
-          "Incrementing remaining tasks counter resulted in impossible non-positive number.");
-      executeWrappedRunnable(wrappedRunnable, executorService);
+      if (executorService instanceof ForkJoinPool forkJoinPool) {
+        if (forkJoinPool.equals(ForkJoinTask.getPool())) {
+          task.fork();
+        } else {
+          forkJoinPool.execute((ForkJoinTask<?>) task);
+        }
+      } else {
+        executorService.execute(task);
+      }
     } catch (Throwable e) {
-      if (!wrappedRunnable.ran) {
-        // Note that keeping track of ranTask is necessary to disambiguate the case where
-        // execute() itself failed, vs. a caller-runs policy on pool exhaustion, where the
-        // runnable threw. To be extra cautious, we decrement the task count in a finally
-        // block, even though the CountDownLatch is unlikely to throw.
-        recordError(e, wrappedRunnable);
+      if (!task.hasRun()) {
+        recordError(e, task);
       }
     }
   }
 
-  protected void executeWrappedRunnable(WrappedRunnable runnable, ExecutorService executorService) {
-    executorService.execute(runnable);
-  }
-
-  private synchronized void maybeSaveUnhandledThrowable(Throwable e, boolean markToStopJobs) {
+  synchronized void maybeSaveUnhandledThrowable(Throwable e, boolean markToStopJobs) {
     boolean critical = false;
     ErrorClassification errorClassification = errorClassifier.classify(e);
     switch (errorClassification) {
@@ -380,94 +413,29 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     }
   }
 
-  private void recordError(Throwable e, WrappedRunnable wrappedRunnable) {
+  private void recordError(Throwable e, QuiescingTask task) {
     try {
-      // If threadInterrupted is true, then RejectedExecutionExceptions are expected. There's no
-      // need to remember them, but there is a need to call decrementRemainingTasks, which is
-      // satisfied by the finally block below.
       if (e instanceof RejectedExecutionException && threadInterrupted) {
         return;
       }
       catastrophe = e;
-      maybeSaveUnhandledThrowable(e, /*markToStopJobs=*/ false);
+      maybeSaveUnhandledThrowable(e, /* markToStopJobs= */ false);
     } finally {
-      wrappedRunnable.decrementRemainingTasksOnce();
+      task.decrementRemainingTasksOnce();
     }
   }
 
-  /**
-   * A wrapped {@link Runnable} that:
-   *
-   * <ul>
-   *   <li>Sets {@link #run} to {@code true} when {@code WrappedRunnable} is run,
-   *   <li>Records the thread evaluating {@code r} in {@link #jobs} while {@code r} is evaluated,
-   *   <li>Prevents {@link #originalRunnable} from being invoked if {@link #blockNewActions} returns
-   *       {@code true},
-   *   <li>Synchronously invokes {@code runnable.run()},
-   *   <li>Catches any {@link Throwable} thrown by {@code runnable.run()}, and if it is the most
-   *       severe {@link Throwable} seen by this {@link AbstractQueueVisitor}, assigns it to {@link
-   *       #unhandled}, and sets {@link #jobsMustBeStopped} if necessary,
-   *   <li>And, lastly, calls {@link #decrementRemainingTasks}.
-   * </ul>
-   */
-  protected final class WrappedRunnable implements Runnable {
-    private static final AtomicIntegerFieldUpdater<WrappedRunnable> DECREMENTED_UPDATER =
-        AtomicIntegerFieldUpdater.newUpdater(WrappedRunnable.class, "decremented");
-
-    private final Runnable originalRunnable;
-    private volatile boolean ran;
-
-    @SuppressWarnings("unused") // Accessed via DECREMENTED_UPDATER
-    volatile int decremented;
-
-    private WrappedRunnable(Runnable originalRunnable) {
-      this.originalRunnable = originalRunnable;
+  void addJob(Thread thread) {
+    // Fast-path get() avoids monitor lock contention on hash collision bins in computeIfAbsent.
+    AtomicInteger count = jobs.get(thread);
+    if (count == null) {
+      count = jobs.computeIfAbsent(thread, k -> new AtomicInteger());
     }
-
-    void decrementRemainingTasksOnce() {
-      if (DECREMENTED_UPDATER.compareAndSet(this, 0, 1)) {
-        decrementRemainingTasks();
-      }
-    }
-
-    @Override
-    public void run() {
-      ran = true;
-      Thread thread = null;
-      boolean addedJob = false;
-      try {
-        thread = Thread.currentThread();
-        addJob(thread);
-        addedJob = true;
-        if (blockNewActions()) {
-          // Make any newly enqueued tasks quickly die. We check after adding to the jobs map so
-          // that if another thread is racing to kill this thread and didn't make it before this
-          // conditional, it will be able to find and kill this thread anyway.
-          return;
-        }
-        originalRunnable.run();
-      } catch (Throwable e) {
-        maybeSaveUnhandledThrowable(e, /*markToStopJobs=*/ true);
-      } finally {
-        try {
-          if (thread != null && addedJob) {
-            removeJob(thread);
-          }
-        } finally {
-          decrementRemainingTasksOnce();
-        }
-      }
-    }
+    count.incrementAndGet();
   }
 
-  private void addJob(Thread thread) {
-    jobs.computeIfAbsent(thread, k -> new AtomicLong()).incrementAndGet();
-  }
-
-  private void removeJob(Thread thread) {
-    if (jobs.get(thread).decrementAndGet() == 0) {
-      jobs.remove(thread);
-    }
+  void removeJob(Thread thread) {
+    jobs.get(thread).decrementAndGet();
   }
 
   /** Set an internal flag to show that an interrupt was detected. */
@@ -475,7 +443,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     threadInterrupted = true;
   }
 
-  private void decrementRemainingTasks() {
+  void decrementRemainingTasks() {
     // This decrement statement may result in remainingTasks.get() == 0, so it must be checked
     // and the zeroRemainingTasks condition object notified if that condition is obtained.
     long tasks = remainingTasks.decrementAndGet();
@@ -625,7 +593,13 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         }
       }
     } finally {
-      zeroRemainingTasksLock.unlock();
+      try {
+        if (remainingTasks.get() == 0) {
+          jobs.clear();
+        }
+      } finally {
+        zeroRemainingTasksLock.unlock();
+      }
     }
 
     if (executorOwnership == ExecutorOwnership.PRIVATE) {
@@ -648,8 +622,9 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
 
   private void interruptInFlightTasks() {
     Thread thisThread = Thread.currentThread();
-    for (Thread thread : jobs.keySet()) {
-      if (thisThread != thread) {
+    for (Map.Entry<Thread, AtomicInteger> entry : jobs.entrySet()) {
+      Thread thread = entry.getKey();
+      if (entry.getValue().get() > 0 && thisThread != thread) {
         thread.interrupt();
       }
     }

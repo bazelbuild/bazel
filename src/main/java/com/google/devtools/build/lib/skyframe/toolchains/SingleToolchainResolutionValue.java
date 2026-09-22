@@ -31,6 +31,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * A value which represents the map of potential execution platforms and resolved toolchains for a
@@ -41,11 +42,14 @@ import java.util.List;
  *     for the requested toolchain type, keyed by the execution platforms (as {@link
  *     ConfiguredTargetKey}). Ordering is not preserved, if the caller cares about the order of
  *     platforms it must take care of that directly.
+ * @param resolutionDiagnostic Human-readable diagnostic explaining why candidate toolchains failed
+ *     resolution when no matching toolchain was found, or null if resolution succeeded.
  */
 @AutoCodec
 public record SingleToolchainResolutionValue(
     ToolchainTypeInfo toolchainType,
-    ImmutableMap<ConfiguredTargetKey, Label> availableToolchainLabels)
+    ImmutableMap<ConfiguredTargetKey, Label> availableToolchainLabels,
+    @Nullable String resolutionDiagnostic)
     implements SkyValue {
   public SingleToolchainResolutionValue {
     requireNonNull(toolchainType, "toolchainType");
@@ -126,7 +130,16 @@ public record SingleToolchainResolutionValue(
   public static SingleToolchainResolutionValue create(
       ToolchainTypeInfo toolchainType,
       ImmutableMap<ConfiguredTargetKey, Label> availableToolchainLabels) {
-    return new SingleToolchainResolutionValue(toolchainType, availableToolchainLabels);
+    return new SingleToolchainResolutionValue(toolchainType, availableToolchainLabels, null);
+  }
+
+  @VisibleForTesting
+  public static SingleToolchainResolutionValue create(
+      ToolchainTypeInfo toolchainType,
+      ImmutableMap<ConfiguredTargetKey, Label> availableToolchainLabels,
+      @Nullable String resolutionDiagnostic) {
+    return new SingleToolchainResolutionValue(
+        toolchainType, availableToolchainLabels, resolutionDiagnostic);
   }
 
 }

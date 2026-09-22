@@ -423,7 +423,7 @@ public abstract class BuildRequestOptions extends OptionsBase {
 
   @Option(
       name = "experimental_precise_rewinding",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
@@ -458,6 +458,29 @@ public abstract class BuildRequestOptions extends OptionsBase {
           "If set, build will read patterns from the file named here, rather than on the command "
               + "line. It is an error to specify a file here as well as command-line patterns.")
   public abstract String getTargetPatternFile();
+
+  @Option(
+      name = "target_query",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "If set, build will evaluate the query expression and build the resulting targets. "
+              + "Example: --target_query='deps(//foo) - deps(//bar)'. May be combined with "
+              + "command-line target patterns. Cannot be used with --target_pattern_file or "
+              + "--target_query_file.")
+  public abstract String getTargetQuery();
+
+  @Option(
+      name = "target_query_file",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "If set, build will read a query expression from the file named here and build the "
+              + "resulting targets. May be combined with command-line target patterns. Cannot be "
+              + "used with --target_pattern_file or --target_query.")
+  public abstract String getTargetQueryFile();
 
   /**
    * Do not use directly. Instead use {@link

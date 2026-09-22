@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
+import static com.google.devtools.build.lib.util.OsUtils.executableExtension;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import build.bazel.remote.execution.v2.Digest;
@@ -43,8 +44,7 @@ public final class IntegrationTestUtils {
   private IntegrationTestUtils() {}
 
   private static final String WORKER_RLOCATIONPATH =
-      "io_bazel/src/tools/remote/worker"
-          + (OS.getCurrent() == OS.WINDOWS ? ".exe" : "");
+      "io_bazel/src/tools/remote/worker" + executableExtension();
 
   /**
    * Manages a remote worker instance as a {@link TestRule}.

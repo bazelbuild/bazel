@@ -71,7 +71,6 @@ public class SuccessfulArtifactFilterTest {
     ctx =
         new TopLevelArtifactContext(
             false,
-            false,
             ImmutableSortedSet.copyOf(groupProvider),
             /* failOnUnknownOutputGroups= */ false,
             /* forRunCommand= */ false);

@@ -62,6 +62,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -216,7 +217,7 @@ public class BzlLoadFunction implements SkyFunction {
    * <p><b>USAGE NOTES:</b>
    *
    * <ul>
-   *   <li>This method is intended to be called from {@link PackageFunction} and {@link
+   *   <li>This method is intended to be called from {@code PackageFunction} and {@link
    *       StarlarkBuiltinsFunction} and probably shouldn't be used anywhere else. If you think you
    *       need inline Starlark computation, consult with the Core subteam and check out
    *       cl/305127325 for an example of correcting a misuse.
@@ -392,7 +393,7 @@ public class BzlLoadFunction implements SkyFunction {
    * An opaque object that holds state for the bzl inlining computation initiated by {@link
    * #computeInline}.
    *
-   * <p>An original caller of {@code computeInline} (e.g., {@link PackageFunction}) should obtain
+   * <p>An original caller of {@code computeInline} (e.g., {@code PackageFunction}) should obtain
    * one of these objects using {@link InliningState#create}. When the same caller makes several
    * calls to {@code computeInline} (e.g., for multiple top-level loads in the same BUILD file), the
    * same object must be passed to each call.
@@ -849,8 +850,9 @@ public class BzlLoadFunction implements SkyFunction {
     }
 
     // Retrieve predeclared symbols and complete the digest computation.
+    BzlCompileValue.TypeOptions typeOptions = compileValue.getTypeOptions();
     ImmutableMap<String, Object> predeclared =
-        getAndDigestPredeclaredEnvironment(key, builtins, fp);
+        getAndDigestPredeclaredEnvironment(key, builtins, fp, typeOptions);
     if (predeclared == null) {
       return null;
     }
@@ -875,7 +877,6 @@ public class BzlLoadFunction implements SkyFunction {
         Module.withPredeclaredAndData(builtins.starlarkSemantics, predeclared, bazelModuleContext);
 
     // Type-tag and type-check the program
-    BzlCompileValue.TypeOptions typeOptions = compileValue.getTypeOptions();
     if (typeOptions.wantStaticTypeChecking() || typeOptions.wantDynamicTypeChecking()) {
       try {
         prog =
@@ -894,6 +895,7 @@ public class BzlLoadFunction implements SkyFunction {
             transitiveDigest,
             ruleClassProvider.getToolsRepository(),
             ruleClassProvider.getNetworkAllowlistForTests(),
+            ruleClassProvider.getNoExplicitMnemonicAllowlist(),
             ruleClassProvider.getConfigurationFragmentMap(),
             mainRepoMapping);
 
@@ -1326,8 +1328,13 @@ public class BzlLoadFunction implements SkyFunction {
    */
   @Nullable
   private ImmutableMap<String, Object> getAndDigestPredeclaredEnvironment(
-      BzlLoadValue.Key key, StarlarkBuiltinsValue builtins, Fingerprint fp) {
+      BzlLoadValue.Key key,
+      StarlarkBuiltinsValue builtins,
+      Fingerprint fp,
+      BzlCompileValue.TypeOptions typeOptions) {
     BazelStarlarkEnvironment starlarkEnv = ruleClassProvider.getBazelStarlarkEnvironment();
+    boolean resolveTypeSyntax =
+        typeOptions.wantStaticTypeChecking() || typeOptions.wantDynamicTypeChecking();
     if (key.isSclDialect()) {
       // .scl doesn't use injection and doesn't care what kind of key it is.
       return starlarkEnv.getStarlarkGlobals().getSclToplevels();
@@ -1340,10 +1347,14 @@ public class BzlLoadFunction implements SkyFunction {
               .isEmpty();
       if (key instanceof BzlLoadValue.KeyForBuild) {
         if (injectionDisabled) {
-          return starlarkEnv.getUninjectedBuildBzlEnv();
+          return resolveTypeSyntax
+              ? starlarkEnv.getUninjectedBuildBzlEnvWithExtraTypeConstructors()
+              : starlarkEnv.getUninjectedBuildBzlEnv();
         }
         fp.addBytes(builtins.transitiveDigest);
-        return builtins.predeclaredForBuildBzl;
+        return resolveTypeSyntax
+            ? builtins.predeclaredForBuildBzlWithExtraTypeConstructors
+            : builtins.predeclaredForBuildBzl;
       } else if (key instanceof BzlLoadValue.KeyForBzlmod) {
         // TODO(#11954): We should converge all .bzl dialects regardless of whether they're loaded
         //  by BUILD or MODULE.
@@ -1361,7 +1372,9 @@ public class BzlLoadFunction implements SkyFunction {
         // should just live in @bazel_tools instead.
         return builtins.predeclaredForModuleBzl;
       } else if (key instanceof BzlLoadValue.KeyForBuiltins) {
-        return starlarkEnv.getBuiltinsBzlEnv();
+        return resolveTypeSyntax
+            ? starlarkEnv.getBuiltinsBzlEnvWithExtraTypeConstructors()
+            : starlarkEnv.getBuiltinsBzlEnv();
       } else {
         throw new AssertionError("Unknown key type: " + key.getClass());
       }
@@ -1507,6 +1520,19 @@ public class BzlLoadFunction implements SkyFunction {
         if (value != null) {
           bzlCompileCache.put(key, value);
         }
+      } else {
+        // The cache hit may have been populated on behalf of a different BzlLoadValue node with
+        // the same compile key; make sure this node depends on the .bzl file too.
+        var bzlFileKey = key.getBzlFileKey();
+        if (bzlFileKey != null) {
+          try {
+            if (env.getValueOrThrow(bzlFileKey, IOException.class) == null) {
+              return null;
+            }
+          } catch (IOException e) {
+            throw new BzlCompileFunction.FailedIOException(e, Transience.PERSISTENT);
+          }
+        }
       }
       return value;
     }
@@ -1574,7 +1600,7 @@ public class BzlLoadFunction implements SkyFunction {
     // TODO(bazel-team): This exception should hold a Location of the requesting file's load
     // statement, and code that catches it should use the location in the Event they create.
     return new BzlLoadFailedException(
-        "at " + loc + ": " + cause.getMessage(), cause.getDetailedExitCode());
+        "at " + loc + ":\n" + cause.getMessage(), cause.getDetailedExitCode());
   }
 
   static BzlLoadFailedException typingFailed(Label label) {

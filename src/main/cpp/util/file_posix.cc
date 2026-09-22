@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <utime.h>
 
+#include <algorithm>
 #include <string>
 
 #include "src/main/cpp/util/errors.h"

@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
@@ -214,8 +213,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
     useConfiguration("--noincompatible_merge_genfiles_directory");
     ConfiguredTarget foo = getConfiguredTarget("//bang:bang");
-    PathFragment genfilesDir =
-        targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot);
+    PathFragment genfilesDir = targetConfig.getGenfilesFragment().getRelative(includesRoot);
     assertThat(CcInfo.get(foo).getCcCompilationContext().getIncludeDirs()).contains(genfilesDir);
 
     useConfiguration("--incompatible_merge_genfiles_directory");
@@ -259,8 +257,8 @@ public class CcCommonTest extends BuildViewTestCase {
         new ImmutableList.Builder<PathFragment>()
             .addAll(CcInfo.get(noIncludes).getCcCompilationContext().getSystemIncludeDirs())
             .add(PathFragment.create(includesRoot))
-            .add(targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot))
-            .add(targetConfig.getBinFragment(RepositoryName.MAIN).getRelative(includesRoot))
+            .add(targetConfig.getGenfilesFragment().getRelative(includesRoot))
+            .add(targetConfig.getBinFragment().getRelative(includesRoot))
             .build();
     assertThat(CcInfo.get(foo).getCcCompilationContext().getSystemIncludeDirs())
         .containsExactlyElementsIn(expected);
@@ -299,8 +297,8 @@ public class CcCommonTest extends BuildViewTestCase {
         new ImmutableList.Builder<PathFragment>()
             .addAll(CcInfo.get(noIncludes).getCcCompilationContext().getIncludeDirs())
             .add(PathFragment.create(includesRoot))
-            .add(targetConfig.getGenfilesFragment(RepositoryName.MAIN).getRelative(includesRoot))
-            .add(targetConfig.getBinFragment(RepositoryName.MAIN).getRelative(includesRoot))
+            .add(targetConfig.getGenfilesFragment().getRelative(includesRoot))
+            .add(targetConfig.getBinFragment().getRelative(includesRoot))
             .build();
     assertThat(CcInfo.get(foo).getCcCompilationContext().getIncludeDirs())
         .containsExactlyElementsIn(expected);
@@ -670,10 +668,7 @@ public class CcCommonTest extends BuildViewTestCase {
         .contains(
             String.format(
                 "-Wl,@%s/a/a.lds",
-                getTargetConfiguration()
-                    .getGenfilesDirectory(RepositoryName.MAIN)
-                    .getExecPath()
-                    .getPathString()));
+                getTargetConfiguration().getGenfilesDirectory().getExecPath().getPathString()));
   }
 
   @Test
@@ -742,7 +737,7 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(ccCompilationContext.getIncludeDirs())
         .containsExactly(
             getTargetConfiguration()
-                .getBinFragment(RepositoryName.MAIN)
+                .getBinFragment()
                 .getRelative("third_party/a/_virtual_includes/a"));
   }
 
@@ -773,9 +768,7 @@ public class CcCommonTest extends BuildViewTestCase {
         .containsExactly("_virtual_includes/207132b2/lib/b/c.h", "third_party/a/v1/b/c.h");
     assertThat(ccCompilationContext.getIncludeDirs())
         .containsExactly(
-            getTargetConfiguration()
-                .getBinFragment(RepositoryName.MAIN)
-                .getRelative("_virtual_includes/207132b2"));
+            getTargetConfiguration().getBinFragment().getRelative("_virtual_includes/207132b2"));
   }
 
   @Test
@@ -1143,9 +1136,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "cc_library(name='foo', srcs=['foo.cc'])");
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
     CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
     assertThat(
             cppCompileAction.getArgumentsForExecute(PathMapper.NOOP).arguments().stream()
@@ -1167,9 +1158,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "cc_library(name='foo', srcs=['foo.cc'])");
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
     CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
     ImmutableList<String> argv =
         cppCompileAction.getStarlarkArgv().stream()
@@ -1193,9 +1182,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "cc_library(name='foo', srcs=['foo.cc'])");
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
     CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
     // It should NOT use the param file because it's on-demand and command line is short.
     assertThat(
@@ -1232,9 +1219,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "cc_library(name='foo', srcs=['foo.cc'])");
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL),
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL),
         "--min_param_file_size=0"); // Force max length to be 0
     CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
     // With min_param_file_size=0, it should dynamically decide to use the param file

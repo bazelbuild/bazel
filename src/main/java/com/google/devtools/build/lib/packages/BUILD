@@ -2,7 +2,7 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/main/java/com/google/devtools/build/lib:build_lib"],
 )
 
 filegroup(
@@ -208,9 +208,6 @@ java_library(
     ],
 )
 
-# TODO(kkress, adonovan) Eliminate this target, it is mostly unnecessary. It
-# depends on lib:build-base for BlazeDirectories, which it uses for a type
-# parameter, but the param is unused.
 java_library(
     name = "builder_factory_for_testing",
     srcs = ["BuilderFactoryForTesting.java"],

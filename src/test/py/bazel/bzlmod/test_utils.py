@@ -454,9 +454,13 @@ class StaticHTTPServer:
     return self
 
   def __exit__(self, exc_type, exc_value, traceback):
-    self.httpd.shutdown()
-    self.httpd.server_close()
-    self.thread.join()
+    try:
+      self.httpd.shutdown()
+    finally:
+      self.httpd.server_close()
+    self.thread.join(timeout=10)
+    if self.thread.is_alive():
+      raise RuntimeError('StaticHTTPServer thread did not terminate within 10s')
 
   def getURL(self):
     return 'http://{}:{}'.format(*self.httpd.server_address)
@@ -464,6 +468,11 @@ class StaticHTTPServer:
 
 class _Handler(http.server.SimpleHTTPRequestHandler):
   """A SimpleHTTPRequestHandler with authentication."""
+
+  # HTTPServer handles requests synchronously on a single thread and defaults to
+  # an infinite socket timeout (None). Set a 5s socket timeout so a stalled
+  # client connection cannot block serve_forever() and hang httpd.shutdown().
+  timeout = 5
 
   # Note: until Python 3.6, SimpleHTTPRequestHandler was only able to serve
   # files from the working directory. A 'directory' parameter was added in

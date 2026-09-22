@@ -2,7 +2,10 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/tools/remote:__subpackages__",
+    ],
 )
 
 filegroup(
@@ -19,6 +22,16 @@ java_library(
         "//third_party/java/guava:collect",
         "//third_party/java/jsr305_annotations",
         "//third_party/java/rxjava3",
+    ],
+)
+
+java_library(
+    name = "bulk_transfers",
+    srcs = ["BulkTransfers.java"],
+    deps = [
+        ":futures",
+        "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
+        "//third_party/java/guava:concurrent",
     ],
 )
 
@@ -55,7 +68,6 @@ java_library(
     srcs = ["Utils.java"],
     deps = [
         ":digest_util",
-        ":futures",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input",
         "//src/main/java/com/google/devtools/build/lib/authandtls:grpc",
@@ -63,7 +75,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote:ExecutionStatusException",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/common:action_key",
-        "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/common:cache_not_found_exception",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party/google/protobuf:any_java_proto",

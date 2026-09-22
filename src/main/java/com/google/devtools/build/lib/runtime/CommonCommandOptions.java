@@ -112,7 +112,8 @@ public abstract class CommonCommandOptions extends OptionsBase {
   public abstract boolean getAlwaysProfileSlowOperations();
 
   @Option(
-      name = "experimental_install_base_gc_max_age",
+      name = "install_base_gc_max_age",
+      oldName = "experimental_install_base_gc_max_age",
       defaultValue = "30d",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},

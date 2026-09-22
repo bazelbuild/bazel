@@ -18,81 +18,55 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Objects;
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
 
 /**
  * An object that encapsulates how a params file should be constructed: what is the filetype, what
  * charset to use and what prefix (typically "@") to use.
  */
-@Immutable
-public final class ParamFileInfo {
-  private final ParameterFileType fileType;
-  private final String flagFormatString;
-  private final boolean always;
-  private final boolean flagsOnly;
-  @Nullable private final String paramFileName;
+@AutoCodec
+public record ParamFileInfo(
+    ParameterFileType fileType,
+    String flagFormatString,
+    boolean always,
+    boolean flagsOnly,
+    @Nullable String paramFileName) {
 
   private static final Interner<ParamFileInfo> paramFileInfoInterner =
       BlazeInterners.newWeakInterner();
 
-  private ParamFileInfo(Builder builder) {
-    this.fileType = Preconditions.checkNotNull(builder.fileType);
-    this.flagFormatString = Preconditions.checkNotNull(builder.flagFormatString);
-    this.always = builder.always;
-    this.flagsOnly = builder.flagsOnly;
-    this.paramFileName = builder.paramFileName;
+  public ParamFileInfo {
+    Preconditions.checkNotNull(fileType);
+    Preconditions.checkNotNull(flagFormatString);
+  }
+
+  @AutoCodec.Instantiator
+  static ParamFileInfo create(
+      ParameterFileType fileType,
+      String flagFormatString,
+      boolean always,
+      boolean flagsOnly,
+      @Nullable String paramFileName) {
+    return paramFileInfoInterner.intern(
+        new ParamFileInfo(fileType, flagFormatString, always, flagsOnly, paramFileName));
   }
 
   /** Returns the file type. */
   public ParameterFileType getFileType() {
-    return fileType;
+    return fileType();
   }
 
   /** Returns the format string for the params filename on the command line (typically "@%s"). */
   public String getFlagFormatString() {
-    return flagFormatString;
-  }
-
-  /** Returns true if a params file should always be used. */
-  public boolean always() {
-    return always;
-  }
-
-  /**
-   * If true, only the flags will be spilled to the file, leaving positional args on the command
-   * line.
-   */
-  public boolean flagsOnly() {
-    return flagsOnly;
+    return flagFormatString();
   }
 
   /** Returns the custom name for the parameter file, or null if it should be derived. */
   @Nullable
   public String getParamFileName() {
-    return paramFileName;
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(flagFormatString, fileType, always, flagsOnly, paramFileName);
-  }
-
-  @Override
-  public boolean equals(Object obj) {
-    if (this == obj) {
-      return true;
-    }
-    if (!(obj instanceof ParamFileInfo other)) {
-      return false;
-    }
-    return fileType.equals(other.fileType)
-        && flagFormatString.equals(other.flagFormatString)
-        && always == other.always
-        && flagsOnly == other.flagsOnly
-        && Objects.equals(paramFileName, other.paramFileName);
+    return paramFileName();
   }
 
   public static Builder builder(ParameterFileType parameterFileType) {
@@ -148,7 +122,7 @@ public final class ParamFileInfo {
     }
 
     public ParamFileInfo build() {
-      return paramFileInfoInterner.intern(new ParamFileInfo(this));
+      return create(fileType, flagFormatString, always, flagsOnly, paramFileName);
     }
   }
 }

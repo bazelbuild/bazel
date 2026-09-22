@@ -22,9 +22,11 @@
 #include <vector>
 
 #include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/test/cpp/test_util.h"
 #include "googletest/include/gtest/gtest.h"
+#include "absl/time/time.h"
 
 namespace blaze {
 
@@ -290,7 +292,6 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   const StartupOptions* options = startup_options_.get();
   ExpectValidNullaryOption(options, "batch");
   ExpectValidNullaryOption(options, "batch_cpu_scheduling");
-  ExpectValidNullaryOption(options, "block_for_lock");
   ExpectValidNullaryOption(options, "client_debug");
   ExpectValidNullaryOption(options, "experimental_use_compact_object_headers");
   ExpectValidNullaryOption(options, "fatal_event_bus_exceptions");
@@ -316,6 +317,55 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectIsUnaryOption(options, "output_base");
   ExpectIsUnaryOption(options, "output_user_root");
   ExpectIsUnaryOption(options, "server_javabase");
+}
+
+TEST_F(BazelStartupOptionsTest, BlockForLock) {
+  ExpectValidBlockForLockOption(startup_options_.get());
+
+  // Test parsing via ProcessArgs
+  auto parse_flag = [this](const std::string& arg) {
+    ReinitStartupOptions();
+    std::string err;
+    return startup_options_->ProcessArgs({RcStartupFlag("somewhere", arg)},
+                                         &err);
+  };
+
+  EXPECT_EQ(blaze_exit_code::SUCCESS, parse_flag("--block_for_lock=30s"));
+  EXPECT_EQ(absl::Seconds(30), startup_options_->block_for_lock_timeout);
+
+  EXPECT_EQ(blaze_exit_code::SUCCESS, parse_flag("--block_for_lock=1m"));
+  EXPECT_EQ(absl::Minutes(1), startup_options_->block_for_lock_timeout);
+
+  EXPECT_EQ(blaze_exit_code::SUCCESS, parse_flag("--block_for_lock=500ms"));
+  EXPECT_EQ(absl::Milliseconds(500), startup_options_->block_for_lock_timeout);
+
+  EXPECT_EQ(blaze_exit_code::SUCCESS, parse_flag("--block_for_lock=1m30s"));
+  EXPECT_EQ(absl::Seconds(90), startup_options_->block_for_lock_timeout);
+
+  EXPECT_EQ(blaze_exit_code::SUCCESS, parse_flag("--block_for_lock=720h"));
+  EXPECT_EQ(absl::Hours(720), startup_options_->block_for_lock_timeout);
+
+  EXPECT_EQ(blaze_exit_code::SUCCESS, parse_flag("--block_for_lock=true"));
+  EXPECT_EQ(absl::InfiniteDuration(), startup_options_->block_for_lock_timeout);
+
+  EXPECT_EQ(blaze_exit_code::SUCCESS, parse_flag("--block_for_lock=false"));
+  EXPECT_EQ(absl::ZeroDuration(), startup_options_->block_for_lock_timeout);
+
+  EXPECT_EQ(blaze_exit_code::SUCCESS, parse_flag("--block_for_lock=0s"));
+  EXPECT_EQ(absl::ZeroDuration(), startup_options_->block_for_lock_timeout);
+
+  EXPECT_EQ(blaze_exit_code::SUCCESS, parse_flag("--noblock_for_lock"));
+  EXPECT_EQ(absl::ZeroDuration(), startup_options_->block_for_lock_timeout);
+
+  EXPECT_EQ(blaze_exit_code::SUCCESS, parse_flag("--block_for_lock=1500us"));
+  EXPECT_EQ(absl::Milliseconds(1), startup_options_->block_for_lock_timeout);
+
+  EXPECT_EQ(blaze_exit_code::BAD_ARGV, parse_flag("--block_for_lock=500us"));
+  EXPECT_EQ(blaze_exit_code::BAD_ARGV, parse_flag("--block_for_lock=0"));
+  EXPECT_EQ(blaze_exit_code::BAD_ARGV, parse_flag("--block_for_lock=1"));
+  EXPECT_EQ(blaze_exit_code::BAD_ARGV, parse_flag("--block_for_lock=2"));
+  EXPECT_EQ(blaze_exit_code::BAD_ARGV, parse_flag("--block_for_lock=30"));
+  EXPECT_EQ(blaze_exit_code::BAD_ARGV, parse_flag("--block_for_lock=invalid"));
 }
 
 TEST_F(BazelStartupOptionsTest, MacosQosClassValues) {

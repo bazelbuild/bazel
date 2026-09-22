@@ -2,7 +2,10 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/main/java/com/google/devtools/build/lib:build_lib",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
+    ],
 )
 
 filegroup(
@@ -80,23 +83,10 @@ java_library(
 )
 
 java_library(
-    name = "process_utils_service",
-    srcs = ["ProcessUtilsService.java"],
+    name = "process_utils",
+    srcs = ["ProcessUtils.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:skybridge_interface",
-    ],
-)
-
-java_library(
-    name = "process_utils_service_impl",
-    srcs = ["ProcessUtilsServiceImpl.java"],
-    deps = [
-        ":process_utils_service",
-        "//src/main/java/com/google/devtools/build/lib/jni",
-        "//src/main/java/com/google/devtools/build/lib/runtime:blaze_service",
-        "//src/main/java/com/google/devtools/build/lib/skybridge:sc_only",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/common/options",
+        "//third_party/java/jsr305_annotations",
     ],
 )

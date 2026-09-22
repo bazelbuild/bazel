@@ -799,7 +799,7 @@ public final class CppConfiguration extends Fragment
   }
 
   public boolean disableNoCopts() {
-    return cppOptions.getDisableNoCopts();
+    return true;
   }
 
   @Override
@@ -882,7 +882,7 @@ public final class CppConfiguration extends Fragment
   }
 
   public boolean experimentalCcImplementationDeps() {
-    return cppOptions.getExperimentalCcImplementationDeps();
+    return true;
   }
 
   public boolean experimentalCppModules() {

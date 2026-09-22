@@ -18,6 +18,7 @@
 
 #include <stdint.h>
 
+#include <cstddef>
 #include <map>
 #include <memory>
 #include <optional>
@@ -29,6 +30,7 @@
 #include "src/main/cpp/server_process_info.h"
 #include "src/main/cpp/util/port.h"
 #include "absl/strings/string_view.h"
+#include "absl/time/time.h"
 
 namespace blaze {
 
@@ -217,7 +219,11 @@ enum class LockMode {
 };
 
 // Acquires a `mode` lock on `path`, creating it if doesn't yet exist.
-// If `block` is true, busy-wait until the lock becomes available.
+// If `timeout` is absl::InfiniteDuration(), busy-wait until the lock becomes
+// available.
+// If `timeout <= absl::ZeroDuration()`, exit immediately if the lock cannot be
+// acquired.
+// Otherwise, wait up to `timeout` duration before exiting.
 // If `batch_mode` is false, release the lock on exec.
 // The `path` is guaranteed to exist when this function returns; if it is
 // deleted concurrently with obtaining the lock, we recreate it and try again.
@@ -229,7 +235,8 @@ enum class LockMode {
 std::pair<LockHandle, DurationMillis> AcquireLock(const std::string& name,
                                                   const blaze_util::Path& path,
                                                   LockMode mode,
-                                                  bool batch_mode, bool block);
+                                                  bool batch_mode,
+                                                  absl::Duration timeout);
 
 // Releases a lock previously obtained from AcquireLock.
 void ReleaseLock(LockHandle lock_handle);

@@ -17,8 +17,10 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimaps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -66,13 +68,20 @@ class BuildResultPrinter {
       Collection<ConfiguredTarget> configuredTargets,
       Collection<ConfiguredTarget> configuredTargetsToSkip,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
-      ImmutableMap<ConfiguredTargetKey, NestedSet<Cause>> targetRootCauses) {
+      ImmutableMap<ConfiguredTargetKey, NestedSet<Cause>> targetRootCauses,
+      ImmutableMap<AspectKey, NestedSet<Cause>> aspectRootCauses) {
     // NOTE: be careful what you print!  We don't want to create a consistency
     // problem where the summary message and the exit code disagree.  The logic
     // here is already complex.
     boolean ok =
         outputTargets(
-            request, result, configuredTargets, configuredTargetsToSkip, aspects, targetRootCauses);
+            request,
+            result,
+            configuredTargets,
+            configuredTargetsToSkip,
+            aspects,
+            targetRootCauses,
+            aspectRootCauses);
     if (!ok) {
       if (!request.getOptions(ExecutionOptions.class).getVerboseFailures()) {
         request
@@ -91,13 +100,26 @@ class BuildResultPrinter {
   }
 
   /**
-   * Outputs the targets, omitting values with {@code (nothing to build)} when it allows staying
-   * under the --show_result limit.
+   * Outputs per-target and per-aspect build results bounded by {@code --show_result} ({@code
+   * getMaxResultTargets()}).
    *
-   * <p>This method exits early if there are too many results.
+   * <p>Output filtering follows two separate {@code --show_result} budgets:
    *
-   * @return {@code true} if no errors were detected among the results inspected, this can be a
-   *     false positive on early exit.
+   * <ul>
+   *   <li><b>Successful and skipped results ({@code essentialBudget}):</b> Targets that produced
+   *       output artifacts and skipped targets decrement {@code essentialBudget} (targets with
+   *       {@code (nothing to build)} are omitted instead of consuming budget when total targets
+   *       exceed {@code --show_result}). If {@code essentialBudget < 0}, all successful and skipped
+   *       per-target lines are suppressed.
+   *   <li><b>Failed results:</b> Tracked against a separate budget equal to {@code --show_result}
+   *       so that successful targets do not starve failure output in mixed builds. Under {@code
+   *       --nokeep_going}, unbuilt targets/aspects that were merely aborted without failing
+   *       evaluation are excluded. If total failed targets and aspects exceed {@code
+   *       --show_result}, per-target failure lines are suppressed.
+   * </ul>
+   *
+   * @return {@code true} if no target or aspect failures occurred ({@code !hasFailures}),
+   *     regardless of whether per-target output was suppressed by {@code --show_result}.
    */
   private boolean outputTargets(
       BuildRequest request,
@@ -105,7 +127,8 @@ class BuildResultPrinter {
       Collection<ConfiguredTarget> configuredTargets,
       Collection<ConfiguredTarget> configuredTargetsToSkip,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
-      ImmutableMap<ConfiguredTargetKey, NestedSet<Cause>> targetRootCauses) {
+      ImmutableMap<ConfiguredTargetKey, NestedSet<Cause>> targetRootCauses,
+      ImmutableMap<AspectKey, NestedSet<Cause>> aspectRootCauses) {
     BlazeRuntime runtime = env.getRuntime();
     String productName = runtime.getProductName();
     PathPrettyPrinter prettyPrinter =
@@ -128,7 +151,8 @@ class BuildResultPrinter {
     Collection<ConfiguredTarget> targetsToPrint = filterTargetsToPrint(configuredTargets);
     TopLevelArtifactContext context = request.getTopLevelArtifactContext();
 
-    // `essentialBudget` tracks the number of non-empty results that can be printed.
+    // `essentialBudget` tracks the number of non-empty successful/skipped results that can be
+    // printed under --show_result.
     int essentialBudget = request.getBuildOptions().getMaxResultTargets();
 
     // Splits the targets we care about into three buckets. Targets are only considered successful
@@ -144,6 +168,8 @@ class BuildResultPrinter {
             context,
             configuredTargetsToSkip,
             partitionedAspectKeys.validationAspects,
+            targetRootCauses,
+            aspectRootCauses,
             skipped,
             succeeded,
             artifactsToPrintPerTarget,
@@ -159,11 +185,23 @@ class BuildResultPrinter {
             partitionedAspectKeys.aspectsToPrint,
             aspects,
             context,
-            result.getSuccessfulAspects(),
+            result,
+            aspectRootCauses,
             successfulAspects,
             artifactsToPrintPerAspect,
             failedAspects,
             essentialBudget);
+
+    // Compute whether any failure occurred before clearing lists for --show_result budgeting so
+    // that the return value accurately reflects build success/failure (e.g. to print the
+    // --verbose_failures hint even when per-target lines are suppressed by --show_result=0).
+    boolean hasFailures =
+        (succeeded.size() + skipped.size() < targetsToPrint.size())
+            || (successfulAspects.size() < partitionedAspectKeys.aspectsToPrint.size())
+            || !targetRootCauses.isEmpty()
+            || !aspectRootCauses.isEmpty()
+            || !failed.isEmpty()
+            || !failedAspects.isEmpty();
 
     boolean budgetExceeded = essentialBudget < 0;
     if (budgetExceeded) {
@@ -172,6 +210,13 @@ class BuildResultPrinter {
       artifactsToPrintPerTarget.clear();
       successfulAspects.clear();
       artifactsToPrintPerAspect.clear();
+    }
+
+    // Apply a separate --show_result budget to failed targets/aspects so successful targets do not
+    // starve failure reporting, while still bounding output on mass failures.
+    if (failed.size() + failedAspects.size() > request.getBuildOptions().getMaxResultTargets()) {
+      failed.clear();
+      failedAspects.clear();
     }
 
     // Omits "nothing to build" values if it enables staying under --show_result.
@@ -188,7 +233,9 @@ class BuildResultPrinter {
         failed,
         skipped,
         omitNothingToBuild,
-        targetRootCauses);
+        partitionedAspectKeys.validationAspects,
+        targetRootCauses,
+        aspectRootCauses);
     outputAspects(
         outErr,
         prettyPrinter,
@@ -197,9 +244,10 @@ class BuildResultPrinter {
         successfulAspects,
         artifactsToPrintPerAspect,
         failedAspects,
-        omitNothingToBuild);
+        omitNothingToBuild,
+        aspectRootCauses);
 
-    return failed.isEmpty() && failedAspects.isEmpty();
+    return !hasFailures;
   }
 
   private static int splitConfiguredTargetsByResultReturnRemaining(
@@ -208,23 +256,33 @@ class BuildResultPrinter {
       TopLevelArtifactContext context,
       Collection<ConfiguredTarget> configuredTargetsToSkip,
       ImmutableList<AspectKey> validationAspects,
+      ImmutableMap<ConfiguredTargetKey, NestedSet<Cause>> targetRootCauses,
+      ImmutableMap<AspectKey, NestedSet<Cause>> aspectRootCauses,
       ArrayList<ConfiguredTarget> skipped,
       ArrayList<ConfiguredTarget> succeeded,
       ArrayList<ArrayList<Artifact>> artifactsToPrintPerTarget,
       ArrayList<ConfiguredTarget> failed,
       int essentialBudget) {
-    ImmutableSet<ConfiguredTargetKey> validationFailures =
+    ImmutableSet<ConfiguredTargetKey> unsuccessfulValidationTargets =
         validationAspects.stream()
             .filter(k -> !result.getSuccessfulAspects().contains(k))
             .map(AspectKey::getBaseConfiguredTargetKey)
             .collect(toImmutableSet());
+    ImmutableSet<ConfiguredTargetKey> failedValidationTargets =
+        result.getStopOnFirstFailure()
+            ? validationAspects.stream()
+                .filter(aspectRootCauses::containsKey)
+                .map(AspectKey::getBaseConfiguredTargetKey)
+                .collect(toImmutableSet())
+            : unsuccessfulValidationTargets;
     Collection<ConfiguredTarget> successfulTargets = result.getSuccessfulTargets();
     for (ConfiguredTarget target : configuredTargets) {
+      ConfiguredTargetKey targetKey = ConfiguredTargetKey.fromConfiguredTarget(target);
       if (configuredTargetsToSkip.contains(target)) {
         skipped.add(target);
         essentialBudget--;
       } else if (successfulTargets.contains(target)
-          && !validationFailures.contains(ConfiguredTargetKey.fromConfiguredTarget(target))) {
+          && !unsuccessfulValidationTargets.contains(targetKey)) {
         succeeded.add(target);
         ArrayList<Artifact> artifactsToPrint = getArtifactsToPrint(target, context);
         artifactsToPrintPerTarget.add(artifactsToPrint);
@@ -232,7 +290,13 @@ class BuildResultPrinter {
           essentialBudget--;
         }
       } else {
-        failed.add(target);
+        boolean actuallyFailed =
+            !result.getStopOnFirstFailure()
+                || targetRootCauses.containsKey(targetKey)
+                || failedValidationTargets.contains(targetKey);
+        if (actuallyFailed) {
+          failed.add(target);
+        }
       }
     }
     return essentialBudget;
@@ -297,11 +361,13 @@ class BuildResultPrinter {
       Collection<AspectKey> aspectsToPrint,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
       TopLevelArtifactContext context,
-      ImmutableSet<AspectKey> successfulAspects,
+      BuildResult result,
+      ImmutableMap<AspectKey, NestedSet<Cause>> aspectRootCauses,
       ArrayList<AspectKey> succeeded,
       ArrayList<ArrayList<Artifact>> artifactsToPrintPerAspect,
       ArrayList<AspectKey> failed,
       int essentialBudget) {
+    ImmutableSet<AspectKey> successfulAspects = result.getSuccessfulAspects();
     for (AspectKey aspect : aspectsToPrint) {
       if (successfulAspects.contains(aspect)) {
         succeeded.add(aspect);
@@ -310,7 +376,7 @@ class BuildResultPrinter {
         if (!artifactsToPrint.isEmpty()) {
           essentialBudget--;
         }
-      } else {
+      } else if (!result.getStopOnFirstFailure() || aspectRootCauses.containsKey(aspect)) {
         failed.add(aspect);
       }
     }
@@ -326,7 +392,9 @@ class BuildResultPrinter {
       ArrayList<ConfiguredTarget> failed,
       ArrayList<ConfiguredTarget> skipped,
       boolean omitNothingToBuild,
-      ImmutableMap<ConfiguredTargetKey, NestedSet<Cause>> targetRootCauses) {
+      ImmutableList<AspectKey> validationAspects,
+      ImmutableMap<ConfiguredTargetKey, NestedSet<Cause>> targetRootCauses,
+      ImmutableMap<AspectKey, NestedSet<Cause>> aspectRootCauses) {
     for (ConfiguredTarget target : skipped) {
       outErr.printErr("Target " + target.getOriginalLabel() + " was skipped\n");
     }
@@ -347,19 +415,35 @@ class BuildResultPrinter {
         outErr.printErrLn(formatArtifactForShowResults(prettyPrinter, artifact));
       }
     }
+    ImmutableListMultimap<ConfiguredTargetKey, AspectKey> validationAspectsByTarget =
+        failed.isEmpty()
+            ? ImmutableListMultimap.of()
+            : Multimaps.index(validationAspects, AspectKey::getBaseConfiguredTargetKey);
     for (ConfiguredTarget target : failed) {
       outErr.printErr("Target " + target.getLabel() + " failed to build\n");
-      NestedSet<Cause> rootCauses =
-          targetRootCauses.get(ConfiguredTargetKey.fromConfiguredTarget(target));
-      ImmutableSet<Label> rootCauseLabels =
-          rootCauses == null
-              ? ImmutableSet.of()
-              : rootCauses.toList().stream()
-                  .filter(cause -> cause instanceof ActionFailed)
-                  .map(Cause::getLabel)
-                  .filter(Objects::nonNull)
-                  .filter(label -> !label.equals(target.getLabel()))
-                  .collect(toImmutableSet());
+      ConfiguredTargetKey targetKey = ConfiguredTargetKey.fromConfiguredTarget(target);
+      NestedSet<Cause> rootCauses = targetRootCauses.get(targetKey);
+      ImmutableSet.Builder<Label> rootCauseLabelsBuilder = ImmutableSet.builder();
+      if (rootCauses != null) {
+        rootCauses.toList().stream()
+            .filter(cause -> cause instanceof ActionFailed)
+            .map(Cause::getLabel)
+            .filter(Objects::nonNull)
+            .filter(label -> !label.equals(target.getLabel()))
+            .forEach(rootCauseLabelsBuilder::add);
+      }
+      for (AspectKey validationAspect : validationAspectsByTarget.get(targetKey)) {
+        NestedSet<Cause> aspectCauses = aspectRootCauses.get(validationAspect);
+        if (aspectCauses != null) {
+          aspectCauses.toList().stream()
+              .filter(cause -> cause instanceof ActionFailed)
+              .map(Cause::getLabel)
+              .filter(Objects::nonNull)
+              .filter(label -> !label.equals(target.getLabel()))
+              .forEach(rootCauseLabelsBuilder::add);
+        }
+      }
+      ImmutableSet<Label> rootCauseLabels = rootCauseLabelsBuilder.build();
       if (!rootCauseLabels.isEmpty()) {
         String labelList =
             rootCauseLabels.stream().map(Label::toString).sorted().collect(joining(", "));
@@ -395,7 +479,8 @@ class BuildResultPrinter {
       ArrayList<AspectKey> succeeded,
       ArrayList<ArrayList<Artifact>> artifactsToPrintPerAspect,
       ArrayList<AspectKey> failed,
-      boolean omitNothingToBuild) {
+      boolean omitNothingToBuild,
+      ImmutableMap<AspectKey, NestedSet<Cause>> aspectRootCauses) {
     for (int i = 0; i < succeeded.size(); ++i) {
       AspectKey aspect = succeeded.get(i);
       Label label = aspect.getLabel();
@@ -419,6 +504,21 @@ class BuildResultPrinter {
       Label label = aspect.getLabel();
       String aspectName = aspect.getAspectClass().getName();
       outErr.printErr("Aspect " + aspectName + " of " + label + " failed to build\n");
+      NestedSet<Cause> rootCauses = aspectRootCauses.get(aspect);
+      ImmutableSet<Label> rootCauseLabels =
+          rootCauses == null
+              ? ImmutableSet.of()
+              : rootCauses.toList().stream()
+                  .filter(cause -> cause instanceof ActionFailed)
+                  .map(Cause::getLabel)
+                  .filter(Objects::nonNull)
+                  .filter(causeLabel -> !causeLabel.equals(label))
+                  .collect(toImmutableSet());
+      if (!rootCauseLabels.isEmpty()) {
+        String labelList =
+            rootCauseLabels.stream().map(Label::toString).sorted().collect(joining(", "));
+        outErr.printErr("  due to action in " + labelList + "\n");
+      }
     }
   }
 

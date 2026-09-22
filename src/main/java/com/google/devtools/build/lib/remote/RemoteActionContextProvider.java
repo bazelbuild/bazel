@@ -22,11 +22,9 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRemotePathResolver;
-import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -133,17 +131,7 @@ final class RemoteActionContextProvider {
   }
 
   private RemotePathResolver createRemotePathResolver() {
-    Path execRoot = env.getExecRoot();
-    BuildLanguageOptions buildLanguageOptions =
-        env.getOptions().getOptions(BuildLanguageOptions.class);
-    RemotePathResolver remotePathResolver;
-    if (buildLanguageOptions != null
-        && buildLanguageOptions.getExperimentalSiblingRepositoryLayout()) {
-      remotePathResolver = new SiblingRepositoryLayoutResolver(execRoot);
-    } else {
-      remotePathResolver = new DefaultRemotePathResolver(execRoot);
-    }
-    return remotePathResolver;
+    return new DefaultRemotePathResolver(env.getExecRoot());
   }
 
   public void setActionInputFetcher(RemoteActionInputFetcher actionInputFetcher) {

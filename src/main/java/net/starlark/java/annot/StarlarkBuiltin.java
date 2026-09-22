@@ -79,6 +79,15 @@ public @interface StarlarkBuiltin {
   String category() default "";
 
   /**
+   * If non-empty, the name of the auto-generated {@link net.starlark.java.syntax.StarlarkType} for
+   * this builtin. If empty, the auto-generated type name is the same as {@link #name()}.
+   *
+   * <p>This field is intended to be used in cases where {@link #name()} is likely to collide with
+   * ordinary symbol names in Starlark code; for example, Bazel's {@code ctx}.
+   */
+  String starlarkTypeName() default "";
+
+  /**
    * Whether this class or interface denotes an abstract struct type (i.e. {@code struct} in type
    * syntax). If true, has two effects:
    *

@@ -284,8 +284,17 @@ public interface ActionCache {
     public static final class Builder {
       private final String actionKey;
 
-      // Combined input and output metadata.
-      private final HashMap<String, FileArtifactValue> metadataMap = new HashMap<>();
+      // Input and output metadata are digested separately so that the input digest can be computed
+      // once during the action cache check and reused when writing the entry (see
+      // ActionCacheChecker.Token#getInputDigest). Because MetadataDigestUtils.fromMetadata is an
+      // unordered sum, digesting the two maps separately and combining the results is bit-identical
+      // to digesting a single combined map -- but only as long as their exec paths are disjoint,
+      // which holds because an action cannot have an output among its own inputs. Note that the
+      // per-map deduplication by exec path is load-bearing: an action's input set may contain
+      // distinct Artifact objects sharing an exec path (see b/148692668).
+      private final HashMap<String, FileArtifactValue> outputMetadataMap = new HashMap<>();
+      @Nullable private HashMap<String, FileArtifactValue> inputMetadataMap;
+      @Nullable private byte[] inputDigest;
 
       private final ImmutableMap<String, String> clientEnv;
 
@@ -340,12 +349,63 @@ public interface ActionCache {
       @CanIgnoreReturnValue
       public Builder addInputFile(
           Artifact artifact, FileArtifactValue metadata, boolean saveExecPath) {
+        checkState(
+            inputDigest == null,
+            "Cannot add input files when input digest is already set or computed");
+        if (inputMetadataMap == null) {
+          inputMetadataMap = new HashMap<>();
+        }
         String execPath = artifact.getExecPathString();
         if (discoveredInputPaths != null && saveExecPath) {
           discoveredInputPaths.add(execPath);
         }
-        metadataMap.put(execPath, metadata);
+        inputMetadataMap.put(execPath, metadata);
         return this;
+      }
+
+      /**
+       * Sets a precomputed digest of the action's input metadata, as returned by {@link
+       * #getInputDigest} on an equivalent builder.
+       *
+       * <p>The array is defensively copied, so the caller may retain and reuse it.
+       */
+      @CanIgnoreReturnValue
+      public Builder setInputDigest(byte[] inputDigest) {
+        requireNonNull(inputDigest, "inputDigest");
+        checkState(
+            discoveredInputPaths == null,
+            "Cannot set input digest for an action that discovers inputs");
+        checkState(
+            this.inputDigest == null && (inputMetadataMap == null || inputMetadataMap.isEmpty()),
+            "Input digest already set or input files already added");
+        this.inputDigest = inputDigest.clone();
+        return this;
+      }
+
+      /**
+       * Returns the digest of the input metadata added so far, computing and caching it if
+       * necessary.
+       *
+       * <p>Calling this freezes the input side of the builder: subsequent calls to {@link
+       * #addInputFile} will fail. The returned array is a copy and is safe to retain.
+       */
+      public byte[] getInputDigest() {
+        return inputDigest().clone();
+      }
+
+      /**
+       * Returns the cached input digest, computing it on first use.
+       *
+       * <p>The returned array is owned by this builder. Callers must not mutate it, and must not
+       * let {@link DigestUtils#combineUnordered} clobber it.
+       */
+      private byte[] inputDigest() {
+        if (inputDigest == null) {
+          inputDigest =
+              MetadataDigestUtils.fromMetadata(
+                  inputMetadataMap != null ? inputMetadataMap : ImmutableMap.of());
+        }
+        return inputDigest;
       }
 
       /** Adds an output file. */
@@ -371,7 +431,7 @@ public interface ActionCache {
             proxyOutputs.add(execPath);
           }
         }
-        metadataMap.put(execPath, metadata);
+        outputMetadataMap.put(execPath, metadata);
         return this;
       }
 
@@ -396,7 +456,7 @@ public interface ActionCache {
             outputTreeMetadata.put(execPath, SerializableTreeArtifactValue.create(metadata));
           }
         }
-        metadataMap.put(execPath, metadata.getMetadata());
+        outputMetadataMap.put(execPath, metadata.getMetadata());
         return this;
       }
 
@@ -407,11 +467,24 @@ public interface ActionCache {
       }
 
       public Entry build() {
+        byte[] outputDigest = MetadataDigestUtils.fromMetadata(outputMetadataMap);
+        byte[] inDigest = inputDigest();
+        // combineUnordered() clobbers whichever argument is at least as long as the other. It must
+        // not clobber the cached input digest, both because build() may be called more than once
+        // and because the digest is computed once per action and reused. outputDigest is freshly
+        // allocated here, so clobbering it is safe and avoids an allocation; in the rare case that
+        // it is the shorter of the two (an empty metadata map digests to a single byte), combine
+        // into a copy of the input digest instead.
+        byte[] combinedMetadataDigest =
+            outputDigest.length >= inDigest.length
+                ? DigestUtils.combineUnordered(outputDigest, inDigest)
+                : DigestUtils.combineUnordered(inDigest.clone(), outputDigest);
+
         return new Entry(
             computeDigest(
                 actionKey,
                 discoveredInputPaths != null,
-                metadataMap,
+                combinedMetadataDigest,
                 clientEnv,
                 actionExecutionSalt,
                 outputPermissions,
@@ -426,7 +499,7 @@ public interface ActionCache {
       private static byte[] computeDigest(
           String actionKey,
           boolean discoversInputs,
-          Map<String, FileArtifactValue> metadataMap,
+          byte[] metadataDigest,
           Map<String, String> clientEnv,
           String actionExecutionSalt,
           OutputPermissions outputPermissions,
@@ -434,7 +507,7 @@ public interface ActionCache {
         Fingerprint fp = new Fingerprint();
         fp.addString(actionKey);
         fp.addBoolean(discoversInputs);
-        fp.addBytes(MetadataDigestUtils.fromMetadata(metadataMap));
+        fp.addBytes(metadataDigest);
         fp.addBytes(computeMapDigest(clientEnv));
         fp.addString(actionExecutionSalt);
         fp.addInt(outputPermissions.getPermissionsMode());

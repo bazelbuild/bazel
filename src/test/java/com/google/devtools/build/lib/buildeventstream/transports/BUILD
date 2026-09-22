@@ -3,7 +3,7 @@ load("@rules_java//java:defs.bzl", "java_test")
 package(
     default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = ["//src/test/java/com/google/devtools/build/lib:test_lib"],
 )
 
 filegroup(
@@ -17,7 +17,7 @@ java_test(
     name = "BuildEventTransportTest",
     srcs = glob(["*.java"]),
     test_class = "com.google.devtools.build.lib.AllTests",
-    runtime_deps = ["//src/test/java/com/google/devtools/build/lib:test_runner"],
+    runtime_deps = ["//src/test/java/com/google/devtools/build/lib:AllTests"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventservice:build_event_service_options",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",

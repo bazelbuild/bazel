@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.truth.TruthJUnit.assume;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
@@ -267,6 +268,71 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
     // It is important that the error message says "do not exist", not "are in error". The latter
     // would indicate that the corresponding FileStateValue still considers the file to exist.
     assertThat(e).hasMessageThat().contains("1 input file(s) do not exist");
+  }
+
+  @Test
+  public void fileWithTransientErrorIsFixedAndModifiedAfterUnrelatedBuild() throws Exception {
+    // Builds garbage collect dirty nodes that they did not need by default, which would remove the
+    // dirty file state node this test is about. Commands that do not run BuildTool, such as query,
+    // never do so, and this option disables it for builds, too.
+    addOptions("--version_window_for_dirty_node_gc=-1");
+    write(
+        "sub/BUILD",
+        """
+        genrule(
+            name = "copy",
+            srcs = ["inner/f.txt"],
+            outs = ["copy.out"],
+            cmd = "cp $< $@",
+            tags = ["manual"],
+        )
+
+        genrule(
+            name = "other",
+            outs = ["other.out"],
+            cmd = "echo other > $@",
+        )
+        """);
+    Path file = write("sub/inner/f.txt", "v1");
+    Path inner = file.getParentDirectory();
+
+    // Populates the directory listing of sub/inner, which the diff processing below consults.
+    buildTarget("//sub/...");
+
+    try {
+      // Readable but not searchable: the listing stays valid, but stats of entries fail.
+      inner.chmod(0444);
+      assume()
+          .withMessage("Directory permissions are not enforced for the current user")
+          .that(statFails(file))
+          .isTrue();
+      // The file state of sub/inner/f.txt is evaluated to a transient error, which makes that node
+      // depend on the error transience node.
+      var e = assertThrows(BuildFailedException.class, () -> buildTarget("//sub:copy"));
+      assertThat(e).hasMessageThat().contains("1 input file(s) are in error");
+      // An unrelated build invalidates the error transience node and thereby dirties the file state
+      // node without re-evaluating it.
+      buildTarget("//sub:other");
+    } finally {
+      inner.chmod(0755);
+    }
+
+    // The user fixes the permissions and edits the file. The diff processing finds no usable old
+    // value for the dirty file state node and injects a freshly computed one.
+    write("sub/inner/f.txt", "v2");
+    buildTargetWithRetryUntilSeesChange("//sub:other", "sub/inner/f.txt");
+
+    buildTarget("//sub:copy");
+    assertContents("v2", "//sub:copy");
+  }
+
+  private static boolean statFails(Path path) {
+    try {
+      path.stat();
+      return false;
+    } catch (IOException e) {
+      return true;
+    }
   }
 
   /**

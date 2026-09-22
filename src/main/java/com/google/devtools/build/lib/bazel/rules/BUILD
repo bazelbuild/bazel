@@ -3,7 +3,12 @@ load("@rules_java//java:defs.bzl", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/main/java/com/google/devtools/build/docgen:__subpackages__",
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/main/java/com/google/devtools/build/lib:full_access",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
 )
 
 filegroup(
@@ -85,7 +90,7 @@ java_library(
     srcs = ["GenericRules.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:constraints/environment_rule",
+        "//src/main/java/com/google/devtools/build/lib/analysis/constraints:environment_rule",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
         "//src/main/java/com/google/devtools/build/lib/rules:filegroup/filegroup",

@@ -132,4 +132,46 @@ public final class SpawnMetricsTest {
     assertThat(result.memoryLimit()).isEqualTo(700);
     assertThat(result.timeLimitInMs()).isEqualTo(800 * 1000);
   }
+
+  @Test
+  public void retryTimeInMs_emptyMapReturnsZeroWithoutAllocation() {
+    SpawnMetrics metrics = SpawnMetrics.Builder.forRemoteExec().build();
+    assertThat(metrics.retryTimeInMs()).isEqualTo(0);
+    assertThat(metrics.retryTimeByError()).isEmpty();
+  }
+
+  @Test
+  public void retryTimeInMs_nonEmptyCalculatesSum() {
+    SpawnMetrics metrics =
+        SpawnMetrics.Builder.forRemoteExec()
+            .addRetryTimeInMs(1, 100)
+            .addRetryTimeInMs(2, 250)
+            .build();
+    assertThat(metrics.retryTimeInMs()).isEqualTo(350);
+    assertThat(metrics.retryTimeByError()).containsExactly(1, 100, 2, 250);
+  }
+
+  @Test
+  public void builder_setRetryTimeInMs_thenAddRetryTimeInMs_handlesMutability() {
+    SpawnMetrics metrics =
+        SpawnMetrics.Builder.forRemoteExec()
+            .setRetryTimeInMs(com.google.common.collect.ImmutableMap.of(1, 100))
+            .addRetryTimeInMs(2, 200)
+            .addRetryTimeInMs(1, 50)
+            .build();
+
+    assertThat(metrics.retryTimeInMs()).isEqualTo(350);
+    assertThat(metrics.retryTimeByError()).containsExactly(1, 150, 2, 200);
+  }
+
+  @Test
+  public void builder_setRetryTimeInMs_emptyMapNormalizesToNull() {
+    SpawnMetrics metrics =
+        SpawnMetrics.Builder.forRemoteExec()
+            .setRetryTimeInMs(com.google.common.collect.ImmutableMap.of())
+            .build();
+
+    assertThat(metrics.retryTimeInMs()).isEqualTo(0);
+    assertThat(metrics.retryTimeByError()).isEmpty();
+  }
 }

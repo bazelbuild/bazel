@@ -3,12 +3,15 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 package(
     default_applicable_licenses = ["//:license"],
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__subpackages__",
+    ],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
+    visibility = ["//src:__pkg__"],
 )
 
 cc_test(
@@ -42,6 +45,9 @@ sh_test(
     data = [
         "//src/main/tools:linux-sandbox",
     ],
+    exec_group_compatible_with = {
+        "test": ["//:mount_capable"],
+    },
     tags = [
         "no_macos",
         "no_windows",

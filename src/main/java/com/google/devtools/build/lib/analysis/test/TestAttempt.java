@@ -264,11 +264,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
     if (testAction.getOwner() != null) {
       pathPrefix =
           ImmutableList.copyOf(
-              testAction
-                  .getConfiguration()
-                  .getTestLogsDirectory(testAction.getOwner().getLabel().getRepository())
-                  .getExecPath()
-                  .segments());
+              testAction.getConfiguration().getTestLogsDirectory().getExecPath().segments());
     }
     for (Map.Entry<String, Path> file : files.entries()) {
       String uri = pathConverter.apply(file.getValue());

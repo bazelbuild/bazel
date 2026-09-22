@@ -18,6 +18,8 @@ import static java.nio.charset.StandardCharsets.US_ASCII;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 
 /**
  * A class which encapsulates the fancy curses-type stuff that you can do using
@@ -142,6 +144,27 @@ public class AnsiTerminal {
   /** Set the terminal title. */
   public void setTitle(String title) throws IOException {
     writeBytes(osc, setTermTitle, StringUnsafe.getInternalStringBytes(title), st);
+  }
+
+  /**
+   * Formats an OSC 8 terminal hyperlink.
+   *
+   * @param url the destination URL (e.g. file://...)
+   * @param text the display text
+   * @return the formatted hyperlink string
+   */
+  public static String hyperlink(String url, String text) {
+    return "\033]8;;" + url + "\033\\" + text + "\033]8;;\033\\";
+  }
+
+  /** Converts an absolute filesystem path into a canonical file:// URI for OSC 8 hyperlinks. */
+  public static String fileUri(String path) {
+    String normalizedPath = path.startsWith("/") ? path : "/" + path;
+    try {
+      return new URI("file", "", normalizedPath, null, null).toASCIIString();
+    } catch (URISyntaxException e) {
+      return "file://" + normalizedPath;
+    }
   }
 
   /**

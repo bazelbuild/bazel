@@ -455,7 +455,7 @@ public final class TypeTagger extends NodeVisitor {
       throw new IllegalArgumentException(
           String.format(
               "Expected type of resolved function %s to be null but was %s",
-              resolved.getName(), prevType));
+              resolved.getName(), prevType.typeRepr()));
     }
     typeTable.setType(resolved, type);
   }
@@ -482,6 +482,7 @@ public final class TypeTagger extends NodeVisitor {
 
     fileDefinedTypeConstructorNames.add(id.getName());
     typeTable.setTypeConstructor(binding, typeConstructor);
+    typeTable.setDeclaredType(binding, Types.TYPE);
   }
 
   /**

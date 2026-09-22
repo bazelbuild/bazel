@@ -38,7 +38,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/remote/util:tracing_metadata_utils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",  # unuseddeps: keep buildcleaner: keep
+        "//src/test/java/com/google/devtools/build/lib:AllTests",  # unuseddeps: keep buildcleaner: keep
         "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker/http",
         "//third_party/java/auth_kit:credentials",
         "//third_party/java/guava:base",

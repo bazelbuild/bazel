@@ -100,15 +100,23 @@ public final class AggregatedSpawnMetrics {
    */
   public AggregatedSpawnMetrics sumDurationsMaxOther(SpawnMetrics other) {
     SpawnMetrics.ExecKind kind = other.execKind();
-    SpawnMetrics existing = getMetrics(kind);
-    SpawnMetrics.Builder builder =
-        SpawnMetrics.Builder.forExec(kind)
-            .addDurations(existing)
-            .addDurations(other)
-            .maxNonDurations(existing)
-            .maxNonDurations(other);
+    SpawnMetrics existing =
+        switch (kind) {
+          case REMOTE -> remoteMetrics;
+          case LOCAL -> localMetrics;
+          case WORKER -> workerMetrics;
+          case OTHER -> otherMetrics;
+        };
 
-    SpawnMetrics newMetric = builder.build();
+    SpawnMetrics newMetric =
+        existing == null
+            ? other
+            : SpawnMetrics.Builder.forExec(kind)
+                .addDurations(existing)
+                .addDurations(other)
+                .maxNonDurations(existing)
+                .maxNonDurations(other)
+                .build();
 
     SpawnMetrics newRemoteMetrics = remoteMetrics;
     SpawnMetrics newLocalMetrics = localMetrics;

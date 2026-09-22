@@ -107,7 +107,8 @@ public final class SkycacheUploadClient {
                     .addAll(temporaryDirectDeps.getAllElementsAsIterable())
                     .addAll(newlyRequestedDeps)
                     .build();
-        selectedEntrySerializer.uploadAnalysisEntry(analysisKey, value, deps);
+        selectedEntrySerializer.uploadAnalysisEntry(
+            analysisKey, value, deps, env.getMaxTransitiveSourceVersionSoFar());
       } else {
         // This is an execution-phase entry. We need the deps of its owner, which should be
         // available

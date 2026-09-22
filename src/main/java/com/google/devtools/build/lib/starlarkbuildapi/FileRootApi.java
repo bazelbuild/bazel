@@ -24,7 +24,9 @@ import net.starlark.java.eval.StarlarkValue;
  * into a single directory tree to form the execution environment.
  */
 @StarlarkBuiltin(
+    // TODO: #27370 - make capitalization consistent
     name = "root",
+    starlarkTypeName = "Root",
     category = DocCategory.BUILTIN,
     doc =
         "A root for files. The roots are the directories containing files, and they are mapped "

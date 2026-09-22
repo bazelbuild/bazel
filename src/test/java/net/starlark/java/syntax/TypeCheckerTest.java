@@ -368,7 +368,7 @@ public final class TypeCheckerTest {
         """);
 
     assertInvalid(
-        ":3:3: operator '+' cannot be applied to types 'int|bool' and 'int|bool'",
+        ":3:3: operator '+' cannot be applied to types 'int | bool' and 'int | bool'",
         """
         z: list[int|bool]
         x, y = z
@@ -472,8 +472,8 @@ public final class TypeCheckerTest {
     }
 
     @Override
-    public String toString() {
-      return String.format("Foo[%s]", fieldType);
+    public String typeRepr() {
+      return String.format("Foo[%s]", fieldType.typeRepr());
     }
 
     /** Like FooType, but mutable. */
@@ -483,8 +483,8 @@ public final class TypeCheckerTest {
       }
 
       @Override
-      public String toString() {
-        return String.format("MutableFoo[%s]", fieldType);
+      public String typeRepr() {
+        return String.format("MutableFoo[%s]", fieldType.typeRepr());
       }
 
       @Override
@@ -1022,7 +1022,7 @@ public final class TypeCheckerTest {
     assertInvalid(
         ":2:3: operator '|=' cannot be applied to types 'dict[str, int]' and 'dict[int, float]':"
             + " cannot update 'x' of type 'dict[str, int]' with a result value of type"
-            + " 'dict[str|int, int|float]'",
+            + " 'dict[str | int, int | float]'",
         """
         x: dict[str, int]
         x |= {1: 2.3}
@@ -1044,7 +1044,7 @@ public final class TypeCheckerTest {
         x[1] += "a"
         """);
     assertInvalid(
-        ":2:1: x of type 'tuple[int, ...]|list[Any]' does not support item assignment",
+        ":2:1: x of type 'tuple[int, ...] | list[Any]' does not support item assignment",
         """
         x: tuple[int, ...] | list
         x[0] += 42
@@ -1056,7 +1056,7 @@ public final class TypeCheckerTest {
         x.f *= 2
         """);
     assertInvalid(
-        ":2:1: x of type 'MutableFoo[int]|Foo[int]' does not support field assignment",
+        ":2:1: x of type 'MutableFoo[int] | Foo[int]' does not support field assignment",
         """
         x: MutableFoo[int] | Foo[int]  # potentially immutable
         x.f *= 2
@@ -1078,7 +1078,7 @@ public final class TypeCheckerTest {
 
     // Invalid index types
     assertInvalid("got 'str' for start index, want int", "x: str; [][x:]");
-    assertInvalid("got 'Any|bool' for stop index, want int", "y: Any | bool; [][:y:]");
+    assertInvalid("got 'Any | bool' for stop index, want int", "y: Any | bool; [][:y:]");
     assertInvalid("got 'float' for slice step, want int", "z: float; [][::z]");
 
     // Invalid step
@@ -1183,7 +1183,7 @@ public final class TypeCheckerTest {
     assertInvalid(":2:1: operator '-' cannot be applied to type 'str'", "x: str", "-x");
     assertInvalid(":2:1: operator '+' cannot be applied to type 'str'", "x: str", "+x");
     assertInvalid(":2:1: operator '~' cannot be applied to type 'str'", "x: str", "~x");
-    assertInvalid(":2:1: operator '-' cannot be applied to type 'str|int'", "x: str | int", "-x");
+    assertInvalid(":2:1: operator '-' cannot be applied to type 'str | int'", "x: str | int", "-x");
   }
 
   @Test
@@ -1259,17 +1259,17 @@ public final class TypeCheckerTest {
         "x: Any; y: dict[str, int]; x >= y");
     // because lhs str is incomparable to rhs int (and vice versa)
     assertInvalid(
-        "operator '<' cannot be applied to types 'int|str' and 'int|str'",
+        "operator '<' cannot be applied to types 'int | str' and 'int | str'",
         "x: int | str; y: int | str; x < y");
     // Incomparable compound types
     assertInvalid(
-        "operator '<' cannot be applied to types 'list[int|str]' and 'list[str]'",
+        "operator '<' cannot be applied to types 'list[int | str]' and 'list[str]'",
         "x: list[int|str]; y: list[str]; x < y");
     assertInvalid(
         "operator '>=' cannot be applied to types 'tuple[int, str]' and 'tuple[str, int]'",
         "x: tuple[int, str]; y: tuple[str, int]; x >= y");
     assertInvalid(
-        "operator '>=' cannot be applied to types 'tuple[int, str]' and 'tuple[int|str, ...]'",
+        "operator '>=' cannot be applied to types 'tuple[int, str]' and 'tuple[int | str, ...]'",
         "x: tuple[int, str]; y: tuple[int|str, ...]; x >= y");
     assertInvalid(
         "operator '>=' cannot be applied to types 'list[tuple[str, int]]' and 'list[tuple[bool,"
@@ -1337,7 +1337,8 @@ public final class TypeCheckerTest {
     // unsupported operations
     assertInvalid("operator '+' cannot be applied to types 'str' and 'int'", "x: str; x + 1");
     assertInvalid(
-        "operator '+' cannot be applied to types 'int|str' and 'str'", "x: int|str; y: str; x + y");
+        "operator '+' cannot be applied to types 'int | str' and 'str'",
+        "x: int|str; y: str; x + y");
   }
 
   @Test
@@ -1374,7 +1375,7 @@ public final class TypeCheckerTest {
     // unsupported operations
     assertInvalid("operator '|' cannot be applied to types 'int' and 'float'", "x: int; x | 2.0");
     assertInvalid(
-        "operator '|' cannot be applied to types 'int|set[int]' and 'int|set[int]'",
+        "operator '|' cannot be applied to types 'int | set[int]' and 'int | set[int]'",
         "x: int|set[int]; y: int|set[int]; x | y");
   }
 
@@ -1743,7 +1744,7 @@ public final class TypeCheckerTest {
         f(42)
         """);
     assertInvalid(
-        "'f if 1 else g' is not callable; got type '<def (x: int) -> int>|int'",
+        "'f if 1 else g' is not callable; got type '<def (x: int) -> int> | int'",
         """
         def f(x: int) -> int:
             return x
@@ -1886,7 +1887,7 @@ public final class TypeCheckerTest {
         f(*args)
         """);
     assertInvalid(
-        "argument after * must be a sequence, not 'str|list[str]'",
+        "argument after * must be a sequence, not 'str | list[str]'",
         """
         def f(*args) -> int:
             return 0
@@ -1895,7 +1896,7 @@ public final class TypeCheckerTest {
         """);
     // Wrong element type
     assertInvalid(
-        "in call to 'f()', elements of argument after * must be 'float', not 'str|float'",
+        "in call to 'f()', elements of argument after * must be 'float', not 'str | float'",
         """
         def f(*args: float) -> int:
             return 0
@@ -1904,7 +1905,7 @@ public final class TypeCheckerTest {
         """);
     // Wrong type of residual positional arguments
     assertInvalid(
-        "in call to 'f()', residual positional arguments must be 'str|float', not 'int'",
+        "in call to 'f()', residual positional arguments must be 'str | float', not 'int'",
         """
         def f(x: int, *args: str|float) -> int:
             return 0
@@ -1958,7 +1959,7 @@ public final class TypeCheckerTest {
         f(**kwargs)
         """);
     assertInvalid(
-        "argument after ** must be a dict with string keys, not 'dict[Any, Any]|list[Any]'",
+        "argument after ** must be a dict with string keys, not 'dict[Any, Any] | list[Any]'",
         """
         def f(**kwargs) -> int:
             return 0
@@ -1967,7 +1968,7 @@ public final class TypeCheckerTest {
         """);
     // Wrong element type
     assertInvalid(
-        "in call to 'f()', values of argument after ** must be 'float', not 'str|float'",
+        "in call to 'f()', values of argument after ** must be 'float', not 'str | float'",
         """
         def f(**kwargs: float) -> int:
             return 0
@@ -1976,7 +1977,7 @@ public final class TypeCheckerTest {
         """);
     // Wrong type of residual keyword arguments
     assertInvalid(
-        "in call to 'f()', residual keyword arguments must be 'str|float', not 'int'",
+        "in call to 'f()', residual keyword arguments must be 'str | float', not 'int'",
         """
         def f(x: int, **kwargs: str|float) -> int:
             return 0
@@ -2133,7 +2134,7 @@ public final class TypeCheckerTest {
         """);
 
     assertInvalid(
-        ":2:5: f() declares return type 'int' but may exit without an explicit 'return'",
+        ":2:5: f() declares return type 'int' but may return 'None' implicitly",
         """
         def f() -> int:
             if 2 + 2 == 4:
@@ -2356,7 +2357,7 @@ public final class TypeCheckerTest {
                 pass
         """);
     assertInvalid(
-        ":3:9: cannot assign type 'int|str' to 'x' of type 'int'",
+        ":3:9: cannot assign type 'int | str' to 'x' of type 'int'",
         """
         def _wrapper() -> None:
             x: int
@@ -2434,7 +2435,7 @@ public final class TypeCheckerTest {
   public void load_statement() throws Exception {
     loader = importName -> TestUtils.LoadableModule.of("x", Types.union(Types.INT, Types.STR));
     assertInvalid(
-        ":3:1: cannot assign type 'int|str' to 'y[0]' of type 'int'",
+        ":3:1: cannot assign type 'int | str' to 'y[0]' of type 'int'",
         """
         load("//x:x.bzl", "x")
         y : list[int] = [0]

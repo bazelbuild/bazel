@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
@@ -229,9 +228,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     String cpu = "k8"; // CPU of the platform specified with --platforms
     Artifact archive = getBinArtifact("libhello.a", hello);
@@ -277,9 +274,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     String cpu = "k8"; // CPU of the platform specified with --platforms
     Artifact archive = getBinArtifact("libhello.a", hello);
@@ -683,6 +678,92 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .contains(getBinArtifact("_objs/b/b.pic.pcm", moduleB));
     assertThat(aObjectAction.getInputs().toList())
         .contains(getGenfilesArtifact("b.cppmap", moduleB));
+    assertNoEvents();
+  }
+
+  @Test
+  public void testModuleUpperBoundsWithoutIncludeScanning() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(MockCcSupport.HEADER_MODULES_FEATURES, CppRuleClasses.SUPPORTS_PIC));
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
+    scratch.file(
+        "module/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        package(features = ['header_modules', 'use_header_modules'])
+        cc_library(
+            name = 'a',
+            srcs = ['a.h'],
+        )
+        cc_library(
+            name = 'b',
+            srcs = ['b.h'],
+            deps = [':a'],
+        )
+        cc_library(
+            name = 'c',
+            srcs = ['c.cc'],
+            deps = [':b'],
+        )
+        """);
+    Artifact aModuleArtifact =
+        getBinArtifact("_objs/a/a.pic.pcm", getConfiguredTarget("//module:a"));
+    Artifact bModuleArtifact =
+        getBinArtifact("_objs/b/b.pic.pcm", getConfiguredTarget("//module:b"));
+
+    // Without include scanning, all transitive modules are inputs to the object compile, but only
+    // the modules of direct dependencies are passed to the compiler as top-level modules.
+    Artifact cObjectArtifact = getBinArtifact("_objs/c/c.pic.o", getConfiguredTarget("//module:c"));
+    CppCompileAction cObjectAction = (CppCompileAction) getGeneratingAction(cObjectArtifact);
+    assertThat(getHeaderModules(cObjectAction.getInputs()))
+        .containsExactly(aModuleArtifact, bModuleArtifact);
+    assertThat(getHeaderModuleFlags(cObjectAction.getArguments())).containsExactly("b.pic.pcm");
+
+    // The same holds for the module compile of b, which additionally advertises all transitive
+    // modules as discovered modules for use by dependent actions.
+    CppCompileAction bModuleAction = (CppCompileAction) getGeneratingAction(bModuleArtifact);
+    assertThat(getHeaderModules(bModuleAction.getInputs())).containsExactly(aModuleArtifact);
+    assertThat(bModuleAction.getDiscoveredModules().toList()).containsExactly(aModuleArtifact);
+    assertNoEvents();
+  }
+
+  @Test
+  public void testModuleCodegenInputsWithoutIncludeScanning() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(MockCcSupport.HEADER_MODULES_FEATURES));
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
+    scratch.file(
+        "module/BUILD",
+        """
+        load("@rules_cc//cc:cc_library.bzl", "cc_library")
+        package(features = ['header_modules', 'use_header_modules', 'header_module_codegen'])
+        cc_library(
+            name = 'a',
+            srcs = ['a.h'],
+        )
+        cc_library(
+            name = 'b',
+            srcs = ['b.h'],
+            deps = [':a'],
+        )
+        """);
+    Artifact aModuleArtifact = getBinArtifact("_objs/a/a.pcm", getConfiguredTarget("//module:a"));
+
+    // Compiling b's module file to an object file loads the module file, which in turn loads the
+    // module files it imports, so those are inputs even though the source of the codegen action is
+    // not itself compiled with header modules.
+    Artifact bModuleObjectArtifact =
+        getBinArtifact("_objs/b/b.pcm.o", getConfiguredTarget("//module:b"));
+    CppCompileAction bModuleCodegenAction =
+        (CppCompileAction) getGeneratingAction(bModuleObjectArtifact);
+    assertThat(getHeaderModules(bModuleCodegenAction.getInputs())).contains(aModuleArtifact);
     assertNoEvents();
   }
 
@@ -1229,9 +1310,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         """);
     ConfiguredTarget target = getConfiguredTarget("//foo");
     CppCompileAction action = getCppCompileAction(target);
-    String genfilesDir =
-        getConfiguration(target).getGenfilesFragment(RepositoryName.MAIN).toString();
-    String binDir = getConfiguration(target).getBinFragment(RepositoryName.MAIN).toString();
+    String genfilesDir = getConfiguration(target).getGenfilesFragment().toString();
+    String binDir = getConfiguration(target).getBinFragment().toString();
     // Local include paths come first.
     assertContainsSublist(
         action.getCompilerOptions(),
@@ -1364,7 +1444,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-Id/../../somewhere'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), false);
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()
@@ -1382,7 +1462,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-I/somewhere'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), false);
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()
@@ -1400,7 +1480,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-isystem../system'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), false);
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()
@@ -1418,7 +1498,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name='a', srcs=['a.cc'], copts=['-isystem/system'])");
     CppCompileAction compileAction = getCppCompileAction("//root:a");
     try {
-      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs(), false);
+      compileAction.verifyActionIncludePaths(compileAction.getSystemIncludeDirs());
     } catch (ActionExecutionException exception) {
       assertThat(exception)
           .hasMessageThat()
@@ -2192,12 +2272,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         """);
 
     assertThat(getExecConfiguredTarget("//foo:public_dep")).isNotNull();
-    ;
-    assertDoesNotContainEvent("requires --experimental_cc_implementation_deps");
   }
 
   @Test
-  public void testImplementationDepsSucceedsWithoutFlag() throws Exception {
+  public void testImplementationDepsSucceeds() throws Exception {
     if (!analysisMock.isThisBazel()) {
       return;
     }
@@ -2217,8 +2295,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         )
         """);
     assertThat(getConfiguredTarget("//foo:lib")).isNotNull();
-    ;
-    assertDoesNotContainEvent("requires --experimental_cc_implementation_deps");
   }
 
   @Test
@@ -2302,9 +2378,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
         "--compilation_mode=fastbuild",
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
 
     scratch.file(
         "no-transition/BUILD",
@@ -2361,9 +2435,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
         "--compilation_mode=fastbuild",
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
+        String.format("--override_platform_cpu_name=%s=k8", TestConstants.PLATFORM_LABEL));
 
     scratch.file(
         "transition/BUILD",

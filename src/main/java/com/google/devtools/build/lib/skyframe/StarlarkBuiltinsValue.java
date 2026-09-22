@@ -48,6 +48,12 @@ public final class StarlarkBuiltinsValue implements SkyValue {
   public final ImmutableMap<String, Object> predeclaredForBuildBzl;
 
   /**
+   * Like {@link #predeclaredForBuildBzl}, but with extra type constructor values that are only to
+   * be used in type-checked code, e.g. {@code File}.
+   */
+  public final ImmutableMap<String, Object> predeclaredForBuildBzlWithExtraTypeConstructors;
+
+  /**
    * Top-level predeclared symbols for a .bzl file loaded on behalf of a MODULE file after builtins
    * injection has been applied.
    */
@@ -70,12 +76,15 @@ public final class StarlarkBuiltinsValue implements SkyValue {
 
   private StarlarkBuiltinsValue(
       ImmutableMap<String, Object> predeclaredForBuildBzl,
+      ImmutableMap<String, Object> predeclaredForBuildBzlWithExtraTypeConstructors,
       ImmutableMap<String, Object> predeclaredForModuleBzl,
       ImmutableMap<String, Object> predeclaredForBuild,
       ImmutableMap<String, Object> exportedToJava,
       byte[] transitiveDigest,
       StarlarkSemantics starlarkSemantics) {
     this.predeclaredForBuildBzl = predeclaredForBuildBzl;
+    this.predeclaredForBuildBzlWithExtraTypeConstructors =
+        predeclaredForBuildBzlWithExtraTypeConstructors;
     this.predeclaredForModuleBzl = predeclaredForModuleBzl;
     this.predeclaredForBuild = predeclaredForBuild;
     this.exportedToJava = exportedToJava;
@@ -85,6 +94,7 @@ public final class StarlarkBuiltinsValue implements SkyValue {
 
   public static StarlarkBuiltinsValue create(
       ImmutableMap<String, Object> predeclaredForBuildBzl,
+      ImmutableMap<String, Object> predeclaredForBuildBzlWithExtraTypeConstructors,
       ImmutableMap<String, Object> predeclaredForModuleBzl,
       ImmutableMap<String, Object> predeclaredForBuild,
       ImmutableMap<String, Object> exportedToJava,
@@ -92,6 +102,7 @@ public final class StarlarkBuiltinsValue implements SkyValue {
       StarlarkSemantics starlarkSemantics) {
     return new StarlarkBuiltinsValue(
         predeclaredForBuildBzl,
+        predeclaredForBuildBzlWithExtraTypeConstructors,
         predeclaredForModuleBzl,
         predeclaredForBuild,
         exportedToJava,
@@ -110,6 +121,7 @@ public final class StarlarkBuiltinsValue implements SkyValue {
   public static StarlarkBuiltinsValue createEmpty(StarlarkSemantics starlarkSemantics) {
     return new StarlarkBuiltinsValue(
         /* predeclaredForBuildBzl= */ ImmutableMap.of(),
+        /* predeclaredForBuildBzlWithExtraTypeConstructors= */ ImmutableMap.of(),
         /* predeclaredForModuleBzl= */ ImmutableMap.of(),
         /* predeclaredForBuild= */ ImmutableMap.of(),
         /* exportedToJava= */ ImmutableMap.of(),

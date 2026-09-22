@@ -70,7 +70,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -195,8 +194,9 @@ public class CppCompileAction extends AbstractAction
    * building users of this module. Such users can get to this data through this action's {@link
    * com.google.devtools.build.lib.skyframe.ActionExecutionValue}
    *
-   * <p>This field is populated either based on the discovered headers in {@link #discoverInputs} or
-   * extracted from the action inputs when restoring it from the action cache.
+   * <p>This field is populated either based on the discovered headers in {@link #discoverInputs},
+   * extracted from the action inputs when restoring it from the action cache, or set to all
+   * transitive modules as an upper bound when include scanning is disabled.
    */
   private NestedSet<Artifact> discoveredModules = null;
 
@@ -328,6 +328,7 @@ public class CppCompileAction extends AbstractAction
     this.allowedDerivedInputs = allowedDerivedInputsBuilder.build();
     this.moduleFiles = moduleFiles;
     this.modmapInputFile = modmapInputFile;
+    initializeModulesUpperBoundsIfNotScanningIncludes();
   }
 
   /** Constructor for serialization. */
@@ -387,6 +388,31 @@ public class CppCompileAction extends AbstractAction
     this.builtInIncludeDirectories = builtInIncludeDirectories;
     this.moduleFiles = moduleFiles;
     this.modmapInputFile = modmapInputFile;
+    initializeModulesUpperBoundsIfNotScanningIncludes();
+  }
+
+  /**
+   * Without include scanning, the exact set of modules used by this compilation is unknown, so use
+   * a suitable upper bound: any directly usable module may be used as a top-level module and any
+   * transitive module may be needed as an input.
+   *
+   * <p>With include scanning, these values are computed in {@link #discoverInputs} instead.
+   */
+  private void initializeModulesUpperBoundsIfNotScanningIncludes() {
+    if (shouldScanIncludes || !useHeaderModules) {
+      return;
+    }
+    boolean separate =
+        getPrimaryOutput().equals(ccCompilationContext.getSeparateHeaderModule(usePic));
+    NestedSet<Artifact> topLevelModules = ccCompilationContext.getDirectModules(usePic, separate);
+    this.topLevelModules = topLevelModules;
+    if (getPrimaryOutput().isFileType(CppFileTypes.CPP_MODULE)
+        && !isCpp20ModuleCompilationAction(actionName)) {
+      this.discoveredModules =
+          NestedSetBuilder.fromNestedSet(ccCompilationContext.getTransitiveModules(usePic))
+              .addTransitive(topLevelModules)
+              .build();
+    }
   }
 
   private static ImmutableSet<Artifact> collectOutputs(
@@ -533,6 +559,11 @@ public class CppCompileAction extends AbstractAction
         .build();
   }
 
+  @VisibleForTesting
+  public NestedSet<Artifact> getAdditionalPrunableHeadersForTesting() {
+    return additionalPrunableHeaders;
+  }
+
   private synchronized void setTopLevelModules(NestedSet<Artifact> value) {
     this.topLevelModules = value;
   }
@@ -651,11 +682,6 @@ public class CppCompileAction extends AbstractAction
       }
       commandLineKey = computeCommandLineKey(options);
       ImmutableList<PathFragment> systemIncludeDirs = getSystemIncludeDirs(options);
-      boolean siblingLayout =
-          actionExecutionContext
-              .getOptions()
-              .getOptions(BuildLanguageOptions.class)
-              .getExperimentalSiblingRepositoryLayout();
       if (!shouldScanIncludes) {
         usedCpp20Modules = computeUsedCpp20Modules(actionExecutionContext);
         // When not actually doing include scanning, add all prunable headers to additionalInputs.
@@ -668,7 +694,7 @@ public class CppCompileAction extends AbstractAction
                 .addAll(usedCpp20Modules)
                 .build();
         if (needsIncludeValidation) {
-          verifyActionIncludePaths(systemIncludeDirs, siblingLayout);
+          verifyActionIncludePaths(systemIncludeDirs);
         }
         return additionalInputs;
       }
@@ -683,7 +709,7 @@ public class CppCompileAction extends AbstractAction
       // In theory, we could verify include paths even earlier, but we want to avoid the restart
       // above necessitating a double-execution.
       if (needsIncludeValidation) {
-        verifyActionIncludePaths(systemIncludeDirs, siblingLayout);
+        verifyActionIncludePaths(systemIncludeDirs);
       }
       IncludeScanningHeaderData includeScanningHeaderData =
           includeScanningHeaderDataBuilder
@@ -771,8 +797,8 @@ public class CppCompileAction extends AbstractAction
   }
 
   /**
-   * Set by {@link #discoverInputs}. Returns a subset of {@link #getAdditionalInputs} or an empty
-   * {@link NestedSet}, if this is not a compile action producing a C++ module.
+   * Set by {@link #discoverInputs} or, when include scanning is disabled, in the constructor.
+   * Returns an empty {@link NestedSet}, if this is not a compile action producing a C++ module.
    */
   @Override
   public NestedSet<Artifact> getDiscoveredModules() {
@@ -1157,8 +1183,7 @@ public class CppCompileAction extends AbstractAction
   }
 
   @VisibleForTesting
-  void verifyActionIncludePaths(
-      List<PathFragment> systemIncludeDirs, boolean siblingRepositoryLayout)
+  void verifyActionIncludePaths(List<PathFragment> systemIncludeDirs)
       throws ActionExecutionException {
     ImmutableSet<PathFragment> ignoredDirs = ImmutableSet.copyOf(getValidationIgnoredDirs());
     // We currently do not check the output of:
@@ -1176,15 +1201,9 @@ public class CppCompileAction extends AbstractAction
         continue;
       }
 
-      // Two conditions:
-      // 1. Paths cannot be absolute (e.g. multiple uplevels to /etc/passwd)
-      // 2. For relative paths, one starting ../ is okay for getting to a sibling repository.
-      PathFragment prefix =
-          siblingRepositoryLayout
-              ? LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX
-              : LabelConstants.EXTERNAL_PATH_PREFIX;
-      if (includePath.startsWith(prefix)) {
-        includePath = includePath.relativeTo(prefix);
+      // Paths cannot be absolute (e.g. multiple uplevels to /etc/passwd).
+      if (includePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
+        includePath = includePath.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX);
       }
       if (includePath.isAbsolute() || includePath.containsUplevelReferences()) {
         String message =
@@ -1241,14 +1260,16 @@ public class CppCompileAction extends AbstractAction
   CcToolchainVariables getOverwrittenVariables() {
     if (useHeaderModules) {
       // TODO(cmita): Avoid keeping state in CppCompileAction.
-      // There are two cases for when this method might be called:
-      // 1. After input discovery, after which toplevelModules is set (in discoverInputs()).
-      // 2. After the action is loaded from the local action cache, leaving topLevelModules null.
-      //
-      // Ideally the same thing would be done in both cases, but as is, we just overestimate modules
-      // in the latter case using the inputs from the action cache.
+      // There are three cases for when this method might be called:
+      // 1. After input discovery, after which topLevelModules is set (in discoverInputs()).
+      // 2. Without include scanning, in which case topLevelModules is set to an upper bound in the
+      //    constructor.
+      // 3. After the action is loaded from the local action cache, leaving topLevelModules null in
+      //    the case of include scanning.
+      // Ideally the same thing would be done in all cases, but as is, we just overestimate modules
+      // in the last case using the inputs from the action cache.
       // Note that this breaks the invariant that Actions are immutable after the analysis phase.
-      NestedSet<Artifact> modules = shouldScanIncludes ? getTopLevelModules() : null;
+      NestedSet<Artifact> modules = getTopLevelModules();
       if (modules != null) {
         return calculateModuleVariable(modules);
       } else {
@@ -1524,11 +1545,6 @@ public class CppCompileAction extends AbstractAction
     CppIncludeExtractionContext scanningContext =
         actionExecutionContext.getContext(CppIncludeExtractionContext.class);
     Path execRoot = actionExecutionContext.getExecRoot();
-    boolean siblingRepositoryLayout =
-        actionExecutionContext
-            .getOptions()
-            .getOptions(BuildLanguageOptions.class)
-            .getExperimentalSiblingRepositoryLayout();
 
     if (shouldParseShowIncludes()) {
       NestedSet<Artifact> discoveredInputs =
@@ -1537,7 +1553,6 @@ public class CppCompileAction extends AbstractAction
               scanningContext.getArtifactResolver(),
               showIncludesFilterForStdout,
               showIncludesFilterForStderr,
-              siblingRepositoryLayout,
               pathMapper);
       updateActionInputs(discoveredInputs);
       validateInclusions(actionExecutionContext, discoveredInputs);
@@ -1556,7 +1571,6 @@ public class CppCompileAction extends AbstractAction
             execRoot,
             scanningContext.getArtifactResolver(),
             dotDContents,
-            siblingRepositoryLayout,
             pathMapper);
     dotDContents = null; // Garbage collect in-memory .d contents.
 
@@ -1792,12 +1806,9 @@ public class CppCompileAction extends AbstractAction
           /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           getOutputs(),
           mandatoryOutputs,
-          () ->
+          (os, inputsSize) ->
               estimateResourceConsumptionLocal(
-                  enabledCppCompileResourcesEstimation(),
-                  getMnemonic(),
-                  OS.getCurrent(),
-                  inputs.flatten().size()),
+                  enabledCppCompileResourcesEstimation(), getMnemonic(), os, inputsSize),
           pathMapper);
     } catch (CommandLineExpansionException e) {
       String message =
@@ -1814,7 +1825,6 @@ public class CppCompileAction extends AbstractAction
       ArtifactResolver artifactResolver,
       ShowIncludesFilter showIncludesFilterForStdout,
       ShowIncludesFilter showIncludesFilterForStderr,
-      boolean siblingRepositoryLayout,
       PathMapper pathMapper)
       throws ActionExecutionException {
     Collection<Path> stdoutDeps = showIncludesFilterForStdout.getDependencies(execRoot);
@@ -1847,7 +1857,6 @@ public class CppCompileAction extends AbstractAction
         getAllowedDerivedInputs(),
         execRoot,
         artifactResolver,
-        siblingRepositoryLayout,
         pathMapper);
   }
 
@@ -1857,7 +1866,6 @@ public class CppCompileAction extends AbstractAction
       Path execRoot,
       ArtifactResolver artifactResolver,
       byte[] dotDContents,
-      boolean siblingRepositoryLayout,
       PathMapper pathMapper)
       throws ActionExecutionException {
     Preconditions.checkNotNull(getDotdFile(), "Trying to scan .d file which is unset");
@@ -1870,7 +1878,6 @@ public class CppCompileAction extends AbstractAction
         getAllowedDerivedInputs(),
         execRoot,
         artifactResolver,
-        siblingRepositoryLayout,
         pathMapper);
   }
 

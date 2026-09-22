@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.skyframe.ActionExecutionValue.ActionTransfo
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.DoNotCall;
 import java.util.concurrent.ConcurrentMap;
 import javax.annotation.Nullable;
@@ -201,11 +202,15 @@ final class ActionExecutionState {
    * Removes this state from {@code buildActionMap}, marks it obsolete so that racing shared actions
    * with a reference to this state will restart, and signals to coalesced shared actions that they
    * should re-evaluate.
+   *
+   * <p>Returns the {@link ActionStepOrResult} prior to this call.
    */
-  synchronized void obsolete(
+  @CanIgnoreReturnValue
+  synchronized ActionStepOrResult obsolete(
       SkyKey requester,
       ConcurrentMap<OwnerlessArtifactWrapper, ActionExecutionState> buildActionMap,
       OwnerlessArtifactWrapper ownerlessArtifactWrapper) {
+    ActionStepOrResult priorState = state;
     if (actionLookupData.equals(requester)) {
       // An action state's owner only obsoletes it when rewinding. The lost inputs exception thrown
       // from ActionStepOrResult#run left its state undone.
@@ -222,9 +227,7 @@ final class ActionExecutionState {
         completionFuture.set(null);
         completionFuture = null;
       }
-      return;
-    }
-    if (!state.isDone()) {
+    } else if (state.isDone()) {
       // An action obsoletes other actions' states when rewinding its dependencies. It may race with
       // other actions to do so. Removing the buildActionMap entry must only be done by the race's
       // winner, to ensure the removal only happens once and removes this state.
@@ -232,16 +235,16 @@ final class ActionExecutionState {
       // An action may also attempt to obsolete a dependency's not-done state, if it lost the race
       // with another rewinding action, and the dep started evaluating. If so, then do nothing,
       // because that dep is already doing what it needs to.
-      return;
+      ActionExecutionState removedState = buildActionMap.remove(ownerlessArtifactWrapper);
+      Preconditions.checkState(
+          removedState == this,
+          "removed unexpected state from buildActionMap; requester: %s, this: %s, removed: %s",
+          requester,
+          actionLookupData,
+          removedState.actionLookupData);
+      state = Obsolete.INSTANCE;
     }
-    ActionExecutionState removedState = buildActionMap.remove(ownerlessArtifactWrapper);
-    Preconditions.checkState(
-        removedState == this,
-        "removed unexpected state from buildActionMap; requester: %s, this: %s, removed: %s",
-        requester,
-        actionLookupData,
-        removedState.actionLookupData);
-    state = Obsolete.INSTANCE;
+    return priorState;
   }
 
   /** A callback to receive events for shared actions that are not executed. */

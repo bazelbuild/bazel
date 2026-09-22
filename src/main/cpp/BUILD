@@ -71,6 +71,7 @@ cc_library(
         "@abseil-cpp//absl/base:log_severity",
         "@abseil-cpp//absl/log:globals",
         "@abseil-cpp//absl/log:initialize",
+        "@abseil-cpp//absl/time",
     ] + select({
         "//src/conditions:windows": [
             "//src/main/native/windows:lib-file",
@@ -151,6 +152,7 @@ cc_binary(
         "//src/main/protobuf:command_server_cc_grpc",
         "//src/main/protobuf:command_server_cc_proto",
         "//third_party/ijar:zip",
+        "@abseil-cpp//absl/time",
     ],
 )
 
@@ -240,6 +242,7 @@ cc_library(
         "//src/main/cpp/util:logging",
         "//src/main/cpp/util:numbers",
         "//src/main/cpp/util:strings",
+        "@abseil-cpp//absl/time",
     ],
 )
 

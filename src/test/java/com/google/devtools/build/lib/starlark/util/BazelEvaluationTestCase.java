@@ -81,6 +81,7 @@ public final class BazelEvaluationTestCase {
   private Module module = null; // created lazily by getModule
 
   private ImmutableMap<String, Class<?>> fragmentNameToClass = ImmutableMap.of();
+  private Optional<Label> noExplicitMnemonicAllowlist = Optional.empty();
 
   private Object threadOwner = "test";
 
@@ -170,9 +171,15 @@ public final class BazelEvaluationTestCase {
             /* transitiveDigest= */ new byte[0], // dummy value for tests
             TestConstants.TOOLS_REPOSITORY,
             /* networkAllowlistForTests= */ Optional.empty(),
+            noExplicitMnemonicAllowlist,
             fragmentNameToClass,
             /* mainRepoMapping= */ null)
         .storeInThread(thread);
+  }
+
+  public void setNoExplicitMnemonicAllowlist(Optional<Label> noExplicitMnemonicAllowlist) {
+    Preconditions.checkState(this.thread == null, "Call this method before getStarlarkThread()");
+    this.noExplicitMnemonicAllowlist = noExplicitMnemonicAllowlist;
   }
 
   /**

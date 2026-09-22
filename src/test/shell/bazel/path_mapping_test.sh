@@ -285,22 +285,6 @@ function test_path_stripping_remote() {
   expect_not_log '[0-9] remote[^ ]'
 }
 
-function test_path_stripping_remote_action_cache() {
-  bazel build -c fastbuild \
-    --experimental_output_paths=strip \
-    --remote_executor=grpc://localhost:${worker_port} \
-    //src/main/java/com/example:Main &> $TEST_log || fail "build failed unexpectedly"
-  expect_log '5 remote'
-
-  bazel shutdown
-
-  bazel build -c fastbuild \
-    --experimental_output_paths=strip \
-    --remote_executor=grpc://localhost:${worker_port} \
-    //src/main/java/com/example:Main &> $TEST_log || fail "build failed unexpectedly"
-  expect_not_log '[0-9] remote'
-}
-
 function test_path_stripping_remote_multiple_configs() {
   mkdir rules
   cat > rules/defs.bzl <<'EOF'
@@ -473,7 +457,7 @@ common --repo_env=APPLE_SUPPORT_LAYERING_CHECK_BETA=0
 EOF
 
   cat > MODULE.bazel <<EOF
-bazel_dep(name = "apple_support", version = "2.5.2")
+bazel_dep(name = "apple_support", version = "2.5.4")
 EOF
   add_rules_cc "MODULE.bazel"
 

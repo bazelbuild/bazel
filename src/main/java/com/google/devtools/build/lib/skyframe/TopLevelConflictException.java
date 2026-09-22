@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionConflictException;
@@ -30,6 +31,7 @@ final class TopLevelConflictException extends Exception {
       String message,
       ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts) {
     super(message);
+    Preconditions.checkArgument(!actionConflicts.isEmpty(), "No conflict: %s", message);
     this.transitiveActionConflicts = actionConflicts;
   }
 

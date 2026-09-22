@@ -341,4 +341,80 @@ EOF
       "Expected both aliases to be in --flag_alias option value list"
 }
 
+function test_bzl_module_flag_alias_from_transitive_dep() {
+  local -r pkg=$FUNCNAME
+  local -r barpkg="$pkg/bar"
+  local -r subpkg="$pkg/sub"
+  mkdir -p $barpkg $subpkg
+
+  ## Set up the root module, which depends on "bar" but not on "sub".
+  cat > $(setup_module_dot_bazel "$pkg/MODULE.bazel") <<EOF
+bazel_dep(name = "bar")
+local_path_override(module_name = "bar", path = "./bar")
+local_path_override(module_name = "sub", path = "./sub")
+EOF
+  touch $pkg/BUILD
+
+  ## Set up "bar", which depends on "sub" and reads its flag.
+  cat > $barpkg/MODULE.bazel <<EOF
+module(name = "bar")
+bazel_dep(name = "sub")
+EOF
+
+  cat > $barpkg/BUILD <<EOF
+load("@sub//:rules.bzl", "flag_reader")
+flag_reader(
+    name = "reader",
+    flag = "@sub//:my_flag",
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  ## Set up "sub", which defines a flag, a rule that reads it and a flag alias.
+  cat > $subpkg/MODULE.bazel <<EOF
+module(name = "sub")
+flag_alias(name = "myflag", starlark_flag = "//:my_flag")
+EOF
+
+  cat > $subpkg/BUILD <<EOF
+load(":rules.bzl", "my_flag")
+my_flag(
+    name = "my_flag",
+    build_setting_default = "default_value",
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > $subpkg/rules.bzl <<EOF
+BuildSettingInfo = provider(fields = ['value'])
+
+def _flag_impl(ctx):
+    return BuildSettingInfo(value = ctx.build_setting_value)
+
+my_flag = rule(
+    implementation = _flag_impl,
+    build_setting = config.string(flag = True),
+)
+
+def _flag_reader_impl(ctx):
+    print("flag value: " + ctx.attr.flag[BuildSettingInfo].value)
+    return []
+
+flag_reader = rule(
+    implementation = _flag_reader_impl,
+    attrs = {
+        "flag": attr.label(),
+    },
+)
+EOF
+
+  cd $pkg
+
+  # The alias must resolve even though "sub" isn't visible from the root module.
+  bazel build @bar//:reader --myflag=custom_value >& "$TEST_log" \
+      || fail "Expected success"
+  expect_log "flag value: custom_value"
+  expect_not_log "No repository visible as '@sub'"
+}
+
 run_suite "${PRODUCT_NAME} starlark configurations tests"

@@ -763,6 +763,21 @@ public final class ProfilerTest {
   }
 
   @Test
+  public void testTaskHistograms_emptyWhenNotActive() throws Exception {
+    assertThat(profiler.isActive()).isFalse();
+    assertThat(profiler.getTasksHistograms()).isEmpty();
+
+    startUnbuffered(getAllProfilerTasks());
+    profiler.logSimpleTaskDuration(
+        profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
+    assertThat(profiler.getTasksHistograms()).isNotEmpty();
+    profiler.stop();
+
+    assertThat(profiler.isActive()).isFalse();
+    assertThat(profiler.getTasksHistograms()).isEmpty();
+  }
+
+  @Test
   public void testIOExceptionInOutputStreamBinaryFormat() throws Exception {
     OutputStream failingOutputStream =
         new OutputStream() {

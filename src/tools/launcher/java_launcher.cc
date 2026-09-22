@@ -14,6 +14,7 @@
 
 #include "src/tools/launcher/java_launcher.h"
 
+#include <cstddef>
 #include <fstream>
 #include <memory>
 #include <optional>

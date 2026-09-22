@@ -781,8 +781,8 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
 
-    assertWithMessage("Output should mention strategy '%s', but was: %s", strategy, output)
-        .that(output.contains(strategy))
+    assertWithMessage("Output should mention strategy '(%s)', but was: %s", strategy, output)
+        .that(output.contains("(" + strategy + ")"))
         .isTrue();
   }
 
@@ -1853,5 +1853,26 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     assertThat(output).contains("Uploading action");
     assertThat(output).contains("[Uploa]");
+    assertThat(output).contains("(remote)");
+  }
+
+  @Test
+  public void testSchedulingAction_showsStrategy() throws Exception {
+    ManualClock clock = new ManualClock();
+    UiStateTracker stateTracker = getUiStateTracker(clock);
+    simulateExecutionPhase(stateTracker);
+
+    Action scheduledAction = mockAction("Scheduled action", "scheduled/action");
+    when(scheduledAction.getOwner()).thenReturn(dummyActionOwner());
+    stateTracker.actionStarted(new ActionStartedEvent(scheduledAction, clock.nanoTime()));
+    stateTracker.schedulingAction(new SchedulingActionEvent(scheduledAction, "remote-queue"));
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriter, /* shortVersion= */ true);
+    String output = terminalWriter.getTranscript();
+
+    assertThat(output).contains("Scheduled action");
+    assertThat(output).contains("[Sched]");
+    assertThat(output).contains("(remote-queue)");
   }
 }

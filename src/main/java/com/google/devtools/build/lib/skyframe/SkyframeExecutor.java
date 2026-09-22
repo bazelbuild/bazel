@@ -120,6 +120,7 @@ import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataP
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionFunction;
 import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
@@ -131,6 +132,7 @@ import com.google.devtools.build.lib.cmdline.Label.LabelInterner;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -900,7 +902,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.TOP_LEVEL_ASPECTS,
         new ToplevelStarlarkAspectFunction(
-            new BuildViewProvider(),
+            () -> getSkyframeBuildView().getStarlarkTransitionCache(),
             ruleClassProvider,
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             this::getExistingPackage));
@@ -1375,12 +1377,24 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // This is to prevent throwing away Packages we may need during execution.
     ImmutableSet.Builder<PackageIdentifier> packageSetBuilder = ImmutableSet.builder();
     if (discardType.discardsLoading()) {
-      packageSetBuilder.addAll(
-          Collections2.transform(
-              topLevelTargets, target -> target.getLabel().getPackageIdentifier()));
-      packageSetBuilder.addAll(
-          Collections2.transform(
-              topLevelAspects, aspect -> aspect.getLabel().getPackageIdentifier()));
+      for (ConfiguredTarget target : topLevelTargets) {
+        // Collect packages of top-level targets. In the case of an alias chain
+        // (//alias_a -> //alias_b -> //real), traverse the chain to ensure packages
+        // of both intermediate aliases and the resolved actual target are preserved.
+        ConfiguredTarget cur = target;
+        while (cur != null) {
+          packageSetBuilder.add(cur.getLabel().getPackageIdentifier());
+          packageSetBuilder.add(cur.getOriginalLabel().getPackageIdentifier());
+          ConfiguredTarget actual = cur.getActualNoFollow();
+          if (actual == cur) {
+            break;
+          }
+          cur = actual;
+        }
+      }
+      for (AspectKey aspect : topLevelAspects) {
+        packageSetBuilder.add(aspect.getLabel().getPackageIdentifier());
+      }
     }
     ImmutableSet<PackageIdentifier> topLevelPackages = packageSetBuilder.build();
     lastAnalysisDiscarded = true;
@@ -1681,7 +1695,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   protected void setCommandId(UUID commandId) {
-    PrecomputedValue.BUILD_ID.set(injectable(), commandId);
+    // PrecomputedValue.BUILD_ID is used by BuildDriverFunction and volatile actions to ensure
+    // re-evaluation on every build. Always generate a fresh UUID so that re-evaluation occurs
+    // even if consecutive invocations on this server reuse the same commandId / invocation_id
+    // (b/448084768).
+    PrecomputedValue.BUILD_ID.set(injectable(), UUID.randomUUID());
   }
 
   /** Returns the build-info.txt and build-changelist.txt artifacts. */
@@ -1805,8 +1823,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     StarlarkSemantics starlarkSemantics = getEffectiveStarlarkSemantics(buildLanguageOptions);
     setStarlarkSemantics(starlarkSemantics);
-    setSiblingDirectoryLayout(
-        starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
     setPackageLocator(pkgLocator);
     setLazyMacroExpansionPackages(packageOptions.getLazyMacroExpansionPackages());
     setStampSettingMarker();
@@ -1829,10 +1845,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // Reset the stateful SkyframeCycleReporter, which contains cycles from last run.
     cyclesReporter = createCyclesReporter();
     analysisCacheCleared = false;
-  }
-
-  private void setSiblingDirectoryLayout(boolean experimentalSiblingRepositoryLayout) {
-    this.artifactFactory.setSiblingRepositoryLayout(experimentalSiblingRepositoryLayout);
   }
 
   public StarlarkSemantics getEffectiveStarlarkSemantics(
@@ -2045,7 +2057,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               .setExecutionPhase()
               .build();
       return memoizingEvaluator.evaluate(
-          Iterables.concat(Artifact.keys(artifactsToBuild), targetKeys, aspectKeys, testKeys),
+          Iterables.concat(targetKeys, aspectKeys, testKeys, Artifact.keys(artifactsToBuild)),
           evaluationContext);
     } finally {
       // Also releases thread locks.
@@ -2741,6 +2753,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return consumedArtifactsTracker;
   }
 
+  /** Determines whether the given action was rewound during the current build. */
+  public boolean wasActionRewound(ActionAnalysisMetadata action) {
+    return skyframeActionExecutor.wasRewound(action);
+  }
+
   /**
    * Checks the action lookup values owning the given artifacts for action conflicts. Artifacts
    * satisfying the returned predicate are known to be transitively free from action conflicts.
@@ -2914,17 +2931,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return value;
   }
 
-  class SkyframePackageLoader {
+  private final class SkyframePackageLoader implements SkyframePackageManager.PackageLoader {
     /**
-     * Looks up a particular package (mostly used after the loading phase, so packages should
-     * already be present, but occasionally used pre-loading phase). Use should be discouraged,
-     * since this cannot be used inside a Skyframe evaluation, and concurrent calls are
-     * synchronized.
-     *
-     * <p>Note that this method needs to be synchronized since InMemoryMemoizingEvaluator.evaluate()
+     * Note that this method needs to be synchronized since InMemoryMemoizingEvaluator.evaluate()
      * method does not support concurrent calls.
      */
-    Package getPackage(ExtendedEventHandler eventHandler, PackageIdentifier pkgName)
+    @Override
+    public Package getPackage(ExtendedEventHandler eventHandler, PackageIdentifier pkgName)
         throws InterruptedException, NoSuchPackageException {
       ImmutableList<SkyKey> keys = ImmutableList.of(pkgName);
       EvaluationResult<PackageValue> result;
@@ -2955,18 +2968,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
 
     /**
-     * Returns the BUILD file target of the given package. Mostly used after the loading phase, so
-     * packages should already be present, but occasionally used pre-loading phase. If the package
-     * is not present, will load either the full package (if lazy macro expansion is disabled) or
-     * just the package piece owning the BUILD file target (if lazy macro expansion is enabled).
-     *
-     * <p>Use should be discouraged, since this cannot be used inside a Skyframe evaluation, and
-     * concurrent calls are synchronized.
-     *
-     * <p>This method contains a synchronized block since InMemoryMemoizingEvaluator.evaluate()
-     * method does not support concurrent calls.
+     * This method contains a synchronized block since InMemoryMemoizingEvaluator.evaluate() method
+     * does not support concurrent calls.
      */
-    InputFile getBuildFile(ExtendedEventHandler eventHandler, PackageIdentifier pkgName)
+    @Override
+    public InputFile getBuildFile(ExtendedEventHandler eventHandler, PackageIdentifier pkgName)
         throws InterruptedException, NoSuchPackageException, NoSuchPackagePieceException {
       PackagePieceIdentifier.ForBuildFile packagePieceIdentifier =
           new PackagePieceIdentifier.ForBuildFile(pkgName);
@@ -3032,12 +3038,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
     }
 
-    /** Returns whether the given package should be consider deleted and thus should be ignored. */
+    @Override
     public boolean isPackageDeleted(PackageIdentifier packageName) {
       return deletedPackages.get().contains(packageName);
     }
 
-    PackageLookupValue getPackageLookupValue(PackageIdentifier pkgName) {
+    @Override
+    @Nullable
+    public PackageLookupValue getPackageLookupValue(PackageIdentifier pkgName) {
       try {
         return (PackageLookupValue)
             memoizingEvaluator.getExistingValue(PackageLookupValue.key(pkgName));
@@ -3049,7 +3057,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
     }
 
-    void dumpPackages(PrintStream out) {
+    @Override
+    public void dumpPackages(PrintStream out) {
       SkyframeExecutor.this.dumpPackages(out);
     }
   }
@@ -3364,31 +3373,41 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return detailedExitCode;
   }
 
-  /** Canonical Starlark flag aliases for {@link PythonOptions} flags. */
+  /**
+   * Starlark flag aliases for {@link PythonOptions} flags, as labels relative to the rules_python
+   * repo.
+   */
   // TODO: b/453809359 - Remove when Bazel 9+ can read Python flag alias definitions straight from
   // rules_python's MODULE.bazel.
   private static final ImmutableMap<String, String> PY_FLAG_ALIASES =
       ImmutableMap.of(
           "build_python_zip",
-          "@@rules_python+//python/config_settings:build_python_zip",
+          "//python/config_settings:build_python_zip",
           "incompatible_default_to_explicit_init_py",
-          "@@rules_python+//python/config_settings:incompatible_default_to_explicit_init_py");
+          "//python/config_settings:incompatible_default_to_explicit_init_py");
 
-  /** Canonical Starlark flag aliases for {@link BazelPythonConfiguration} flags. */
+  /**
+   * Starlark flag aliases for {@link BazelPythonConfiguration} flags, as labels relative to the
+   * rules_python repo.
+   */
   // TODO: b/453809359 - Remove when Bazel 9+ can read Python flag alias definitions straight from
   // rules_python's MODULE.bazel.
   private static final ImmutableMap<String, String> BAZEL_PY_FLAG_ALIASES =
       ImmutableMap.of(
           "python_path",
-          "@@rules_python+//python/config_settings:python_path",
+          "//python/config_settings:python_path",
           "experimental_python_import_all_repositories",
-          "@@rules_python+//python/config_settings:experimental_python_import_all_repositories");
+          "//python/config_settings:experimental_python_import_all_repositories");
 
   /**
    * Returns flag aliases from {@code MODULE.bazel} {@code flag_alias()} definitions.
    *
    * <p>These, along with whatever is set in {@code --flag_alias}, rewrite {@code --foo}-style
    * command line flags to canonical Starlark flags.
+   *
+   * <p>The returned labels are in canonical form (e.g.
+   * {@code @@rules_python+//python/config_settings:python_path}) since they are subsequently parsed
+   * with the main repo mapping, which only knows about the root module's direct dependencies.
    *
    * @param eventHandler handler for Skyframe events
    */
@@ -3397,46 +3416,63 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     EvaluationResult<BazelDepGraphValue> evalResult =
         evaluate(
             ImmutableList.of(BazelDepGraphValue.KEY), false, DEFAULT_THREAD_COUNT, eventHandler);
-    var bzlmodDepGraph = evalResult.get(BazelDepGraphValue.KEY).getDepGraph();
+    BazelDepGraphValue depGraphValue = evalResult.get(BazelDepGraphValue.KEY);
+    var bzlmodDepGraph = depGraphValue.getDepGraph();
     LinkedHashMap<String, String> aliasesMap = new LinkedHashMap<>();
-    var rootModule = bzlmodDepGraph.entrySet().iterator().next().getValue();
     for (var module : bzlmodDepGraph.entrySet()) {
+      ModuleKey moduleKey = module.getKey();
+      RepositoryName canonicalRepoName =
+          depGraphValue.getCanonicalRepoNameLookup().inverse().get(moduleKey);
       ImmutableMap<String, String> flagAliases = module.getValue().getFlagAliases();
-      for (var flagAlias : flagAliases.entrySet()) {
-        aliasesMap.put(
-            flagAlias.getKey(),
-            flagAlias.getValue().startsWith("//")
-                ? module.getKey().getCanonicalRepoNameWithoutVersion() + flagAlias.getValue()
-                : flagAlias.getValue());
+      if (!flagAliases.isEmpty()) {
+        // flag_alias() labels are stored in the apparent form seen from the defining module (e.g.
+        // "@rules_python//python/config_settings:python_path"), so resolve them with that module's
+        // repo mapping rather than the main repo's.
+        RepoContext repoContext =
+            RepoContext.of(canonicalRepoName, depGraphValue.getFullRepoMapping(moduleKey));
+        for (var flagAlias : flagAliases.entrySet()) {
+          aliasesMap.put(
+              flagAlias.getKey(), toCanonicalLabelString(flagAlias.getValue(), repoContext));
+        }
       }
       if (!module.getValue().getName().equals("rules_python")) {
         continue;
       }
       // Don't apply hard-coded aliases if rules_python uses MODULE.bazel aliases.
-      if (!module.getValue().getFlagAliases().isEmpty()) {
+      if (!flagAliases.isEmpty()) {
         continue;
       }
       // Add Python flags that haven't already been added by rules_python's MODULE.bazel.
       PY_FLAG_ALIASES.entrySet().stream()
           .filter(e -> !flagAliases.containsKey(e.getKey()))
-          .map(
-              e ->
-                  rootModule.getName().equals("rules_python")
-                      ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
-                      : e)
-          .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
+          .forEach(
+              e -> aliasesMap.put(e.getKey(), canonicalRepoName.getNameWithAt() + e.getValue()));
       // Add Bazel Python flags that haven't already been added by rules_python's MODULE.bazel.
       BAZEL_PY_FLAG_ALIASES.entrySet().stream()
           .filter(e -> !flagAliases.containsKey(e.getKey()))
-          .map(
-              e ->
-                  rootModule.getName().equals("rules_python")
-                      ? Map.entry(e.getKey(), e.getValue().substring(e.getValue().indexOf("/")))
-                      : e)
-          .forEach(e -> aliasesMap.put(e.getKey(), e.getValue()));
+          .forEach(
+              e -> aliasesMap.put(e.getKey(), canonicalRepoName.getNameWithAt() + e.getValue()));
     }
 
     return ImmutableMap.copyOf(aliasesMap);
+  }
+
+  /**
+   * Resolves a {@code flag_alias()} label against the defining module's repo mapping and returns
+   * its unambiguous canonical form. Falls back to the original string if it can't be resolved, in
+   * which case parsing it with the main repo mapping reports the error.
+   */
+  private static String toCanonicalLabelString(String starlarkFlag, RepoContext repoContext) {
+    Label label;
+    try {
+      label = Label.parseWithRepoContext(starlarkFlag, repoContext);
+    } catch (LabelSyntaxException e) {
+      return starlarkFlag;
+    }
+    if (!label.getRepository().isVisible()) {
+      return starlarkFlag;
+    }
+    return label.getUnambiguousCanonicalForm();
   }
 
   public RepositoryMapping getMainRepoMapping(ExtendedEventHandler eventHandler)
@@ -3542,6 +3578,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         return;
       }
       skyframeBuildView.getProgressReceiver().dirtied(skyKey, dirtyType);
+      if (executionProgressReceiver != null) {
+        executionProgressReceiver.dirtied(skyKey, dirtyType);
+      }
     }
 
     @Override
@@ -4057,7 +4096,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyKeys")) {
         batchDirtyResult =
             fsvc.getDirtyKeys(
-                memoizingEvaluator.getValues(),
+                memoizingEvaluator.getDoneValues(),
                 new UnionDirtinessChecker(ImmutableList.copyOf(dirtinessCheckers)));
       }
       if (externalDirtinessChecker != null) {

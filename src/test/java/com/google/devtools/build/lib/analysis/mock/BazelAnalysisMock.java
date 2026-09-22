@@ -195,7 +195,7 @@ java_binary(
 
 alias(
     name = "proguard_whitelister",
-    actual = ":proguard_allowlister.par",
+    actual = ":proguard_allowlister",
 )
 
 java_import(
@@ -255,7 +255,7 @@ exports_files([
     "GenClass_deploy.jar",
     "turbine_deploy.jar",
     "TurbineDirect_deploy.jar",
-    "proguard_allowlister.par",
+    "proguard_allowlister",
 ])
 
 toolchain_type(name = "toolchain_type")
@@ -825,13 +825,6 @@ launcher_flag_alias(
 
     config.create("embedded_tools/tools/sh/BUILD");
     config.create("embedded_tools/tools/osx/BUILD");
-    config.create(
-        "embedded_tools/tools/osx/xcode_configure.bzl",
-        """
-        # no positional arguments for XCode
-        def xcode_configure(*args, **kwargs):
-            pass
-        """);
     config.create("embedded_tools/bin/sh", "def sh(**kwargs):", "  pass");
   }
 

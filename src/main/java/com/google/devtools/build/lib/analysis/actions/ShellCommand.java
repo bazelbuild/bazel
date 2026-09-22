@@ -19,6 +19,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.AbstractCommandLine;
 import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -45,5 +47,15 @@ final class ShellCommand extends AbstractCommandLine {
     return pad
         ? ImmutableList.of(shExecutable.expandToCommandLine(), "-c", command, "")
         : ImmutableList.of(shExecutable.expandToCommandLine(), "-c", command);
+  }
+
+  @Override
+  public ImmutableList<String> arguments(
+      InputMetadataProvider inputMetadataProvider, PathMapper pathMapper) {
+    String mappedCommand = pathMapper.mapString(command);
+    String shExec = shExecutable.expandToCommandLine();
+    return pad
+        ? ImmutableList.of(shExec, "-c", mappedCommand, "")
+        : ImmutableList.of(shExec, "-c", mappedCommand);
   }
 }

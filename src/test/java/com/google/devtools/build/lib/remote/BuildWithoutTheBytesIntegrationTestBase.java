@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.exec.TestPolicy;
@@ -3034,9 +3035,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
           @AllowConcurrentEvents
           public void actionStarted(ActionStartedEvent event) {
             String label = event.getAction().getOwner().getLabel().toString();
-            if (label.equals("//a:bar2")) {
-              bar2Started.countDown();
-            } else if (label.equals("//a:bar1")) {
+            if (label.equals("//a:bar1")) {
               try {
                 // Ensure bar2 has started and eviction has completed before bar1 attempts
                 // prefetching
@@ -3046,6 +3045,15 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
                 Thread.currentThread().interrupt();
                 throw new RuntimeException(e);
               }
+            }
+          }
+
+          @Subscribe
+          @AllowConcurrentEvents
+          public void actionRunning(RunningActionEvent event) {
+            String label = event.getActionMetadata().getOwner().getLabel().toString();
+            if (label.equals("//a:bar2")) {
+              bar2Started.countDown();
             }
           }
 

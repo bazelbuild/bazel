@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -26,6 +25,7 @@ import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet.InterruptStrategy;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.ForOverride;
+import com.google.protobuf.ByteString;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Set;
@@ -40,7 +40,11 @@ import java.util.Set;
  */
 public abstract sealed class NestedSetBuilder<E> {
   private final Order order;
-  private CompactHashSet<E> items;
+  // Encodes direct elements:
+  // - null: 0 elements
+  // - E: 1 element
+  // - DirectElements<E>: 2+ elements
+  private Object direct;
 
   public static <E> NestedSetBuilder<E> newBuilder(Order order) {
     return switch (order) {
@@ -65,7 +69,15 @@ public abstract sealed class NestedSetBuilder<E> {
 
   /** Returns whether the set to be built is empty. */
   public boolean isEmpty() {
-    return items == null;
+    return direct == null;
+  }
+
+  private static void checkElement(Object element) {
+    Preconditions.checkNotNull(element);
+    Preconditions.checkArgument(
+        !(element instanceof Object[]), "cannot store Object[] in NestedSet");
+    Preconditions.checkArgument(
+        !(element instanceof ByteString), "cannot store ByteString in NestedSet");
   }
 
   /**
@@ -80,12 +92,21 @@ public abstract sealed class NestedSetBuilder<E> {
    * @return the builder
    */
   @CanIgnoreReturnValue
+  @SuppressWarnings(
+      "unchecked") // Cast to DirectElements<E> or E is safe because direct only stores E or
+  // DirectElements<E>.
   public final NestedSetBuilder<E> add(E element) {
-    Preconditions.checkNotNull(element);
-    if (items == null) {
-      items = CompactHashSet.create();
+    checkElement(element);
+    if (direct == null) {
+      direct = element;
+    } else if (direct instanceof DirectElements<?> elements) {
+      ((DirectElements<E>) elements).add(element);
+    } else {
+      if (direct.equals(element)) {
+        return this;
+      }
+      direct = new DirectElements<>((E) direct, element);
     }
-    items.add(element);
     return this;
   }
 
@@ -104,14 +125,31 @@ public abstract sealed class NestedSetBuilder<E> {
   @CanIgnoreReturnValue
   public final NestedSetBuilder<E> addAll(Iterable<? extends E> elements) {
     Preconditions.checkNotNull(elements);
-    if (items == null) {
-      int n = Iterables.size(elements);
-      if (n == 0) {
-        return this; // avoid allocating an empty set
-      }
-      items = CompactHashSet.createWithExpectedSize(n);
+    if (elements instanceof Collection<?> collection && collection.isEmpty()) {
+      return this;
     }
-    Iterables.addAll(items, elements);
+    if (direct == null && elements instanceof Collection<? extends E> collection) {
+      int size = collection.size();
+      if (size > 2) {
+        var set = CompactHashSet.<E>createWithExpectedSize(size);
+        for (E element : collection) {
+          checkElement(element);
+          set.add(element);
+        }
+        switch (set.size()) {
+          case 1 -> direct = getOnlyElement(set);
+          case 2 -> {
+            var it = set.iterator();
+            direct = new DirectElements<>(it.next(), it.next());
+          }
+          default -> direct = new DirectElements<>(set);
+        }
+        return this;
+      }
+    }
+    for (E element : elements) {
+      add(element);
+    }
     return this;
   }
 
@@ -178,27 +216,170 @@ public abstract sealed class NestedSetBuilder<E> {
     return buildInternal(InterruptStrategy.PROPAGATE);
   }
 
+  @SuppressWarnings("ReferenceEquality") // Interned array identity check
   private NestedSet<E> buildInternal(InterruptStrategy interruptStrategy)
       throws InterruptedException {
     if (isEmpty()) {
       return getOrder().emptySet();
     }
 
-    Set<E> direct = firstNonNull(items, ImmutableSet.of());
-    Collection<NestedSet<E>> transitive = getTransitive();
+    // Fast path: 1 direct element, 0 transitive sets -> singleton/flat
+    if (direct != null && !(direct instanceof DirectElements<?>) && isTransitiveEmpty()) {
+      return NestedSet.create(getOrder(), 1, direct);
+    }
 
-    // When there is exactly one transitive set, we can reuse it if its order matches and either
-    // there are no direct members, or the only direct member equals the transitive set's singleton.
-    if (transitive.size() == 1 && direct.size() <= 1) {
-      NestedSet<E> candidate = getOnlyElement(transitive);
-      if (candidate.getOrder() == getOrder()
-          && (direct.isEmpty()
-              || getOnlyElement(direct).equals(candidate.getChildrenInterruptibly()))) {
+    // Fast path: 2 direct elements, 0 transitive sets -> flat 2-element set
+    if (direct instanceof DirectElements<?> elements
+        && elements.isTwoElements()
+        && isTransitiveEmpty()) {
+      return NestedSet.create(
+          getOrder(), 2, NestedSetInterner.intern(elements.toTwoElementArray(getOrder())));
+    }
+
+    // Fast path: 0 direct elements, 1 transitive set with matching order -> reuse candidate
+    if (direct == null && isSingleTransitive()) {
+      NestedSet<E> candidate = getSingleTransitive();
+      if (candidate.getOrder() == getOrder()) {
         return candidate;
       }
     }
 
-    return NestedSet.create(getOrder(), direct, transitive, interruptStrategy);
+    // Fast path: 0 direct elements, 2 compound transitive sets
+    if (direct == null && isTwoTransitive()) {
+      NestedSet<E> s0 = getTransitive0();
+      NestedSet<E> s1 = getTransitive1();
+      Object c0 = s0.getChildrenInternal(interruptStrategy);
+      Object c1 = s1.getChildrenInternal(interruptStrategy);
+      if (c0 instanceof Object[] a0 && c1 instanceof Object[] a1) {
+        if (a0 == a1) {
+          if (s0.getOrder() == getOrder()) {
+            return s0;
+          }
+          if (s1.getOrder() == getOrder()) {
+            return s1;
+          }
+          return NestedSet.create(
+              getOrder(), Math.max(s0.getApproxDepth(), s1.getApproxDepth()), a0);
+        }
+        int approxDepth = Math.max(1 + s0.getApproxDepth(), 1 + s1.getApproxDepth());
+        Object[] children = new Object[] {a0, a1};
+        return NestedSet.create(getOrder(), approxDepth, NestedSetInterner.intern(children));
+      }
+    }
+
+    Set<E> directSet = getDirect();
+    Collection<NestedSet<E>> transitive = getTransitive();
+
+    // When there is exactly one transitive set, we can reuse it if its order matches and either
+    // there are no direct members, or the only direct member equals the transitive set's singleton.
+    // Checking isSingleton() avoids blocking on deserialization futures for sets that cannot match.
+    if (transitive.size() == 1 && directSet.size() <= 1) {
+      NestedSet<E> candidate = getOnlyElement(transitive);
+      if (candidate.getOrder() == getOrder()
+          && (directSet.isEmpty()
+              || (candidate.isSingleton()
+                  && getOnlyElement(directSet).equals(candidate.getSingleton())))) {
+        return candidate;
+      }
+    }
+
+    return NestedSet.create(getOrder(), directSet, transitive, interruptStrategy);
+  }
+
+  @SuppressWarnings(
+      "unchecked") // Casts are safe because direct only stores an element of type E or
+  // DirectElements<E>.
+  private Set<E> getDirect() {
+    if (direct == null) {
+      return ImmutableSet.of();
+    }
+    if (direct instanceof DirectElements<?> elements) {
+      return ((DirectElements<E>) elements).toSet();
+    }
+    return ImmutableSet.of((E) direct);
+  }
+
+  /**
+   * Container for storing 2 or more direct elements in a {@link NestedSetBuilder}.
+   *
+   * <p>Wrapping multi-element storage in a dedicated container prevents state misinterpretation
+   * when the element type {@code E} is itself an array (e.g. {@code byte[]}) or a {@link
+   * CompactHashSet}.
+   */
+  private static final class DirectElements<E> {
+    private E first;
+    private E second;
+    private CompactHashSet<E> set;
+
+    DirectElements(E first, E second) {
+      this.first = first;
+      this.second = second;
+    }
+
+    DirectElements(CompactHashSet<E> set) {
+      this.set = set;
+    }
+
+    void add(E element) {
+      if (set != null) {
+        set.add(element);
+      } else if (first.equals(element) || second.equals(element)) {
+        // Duplicate, ignore.
+      } else {
+        CompactHashSet<E> newSet = CompactHashSet.createWithExpectedSize(4);
+        newSet.add(first);
+        newSet.add(second);
+        newSet.add(element);
+        set = newSet;
+        first = null;
+        second = null;
+      }
+    }
+
+    boolean isTwoElements() {
+      return set == null;
+    }
+
+    Object[] toTwoElementArray(Order order) {
+      return (order == Order.LINK_ORDER)
+          ? new Object[] {second, first}
+          : new Object[] {first, second};
+    }
+
+    Set<E> toSet() {
+      if (set != null) {
+        return set;
+      }
+      return ImmutableSet.of(first, second);
+    }
+  }
+
+  @ForOverride
+  abstract boolean isTransitiveEmpty();
+
+  @ForOverride
+  boolean isSingleTransitive() {
+    return false;
+  }
+
+  @ForOverride
+  NestedSet<E> getSingleTransitive() {
+    throw new UnsupportedOperationException();
+  }
+
+  @ForOverride
+  boolean isTwoTransitive() {
+    return false;
+  }
+
+  @ForOverride
+  NestedSet<E> getTransitive0() {
+    throw new UnsupportedOperationException();
+  }
+
+  @ForOverride
+  NestedSet<E> getTransitive1() {
+    throw new UnsupportedOperationException();
   }
 
   @ForOverride
@@ -211,7 +392,7 @@ public abstract sealed class NestedSetBuilder<E> {
           .build(list -> NestedSetBuilder.newBuilder(Order.STABLE_ORDER).addAll(list).build());
 
   /** Creates a nested set from a given list of items. */
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings("unchecked") // Cast from cache is safe because elements are of type E.
   public static <E> NestedSet<E> wrap(Order order, Iterable<? extends E> wrappedItems) {
     if (Iterables.isEmpty(wrappedItems)) {
       return order.emptySet();
@@ -224,44 +405,32 @@ public abstract sealed class NestedSetBuilder<E> {
     return NestedSetBuilder.<E>newBuilder(order).addAll(wrappedItems).build();
   }
 
-  /**
-   * Creates a nested set with the given list of items as its elements.
-   */
+  /** Creates a nested set with the given list of items as its elements. */
   public static <E> NestedSet<E> create(Order order, E... elems) {
     return wrap(order, ImmutableList.copyOf(elems));
   }
 
-  /**
-   * Creates an empty nested set.
-   */
+  /** Creates an empty nested set. */
   public static <E> NestedSet<E> emptySet(Order order) {
     return order.emptySet();
   }
 
-  /**
-   * Creates a builder for stable order nested sets.
-   */
+  /** Creates a builder for stable order nested sets. */
   public static <E> NestedSetBuilder<E> stableOrder() {
     return NestedSetBuilder.newBuilder(Order.STABLE_ORDER);
   }
 
-  /**
-   * Creates a builder for compile order nested sets.
-   */
+  /** Creates a builder for compile order nested sets. */
   public static <E> NestedSetBuilder<E> compileOrder() {
     return NestedSetBuilder.newBuilder(Order.COMPILE_ORDER);
   }
 
-  /**
-   * Creates a builder for link order nested sets.
-   */
+  /** Creates a builder for link order nested sets. */
   public static <E> NestedSetBuilder<E> linkOrder() {
     return NestedSetBuilder.newBuilder(Order.LINK_ORDER);
   }
 
-  /**
-   * Creates a builder for naive link order nested sets.
-   */
+  /** Creates a builder for naive link order nested sets. */
   public static <E> NestedSetBuilder<E> naiveLinkOrder() {
     return NestedSetBuilder.newBuilder(Order.NAIVE_LINK_ORDER);
   }
@@ -276,7 +445,7 @@ public abstract sealed class NestedSetBuilder<E> {
    * <p>If 'sets' is empty, a stable-order empty NestedSet is returned.
    */
   public static <E> NestedSetBuilder<E> fromNestedSets(Iterable<NestedSet<E>> sets) {
-    NestedSet<?> firstSet = Iterables.getFirst(sets, null /* defaultValue */);
+    NestedSet<?> firstSet = Iterables.getFirst(sets, /* defaultValue= */ null);
     if (firstSet == null) {
       return stableOrder();
     }
@@ -286,7 +455,12 @@ public abstract sealed class NestedSetBuilder<E> {
   }
 
   private static final class DefaultNestedSetBuilder<E> extends NestedSetBuilder<E> {
-    private CompactHashSet<NestedSet<E>> transitiveSets;
+    // Polymorphic slot:
+    // - null: 0 transitive sets
+    // - NestedSet<E>: 1 transitive set
+    // - NestedSet<?>[]: 2 transitive sets
+    // - CompactHashSet<NestedSet<E>>: 3+ transitive sets
+    private Object transitive;
 
     private DefaultNestedSetBuilder(Order order) {
       super(order);
@@ -295,20 +469,83 @@ public abstract sealed class NestedSetBuilder<E> {
     @Override
     @SuppressWarnings("unchecked") // Cast to NestedSet<E> is safe because NestedSet is immutable.
     void addTransitiveImpl(NestedSet<? extends E> subset) {
-      if (transitiveSets == null) {
-        transitiveSets = CompactHashSet.create();
+      NestedSet<E> typedSubset = (NestedSet<E>) subset;
+      if (transitive == null) {
+        transitive = typedSubset;
+      } else if (transitive instanceof NestedSet<?> first) {
+        if (first == typedSubset) {
+          // Duplicate, ignore.
+          return;
+        }
+        transitive = new NestedSet<?>[] {first, typedSubset};
+      } else if (transitive instanceof NestedSet<?>[] arr) {
+        if (arr[0] == typedSubset || arr[1] == typedSubset) {
+          // Duplicate, ignore.
+          return;
+        }
+        var set = CompactHashSet.<NestedSet<E>>createWithExpectedSize(4);
+        set.add((NestedSet<E>) arr[0]);
+        set.add((NestedSet<E>) arr[1]);
+        set.add(typedSubset);
+        transitive = set;
+      } else {
+        ((CompactHashSet<NestedSet<E>>) transitive).add(typedSubset);
       }
-      transitiveSets.add((NestedSet<E>) subset);
     }
 
     @Override
+    boolean isTransitiveEmpty() {
+      return transitive == null;
+    }
+
+    @Override
+    boolean isSingleTransitive() {
+      return transitive instanceof NestedSet;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked") // Safe cast: transitive only contains NestedSet<E> when single.
+    NestedSet<E> getSingleTransitive() {
+      return (NestedSet<E>) transitive;
+    }
+
+    @Override
+    boolean isTwoTransitive() {
+      return transitive instanceof NestedSet<?>[] arr && arr.length == 2;
+    }
+
+    @Override
+    @SuppressWarnings(
+        "unchecked") // Safe cast: transitive contains NestedSet<?>[] when two elements.
+    NestedSet<E> getTransitive0() {
+      return (NestedSet<E>) ((NestedSet<?>[]) transitive)[0];
+    }
+
+    @Override
+    @SuppressWarnings(
+        "unchecked") // Safe cast: transitive contains NestedSet<?>[] when two elements.
+    NestedSet<E> getTransitive1() {
+      return (NestedSet<E>) ((NestedSet<?>[]) transitive)[1];
+    }
+
+    @Override
+    @SuppressWarnings("unchecked") // Safe cast: transitive only stores NestedSet<E> instances.
     Collection<NestedSet<E>> getTransitive() {
-      return firstNonNull(transitiveSets, ImmutableList.of());
+      if (transitive == null) {
+        return ImmutableList.of();
+      }
+      if (transitive instanceof NestedSet<?> single) {
+        return ImmutableList.of((NestedSet<E>) single);
+      }
+      if (transitive instanceof NestedSet<?>[] arr) {
+        return ImmutableList.of((NestedSet<E>) arr[0], (NestedSet<E>) arr[1]);
+      }
+      return (CompactHashSet<NestedSet<E>>) transitive;
     }
 
     @Override
     public boolean isEmpty() {
-      return super.isEmpty() && transitiveSets == null;
+      return super.isEmpty() && transitive == null;
     }
   }
 
@@ -381,6 +618,21 @@ public abstract sealed class NestedSetBuilder<E> {
         reversedAndDeduped.add(transitiveSets.get(i));
       }
       return reversedAndDeduped;
+    }
+
+    @Override
+    boolean isTransitiveEmpty() {
+      return transitiveSets == null;
+    }
+
+    @Override
+    boolean isSingleTransitive() {
+      return transitiveSets != null && transitiveSets.size() == 1;
+    }
+
+    @Override
+    NestedSet<E> getSingleTransitive() {
+      return transitiveSets.get(0);
     }
 
     @Override

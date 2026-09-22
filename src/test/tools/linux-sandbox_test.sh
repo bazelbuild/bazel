@@ -149,4 +149,33 @@ test_hermetic_sandbox_root_readonly() {
     fail "Host file was modified!"
   fi
 }
+
+test_leaked_fd_closed() {
+  (
+    exec 7>&1
+    "${LINUX_SANDBOX}" -W "${TEST_TMPDIR}" -- /bin/sh -c '
+      if [ -e /proc/self/fd/7 ]; then
+        exit 1
+      fi
+      exit 0
+    ' &> "$TEST_log"
+  ) || fail "Leaked file descriptor 7 was not closed by linux-sandbox"
+}
+
+test_leaked_fd_closed_with_debug() {
+  local debug_log="${TEST_TMPDIR}/debug.log"
+  (
+    exec 7>&1
+    "${LINUX_SANDBOX}" -D "${debug_log}" -W "${TEST_TMPDIR}" -- /bin/sh -c '
+      if [ -e /proc/self/fd/7 ]; then
+        exit 1
+      fi
+      exit 0
+    ' &> "$TEST_log"
+  ) || fail "Leaked file descriptor 7 was not closed when -D debug was enabled"
+  if [ ! -s "${debug_log}" ]; then
+    fail "Debug log was not written"
+  fi
+}
+
 run_suite "linux-sandbox mounts tests"
