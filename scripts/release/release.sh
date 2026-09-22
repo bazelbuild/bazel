@@ -31,7 +31,7 @@ MASTER_REPOSITORY="https://bazel.googlesource.com/bazel"
 RELEASE_AUTHOR="Bazel Release System <noreply@google.com>"
 
 # Load relnotes.sh.
-SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/relnotes.sh"
 
 # Load common.sh.
