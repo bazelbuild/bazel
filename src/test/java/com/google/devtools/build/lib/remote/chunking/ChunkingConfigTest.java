@@ -285,11 +285,66 @@ public class ChunkingConfigTest {
   }
 
   @Test
-  public void fromServerCapabilities_repMaxCdcMinSizeOutOfRange_fallsBackToDefault() {
+  public void fromServerCapabilities_repMaxCdcTwoMiBMinSizeIsAccepted() {
     ServerCapabilities capabilities =
         capabilitiesWithRepMaxCdcParams(
             RepMaxCdcParams.newBuilder()
-                .setMinChunkSizeBytes(64)
+                .setMinChunkSizeBytes(2 * 1024 * 1024)
+                .setHorizonSizeBytes(8 * 1024 * 1024)
+                .build());
+
+    ChunkingConfig config =
+        ChunkingConfig.fromServerCapabilities(capabilities, ChunkingFunction.Value.REP_MAX_CDC);
+
+    assertThat(config).isInstanceOf(RepMaxCdcChunkingConfig.class);
+    RepMaxCdcChunkingConfig repMaxConfig = (RepMaxCdcChunkingConfig) config;
+    assertThat(repMaxConfig.minChunkSize()).isEqualTo(2 * 1024 * 1024);
+    assertThat(repMaxConfig.horizonSize()).isEqualTo(8 * 1024 * 1024);
+    assertThat(repMaxConfig.chunkingThreshold()).isEqualTo(4 * 1024 * 1024 - 1);
+  }
+
+  @Test
+  public void fromServerCapabilities_repMaxCdcMaxHorizonSizeIsAccepted() {
+    ServerCapabilities capabilities =
+        capabilitiesWithRepMaxCdcParams(
+            RepMaxCdcParams.newBuilder()
+                .setMinChunkSizeBytes(1024 * 1024)
+                .setHorizonSizeBytes(16 * 1024 * 1024)
+                .build());
+
+    ChunkingConfig config =
+        ChunkingConfig.fromServerCapabilities(capabilities, ChunkingFunction.Value.REP_MAX_CDC);
+
+    assertThat(config).isInstanceOf(RepMaxCdcChunkingConfig.class);
+    RepMaxCdcChunkingConfig repMaxConfig = (RepMaxCdcChunkingConfig) config;
+    assertThat(repMaxConfig.minChunkSize()).isEqualTo(1024 * 1024);
+    assertThat(repMaxConfig.horizonSize()).isEqualTo(16 * 1024 * 1024);
+  }
+
+  @Test
+  public void fromServerCapabilities_repMaxCdcGearWindowMinSizeIsAccepted() {
+    ServerCapabilities capabilities =
+        capabilitiesWithRepMaxCdcParams(
+            RepMaxCdcParams.newBuilder()
+                .setMinChunkSizeBytes(GearTable.GEAR_HASH_WINDOW_SIZE)
+                .setHorizonSizeBytes(1024 * 1024)
+                .build());
+
+    ChunkingConfig config =
+        ChunkingConfig.fromServerCapabilities(capabilities, ChunkingFunction.Value.REP_MAX_CDC);
+
+    assertThat(config).isInstanceOf(RepMaxCdcChunkingConfig.class);
+    RepMaxCdcChunkingConfig repMaxConfig = (RepMaxCdcChunkingConfig) config;
+    assertThat(repMaxConfig.minChunkSize()).isEqualTo(GearTable.GEAR_HASH_WINDOW_SIZE);
+    assertThat(repMaxConfig.horizonSize()).isEqualTo(1024 * 1024);
+  }
+
+  @Test
+  public void fromServerCapabilities_repMaxCdcMinSizeBelowGearWindow_fallsBackToDefault() {
+    ServerCapabilities capabilities =
+        capabilitiesWithRepMaxCdcParams(
+            RepMaxCdcParams.newBuilder()
+                .setMinChunkSizeBytes(GearTable.GEAR_HASH_WINDOW_SIZE - 1)
                 .setHorizonSizeBytes(1024 * 1024)
                 .build());
 
@@ -320,6 +375,43 @@ public class ChunkingConfigTest {
     assertThat(repMaxConfig.minChunkSize()).isEqualTo(128 * 1024);
     assertThat(repMaxConfig.horizonSize())
         .isEqualTo(RepMaxCdcChunkingConfig.DEFAULT_HORIZON_SIZE_FACTOR * 128 * 1024);
+  }
+
+  @Test
+  public void fromServerCapabilities_repMaxCdcMinSizeAboveMaximum_fallsBackToDefault() {
+    ServerCapabilities capabilities =
+        capabilitiesWithRepMaxCdcParams(
+            RepMaxCdcParams.newBuilder()
+                .setMinChunkSizeBytes(2 * 1024 * 1024 + 1)
+                .setHorizonSizeBytes(1024 * 1024)
+                .build());
+
+    ChunkingConfig config =
+        ChunkingConfig.fromServerCapabilities(capabilities, ChunkingFunction.Value.REP_MAX_CDC);
+
+    assertThat(config).isInstanceOf(RepMaxCdcChunkingConfig.class);
+    RepMaxCdcChunkingConfig repMaxConfig = (RepMaxCdcChunkingConfig) config;
+    assertThat(repMaxConfig.minChunkSize())
+        .isEqualTo(RepMaxCdcChunkingConfig.DEFAULT_MIN_CHUNK_SIZE);
+    assertThat(repMaxConfig.horizonSize()).isEqualTo(1024 * 1024);
+  }
+
+  @Test
+  public void fromServerCapabilities_repMaxCdcLargeMinAndInvalidHorizon_usesDefaultHorizon() {
+    ServerCapabilities capabilities =
+        capabilitiesWithRepMaxCdcParams(
+            RepMaxCdcParams.newBuilder()
+                .setMinChunkSizeBytes(2 * 1024 * 1024)
+                .setHorizonSizeBytes(1024L * 1024 * 1024)
+                .build());
+
+    ChunkingConfig config =
+        ChunkingConfig.fromServerCapabilities(capabilities, ChunkingFunction.Value.REP_MAX_CDC);
+
+    assertThat(config).isInstanceOf(RepMaxCdcChunkingConfig.class);
+    RepMaxCdcChunkingConfig repMaxConfig = (RepMaxCdcChunkingConfig) config;
+    assertThat(repMaxConfig.minChunkSize()).isEqualTo(2 * 1024 * 1024);
+    assertThat(repMaxConfig.horizonSize()).isEqualTo(16 * 1024 * 1024);
   }
 
   @Test

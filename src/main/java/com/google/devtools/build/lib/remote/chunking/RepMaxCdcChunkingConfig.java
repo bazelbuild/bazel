@@ -33,6 +33,12 @@ public record RepMaxCdcChunkingConfig(int minChunkSize, int horizonSize) impleme
   /** The default horizon size, expressed as a multiple of the minimum chunk size. */
   public static final int DEFAULT_HORIZON_SIZE_FACTOR = 8;
 
+  // Keep server-provided parameters bounded because each chunking session allocates a buffer of
+  // twice (2 * minChunkSize + horizonSize) bytes. These maxima cap that buffer at 40 MiB.
+  private static final int MAX_MIN_CHUNK_SIZE = 2 * 1024 * 1024;
+  private static final int MAX_HORIZON_SIZE =
+      DEFAULT_HORIZON_SIZE_FACTOR * MAX_MIN_CHUNK_SIZE;
+
   @Override
   public ChunkingFunction.Value chunkingFunction() {
     return ChunkingFunction.Value.REP_MAX_CDC;
@@ -61,13 +67,14 @@ public record RepMaxCdcChunkingConfig(int minChunkSize, int horizonSize) impleme
   static RepMaxCdcChunkingConfig fromParams(RepMaxCdcParams params) {
     int minSize = DEFAULT_MIN_CHUNK_SIZE;
     long configMinSize = params.getMinChunkSizeBytes();
-    if (configMinSize >= 1024 && configMinSize <= 1024 * 1024) {
+    if (configMinSize >= GearTable.GEAR_HASH_WINDOW_SIZE
+        && configMinSize <= MAX_MIN_CHUNK_SIZE) {
       minSize = (int) configMinSize;
     }
 
-    int horizonSize = DEFAULT_HORIZON_SIZE_FACTOR * minSize;
+    int horizonSize = Math.min(DEFAULT_HORIZON_SIZE_FACTOR * minSize, MAX_HORIZON_SIZE);
     long configHorizonSize = params.getHorizonSizeBytes();
-    if (configHorizonSize >= 0 && configHorizonSize <= 8 * 1024 * 1024) {
+    if (configHorizonSize >= 0 && configHorizonSize <= MAX_HORIZON_SIZE) {
       horizonSize = (int) configHorizonSize;
     }
 
