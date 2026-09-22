@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -177,7 +176,6 @@ public class MerkleTreeComputerTest {
                         ImmutableSet.of(),
                         /* scrubber= */ null,
                         createSpawnExecutionContext(spawn, delayedMetadataProvider),
-                        RemotePathResolver.createDefault(execRoot),
                         MerkleTreeComputer.BlobPolicy.KEEP);
               } catch (Throwable t) {
                 if (t instanceof InterruptedException) {
@@ -200,7 +198,6 @@ public class MerkleTreeComputerTest {
             ImmutableSet.of(),
             /* scrubber= */ null,
             createSpawnExecutionContext(spawn, fakeFileCache),
-            RemotePathResolver.createDefault(execRoot),
             MerkleTreeComputer.BlobPolicy.KEEP);
   }
 
@@ -290,7 +287,6 @@ public class MerkleTreeComputerTest {
                         ImmutableSet.of(),
                         /* scrubber= */ null,
                         createSpawnExecutionContext(spawn, delayedMetadataProvider),
-                        RemotePathResolver.createDefault(execRoot),
                         MerkleTreeComputer.BlobPolicy.KEEP);
               } catch (Throwable t) {
                 if (t instanceof InterruptedException) {
@@ -318,7 +314,6 @@ public class MerkleTreeComputerTest {
                           ImmutableSet.of(),
                           /* scrubber= */ null,
                           createSpawnExecutionContext(spawn, fakeFileCache),
-                          RemotePathResolver.createDefault(execRoot),
                           MerkleTreeComputer.BlobPolicy.KEEP);
                 } catch (Throwable t) {
                   if (t instanceof InterruptedException) {
@@ -379,7 +374,6 @@ public class MerkleTreeComputerTest {
                   ImmutableSet.of(),
                   /* scrubber= */ null,
                   createSpawnExecutionContext(spawn, fakeFileCache),
-                  RemotePathResolver.createDefault(execRoot),
                   MerkleTreeComputer.BlobPolicy.KEEP);
     }
 
@@ -413,7 +407,6 @@ public class MerkleTreeComputerTest {
                   ImmutableSet.of(),
                   /* scrubber= */ null,
                   createSpawnExecutionContext(spawn, fakeFileCache),
-                  RemotePathResolver.createDefault(execRoot),
                   MerkleTreeComputer.BlobPolicy.KEEP);
     }
 
@@ -442,7 +435,6 @@ public class MerkleTreeComputerTest {
                   ImmutableSet.of(),
                   /* scrubber= */ null,
                   createSpawnExecutionContext(spawn, fakeFileCache),
-                  RemotePathResolver.createDefault(execRoot),
                   MerkleTreeComputer.BlobPolicy.KEEP);
     }
 
@@ -501,7 +493,6 @@ public class MerkleTreeComputerTest {
             ImmutableSet.of(),
             /* scrubber= */ null,
             createSpawnExecutionContext(spawn, cache),
-            RemotePathResolver.createDefault(execRoot),
             MerkleTreeComputer.BlobPolicy.KEEP);
   }
 
@@ -542,7 +533,6 @@ public class MerkleTreeComputerTest {
                     ImmutableSet.of(),
                     /* scrubber= */ null,
                     createSpawnExecutionContext(spawn, fakeFileCache),
-                    RemotePathResolver.createDefault(execRoot),
                     MerkleTreeComputer.BlobPolicy.KEEP);
 
     Directory pkgDir = findDirectory(merkleTree, "outputs", "pkg");
@@ -579,9 +569,9 @@ public class MerkleTreeComputerTest {
     @Override
     public ListenableFuture<Void> uploadFile(
         RemoteActionExecutionContext context,
-        RemotePathResolver remotePathResolver,
         Digest digest,
         Path path,
+        PathFragment execPath,
         boolean force) {
       return immediateVoidFuture();
     }
@@ -599,8 +589,7 @@ public class MerkleTreeComputerTest {
     public void ensureInputsPresent(
         RemoteActionExecutionContext context,
         MerkleTree.Uploadable merkleTree,
-        boolean force,
-        RemotePathResolver remotePathResolver) {
+        boolean force) {
       ensureInputsPresentCount.incrementAndGet();
     }
   }
