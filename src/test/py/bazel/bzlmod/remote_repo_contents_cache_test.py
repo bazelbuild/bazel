@@ -2127,6 +2127,67 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
           ' memory-pressure compute state drop and served from the cache'
       )
 
+  def testLostRemoteFile_remoteExecutionUpload(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_data",',
+            '  srcs = ["@my_repo//:data.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $< > $@",',
+            ')',
+        ],
+    )
+    repo_dir = self.RepoDir('my_repo')
+    args = [
+        'build',
+        '//main:use_data',
+        '--spawn_strategy=remote',
+        '--remote_executor=grpc://localhost:' + str(self._worker_port),
+        '--experimental_remote_cache_eviction_retries=0',
+    ]
+    self.RunBazel(args + ['--nobuild'])
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(args + ['--nobuild'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+
+    # Analysis is warm, so eviction is first noticed while uploading inputs.
+    self.ClearRemoteCache()
+    exit_code, _, stderr = self.RunBazel(args, allow_failure=True)
+    self.AssertExitCode(exit_code, 34, stderr)
+    self.assertRegex(
+        '\n'.join(stderr),
+        r'external/[^/]+/data.txt with digest .*/.* no longer available in the'
+        ' remote cache',
+    )
+
+    # The repository overlay records the eviction and invalidates the repo.
+    _, _, stderr = self.RunBazel(args)
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+    with open(self.Path('bazel-bin/main/out.txt')) as f:
+      self.assertEqual(f.read(), 'hello')
+
   def doTestMaterializationWithInternalAndExternalSymlinks(
       self, *, expect_symlinks, watch_dep_file=True
   ):

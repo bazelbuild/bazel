@@ -81,9 +81,8 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
-   * An interface used to check whether a given {@link Path} is available without contacting the
-   * remote cache, i.e., it is present on the local disk, perhaps after being downloaded from the
-   * disk cache.
+   * Checks whether a file can be uploaded, materializing remote action inputs from the disk cache
+   * when possible. Repository overlays remain responsible for reading their files.
    */
   public interface RemotePathChecker {
     ListenableFuture<Boolean> isAvailableLocally(RemoteActionExecutionContext context, Path path);
@@ -125,7 +124,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
               _ -> {
                 try {
                   return immediateFuture(
-                      remoteActionFileSystem.getHostFileSystem().exists(path.asFragment()));
+                      remoteActionFileSystem.getLocalFileSystem().exists(path.asFragment()));
                 } catch (IOException e) {
                   return immediateFailedFuture(e);
                 }

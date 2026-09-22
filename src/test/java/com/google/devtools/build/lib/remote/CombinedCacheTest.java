@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.clock.JavaClock;
@@ -358,6 +359,41 @@ public class CombinedCacheTest {
                 combinedCache.findMissingDigests(
                     remoteActionExecutionContext, ImmutableList.of(digest))))
         .isEmpty();
+  }
+
+  @Test
+  public void uploadFile_externalInputInOverlay_uploadsWithoutMaterializing() throws Exception {
+    FileSystem overlay =
+        new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256) {
+          @Override
+          public FileSystem getHostFileSystem() {
+            return fs;
+          }
+        };
+    Path source = overlay.getPath("/external/repo/source.txt");
+    source.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(source, "content");
+    var actionFs =
+        new RemoteActionFileSystem(
+            overlay,
+            execRoot.asFragment(),
+            "outputs",
+            StaticInputMetadataProvider.empty(),
+            mock(RemoteActionInputFetcher.class));
+    var cache = newRemoteExecutionCache(new InMemoryCacheClient());
+    Digest digest = digestUtil.computeAsUtf8("content");
+
+    getFromFuture(
+        cache.uploadFile(
+            remoteActionExecutionContext,
+            RemotePathResolver.createDefault(execRoot),
+            digest,
+            actionFs.getPath(source.asFragment()),
+            /* force= */ false));
+
+    assertThat(getFromFuture(cache.downloadBlob(remoteActionExecutionContext, digest)))
+        .isEqualTo("content".getBytes(UTF_8));
+    assertThat(fs.exists(source.asFragment())).isFalse();
   }
 
   @Test
