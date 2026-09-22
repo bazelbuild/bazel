@@ -705,6 +705,12 @@ function test_max_idle_secs() {
   expect_log "Starting local.*server (.*) and connecting to it"
   # Ensure the restart was not triggered by different startup options.
   expect_not_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed"
+
+  # Shut down the server started with --max_idle_secs=1 so that subsequent tests
+  # do not reuse it (--max_idle_secs is a volatile startup option that does not
+  # trigger a server restart) and experience an idle shutdown right as they
+  # connect.
+  bazel shutdown
 }
 
 function test_dashdash_before_command() {
