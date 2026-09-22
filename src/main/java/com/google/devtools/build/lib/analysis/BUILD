@@ -22,6 +22,7 @@ java_library(
     name = "analysis_cluster",
     exports = [
         ":actions/action_construction_context",
+        ":actions/file_write_action",
         ":actions/shell_command",
         ":alias_provider",
         ":analysis_and_execution_result",
@@ -96,7 +97,6 @@ java_library(
         "Util.java",
         "WindowsBatchCommandConstructor.java",
         "WindowsPowershellCommandConstructor.java",
-        "actions/FileWriteAction.java",
         "actions/SpawnAction.java",
         "actions/StarlarkAction.java",
         "actions/StarlarkMapActionTemplate.java",
@@ -161,8 +161,8 @@ java_library(
         ":actions/abstract_file_write_action",
         ":actions/action_construction_context",
         ":actions/buildinfo_file_write_action",
-        ":actions/compression",
         ":actions/custom_command_line",
+        ":actions/file_write_action",
         ":actions/lazy_write_nested_set_of_tuple_action",
         ":actions/parameter_file_write_action",
         ":actions/path_mappers",
@@ -1331,6 +1331,26 @@ java_library(
         "//third_party/java/guava:annotations",
         "//third_party/java/guava:base",
         "//third_party/java/guava:collect",
+        "//third_party/java/jsr305_annotations",
+    ],
+)
+
+java_library(
+    name = "actions/file_write_action",
+    srcs = ["actions/FileWriteAction.java"],
+    deps = [
+        ":actions/abstract_file_write_action",
+        ":actions/action_construction_context",
+        ":actions/compression",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//third_party/java/guava:base",
+        "//third_party/java/guava:io",
         "//third_party/java/jsr305_annotations",
     ],
 )
