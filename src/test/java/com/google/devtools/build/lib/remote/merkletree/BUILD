@@ -26,6 +26,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/exec:single_build_file_cache",
         "//src/main/java/com/google/devtools/build/lib/remote/merkletree",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_utils",
         "//src/main/java/com/google/devtools/build/lib/vfs",
