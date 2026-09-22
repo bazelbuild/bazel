@@ -74,11 +74,11 @@ while [[ -n "$@" ]]; do
   esac
 done
 
-java_tools_zip=$(rlocation io_bazel/${java_tools_zip_name})
+java_tools_zip="$(rlocation "io_bazel/${java_tools_zip_name}")"
 
 # Create a temp directory and a writable temp zip file to add a README.md file to
 # the initial zip.
-tmp_dir=$(mktemp -d -t 'tmp_bazel_zip_files_XXXXXX')
+tmp_dir="$(mktemp -d -t 'tmp_bazel_zip_files_XXXXXX')"
 trap 'rm -fr "$tmp_dir"' EXIT
 tmp_zip="$tmp_dir/archive.zip"
 
@@ -87,7 +87,7 @@ tmp_zip="$tmp_dir/archive.zip"
 cp "$java_tools_zip" "$tmp_zip"
 chmod +w "$tmp_zip"
 
-target_basename=$(basename "$java_tools_zip")
+target_basename="$(basename "$java_tools_zip")"
 
 # Create the README.md file and add the re-build java tools instructions.
 readme_file="README.md"
@@ -111,10 +111,10 @@ fi
 
 
 if "$is_windows"; then
-    zip_url=$(cygpath -m "${tmp_zip}")
+    zip_url="$(cygpath -m "${tmp_zip}")"
 else
     # Non-Windows needs "file:///foo/bar".
-    zip_url=${tmp_zip}
+    zip_url="${tmp_zip}"
 fi
 
 # Upload the zip that contains the README.md to GCS.
