@@ -1,0 +1,15 @@
+Adds the trace dependency that cf_event_engine's sources include, which
+otherwise fails layering_check with toolchains that enforce it (such as the
+hermetic LLVM toolchains). Upstream fixed this in grpc 1.78.0.
+
+diff --git a/src/core/BUILD b/src/core/BUILD
+--- a/src/core/BUILD
++++ b/src/core/BUILD
+@@ -3095,6 +3095,7 @@ grpc_cc_library(
+         "useful",
+         "//:event_engine_base_hdrs",
+         "//:gpr",
++        "//:grpc_trace",
+         "//:parse_address",
+         "//:ref_counted_ptr",
+         "//:sockaddr_utils",

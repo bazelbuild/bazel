@@ -66,7 +66,14 @@ bazel_dep(name = "bazel_lib", version = "3.1.0", repo_name = None)
 single_version_override(
     module_name = "grpc",
     patch_strip = 1,
-    patches = ["//third_party:grpc-load-fixes.patch"],
+    patches = [
+        "//third_party:grpc-load-fixes.patch",
+        # TODO: Remove once grpc is updated to 1.78.0 or later.
+        "//third_party:grpc-cf-event-engine-layering.patch",
+        # TODO: Remove once grpc is updated to a version that includes
+        # https://github.com/grpc/grpc/pull/43482.
+        "//third_party:grpc-windows-layering.patch",
+    ],
 )
 
 # bazel_dep overrides
