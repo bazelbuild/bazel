@@ -46,7 +46,6 @@ import java.util.AbstractCollection;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -562,9 +561,12 @@ public abstract sealed class NestedSet<E> {
    * objects and collection-like objects.
    */
   public final int shallowHashCode() {
-    return isSingleton() || children instanceof ListenableFuture
-        ? Objects.hash(getOrder(), children)
-        : Objects.hash(getOrder(), Arrays.hashCode((Object[]) children));
+    // Equivalent to Objects.hash(getOrder(), childrenHash) without varargs allocation or boxing.
+    int orderHash = 31 * (31 + getOrder().hashCode());
+    if (isSingleton() || children instanceof ListenableFuture) {
+      return orderHash + children.hashCode();
+    }
+    return orderHash + Arrays.hashCode((Object[]) children);
   }
 
   @VisibleForTesting static final int MAX_ELEMENTS_TO_STRING = 1_000_000;
