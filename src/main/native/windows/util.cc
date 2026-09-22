@@ -314,15 +314,21 @@ wstring AsExecutablePathForCreateProcess(wstring path, wstring* quoted_path,
   // extended-length form of `path`, suitable for CreateProcessW's
   // lpApplicationName: it is not subject to MAX_PATH, and providing it lifts
   // that limit from the executable part of CreateProcessW's lpCommandLine too.
-  // This works only for a plain executable with an absolute, normalized path.
-  if (!IsBatchFile(path)) {
-    wstring native_path = path;
-    std::replace(native_path.begin(), native_path.end(), L'/', L'\\');
-    if (IsAbsoluteNormalizedWindowsPath(native_path)) {
-      QuotePath(native_path, quoted_path);
+  // This works only for an absolute, normalized path to a plain executable or
+  // a batch file. Batch files are not prefixed with \\?\ because cmd.exe does
+  // not support the long-path prefix.
+  wstring native_path = path;
+  std::replace(native_path.begin(), native_path.end(), L'/', L'\\');
+  if (IsAbsoluteNormalizedWindowsPath(native_path)) {
+    QuotePath(native_path, quoted_path);
+    if (IsBatchFile(path)) {
+      // cmd.exe does NOT allow for the longpath prefix, so simply return the
+      // path without it.
+      *extended_path = native_path;
+    } else {
       *extended_path = wstring(L"\\\\?\\") + native_path;
-      return L"";
     }
+    return L"";
   }
   return MakeErrorMessage(WSTR(__FILE__), __LINE__,
                           L"AsExecutablePathForCreateProcess", path, error);
