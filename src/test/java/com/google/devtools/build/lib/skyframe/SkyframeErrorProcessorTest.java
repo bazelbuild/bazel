@@ -975,8 +975,8 @@ public class SkyframeErrorProcessorTest {
 
   @Test
   public void noKeepGoing_aspectErrorPlusActionConflict_throwsAspectErrorAndDropsTheConflict() {
-    // Known wart: the action conflict is aggregated into a result that is then never returned,
-    // because the stashed aspect exception is thrown after the loop. The conflict is silently lost.
+    // Known wart: the conflict is harvested into a result that is then never returned, because the
+    // stashed aspect exception is thrown after the loop. The conflict is silently lost.
     Label aspectLabel = Label.parseCanonicalUnchecked("//aspect_err");
     TopLevelAspectsKey aspectKey = topLevelAspectsKey(aspectLabel);
     ConfiguredTargetKey conflictKey = configuredTargetKey("//conflict");
@@ -1027,6 +1027,32 @@ public class SkyframeErrorProcessorTest {
 
     assertThat(thrown.getClass())
         .isAnyOf(BuildFailedException.class, ViewCreationFailedException.class);
+  }
+
+  @Test
+  public void noKeepGoing_severalErrors_everyCycleIsReportedBeforeTheBuildAborts() {
+    // The cycles are reported in a pass of their own, above the loop that throws, so an error that
+    // aborts the build does not truncate the reporting for the errors after it.
+    ConfiguredTargetKey analysisKey = configuredTargetKey("//analysis_err");
+    ConfiguredTargetKey cycleKey = configuredTargetKey("//pkg:cycle");
+    CycleInfo cycle =
+        CycleInfo.createCycleInfo(ImmutableList.of(configuredTargetKey("//cycle:culprit")));
+
+    EvaluationResult<SkyValue> result =
+        EvaluationResult.<SkyValue>builder()
+            .addError(
+                analysisKey,
+                errorInfo(analysisException("analysis exception", analysisKey.getLabel())))
+            .addError(cycleKey, ErrorInfo.fromCycle(cycle))
+            .build();
+
+    // Both errors abort with the same exception type, so which one wins is not worth pinning.
+    assertThrows(
+        ViewCreationFailedException.class,
+        () -> processErrors(result, /* keepGoing= */ false, /* includeExecutionPhase= */ false));
+
+    assertThat(cyclesReporter.topLevelKeys).containsExactly(analysisKey, cycleKey);
+    assertThat(cyclesReporter.cycles).containsExactly(cycle);
   }
 
   @Test
@@ -1084,8 +1110,12 @@ public class SkyframeErrorProcessorTest {
             /* keepGoing= */ true,
             /* includeExecutionPhase= */ true);
 
+    // The entries keep the order of the exception's own map. Before the conflicts were harvested
+    // in one pass they went through a HashMap, so this order was the bucket order of the mock
+    // actions' identity hashes.
     assertThat(result.actionConflicts())
-        .containsExactly(firstAction, firstConflict, secondAction, secondConflict);
+        .containsExactly(firstAction, firstConflict, secondAction, secondConflict)
+        .inOrder();
     // Conflicts are analysis errors.
     assertThat(result.hasAnalysisError()).isTrue();
     assertThat(result.aspectKeysForConflictReporting()).isEmpty();
@@ -1147,8 +1177,9 @@ public class SkyframeErrorProcessorTest {
 
   @Test
   public void twoConflictsSharingTheSameActionKey_lastWinsAndDoesNotThrow() throws Exception {
-    // The aggregating builder uses HashMap#putAll, so duplicate keys silently overwrite instead of
-    // throwing (as ImmutableMap.Builder#buildOrThrow would).
+    // harvestActionConflicts feeds every error entry into one ImmutableMap.Builder and finishes
+    // with buildKeepingLast(), so a repeated action key keeps the last conflict instead of
+    // throwing (as buildOrThrow() would).
     ConfiguredTargetKey firstKey = configuredTargetKey("//conflict_a");
     ConfiguredTargetKey secondKey = configuredTargetKey("//conflict_b");
     ActionAnalysisMetadata sharedAction = mock(ActionAnalysisMetadata.class);
@@ -1167,6 +1198,94 @@ public class SkyframeErrorProcessorTest {
     assertThat(result.actionConflicts()).hasSize(1);
     // ORDER DEPENDENCE: which of the two conflicts survives depends on errorMap() iteration order.
     assertThat(result.actionConflicts().get(sharedAction)).isAnyOf(firstConflict, secondConflict);
+  }
+
+  @Test
+  public void actionConflictPlusCycle_keepGoing_reportsTheCycleAndHarvestsTheConflict()
+      throws Exception {
+    // A harvested conflict is never visited by the main loop, yet its cycles are still reported:
+    // the same error can carry both, because ErrorInfo#fromChildErrors keeps one child's exception
+    // and the cycles of all of them, so a target with one conflicting dependency and another
+    // dependency in a cycle arrives here with both. That is why the cycles of every error are
+    // reported above the harvest instead of from inside the loop.
+    ConfiguredTargetKey key = configuredTargetKey("//conflict_and_cycle");
+    ConfiguredTargetKey culprit = configuredTargetKey("//cycle:culprit");
+    ActionAnalysisMetadata action = mock(ActionAnalysisMetadata.class);
+    ActionConflictException conflict = actionConflictException("conflict", action);
+
+    ErrorProcessingResult result =
+        processErrors(
+            resultOf(
+                key,
+                errorInfo(key, conflict, CycleInfo.createCycleInfo(ImmutableList.of(culprit)))),
+            /* keepGoing= */ true,
+            /* includeExecutionPhase= */ false);
+
+    assertThat(cyclesReporter.topLevelKeys).containsExactly(key);
+    assertThat(cyclesReporter.cycles)
+        .containsExactly(
+            CycleInfo.createCycleInfo(ImmutableList.of(key), ImmutableList.of(culprit)));
+    // The conflict is harvested as usual, and its reporting is still deferred to
+    // SkyframeBuildView.
+    assertThat(result.actionConflicts()).containsExactly(action, conflict);
+    assertThat(result.hasAnalysisError()).isTrue();
+    assertThat(eventBusCollector.allEvents).isEmpty();
+    assertThat(warningMessages()).isEmpty();
+  }
+
+  @Test
+  public void actionConflictPlusCycle_noKeepGoing_reportsTheCycleAndDoesNotThrow()
+      throws Exception {
+    // The harvest runs before the main loop in both modes, so the same error that would abort the
+    // build under --nokeep_going - a cycle throws ViewCreationFailedException, see
+    // analysisCycle_noKeepGoing_throwsViewCreationFailedException - leaves nothing for the main
+    // loop to throw on once its conflict is taken out. The conflict is handed to SkyframeBuildView,
+    // which is what fails the build.
+    ConfiguredTargetKey key = configuredTargetKey("//conflict_and_cycle");
+    ConfiguredTargetKey culprit = configuredTargetKey("//cycle:culprit");
+    ActionAnalysisMetadata action = mock(ActionAnalysisMetadata.class);
+    ActionConflictException conflict = actionConflictException("conflict", action);
+
+    ErrorProcessingResult result =
+        processErrors(
+            resultOf(
+                key,
+                errorInfo(key, conflict, CycleInfo.createCycleInfo(ImmutableList.of(culprit)))),
+            /* keepGoing= */ false,
+            /* includeExecutionPhase= */ false);
+
+    assertThat(cyclesReporter.cycles)
+        .containsExactly(
+            CycleInfo.createCycleInfo(ImmutableList.of(key), ImmutableList.of(culprit)));
+    assertThat(result.actionConflicts()).containsExactly(action, conflict);
+    assertThat(result.hasAnalysisError()).isTrue();
+    assertThat(eventBusCollector.allEvents).isEmpty();
+  }
+
+  @Test
+  public void buildDriverKey_topLevelConflictException_isHarvestedLikeTheBareKey()
+      throws Exception {
+    // The production shape: BuildDriverFunction only ever throws a TopLevelConflictException on a
+    // BuildDriverKey. The harvest unwraps the key itself, so the conflict never reaches the main
+    // loop - where assertValidAnalysisOrExecutionException would reject it.
+    ConfiguredTargetKey ctKey = configuredTargetKey("//conflict");
+    SkyKey key = wrapKey(TopLevelKeyKind.BUILD_DRIVER, ctKey);
+    ActionAnalysisMetadata action = mock(ActionAnalysisMetadata.class);
+    ActionConflictException conflict = actionConflictException("conflict", action);
+
+    ErrorProcessingResult result =
+        processErrors(
+            resultOf(
+                key,
+                errorInfo(
+                    new TopLevelConflictException("conflicts", ImmutableMap.of(action, conflict)))),
+            /* keepGoing= */ true,
+            /* includeExecutionPhase= */ true);
+
+    assertThat(result.actionConflicts()).containsExactly(action, conflict);
+    assertThat(result.hasAnalysisError()).isTrue();
+    assertThat(eventBusCollector.allEvents).isEmpty();
+    assertThat(bugReporter.bugReports).isEmpty();
   }
 
   // -------------------------------------------------------------------------------------------
@@ -1240,6 +1359,10 @@ public class SkyframeErrorProcessorTest {
     assertThat(result.hasAnalysisError()).isTrue();
     assertThat(result.executionDetailedExitCode()).isEqualTo(executionExitCode);
     assertThat(result.actionConflicts()).containsExactly(action, conflict);
+    // The conflict is the only error the loop never sees: the other three are reported as usual,
+    // and only the two non-execution ones are warned about.
+    assertThat(analysisFailureTargets()).containsExactly(loadingKey, analysisKey);
+    assertThat(warningMessages()).hasSize(2);
   }
 
   @Test
@@ -1575,10 +1698,9 @@ public class SkyframeErrorProcessorTest {
   @Test
   public void aspectKey_topLevelConflictException_keepGoing_collectsConflictsAndPostsNoEvent()
       throws Exception {
-    // Pins the TopLevelConflictException arm of the aspect branch: the transitive conflicts are
-    // collected exactly as they are for a ConfiguredTargetKey, the error counts as an analysis
-    // error, and - because it is an action conflict - nothing is posted and nothing is warned
-    // about, it is all deferred to SkyframeBuildView.
+    // A conflict on an aspect key is harvested exactly like one on a ConfiguredTargetKey: the
+    // transitive conflicts are collected, the error counts as an analysis error, and nothing is
+    // posted or warned about because reporting is deferred to SkyframeBuildView.
     // Wart: aspectKeysForConflictReporting stays empty even though the failing key *is* an aspect
     // key; it is only ever populated from ActionConflictException#getAspectKey.
     TopLevelAspectsKey key =
@@ -1593,8 +1715,6 @@ public class SkyframeErrorProcessorTest {
                 errorInfo(
                     new TopLevelConflictException("conflicts", ImmutableMap.of(action, conflict)))),
             /* keepGoing= */ true,
-            // Required: assertValidAnalysisException does not accept a TopLevelConflictException,
-            // only assertValidAnalysisOrExecutionException does.
             /* includeExecutionPhase= */ true);
 
     assertThat(result.actionConflicts()).containsExactly(action, conflict);
@@ -2089,11 +2209,12 @@ public class SkyframeErrorProcessorTest {
   public void analysisExceptionPlusAnalysisCycle_keepGoing_exceptionWinsOverTheCycle()
       throws Exception {
     // The other side of the precedence order, of which the two tests above only show one half: on
-    // a ConfiguredTargetKey the TopLevelConflictException, ActionConflictException and
-    // ConfiguredValueCreationException arms come *before* the cycle arm, while the cycle arm comes
-    // before the NoSuchThingException, ExternalDepsException, TargetCompatibilityCheckException
-    // and execution arms. So here the exception's root causes win and the cycle contributes
-    // nothing at all.
+    // a ConfiguredTargetKey the ConfiguredValueCreationException arm comes *before* the cycle arm,
+    // while the cycle arm comes before the NoSuchThingException, ExternalDepsException,
+    // TargetCompatibilityCheckException and execution arms. So here the exception's root causes
+    // win and the cycle contributes nothing at all. A conflict is not on this list at all: it is
+    // harvested before the loop and its cycles are reported anyway, see
+    // actionConflictPlusCycle_keepGoing_reportsTheCycleAndHarvestsTheConflict.
     ConfiguredTargetKey key = configuredTargetKey("//pkg:both");
     ConfiguredTargetKey culprit = configuredTargetKey("//cycle:culprit");
     LabelCause rootCause =
@@ -2410,31 +2531,32 @@ public class SkyframeErrorProcessorTest {
     assertThat(thrown).hasMessageThat().contains("(" + ImmutableList.of(key) + ")");
   }
 
-  // TODO(b/561978611): Remove this behavior. An unattributable action conflict is not a
-  // programming error, so it should not crash with a bug report.
   @Test
-  public void analysisOnly_topLevelConflictException_crashesWithABugReport() {
-    // Pins an asymmetry: assertValidAnalysisOrExecutionException explicitly whitelists
-    // TopLevelConflictException, assertValidAnalysisException does not - it is neither a
-    // SaneAnalysisException nor a DetailedException. Every other TopLevelConflictException test in
-    // this file passes includeExecutionPhase = true, which is why this case is uncovered.
+  public void analysisOnly_topLevelConflictException_harvestedBeforeValidationRuns()
+      throws Exception {
+    // Contrast with the execution exception below, which is still rejected: only conflicts skip
+    // validation, because only they are taken out of the result before it runs.
     ConfiguredTargetKey key = configuredTargetKey("//conflict");
     ActionAnalysisMetadata action = mock(ActionAnalysisMetadata.class);
     ActionConflictException conflict = actionConflictException("conflict", action);
 
-    EvaluationResult<SkyValue> result =
-        resultOf(
-            key,
-            errorInfo(
-                new TopLevelConflictException("conflicts", ImmutableMap.of(action, conflict))));
+    ErrorProcessingResult result =
+        processErrors(
+            resultOf(
+                key,
+                errorInfo(
+                    new TopLevelConflictException("conflicts", ImmutableMap.of(action, conflict)))),
+            /* keepGoing= */ true,
+            /* includeExecutionPhase= */ false);
 
-    IllegalStateException thrown =
-        assertThrows(
-            IllegalStateException.class,
-            () -> processErrors(result, /* keepGoing= */ true, /* includeExecutionPhase= */ false));
-
-    assertThat(thrown).hasMessageThat().contains("Unexpected analysis error");
-    assertThat(thrown).hasMessageThat().contains("direct deps not stored");
+    assertThat(result.actionConflicts()).containsExactly(action, conflict);
+    assertThat(result.hasAnalysisError()).isTrue();
+    assertThat(result.executionDetailedExitCode()).isNull();
+    assertThat(result.aspectKeysForConflictReporting()).isEmpty();
+    assertThat(eventBusCollector.allEvents).isEmpty();
+    assertThat(warningMessages()).isEmpty();
+    assertThat(bugReporter.bugReports).isEmpty();
+    assertThat(bugReporter.nonFatalBugReports).isEmpty();
   }
 
   @Test

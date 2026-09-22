@@ -75,7 +75,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -129,33 +128,35 @@ public final class SkyframeErrorProcessor {
     static class AggregatingBuilder {
       private boolean hasLoadingError = false;
       private boolean hasAnalysisError = false;
-      private final Map<ActionAnalysisMetadata, ActionConflictException> actionConflicts =
-          new HashMap<>();
+      private ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts =
+          ImmutableMap.of();
       @Nullable private DetailedExitCode executionDetailedExitCode = null;
-      private final ImmutableList.Builder<ActionLookupKey> aspectKeysForConflictReporting =
-          ImmutableList.builder();
+      private ImmutableList<ActionLookupKey> aspectKeysForConflictReporting = ImmutableList.of();
 
       void aggregateSingleResult(IndividualErrorProcessingResult individualErrorProcessingResult) {
         hasLoadingError = hasLoadingError || individualErrorProcessingResult.isLoadingError();
         hasAnalysisError = hasAnalysisError || individualErrorProcessingResult.isAnalysisError();
-        actionConflicts.putAll(individualErrorProcessingResult.actionConflicts());
         executionDetailedExitCode =
             DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
                 executionDetailedExitCode,
                 individualErrorProcessingResult.executionDetailedExitCode());
-        if (individualErrorProcessingResult.aspectKeyForConflictReporting() != null) {
-          aspectKeysForConflictReporting.add(
-              individualErrorProcessingResult.aspectKeyForConflictReporting());
-        }
+      }
+
+      private void addConflicts(ConflictHarvest harvest) {
+        actionConflicts = harvest.actionConflicts();
+        aspectKeysForConflictReporting = harvest.aspectKeysForConflictReporting();
+        // An action conflict is an analysis error, even though SkyframeBuildView is the one that
+        // reports it.
+        hasAnalysisError = hasAnalysisError || !harvest.actionConflicts().isEmpty();
       }
 
       ErrorProcessingResult build() {
         return new ErrorProcessingResult(
             hasLoadingError,
             hasAnalysisError,
-            ImmutableMap.copyOf(actionConflicts),
+            actionConflicts,
             executionDetailedExitCode,
-            aspectKeysForConflictReporting.build());
+            aspectKeysForConflictReporting);
       }
     }
   }
@@ -165,29 +166,81 @@ public final class SkyframeErrorProcessor {
    * for the final {@link ErrorProcessingResult}.
    */
   record IndividualErrorProcessingResult(
-      ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts,
       @Nullable DetailedExitCode executionDetailedExitCode,
       NestedSet<Cause> analysisRootCauses,
-      ImmutableSet<Label> loadingRootCauses,
-      @Nullable ActionLookupKey aspectKeyForConflictReporting) {
+      ImmutableSet<Label> loadingRootCauses) {
     IndividualErrorProcessingResult {
-      requireNonNull(actionConflicts, "actionConflicts");
       requireNonNull(analysisRootCauses, "analysisRootCauses");
       requireNonNull(loadingRootCauses, "loadingRootCauses");
-    }
-
-    boolean isActionConflictError() {
-      return !actionConflicts().isEmpty();
     }
 
     boolean isLoadingError() {
       return !loadingRootCauses().isEmpty();
     }
 
-    /** This is true for all non-execution errors: including loading & action conflict errors. */
+    /** This is true for all non-execution errors, including loading errors. */
     boolean isAnalysisError() {
       return executionDetailedExitCode() == null;
     }
+  }
+
+  /**
+   * An error that is not an action conflict.
+   *
+   * @param errorKey the {@linkplain #getEffectiveErrorKey effective} error key, not the key
+   *     Skyframe reported the error under
+   */
+  private record RemainingError(SkyKey errorKey, ErrorInfo errorInfo) {}
+
+  /**
+   * The action conflicts found in an {@link EvaluationResult}, and the errors that are left.
+   *
+   * <p>Action conflicts are reported by {@link SkyframeBuildView} rather than here: at this point
+   * the conflict set is still incomplete, and attributing a conflict to a top-level target needs a
+   * further Skyframe evaluation.
+   *
+   * @param remainingErrors the errors that were not conflicts, in the order Skyframe surfaced them.
+   *     Everything downstream works from these, and so never has to know that conflicts exist.
+   */
+  private record ConflictHarvest(
+      ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts,
+      ImmutableList<ActionLookupKey> aspectKeysForConflictReporting,
+      ImmutableList<RemainingError> remainingErrors) {}
+
+  private static ConflictHarvest harvestActionConflicts(Map<SkyKey, ErrorInfo> errors) {
+    ImmutableMap.Builder<ActionAnalysisMetadata, ActionConflictException> actionConflicts =
+        ImmutableMap.builder();
+    ImmutableList.Builder<ActionLookupKey> aspectKeys = ImmutableList.builder();
+    ImmutableList.Builder<RemainingError> remainingErrors = ImmutableList.builder();
+
+    for (Map.Entry<SkyKey, ErrorInfo> errorEntry : errors.entrySet()) {
+      SkyKey errorKey = getEffectiveErrorKey(errorEntry.getKey());
+      Exception exception = errorEntry.getValue().getException();
+      // A conflict only ever arrives on a top-level target or aspect key.
+      if (isValidErrorKeyType(errorKey)) {
+        if (exception instanceof TopLevelConflictException tlce) {
+          actionConflicts.putAll(tlce.getTransitiveActionConflicts());
+          continue;
+        }
+        if (exception instanceof ActionConflictException ace) {
+          actionConflicts.put(ace.getAttemptedAction(), ace);
+          if (errorKey instanceof AspectBaseKey && ace.getAspectKey() != null) {
+            // SkyframeBuildView reports a conflict against an AspectKey, which it normally derives
+            // from the TopLevelAspectsValue. An intra-aspect conflict leaves that value null, so
+            // the key has to be carried out of the exception here.
+            aspectKeys.add(ace.getAspectKey());
+          }
+          continue;
+        }
+      }
+      remainingErrors.add(new RemainingError(errorKey, errorEntry.getValue()));
+    }
+
+    return new ConflictHarvest(
+        // Two top-level targets that share a conflicting dependency each report that dependency's
+        // action, so the same key can arrive twice and buildOrThrow() would reject it. Keep the
+        // last, which is what accumulating into a map did.
+        actionConflicts.buildKeepingLast(), aspectKeys.build(), remainingErrors.build());
   }
 
   /**
@@ -285,21 +338,37 @@ public final class SkyframeErrorProcessor {
     ErrorProcessingResult.AggregatingBuilder aggregatingResultBuilder =
         ErrorProcessingResult.newBuilder();
 
-    for (Map.Entry<SkyKey, ErrorInfo> errorEntry : result.errorMap().entrySet()) {
-      ErrorInfo errorInfo = errorEntry.getValue();
+    Map<SkyKey, ErrorInfo> errors = result.errorMap();
 
-      // The cycle reporter requires that the path to the cycle starts at the top level key
-      // (requested via SkyframeExecutor), hence we need to provide the original top level key here.
-      //
-      // Why is there a need for "original" vs "effective" error key?
-      // 1) The non-skymeld code path deals with ActionLookupKeys as the top level key,
-      // 2) We wanted to share the error handling code between skymeld and non skymeld.
-      // To do so, we need to "normalize" the top level key in Skymeld mode by getting the effective
-      // ActionLookupKey from a BuildDriverKey. The rest of the method can then be easily shared.
+    // Cycles are reported for every error, including the conflicts harvested below:
+    // ErrorInfo#fromChildErrors keeps one child's exception and the cycles of all of them, so an
+    // error can be both at once. CyclesReporter deduplicates against the cycles it has already
+    // reported, so it has to see them in the order Skyframe surfaced them.
+    //
+    // The cycle reporter requires that the path to the cycle starts at the top level key
+    // (requested via SkyframeExecutor), hence we need to provide the original top level key here.
+    //
+    // Why is there a need for "original" vs "effective" error key?
+    // 1) The non-skymeld code path deals with ActionLookupKeys as the top level key,
+    // 2) We wanted to share the error handling code between skymeld and non skymeld.
+    // To do so, we need to "normalize" the top level key in Skymeld mode by getting the effective
+    // ActionLookupKey from a BuildDriverKey. The rest of the method can then be easily shared.
+    for (Map.Entry<SkyKey, ErrorInfo> errorEntry : errors.entrySet()) {
       cyclesReporter.reportCycles(
-          errorInfo.getCycleInfo(), /*topLevelKey=*/ errorEntry.getKey(), eventHandler);
+          errorEntry.getValue().getCycleInfo(),
+          /* topLevelKey= */ errorEntry.getKey(),
+          eventHandler);
+    }
 
-      SkyKey errorKey = getEffectiveErrorKey(errorEntry.getKey());
+    // Action conflicts are pulled out and handed to SkyframeBuildView untouched: reporting them
+    // needs information that isn't available yet. Nothing below this point knows they exist.
+    ConflictHarvest conflictHarvest = harvestActionConflicts(errors);
+    aggregatingResultBuilder.addConflicts(conflictHarvest);
+
+    for (RemainingError remainingError : conflictHarvest.remainingErrors()) {
+      SkyKey errorKey = remainingError.errorKey();
+      ErrorInfo errorInfo = remainingError.errorInfo();
+
       if (includeExecutionPhase) {
         assertValidAnalysisOrExecutionException(
             errorInfo, errorKey, result.getWalkableGraph(), keepEdges);
@@ -329,16 +398,7 @@ public final class SkyframeErrorProcessor {
       IndividualErrorProcessingResult individualErrorProcessingResult =
           processIndividualError(result, bugReporter, errorKey, errorInfo);
 
-      // For action conflicts, more downstream operations are required to have all the
-      // information. We intentionally don't send out any failure event, throw any exception (even
-      // with --nokeep_going) or print a warning message at this point. These will be done elsewhere
-      // at a later point.
-      if (individualErrorProcessingResult.isActionConflictError()) {
-        aggregatingResultBuilder.aggregateSingleResult(individualErrorProcessingResult);
-        continue;
-      }
-
-      maybePostFailureEventsForNonConflictError(
+      maybePostFailureEvents(
           eventHandler,
           eventBus,
           inBuildViewTest,
@@ -371,20 +431,19 @@ public final class SkyframeErrorProcessor {
   }
 
   /**
-   * Posts the failure events for a single error, which must not be an action conflict.
+   * Posts the failure events for a single error.
    *
    * <p>A {@link TopLevelAspectsKey} does get an {@link AnalysisFailureEvent}, attributed to its
    * base configured target, but with no root causes (see {@link #processIndividualError}). A bare
    * aspect key, and any key type other than {@link ConfiguredTargetKey}, gets nothing.
    */
-  private static void maybePostFailureEventsForNonConflictError(
+  private static void maybePostFailureEvents(
       ExtendedEventHandler eventHandler,
       @Nullable EventBus eventBus,
       boolean inBuildViewTest,
       SkyKey errorKey,
       @Nullable Label label,
       IndividualErrorProcessingResult individualErrorProcessingResult) {
-    Preconditions.checkState(!individualErrorProcessingResult.isActionConflictError());
     if (inBuildViewTest) {
       // eventBus is null, but tests can still assert on the expected root causes being found.
       eventHandler.handle(
@@ -485,23 +544,15 @@ public final class SkyframeErrorProcessor {
       ErrorInfo errorInfo) {
     Exception exception = errorInfo.getException();
     Set<Label> loadingRootCauses = new HashSet<>();
-    ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts =
-        ImmutableMap.of();
     DetailedExitCode executionDetailedExitCode = null;
-    ActionLookupKey aspectKeyForConflictReporting = null;
 
     // Aspect errors discard their root causes. An AnalysisFailureEvent is still posted for a
-    // TopLevelAspectsKey (see maybePostFailureEventsForNonConflictError), but with an empty cause
+    // TopLevelAspectsKey (see maybePostFailureEvents), but with an empty cause
     // set, even though e.g. AspectCreationException#getCauses would supply real ones. A bare
     // AspectKey gets no event at all.
     // TODO(b/561978611): Populate the root causes and treat aspect keys like any other key.
     if (errorKey instanceof AspectBaseKey) {
-      if (exception instanceof TopLevelConflictException tlce) {
-        actionConflicts = tlce.getTransitiveActionConflicts();
-      } else if (exception instanceof ActionConflictException ace) {
-        actionConflicts = ImmutableMap.of(ace.getAttemptedAction(), ace);
-        aspectKeyForConflictReporting = ace.getAspectKey();
-      } else if (isExecutionException(exception)) {
+      if (isExecutionException(exception)) {
         executionDetailedExitCode =
             getExecutionDetailedExitCodeFromCause(result, exception, bugReporter);
       } else if (!errorInfo.getCycleInfo().isEmpty()
@@ -509,21 +560,17 @@ public final class SkyframeErrorProcessor {
         executionDetailedExitCode = CYCLE_CODE;
       }
       return new IndividualErrorProcessingResult(
-          actionConflicts,
           executionDetailedExitCode,
           /* analysisRootCauses= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* loadingRootCauses= */ ImmutableSet.of(),
-          aspectKeyForConflictReporting);
+          /* loadingRootCauses= */ ImmutableSet.of());
     }
 
     // Only possible with actions generating build-info.txt and build-changelist.txt.
     if (errorKey instanceof ActionLookupData) {
       return new IndividualErrorProcessingResult(
-          /* actionConflicts= */ ImmutableMap.of(),
           getExecutionDetailedExitCodeFromCause(result, exception, bugReporter),
           /* analysisRootCauses= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /* loadingRootCauses= */ ImmutableSet.of(),
-          /* aspectKeyForConflictReporting= */ null);
+          /* loadingRootCauses= */ ImmutableSet.of());
     }
 
     Preconditions.checkState(
@@ -534,13 +581,7 @@ public final class SkyframeErrorProcessor {
     Label topLevelLabel = ctKey.getLabel();
     NestedSet<Cause> analysisRootCauses;
 
-    if (exception instanceof TopLevelConflictException tlce) {
-      actionConflicts = tlce.getTransitiveActionConflicts();
-      analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    } else if (exception instanceof ActionConflictException ace) {
-      actionConflicts = ImmutableMap.of(ace.getAttemptedAction(), ace);
-      analysisRootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    } else if (exception instanceof ConfiguredValueCreationException ctCause) {
+    if (exception instanceof ConfiguredValueCreationException ctCause) {
       // Previously, the nested set was de-duplicating loading root cause labels. Now that we
       // track Cause instances including a message, we get one event per label and message. In
       // order to keep backwards compatibility, we deduplicate root cause labels here.
@@ -602,11 +643,7 @@ public final class SkyframeErrorProcessor {
     }
 
     return new IndividualErrorProcessingResult(
-        actionConflicts,
-        executionDetailedExitCode,
-        analysisRootCauses,
-        ImmutableSet.copyOf(loadingRootCauses),
-        /* aspectKeyForConflictReporting= */ null);
+        executionDetailedExitCode, analysisRootCauses, ImmutableSet.copyOf(loadingRootCauses));
   }
 
   private static DetailedExitCode getExecutionDetailedExitCodeFromCause(
@@ -761,9 +798,7 @@ public final class SkyframeErrorProcessor {
       return;
     }
 
-    if (convertToAnalysisException(cause) != null
-        || isExecutionException(cause)
-        || cause instanceof TopLevelConflictException) {
+    if (convertToAnalysisException(cause) != null || isExecutionException(cause)) {
       // Valid exception type.
       return;
     }
