@@ -95,7 +95,7 @@ public sealed interface MerkleTree {
   final class Uploadable implements MerkleTree {
     private static final Comparator<FileArtifactValue> FILE_ARTIFACT_VALUE_COMPARATOR =
         comparing(FileArtifactValue::getDigest, UnsignedBytes.lexicographicalComparator())
-            .thenComparing(FileArtifactValue::getSize);
+            .thenComparingLong(FileArtifactValue::getSize);
     static final Comparator<Object> DIGEST_AND_METADATA_COMPARATOR =
         (o1, o2) ->
             switch (o1) {
