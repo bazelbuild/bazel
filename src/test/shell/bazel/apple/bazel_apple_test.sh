@@ -37,7 +37,7 @@ function set_up() {
   create_new_workspace
 
   cat > $(setup_module_dot_bazel) <<EOF
-bazel_dep(name = "apple_support", version = "2.5.4")
+bazel_dep(name = "apple_support", version = "2.8.4")
 xcode_configure = use_extension("@apple_support//xcode:xcode_configure.bzl", "xcode_configure_extension")
 use_repo(xcode_configure, "local_config_xcode")
 EOF
