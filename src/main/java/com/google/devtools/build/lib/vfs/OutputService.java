@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.ProxyMetadataFactory;
+import com.google.devtools.build.lib.actions.TopLevelOutputException;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -187,6 +188,17 @@ public interface OutputService {
   /** Notify the output service of a completed action. */
   void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
       throws IOException, EnvironmentalExecException, InterruptedException;
+
+  /**
+   * Notifies the output service that a top-level target or aspect has completed successfully.
+   *
+   * <p>This is called after the {@link
+   * com.google.devtools.build.lib.actions.ImportantOutputHandler}, if any, has made important
+   * outputs available and before the successful completion event is posted. The metadata provider
+   * includes hidden top-level outputs such as runfiles trees.
+   */
+  default void finalizeTopLevelOutputs(InputMetadataProvider metadataProvider)
+      throws TopLevelOutputException, InterruptedException {}
 
   @Nullable
   BatchStat getBatchStatter();

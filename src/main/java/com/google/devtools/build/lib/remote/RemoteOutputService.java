@@ -17,19 +17,24 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.OutputChecker;
+import com.google.devtools.build.lib.actions.TopLevelOutputException;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
+import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -39,12 +44,16 @@ import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
+import com.google.devtools.build.lib.vfs.OutputService.SymlinkTreeCreationResult;
+import com.google.devtools.build.lib.vfs.OutputService.SymlinkTreeType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** Output service implementation for the remote build without local output service daemon. */
@@ -52,6 +61,8 @@ public class RemoteOutputService implements OutputService {
 
   private final BlazeDirectories directories;
   private final boolean rewindLostInputs;
+  private final RemoteOutputsMode outputsMode;
+  private final RunfilesTreeUpdater runfilesTreeUpdater;
 
   private RewoundActionSynchronizer rewoundActionSynchronizer = RewoundActionSynchronizer.NOOP;
 
@@ -59,9 +70,18 @@ public class RemoteOutputService implements OutputService {
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
   @Nullable private LeaseService leaseService;
 
-  RemoteOutputService(BlazeDirectories directories, boolean rewindLostInputs) {
+  RemoteOutputService(
+      BlazeDirectories directories,
+      boolean rewindLostInputs,
+      RemoteOutputsMode outputsMode,
+      RunfilesTreeUpdater runfilesTreeUpdater) {
     this.directories = checkNotNull(directories);
     this.rewindLostInputs = rewindLostInputs;
+    this.outputsMode = checkNotNull(outputsMode);
+    this.runfilesTreeUpdater = checkNotNull(runfilesTreeUpdater);
+    if (outputsMode != RemoteOutputsMode.ALL) {
+      runfilesTreeUpdater.setMaterializeBuiltRunfilesTrees();
+    }
   }
 
   void setRemoteOutputChecker(RemoteOutputChecker remoteOutputChecker) {
@@ -178,6 +198,33 @@ public class RemoteOutputService implements OutputService {
   }
 
   @Override
+  public void finalizeTopLevelOutputs(InputMetadataProvider metadataProvider)
+      throws TopLevelOutputException, InterruptedException {
+    if (outputsMode == RemoteOutputsMode.ALL) {
+      return;
+    }
+    RemoteOutputChecker checker =
+        checkNotNull(remoteOutputChecker, "remoteOutputChecker must not be null");
+    try {
+      runfilesTreeUpdater.updateRunfiles(
+          Iterables.filter(
+              metadataProvider.getRunfilesTrees(),
+              tree -> checker.shouldCreateRunfilesTree(tree.getExecPath())));
+    } catch (ExecException | IOException e) {
+      String message = "Failed to create runfiles symlinks: " + e.getMessage();
+      throw new TopLevelOutputException(
+          message,
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(message)
+                  .setExecution(
+                      Execution.newBuilder()
+                          .setCode(Execution.Code.SYMLINK_TREE_CREATION_IO_EXCEPTION))
+                  .build()));
+    }
+  }
+
+  @Override
   public boolean shouldStoreRemoteOutputMetadataInActionCache() {
     return true;
   }
@@ -191,6 +238,26 @@ public class RemoteOutputService implements OutputService {
   @Override
   public BatchStat getBatchStatter() {
     return null;
+  }
+
+  @Override
+  public SymlinkTreeCreationResult createSymlinkTree(
+      SymlinkTreeType type,
+      Supplier<Map<PathFragment, PathFragment>> symlinks,
+      PathFragment symlinkTreeRoot) {
+    // When building without the bytes, only create the runfiles trees that are actually needed:
+    // those of top-level targets, which SymlinkTreeAction creates just like their outputs are
+    // downloaded, and those required by local actions or the run command, which RunfilesTreeUpdater
+    // creates on demand. Targets that only become top-level after their SymlinkTreeAction has run,
+    // e.g. because they were previously only built as a dependency, are handled by
+    // finalizeTopLevelOutputs at target completion.
+    if (type == SymlinkTreeType.FILESET
+        || outputsMode == RemoteOutputsMode.ALL
+        || (remoteOutputChecker != null
+            && remoteOutputChecker.shouldCreateRunfilesTree(symlinkTreeRoot))) {
+      return SymlinkTreeCreationResult.NOT_HANDLED;
+    }
+    return SymlinkTreeCreationResult.DEFERRED;
   }
 
   @Override

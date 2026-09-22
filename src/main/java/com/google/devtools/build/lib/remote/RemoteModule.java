@@ -726,7 +726,9 @@ public final class RemoteModule extends BlazeModule {
       outputService =
           new RemoteOutputService(
               env.getDirectories(),
-              buildRequestOptions != null && buildRequestOptions.getRewindLostInputs());
+              buildRequestOptions != null && buildRequestOptions.getRewindLostInputs(),
+              remoteOptions.getRemoteOutputsMode(),
+              env.getRunfilesTreeUpdater());
     }
 
     // Verifying that the blobs referenced by a disk cache action result are present locally turns
@@ -1232,9 +1234,9 @@ public final class RemoteModule extends BlazeModule {
     }
     actionContextProvider.registerSpawnCache(registryBuilder);
 
-    // For skymeld, a non-toplevel target might become a toplevel after it has been executed. This
-    // is the last chance to download the missing toplevel outputs in this case before sending out
-    // TargetCompleteEvent. See https://github.com/bazelbuild/bazel/issues/20737.
+    // With Skymeld, a non-toplevel target might become toplevel after it has been executed. Ensure
+    // that its outputs are available locally before sending out TargetCompleteEvent. See
+    // https://github.com/bazelbuild/bazel/issues/20737.
     if (env.withMergedAnalysisAndExecutionSourceOfTruth()
         && actionInputFetcher != null
         && remoteOutputChecker != null) {

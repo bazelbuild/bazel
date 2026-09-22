@@ -636,7 +636,9 @@ public abstract class RemoteOptions extends CommonRemoteOptions {
               + "except the ones required by local actions. If set to 'toplevel' behaves like "
               + "'minimal' except that it also downloads outputs of top level targets to the local "
               + "machine. Both options can significantly reduce build times if network bandwidth "
-              + "is a bottleneck.")
+              + "is a bottleneck. In both modes, runfiles symlink trees are only created when "
+              + "they are required by a local action or the run command or belong to a top "
+              + "level target whose outputs are downloaded.")
   public abstract RemoteOutputsMode getRemoteOutputsMode();
 
   public abstract void setRemoteOutputsMode(RemoteOutputsMode value);
