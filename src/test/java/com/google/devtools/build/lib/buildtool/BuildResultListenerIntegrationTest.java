@@ -341,22 +341,34 @@ public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase
                 @Subscribe
                 public void onTargetConfigured(TargetConfiguredEvent event) {
                   if (TargetConfiguredEvent.class.equals(eventToInterruptOn)) {
-                    Thread.currentThread().interrupt();
+                    interruptAfterDelay();
                   }
                 }
 
                 @Subscribe
                 public void onActionStarted(ActionStartedEvent event) {
                   if (ActionStartedEvent.class.equals(eventToInterruptOn)) {
-                    Thread.currentThread().interrupt();
+                    interruptAfterDelay();
                   }
                 }
 
                 @Subscribe
                 public void onExecutionStarting(ExecutionStartingEvent event) {
                   if (ExecutionStartingEvent.class.equals(eventToInterruptOn)) {
-                    Thread.currentThread().interrupt();
+                    interruptAfterDelay();
                   }
+                }
+
+                private void interruptAfterDelay() {
+                  try {
+                    // Ensure at least 2ms has elapsed on the phase stopwatch before interrupting so
+                    // that getAnalysisPhaseTimeInMillis() / getExecutionPhaseTimeInMillis() do not
+                    // truncate sub-millisecond durations to 0ms.
+                    Thread.sleep(Duration.ofMillis(2));
+                  } catch (InterruptedException e) {
+                    // Fall through to re-interrupt.
+                  }
+                  Thread.currentThread().interrupt();
                 }
               });
     }
