@@ -27,6 +27,8 @@ import java.nio.file.ClosedWatchServiceException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardWatchEventKinds;
@@ -337,6 +339,12 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
       this.ignoredPaths = ignoredPaths;
     }
 
+    private boolean isIgnored(Path path) {
+      PathFragment pathFragment =
+          PathFragment.create(path.toAbsolutePath().toString()).toRelative();
+      return ignoredPaths.matchingEntry(pathFragment) != null;
+    }
+
     @Override
     public FileVisitResult visitFile(Path path, BasicFileAttributes attrs) {
       Preconditions.checkState(path.isAbsolute(), path);
@@ -347,9 +355,7 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
     @Override
     public FileVisitResult preVisitDirectory(Path path, BasicFileAttributes attrs)
         throws IOException {
-      PathFragment pathFragment =
-          PathFragment.create(path.toAbsolutePath().toString()).toRelative();
-      if (ignoredPaths.matchingEntry(pathFragment) != null) {
+      if (isIgnored(path)) {
         return FileVisitResult.SKIP_SUBTREE;
       }
 
@@ -380,12 +386,15 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
                 StandardWatchEventKinds.ENTRY_CREATE,
                 StandardWatchEventKinds.ENTRY_MODIFY,
                 StandardWatchEventKinds.ENTRY_DELETE);
-      } catch (IOException e) {
+      } catch (NoSuchFileException | NotDirectoryException e) {
         if (path.equals(watchRoot)) {
           throw e;
         }
-        // Subdirectory may have been deleted concurrently.
-        return FileVisitResult.CONTINUE;
+        // The directory vanished while we were traversing, which routinely happens when the tree
+        // is re-registered after an overflow. The parent directory is watched, so its deletion is
+        // reported to us. Any other failure (most notably the watch limit being reached) must not
+        // be swallowed: leaving a directory unwatched makes subsequent builds miss changes.
+        return FileVisitResult.SKIP_SUBTREE;
       }
       Path existingPathForKey = watchKeyToDirBiMap.get(key);
       if (existingPathForKey != null && !existingPathForKey.equals(path)) {
@@ -398,10 +407,15 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
 
     @Override
     public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-      if (file.equals(watchRoot)) {
-        throw exc;
+      if (!file.equals(watchRoot) && (exc instanceof NoSuchFileException || isIgnored(file))) {
+        // Either deleted while we were traversing, in which case the parent directory is watched
+        // and reports the deletion, or a directory we were told to ignore -- its stream is opened
+        // before #preVisitDirectory gets a chance to skip it. Anything else (e.g. an unreadable
+        // directory) means that we may be unable to watch part of the tree, which must not be
+        // silently ignored.
+        return FileVisitResult.CONTINUE;
       }
-      return FileVisitResult.CONTINUE;
+      throw exc;
     }
   }
 }

@@ -356,6 +356,53 @@ public class LocalDiffAwarenessTest {
   }
 
   @Test
+  public void testUnreadableDirectory() throws Exception {
+    mkdir("unreadable");
+    Path unreadable = testCaseRoot.getRelative("unreadable");
+    unreadable.chmod(0);
+    try {
+      boolean readable = true;
+      try {
+        var unused = unreadable.getDirectoryEntries();
+      } catch (IOException e) {
+        readable = false;
+      }
+      // Running as root bypasses directory permissions, in which case there is nothing to test.
+      Assume.assumeFalse(readable);
+
+      // A directory that cannot be watched must be reported instead of being silently skipped,
+      // which would make all subsequent diffs miss changes under it.
+      assertThrows(
+          BrokenDiffAwarenessException.class,
+          () -> localDiff.getCurrentView(watchFsEnabledProvider));
+    } finally {
+      unreadable.chmod(0755);
+    }
+  }
+
+  @Test
+  public void testUnreadableIgnoredDirectory() throws Exception {
+    testCaseIgnoredDir.chmod(0);
+    try {
+      boolean readable = true;
+      try {
+        var unused = testCaseIgnoredDir.getDirectoryEntries();
+      } catch (IOException e) {
+        readable = false;
+      }
+      // Running as root bypasses directory permissions, in which case there is nothing to test.
+      Assume.assumeFalse(readable);
+
+      // Not being able to watch a directory that we were told to ignore is fine.
+      captureFirstView(watchFsEnabledProvider);
+      touch("foo.txt");
+      new ModifiedFileSetChecker().modify("foo.txt").check();
+    } finally {
+      testCaseIgnoredDir.chmod(0755);
+    }
+  }
+
+  @Test
   public void modifiedPathIsntUnderWatchRoot() {
     java.nio.file.Path otherRootDirectoryNioPath = Paths.get("/notundertestroot");
     assertThat(otherRootDirectoryNioPath.startsWith(Paths.get(testCaseRoot.getPathString())))
