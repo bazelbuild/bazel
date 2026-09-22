@@ -453,9 +453,9 @@ public class MerkleTreeComputerTest {
     @Override
     public ListenableFuture<Void> uploadFile(
         RemoteActionExecutionContext context,
-        RemotePathResolver remotePathResolver,
         Digest digest,
         Path path,
+        PathFragment execPath,
         boolean force) {
       return immediateVoidFuture();
     }
@@ -471,10 +471,7 @@ public class MerkleTreeComputerTest {
 
     @Override
     public void ensureInputsPresent(
-        RemoteActionExecutionContext context,
-        MerkleTree.Uploadable merkleTree,
-        boolean force,
-        RemotePathResolver remotePathResolver) {
+        RemoteActionExecutionContext context, MerkleTree.Uploadable merkleTree, boolean force) {
       ensureInputsPresentCount.incrementAndGet();
     }
   }
