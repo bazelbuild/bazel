@@ -274,7 +274,7 @@ genrule(
         ":skylark-library.zip",
         "//tools/build_defs/repo:doc",
     ],
-    outs = ["mdx-reference-docs.zip"],
+    outs = ["reference-docs.zip"],
     cmd = "mkdir -p $(@D)/html_for_mdx/reference/be && " +
           "cp $(location :command-line-reference.html) $(@D)/html_for_mdx/reference/ && " +
           "unzip -q -d $(@D)/html_for_mdx/reference/be/ $(location :build-encyclopedia.zip) && " +
