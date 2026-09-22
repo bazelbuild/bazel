@@ -337,8 +337,7 @@ function test_sha256_caching() {
 
 function test_cached_across_server_restart() {
   http_archive_helper zip_up
-  local repo_path="$(bazel info output_base)/external/+http_archive+endangered"
-  local marker_file="$(realpath $repo_path).recorded_inputs"
+  local marker_file="$(bazel info output_base)/external/@+http_archive+endangered.marker"
   echo "<MARKER>"
   cat "${marker_file}"
   echo "</MARKER>"
@@ -1963,7 +1962,7 @@ EOF
   bazel build //:it > "${TEST_log}" 2>&1 || fail "Expected success"
   # As a cache hit is a perfectly normal thing, we don't expect it to be
   # reported.
-  expect_not_log 'cache hit'
+  expect_not_log 'used the following cache hits'
   expect_not_log "${sha256}"
   expect_not_log 'file:.*/ext-1.1.zip'
 
@@ -1982,7 +1981,7 @@ EOI
   bazel build //:it > "${TEST_log}" 2>&1 && fail "Should not succeed" || :
   expect_log 'ext-1.2.*not found'
   expect_log 'prefixes.*ext-1.1'
-  expect_log 'cache hit'
+  expect_log 'used the following cache hits'
   expect_log "${sha256}"
   expect_log 'file:.*/ext-1.2.zip'
 
@@ -2006,7 +2005,7 @@ EOI
   bazel build //:it > "${TEST_log}" 2>&1 && fail "Should not succeed" || :
   expect_not_log 'prefix'
   expect_log 'cp ext-1.2/foo.txt ext-1.2/BUILD'
-  expect_log 'cache hit'
+  expect_log 'used the following cache hits'
   expect_log "${sha256}"
   expect_log 'file:.*/ext-1.2.zip'
 }

@@ -340,6 +340,10 @@ EOF
       echo "common --experimental_repository_cache_hardlinks" >> $TEST_TMPDIR/bazelrc
     fi
   fi
+  # The repo contents cache defaults to a directory under the repository cache,
+  # which is shared with other tests and test attempts on CI. Tests that
+  # exercise the repo contents cache opt in explicitly.
+  echo "common --repo_contents_cache=" >> $TEST_TMPDIR/bazelrc
 
   if [[ -n ${TEST_INSTALL_BASE:-} ]]; then
     echo "testenv.sh: Using shared install base at $TEST_INSTALL_BASE."
