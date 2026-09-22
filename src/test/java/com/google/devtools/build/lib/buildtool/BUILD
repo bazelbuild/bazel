@@ -236,6 +236,7 @@ java_test(
 java_test(
     name = "GenQueryIntegrationTest",
     srcs = ["GenQueryIntegrationTest.java"],
+    shard_count = 4,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -660,6 +661,7 @@ java_test(
 java_test(
     name = "SkymeldBuildIntegrationTest",
     srcs = ["SkymeldBuildIntegrationTest.java"],
+    shard_count = 4,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_complete_event",
