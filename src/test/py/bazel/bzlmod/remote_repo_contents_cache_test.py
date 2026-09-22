@@ -1977,6 +1977,69 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
     self.assertFalse(os.path.exists(os.path.join(repo_dir, 'sub/BUILD')))
     self.assertTrue(os.path.exists(os.path.join(repo_dir, 'sub/sub.txt')))
 
+  def testLostRemoteFile_remoteExecutionUpload(self):
+    # Regression test for a crash when a file in a remotely cached repo has
+    # been evicted after the analysis phase and this is only noticed while
+    # uploading the inputs of a remotely executed action.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "exports_files([\'data.txt\'])")',
+            '  rctx.file("data.txt", "hello")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'main/BUILD.bazel',
+        [
+            'genrule(',
+            '  name = "use_data",',
+            '  srcs = ["@my_repo//:data.txt"],',
+            '  outs = ["out.txt"],',
+            '  cmd = "cat $< > $@",',
+            ')',
+        ],
+    )
+    repo_dir = self.RepoDir('my_repo')
+    args = [
+        'build',
+        '//main:use_data',
+        '--spawn_strategy=remote',
+        '--remote_executor=grpc://localhost:' + str(self._worker_port),
+        # Rewinding of lost repo files isn't supported yet.
+        '--norewind_lost_inputs',
+        '--experimental_remote_cache_eviction_retries=1',
+    ]
+    self.RunBazel(args + ['--nobuild'])
+    self.RunBazel(['clean', '--expunge'])
+    _, _, stderr = self.RunBazel(args + ['--nobuild'])
+    self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
+    self.assertFalse(os.path.exists(os.path.join(repo_dir, 'data.txt')))
+
+    # Analysis is warm, so the eviction is only noticed while uploading the
+    # inputs of the action.
+    self.DeleteCasEntry(b'hello')
+    exit_code, _, stderr = self.RunBazel(args, allow_failure=True)
+    self.AssertExitCode(exit_code, 39, stderr)
+    stderr = '\n'.join(stderr)
+    self.assertIn(
+        'Found transient remote cache error, retrying the build...', stderr
+    )
+    self.assertRegex(
+        stderr, r'Lost inputs no longer available remotely: data.txt \(.*/5\)'
+    )
+
   def testMemoryPressureRestartDuringCachedFetch(self):
     # Regression test for a cached repo fetch that is interrupted by memory
     # pressure (Skyframe drops the fetch's WorkerSkyKeyComputeState, which
