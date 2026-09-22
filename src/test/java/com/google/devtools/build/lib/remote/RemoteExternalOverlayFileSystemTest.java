@@ -22,6 +22,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.Tree;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -46,7 +47,7 @@ public final class RemoteExternalOverlayFileSystemTest {
     var nativeFs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     var externalRoot = PathFragment.create("/output/external");
     var overlay = new RemoteExternalOverlayFileSystem(externalRoot, nativeFs);
-    var reporter = new Reporter();
+    var reporter = new Reporter(new EventBus());
     var prefetcher = mock(AbstractActionInputPrefetcher.class);
     when(prefetcher.prefetchFilesInterruptibly(isNull(), any(), any(), any(), any()))
         .thenReturn(immediateVoidFuture());
