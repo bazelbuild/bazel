@@ -8,7 +8,7 @@ genrule(
     name = "gen_release_docs",
     srcs = [
         "//docs",
-        "//src/main/java/com/google/devtools/build/lib:mdx-reference-docs.zip",
+        "//src/main/java/com/google/devtools/build/lib:reference-docs.zip",
     ],
     outs = [
         "mdx_release_docs.zip",
@@ -16,7 +16,7 @@ genrule(
     cmd = "$(location :create_release_docs)" +
           " --version=" + BUILD_SCM_REV_CMD +
           " --narrative_docs_path=$(location //docs)" +
-          " --reference_docs_path=$(location //src/main/java/com/google/devtools/build/lib:mdx-reference-docs.zip)" +
+          " --reference_docs_path=$(location //src/main/java/com/google/devtools/build/lib:reference-docs.zip)" +
           " --output_path=$(OUTS)",
     stamp = 1,
     tools = [
