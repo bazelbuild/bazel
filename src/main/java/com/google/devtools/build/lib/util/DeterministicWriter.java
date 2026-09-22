@@ -14,8 +14,13 @@
 package com.google.devtools.build.lib.util;
 
 import com.google.protobuf.ByteString;
+import java.io.FilterInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A {@link DeterministicWriter} writes a stream of bytes to an {@link OutputStream}.
@@ -55,5 +60,69 @@ public interface DeterministicWriter {
     ByteString.Output out = ByteString.newOutput();
     writeTo(out);
     return out.toByteString();
+  }
+
+  /**
+   * Provides an {@link InputStream} that reads the contents without materializing them entirely in
+   * memory. The pipe buffers at most {@code bufferSize} bytes, in addition to any memory used by
+   * the writer itself.
+   *
+   * <p>The writer runs on a virtual thread and blocks when the buffer is full. The caller must
+   * close the stream to stop the writer if it does not read to the end. Writer failures are
+   * propagated to the reader as {@link IOException}s.
+   */
+  default InputStream getInputStream(int bufferSize) {
+    var pipedIn = new PipedInputStream(bufferSize);
+    PipedOutputStream pipedOut;
+    try {
+      pipedOut = new PipedOutputStream(pipedIn);
+    } catch (IOException e) {
+      throw new IllegalStateException("PipedOutputStream constructor is not expected to throw", e);
+    }
+    var failure = new AtomicReference<Throwable>();
+    Thread writerThread =
+        Thread.ofVirtual()
+            .name("deterministic-writer-pipe")
+            .start(
+                () -> {
+                  try (pipedOut) {
+                    // Publish failures before closing the pipe, so EOF cannot race with the
+                    // failure.
+                    try {
+                      writeTo(pipedOut);
+                    } catch (Throwable t) {
+                      failure.set(t);
+                    }
+                  } catch (IOException e) {
+                    failure.compareAndSet(null, e);
+                  }
+                });
+    return new FilterInputStream(pipedIn) {
+      @Override
+      public int read() throws IOException {
+        return checkResult(in.read());
+      }
+
+      @Override
+      public int read(byte[] bytes, int offset, int length) throws IOException {
+        return checkResult(in.read(bytes, offset, length));
+      }
+
+      private int checkResult(int result) throws IOException {
+        if (result == -1 && failure.get() != null) {
+          throw new IOException("Failed to write stream contents", failure.get());
+        }
+        return result;
+      }
+
+      @Override
+      public void close() throws IOException {
+        try {
+          super.close();
+        } finally {
+          writerThread.interrupt();
+        }
+      }
+    };
   }
 }

@@ -140,6 +140,13 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   }
 
   @Override
+  public boolean isRemotable() {
+    // The writer retains the expanded command line, which is about as large as the parameter file
+    // itself. Write it out eagerly rather than keeping it in memory for lazy materialization.
+    return false;
+  }
+
+  @Override
   public ImmutableMap<String, String> getExecutionInfo() {
     return usePathStripping
         ? ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, "")

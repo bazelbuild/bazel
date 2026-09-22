@@ -56,7 +56,9 @@ public class LocalTemplateExpansionStrategy implements TemplateExpansionContext 
               ctx,
               deterministicWriter,
               templateMetadata.makeExecutable(),
-              /* isRemotable= */ true);
+              // Template expansions are always written eagerly: a lazily materialized output would
+              // have to retain a copy of the template for every action.
+              /* isRemotable= */ false);
     } catch (IOException | EvalException e) {
       throw new EnvironmentalExecException(
           e,

@@ -19,7 +19,7 @@ package com.google.devtools.build.lib.actions;
  */
 public interface OutputChecker {
   static final OutputChecker TRUST_ALL = (file, metadata) -> true;
-  static final OutputChecker TRUST_LOCAL_ONLY = (file, metadata) -> !metadata.isRemote();
+  static final OutputChecker TRUST_LOCAL_ONLY = (file, metadata) -> !metadata.isLazy();
 
   /** Returns whether the given output should be downloaded. */
   default boolean shouldDownloadOutput(ActionInput output, FileArtifactValue metadata) {

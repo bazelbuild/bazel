@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -684,25 +685,35 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
     Completable download =
         usingTempPath(
-            (tempPath, alreadyDeleted) ->
-                toCompletable(
-                        () ->
-                            doDownloadFile(
-                                action,
-                                reporter,
-                                input,
-                                tempPath.forHostFileSystem(),
-                                finalPath,
-                                metadata,
-                                priority,
-                                reason),
-                        directExecutor())
-                    .doOnComplete(
-                        () -> {
-                          finalizeDownload(
-                              metadata, tempPath.forHostFileSystem(), finalPath, finalTreeRoot);
-                          alreadyDeleted.set(true);
-                        }));
+            (tempPath, alreadyDeleted) -> {
+              Path hostTempPath = tempPath.forHostFileSystem();
+              Completable transfer =
+                  metadata.isInline()
+                      ? Completable.fromAction(
+                          () -> {
+                            hostTempPath.getParentDirectory().createDirectoryAndParents();
+                            try (OutputStream out = hostTempPath.getOutputStream()) {
+                              metadata.writeTo(out);
+                            }
+                          })
+                      : toCompletable(
+                          () ->
+                              doDownloadFile(
+                                  action,
+                                  reporter,
+                                  input,
+                                  hostTempPath,
+                                  finalPath,
+                                  metadata,
+                                  priority,
+                                  reason),
+                          directExecutor());
+              return transfer.doOnComplete(
+                  () -> {
+                    finalizeDownload(metadata, hostTempPath, finalPath, finalTreeRoot);
+                    alreadyDeleted.set(true);
+                  });
+            });
 
     return downloadCache.execute(
         finalPath,
