@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
-import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
@@ -192,18 +191,6 @@ public class RemoteOutputService implements OutputService {
   @Override
   public BatchStat getBatchStatter() {
     return null;
-  }
-
-  @Override
-  public boolean canCreateSymlinkTree() {
-    /* TODO(buchgr): Optimize symlink creation for remote execution */
-    return false;
-  }
-
-  @Override
-  public void createSymlinkTree(
-      Map<PathFragment, PathFragment> symlinks, PathFragment symlinkTreeRoot) {
-    throw new UnsupportedOperationException();
   }
 
   @Override

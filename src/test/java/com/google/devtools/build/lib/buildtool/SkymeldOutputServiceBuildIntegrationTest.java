@@ -24,8 +24,6 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Map;
 import java.util.UUID;
 import org.junit.Before;
 import org.junit.Test;
@@ -72,15 +70,6 @@ public class SkymeldOutputServiceBuildIntegrationTest extends BuildIntegrationTe
                   public BatchStat getBatchStatter() {
                     return null;
                   }
-
-                  @Override
-                  public boolean canCreateSymlinkTree() {
-                    return false;
-                  }
-
-                  @Override
-                  public void createSymlinkTree(
-                      Map<PathFragment, PathFragment> symlinks, PathFragment symlinkTreeRoot) {}
 
                   @Override
                   public void clean() {}

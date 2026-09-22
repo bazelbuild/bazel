@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.vfs.OutputService;
+import com.google.devtools.build.lib.vfs.OutputService.SymlinkTreeCreationResult;
+import com.google.devtools.build.lib.vfs.OutputService.SymlinkTreeType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 
@@ -56,36 +58,48 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
     actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, "local"));
     try (var _ = Profiler.instance().profile("SymlinkTreeStrategy.createSymlinks")) {
       SymlinkTreeHelper helper = createSymlinkTreeHelper(action, actionExecutionContext);
-      // TODO(tjgq): Respect RunfileSymlinksMode.SKIP even in the presence of an OutputService.
       try {
         // Note that the output manifest must always be created last, as its presence ascertains
         // that the runfiles tree has been updated (only the output manifest is an action output,
         // so Skyframe cannot invalidate the symlink tree).
-        if (outputService.canCreateSymlinkTree()) {
-          Map<PathFragment, PathFragment> symlinks;
-          if (action.isFilesetTree()) {
-            symlinks = getFilesetMap(action, actionExecutionContext);
-          } else {
-            // TODO(tjgq): This produces an incorrect path for unresolved symlinks, which should be
-            // created textually.
-            symlinks = Maps.transformValues(getRunfilesMap(action), TO_PATH);
-          }
-          outputService.createSymlinkTree(
-              symlinks, action.getOutputManifest().getExecPath().getParentDirectory());
-          helper.linkManifest();
-        } else if (action.getRunfileSymlinksMode() == RunfileSymlinksMode.SKIP) {
-          // Clear the runfiles directory, then create just the output manifest and the workspace
-          // subdirectory. This is required because only the output manifest is considered an action
-          // output, so if the previous invocation created a symlink tree, Skyframe will not clear
-          // it for us.
+        if (action.getRunfileSymlinksMode() == RunfileSymlinksMode.SKIP) {
+          // Symlinks are not created at all, not even by an output service. Clear the runfiles
+          // directory, then create just the output manifest and the workspace subdirectory. This
+          // is required because only the output manifest is considered an action output, so if
+          // the previous invocation created a symlink tree, Skyframe will not clear it for us.
           helper.createMinimalRunfilesDirectory();
         } else {
-          if (action.isFilesetTree()) {
-            helper.createFilesetSymlinks(getFilesetMap(action, actionExecutionContext));
-          } else {
-            helper.createRunfilesSymlinks(getRunfilesMap(action));
+          SymlinkTreeCreationResult result =
+              outputService.createSymlinkTree(
+                  action.isFilesetTree() ? SymlinkTreeType.FILESET : SymlinkTreeType.RUNFILES,
+                  () -> {
+                    if (action.isFilesetTree()) {
+                      return getFilesetMap(action, actionExecutionContext);
+                    }
+                    // TODO(tjgq): This produces an incorrect path for unresolved symlinks, which
+                    // should be created textually.
+                    return Maps.transformValues(getRunfilesMap(action), TO_PATH);
+                  },
+                  action.getOutputManifest().getExecPath().getParentDirectory());
+          switch (result) {
+            case CREATED -> helper.linkManifest();
+            case DEFERRED -> {
+              // The symlinks are created on demand by RunfilesTreeUpdater. Only create the output
+              // manifest and workspace subdirectory, clearing any stale symlinks (see above).
+              if (action.isFilesetTree()) {
+                throw new IllegalStateException("Fileset symlink tree creation cannot be deferred");
+              }
+              helper.createMinimalRunfilesDirectory();
+            }
+            case NOT_HANDLED -> {
+              if (action.isFilesetTree()) {
+                helper.createFilesetSymlinks(getFilesetMap(action, actionExecutionContext));
+              } else {
+                helper.createRunfilesSymlinks(getRunfilesMap(action));
+              }
+              helper.linkManifest();
+            }
           }
-          helper.linkManifest();
         }
       } catch (ExecException e) {
         throw ActionExecutionException.fromExecException(e, action);

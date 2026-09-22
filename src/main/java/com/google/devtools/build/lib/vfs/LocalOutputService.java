@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.io.IOException;
-import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
@@ -93,17 +92,6 @@ public class LocalOutputService implements OutputService {
   @Override
   public BatchStat getBatchStatter() {
     return null;
-  }
-
-  @Override
-  public boolean canCreateSymlinkTree() {
-    return false;
-  }
-
-  @Override
-  public void createSymlinkTree(
-      Map<PathFragment, PathFragment> symlinks, PathFragment symlinkTreeRoot) {
-    throw new UnsupportedOperationException();
   }
 
   @Override
