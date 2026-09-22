@@ -126,18 +126,6 @@ java_library(
 )
 
 java_library(
-    name = "build_options_cache",
-    srcs = ["BuildOptionsCache.java"],
-    deps = [
-        ":build_options",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//third_party/java/caffeine",
-        "//third_party/java/guava:base",
-        "//third_party/java/jsr305_annotations",
-    ],
-)
-
-java_library(
     name = "common_options",
     srcs = ["CommonOptions.java"],
     deps = [

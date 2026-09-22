@@ -2039,6 +2039,7 @@ java_library(
         ":test/test_configuration",
         ":test/test_trimming_logic",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:no_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:patch_transition",
@@ -2058,11 +2059,9 @@ java_library(
     deps = [
         ":test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options_cache",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/config:run_under",
-        "//third_party/java/guava:collect",
+        "//third_party/java/caffeine",
     ],
 )
 
