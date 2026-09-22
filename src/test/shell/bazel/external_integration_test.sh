@@ -2246,6 +2246,11 @@ genrule(
   visibility = ["//visibility:public"],
 )
 EOF
+  # Other tests create the same archive. If they run within the same second
+  # in another shard, the archives are identical and end up in the shared
+  # repository cache, from which the build below would then succeed. Make the
+  # archive unique to this test.
+  echo "${WRKDIR}" > ext/unique.txt
   zip ext.zip ext/*
   rm -rf ext
   sha256=$(sha256sum ext.zip | head -c 64)
