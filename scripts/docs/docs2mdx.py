@@ -97,7 +97,7 @@ def _escape_chars(text, replacements):
   Returns:
     The escaped version of `text`.
   """
-  for c in replacements.keys():
+  for c in replacements:
     text = text.replace(c, replacements[c])
   return text
 
