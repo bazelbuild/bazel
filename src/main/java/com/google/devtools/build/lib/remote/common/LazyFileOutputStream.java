@@ -58,8 +58,9 @@ public class LazyFileOutputStream extends OutputStream {
 
   @Override
   public void close() throws IOException {
-    ensureOpen();
-    out.close();
+    if (out != null) {
+      out.close();
+    }
   }
 
   /**
