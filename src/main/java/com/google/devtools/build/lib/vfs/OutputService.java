@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.ProxyMetadataFactory;
+import com.google.devtools.build.lib.actions.TopLevelOutputException;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -44,6 +46,24 @@ import javax.annotation.Nullable;
  * trees, and out-of-band insertion of metadata into the tree.
  */
 public interface OutputService {
+
+  /** Identifies the kind of symlink tree requested from {@link #createSymlinkTree}. */
+  enum SymlinkTreeType {
+    RUNFILES,
+    FILESET
+  }
+
+  /** Describes how an output service handled a symlink tree creation request. */
+  enum SymlinkTreeCreationResult {
+    /** The output service created the complete symlink tree. */
+    CREATED,
+
+    /** The output service will create the runfiles tree later, when it is needed. */
+    DEFERRED,
+
+    /** The output service did not handle the request; Bazel must create the symlink tree. */
+    NOT_HANDLED
+  }
 
   /** Properties of the action file system implementation provided by this output service. */
   enum ActionFileSystemType {
@@ -169,24 +189,42 @@ public interface OutputService {
   void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
       throws IOException, EnvironmentalExecException, InterruptedException;
 
+  /**
+   * Notifies the output service that a top-level target or aspect has completed successfully.
+   *
+   * <p>This is called after the {@link
+   * com.google.devtools.build.lib.actions.ImportantOutputHandler}, if any, has made important
+   * outputs available and before the successful completion event is posted. The metadata provider
+   * includes hidden top-level outputs such as runfiles trees.
+   */
+  default void finalizeTopLevelOutputs(InputMetadataProvider metadataProvider)
+      throws TopLevelOutputException, InterruptedException {}
+
   @Nullable
   BatchStat getBatchStatter();
 
-  /** Returns true iff {@link #createSymlinkTree} is available. */
-  boolean canCreateSymlinkTree();
-
   /**
-   * Creates a symlink tree.
+   * Gives the output service an opportunity to create or defer creation of a symlink tree.
    *
-   * @param symlinks map from {@code symlinkTreeRoot}-relative path to symlink target; may contain
-   *     null values to represent an empty file instead of a symlink (can happen with {@code
-   *     __init__.py} files, see {@link
-   *     com.google.devtools.build.lib.rules.python.PythonUtils.GetInitPyFiles})
+   * @param type the type of symlink tree to create
+   * @param symlinks supplies a map from {@code symlinkTreeRoot}-relative path to symlink target;
+   *     may contain null values to represent an empty file instead of a symlink (can happen with
+   *     {@code __init__.py} files, see {@link
+   *     com.google.devtools.build.lib.rules.python.PythonUtils.GetInitPyFiles}). The supplier is
+   *     evaluated only if the output service needs the symlink map.
    * @param symlinkTreeRoot the symlink tree root, relative to the exec root
+   * @return whether the output service created the tree, deferred its creation, or left it for
+   *     Bazel to create; {@link SymlinkTreeCreationResult#DEFERRED} is only valid for runfiles
+   *     trees
    * @throws ExecException on failure
    */
-  void createSymlinkTree(Map<PathFragment, PathFragment> symlinks, PathFragment symlinkTreeRoot)
-      throws ExecException, InterruptedException;
+  default SymlinkTreeCreationResult createSymlinkTree(
+      SymlinkTreeType type,
+      Supplier<Map<PathFragment, PathFragment>> symlinks,
+      PathFragment symlinkTreeRoot)
+      throws ExecException, InterruptedException {
+    return SymlinkTreeCreationResult.NOT_HANDLED;
+  }
 
   /**
    * Cleans the entire output tree.

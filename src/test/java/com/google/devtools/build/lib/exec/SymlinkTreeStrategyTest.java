@@ -38,13 +38,16 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputService;
+import com.google.devtools.build.lib.vfs.OutputService.SymlinkTreeCreationResult;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -72,7 +75,6 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     when(context.getInputPath(any())).thenAnswer((i) -> ((Artifact) i.getArgument(0)).getPath());
     when(context.getPathResolver()).thenReturn(ArtifactPathResolver.IDENTITY);
     when(context.getEventHandler()).thenReturn(eventHandler);
-    when(outputService.canCreateSymlinkTree()).thenReturn(true);
 
     Artifact inputManifest = getBinArtifactWithNoOwner("dir/manifest.in");
     Artifact outputManifest = getBinArtifactWithNoOwner("dir.runfiles/MANIFEST");
@@ -80,10 +82,10 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     doAnswer(
             (i) -> {
               outputManifest.getPath().getParentDirectory().createDirectoryAndParents();
-              return null;
+              return SymlinkTreeCreationResult.CREATED;
             })
         .when(outputService)
-        .createSymlinkTree(any(), any());
+        .createSymlinkTree(any(), any(), any());
 
     Runfiles runfiles =
         new Runfiles.Builder("TESTING")
@@ -114,14 +116,59 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     action.execute(context);
 
     @SuppressWarnings("unchecked")
-    ArgumentCaptor<Map<PathFragment, PathFragment>> capture = ArgumentCaptor.forClass(Map.class);
-    verify(outputService, times(1)).createSymlinkTree(capture.capture(), any());
-    assertThat(capture.getValue())
+    ArgumentCaptor<Supplier<Map<PathFragment, PathFragment>>> capture =
+        ArgumentCaptor.forClass(Supplier.class);
+    verify(outputService, times(1)).createSymlinkTree(any(), capture.capture(), any());
+    assertThat(capture.getValue().get())
         .containsExactly(
             PathFragment.create("TESTING/dir/runfile"),
             runfile.getPath().asFragment(),
             PathFragment.create("TESTING/dir/empty"),
             null);
+  }
+
+  @Test
+  public void withOutputServiceAndSkipMode() throws Exception {
+    ActionExecutionContext context = mock(ActionExecutionContext.class);
+    OutputService outputService = mock(OutputService.class);
+    StoredEventHandler eventHandler = new StoredEventHandler();
+
+    when(context.getContext(SymlinkTreeActionContext.class))
+        .thenReturn(new SymlinkTreeStrategy(outputService, TestConstants.WORKSPACE_NAME));
+    when(context.getInputPath(any())).thenAnswer((i) -> ((Artifact) i.getArgument(0)).getPath());
+    when(context.getEventHandler()).thenReturn(eventHandler);
+
+    Artifact inputManifest = getBinArtifactWithNoOwner("dir/manifest.in");
+    Artifact outputManifest = getBinArtifactWithNoOwner("dir.runfiles/MANIFEST");
+    Artifact runfile = getBinArtifactWithNoOwner("dir/runfile");
+    // Simulate a symlink tree left behind by a previous build with runfiles enabled.
+    Path runfilesDir = outputManifest.getPath().getParentDirectory();
+    Path staleRunfile = runfilesDir.getRelative("TESTING/dir/stale");
+    staleRunfile.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.createEmptyFile(staleRunfile);
+
+    Runfiles runfiles = new Runfiles.Builder("TESTING").addArtifact(runfile).build();
+    SymlinkTreeAction action =
+        new SymlinkTreeAction(
+            ActionsTestUtil.NULL_ACTION_OWNER,
+            inputManifest,
+            runfiles,
+            outputManifest,
+            /* repoMappingManifest= */ null,
+            ActionEnvironment.EMPTY,
+            RunfileSymlinksMode.SKIP,
+            "workspace");
+
+    action.execute(context);
+
+    // Runfiles symlinks are disabled, so the output service isn't asked to create them.
+    verify(outputService, never()).createSymlinkTree(any(), any(), any());
+    assertThat(runfilesDir.readdir(Symlinks.NOFOLLOW).stream().map(Dirent::getName))
+        .containsExactly("MANIFEST", TestConstants.WORKSPACE_NAME);
+    assertThat(outputManifest.getPath().readSymbolicLink())
+        .isEqualTo(inputManifest.getPath().asFragment());
+    assertThat(runfilesDir.getRelative(TestConstants.WORKSPACE_NAME).readdir(Symlinks.NOFOLLOW))
+        .isEmpty();
   }
 
   @Test
@@ -134,7 +181,8 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
         .thenReturn(new SymlinkTreeStrategy(outputService, TestConstants.WORKSPACE_NAME));
     when(context.getInputPath(any())).thenAnswer((i) -> ((Artifact) i.getArgument(0)).getPath());
     when(context.getEventHandler()).thenReturn(eventHandler);
-    when(outputService.canCreateSymlinkTree()).thenReturn(false);
+    when(outputService.createSymlinkTree(any(), any(), any()))
+        .thenReturn(SymlinkTreeCreationResult.NOT_HANDLED);
 
     Artifact inputManifest = getBinArtifactWithNoOwner("dir/manifest.in");
     Artifact outputManifest = getBinArtifactWithNoOwner("dir.runfiles/MANIFEST");
@@ -167,8 +215,7 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
             "workspace");
 
     action.execute(context);
-    // Check that the OutputService is not used.
-    verify(outputService, never()).createSymlinkTree(any(), any());
+    verify(outputService, times(1)).createSymlinkTree(any(), any(), any());
 
     Path p = outputManifest.getPath().getParentDirectory().getRelative("TESTING/dir/runfile");
     assertWithMessage("Path %s expected to exist", p).that(p.exists(Symlinks.NOFOLLOW)).isTrue();
@@ -177,5 +224,52 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     Path q = outputManifest.getPath().getParentDirectory().getRelative("TESTING/dir/empty");
     assertWithMessage("Path %s expected to be a file", q).that(q.isFile()).isTrue();
     assertThat(FileSystemUtils.readContent(q)).isEmpty();
+  }
+
+  @Test
+  public void withLazilyCreatedRunfilesTrees() throws Exception {
+    ActionExecutionContext context = mock(ActionExecutionContext.class);
+    OutputService outputService = mock(OutputService.class);
+    StoredEventHandler eventHandler = new StoredEventHandler();
+
+    when(context.getContext(SymlinkTreeActionContext.class))
+        .thenReturn(new SymlinkTreeStrategy(outputService, TestConstants.WORKSPACE_NAME));
+    when(context.getInputPath(any())).thenAnswer((i) -> ((Artifact) i.getArgument(0)).getPath());
+    when(context.getEventHandler()).thenReturn(eventHandler);
+    when(outputService.createSymlinkTree(any(), any(), any()))
+        .thenReturn(SymlinkTreeCreationResult.DEFERRED);
+
+    Artifact inputManifest = getBinArtifactWithNoOwner("dir/manifest.in");
+    Artifact outputManifest = getBinArtifactWithNoOwner("dir.runfiles/MANIFEST");
+    Artifact runfile = getBinArtifactWithNoOwner("dir/runfile");
+    // Simulate a symlink tree left behind by a previous build with different runfiles.
+    Path runfilesDir = outputManifest.getPath().getParentDirectory();
+    Path staleRunfile = runfilesDir.getRelative("TESTING/dir/stale");
+    staleRunfile.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.createEmptyFile(staleRunfile);
+
+    Runfiles runfiles = new Runfiles.Builder("TESTING").addArtifact(runfile).build();
+    SymlinkTreeAction action =
+        new SymlinkTreeAction(
+            ActionsTestUtil.NULL_ACTION_OWNER,
+            inputManifest,
+            runfiles,
+            outputManifest,
+            /* repoMappingManifest= */ null,
+            ActionEnvironment.EMPTY,
+            RunfileSymlinksMode.CREATE,
+            "workspace");
+
+    action.execute(context);
+
+    verify(outputService, times(1)).createSymlinkTree(any(), any(), any());
+    // Only the output manifest and the workspace directory are created; the symlinks are created
+    // on demand by RunfilesTreeUpdater.
+    assertThat(runfilesDir.readdir(Symlinks.NOFOLLOW).stream().map(Dirent::getName))
+        .containsExactly("MANIFEST", TestConstants.WORKSPACE_NAME);
+    assertThat(outputManifest.getPath().readSymbolicLink())
+        .isEqualTo(inputManifest.getPath().asFragment());
+    assertThat(runfilesDir.getRelative(TestConstants.WORKSPACE_NAME).readdir(Symlinks.NOFOLLOW))
+        .isEmpty();
   }
 }

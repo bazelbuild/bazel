@@ -317,12 +317,39 @@ public final class CompletionFunction<
       return rewindPlanResult.toNullIfMissingDependenciesElseReset();
     }
 
+    finalizeTopLevelOutputs(
+        key, value, env, rootCauses, ctx, artifactsToBuild, builtArtifacts, inputMap);
+
     Postable event = completor.createSucceeded(key, value, ctx, artifactsToBuild, env);
     checkStored(event, key);
     env.getListener().post(event);
     topLevelArtifactsMetric.mergeIn(currentConsumer);
 
     return completor.getResult();
+  }
+
+  private void finalizeTopLevelOutputs(
+      KeyT key,
+      ValueT value,
+      Environment env,
+      NestedSet<Cause> rootCauses,
+      CompletionContext ctx,
+      ArtifactsToBuild artifactsToBuild,
+      Set<Artifact> builtArtifacts,
+      ActionInputMap inputMap)
+      throws CompletionFunctionException, InterruptedException {
+    try {
+      skyframeActionExecutor
+          .getOutputService()
+          .finalizeTopLevelOutputs(new ActionInputMetadataProvider(inputMap));
+    } catch (TopLevelOutputException e) {
+      LabelCause cause = new LabelCause(key.actionLookupKey().getLabel(), e.getDetailedExitCode());
+      rootCauses = NestedSetBuilder.fromNestedSet(rootCauses).add(cause).build();
+      env.getListener().handle(completor.getRootCauseError(key, value, cause, env));
+      skyframeActionExecutor.recordExecutionError();
+      postFailedEvent(key, value, rootCauses, ctx, artifactsToBuild, builtArtifacts, env);
+      throw new CompletionFunctionException(e);
+    }
   }
 
   private void postFailedEvent(

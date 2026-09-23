@@ -175,6 +175,22 @@ public final class SymlinkTreeHelper {
     }
   }
 
+  /**
+   * Copies the input manifest to the output manifest.
+   *
+   * <p>Unlike {@link #linkManifest}, this records the state of the input manifest at the time the
+   * symlink tree was created, which allows {@code RunfilesTreeUpdater} to detect whether an
+   * existing symlink tree is up to date.
+   */
+  public void copyManifest() throws ExecException {
+    try {
+      outputManifest.delete();
+      FileSystemUtils.copyFile(inputManifest, outputManifest);
+    } catch (IOException e) {
+      throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_MANIFEST_COPY_IO_EXCEPTION);
+    }
+  }
+
   public void createWorkspaceSubdirectory() throws ExecException {
     // Always create the subdirectory corresponding to the workspace (i.e., the main repository).
     // This is required by tests as their working directory, even with --noenable_runfiles. But if

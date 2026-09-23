@@ -45,14 +45,17 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewoundEvent;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkTargetType;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -143,6 +146,285 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     addOptions("--build_runfile_links", "--enable_runfiles=no");
 
     buildTarget("//:foobar");
+  }
+
+  @Test
+  public void runfilesTrees_downloadToplevel_onlyCreatedForToplevelTargets() throws Exception {
+    // Runfiles trees are not populated with symlinks on Windows by default.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+    writeRunfilesTreesTestFiles();
+    setDownloadToplevel();
+
+    buildTarget("//a:bin", "//a:use_dep");
+    waitDownloads();
+
+    // The runfiles tree of the top-level target is created and its contents are downloaded.
+    assertRunfilesTreeCreated(getOutputPath("a/bin.sh.runfiles"), "a/data.txt", "data\n");
+    // The runfiles tree of a tool that is only used by a remote action is not created.
+    assertRunfilesTreeNotCreated(getToolRunfilesTree("//a:use_dep"));
+    assertOnlyOutputContent("//a:use_dep", "use_dep.txt", "data\n");
+  }
+
+  @Test
+  public void runfilesTrees_downloadMinimal_notCreatedForToplevelTargets() throws Exception {
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+    writeRunfilesTreesTestFiles();
+
+    buildTarget("//a:bin");
+
+    assertRunfilesTreeNotCreated(getOutputPath("a/bin.sh.runfiles"));
+    assertOutputDoesNotExist("a/data.txt");
+  }
+
+  @Test
+  public void runfilesTrees_downloadAll_createdEagerly() throws Exception {
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+    writeRunfilesTreesTestFiles();
+    setDownloadAll();
+
+    buildTarget("//a:use_dep");
+    waitDownloads();
+
+    assertRunfilesTreeCreated(getToolRunfilesTree("//a:use_dep"), "a/data.txt", "data\n");
+  }
+
+  @Test
+  public void runfilesTrees_createdForLocalActions() throws Exception {
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+    writeRunfilesTreesTestFiles();
+    // Unlike the sandboxed strategies, the local strategy runs actions directly in the execroot and
+    // thus requires the runfiles trees of their tools to exist there.
+    addOptions("--spawn_strategy=remote,local");
+
+    buildTarget("//a:use_dep_locally");
+    waitDownloads();
+
+    // The local action requires the runfiles tree of its tool, so it is created and its contents
+    // are downloaded even with --remote_download_minimal.
+    assertRunfilesTreeCreated(getToolRunfilesTree("//a:use_dep_locally"), "a/data.txt", "data\n");
+    assertOnlyOutputContent("//a:use_dep_locally", "use_dep_locally.txt", "data\n");
+  }
+
+  @Test
+  public void runfilesTrees_switchToDownloadToplevel_createdDespiteCachedActions(
+      @TestParameter boolean skymeld) throws Exception {
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+    writeRunfilesTreesTestFiles();
+    addOptions("--experimental_merged_skyframe_analysis_execution=" + skymeld);
+
+    buildTarget("//a:bin");
+    assertRunfilesTreeNotCreated(getOutputPath("a/bin.sh.runfiles"));
+
+    // Neither the symlink tree action nor the runfiles tree action is re-executed, but the runfiles
+    // tree of the top-level target must still be created.
+    setDownloadToplevel();
+    buildTarget("//a:bin");
+    waitDownloads();
+
+    assertRunfilesTreeCreated(getOutputPath("a/bin.sh.runfiles"), "a/data.txt", "data\n");
+  }
+
+  @Test
+  public void runfilesTrees_downloadToplevel_updatedWhenRunfilesChange() throws Exception {
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+    writeRunfilesTreesTestFiles();
+    setDownloadToplevel();
+
+    buildTarget("//a:bin");
+    waitDownloads();
+    assertRunfilesTreeCreated(getOutputPath("a/bin.sh.runfiles"), "a/data.txt", "data\n");
+
+    write("a/other.txt", "other");
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "bin")
+
+        bin(
+            name = "bin",
+            data = "other.txt",
+        )
+        """);
+    buildTarget("//a:bin");
+    waitDownloads();
+
+    Path runfilesDir = getOutputPath("a/bin.sh.runfiles");
+    assertRunfilesTreeCreated(runfilesDir, "a/other.txt", "other\n");
+    assertThat(
+            runfilesDir
+                .getRelative(TestConstants.WORKSPACE_NAME)
+                .getRelative("a/data.txt")
+                .exists(Symlinks.NOFOLLOW))
+        .isFalse();
+  }
+
+  @Test
+  public void runfilesTrees_downloadToplevel_createdWhenTargetBecomesToplevel(
+      @TestParameter boolean skymeld) throws Exception {
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+    writeRunfilesTreesTestFiles();
+    addOptions("--experimental_merged_skyframe_analysis_execution=" + skymeld);
+    setDownloadToplevel();
+
+    // use_dep deliberately uses dep in the target configuration so that building dep directly
+    // below refers to the same runfiles tree.
+    buildTarget("//a:use_dep");
+    waitDownloads();
+    Path runfilesDir = getToolRunfilesTree("//a:use_dep");
+    assertRunfilesTreeNotCreated(runfilesDir);
+
+    // None of the actions of the tool have to rerun when it is built as a top-level target, but its
+    // runfiles tree must still be created.
+    buildTarget("//a:dep");
+    waitDownloads();
+
+    assertRunfilesTreeCreated(runfilesDir, "a/data.txt", "data\n");
+  }
+
+  @Test
+  public void runfilesTrees_downloadToplevel_notRecreatedWhenUpToDate() throws Exception {
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+    writeRunfilesTreesTestFiles();
+    setDownloadToplevel();
+
+    buildTarget("//a:bin");
+    waitDownloads();
+    Path runfilesDir = getOutputPath("a/bin.sh.runfiles");
+    assertRunfilesTreeCreated(runfilesDir, "a/data.txt", "data\n");
+    // RunfilesTreeUpdater removes files that don't belong to the runfiles tree when it syncs it,
+    // so this file only survives the next build if the tree is left alone.
+    Path canary = runfilesDir.getRelative(TestConstants.WORKSPACE_NAME).getRelative("canary");
+    FileSystemUtils.createEmptyFile(canary);
+
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//a:bin");
+    waitDownloads();
+
+    // The runfiles tree is already up to date: the runfiles tree action is a cache hit and the
+    // tree is neither synced nor recreated.
+    assertThat(actionEventCollector.getActionExecutedEvents()).isEmpty();
+    assertThat(canary.exists(Symlinks.NOFOLLOW)).isTrue();
+    assertRunfilesTreeCreated(runfilesDir, "a/data.txt", "data\n");
+  }
+
+  @Test
+  public void runfilesTrees_downloadToplevel_recreatedWhenDeleted() throws Exception {
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+    writeRunfilesTreesTestFiles();
+    setDownloadToplevel();
+
+    buildTarget("//a:bin");
+    waitDownloads();
+    Path runfilesDir = getOutputPath("a/bin.sh.runfiles");
+    assertRunfilesTreeCreated(runfilesDir, "a/data.txt", "data\n");
+
+    // The symlink tree action only recreates the output manifest, so the runfiles tree action has
+    // to run again to recreate the symlinks even though its inputs are unchanged.
+    runfilesDir.deleteTree();
+    buildTarget("//a:bin");
+    waitDownloads();
+
+    assertRunfilesTreeCreated(runfilesDir, "a/data.txt", "data\n");
+  }
+
+  private void writeRunfilesTreesTestFiles() throws IOException {
+    write(
+        "a/defs.bzl",
+        """
+        def _bin_impl(ctx):
+            executable = ctx.actions.declare_file(ctx.label.name + ".sh")
+            ctx.actions.write(
+                executable,
+                "#!/bin/sh\\ncat $0.runfiles/{}/{}\\n".format(
+                    ctx.workspace_name,
+                    ctx.file.data.short_path,
+                ),
+                is_executable = True,
+            )
+            return DefaultInfo(
+                executable = executable,
+                runfiles = ctx.runfiles(files = [ctx.file.data]),
+            )
+
+        bin = rule(
+            implementation = _bin_impl,
+            attrs = {"data": attr.label(allow_single_file = True)},
+            executable = True,
+        )
+
+        def _use_dep_impl(ctx):
+            output = ctx.actions.declare_file(ctx.label.name + ".txt")
+            ctx.actions.run_shell(
+                command = '"$1" > "$2"',
+                arguments = [ctx.executable.dep.path, output.path],
+                outputs = [output],
+                tools = [ctx.executable.dep],
+            )
+            return DefaultInfo(files = depset([output]))
+
+        use_dep = rule(
+            implementation = _use_dep_impl,
+            attrs = {"dep": attr.label(executable = True, cfg = "target")},
+        )
+        """);
+    write(
+        "a/BUILD",
+        """
+        load(":defs.bzl", "bin", "use_dep")
+
+        genrule(
+            name = "data",
+            outs = ["data.txt"],
+            cmd = "echo data > $@",
+        )
+
+        bin(
+            name = "bin",
+            data = ":data.txt",
+        )
+
+        bin(
+            name = "dep",
+            data = ":data.txt",
+        )
+
+        use_dep(
+            name = "use_dep",
+            dep = ":dep",
+        )
+
+        genrule(
+            name = "use_dep_locally",
+            outs = ["use_dep_locally.txt"],
+            cmd = "$(location :dep) > $@",
+            tags = ["no-remote"],
+            tools = [":dep"],
+        )
+        """);
+  }
+
+  /** Returns the runfiles tree of the tool of the given genrule target. */
+  private Path getToolRunfilesTree(String target) throws Exception {
+    var action = getGeneratingAction(getOnlyElement(getArtifacts(target)));
+    return getOnlyElement(
+            action.getInputs().toList().stream().filter(Artifact::isRunfilesTree).toList())
+        .getPath();
+  }
+
+  private void assertRunfilesTreeCreated(Path runfilesDir, String runfile, String content)
+      throws Exception {
+    Path runfilePath = runfilesDir.getRelative(TestConstants.WORKSPACE_NAME).getRelative(runfile);
+    assertThat(runfilePath.isSymbolicLink()).isTrue();
+    assertOutputEquals(runfilePath, content);
+  }
+
+  private static void assertRunfilesTreeNotCreated(Path runfilesDir) throws Exception {
+    // Only the output manifest and the (empty) workspace directory are created.
+    assertThat(runfilesDir.readdir(Symlinks.NOFOLLOW).stream().map(Dirent::getName))
+        .containsExactly("MANIFEST", TestConstants.WORKSPACE_NAME);
+    assertThat(runfilesDir.getRelative(TestConstants.WORKSPACE_NAME).readdir(Symlinks.NOFOLLOW))
+        .isEmpty();
   }
 
   @Test

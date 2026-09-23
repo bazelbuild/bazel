@@ -73,6 +73,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:standalone_test_result",
         "//src/main/java/com/google/devtools/build/lib/exec:standalone_test_strategy",
         "//src/main/java/com/google/devtools/build/lib/exec:streamed_test_output",
+        "//src/main/java/com/google/devtools/build/lib/exec:runfiles_tree_updater",
         "//src/main/java/com/google/devtools/build/lib/exec:symlink_tree_helper",
         "//src/main/java/com/google/devtools/build/lib/exec:symlink_tree_strategy",
         "//src/main/java/com/google/devtools/build/lib/exec:test_log_helper",

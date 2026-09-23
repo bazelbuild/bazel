@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.clock.Clock;
@@ -69,6 +70,7 @@ public class RemoteOutputChecker implements OutputChecker {
   private final ImmutableList<Predicate<String>> patternsToDownload;
   private final ConcurrentArtifactPathTrie pathsToDownload = new ConcurrentArtifactPathTrie();
   private final Set<PathFragment> pathsToSkip = ConcurrentHashMap.newKeySet();
+  private final Set<PathFragment> topLevelRunfilesTrees = ConcurrentHashMap.newKeySet();
 
   public RemoteOutputChecker(
       String commandName,
@@ -81,7 +83,7 @@ public class RemoteOutputChecker implements OutputChecker {
       String commandName,
       RemoteOutputsMode outputsMode,
       ImmutableList<Predicate<String>> patternsToDownload,
-      RemoteOutputChecker lastRemoteOutputChecker) {
+      @Nullable RemoteOutputChecker lastRemoteOutputChecker) {
     this.commandMode =
         switch (commandName) {
           case "build" -> CommandMode.BUILD;
@@ -191,6 +193,15 @@ public class RemoteOutputChecker implements OutputChecker {
     if (runfilesSupport == null) {
       return;
     }
+    var runfilesTree = runfilesSupport.getRunfilesTree();
+    // Only track runfiles trees whose symlinks would be created during the build if they weren't
+    // deferred by RemoteOutputService. With --noenable_runfiles,
+    // SymlinkTreeAction creates the minimal runfiles directory itself and there is nothing to
+    // create lazily.
+    if (runfilesTree.isBuildRunfileLinks()
+        && runfilesTree.getSymlinksMode() == RunfileSymlinksMode.CREATE) {
+      topLevelRunfilesTrees.add(runfilesTree.getExecPath());
+    }
     var runfiles = runfilesSupport.getRunfiles();
     for (Artifact runfile : runfiles.getArtifacts().toList()) {
       if (mayBeRemote(runfile)) {
@@ -254,6 +265,14 @@ public class RemoteOutputChecker implements OutputChecker {
   /** Marks a file for download. */
   public void addOutputToDownload(ActionInput file) {
     pathsToDownload.add(file);
+  }
+
+  /**
+   * Returns whether the runfiles tree with the given exec path belongs to a top-level target and
+   * thus has to be created even though {@link RemoteOutputService} defers other runfiles trees.
+   */
+  public boolean shouldCreateRunfilesTree(PathFragment runfilesTreeExecPath) {
+    return topLevelRunfilesTrees.contains(runfilesTreeExecPath);
   }
 
   /**
