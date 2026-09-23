@@ -136,6 +136,7 @@ tasks:
       - build
       - test
   macos:
+    shards: 5
     environment:
       ANDROID_HOME: ""
       ANDROID_NDK_HOME: ""
@@ -150,8 +151,29 @@ tasks:
       - "//src:bazel_jdk_minimal"
       - "//src:java_tools_zip"
       - "//src:java_tools_prebuilt_zip"
+    test_flags:
+      - "--config=ci-macos"
+      # Fine tune the number of test jobs running in parallel to avoid timeout
+      - "--local_test_jobs=2"
+    test_targets:
+      - "//..."
+      # Disable python and shell integration tests on Intel Macs
+      - "-//src/test/shell/..."
+      - "-//src/test/py/..."
+      # https://github.com/bazelbuild/bazel/issues/17410
+      - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
+      # Disable android tests since we are moving Android rules out of the Bazel repo.
+      # ServerTests frequently runs into deadlocks on Intel Macs
+      - "-//src/test/java/com/google/devtools/build/lib/server:ServerTests"
+      # Add back a few Apple specific tests
+      - "+//src/test/shell/bazel/apple/..."
+      # Add back one bootstrap test for Intel Mac
+      - "+//src/test/shell/bazel:bazel_bootstrap_distfile_test"
+      # Add back head java tools tests for Intel Mac
+      - "+//src/test/shell/bazel:bazel_java_toolchain_head_tests"
     include_json_profile:
       - build
+      - test
   macos_arm64:
     shards: 6
     shell_commands:
@@ -168,28 +190,14 @@ tasks:
       - "//src:java_tools_prebuilt_zip"
     test_flags:
       - "--config=ci-macos"
-      - "--test_tag_filters=-no_presubmit,-no_macos"
       # Fine tune the number of test jobs running in parallel to avoid timeout
       - "--local_test_jobs=2"
       # Increase the test timeout by 20% to avoid flaky test failures due to timeout
       - "--test_timeout=72,360,1080,4320"
     test_targets:
-      - "//:verify_module_bazel_lock"
-      - "//src:embedded_tools_size_test"
-      - "//src/test/java/com/google/devtools/build/lib/rules/apple:AppleRulesTests"
-      - "//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
-      - "//src/test/java/com/google/devtools/build/lib/skyframe:MacOSXFsEventsDiffAwarenessTest"
-      - "//src/test/py/bazel:bazel_module_test"
-      - "//src/test/py/bazel:mod_command_test"
-      - "//src/test/shell/bazel:bazel_example_test"
-      - "//src/test/shell/bazel:bazel_java_test"
-      - "//src/test/shell/bazel:cc_integration_test"
-      - "//src/test/shell/bazel:cpp_darwin_integration_test"
-      - "//src/test/shell/bazel:external_integration_test"
-      - "//src/test/shell/bazel:help_test"
-      - "//src/test/shell/bazel/apple:bazel_apple_test"
-      - "//src/test/shell/bazel/apple:bazel_objc_test"
-      - "//src/test/shell/integration:bazel_query_test"
+      - "//..."
+      # https://github.com/bazelbuild/bazel/issues/17410
+      - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
     include_json_profile:
       - build
       - test
