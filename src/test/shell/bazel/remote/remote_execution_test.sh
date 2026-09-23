@@ -313,7 +313,14 @@ EOF
       --remote_executor=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
-  expect_log "[0-9] processes: [0-9] internal, 2 remote\\."
+  if is_darwin; then
+    # The Xcode toolchain from apple_support runs additional actions to set up
+    # its module maps, so the exact number of remote actions isn't stable. Only
+    # check that no action fell back to local execution.
+    expect_log "[0-9]* processes: [0-9]* internal, [0-9]* remote\\."
+  else
+    expect_log "[0-9] processes: [0-9] internal, 2 remote\\."
+  fi
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
       || fail "Remote execution generated different result"
 }
