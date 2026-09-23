@@ -28,6 +28,8 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
+import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.actions.SourceDirectoryIsDirectoryFlag;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
@@ -333,16 +335,22 @@ public final class ConfiguredTargetFactory {
                   .setLabel(target.getLabel())
                   .setConfiguration(config)
                   .build());
-      if (dependsOnFileKey) {
-        // This code branch is here because in the current implementation, the invalidation data for
-        // actions in the remote analysis cache is stored with the configured targets / aspects and
-        // is found by a simple "get if present" lookup in the Skyframe graph. With async analysis
-        // caching, this doesn't work because analysis nodes usually get uploaded before any actions
-        // execute.
-        if (analysisEnvironment.getSkyframeEnv().getValue(FileKey.create(artifact.getRootedPath()))
-            == null) {
+      // The file dependency is needed in two cases. With remote analysis caching, the invalidation
+      // data for actions is stored with the configured targets / aspects and found by a simple "get
+      // if present" lookup in the Skyframe graph, which fails with async uploads because analysis
+      // nodes usually get uploaded before any actions execute. With source directories treated as
+      // directories, the FileValue supplies the artifact's type and invalidates this configured
+      // target when it changes.
+      if (dependsOnFileKey || SourceDirectoryIsDirectoryFlag.sourceDirectoryIsDirectory()) {
+        FileValue fileValue =
+            (FileValue)
+                analysisEnvironment
+                    .getSkyframeEnv()
+                    .getValue(FileKey.create(artifact.getRootedPath()));
+        if (fileValue == null) {
           return null;
         }
+        artifact.setIsDirectory(fileValue.isDirectory());
       }
       return new InputFileConfiguredTarget(targetContext, artifact);
     } else if (target instanceof PackageGroup packageGroup) {

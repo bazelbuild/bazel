@@ -2091,6 +2091,23 @@ java_test(
 )
 
 java_test(
+    name = "SourceDirectoryIsDirectoryIntegrationTest",
+    srcs = ["SourceDirectoryIsDirectoryIntegrationTest.java"],
+    jvm_flags = [
+        "-DBAZEL_SOURCE_DIRECTORY_IS_DIRECTORY=1",
+        "-DBAZEL_TRACK_SOURCE_DIRECTORIES=1",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party/java/guava:collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+    ],
+)
+
+java_test(
     name = "FileArtifactValueTest",
     timeout = "short",
     srcs = ["FileArtifactValueTest.java"],

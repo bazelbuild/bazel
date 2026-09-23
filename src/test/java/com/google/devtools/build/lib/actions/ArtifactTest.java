@@ -161,6 +161,19 @@ public final class ArtifactTest {
   }
 
   @Test
+  public void isDirectory_sourceArtifact_falseByDefault() throws Exception {
+    // SourceDirectoryIsDirectoryFlag is off by default; SourceArtifactIsDirectoryTest covers the
+    // enabled behavior.
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/foo")));
+    SourceArtifact sourceDir =
+        (SourceArtifact) ActionsTestUtil.createArtifact(root, scratch.dir("/foo/subdir"));
+
+    sourceDir.setIsDirectory(true);
+
+    assertThat(sourceDir.isDirectory()).isFalse();
+  }
+
+  @Test
   public void testIsFileType() throws Exception {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/foo")));
     Artifact javaFile = ActionsTestUtil.createArtifact(root, scratch.file("/foo/Bar.java"));

@@ -91,9 +91,11 @@ public interface FileApi extends StarlarkValue {
       name = "is_directory",
       structField = true,
       doc =
-          "Returns true if this is a directory. This reflects the type the file was declared as"
-              + " (i.e. ctx.actions.declare_directory), not its type on the filesystem, which might"
-              + " differ.")
+          "Returns true if this is a directory. For generated files this reflects the type the file"
+              + " was declared as (i.e. ctx.actions.declare_directory), not its type on the"
+              + " filesystem, which might differ. Source files always return false unless the"
+              + " server was started with source-directory support enabled, in which case this"
+              + " reflects the type of the path on the filesystem.")
   boolean isDirectory();
 
   @StarlarkMethod(
