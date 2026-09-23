@@ -204,13 +204,13 @@ class TestBase(absltest.TestCase):
       ]))
 
   def _InstallBaseForBazelBinary(self, shared_install_base):
-    """Returns an install base shared only by tests using the same Bazel binary.
+    "Returns an install base shared only by tests using the same Bazel binary."
 
-    Test rules may build Bazel in different configurations, which yields
-    binaries with different install base keys. Bazel wipes an install base
-    populated by a different binary, which fails on Windows while another
-    Bazel server is still running from it, so the key is made part of the path.
-    """
+    # Test rules may build Bazel in different configurations, which yields
+    # binaries with different install base keys. Bazel wipes an install base
+    # populated by a different binary, which fails on Windows while another
+    # Bazel server is still running from it, so the key is made part of the
+    # path.
     with zipfile.ZipFile(self.Rlocation('io_bazel/src/bazel')) as bazel:
       key = bazel.read('install_base_key').decode('ascii').strip()
     return '{}-{}'.format(shared_install_base, key)
