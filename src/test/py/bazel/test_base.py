@@ -204,8 +204,7 @@ class TestBase(absltest.TestCase):
       ]))
 
   def _InstallBaseForBazelBinary(self, shared_install_base):
-    "Returns an install base shared only by tests using the same Bazel binary."
-
+    """Returns an install base shared only by tests on the same Bazel binary."""
     # Test rules may build Bazel in different configurations, which yields
     # binaries with different install base keys. Bazel wipes an install base
     # populated by a different binary, which fails on Windows while another
