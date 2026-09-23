@@ -39,8 +39,6 @@ class RemoteRepoContentsCacheTest(test_base.TestBase):
         '.bazelrc',
         [
             'startup --experimental_remote_repo_contents_cache',
-            # Only use the remote repo contents cache.
-            'common --repo_contents_cache=',
             'common --remote_cache=grpc://localhost:' + str(self._worker_port),
             'common --auth_enabled=false',
             'common --remote_timeout=3600s',
