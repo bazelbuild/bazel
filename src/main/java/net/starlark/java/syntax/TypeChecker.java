@@ -48,6 +48,7 @@ import net.starlark.java.spelling.SpellChecker;
 public final class TypeChecker extends NodeVisitor {
 
   private final TypeTable typeTable;
+  private final Resolver.Module module;
   private final TypeContext typeContext;
 
   private static record FunctionStackEntry(
@@ -108,9 +109,10 @@ public final class TypeChecker extends NodeVisitor {
     return n == 1 ? "" : "s";
   }
 
-  private TypeChecker(TypeTable typeTable, TypeContext typeContext) {
+  private TypeChecker(TypeTable typeTable, Resolver.Module module) {
     this.typeTable = typeTable;
-    this.typeContext = typeContext;
+    this.module = module;
+    this.typeContext = module.getTypeContext();
   }
 
   /**
@@ -127,8 +129,8 @@ public final class TypeChecker extends NodeVisitor {
     checkNotNull(binding);
     StarlarkType type =
         switch (binding.getScope()) {
-          case UNIVERSAL -> checkNotNull(typeContext.getUniversalSymbolType(binding.getName()));
-          case PREDECLARED -> checkNotNull(typeContext.getPredeclaredSymbolType(binding.getName()));
+          case UNIVERSAL -> checkNotNull(module.getUniversalSymbolType(binding.getName()));
+          case PREDECLARED -> checkNotNull(module.getPredeclaredSymbolType(binding.getName()));
           default -> typeTable.getType(binding);
         };
     return type != null ? type : Types.ANY;
@@ -1026,8 +1028,8 @@ public final class TypeChecker extends NodeVisitor {
    * @throws SyntaxError.Exception if a static type error is present in the expression.
    */
   public static StarlarkType inferTypeOf(
-      Expression expr, TypeTable typeTable, TypeContext typeContext) throws SyntaxError.Exception {
-    TypeChecker tc = new TypeChecker(typeTable, typeContext);
+      Expression expr, TypeTable typeTable, Resolver.Module module) throws SyntaxError.Exception {
+    TypeChecker tc = new TypeChecker(typeTable, module);
     StarlarkType result = tc.infer(expr);
     if (!typeTable.ok()) {
       throw new SyntaxError.Exception(typeTable.errors());
@@ -1462,24 +1464,25 @@ public final class TypeChecker extends NodeVisitor {
    *     FileOptions#resolveTypeSyntax()} or do contain {@link
    *     FileOptions#tolerateInvalidTypeExpressions()}.
    */
-  public static void checkFile(StarlarkFile file, TypeTable typeTable, TypeContext typeContext) {
+  public static void checkFile(StarlarkFile file, TypeTable typeTable, Resolver.Module module) {
     checkFileOptions(file.getOptions());
-    TypeChecker checker = new TypeChecker(typeTable, typeContext);
+    TypeChecker checker = new TypeChecker(typeTable, module);
     checker.visit(file);
   }
 
   /**
    * Like {@link #checkFile}, but on an already-compiled {@link Program}.
    *
-   * <p>The program is *not* mutated. Any errors are appended to the type table's errors list.
+   * <p>The program and module are *not* mutated. Any errors are appended to the type table's errors
+   * list.
    *
    * @throws IllegalArgumentException if the program's {@link FileOptions} don't contain {@link
    *     FileOptions#resolveTypeSyntax()} or do contain {@link
    *     FileOptions#tolerateInvalidTypeExpressions()}.
    */
-  public static void checkProgram(Program prog, TypeTable typeTable, TypeContext typeContext) {
+  public static void checkProgram(Program prog, TypeTable typeTable, Resolver.Module module) {
     checkFileOptions(prog.getOptions());
-    TypeChecker checker = new TypeChecker(typeTable, typeContext);
+    TypeChecker checker = new TypeChecker(typeTable, module);
     checker.visitProgram(prog);
   }
 }
