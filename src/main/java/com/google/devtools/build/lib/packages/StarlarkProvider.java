@@ -70,7 +70,8 @@ import net.starlark.java.syntax.Location;
  * pre-exported provider directly. Exported providers use only their key for {@link #equals} and
  * {@link #hashCode}.
  */
-public final class StarlarkProvider implements StarlarkCallable, StarlarkExportable, Provider {
+public final class StarlarkProvider
+    implements StarlarkCallable, StarlarkExportable, Provider, StarlarkInfoWithSchema.Schema {
 
   private final Location location;
 
@@ -509,6 +510,11 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
                   : keyForBuild(extensionLabel),
               exportedName);
     }
+  }
+
+  @Override
+  public Provider getProvider() {
+    return this;
   }
 
   @Override

@@ -47,8 +47,8 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
-import com.google.devtools.build.lib.packages.StarlarkInfoNoSchema;
 import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
@@ -62,10 +62,7 @@ import net.starlark.java.eval.StarlarkThread;
 /** A module that contains Starlark utilities for Java support. */
 public class JavaStarlarkCommon
     implements JavaCommonApi<
-        Artifact,
-        ConstraintValueInfo,
-        StarlarkRuleContext,
-        StarlarkActionFactory> {
+        Artifact, ConstraintValueInfo, StarlarkRuleContext, StarlarkActionFactory> {
 
   private final JavaSemantics javaSemantics;
 
@@ -371,8 +368,10 @@ public class JavaStarlarkCommon
 
   @VisibleForTesting
   static String printableType(Object elem) {
-    if (elem instanceof StarlarkInfoWithSchema starlarkInfoWithSchema) {
-      return starlarkInfoWithSchema.getProvider().getPrintableName();
+    if (elem instanceof StarlarkInfoWithSchema starlarkInfoWithSchema
+        && starlarkInfoWithSchema.getProvider() instanceof StarlarkProvider provider
+        && provider.getFields() != null) {
+      return provider.getPrintableName();
     } else if (elem instanceof NativeInfo nativeInfo) {
       return nativeInfo.getProvider().getPrintableName();
     }
@@ -427,10 +426,8 @@ public class JavaStarlarkCommon
   static boolean isInstanceOfProvider(Object obj, Provider provider) {
     if (obj instanceof NativeInfo nativeInfo) {
       return nativeInfo.getProvider().getKey().equals(provider.getKey());
-    } else if (obj instanceof StarlarkInfoWithSchema starlarkInfoWithSchema) {
-      return starlarkInfoWithSchema.getProvider().getKey().equals(provider.getKey());
-    } else if (obj instanceof StarlarkInfoNoSchema starlarkInfoNoSchema) {
-      return starlarkInfoNoSchema.getProvider().getKey().equals(provider.getKey());
+    } else if (obj instanceof StarlarkInfo starlarkInfo) {
+      return starlarkInfo.getProvider().getKey().equals(provider.getKey());
     }
     return false;
   }
