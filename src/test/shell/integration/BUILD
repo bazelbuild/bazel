@@ -1051,6 +1051,12 @@ sh_test(
     tags = ["no_windows"],
 )
 
+sh_test(
+    name = "windows_defender_test",
+    size = "small",
+    srcs = ["windows_defender_test.sh"],
+)
+
 ########################################################################
 # Test suites.
 test_suite(
