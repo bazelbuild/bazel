@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.exec.SpawnProgressEvent;
 import com.google.devtools.build.lib.remote.chunking.ChunkingConfig;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
+import com.google.devtools.build.lib.remote.common.MaybePathBacked;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -851,7 +852,7 @@ public class CombinedCache extends AbstractReferenceCounted {
    * An {@link OutputStream} that reports all the write operations with {@link
    * DownloadProgressReporter}.
    */
-  private static class ReportingOutputStream extends OutputStream {
+  private static class ReportingOutputStream extends OutputStream implements MaybePathBacked {
 
     private final OutputStream out;
     private final DownloadProgressReporter reporter;
@@ -887,6 +888,12 @@ public class CombinedCache extends AbstractReferenceCounted {
     @Override
     public void close() throws IOException {
       out.close();
+    }
+
+    @Nullable
+    @Override
+    public Path maybeGetPath() {
+      return out instanceof MaybePathBacked maybePathBacked ? maybePathBacked.maybeGetPath() : null;
     }
   }
 }
