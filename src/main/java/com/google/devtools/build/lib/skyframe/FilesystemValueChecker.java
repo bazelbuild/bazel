@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresen
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -621,7 +622,8 @@ public class FilesystemValueChecker {
 
   private static long getBestEffortModifiedTime(Path path) {
     try {
-      return path.exists() ? path.getLastModifiedTime() : -1;
+      FileStatus stat = path.statIfFound();
+      return stat != null ? stat.getLastModifiedTime() : -1;
     } catch (IOException e) {
       logger.atWarning().atMostEvery(1, MINUTES).withCause(e).log(
           "Failed to get modified time for output at: %s", path);
